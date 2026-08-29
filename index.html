@@ -17,82 +17,9 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
 <style>
-  :root{
-    --sky:#8ec9ee; --sky-soft:#bfe4f7; --cream:#fffaf2; --paper:#fff6e9;
-    --ink:#2f2a24; --ink-soft:#6f6558;
-    --coral:#ff7f8a; --mint:#6cc7b3; --lemon:#ffd979; --grass:#6fb567;
-    --px:4px;  /* 도트 한 칸 크기(테두리/그림자용) */
-  }
-  *, *::before, *::after{box-sizing:border-box;}
-  html{scroll-behavior:smooth;}
-  body{
-    margin:0; color:var(--ink); background:var(--cream);
-    font-family:'Pretendard', sans-serif;
-    -webkit-font-smoothing:antialiased;
-    overflow-x:hidden;
-  }
-  .pixel{font-family:'Galmuri11', 'Pretendard', sans-serif; letter-spacing:.5px;}
-  img, canvas{display:block;}
-
-  /* ===== 도트 느낌 공통 스타일 ===== */
-  .dot-card{
-    background:var(--paper);
-    border:var(--px) solid var(--ink);
-    box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28);
-    border-radius:0;                 /* 도트 그래픽은 각진 모서리 */
-    transition:transform .18s steps(3), box-shadow .18s steps(3);
-  }
-  .dot-card:hover{
-    transform:translate(calc(var(--px) * -1), calc(var(--px) * -1));
-    box-shadow:calc(var(--px) * 2) calc(var(--px) * 2) 0 rgba(47,42,36,.28);
-  }
-  .dot-btn{
-    display:inline-flex; align-items:center; gap:8px;
-    padding:12px 22px; border:var(--px) solid var(--ink);
-    background:var(--cream); color:var(--ink); text-decoration:none;
-    font-weight:800; font-size:14px; cursor:pointer;
-    box-shadow:var(--px) var(--px) 0 var(--ink);
-    transition:transform .12s steps(2), box-shadow .12s steps(2);
-  }
-  .dot-btn:hover{transform:translate(2px,2px); box-shadow:2px 2px 0 var(--ink);}
-  .dot-btn:active{transform:translate(var(--px),var(--px)); box-shadow:0 0 0 var(--ink);}
-  .dot-btn.primary{background:var(--coral); color:#fff;}
-  .dot-btn.mint{background:var(--mint); color:#fff;}
-
-  /* ===== 상단 고정 메뉴 ===== */
-  header{
-    position:fixed; top:0; left:0; right:0; z-index:50;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:12px 20px; background:rgba(255,250,242,.82);
-    backdrop-filter:blur(6px);
-    border-bottom:var(--px) solid var(--ink);
-    transform:translateY(0); transition:transform .3s ease;
-  }
-  header.hidden{transform:translateY(-100%);}
-  .logo{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink);}
-  .logo canvas{width:36px; height:36px;}
-  .logo-text{font-size:17px; font-weight:700;}
-  nav{display:flex; gap:4px;}
-  nav a{
-    padding:8px 12px; font-size:13px; font-weight:700; color:var(--ink-soft);
-    text-decoration:none; border:var(--px) solid transparent;
-  }
-  nav a:hover{color:var(--ink); border-color:var(--ink); background:var(--lemon);}
-  .menu-toggle{display:none; background:none; border:var(--px) solid var(--ink); padding:6px 10px; cursor:pointer; font-size:16px;}
-
-  @media (max-width:820px){
-    nav{
-      position:fixed; top:61px; left:0; right:0; flex-direction:column; gap:0;
-      background:var(--cream); border-bottom:var(--px) solid var(--ink);
-      max-height:0; overflow:hidden; transition:max-height .3s ease;
-    }
-    nav.open{max-height:340px;}
-    nav a{padding:14px 20px; border:none; border-top:2px solid rgba(47,42,36,.12); font-size:14px;}
-    .menu-toggle{display:block;}
-  }
-
-  /* ===== 히어로 ===== */
+  /* ===== 히어로 (이 페이지에서만 쓰임) ===== */
   .hero{position:relative; height:100svh; min-height:560px; overflow:hidden;}
   #heroCanvas{
     position:absolute; inset:0; width:100%; height:100%;
@@ -122,76 +49,27 @@
     animation:bob 1.6s steps(2) infinite;
   }
   @keyframes bob{0%,100%{transform:translate(-50%,0);} 50%{transform:translate(-50%,6px);}}
-
-  /* ===== 섹션 공통 ===== */
-  section{position:relative;}
-  .wrap{max-width:960px; margin:0 auto; padding:0 20px;}
-  .section-pad{padding:88px 0;}
-  .section-head{text-align:center; margin-bottom:38px;}
-  .section-head .eyebrow{
-    display:inline-block; font-size:11px; padding:5px 12px; margin-bottom:12px;
-    background:var(--mint); color:#fff; border:var(--px) solid var(--ink);
-  }
-  .section-head h2{margin:0 0 8px; font-size:clamp(24px,5.5vw,34px); font-weight:800;}
-  .section-head p{margin:0; color:var(--ink-soft); font-size:14.5px; line-height:1.7;}
-
-  /* 스크롤 등장 애니메이션 */
-  .reveal{opacity:0; transform:translateY(26px); transition:opacity .5s ease, transform .5s cubic-bezier(.2,.7,.3,1);}
-  .reveal.in{opacity:1; transform:translateY(0);}
-  @media (prefers-reduced-motion: reduce){
-    .reveal{opacity:1; transform:none; transition:none;}
-    .scroll-cue{animation:none;}
-    html{scroll-behavior:auto;}
-  }
+  @media (prefers-reduced-motion: reduce){ .scroll-cue{animation:none;} }
 
   /* ===== 메뉴 카드 ===== */
   .menu-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:18px;}
   .menu-card{
     display:flex; flex-direction:column; gap:10px; padding:22px 20px 20px;
-    text-decoration:none; color:inherit; position:relative; overflow:hidden;
+    text-decoration:none; color:inherit; position:relative;
   }
   .menu-card canvas{width:64px; height:64px; image-rendering:pixelated;}
   .menu-card h3{margin:0; font-size:17px; font-weight:800;}
   .menu-card p{margin:0; font-size:13px; color:var(--ink-soft); line-height:1.65;}
   .menu-card .go{margin-top:auto; padding-top:10px; font-size:12px; color:var(--coral); font-weight:800;}
-  .menu-card .num{
-    position:absolute; top:10px; right:12px; font-size:11px; color:var(--ink-soft); opacity:.5;
-  }
+  .menu-card .num{position:absolute; top:10px; right:12px; font-size:11px; color:var(--ink-soft); opacity:.5;}
 
-  /* ===== 미리보기 띠 ===== */
-  .strip{
-    background:var(--sky-soft); border-top:var(--px) solid var(--ink); border-bottom:var(--px) solid var(--ink);
-    padding:0; overflow:hidden;
-  }
+  /* ===== 픽셀 띠 ===== */
+  .strip{background:var(--sky-soft); border-top:var(--px) solid var(--ink); border-bottom:var(--px) solid var(--ink); overflow:hidden;}
   #stripCanvas{width:100%; height:150px; image-rendering:pixelated;}
-
-  /* ===== 푸터 ===== */
-  footer{
-    background:var(--ink); color:#e9e2d6; padding:34px 20px; text-align:center;
-    font-size:12.5px; line-height:1.9;
-  }
-  footer a{color:var(--lemon); text-decoration:none;}
-  footer .heart{display:inline-block; vertical-align:middle;}
 </style>
 </head>
 <body>
 
-<header id="siteHeader">
-  <a class="logo" href="#top">
-    <canvas id="logoCanvas" width="36" height="36"></canvas>
-    <span class="logo-text pixel">수아 · 연아</span>
-  </a>
-  <button class="menu-toggle pixel" id="menuToggle" aria-label="메뉴 열기">☰</button>
-  <nav id="nav">
-    <a href="#about">소개</a>
-    <a href="#portfolio">포트폴리오</a>
-    <a href="#board">게시판</a>
-    <a href="https://event.suayona.com/" target="_blank" rel="noopener">이벤트</a>
-    <a href="#contact">컨택트</a>
-  </nav>
-</header>
-
-<!-- ===== 히어로 ===== -->
 <section class="hero" id="top">
   <canvas id="heroCanvas"></canvas>
   <div class="hero-copy">
@@ -199,14 +77,13 @@
     <h1 class="pixel">수아랑 연아랑</h1>
     <p>그리고, 만들고, 기록하는<br>수아와 연아의 작은 홈페이지</p>
     <div class="hero-actions">
-      <a class="dot-btn primary" href="#portfolio">작품 보러가기</a>
-      <a class="dot-btn" href="#about">소개</a>
+      <a class="dot-btn primary" href="./portfolio.html">작품 보러가기</a>
+      <a class="dot-btn" href="./about.html">소개</a>
     </div>
   </div>
   <div class="scroll-cue pixel">▼ SCROLL</div>
 </section>
 
-<!-- ===== 메뉴 ===== -->
 <section class="section-pad" id="menu">
   <div class="wrap">
     <div class="section-head reveal">
@@ -216,25 +93,25 @@
     </div>
 
     <div class="menu-grid">
-      <a class="dot-card menu-card reveal" href="#about">
+      <a class="dot-card menu-card reveal" href="./about.html">
         <span class="num pixel">01</span>
-        <canvas class="cardIcon" data-icon="sua" width="64" height="64"></canvas>
+        <canvas data-icon="sua" width="64" height="64"></canvas>
         <h3>소개</h3>
         <p>수아와 연아는 어떤 사람인지, 무엇을 좋아하는지 소개해요.</p>
         <span class="go pixel">보러가기 →</span>
       </a>
 
-      <a class="dot-card menu-card reveal" href="#portfolio">
+      <a class="dot-card menu-card reveal" href="./portfolio.html">
         <span class="num pixel">02</span>
-        <canvas class="cardIcon" data-icon="frame" width="64" height="64"></canvas>
+        <canvas data-icon="frame" width="64" height="64"></canvas>
         <h3>포트폴리오</h3>
         <p>그림, 만들기, 사진. 두 사람이 만든 작품을 모아둔 전시실이에요.</p>
         <span class="go pixel">보러가기 →</span>
       </a>
 
-      <a class="dot-card menu-card reveal" href="#board">
+      <a class="dot-card menu-card reveal" href="./board.html">
         <span class="num pixel">03</span>
-        <canvas class="cardIcon" data-icon="bubble" width="64" height="64"></canvas>
+        <canvas data-icon="bubble" width="64" height="64"></canvas>
         <h3>게시판</h3>
         <p>오늘 있었던 일, 하고 싶은 말을 자유롭게 남기는 공간이에요.</p>
         <span class="go pixel">보러가기 →</span>
@@ -242,15 +119,15 @@
 
       <a class="dot-card menu-card reveal" href="https://event.suayona.com/" target="_blank" rel="noopener">
         <span class="num pixel">04</span>
-        <canvas class="cardIcon" data-icon="tree" width="64" height="64"></canvas>
+        <canvas data-icon="tree" width="64" height="64"></canvas>
         <h3>이벤트</h3>
         <p>수련회, 여행, 행사 일정을 날짜별로 확인하고 사진도 올릴 수 있어요.</p>
         <span class="go pixel">바로가기 ↗</span>
       </a>
 
-      <a class="dot-card menu-card reveal" href="#contact">
+      <a class="dot-card menu-card reveal" href="./contact.html">
         <span class="num pixel">05</span>
-        <canvas class="cardIcon" data-icon="mail" width="64" height="64"></canvas>
+        <canvas data-icon="mail" width="64" height="64"></canvas>
         <h3>컨택트</h3>
         <p>궁금한 점이나 응원의 말을 전하고 싶다면 여기로 연락주세요.</p>
         <span class="go pixel">보러가기 →</span>
@@ -259,80 +136,19 @@
   </div>
 </section>
 
-<!-- ===== 픽셀 띠 ===== -->
 <div class="strip"><canvas id="stripCanvas"></canvas></div>
 
-<!-- ===== 소개 ===== -->
-<section class="section-pad" id="about">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow pixel">ABOUT</span>
-      <h2>소개</h2>
-      <p>여기에 수아와 연아의 이야기가 들어갑니다.<br>실제 내용은 알려주시면 채워 넣을게요.</p>
-    </div>
-    <div class="menu-grid">
-      <div class="dot-card menu-card reveal">
-        <canvas class="cardIcon" data-icon="sua" width="64" height="64"></canvas>
-        <h3>수아</h3>
-        <p>좋아하는 것 · 잘하는 것 · 요즘 빠져있는 것을 여기에 적어요.</p>
-      </div>
-      <div class="dot-card menu-card reveal">
-        <canvas class="cardIcon" data-icon="yona" width="64" height="64"></canvas>
-        <h3>연아</h3>
-        <p>좋아하는 것 · 잘하는 것 · 요즘 빠져있는 것을 여기에 적어요.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== 포트폴리오 / 게시판 / 컨택트 (자리표시) ===== -->
-<section class="section-pad" id="portfolio" style="background:var(--paper); border-top:var(--px) solid var(--ink); border-bottom:var(--px) solid var(--ink);">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow pixel">PORTFOLIO</span>
-      <h2>포트폴리오</h2>
-      <p>작품 사진을 격자로 전시하는 페이지입니다.<br>이 자리는 다음 단계에서 만들 예정이에요.</p>
-    </div>
-  </div>
-</section>
-
-<section class="section-pad" id="board">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow pixel">BOARD</span>
-      <h2>게시판</h2>
-      <p>글을 쓰고 남기는 페이지입니다.<br>이 자리도 다음 단계에서 만들 예정이에요.</p>
-    </div>
-  </div>
-</section>
-
-<section class="section-pad" id="contact" style="background:var(--paper); border-top:var(--px) solid var(--ink);">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow pixel">CONTACT</span>
-      <h2>컨택트</h2>
-      <p>연락 방법을 안내하는 페이지입니다.</p>
-    </div>
-  </div>
-</section>
-
-<footer>
-  <canvas id="footHeart" width="28" height="24" class="heart"></canvas>
-  <div class="pixel" style="margin-top:8px;">수아 · 연아</div>
-  <div>© 2026 suayona.com</div>
-</footer>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./pixel.js"></script>
+<script src="./common.js"></script>
 <script>
-const $ = s => document.querySelector(s);
+buildChrome('home');
 
 // ================= 히어로 도트 풍경 =================
 (function(){
   const canvas = $('#heroCanvas');
   const ctx = canvas.getContext('2d');
-  let W = 0, H = 0, S = 4;            // S = 도트 한 칸 픽셀 크기
-  let t = 0;                          // 애니메이션 시간
-  let scrollY = 0;
+  let W = 0, H = 0, S = 4, t = 0, scrollY = 0;
 
   const clouds = [
     { x:0.05, y:0.14, sp:0.012, sprite:'cloudL', sc:1.4, depth:0.25 },
@@ -341,143 +157,92 @@ const $ = s => document.querySelector(s);
     { x:0.30, y:0.28, sp:0.016, sprite:'cloudS', sc:0.9, depth:0.45 },
   ];
   const birds = [
-    { x:0.20, y:0.20, sp:0.05 },
-    { x:0.26, y:0.24, sp:0.05 },
-    { x:0.32, y:0.18, sp:0.05 },
+    { x:0.20, y:0.20, sp:0.05 }, { x:0.26, y:0.24, sp:0.05 }, { x:0.32, y:0.18, sp:0.05 },
   ];
 
   function resize(){
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     W = canvas.clientWidth; H = canvas.clientHeight;
-    canvas.width = Math.floor(W * dpr);
-    canvas.height = Math.floor(H * dpr);
+    canvas.width = Math.floor(W * dpr); canvas.height = Math.floor(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
     S = W < 640 ? 4 : 5;
+  }
+
+  function pixelCircle(ctx, cx, cy, r, s){
+    for (let y = -r; y <= r; y += s) {
+      const half = Math.sqrt(Math.max(0, r*r - y*y));
+      ctx.fillRect(Math.round((cx-half)/s)*s, Math.round((cy+y)/s)*s, Math.round((half*2)/s)*s, s);
+    }
   }
 
   function draw(){
     if (!W || !H) return;
     ctx.clearRect(0, 0, W, H);
 
-    // 하늘
     drawSkyBands(ctx, W, H, S, [
-      { at:0.00, color:'#7cc0e8' },
-      { at:0.45, color:'#a8d8f2' },
-      { at:0.72, color:'#d6eefb' },
-      { at:1.00, color:'#f4e6c8' },
+      { at:0.00, color:'#7cc0e8' }, { at:0.45, color:'#a8d8f2' },
+      { at:0.72, color:'#d6eefb' }, { at:1.00, color:'#f4e6c8' },
     ]);
 
-    // 해 (살짝 맥동)
     const sunR = (26 + Math.sin(t * 0.6) * 1.5) * (W < 640 ? 0.8 : 1);
     const sunX = W * 0.82, sunY = H * 0.18 - scrollY * 0.10;
-    ctx.fillStyle = 'rgba(255,231,150,.35)';
-    pixelCircle(ctx, sunX, sunY, sunR * 1.7, S);
-    ctx.fillStyle = '#ffd979';
-    pixelCircle(ctx, sunX, sunY, sunR, S);
+    ctx.fillStyle = 'rgba(255,231,150,.35)'; pixelCircle(ctx, sunX, sunY, sunR * 1.7, S);
+    ctx.fillStyle = '#ffd979';               pixelCircle(ctx, sunX, sunY, sunR, S);
 
-    // 구름 (레이어별 속도 + 스크롤 패럴랙스)
     clouds.forEach(c => {
       const cx = ((c.x + t * c.sp) % 1.3 - 0.15) * W;
       const cy = c.y * H - scrollY * c.depth * 0.5;
-      drawSprite(ctx, SPRITES[c.sprite], Math.round(cx / S) * S, Math.round(cy / S) * S, Math.round(S * c.sc));
+      drawSprite(ctx, SPRITES[c.sprite], Math.round(cx/S)*S, Math.round(cy/S)*S, Math.round(S * c.sc));
     });
 
-    // 새 (위아래로 살랑)
     birds.forEach((b, i) => {
       const bx = ((b.x + t * b.sp) % 1.25 - 0.12) * W;
       const by = b.y * H + Math.sin(t * 2 + i) * 8 - scrollY * 0.3;
-      drawSprite(ctx, SPRITES.bird, Math.round(bx / S) * S, Math.round(by / S) * S, Math.max(2, S - 2));
+      drawSprite(ctx, SPRITES.bird, Math.round(bx/S)*S, Math.round(by/S)*S, Math.max(2, S - 2));
     });
 
-    // 먼 언덕
     const horizon = H * 0.62 + scrollY * 0.06;
-    drawHill(ctx, [{freq:2.2, amp:26, phase:0.6}, {freq:5.1, amp:9, phase:2.0}],
-      '#a8dba0', S, horizon, W, H);
-    // 중간 언덕
-    drawHill(ctx, [{freq:1.6, amp:30, phase:2.4}, {freq:3.7, amp:12, phase:0.3}],
-      '#8ccb84', S, horizon + H * 0.09, W, H);
-    // 앞 잔디
-    drawHill(ctx, [{freq:1.1, amp:20, phase:4.2}],
-      '#6fb567', S, horizon + H * 0.20, W, H);
+    drawHill(ctx, [{freq:2.2,amp:26,phase:0.6},{freq:5.1,amp:9,phase:2.0}], '#a8dba0', S, horizon, W, H);
+    drawHill(ctx, [{freq:1.6,amp:30,phase:2.4},{freq:3.7,amp:12,phase:0.3}], '#8ccb84', S, horizon + H*0.09, W, H);
+    drawHill(ctx, [{freq:1.1,amp:20,phase:4.2}], '#6fb567', S, horizon + H*0.20, W, H);
 
-    // 집 · 나무 · 캐릭터 (앞 잔디 위)
     const groundY = horizon + H * 0.20 - 10;
     const bigS = Math.max(2, Math.round(S * 0.9));
+    drawSprite(ctx, SPRITES.tree,  Math.round(W*0.10/S)*S, groundY - 16*bigS, bigS);
+    drawSprite(ctx, SPRITES.house, Math.round(W*0.62/S)*S, groundY - 18*bigS, bigS);
+    drawSprite(ctx, SPRITES.tree,  Math.round(W*0.88/S)*S, groundY - 16*bigS, bigS);
 
-    drawSprite(ctx, SPRITES.tree, Math.round(W * 0.10 / S) * S, groundY - 16 * bigS, bigS);
-    drawSprite(ctx, SPRITES.house, Math.round(W * 0.62 / S) * S, groundY - 18 * bigS, bigS);
-    drawSprite(ctx, SPRITES.tree, Math.round(W * 0.88 / S) * S, groundY - 16 * bigS, bigS);
-
-    // 두 아이 — 살짝 통통 튀는 모션
+    const charS = Math.max(2, Math.round(S * 0.85));
     const hop1 = Math.abs(Math.sin(t * 1.4)) * 4;
     const hop2 = Math.abs(Math.sin(t * 1.4 + 0.9)) * 4;
-    const charS = Math.max(2, Math.round(S * 0.85));
-    drawSprite(ctx, SPRITES.sua,  Math.round(W * 0.34 / S) * S, groundY - 18 * charS - hop1, charS);
-    drawSprite(ctx, SPRITES.yona, Math.round(W * 0.44 / S) * S, groundY - 18 * charS - hop2, charS);
+    drawSprite(ctx, SPRITES.sua,  Math.round(W*0.34/S)*S, groundY - 18*charS - hop1, charS);
+    drawSprite(ctx, SPRITES.yona, Math.round(W*0.44/S)*S, groundY - 18*charS - hop2, charS);
 
-    // 꽃 몇 송이
     [0.05, 0.22, 0.28, 0.52, 0.72, 0.94].forEach((fx, i) => {
       const sway = Math.sin(t * 1.1 + i) * 1.5;
-      drawSprite(ctx, SPRITES.flower,
-        Math.round((W * fx + sway) / S) * S, groundY - 6 * charS + (i % 2) * 6, charS);
+      drawSprite(ctx, SPRITES.flower, Math.round((W*fx + sway)/S)*S, groundY - 6*charS + (i%2)*6, charS);
     });
-  }
-
-  // 도트 느낌의 원
-  function pixelCircle(ctx, cx, cy, r, s){
-    for (let y = -r; y <= r; y += s) {
-      const half = Math.sqrt(Math.max(0, r * r - y * y));
-      const x0 = Math.round((cx - half) / s) * s;
-      const w = Math.round((half * 2) / s) * s;
-      ctx.fillRect(x0, Math.round((cy + y) / s) * s, w, s);
-    }
-  }
-
-  let raf;
-  function loop(){
-    t += 0.016;
-    draw();
-    raf = requestAnimationFrame(loop);
   }
 
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function loop(){ t += 0.016; draw(); requestAnimationFrame(loop); }
   window.addEventListener('resize', () => { resize(); draw(); });
-  window.addEventListener('scroll', () => {
-    scrollY = window.scrollY;
-    if (reduce) draw();
-  }, {passive:true});
-
+  window.addEventListener('scroll', () => { scrollY = window.scrollY; if (reduce) draw(); }, {passive:true});
   resize();
   if (reduce) draw(); else loop();
 })();
 
 // ================= 카드 아이콘 =================
-document.querySelectorAll('.cardIcon').forEach(cv => {
+$$('.menu-card canvas[data-icon]').forEach(cv => {
   const ctx = cv.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  const name = cv.dataset.icon;
-  const sprite = SPRITES[name];
-  if (!sprite) return;
-  const w = sprite[0].length, h = sprite.length;
+  const sp = SPRITES[cv.dataset.icon];
+  if (!sp) return;
+  const w = sp[0].length, h = sp.length;
   const s = Math.floor(Math.min(cv.width / w, cv.height / h));
-  const ox = Math.floor((cv.width - w * s) / 2), oy = Math.floor((cv.height - h * s) / 2);
-  drawSprite(ctx, sprite, ox, oy, s);
+  drawSprite(ctx, sp, Math.floor((cv.width - w*s)/2), Math.floor((cv.height - h*s)/2), s);
 });
-
-// ================= 로고 =================
-(function(){
-  const cv = $('#logoCanvas'); const ctx = cv.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  drawSprite(ctx, SPRITES.heart, 1, 3, 5);
-})();
-
-// ================= 푸터 하트 =================
-(function(){
-  const cv = $('#footHeart'); const ctx = cv.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  drawSprite(ctx, SPRITES.heart, 0, 0, 4);
-})();
 
 // ================= 하단 픽셀 띠 =================
 (function(){
@@ -485,29 +250,21 @@ document.querySelectorAll('.cardIcon').forEach(cv => {
   let t = 0;
   function resize(){
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    cv.width = Math.floor(cv.clientWidth * dpr);
-    cv.height = Math.floor(cv.clientHeight * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.imageSmoothingEnabled = false;
+    cv.width = Math.floor(cv.clientWidth * dpr); cv.height = Math.floor(cv.clientHeight * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
   }
   function draw(){
     const W = cv.clientWidth, H = cv.clientHeight, S = 4;
     ctx.clearRect(0,0,W,H);
-    drawSkyBands(ctx, W, H, S, [
-      { at:0, color:'#bfe4f7' }, { at:1, color:'#eaf6ff' },
-    ]);
-    drawHill(ctx, [{freq:2.0, amp:12, phase:1.0}], '#8ccb84', S, H * 0.55, W, H);
-    drawHill(ctx, [{freq:1.3, amp:9, phase:3.4}], '#6fb567', S, H * 0.72, W, H);
-    // 흘러가는 나무들
-    const spacing = 150;
-    const offset = (t * 14) % spacing;
+    drawSkyBands(ctx, W, H, S, [{at:0,color:'#bfe4f7'},{at:1,color:'#eaf6ff'}]);
+    drawHill(ctx, [{freq:2.0,amp:12,phase:1.0}], '#8ccb84', S, H*0.55, W, H);
+    drawHill(ctx, [{freq:1.3,amp:9,phase:3.4}],  '#6fb567', S, H*0.72, W, H);
+    const spacing = 150, offset = (t * 14) % spacing;
     for (let i = -1; i * spacing < W + spacing; i++) {
-      const x = i * spacing - offset;
-      drawSprite(ctx, SPRITES.tree, Math.round(x / S) * S, Math.round((H * 0.72 - 16 * 3) / S) * S, 3);
+      drawSprite(ctx, SPRITES.tree, Math.round((i*spacing - offset)/S)*S, Math.round((H*0.72 - 48)/S)*S, 3);
     }
     for (let i = -1; i * spacing < W + spacing; i++) {
-      const x = i * spacing - offset * 0.6 + 70;
-      drawSprite(ctx, SPRITES.bush, Math.round(x / S) * S, Math.round((H - 5 * 3 - 8) / S) * S, 3);
+      drawSprite(ctx, SPRITES.bush, Math.round((i*spacing - offset*0.6 + 70)/S)*S, Math.round((H - 23)/S)*S, 3);
     }
   }
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -517,40 +274,7 @@ document.querySelectorAll('.cardIcon').forEach(cv => {
   if (reduce) draw(); else loop();
 })();
 
-// ================= 스크롤 등장 =================
-(function(){
-  const items = document.querySelectorAll('.reveal');
-  if (!('IntersectionObserver' in window)) { items.forEach(i => i.classList.add('in')); return; }
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach((en, i) => {
-      if (en.isIntersecting) {
-        // 같은 줄의 카드들이 차례로 나타나도록 약간의 시차
-        const delay = Array.from(items).indexOf(en.target) % 3 * 90;
-        setTimeout(() => en.target.classList.add('in'), delay);
-        io.unobserve(en.target);
-      }
-    });
-  }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
-  items.forEach(i => io.observe(i));
-})();
-
-// ================= 헤더 (스크롤 방향에 따라 숨김) =================
-(function(){
-  const header = $('#siteHeader');
-  let last = 0;
-  window.addEventListener('scroll', () => {
-    const y = window.scrollY;
-    header.classList.toggle('hidden', y > 200 && y > last);
-    last = y;
-  }, {passive:true});
-})();
-
-// ================= 모바일 메뉴 =================
-(function(){
-  const btn = $('#menuToggle'), nav = $('#nav');
-  btn.addEventListener('click', () => nav.classList.toggle('open'));
-  nav.addEventListener('click', (e) => { if (e.target.tagName === 'A') nav.classList.remove('open'); });
-})();
+initReveal();
 </script>
 </body>
 </html>

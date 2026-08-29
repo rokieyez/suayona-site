@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>게시판 · 수아 · 연아</title>
+<meta property="og:title" content="게시판 · 수아 · 연아">
+<meta property="og:description" content="수아와 연아가 남기는 이야기">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://www.suayona.com/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .write-box{max-width:600px; margin:0 auto 30px;}
+  .write-box .inner{padding:22px;}
+  .write-box h3{margin:0 0 14px; font-size:15px; font-weight:800;}
+  .posts{max-width:640px; margin:0 auto;}
+</style>
+</head>
+<body>
+
+<main class="page-top section-pad">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">BOARD</span>
+      <h2>게시판</h2>
+      <p>오늘 있었던 일, 하고 싶은 말을 남기는 공간이에요.</p>
+    </div>
+
+    <div id="adminArea"></div>
+
+    <div class="posts" id="posts"></div>
+    <div class="empty-msg" id="empty" style="display:none;">아직 쓴 글이 없어요</div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script>
+buildChrome('board');
+
+const AUTHORS = { sua:'수아', yona:'연아', together:'같이' };
+let posts = [];
+
+async function loadPosts(){
+  const { data, error } = await sb.from('posts').select('*').order('created_at', {ascending:false});
+  if (error) {
+    $('#empty').style.display = 'block';
+    $('#empty').textContent = '불러오기 실패: ' + error.message;
+    return;
+  }
+  posts = data || [];
+  render();
+}
+
+function render(){
+  const list = $('#posts');
+  list.innerHTML = '';
+  $('#empty').style.display = posts.length ? 'none' : 'block';
+
+  posts.forEach(p => {
+    const el = document.createElement('article');
+    el.className = 'post dot-card reveal';
+    el.innerHTML =
+      '<h3>' + escapeHTML(p.title) + '</h3>' +
+      '<div class="meta">' +
+        '<span class="tag ' + escapeHTML(p.author) + '">' + (AUTHORS[p.author] || '같이') + '</span> ' +
+        escapeHTML(formatDate(p.created_at)) +
+      '</div>' +
+      (p.body ? '<div class="body">' + escapeHTML(p.body) + '</div>' : '') +
+      (p.image_url ? '<img class="post-img" src="' + escapeHTML(p.image_url) + '" loading="lazy" alt="">' : '');
+
+    if (isAdmin) {
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const del = document.createElement('button');
+      del.className = 'dot-btn small danger';
+      del.textContent = '삭제';
+      del.addEventListener('click', async () => {
+        if (!confirm('"' + p.title + '" 글을 삭제할까요?')) return;
+        const { error } = await sb.from('posts').delete().eq('id', p.id);
+        if (error) { alert('삭제 실패: ' + error.message); return; }
+        loadPosts();
+      });
+      actions.appendChild(del);
+      el.appendChild(actions);
+    }
+
+    list.appendChild(el);
+    revealNow(el);
+  });
+}
+
+function renderAdminArea(){
+  const area = $('#adminArea');
+  area.innerHTML = '';
+
+  if (!isAdmin) {
+    const box = document.createElement('div');
+    box.style.textAlign = 'center';
+    box.style.marginBottom = '26px';
+    const btn = document.createElement('button');
+    btn.className = 'dot-btn small';
+    btn.textContent = '✏️ 글 쓰기 (로그인)';
+    btn.addEventListener('click', () => {
+      btn.remove();
+      mountLoginBox(box, () => renderAdminArea());
+    });
+    box.appendChild(btn);
+    area.appendChild(box);
+    render();
+    return;
+  }
+
+  mountAdminBar(area, () => renderAdminArea());
+
+  const box = document.createElement('div');
+  box.className = 'write-box dot-card';
+  box.innerHTML =
+    '<div class="inner">' +
+      '<h3>✏️ 새 글 쓰기</h3>' +
+      '<label class="field">누가 쓰나요</label>' +
+      '<select id="pAuthor"><option value="sua">수아</option><option value="yona">연아</option><option value="together">같이</option></select>' +
+      '<label class="field">제목</label><input type="text" id="pTitle" placeholder="예: 오늘 학교에서">' +
+      '<label class="field">내용</label><textarea id="pBody" placeholder="자유롭게 적어보세요"></textarea>' +
+      '<label class="field">사진 (선택)</label><input type="file" id="pImage" accept="image/*">' +
+      '<button class="dot-btn primary" id="pSave" style="width:100%; margin-top:18px;">올리기</button>' +
+      '<div class="msg" id="pMsg"></div>' +
+    '</div>';
+  area.appendChild(box);
+
+  $('#pSave').addEventListener('click', async () => {
+    const msg = $('#pMsg'), btn = $('#pSave');
+    msg.className = 'msg'; msg.textContent = '';
+    const title = $('#pTitle').value.trim();
+    if (!title) { msg.className = 'msg err'; msg.textContent = '제목을 입력해주세요.'; return; }
+
+    btn.disabled = true;
+    let image_url = null;
+    const file = $('#pImage').files[0];
+    try {
+      if (file) {
+        msg.textContent = '사진 올리는 중...';
+        image_url = (await uploadMedia(file, 'posts')).url;
+      }
+      msg.textContent = '저장 중...';
+      const { error } = await sb.from('posts').insert({
+        author: $('#pAuthor').value,
+        title,
+        body: $('#pBody').value.trim() || null,
+        image_url,
+      });
+      if (error) throw error;
+    } catch (e) {
+      msg.className = 'msg err'; msg.textContent = '실패: ' + ((e && e.message) || e);
+      btn.disabled = false;
+      return;
+    }
+
+    btn.disabled = false;
+    msg.className = 'msg ok'; msg.textContent = '올렸어요!';
+    $('#pTitle').value = ''; $('#pBody').value = ''; $('#pImage').value = '';
+    loadPosts();
+  });
+
+  render();
+}
+
+(async () => {
+  await refreshAuth();
+  await loadPosts();
+  renderAdminArea();
+  initReveal();
+})();
+</script>
+</body>
+</html>

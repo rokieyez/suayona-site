@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>소개 · 수아 · 연아</title>
+<meta property="og:title" content="소개 · 수아 · 연아">
+<meta property="og:description" content="수아와 연아를 소개합니다">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://www.suayona.com/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .people{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:20px; margin-bottom:34px;}
+  .person{padding:26px 24px; text-align:center;}
+  .person canvas{width:96px; height:96px; margin:0 auto 14px; image-rendering:pixelated;}
+  .person h3{margin:0 0 4px; font-size:20px; font-weight:800;}
+  .person .role{font-size:12px; color:var(--ink-soft); margin-bottom:14px;}
+  .person ul{list-style:none; padding:0; margin:0; text-align:left;}
+  .person li{
+    font-size:13.5px; line-height:1.75; padding:7px 0;
+    border-bottom:2px dashed rgba(47,42,36,.14);
+    display:flex; gap:10px;
+  }
+  .person li:last-child{border-bottom:none;}
+  .person li b{flex:0 0 62px; color:var(--ink-soft); font-size:12px; padding-top:1px;}
+  .story{max-width:620px; margin:0 auto; padding:26px 24px;}
+  .story p{margin:0 0 14px; font-size:14.5px; line-height:1.9;}
+  .story p:last-child{margin-bottom:0;}
+</style>
+</head>
+<body>
+
+<main class="page-top section-pad">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">ABOUT</span>
+      <h2>소개</h2>
+      <p>이 홈페이지의 주인공 두 사람입니다.</p>
+    </div>
+
+    <div class="people">
+      <div class="person dot-card reveal">
+        <canvas data-icon="sua" width="96" height="96"></canvas>
+        <h3>수아</h3>
+        <div class="role pixel">SUA</div>
+        <ul>
+          <li><b>좋아하는 것</b><span>여기에 적어주세요</span></li>
+          <li><b>잘하는 것</b><span>여기에 적어주세요</span></li>
+          <li><b>요즘 관심사</b><span>여기에 적어주세요</span></li>
+          <li><b>한마디</b><span>여기에 적어주세요</span></li>
+        </ul>
+      </div>
+
+      <div class="person dot-card reveal">
+        <canvas data-icon="yona" width="96" height="96"></canvas>
+        <h3>연아</h3>
+        <div class="role pixel">YONA</div>
+        <ul>
+          <li><b>좋아하는 것</b><span>여기에 적어주세요</span></li>
+          <li><b>잘하는 것</b><span>여기에 적어주세요</span></li>
+          <li><b>요즘 관심사</b><span>여기에 적어주세요</span></li>
+          <li><b>한마디</b><span>여기에 적어주세요</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="story dot-card reveal">
+      <p>이 홈페이지는 수아와 연아가 만든 것들을 모아두려고 만들었어요.</p>
+      <p>그림도 있고, 만들기도 있고, 직접 찍은 사진도 있습니다. 앞으로 계속 채워나갈 예정이에요.</p>
+      <p>(이 부분에 넣고 싶은 이야기를 알려주시면 바꿔드릴게요.)</p>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script>
+buildChrome('about');
+
+// 캐릭터 도트 찍기
+$$('canvas[data-icon]').forEach(cv => {
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const sp = SPRITES[cv.dataset.icon];
+  if (!sp) return;
+  const w = sp[0].length, h = sp.length;
+  const s = Math.floor(Math.min(cv.width / w, cv.height / h));
+  drawSprite(ctx, sp, Math.floor((cv.width - w*s)/2), Math.floor((cv.height - h*s)/2), s);
+});
+
+initReveal();
+</script>
+</body>
+</html>

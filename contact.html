@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>컨택트 · 수아 · 연아</title>
+<meta property="og:title" content="컨택트 · 수아 · 연아">
+<meta property="og:description" content="수아와 연아에게 이야기 남기기">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://www.suayona.com/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .form-box{max-width:520px; margin:0 auto;}
+  .form-box .inner{padding:26px 24px;}
+  .mail-icon{width:96px; height:72px; margin:0 auto 20px; image-rendering:pixelated;}
+  .inbox{max-width:640px; margin:36px auto 0;}
+  .letter{padding:18px 20px; margin-bottom:12px;}
+  .letter .meta{font-size:11.5px; color:var(--ink-soft); margin-bottom:8px;}
+  .letter .body{font-size:14px; line-height:1.8; white-space:pre-line;}
+  .letter .actions{margin-top:12px;}
+</style>
+</head>
+<body>
+
+<main class="page-top section-pad">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">CONTACT</span>
+      <h2>컨택트</h2>
+      <p>수아와 연아에게 하고 싶은 말을 남겨주세요.<br>남긴 글은 다른 사람에게 보이지 않아요.</p>
+    </div>
+
+    <div class="form-box dot-card reveal">
+      <div class="inner">
+        <canvas class="mail-icon" data-icon="mail" width="96" height="72"></canvas>
+        <label class="field">이름 (선택)</label>
+        <input type="text" id="cName" placeholder="누구신가요?">
+        <label class="field">답장받을 곳 (선택)</label>
+        <input type="text" id="cContact" placeholder="이메일이나 연락처">
+        <label class="field">하고 싶은 말</label>
+        <textarea id="cBody" placeholder="여기에 적어주세요"></textarea>
+        <button class="dot-btn primary" id="cSend" style="width:100%; margin-top:18px;">보내기</button>
+        <div class="msg" id="cMsg"></div>
+      </div>
+    </div>
+
+    <div id="adminArea" style="margin-top:34px;"></div>
+    <div class="inbox" id="inbox"></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script>
+buildChrome('contact');
+
+// 편지 아이콘
+$$('canvas[data-icon]').forEach(cv => {
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const sp = SPRITES[cv.dataset.icon];
+  if (!sp) return;
+  const w = sp[0].length, h = sp.length;
+  const s = Math.floor(Math.min(cv.width / w, cv.height / h));
+  drawSprite(ctx, sp, Math.floor((cv.width - w*s)/2), Math.floor((cv.height - h*s)/2), s);
+});
+
+// ---------- 메시지 보내기 ----------
+$('#cSend').addEventListener('click', async () => {
+  const msg = $('#cMsg'), btn = $('#cSend');
+  msg.className = 'msg'; msg.textContent = '';
+  const body = $('#cBody').value.trim();
+  if (!body) { msg.className = 'msg err'; msg.textContent = '하고 싶은 말을 적어주세요.'; return; }
+
+  btn.disabled = true; msg.textContent = '보내는 중...';
+  const { error } = await sb.from('messages').insert({
+    name: $('#cName').value.trim() || null,
+    contact: $('#cContact').value.trim() || null,
+    body,
+  });
+  btn.disabled = false;
+  if (error) { msg.className = 'msg err'; msg.textContent = '실패: ' + error.message; return; }
+
+  msg.className = 'msg ok'; msg.textContent = '보냈어요! 고마워요 :)';
+  $('#cName').value = ''; $('#cContact').value = ''; $('#cBody').value = '';
+});
+
+// ---------- 관리자: 받은 메시지 확인 ----------
+async function loadInbox(){
+  const inbox = $('#inbox');
+  inbox.innerHTML = '';
+  if (!isAdmin) return;
+
+  const { data, error } = await sb.from('messages').select('*').order('created_at', {ascending:false});
+  if (error) { inbox.innerHTML = '<div class="empty-msg">불러오기 실패: ' + escapeHTML(error.message) + '</div>'; return; }
+  if (!data.length) { inbox.innerHTML = '<div class="empty-msg">받은 메시지가 없어요</div>'; return; }
+
+  data.forEach(m => {
+    const el = document.createElement('div');
+    el.className = 'letter dot-card';
+    el.innerHTML =
+      '<div class="meta">' +
+        escapeHTML(m.name || '이름 없음') +
+        (m.contact ? ' · ' + escapeHTML(m.contact) : '') +
+        ' · ' + escapeHTML(formatDate(m.created_at)) +
+      '</div>' +
+      '<div class="body">' + escapeHTML(m.body) + '</div>';
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    const del = document.createElement('button');
+    del.className = 'dot-btn small danger';
+    del.textContent = '삭제';
+    del.addEventListener('click', async () => {
+      if (!confirm('이 메시지를 삭제할까요?')) return;
+      const { error } = await sb.from('messages').delete().eq('id', m.id);
+      if (error) { alert('삭제 실패: ' + error.message); return; }
+      loadInbox();
+    });
+    actions.appendChild(del);
+    el.appendChild(actions);
+    inbox.appendChild(el);
+  });
+}
+
+function renderAdminArea(){
+  const area = $('#adminArea');
+  area.innerHTML = '';
+  if (!isAdmin) {
+    const box = document.createElement('div');
+    box.style.textAlign = 'center';
+    const btn = document.createElement('button');
+    btn.className = 'dot-btn small';
+    btn.textContent = '📬 받은 메시지 보기 (관리자)';
+    btn.addEventListener('click', () => {
+      btn.remove();
+      mountLoginBox(box, () => { renderAdminArea(); loadInbox(); });
+    });
+    box.appendChild(btn);
+    area.appendChild(box);
+    return;
+  }
+  mountAdminBar(area, () => { renderAdminArea(); loadInbox(); });
+}
+
+(async () => {
+  await refreshAuth();
+  renderAdminArea();
+  loadInbox();
+  initReveal();
+})();
+</script>
+</body>
+</html>

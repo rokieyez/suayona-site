@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>포트폴리오 · 수아 · 연아</title>
+<meta property="og:title" content="포트폴리오 · 수아 · 연아">
+<meta property="og:description" content="수아와 연아가 그리고 만든 작품들">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://www.suayona.com/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .add-box{max-width:520px; margin:0 auto 30px;}
+  .add-box .inner{padding:22px;}
+  .add-box h3{margin:0 0 14px; font-size:15px; font-weight:800;}
+  .row2{display:flex; gap:10px;}
+  .row2 > *{flex:1;}
+</style>
+</head>
+<body>
+
+<main class="page-top section-pad">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">PORTFOLIO</span>
+      <h2>포트폴리오</h2>
+      <p>수아와 연아가 그리고, 만들고, 찍은 것들을 모아둔 전시실이에요.</p>
+    </div>
+
+    <div id="adminArea"></div>
+
+    <div class="filters reveal" id="filters">
+      <button class="dot-btn small primary" data-filter="all">전체</button>
+      <button class="dot-btn small" data-filter="sua">수아</button>
+      <button class="dot-btn small" data-filter="yona">연아</button>
+      <button class="dot-btn small" data-filter="together">같이</button>
+    </div>
+
+    <div class="gal-grid" id="grid"></div>
+    <div class="empty-msg" id="empty" style="display:none;">아직 올라온 작품이 없어요</div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script>
+buildChrome('portfolio');
+
+const AUTHORS = { sua:'수아', yona:'연아', together:'같이' };
+let works = [], filter = 'all';
+const lightbox = createLightbox();
+
+// ---------- 목록 ----------
+async function loadWorks(){
+  const { data, error } = await sb.from('works').select('*')
+    .order('sort_order', {ascending:false}).order('created_at', {ascending:false});
+  if (error) {
+    $('#empty').style.display = 'block';
+    $('#empty').textContent = '불러오기 실패: ' + error.message;
+    return;
+  }
+  works = data || [];
+  render();
+}
+
+function visible(){
+  return filter === 'all' ? works : works.filter(w => w.author === filter);
+}
+
+function render(){
+  const grid = $('#grid');
+  const list = visible();
+  grid.innerHTML = '';
+  $('#empty').style.display = list.length ? 'none' : 'block';
+
+  list.forEach((w, i) => {
+    const card = document.createElement('div');
+    card.className = 'gal-item dot-card hoverable reveal';
+    const media = w.media_type === 'video'
+      ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
+      : '<img src="' + escapeHTML(w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">';
+    card.innerHTML =
+      '<div class="gal-thumb">' + media + '</div>' +
+      '<div class="gal-cap">' + escapeHTML(w.title) + '</div>' +
+      '<div class="gal-sub">' +
+        '<span class="tag ' + escapeHTML(w.author) + '">' + (AUTHORS[w.author] || '같이') + '</span>' +
+        (w.made_on ? escapeHTML(formatDate(w.made_on)) : '') +
+      '</div>';
+
+    card.addEventListener('click', () => {
+      lightbox.open(list.map(x => ({
+        media_url: x.media_url, media_type: x.media_type,
+        caption: x.title + (x.description ? ' — ' + x.description : ''),
+      })), i);
+    });
+
+    if (isAdmin) {
+      const del = document.createElement('button');
+      del.className = 'gal-del';
+      del.textContent = '✕';
+      del.title = '삭제';
+      del.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm('"' + w.title + '" 작품을 삭제할까요?')) return;
+        const { error } = await sb.from('works').delete().eq('id', w.id);
+        if (error) { alert('삭제 실패: ' + error.message); return; }
+        loadWorks();
+      });
+      card.appendChild(del);
+    }
+
+    grid.appendChild(card);
+    revealNow(card);
+  });
+}
+
+// ---------- 필터 ----------
+$('#filters').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-filter]');
+  if (!btn) return;
+  filter = btn.dataset.filter;
+  $$('#filters .dot-btn').forEach(b => b.classList.toggle('primary', b === btn));
+  render();
+});
+
+// ---------- 관리자 영역 ----------
+function renderAdminArea(){
+  const area = $('#adminArea');
+  area.innerHTML = '';
+  if (!isAdmin) {
+    const wrapDiv = document.createElement('div');
+    wrapDiv.style.textAlign = 'center';
+    wrapDiv.style.marginBottom = '26px';
+    const btn = document.createElement('button');
+    btn.className = 'dot-btn small';
+    btn.textContent = '＋ 작품 올리기 (관리자)';
+    btn.addEventListener('click', () => {
+      btn.remove();
+      mountLoginBox(wrapDiv, () => renderAdminArea());
+    });
+    wrapDiv.appendChild(btn);
+    area.appendChild(wrapDiv);
+    render();
+    return;
+  }
+
+  mountAdminBar(area, () => renderAdminArea());
+
+  const box = document.createElement('div');
+  box.className = 'add-box dot-card';
+  box.innerHTML =
+    '<div class="inner">' +
+      '<h3>＋ 새 작품 올리기</h3>' +
+      '<label class="field">제목</label><input type="text" id="wTitle" placeholder="예: 우리 가족 그림">' +
+      '<label class="field">설명 (선택)</label><textarea id="wDesc" style="min-height:70px;" placeholder="어떤 작품인지 간단히"></textarea>' +
+      '<div class="row2">' +
+        '<div><label class="field">누구 작품</label>' +
+          '<select id="wAuthor"><option value="sua">수아</option><option value="yona">연아</option><option value="together">같이</option></select>' +
+        '</div>' +
+        '<div><label class="field">만든 날 (선택)</label><input type="date" id="wDate"></div>' +
+      '</div>' +
+      '<label class="field">사진 / 영상 (여러 개 선택 가능)</label>' +
+      '<input type="file" id="wFiles" accept="image/*,video/*" multiple>' +
+      '<button class="dot-btn primary" id="wSave" style="width:100%; margin-top:18px;">올리기</button>' +
+      '<div class="msg" id="wMsg"></div>' +
+    '</div>';
+  area.appendChild(box);
+
+  $('#wSave').addEventListener('click', async () => {
+    const msg = $('#wMsg'), btn = $('#wSave');
+    msg.className = 'msg'; msg.textContent = '';
+    const title = $('#wTitle').value.trim();
+    const files = Array.from($('#wFiles').files || []);
+    if (!title) { msg.className = 'msg err'; msg.textContent = '제목을 입력해주세요.'; return; }
+    if (!files.length) { msg.className = 'msg err'; msg.textContent = '사진이나 영상을 선택해주세요.'; return; }
+
+    btn.disabled = true;
+    const author = $('#wAuthor').value;
+    const description = $('#wDesc').value.trim() || null;
+    const made_on = $('#wDate').value || null;
+    let ok = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      msg.className = 'msg';
+      msg.textContent = '올리는 중... (' + (i+1) + '/' + files.length + ') ' + files[i].name;
+      try {
+        const up = await uploadMedia(files[i], 'works');
+        const { error } = await sb.from('works').insert({
+          title: files.length > 1 ? title + ' (' + (i+1) + ')' : title,
+          description, author, made_on,
+          media_url: up.url, media_type: up.type,
+          sort_order: Math.floor(Date.now() / 1000),
+        });
+        if (error) throw error;
+        ok++;
+      } catch (e) {
+        msg.className = 'msg err';
+        msg.textContent = '실패: ' + ((e && e.message) || e);
+        btn.disabled = false;
+        return;
+      }
+    }
+
+    btn.disabled = false;
+    msg.className = 'msg ok'; msg.textContent = ok + '개 올렸어요!';
+    $('#wTitle').value = ''; $('#wDesc').value = ''; $('#wFiles').value = '';
+    loadWorks();
+  });
+
+  render();
+}
+
+// ---------- 시작 ----------
+(async () => {
+  await refreshAuth();
+  await loadWorks();
+  renderAdminArea();
+  initReveal();
+})();
+</script>
+</body>
+</html>
