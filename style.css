@@ -136,11 +136,27 @@ footer.site canvas{display:inline-block; vertical-align:middle;}
 .gal-thumb img, .gal-thumb video{width:100%; height:100%; object-fit:cover;}
 .gal-cap{margin-top:8px; font-size:12.5px; font-weight:700; line-height:1.45;}
 .gal-sub{margin-top:2px; font-size:11px; color:var(--ink-soft);}
-.gal-del{
-  position:absolute; top:4px; right:4px; width:26px; height:26px; z-index:2;
-  border:2px solid var(--ink); background:#fff; color:#c0392b; cursor:pointer;
+.gal-del, .gal-edit{
+  position:absolute; top:4px; width:26px; height:26px; z-index:2;
+  border:2px solid var(--ink); background:#fff; cursor:pointer;
   font-size:13px; line-height:1; font-weight:800;
 }
+.gal-del{right:4px; color:#c0392b;}
+.gal-edit{right:34px; color:var(--ink);}
+.gal-edit:hover{background:var(--lemon);}
+
+/* ===== 팝업 (작품 수정) ===== */
+.modal{
+  position:fixed; inset:0; z-index:110; display:flex;
+  background:rgba(30,26,22,.75); padding:24px 16px;
+  align-items:flex-start; justify-content:center; overflow-y:auto;
+}
+.modal-box{width:100%; max-width:460px; margin:auto;}
+.modal-box .inner{padding:22px;}
+.modal-box h3{margin:0 0 14px; font-size:15px; font-weight:800;}
+.modal-box .preview{width:100%; border:2px solid var(--ink); margin-bottom:8px;}
+.modal-actions{display:flex; gap:8px; margin-top:18px;}
+.modal-actions .dot-btn{flex:1;}
 .tag{
   display:inline-block; font-size:10.5px; padding:3px 8px; margin-right:4px;
   border:2px solid var(--ink); background:var(--lemon);

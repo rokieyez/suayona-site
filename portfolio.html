@@ -101,6 +101,13 @@ function render(){
     });
 
     if (isAdmin) {
+      const edit = document.createElement('button');
+      edit.className = 'gal-edit';
+      edit.textContent = '✎';
+      edit.title = '수정';
+      edit.addEventListener('click', (e) => { e.stopPropagation(); openEditModal(w); });
+      card.appendChild(edit);
+
       const del = document.createElement('button');
       del.className = 'gal-del';
       del.textContent = '✕';
@@ -117,6 +124,82 @@ function render(){
 
     grid.appendChild(card);
     revealNow(card);
+  });
+}
+
+// ---------- 작품 수정 팝업 ----------
+function openEditModal(w){
+  const sel = (v, cur) => v === cur ? ' selected' : '';
+  const overlay = document.createElement('div');
+  overlay.className = 'modal';
+  overlay.innerHTML =
+    '<div class="modal-box dot-card"><div class="inner">' +
+      '<h3>✎ 작품 수정</h3>' +
+      (w.media_type === 'video'
+        ? '<video class="preview" src="' + escapeHTML(w.media_url) + '" controls playsinline></video>'
+        : '<img class="preview" src="' + escapeHTML(w.media_url) + '" alt="">') +
+      '<label class="field">제목</label>' +
+      '<input type="text" class="eTitle" value="' + escapeHTML(w.title) + '">' +
+      '<label class="field">설명 (선택)</label>' +
+      '<textarea class="eDesc" style="min-height:70px;">' + escapeHTML(w.description || '') + '</textarea>' +
+      '<div class="row2">' +
+        '<div><label class="field">누구 작품</label>' +
+          '<select class="eAuthor">' +
+            '<option value="sua"' + sel('sua', w.author) + '>수아</option>' +
+            '<option value="yona"' + sel('yona', w.author) + '>연아</option>' +
+            '<option value="together"' + sel('together', w.author) + '>같이</option>' +
+          '</select></div>' +
+        '<div><label class="field">만든 날 (선택)</label>' +
+          '<input type="date" class="eDate" value="' + escapeHTML(w.made_on || '') + '"></div>' +
+      '</div>' +
+      '<label class="field">사진/영상 바꾸기 (선택)</label>' +
+      '<input type="file" class="eFile" accept="image/*,video/*">' +
+      '<div class="modal-actions">' +
+        '<button class="dot-btn primary eSave">저장</button>' +
+        '<button class="dot-btn eCancel">취소</button>' +
+      '</div>' +
+      '<div class="msg eMsg"></div>' +
+    '</div></div>';
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+
+  const close = () => { overlay.remove(); document.body.style.overflow = ''; };
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.querySelector('.eCancel').addEventListener('click', close);
+  const onKey = e => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
+
+  overlay.querySelector('.eSave').addEventListener('click', async () => {
+    const btn = overlay.querySelector('.eSave'), msg = overlay.querySelector('.eMsg');
+    const title = overlay.querySelector('.eTitle').value.trim();
+    if (!title) { msg.className = 'msg err'; msg.textContent = '제목을 입력해주세요.'; return; }
+
+    btn.disabled = true;
+    msg.className = 'msg'; msg.textContent = '저장 중...';
+    const patch = {
+      title,
+      description: overlay.querySelector('.eDesc').value.trim() || null,
+      author: overlay.querySelector('.eAuthor').value,
+      made_on: overlay.querySelector('.eDate').value || null,
+    };
+    try {
+      const file = overlay.querySelector('.eFile').files[0];
+      if (file) {
+        msg.textContent = '새 파일 올리는 중...';
+        const up = await uploadMedia(file, 'works', PORTFOLIO_IMAGE_LIMIT);
+        patch.media_url = up.url;
+        patch.media_type = up.type;
+      }
+      const { error } = await sb.from('works').update(patch).eq('id', w.id);
+      if (error) throw error;
+    } catch (e) {
+      msg.className = 'msg err'; msg.textContent = '실패: ' + ((e && e.message) || e);
+      btn.disabled = false;
+      return;
+    }
+    document.removeEventListener('keydown', onKey);
+    close();
+    loadWorks();
   });
 }
 
