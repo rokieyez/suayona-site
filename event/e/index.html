@@ -338,10 +338,13 @@ function buildTabsAndPanels(){
     panel.className = 'panel' + (i === 0 ? ' active' : '');
     panel.id = p.id;
     const body = p.id === 'gallery'
-      ? '<div class="gallery-toolbar">' +
-          '<label class="upload-btn" id="uploadBtn" for="galleryFileInput">📤 사진/영상 올리기</label>' +
-          '<input type="file" id="galleryFileInput" accept="image/*,video/*" multiple style="display:none;">' +
-        '</div>' +
+      // 올리기 버튼은 관리자로 로그인했을 때만 (수정 버튼과 같은 기준)
+      ? (isAdmin
+          ? '<div class="gallery-toolbar">' +
+              '<label class="upload-btn" id="uploadBtn" for="galleryFileInput">📤 사진/영상 올리기</label>' +
+              '<input type="file" id="galleryFileInput" accept="image/*,video/*" multiple style="display:none;">' +
+            '</div>'
+          : '') +
         '<div class="gallery-msg" id="galleryMsg"></div>' +
         '<div class="gallery-grid" id="galleryGrid"></div>' +
         '<div class="empty-msg" id="galleryEmpty" style="display:none;">아직 등록된 사진/영상이 없습니다</div>'
@@ -610,7 +613,7 @@ async function uploadGalleryFiles(fileList){
   const files = Array.from(fileList);
   if (!files.length) return;
   const msg = $('#galleryMsg'), btn = $('#uploadBtn');
-  btn.classList.add('uploading');
+  if (btn) btn.classList.add('uploading');
   let okCount = 0;
 
   for (let i = 0; i < files.length; i++) {
@@ -645,7 +648,7 @@ async function uploadGalleryFiles(fileList){
     }
   }
 
-  btn.classList.remove('uploading');
+  if (btn) btn.classList.remove('uploading');
   if (okCount) { msg.className = 'gallery-msg ok'; msg.textContent = okCount + '개 업로드 완료!'; }
   loadGallery();
 }
@@ -852,6 +855,14 @@ function isPageZoomed(){
   CONFIG.panels.forEach(p => { if (p.dateKey) PANEL_DATE[p.id] = p.dateKey; });
 
   buildTabsAndPanels();
+  // 탭을 만든 뒤에 붙여야 함 (도구막대가 여기서 생성되므로)
+  const galleryFileInput = $('#galleryFileInput');
+  if (galleryFileInput) {
+    galleryFileInput.addEventListener('change', (e) => {
+      uploadGalleryFiles(e.target.files);
+      e.target.value = '';
+    });
+  }
   if (byPanel) renderSchedule(byPanel);
   showAdminAddLink(byPanel);
   setupLightboxInteractions();
