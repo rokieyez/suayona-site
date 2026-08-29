@@ -113,16 +113,17 @@ const SPRITES = {
     '.ffffffffffffffffff...',
   ],
   // 캐릭터: 수아 — 참조 그림 기준. 아주 긴 생머리, 빨간 가로 줄무늬 티셔츠,
-  // 남색 반바지, 주황 신발. 42x38
+  // 남색 반바지, 주황 신발. 42x40 (위아래 한 줄은 외곽선용 여백)
   sua: [
-    '...........FOOOOOOOOOOOOOOOOOOOF..........',
-    '..........FOOOOOOOOOOOOOOOOOOOOF..........',
+    '............FFFFFFFFFFFFFFFFFF............',
+    '..........FFOOOOOOOOOOOOOOOOOOFF..........',
     '.........FOOOOOOOOOOOOOOOOOOOOOOF.........',
-    '........FOOOOOOOOOOOOOOOOOOOOOOOOF........',
     '........FOOOOOOOOOOOOOOOOOOOOOOOOF........',
     '.......FOOOOOOOOOOOOOOOOOOOOOOOOOOF.......',
     '......FOOOOOOOOOOOOOOOOOOOOOOOOOOOOF......',
     '......FOOOOOOOOOOOOOOOOOOOOOOOOOOOOF......',
+    '.....FOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOF.....',
+    '.....FOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOF.....',
     '.....FOOOOOOOOONNNNNNNNNNNNOOOOOOOOOF.....',
     '.....FOOOOOONNNNNNNNNNNNNNNNNNOOOOOOF.....',
     '....FOOOOOONNNNNNNNNNNNNNNNNNNNOOOOOOF....',
@@ -153,17 +154,19 @@ const SPRITES = {
     '.............FWWWWWWFFWWWWWWF.............',
     '.............FWWWWWWFFWWWWWWF.............',
     '.............FWWWWWWFFWWWWWWF.............',
+    '..............FFFFFF..FFFFFF..............',
   ],
-  // 캐릭터: 연아 — 수아와 같은 비율의 버섯 단발. 민트 티셔츠, 남색 반바지 42x38
+  // 캐릭터: 연아 — 수아와 같은 비율의 버섯 단발. 민트 티셔츠, 남색 반바지 42x40
   yona: [
+    '............FFFFFFFFFFFFFFFFFF............',
     '...........FMMMMMMMMMMMMMMMMMMF...........',
     '..........FMMMMMMMMMMMMMMMMMMMMF..........',
-    '..........FMMMMMMMMMFMMMMMMMMMMF..........',
     '.........FMMMMMMMMMMFMMMMMMMMMMMF.........',
     '........FMMMMMMMMMMMFMMMMMMMMMMMMF........',
-    '........FMMMMMMMMMMMFMMMMMMMMMMMMF........',
-    '.......FMMMMMMMMMMMMMMMMMMMMMMMMMMF.......',
-    '.......FMMMMMMMMMMMMMMMMMMMMMMMMMMF.......',
+    '.......FMMMMMMMMMMMMFMMMMMMMMMMMMMF.......',
+    '......FMMMMMMMMMMMMMFMMMMMMMMMMMMMMF......',
+    '......FMMMMMMMMMMMMMMMMMMMMMMMMMMMMF......',
+    '......FMMMMMMMMMMMMMMMMMMMMMMMMMMMMF......',
     '......FMMMMMMMMNNNNNNNNNNNNMMMMMMMMF......',
     '......FMMMMMNNNNNNNNNNNNNNNNNNMMMMMF......',
     '.....FMMMMMNNNNNNNNNNNNNNNNNNNNMMMMMF.....',
@@ -194,6 +197,7 @@ const SPRITES = {
     '.............FWWWWWWFFWWWWWWF.............',
     '.............FWWWWWWFFWWWWWWF.............',
     '.............FWWWWWWFFWWWWWWF.............',
+    '..............FFFFFF..FFFFFF..............',
   ],
   // 액자에 담긴 그림 (포트폴리오 아이콘) 12x10
   frame: [

@@ -287,16 +287,18 @@ buildChrome('home');
     const hop2 = Math.abs(Math.sin(t * 1.4 + 0.9)) * 4;
     const hop3 = Math.abs(Math.sin(t * 1.6 + 1.8)) * 3;
     const standY = groundY + gy - H * 0.03;
-    const petS = Math.max(2, Math.round(charS * 0.85));
+    // 아이 스프라이트가 커져서 풍경을 압도하므로 등장인물만 따로 줄여 그림
+    const castS = Math.max(2, Math.round(charS * 0.7));
+    const petS = Math.max(2, Math.round(castS * 0.85));
 
     // 좌표를 화면 비율로 박아두면 스프라이트 크기를 바꿀 때마다 서로 겹침.
     // 실제 폭을 재서 가운데 정렬로 늘어놓고, 발끝은 sprite.length 로 맞춤.
     const cast = [
       { sp: SPRITES.chick, s: petS,  bob: hop3 },
-      { sp: SPRITES.sua,   s: charS, bob: hop1 },
-      { sp: SPRITES.yona,  s: charS, bob: hop2 },
+      { sp: SPRITES.sua,   s: castS, bob: hop1 },
+      { sp: SPRITES.yona,  s: castS, bob: hop2 },
       { sp: SPRITES.fox,   s: petS,  bob: 0 },
-      { sp: SPRITES.easel, s: charS, bob: 0 },
+      { sp: SPRITES.easel, s: castS, bob: 0 },
     ];
     // 좁은 화면에서는 캐릭터를 통째로 한 단계씩 줄여 가로로 넘치지 않게 함
     while (cast[0].s > 2 && cast.reduce((n, c) => n + c.sp[0].length * c.s, 0) > W * 0.92) {
