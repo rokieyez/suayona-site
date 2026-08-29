@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이벤트 · 수아랑 연아랑</title>
+<meta property="og:title" content="이벤트 · 수아랑 연아랑">
+<meta property="og:description" content="수련회, 여행, 행사 일정">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://www.suayona.com/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  /* 이벤트 사이트를 메뉴바 바로 아래에 통째로 띄움 */
+  body{overflow:hidden;}                 /* 바깥 페이지는 스크롤하지 않고 iframe 안에서만 스크롤 */
+  .event-frame-wrap{
+    position:fixed; top:var(--header-h); left:0; right:0; bottom:0;
+    background:var(--cream);
+  }
+  #eventFrame{width:100%; height:100%; border:0; display:block;}
+
+  /* 불러오는 동안 보여줄 안내 */
+  .frame-loading{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:14px;
+    background:var(--cream); color:var(--ink-soft); font-size:13.5px;
+    transition:opacity .3s ease;
+  }
+  .frame-loading.gone{opacity:0; pointer-events:none;}
+  .frame-loading canvas{image-rendering:pixelated; animation:beat 1.1s steps(2) infinite;}
+  @keyframes beat{0%,100%{transform:scale(1);} 50%{transform:scale(1.18);}}
+  @media (prefers-reduced-motion: reduce){ .frame-loading canvas{animation:none;} }
+
+  /* iframe 안에서 열기 어려운 경우를 대비한 대체 링크 */
+  .frame-fallback{
+    position:absolute; left:0; right:0; bottom:0; padding:9px 16px;
+    background:rgba(47,42,36,.86); color:#fff; font-size:11.5px; text-align:center;
+  }
+  .frame-fallback a{color:var(--lemon); font-weight:800;}
+</style>
+</head>
+<body>
+
+<div class="event-frame-wrap">
+  <div class="frame-loading" id="frameLoading">
+    <canvas id="loadHeart" width="28" height="24"></canvas>
+    <span>이벤트 일정을 불러오는 중...</span>
+  </div>
+  <iframe id="eventFrame"
+          src="https://event.suayona.com/"
+          title="이벤트 일정"
+          loading="eager"
+          referrerpolicy="no-referrer-when-downgrade"></iframe>
+  <div class="frame-fallback">
+    잘 안 보이면 <a href="https://event.suayona.com/" target="_blank" rel="noopener">새 창에서 열기 ↗</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script>
+buildChrome('event');
+
+// 이 페이지는 iframe이 화면을 꽉 채우므로 푸터는 빼둠
+const foot = document.querySelector('footer.site');
+if (foot) foot.remove();
+
+// 로딩 표시용 하트
+(function(){
+  const cv = document.getElementById('loadHeart');
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  drawSprite(ctx, SPRITES.heart, 0, 0, 4);
+})();
+
+// 다 불러오면 로딩 화면 감추기
+const frame = document.getElementById('eventFrame');
+const loading = document.getElementById('frameLoading');
+frame.addEventListener('load', () => loading.classList.add('gone'));
+setTimeout(() => loading.classList.add('gone'), 6000);   // 혹시 load 이벤트를 놓쳐도 가리지 않도록
+</script>
+</body>
+</html>

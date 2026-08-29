@@ -17,7 +17,7 @@ const MENU = [
   { href: '/about.html',    label: '소개',      key: 'about' },
   { href: '/portfolio.html',label: '포트폴리오', key: 'portfolio' },
   { href: '/board.html',    label: '게시판',    key: 'board' },
-  { href: 'https://event.suayona.com/', label: '이벤트', key: 'event', external: true },
+  { href: '/event.html',    label: '이벤트',    key: 'event' },
   { href: '/contact.html',  label: '컨택트',    key: 'contact' },
 ];
 
@@ -29,7 +29,7 @@ function buildChrome(activeKey){
   header.innerHTML =
     '<a class="logo" href="/">' +
       '<canvas id="logoCanvas" width="36" height="36"></canvas>' +
-      '<span class="logo-text pixel">수아 · 연아</span>' +
+      '<span class="logo-text pixel">수아랑 연아랑</span>' +
     '</a>' +
     '<button class="menu-toggle pixel" id="menuToggle" aria-label="메뉴 열기">☰</button>' +
     '<nav id="nav">' +
