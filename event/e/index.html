@@ -309,9 +309,10 @@ const tabsEl = $('#tabs'), panelsEl = $('#panels');
 panelsEl.addEventListener('click', async (e) => {
   const img = e.target.closest('.item-img');
   if (!img) return;
-  const id = Number(img.dataset.eventId);
-  let idx = galleryItems.findIndex(g => g.source === 'event' && g.id === id);
-  if (idx === -1) { await loadGallery(); idx = galleryItems.findIndex(g => g.source === 'event' && g.id === id); }
+  // 일정 하나에 사진이 여러 장이라 id 로 찾으면 늘 첫 장이 열림 — 주소로 정확히 찾음
+  const src = img.getAttribute('src');
+  let idx = galleryItems.findIndex(g => g.media_url === src);
+  if (idx === -1) { await loadGallery(); idx = galleryItems.findIndex(g => g.media_url === src); }
   if (idx === -1) return;
   openLightbox(idx);
 });
@@ -508,9 +509,13 @@ function renderSchedule(byPanel){
 
     rows.forEach(r => {
       const detail = r.detail ? '<div class="row"><span class="ic">📌</span><span class="detail-text">' + escapeHTML(r.detail) + '</span></div>' : '';
-      const image = r.image_url
-        ? '<div class="item-img-wrap"><img class="item-img" src="' + r.image_url + '" loading="lazy" data-event-id="' + r.id + '">' + photoMetaOverlayHTML(r.taken_at, r.location_name) + '</div>'
-        : '';
+      // 대표 사진(image_url) 뒤에 추가 사진(extra_images)을 이어 붙여 여러 장을 모두 보여줌
+      const shots = (r.image_url
+        ? [{ url: r.image_url, taken_at: r.taken_at, location_name: r.location_name }]
+        : []).concat(Array.isArray(r.extra_images) ? r.extra_images : []);
+      const image = shots.map(sh =>
+        '<div class="item-img-wrap"><img class="item-img" src="' + escapeHTML(sh.url) + '" loading="lazy" data-event-id="' + r.id + '">'
+        + photoMetaOverlayHTML(sh.taken_at, sh.location_name) + '</div>').join('');
       const editBtn = isAdmin ? '<a class="item-edit" href="./admin.html?slug=' + CONFIG.eventSlug + '&edit=' + r.id + '">✏️ 수정</a>' : '';
       timeline.insertAdjacentHTML('beforeend',
         '<div class="item">' + editBtn + '<div class="time">' + escapeHTML(r.time || '') + '</div><div class="title">' + escapeHTML(r.title) + '</div>' + detail + image + '</div>');
@@ -532,7 +537,7 @@ async function loadGallery(){
 
   const [galleryRes, eventsRes] = await Promise.all([
     sb.from('gallery_media').select('*').eq('event_id', CONFIG.eventSlug),
-    sb.from('events').select('id, image_url, created_at, taken_at, location_name').eq('event_id', CONFIG.eventSlug).not('image_url', 'is', null),
+    sb.from('events').select('*').eq('event_id', CONFIG.eventSlug).not('image_url', 'is', null),
   ]);
   if (galleryRes.error) console.error('갤러리 로딩 오류:', galleryRes.error);
   if (eventsRes.error) console.error('일정 사진 로딩 오류:', eventsRes.error);
@@ -541,10 +546,17 @@ async function loadGallery(){
     id: r.id, media_url: r.media_url, media_type: r.media_type, created_at: r.created_at, source: 'gallery',
     taken_at: r.taken_at, location_name: r.location_name,
   }));
-  const fromEvents = (eventsRes.data || []).map(r => ({
-    id: r.id, media_url: r.image_url, media_type: 'image', created_at: r.created_at, source: 'event',
-    taken_at: r.taken_at, location_name: r.location_name,
-  }));
+  // 일정 하나에 사진이 여러 장이면 전부 갤러리에 넣음. 추가 사진은 id 에 순번을 붙여 구분.
+  const fromEvents = (eventsRes.data || []).flatMap(r => {
+    const extra = Array.isArray(r.extra_images) ? r.extra_images : [];
+    return [{
+      id: r.id, media_url: r.image_url, media_type: 'image', created_at: r.created_at, source: 'event',
+      taken_at: r.taken_at, location_name: r.location_name,
+    }].concat(extra.map((sh, i) => ({
+      id: r.id + ':' + i, media_url: sh.url, media_type: 'image', created_at: r.created_at, source: 'event',
+      taken_at: sh.taken_at || null, location_name: sh.location_name || null,
+    })));
+  });
 
   // 촬영 시각(EXIF) 기준 오름차순 정렬 — 먼저 찍힌 사진이 먼저 나옴.
   // EXIF 날짜가 없는 사진/영상은 맨 뒤로 밀리고, 그 안에서는 업로드 순으로 정렬됨.

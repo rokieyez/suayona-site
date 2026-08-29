@@ -84,3 +84,11 @@ create policy "authenticated can read messages"
 create policy "authenticated can delete messages"
   on messages for delete
   using (auth.role() = 'authenticated');
+
+-- ---------------------------------------------------------------------------
+-- 일정 항목에 사진 여러 장
+-- 첫 장은 기존처럼 events.image_url 에 남고(예전 데이터·갤러리 질의와 호환),
+-- 두 번째 장부터 아래 컬럼에 [{url, taken_at, location_name}] 형태로 쌓임.
+-- 이 줄을 실행하기 전까지는 일정마다 사진 1장만 저장됨(관리자 화면에 안내가 뜸).
+-- ---------------------------------------------------------------------------
+alter table events add column if not exists extra_images jsonb default '[]'::jsonb;
