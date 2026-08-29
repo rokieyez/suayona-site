@@ -39,17 +39,22 @@ const PAL = {
 // 풍경을 여러 겹으로 그리기 위한 색 묶음.
 // 초록을 멀리(연함) → 가까이(진함) 순으로 여러 단계 둬야 깊이가 생김.
 const SCENE = {
-  sky:   ['#7cc0e8', '#a8d8f2', '#d6eefb', '#f4e6c8'],
-  cloud: { body:'#ffffff', mid:'#eaf4fd', shade:'#cfe4f5' },
-  sun:   { core:'#ffe07a', glow:'rgba(255,231,150,.30)' },
-  city:  ['#8fb4cf', '#7ea5c4', '#6f96b6'],           // 원경 건물 (공기원근법으로 흐릿하게)
-  hills: ['#bfe3ac', '#a3d493', '#84c078', '#69a860'], // 먼 언덕 → 가까운 언덕
-  grass: { base:'#5c9c54', tuft:'#4d8a48', light:'#7cb96e' },
-  bush:  ['#3f7d3c', '#356b34', '#2b592b'],            // 맨 앞 수풀 (가장 진함)
-  trunk: { light:'#c79b6d', mid:'#a97b4f', dark:'#8a5f3a', line:'#6f4a2c' },
-  leaf:  ['#5fa855', '#4e9147', '#3f7a3b', '#79bf6b'],
-  path:  ['#d9c49a', '#c9b083'],
-  petal: ['#ffb7d5', '#fff3a0', '#ffffff', '#ffc98a'],
+  // 16비트 게임 느낌을 내려고 각 소재마다 명도/채도 단계를 촘촘하게 잡음.
+  // 멀수록 연하고 푸르게(공기원근법), 가까울수록 진하고 노랗게.
+  sky:   ['#3f8fd0', '#5aa5de', '#7cc0e8', '#a8d8f2', '#cfe9fa', '#eaf3ea', '#f7ead0'],
+  cloud: { hi:'#ffffff', body:'#f6fcff', mid:'#ddeffd', shade:'#bcd9ef', deep:'#9dc3e0' },
+  sun:   { core:'#fff6c8', ring:'#ffe07a', glow:'rgba(255,231,150,.30)' },
+  city:  ['#a8c4da', '#94b3cd', '#809fbf', '#6d8db0'],   // 원경 건물 (흐릿하게)
+  // 언덕 7단계 + 능선에 얹을 밝은 단 7단계
+  hills:    ['#bcd9a8', '#a6cd91', '#8ec07b', '#76b166', '#5fa155', '#4c8f46', '#3c7c39'],
+  hillsLit: ['#d6ebc6', '#c0e2af', '#a9d698', '#92ca82', '#7bbb6e', '#66aa5d', '#54984f'],
+  grass: { base:'#5c9c54', tuft:'#4d8a48', light:'#7cb96e', hi:'#9ad189', dark:'#3f7d3c' },
+  bush:  ['#3f7d3c', '#356b34', '#2b592b', '#224823', '#1b3a1d'],   // 맨 앞 수풀 (가장 진함)
+  trunk: { light:'#d6b083', mid:'#bb8f61', warm:'#a97b4f', dark:'#8a5f3a', line:'#6f4a2c', deep:'#553d24' },
+  leaf:  ['#93d481', '#7cc26e', '#63aa58', '#51944a', '#417c3d', '#326631'],
+  path:  ['#ece0bf', '#dcc9a1', '#cab188', '#b79a6f'],
+  petal: ['#ffb7d5', '#fff3a0', '#ffffff', '#ffc98a', '#c9a8ff', '#ff9aa2'],
+  rock:  ['#c2bab0', '#a49c92', '#857d75', '#665f59'],
 };
 
 // ---------- 스프라이트 ----------
@@ -256,22 +261,22 @@ const SPRITES = {
     'kjjjjjjjkk',
     'llllllllll',
   ],
-  // 사진 속 사랑앵무 — 하늘을 나는 두 컷(날개 위/아래) 22x15
+  // 사진 속 사랑앵무 — 하늘을 나는 두 컷(날개 위/아래). 몸을 유선형으로 얇게 22x15
   budgieUp: [
     '...FUUUFF.............',
     '...FEEEEEF............',
     '....FUUUUUFF..........',
     '.....FEEEEEEF.FFFFF...',
     '......FUUUUUUFEEEEEF..',
-    '.....FZZZZZZZUEEEEEF..',
-    '..FFFZZZZZZZZEEEFEEF..',
+    '......FFFFFFFUEEEEEF..',
+    '..FFFFZZZZZZZEEEFEEF..',
     '.FTTTZZZZZZZZUEEEEEiF.',
     'FTTTTZZZZZZZZZEEEEEiiF',
     '.FTTTZZZZZZZZZZEYYEiF.',
-    '..FFFZZZZZZZZZZZZFFF..',
-    '.....FZZZZZZZZZZF.....',
-    '......FFZZZZZZFF......',
-    '........FFFFFF........',
+    '..FFFZZZZZZZZZZZFFFF..',
+    '.....FFZZZZZZZFF......',
+    '.......FFFFFFF........',
+    '......................',
     '......................',
   ],
   budgieDown: [
@@ -279,16 +284,16 @@ const SPRITES = {
     '......................',
     '......................',
     '..............FFFFF...',
-    '......FFFFFFFFEEEEEF..',
-    '.....FZZZZZZZUEEEEEF..',
-    '..FFFZZZZZZZZEEEFEEF..',
+    '.............FEEEEEF..',
+    '......FFFFFFFUEEEEEF..',
+    '..FFFFZZZZZZZEEEFEEF..',
     '.FTTTZZZZZZZZUEEEEEiF.',
     'FTTTTZZZZZZZZZEEEEEiiF',
     '.FTTTZZZZZZZZZZEYYEiF.',
-    '..FFFZZUUUUUUZZZZFFF..',
-    '.....FEEEEEEZZZZF.....',
-    '....FUUUUUZZZZFF......',
-    '...FEEEEEFFFFF........',
+    '..FFFZZUUUUUUZZZFFFF..',
+    '.....FEEEEEEZZFF......',
+    '....FUUUUUFFFF........',
+    '...FEEEEEF............',
     '...FUUUFF.............',
   ],
   // 새 7x4
@@ -307,26 +312,38 @@ const SPRITES = {
     '..HHH..',
     '...H...',
   ],
-  // 그림 이젤 — 참조 이미지의 노트북 자리에 놓일, 이 사이트다운 소품 16x18
+  // 그림 이젤 — 캔버스에 그림이 담기고 물감 팔레트와 붓까지 있는 26x30
   easel: [
-    '......FFFF......',
-    '.....FEEEEF.....',
-    '....FEEEEEEF....',
-    '...FEJJEEKKEF...',
-    '...FEJJEEKKEF...',
-    '...FEEEEEEEEF...',
-    '...FEEIIEELLF...',
-    '...FEEIIEELLF...',
-    '...FEEEEEEEEF...',
-    '...FFFFFFFFFF...',
-    '....q......q....',
-    '....q......q....',
-    '...q........q...',
-    '...q........q...',
-    '..q..........q..',
-    '..q..........q..',
-    '.q............q.',
-    '.q............q.',
+    '.FppppppppppppppppppppF...',
+    '.FppppppppppppppppppppF...',
+    '.FppEEEEEEEEEEEEEEEEppF...',
+    '.FppEEEEEEEEEEEGGGEEppF...',
+    '.FppEEEEEEEEEEGGGGGEppF...',
+    '.FppEEEEEEEEEEEGGGEEppF...',
+    '.FppEJJJEEEEEEEEEEEEppF...',
+    '.FppEJJJEEKKEEEEEEEEppF...',
+    '.FppEEmEEEKKEEEEEEEEppF...',
+    '.FppmmEmmEmmEmmEmmEmppF...',
+    '.FppllllllllllllllllppF...',
+    '.FppllllllllllllLLllppF...',
+    '.FppllIIIlllllllLLllppF...',
+    '.FppllIIIlllllllllllppF...',
+    '.FppllllllllllllllllppF...',
+    '.FppppppppppppppppppppF...',
+    '.FppppppppppppppppppppFF..',
+    '..FFFFqqFFFqqFFFFqqFFFFHF.',
+    '....FqqF..FqqF...FqqF.FqF.',
+    '....FqqF..FqqF...FqqF.FqF.',
+    '...FqqF...FqqF....FqqF.F..',
+    '...FqqFFFFFqqFFFFFFqqF....',
+    '..FppppppppppppppppppqF...',
+    '..FppppppppppppppppppqFFF.',
+    '.FqqFFFFFFFqqFFFFFFooooJoF',
+    '.FqqF.....FqqF....FoHIGooF',
+    'FqqFFFFF..FqqF..FFFooooooF',
+    'FqqqqqqqF.FqqF.FqqqqqqqFF.',
+    'FqqqqqqqF.FqqF.FqqqqqqqF..',
+    '.FFFFFFF..FqqF..FFFFFFF...',
   ],
   // 나무 벤치 18x9
   bench: [
@@ -458,16 +475,84 @@ function drawSprite(ctx, sprite, x, y, s, paletteOverride) {
 }
 
 // 계단식(픽셀) 언덕. waves 는 [{freq, amp, phase}] 형태의 사인파 목록
-function drawHill(ctx, waves, color, s, baseY, width, height) {
-  ctx.fillStyle = color;
+// 언덕. opts 로 원근 기울기(tilt), 능선 하이라이트(lit), 디더 전환(dither)을 줄 수 있음.
+//   tilt: 화면 왼쪽 대비 오른쪽 능선을 몇 px 내릴지. 양수면 오른쪽이 가까워 보임.
+function drawHill(ctx, waves, color, s, baseY, width, height, opts) {
+  const o = opts || {};
   const cols = Math.ceil(width / s);
+  const tops = [];
   for (let c = 0; c < cols; c++) {
     const t = c / cols;
-    let h = 0;
+    let h = (o.tilt || 0) * t;
     waves.forEach(wv => { h += Math.sin(t * Math.PI * wv.freq + wv.phase) * wv.amp; });
-    const top = Math.round((baseY + h) / s) * s;
-    ctx.fillRect(c * s, top, s, height - top);
+    tops.push(Math.round((baseY + h) / s) * s);
   }
+  ctx.fillStyle = color;
+  for (let c = 0; c < cols; c++) ctx.fillRect(c * s, tops[c], s, height - tops[c]);
+
+  // 능선 위쪽 한두 줄만 밝게 — 빛을 받는 면
+  if (o.lit) {
+    ctx.fillStyle = o.lit;
+    for (let c = 0; c < cols; c++) ctx.fillRect(c * s, tops[c], s, s * (o.litRows || 2));
+  }
+  // 아래쪽 경계를 체커보드로 섞어 색 단이 딱 끊기지 않게 함 (90년대 게임의 디더링)
+  if (o.dither) {
+    for (let c = 0; c < cols; c++) {
+      for (let k = 0; k < (o.ditherRows || 3); k++) {
+        const y = tops[c] + s * ((o.litRows || 2) + k);
+        if ((c + k) % 2) continue;
+        ctx.fillStyle = o.dither;
+        ctx.fillRect(c * s, y, s, s);
+      }
+    }
+  }
+  return tops;
+}
+
+// 능선을 따라 늘어선 먼 숲 — 언덕 위에 작은 봉우리를 촘촘히 찍어 나무처럼 보이게 함
+function drawTreeLine(ctx, tops, s, width, colorDark, colorLit, seed, scale){
+  // 일정 간격으로 찍으면 울타리처럼 보여서, 간격과 높이를 모두 흩뜨림
+  let c = 0;
+  while (c < tops.length) {
+    const r = prand(seed + c * 0.83);
+    const h = Math.round((s * (1.2 + r * r * 5.0) * (scale || 1)) / s) * s;
+    const w = s * (1 + Math.floor(prand(seed + c * 1.7) * 3));
+    const x = c * s, y = tops[c] - h;
+    ctx.fillStyle = colorDark; ctx.fillRect(x, y, w, h + s * 2);
+    ctx.fillStyle = colorLit;  ctx.fillRect(x, y, s, Math.min(h, s * 2));
+    c += Math.max(1, Math.round(w / s) + Math.floor(prand(seed + c * 2.9) * 3));
+  }
+}
+
+// 앞쪽에 세우는 긴 풀잎 — 수풀 위로 삐죽 솟아 전경 밀도를 올림
+function drawTallGrass(ctx, x0, x1, baseY, s, seed, shades, dense){
+  const step = s * (dense || 2);
+  for (let x = x0, i = 0; x < x1; x += step, i++) {
+    const h = s * (2 + prand(seed + i * 1.9) * 10);
+    const lean = prand(seed + i * 4.3) * 2 - 1;
+    ctx.fillStyle = shades[Math.floor(prand(seed + i * 7.1) * shades.length)];
+    for (let k = 0; k < h; k += s) {
+      ctx.fillRect(Math.round((x + lean * k * 0.5) / s) * s, Math.round((baseY - k) / s) * s, s, s);
+    }
+  }
+}
+
+// 바위 — 전경/중경에 흩뿌려 초록 면을 덜 심심하게 만듦
+function drawRock(ctx, cx, baseY, s, scale, shades){
+  const w = s * 3 * scale, h = s * 2 * scale;
+  for (let y = 0; y < h; y += s) {
+    const t = y / h;
+    const half = w * Math.sqrt(Math.max(0, 1 - t * t * 0.6)) * 0.5;
+    const px = Math.round((cx - half) / s) * s;
+    const pw = Math.max(s, Math.round((half * 2) / s) * s);
+    ctx.fillStyle = shades[1];
+    ctx.fillRect(px, Math.round((baseY - h + y) / s) * s, pw, s);
+    ctx.fillStyle = t < 0.34 ? shades[0] : shades[2];
+    ctx.fillRect(px, Math.round((baseY - h + y) / s) * s, s, s);
+  }
+  ctx.fillStyle = shades[3];
+  ctx.fillRect(Math.round((cx - w / 2) / s) * s, Math.round(baseY / s) * s,
+               Math.max(s, Math.round(w / s) * s), s);
 }
 
 // 픽셀 느낌으로 색 단계가 끊기는 가로 줄무늬 하늘
@@ -644,23 +729,33 @@ function drawMountain(ctx, cx, baseY, halfW, height, s, colors, seed){
   return { x: cx, y: peakY };
 }
 
-// 구불구불한 오솔길
-function drawPath(ctx, W, yTop, yBot, s, seed){
+// 오솔길. 지평선 쪽(xTop)에서 화면 앞(xBot)으로 이어지며, 아래로 갈수록 급격히 넓어져
+// 원근이 드러나게 함. 색 네 단으로 가장자리와 바퀴자국을 표현.
+function drawPath(ctx, W, yTop, yBot, s, seed, xTop, xBot){
+  const a = (xTop === undefined) ? 0.30 : xTop;
+  const b = (xBot === undefined) ? 0.30 : xBot;
   for (let y = yTop; y < yBot; y += s) {
     const t = (y - yTop) / (yBot - yTop);
-    const cx = W * (0.30 + Math.sin(t * 2.2 + seed) * 0.10);
-    const w = s * (1.5 + t * 7);
-    ctx.fillStyle = SCENE.path[0];
-    ctx.fillRect(Math.round((cx - w/2)/s)*s, y, Math.round(w/s)*s, s);
-    ctx.fillStyle = SCENE.path[1];
-    ctx.fillRect(Math.round((cx - w/2)/s)*s, y, s, s);
+    const e = t * t;                                     // 가까울수록 빠르게 넓어짐
+    const cx = W * (a + (b - a) * e) + Math.sin(t * 2.0 + seed) * W * 0.035;
+    const w = s * (1.2 + e * 20);
+    const px = Math.round((cx - w / 2) / s) * s;
+    const pw = Math.max(s, Math.round(w / s) * s);
+    ctx.fillStyle = SCENE.path[1]; ctx.fillRect(px, y, pw, s);
+    ctx.fillStyle = SCENE.path[0]; ctx.fillRect(px + s, y, Math.max(s, pw - s * 2), s);
+    ctx.fillStyle = SCENE.path[2]; ctx.fillRect(px, y, s, s);
+    ctx.fillStyle = SCENE.path[3]; ctx.fillRect(px + pw - s, y, s, s);
+    if (pw > s * 6 && Math.round(y / s) % 3 === 0) {      // 흙바닥 결
+      ctx.fillStyle = SCENE.path[2];
+      ctx.fillRect(px + Math.round(pw * 0.35 / s) * s, y, s, s);
+    }
   }
 }
 
 function mixHex(a, b, t) {
   const pa = [1, 3, 5].map(i => parseInt(a.substr(i, 2), 16));
   const pb = [1, 3, 5].map(i => parseInt(b.substr(i, 2), 16));
-  const q = v => Math.round(v / 8) * 8;  // 색 단계를 거칠게 끊어 도트 느낌 유지
+  const q = v => Math.round(v / 4) * 4;  // 도트 느낌은 남기되 단계를 촘촘하게
   const mixed = pa.map((v, i) => q(Math.round(v + (pb[i] - v) * t)));
   return '#' + mixed.map(v => Math.min(255, Math.max(0, v)).toString(16).padStart(2, '0')).join('');
 }

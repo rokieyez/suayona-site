@@ -75,7 +75,7 @@
       <a class="dot-btn primary" href="./portfolio.html">작품 보러가기</a>
       <a class="dot-btn" href="./about.html">소개</a>
       <a class="dot-btn" href="./board.html">일기장</a>
-      <a class="dot-btn" href="./event/">이벤트</a>
+      <a class="dot-btn" href="./event/">일정표</a>
       <a class="dot-btn" href="./contact.html">편지쓰기</a>
     </div>
   </div>
@@ -118,7 +118,7 @@
       <a class="dot-card menu-card reveal" href="./event/">
         <span class="num pixel">04</span>
         <canvas data-icon="tree" width="64" height="64"></canvas>
-        <h3>이벤트</h3>
+        <h3>일정표</h3>
         <p>수련회, 여행, 행사 일정을 날짜별로 확인하고 사진도 올릴 수 있어요.</p>
         <span class="go pixel">보러가기 →</span>
       </a>
@@ -192,60 +192,119 @@ buildChrome('home');
   function paintSky(){
     const g = skyLayer.getContext('2d');
     drawSkyBands(g, W, H, S, [
-      { at:0.00, color:SCENE.sky[0] }, { at:0.45, color:SCENE.sky[1] },
-      { at:0.72, color:SCENE.sky[2] }, { at:1.00, color:SCENE.sky[3] },
+      { at:0.00, color:SCENE.sky[0] }, { at:0.18, color:SCENE.sky[1] },
+      { at:0.36, color:SCENE.sky[2] }, { at:0.54, color:SCENE.sky[3] },
+      { at:0.70, color:SCENE.sky[4] }, { at:0.86, color:SCENE.sky[5] },
+      { at:1.00, color:SCENE.sky[6] },
     ]);
+  }
+
+  // 화면 가로 위치에 따른 "가까움" 정도. 0 = 왼쪽 끝(멀다), 1 = 오른쪽 끝(가깝다).
+  // 소품의 크기와 발밑 높이를 여기에 맞추면 왼쪽은 멀고 오른쪽은 가까운 구도가 됨.
+  const near = x => Math.min(1, Math.max(0, x / W));
+  // 원근 기울기 — 능선이 오른쪽으로 갈수록 내려와 이쪽으로 다가오는 느낌을 만듦
+  const TILT = () => H * 0.085;
+
+  // 원근에 맞춘 소품 배치: 왼쪽일수록 작고 높이, 오른쪽일수록 크고 낮게
+  function prop(g, sprite, xr, baseScale, lift){
+    const d = near(W * xr);
+    const sc = Math.max(2, Math.round(baseScale * (0.72 + d * 0.78)));
+    const x = Math.round((W * xr) / S) * S;
+    // 발밑을 잔디 경계(왼쪽 높고 오른쪽 낮음)에 맞춰 세움
+    const y = Math.round((H * (0.775 + d * 0.105) - (lift || 0) - sprite.length * sc) / S) * S;
+    drawSprite(g, sprite, x, y, sc);
+    return { x, y, sc };
   }
 
   function paintGround(){
     const g = groundLayer.getContext('2d');
     g.clearRect(0, 0, W, H);
+    const tilt = TILT();
 
-    // 원경: 흐린 건물 + 그 앞의 먼 언덕
-    // 원경: 산맥 → 남산(타워) → 건물 → 언덕 순으로 겹쳐 원근을 만듦
+    // ---- 원경: 산맥 → 남산(타워) → 건물 → 언덕 순으로 겹쳐 공기원근법을 만듦 ----
     drawHill(g, [{freq:1.7,amp:40,phase:1.2},{freq:4.3,amp:16,phase:3.1}],
-      '#b6cade', S, horizon - H*0.10, W, H);
+      '#b6cade', S, horizon - H*0.11, W, H, { tilt: tilt * 0.35, lit:'#c9d9e8' });
 
-    const peak = drawMountain(g, W * 0.30, horizon + H*0.05, W * 0.30, H * 0.30, S,
-      { body:'#9db6cd', light:'#b3c8da', shade:'#89a2ba' }, 2.4);
-    // 꼭대기에 남산타워
+    const peak = drawMountain(g, W * 0.26, horizon + H*0.04, W * 0.28, H * 0.29, S,
+      { body:'#9db6cd', light:'#bacddd', shade:'#849db6' }, 2.4);
     const tw = SPRITES.tower[0].length, th = SPRITES.tower.length;
-    const ts = Math.max(2, Math.round(S * 0.7));
+    const ts = Math.max(2, Math.round(S * 0.65));
     drawSprite(g, SPRITES.tower,
       Math.round((peak.x - tw * ts / 2) / S) * S,
       Math.round((peak.y - th * ts + S * 2) / S) * S, ts);
 
     drawSkyline(g, horizon + S * 2, W, S, 3.7);
-    drawHill(g, [{freq:2.4,amp:22,phase:0.6},{freq:5.1,amp:8,phase:2.0}], SCENE.hills[0], S, horizon, W, H);
-    drawHill(g, [{freq:1.8,amp:26,phase:2.4},{freq:3.7,amp:10,phase:0.3}], SCENE.hills[1], S, horizon + H*0.06, W, H);
-    drawHill(g, [{freq:1.3,amp:22,phase:4.2}], SCENE.hills[2], S, horizon + H*0.13, W, H);
 
-    // 중경: 넓은 잔디밭 + 오솔길 + 풀포기
-    g.fillStyle = SCENE.hills[3];
-    g.fillRect(0, Math.round((horizon + H*0.19)/S)*S, W, H);
-    drawPath(g, W, horizon + H*0.20, H * 0.86, S, 1.1);
-    drawGrassTufts(g, 0, W, horizon + H*0.20, H * 0.95, S, 9.3, 0.14);
+    // 언덕 네 겹 — 각 겹마다 능선 하이라이트와 디더 전환을 넣어 색 단계를 늘림
+    const ridge0 = drawHill(g, [{freq:2.4,amp:22,phase:0.6},{freq:5.1,amp:8,phase:2.0}],
+      SCENE.hills[1], S, horizon, W, H, { tilt: tilt * 0.5, lit:SCENE.hillsLit[1], litRows:1, dither:SCENE.hills[0] });
+    drawTreeLine(g, ridge0, S, W, SCENE.hills[4], SCENE.hills[3], 2.1, 0.8);
 
-    // 중경 소품: 멀리 있는 나무들, 집, 벤치
-    const bigS = Math.max(2, Math.round(S * 0.75));
-    drawSprite(g, SPRITES.tree,  Math.round(W*0.06/S)*S, groundY - H*0.16 - 16*bigS, bigS);
-    drawSprite(g, SPRITES.tree,  Math.round(W*0.17/S)*S, groundY - H*0.17 - 16*bigS, Math.max(2, bigS-1));
-    drawSprite(g, SPRITES.house, Math.round(W*0.60/S)*S, groundY - H*0.17 - 18*bigS, bigS);
-    drawSprite(g, SPRITES.tree,  Math.round(W*0.76/S)*S, groundY - H*0.16 - 16*bigS, bigS);
-    drawSprite(g, SPRITES.bench, Math.round(W*0.13/S)*S, groundY - H*0.02 - 9*charS, charS);
+    const ridge1 = drawHill(g, [{freq:1.8,amp:26,phase:2.4},{freq:3.7,amp:10,phase:0.3}],
+      SCENE.hills[2], S, horizon + H*0.055, W, H, { tilt: tilt * 0.7, lit:SCENE.hillsLit[2], litRows:1, dither:SCENE.hills[1] });
+    drawTreeLine(g, ridge1, S, W, SCENE.hills[5], SCENE.hills[4], 7.4, 1.1);
 
-    // 화면을 감싸는 큰 나무 (오른쪽) — 참조 이미지처럼 위쪽까지 잎이 걸치게
+    drawHill(g, [{freq:1.3,amp:22,phase:4.2},{freq:3.1,amp:7,phase:1.7}],
+      SCENE.hills[3], S, horizon + H*0.12, W, H, { tilt: tilt * 0.85, lit:SCENE.hillsLit[3], litRows:1, dither:SCENE.hills[2] });
+
+    drawHill(g, [{freq:1.0,amp:16,phase:5.3}],
+      SCENE.hills[4], S, horizon + H*0.175, W, H, { tilt: tilt, lit:SCENE.hillsLit[4], litRows:1, dither:SCENE.hills[3], ditherRows:3 });
+
+    // ---- 중경: 잔디밭. 오른쪽이 가깝도록 위 경계를 기울임 ----
+    for (let c = 0; c < Math.ceil(W / S); c++) {
+      const t = c / Math.ceil(W / S);
+      const top = Math.round((horizon + H*0.225 + tilt * t) / S) * S;
+      g.fillStyle = SCENE.hills[5]; g.fillRect(c * S, top, S, H - top);
+      g.fillStyle = SCENE.hillsLit[5]; g.fillRect(c * S, top, S, S);
+      for (let k = 1; k < 4; k++) {                  // 뒤 언덕 색과 체커보드로 섞어 경계를 없앰
+        if ((c + k) % 2) continue;
+        g.fillStyle = SCENE.hills[4]; g.fillRect(c * S, top + S * k, S, S);
+      }
+    }
+    drawPath(g, W, horizon + H*0.24, H * 0.90, S, 1.1, 0.33, 0.70);
+    drawGrassTufts(g, 0, W, horizon + H*0.24, H * 0.95, S, 9.3, 0.18);
+
+    // ---- 중경 소품 — 왼쪽은 멀고 작게, 오른쪽은 가깝고 크게 ----
+    const bigS = Math.max(2, Math.round(S * 0.78));
+    prop(g, SPRITES.house, 0.10, bigS, H*0.055);
+    prop(g, SPRITES.tree,  0.03, bigS, H*0.045);
+    prop(g, SPRITES.tree,  0.20, bigS, H*0.050);
+    prop(g, SPRITES.tree,  0.44, bigS, H*0.020);
+    prop(g, SPRITES.bench, 0.31, charS, H*0.010);
+    prop(g, SPRITES.tree,  0.66, bigS, -H*0.010);
+    prop(g, SPRITES.tree,  0.84, bigS, -H*0.045);
+
+    // 바위 몇 개 — 뒤쪽은 작고 희미하게, 앞쪽은 크게
+    [[0.09,0.5],[0.27,0.7],[0.55,1.0],[0.70,1.3],[0.86,1.7]].forEach(([xr, sc], i) => {
+      const d = near(W * xr);
+      drawRock(g, W * xr, groundY - H * (0.16 - d * 0.12), S, sc, SCENE.rock);
+    });
+
+    // 잔디밭에 흩뿌린 덤불 — 앞쪽일수록 크게 해서 거리감을 보탬
+    for (let i = 0; i < 16; i++) {
+      const bx = prand(i * 3.3) * W;
+      const d = near(bx);
+      const by = H * (0.765 + d * 0.10) + prand(i * 5.5) * H * 0.045;
+      const sc = Math.max(2, Math.round(charS * (0.45 + d * 0.95)));
+      drawSprite(g, SPRITES.bush, Math.round(bx / S) * S,
+        Math.round((by - SPRITES.bush.length * sc) / S) * S, sc);
+    }
+
+    // 화면을 감싸는 큰 나무 (오른쪽) — 참조 이미지처럼 잎이 위쪽까지 걸치게
     drawBigTree(g, W, H, S);
 
-    // 전경: 가장 진한 수풀로 아래쪽을 채워 깊이를 만듦
+    // ---- 전경: 가장 진한 수풀 + 그 위로 솟은 긴 풀로 아래쪽을 채워 깊이를 만듦 ----
+    drawTallGrass(g, -S*2, W + S*2, H * 0.875, S, 3.7, [SCENE.bush[0], SCENE.bush[1], SCENE.grass.dark], 2);
     drawBushMass(g, -S*4, W + S*4, H * 0.86, H, S, 5.5, SCENE.bush);
+    drawTallGrass(g, -S*2, W + S*2, H * 0.985, S, 8.1, [SCENE.bush[2], SCENE.bush[3], SCENE.bush[4]], 2);
 
-    // 잔디밭에 흩뿌린 꽃
-    for (let i = 0; i < 18; i++) {
+    // 잔디밭에 흩뿌린 꽃 — 앞쪽일수록 크게
+    for (let i = 0; i < 26; i++) {
       const fx = prand(i * 2.7) * W;
-      const fy = horizon + H*0.22 + prand(i * 4.1) * (H*0.60);
-      if (fy > H * 0.88) continue;                      // 앞 수풀에 가려질 자리는 건너뜀
-      const sc = Math.max(2, Math.round(charS * (0.6 + prand(i*6.3) * 0.5)));
+      const fy = horizon + H*0.26 + prand(i * 4.1) * (H*0.58);
+      if (fy > H * 0.86) continue;                      // 앞 수풀에 가려질 자리는 건너뜀
+      const d = near(fx);
+      const sc = Math.max(2, Math.round(charS * (0.5 + d * 0.5 + prand(i*6.3) * 0.4)));
       drawSprite(g, SPRITES.flower, Math.round(fx/S)*S, Math.round(fy/S)*S, sc,
         { J: SCENE.petal[i % SCENE.petal.length] });
     }
@@ -280,7 +339,7 @@ buildChrome('home');
 
     // 사랑앵무 — 하늘을 천천히 가로지르며 날개를 퍼덕임.
     // 오르내림과 날갯짓 주기를 다르게 둬야 기계적으로 안 보임.
-    const budS = Math.max(2, S - 1);
+    const budS = Math.max(2, Math.round((S - 1) * 0.8));   // 기존 대비 80%
     const budX = ((0.02 + t * 0.03) % 1.3 - 0.16) * W;
     const budY = H * 0.13 + Math.sin(t * 0.9) * S * 5 - scrollY * 0.3;
     drawSprite(ctx, Math.sin(t * 7) > 0 ? SPRITES.budgieUp : SPRITES.budgieDown,
