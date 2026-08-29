@@ -46,6 +46,12 @@ buildChrome('board');
 
 const AUTHORS = { sua:'수아', yona:'연아', together:'같이' };
 let posts = [];
+const lightbox = createLightbox();
+
+// 사진이 있는 글만 모아서 라이트박스에서 앞뒤로 넘길 수 있게 함
+function photoPosts(){
+  return posts.filter(p => p.image_url);
+}
 
 async function loadPosts(){
   const { data, error } = await sb.from('posts').select('*').order('created_at', {ascending:false});
@@ -73,7 +79,21 @@ function render(){
         escapeHTML(formatDate(p.created_at)) +
       '</div>' +
       (p.body ? '<div class="body">' + escapeHTML(p.body) + '</div>' : '') +
-      (p.image_url ? '<img class="post-img" src="' + escapeHTML(p.image_url) + '" loading="lazy" alt="">' : '');
+      (p.image_url ? '<img class="post-img" src="' + escapeHTML(p.image_url) + '" loading="lazy" alt="' + escapeHTML(p.title) + '">' : '');
+
+    // 첨부 사진을 누르면 라이트박스로 크게 보기 (사진 있는 글끼리 앞뒤로 넘어감)
+    const img = el.querySelector('.post-img');
+    if (img) {
+      img.addEventListener('click', () => {
+        const withPhotos = photoPosts();
+        const idx = withPhotos.findIndex(x => x.id === p.id);
+        lightbox.open(withPhotos.map(x => ({
+          media_url: x.image_url,
+          media_type: 'image',
+          caption: x.title + ' · ' + formatDate(x.created_at),
+        })), Math.max(0, idx));
+      });
+    }
 
     if (isAdmin) {
       const actions = document.createElement('div');

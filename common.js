@@ -231,8 +231,19 @@ function createLightbox(){
     const multi = items.length > 1;
     prev.hidden = !multi; next.hidden = !multi;
   }
-  function open(list, i){ items = list; idx = i; lb.classList.add('open'); document.body.style.overflow = 'hidden'; render(); }
-  function close(){ lb.classList.remove('open'); document.body.style.overflow = ''; vid.pause(); }
+  function open(list, i){
+    items = list; idx = i;
+    lb.classList.add('open');
+    document.body.classList.add('lb-open');   // 헤더를 잠시 숨김
+    document.body.style.overflow = 'hidden';
+    render();
+  }
+  function close(){
+    lb.classList.remove('open');
+    document.body.classList.remove('lb-open');
+    document.body.style.overflow = '';
+    vid.pause();
+  }
   function go(d){ idx = (idx + d + items.length) % items.length; render(); }
 
   lb.addEventListener('click', e => { if (e.target === lb) close(); });
