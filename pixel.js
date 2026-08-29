@@ -24,6 +24,22 @@ const PAL = {
   J: '#ffb7d5', K: '#ff8fc0', L: '#fff3a0',
 };
 
+// 풍경을 여러 겹으로 그리기 위한 색 묶음.
+// 초록을 멀리(연함) → 가까이(진함) 순으로 여러 단계 둬야 깊이가 생김.
+const SCENE = {
+  sky:   ['#7cc0e8', '#a8d8f2', '#d6eefb', '#f4e6c8'],
+  cloud: { body:'#ffffff', mid:'#eaf4fd', shade:'#cfe4f5' },
+  sun:   { core:'#ffe07a', glow:'rgba(255,231,150,.30)' },
+  city:  ['#8fb4cf', '#7ea5c4', '#6f96b6'],           // 원경 건물 (공기원근법으로 흐릿하게)
+  hills: ['#bfe3ac', '#a3d493', '#84c078', '#69a860'], // 먼 언덕 → 가까운 언덕
+  grass: { base:'#5c9c54', tuft:'#4d8a48', light:'#7cb96e' },
+  bush:  ['#3f7d3c', '#356b34', '#2b592b'],            // 맨 앞 수풀 (가장 진함)
+  trunk: { light:'#c79b6d', mid:'#a97b4f', dark:'#8a5f3a', line:'#6f4a2c' },
+  leaf:  ['#5fa855', '#4e9147', '#3f7a3b', '#79bf6b'],
+  path:  ['#d9c49a', '#c9b083'],
+  petal: ['#ffb7d5', '#fff3a0', '#ffffff', '#ffc98a'],
+};
+
 // ---------- 스프라이트 ----------
 const SPRITES = {
   // 작은 구름 12x6
@@ -199,6 +215,47 @@ const SPRITES = {
     '..HHH..',
     '...H...',
   ],
+  // 그림 이젤 — 참조 이미지의 노트북 자리에 놓일, 이 사이트다운 소품 16x18
+  easel: [
+    '......FFFF......',
+    '.....FEEEEF.....',
+    '....FEEEEEEF....',
+    '...FEJJEEKKEF...',
+    '...FEJJEEKKEF...',
+    '...FEEEEEEEEF...',
+    '...FEEIIEELLF...',
+    '...FEEIIEELLF...',
+    '...FEEEEEEEEF...',
+    '...FFFFFFFFFF...',
+    '....q......q....',
+    '....q......q....',
+    '...q........q...',
+    '...q........q...',
+    '..q..........q..',
+    '..q..........q..',
+    '.q............q.',
+    '.q............q.',
+  ],
+  // 나무 벤치 18x9
+  bench: [
+    '..pppppppppppp..',
+    '..pppppppppppp..',
+    '................',
+    '..pppppppppppp..',
+    '..pppppppppppp..',
+    '..q..........q..',
+    '..q..........q..',
+    '..q..........q..',
+    '.qqq........qqq.',
+  ],
+  // 나비 7x5
+  butterfly: [
+    'J.....J',
+    'JJK.KJJ',
+    '.JKFKJ.',
+    'JJK.KJJ',
+    'J.....J',
+  ],
   // 별 9x9
   star: [
     '....G....',
@@ -258,6 +315,158 @@ function drawSkyBands(ctx, w, h, s, stops) {
     }
     ctx.fillStyle = color;
     ctx.fillRect(0, i * s, w, s);
+  }
+}
+
+// ---------- 풍경 그리기 도구 ----------
+// 새로고침할 때마다 그림이 달라지면 안 되므로 씨앗값으로 고정된 의사난수를 씀
+function prand(i){
+  const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+// 도트 느낌을 유지한 원 (안티앨리어싱 없이 계단식)
+function pixelCircle(ctx, cx, cy, r, s, color){
+  if (color) ctx.fillStyle = color;
+  for (let y = -r; y <= r; y += s) {
+    const half = Math.sqrt(Math.max(0, r*r - y*y));
+    ctx.fillRect(Math.round((cx-half)/s)*s, Math.round((cy+y)/s)*s, Math.round((half*2)/s)*s || s, s);
+  }
+}
+
+// 원을 여러 개 겹쳐 만든 뭉게구름. 아래쪽에 그림자색을 깔아 입체감을 냄.
+function drawFluffyCloud(ctx, cx, cy, scale, s, seed){
+  const blobs = [];
+  const n = 5 + Math.floor(prand(seed) * 3);
+  for (let i = 0; i < n; i++) {
+    blobs.push({
+      x: cx + (prand(seed + i * 7) - 0.5) * scale * 2.4,
+      y: cy + (prand(seed + i * 13) - 0.5) * scale * 0.5,
+      r: scale * (0.45 + prand(seed + i * 19) * 0.55),
+    });
+  }
+  ctx.fillStyle = SCENE.cloud.shade;
+  blobs.forEach(b => pixelCircle(ctx, b.x, b.y + scale * 0.22, b.r, s));
+  ctx.fillStyle = SCENE.cloud.mid;
+  blobs.forEach(b => pixelCircle(ctx, b.x, b.y + scale * 0.10, b.r, s));
+  ctx.fillStyle = SCENE.cloud.body;
+  blobs.forEach(b => pixelCircle(ctx, b.x, b.y - scale * 0.05, b.r * 0.92, s));
+}
+
+// 지평선 위의 원경 건물들. 멀수록 흐린 색을 써서 거리감을 만듦.
+function drawSkyline(ctx, baseY, W, s, seed){
+  let x = -20;
+  let i = 0;
+  while (x < W + 20) {
+    const r = prand(seed + i * 3);
+    const w = Math.round((10 + r * 18) / s) * s;
+    const h = Math.round((10 + prand(seed + i * 5) * 34) / s) * s;
+    const shade = SCENE.city[i % SCENE.city.length];
+    ctx.fillStyle = shade;
+    ctx.fillRect(Math.round(x/s)*s, Math.round((baseY - h)/s)*s, w, h);
+    // 창문 몇 개
+    ctx.fillStyle = 'rgba(255,255,255,.18)';
+    for (let wy = baseY - h + s*2; wy < baseY - s*2; wy += s*3) {
+      for (let wx = x + s; wx < x + w - s; wx += s*3) {
+        if (prand(wx * 0.7 + wy * 1.3 + seed) > 0.55) ctx.fillRect(Math.round(wx/s)*s, Math.round(wy/s)*s, s, s);
+      }
+    }
+    x += w + s * (1 + Math.floor(prand(seed + i * 11) * 2));
+    i++;
+  }
+}
+
+// 겹겹이 쌓인 수풀 덩어리. 화면 맨 앞을 채워서 깊이를 만드는 용도.
+function drawBushMass(ctx, x0, x1, yTop, yBot, s, seed, shades){
+  shades.forEach((color, layer) => {
+    ctx.fillStyle = color;
+    const step = s * (5 - layer);
+    const lift = layer * s * 3;
+    for (let x = x0, i = 0; x < x1; x += step, i++) {
+      const r = (s * 3) + prand(seed + i * 4.7 + layer * 31) * s * 5;
+      const y = yTop + lift + prand(seed + i * 2.3 + layer * 17) * (yBot - yTop) * 0.45;
+      pixelCircle(ctx, x, y, r, s);
+    }
+    ctx.fillRect(x0, yTop + lift + s * 4, x1 - x0, yBot - yTop);
+  });
+}
+
+// 잔디 위에 흩뿌리는 풀포기 — 밋밋한 초록 면을 덜 심심하게 만듦
+function drawGrassTufts(ctx, x0, x1, yTop, yBot, s, seed, density){
+  const n = Math.floor((x1 - x0) / s * (density || 0.10));
+  for (let i = 0; i < n; i++) {
+    const x = x0 + prand(seed + i * 3.1) * (x1 - x0);
+    const y = yTop + prand(seed + i * 5.9) * (yBot - yTop);
+    ctx.fillStyle = prand(seed + i * 7.7) > 0.5 ? SCENE.grass.tuft : SCENE.grass.light;
+    const px = Math.round(x/s)*s, py = Math.round(y/s)*s;
+    ctx.fillRect(px, py, s, s);
+    ctx.fillRect(px - s, py + s, s, s);
+    ctx.fillRect(px + s, py + s, s, s);
+  }
+}
+
+// 화면 오른쪽 가장자리를 타고 올라가 위쪽을 덮는 큰 나무.
+// 참조 이미지처럼 잎이 화면 위로 걸쳐 나가면서 장면을 감싸는 역할을 함.
+function drawBigTree(ctx, W, H, s){
+  // 줄기는 화면 밖에 걸쳐 두고 옆면만 살짝 보이게 — 참조 이미지처럼 잘린 느낌
+  const baseX = W * 1.04, topX = W * 1.00;
+  const baseW = s * 9, topW = s * 6;
+
+  for (let y = H; y > -s; y -= s) {
+    const t = 1 - (y / H);
+    const x = baseX + (topX - baseX) * t + Math.sin(t * 2.2) * s * 1.5;
+    const w = baseW + (topW - baseW) * t;
+    const px = Math.round((x - w/2)/s)*s, pw = Math.round(w/s)*s;
+    ctx.fillStyle = SCENE.trunk.mid;   ctx.fillRect(px, y, pw, s);
+    ctx.fillStyle = SCENE.trunk.light; ctx.fillRect(px, y, s, s);
+    if (prand(y * 0.37) > 0.7) {       // 껍질 결
+      ctx.fillStyle = SCENE.trunk.line;
+      ctx.fillRect(px + s * 2, y, s, s);
+    }
+  }
+
+  // 줄기에서 왼쪽 위로 뻗는 가지 — 끝으로 갈수록 가늘어지게
+  for (let i = 0; i < 26; i++) {
+    const t = i / 26;
+    const bx = W * 1.00 - i * s * 2.4;
+    const by = H * 0.17 + Math.sin(t * 1.4) * s * 5;
+    ctx.fillStyle = SCENE.trunk.dark;
+    ctx.fillRect(Math.round(bx/s)*s, Math.round(by/s)*s, s * 3, Math.max(s, Math.round((s * 2.5 * (1 - t))/s)*s));
+  }
+
+  // 잎 — 위쪽 오른편을 덮되, 진한 색을 먼저 넓게 깔고 밝은 색을 위에 얹어 입체감
+  const clusters = [
+    { cx:0.99, cy:0.06, r:1.35 }, { cx:0.90, cy:0.02, r:1.25 },
+    { cx:0.82, cy:0.09, r:1.05 }, { cx:0.73, cy:0.05, r:0.85 },
+    { cx:0.95, cy:0.20, r:1.00 }, { cx:0.85, cy:0.22, r:0.80 },
+    { cx:0.66, cy:0.13, r:0.60 },
+  ];
+  SCENE.leaf.forEach((color, li) => {
+    ctx.fillStyle = color;
+    clusters.forEach((c, ci) => {
+      const n = 10;
+      for (let i = 0; i < n; i++) {
+        const a = prand(li * 40 + ci * 13 + i * 3.3) * Math.PI * 2;
+        const d = prand(li * 70 + ci * 17 + i * 5.1) * s * 9 * c.r;
+        pixelCircle(ctx,
+          W * c.cx + Math.cos(a) * d * 1.6,
+          H * c.cy + Math.sin(a) * d - li * s * 1.5,
+          s * (4 + prand(li * 90 + ci * 23 + i) * 5) * c.r, s);
+      }
+    });
+  });
+}
+
+// 구불구불한 오솔길
+function drawPath(ctx, W, yTop, yBot, s, seed){
+  for (let y = yTop; y < yBot; y += s) {
+    const t = (y - yTop) / (yBot - yTop);
+    const cx = W * (0.30 + Math.sin(t * 2.2 + seed) * 0.10);
+    const w = s * (1.5 + t * 7);
+    ctx.fillStyle = SCENE.path[0];
+    ctx.fillRect(Math.round((cx - w/2)/s)*s, y, Math.round(w/s)*s, s);
+    ctx.fillStyle = SCENE.path[1];
+    ctx.fillRect(Math.round((cx - w/2)/s)*s, y, s, s);
   }
 }
 

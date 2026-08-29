@@ -151,14 +151,23 @@ buildChrome('home');
   let W = 0, H = 0, S = 4, t = 0, scrollY = 0;
 
   const clouds = [
-    { x:0.05, y:0.14, sp:0.012, sprite:'cloudL', sc:1.4, depth:0.25 },
-    { x:0.55, y:0.09, sp:0.020, sprite:'cloudS', sc:1.1, depth:0.35 },
-    { x:0.78, y:0.22, sp:0.009, sprite:'cloudL', sc:1.0, depth:0.18 },
-    { x:0.30, y:0.28, sp:0.016, sprite:'cloudS', sc:0.9, depth:0.45 },
+    { x:0.05, y:0.13, sp:0.010, sc:1.6, depth:0.20 },
+    { x:0.42, y:0.07, sp:0.016, sc:1.2, depth:0.30 },
+    { x:0.72, y:0.19, sp:0.008, sc:1.4, depth:0.16 },
+    { x:0.22, y:0.26, sp:0.014, sc:1.0, depth:0.40 },
+    { x:0.58, y:0.31, sp:0.011, sc:0.8, depth:0.50 },
+    { x:0.88, y:0.36, sp:0.006, sc:0.7, depth:0.55 },
+    { x:0.12, y:0.38, sp:0.019, sc:0.6, depth:0.60 },
   ];
   const birds = [
     { x:0.20, y:0.20, sp:0.05 }, { x:0.26, y:0.24, sp:0.05 }, { x:0.32, y:0.18, sp:0.05 },
   ];
+
+  // 배경은 매 프레임 다시 그리기엔 무거워서, 크기가 바뀔 때만 한 번 그려두고 재사용함.
+  // sky = 하늘(고정), ground = 언덕부터 앞쪽 수풀까지(스크롤에 따라 조금 밀림)
+  const skyLayer = document.createElement('canvas');
+  const groundLayer = document.createElement('canvas');
+  let horizon = 0, groundY = 0, charS = 4;
 
   function resize(){
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -167,12 +176,72 @@ buildChrome('home');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
     S = W < 640 ? 4 : 5;
+    horizon = H * 0.52;
+    groundY = H * 0.80;
+    charS = Math.max(2, Math.round(S * 0.85));
+
+    [skyLayer, groundLayer].forEach(c => {
+      c.width = Math.floor(W * dpr); c.height = Math.floor(H * dpr);
+      const g = c.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.imageSmoothingEnabled = false;
+      g.clearRect(0, 0, W, H);
+    });
+    paintSky();
+    paintGround();
   }
 
-  function pixelCircle(ctx, cx, cy, r, s){
-    for (let y = -r; y <= r; y += s) {
-      const half = Math.sqrt(Math.max(0, r*r - y*y));
-      ctx.fillRect(Math.round((cx-half)/s)*s, Math.round((cy+y)/s)*s, Math.round((half*2)/s)*s, s);
+  function paintSky(){
+    const g = skyLayer.getContext('2d');
+    drawSkyBands(g, W, H, S, [
+      { at:0.00, color:SCENE.sky[0] }, { at:0.45, color:SCENE.sky[1] },
+      { at:0.72, color:SCENE.sky[2] }, { at:1.00, color:SCENE.sky[3] },
+    ]);
+  }
+
+  function paintGround(){
+    const g = groundLayer.getContext('2d');
+    g.clearRect(0, 0, W, H);
+
+    // 원경: 흐린 건물 + 그 앞의 먼 언덕
+    // 가장 먼 산맥 → 건물 → 언덕 순으로 겹쳐 원근을 만듦
+    drawHill(g, [{freq:1.7,amp:34,phase:1.2},{freq:4.3,amp:14,phase:3.1}],
+      '#a9c4dc', S, horizon - H*0.06, W, H);
+    drawHill(g, [{freq:2.6,amp:26,phase:4.4}],
+      '#bcd3e6', S, horizon - H*0.03, W, H);
+    drawSkyline(g, horizon + S * 2, W, S, 3.7);
+    drawHill(g, [{freq:2.4,amp:22,phase:0.6},{freq:5.1,amp:8,phase:2.0}], SCENE.hills[0], S, horizon, W, H);
+    drawHill(g, [{freq:1.8,amp:26,phase:2.4},{freq:3.7,amp:10,phase:0.3}], SCENE.hills[1], S, horizon + H*0.06, W, H);
+    drawHill(g, [{freq:1.3,amp:22,phase:4.2}], SCENE.hills[2], S, horizon + H*0.13, W, H);
+
+    // 중경: 넓은 잔디밭 + 오솔길 + 풀포기
+    g.fillStyle = SCENE.hills[3];
+    g.fillRect(0, Math.round((horizon + H*0.19)/S)*S, W, H);
+    drawPath(g, W, horizon + H*0.20, H * 0.86, S, 1.1);
+    drawGrassTufts(g, 0, W, horizon + H*0.20, H * 0.95, S, 9.3, 0.14);
+
+    // 중경 소품: 멀리 있는 나무들, 집, 벤치
+    const bigS = Math.max(2, Math.round(S * 0.75));
+    drawSprite(g, SPRITES.tree,  Math.round(W*0.06/S)*S, groundY - H*0.16 - 16*bigS, bigS);
+    drawSprite(g, SPRITES.tree,  Math.round(W*0.17/S)*S, groundY - H*0.17 - 16*bigS, Math.max(2, bigS-1));
+    drawSprite(g, SPRITES.house, Math.round(W*0.60/S)*S, groundY - H*0.17 - 18*bigS, bigS);
+    drawSprite(g, SPRITES.tree,  Math.round(W*0.76/S)*S, groundY - H*0.16 - 16*bigS, bigS);
+    drawSprite(g, SPRITES.bench, Math.round(W*0.13/S)*S, groundY - H*0.02 - 9*charS, charS);
+
+    // 화면을 감싸는 큰 나무 (오른쪽) — 참조 이미지처럼 위쪽까지 잎이 걸치게
+    drawBigTree(g, W, H, S);
+
+    // 전경: 가장 진한 수풀로 아래쪽을 채워 깊이를 만듦
+    drawBushMass(g, -S*4, W + S*4, H * 0.86, H, S, 5.5, SCENE.bush);
+
+    // 잔디밭에 흩뿌린 꽃
+    for (let i = 0; i < 18; i++) {
+      const fx = prand(i * 2.7) * W;
+      const fy = horizon + H*0.22 + prand(i * 4.1) * (H*0.60);
+      if (fy > H * 0.88) continue;                      // 앞 수풀에 가려질 자리는 건너뜀
+      const sc = Math.max(2, Math.round(charS * (0.6 + prand(i*6.3) * 0.5)));
+      drawSprite(g, SPRITES.flower, Math.round(fx/S)*S, Math.round(fy/S)*S, sc,
+        { J: SCENE.petal[i % SCENE.petal.length] });
     }
   }
 
@@ -180,49 +249,47 @@ buildChrome('home');
     if (!W || !H) return;
     ctx.clearRect(0, 0, W, H);
 
-    drawSkyBands(ctx, W, H, S, [
-      { at:0.00, color:'#7cc0e8' }, { at:0.45, color:'#a8d8f2' },
-      { at:0.72, color:'#d6eefb' }, { at:1.00, color:'#f4e6c8' },
-    ]);
+    // 1) 하늘
+    ctx.drawImage(skyLayer, 0, 0, W, H);
 
+    // 2) 해 (은은하게 맥동)
     const sunR = (26 + Math.sin(t * 0.6) * 1.5) * (W < 640 ? 0.8 : 1);
-    const sunX = W * 0.82, sunY = H * 0.18 - scrollY * 0.10;
-    ctx.fillStyle = 'rgba(255,231,150,.35)'; pixelCircle(ctx, sunX, sunY, sunR * 1.7, S);
-    ctx.fillStyle = '#ffd979';               pixelCircle(ctx, sunX, sunY, sunR, S);
+    const sunX = W * 0.18, sunY = H * 0.15 - scrollY * 0.10;
+    ctx.fillStyle = SCENE.sun.glow; pixelCircle(ctx, sunX, sunY, sunR * 1.8, S);
+    ctx.fillStyle = SCENE.sun.core; pixelCircle(ctx, sunX, sunY, sunR, S);
 
-    clouds.forEach(c => {
-      const cx = ((c.x + t * c.sp) % 1.3 - 0.15) * W;
+    // 3) 구름 — 층마다 속도를 달리해 원근감
+    clouds.forEach((c, i) => {
+      const cx = ((c.x + t * c.sp) % 1.4 - 0.2) * W;
       const cy = c.y * H - scrollY * c.depth * 0.5;
-      drawSprite(ctx, SPRITES[c.sprite], Math.round(cx/S)*S, Math.round(cy/S)*S, Math.round(S * c.sc));
+      drawFluffyCloud(ctx, cx, cy, S * 7 * c.sc, S, i * 17 + 3);
     });
 
+    // 4) 새
     birds.forEach((b, i) => {
       const bx = ((b.x + t * b.sp) % 1.25 - 0.12) * W;
       const by = b.y * H + Math.sin(t * 2 + i) * 8 - scrollY * 0.3;
       drawSprite(ctx, SPRITES.bird, Math.round(bx/S)*S, Math.round(by/S)*S, Math.max(2, S - 2));
     });
 
-    const horizon = H * 0.62 + scrollY * 0.06;
-    drawHill(ctx, [{freq:2.2,amp:26,phase:0.6},{freq:5.1,amp:9,phase:2.0}], '#a8dba0', S, horizon, W, H);
-    drawHill(ctx, [{freq:1.6,amp:30,phase:2.4},{freq:3.7,amp:12,phase:0.3}], '#8ccb84', S, horizon + H*0.09, W, H);
-    drawHill(ctx, [{freq:1.1,amp:20,phase:4.2}], '#6fb567', S, horizon + H*0.20, W, H);
+    // 5) 땅 (스크롤에 따라 살짝 밀림)
+    const gy = Math.round(scrollY * 0.06 / S) * S;
+    ctx.drawImage(groundLayer, 0, gy, W, H);
 
-    const groundY = horizon + H * 0.20 - 10;
-    const bigS = Math.max(2, Math.round(S * 0.9));
-    drawSprite(ctx, SPRITES.tree,  Math.round(W*0.10/S)*S, groundY - 16*bigS, bigS);
-    drawSprite(ctx, SPRITES.house, Math.round(W*0.62/S)*S, groundY - 18*bigS, bigS);
-    drawSprite(ctx, SPRITES.tree,  Math.round(W*0.88/S)*S, groundY - 16*bigS, bigS);
-
-    const charS = Math.max(2, Math.round(S * 0.85));
+    // 6) 두 아이와 이젤 — 통통 튀는 모션
     const hop1 = Math.abs(Math.sin(t * 1.4)) * 4;
     const hop2 = Math.abs(Math.sin(t * 1.4 + 0.9)) * 4;
-    drawSprite(ctx, SPRITES.sua,  Math.round(W*0.34/S)*S, groundY - 18*charS - hop1, charS);
-    drawSprite(ctx, SPRITES.yona, Math.round(W*0.44/S)*S, groundY - 18*charS - hop2, charS);
+    const standY = groundY + gy - H * 0.03;
+    drawSprite(ctx, SPRITES.easel, Math.round(W*0.56/S)*S, standY - 18*charS, charS);
+    drawSprite(ctx, SPRITES.sua,   Math.round(W*0.34/S)*S, standY - 18*charS - hop1, charS);
+    drawSprite(ctx, SPRITES.yona,  Math.round(W*0.44/S)*S, standY - 18*charS - hop2, charS);
 
-    [0.05, 0.22, 0.28, 0.52, 0.72, 0.94].forEach((fx, i) => {
-      const sway = Math.sin(t * 1.1 + i) * 1.5;
-      drawSprite(ctx, SPRITES.flower, Math.round((W*fx + sway)/S)*S, groundY - 6*charS + (i%2)*6, charS);
-    });
+    // 7) 나비 — 8자를 그리며 떠다님
+    for (let i = 0; i < 3; i++) {
+      const bx = W * (0.22 + i * 0.26) + Math.sin(t * 0.7 + i * 2) * W * 0.06;
+      const by = groundY + gy - H * 0.10 + Math.sin(t * 1.5 + i) * S * 5;
+      drawSprite(ctx, SPRITES.butterfly, Math.round(bx/S)*S, Math.round(by/S)*S, Math.max(2, charS - 1));
+    }
   }
 
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
