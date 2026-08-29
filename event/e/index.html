@@ -18,6 +18,7 @@
 
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="/style.css" rel="stylesheet">
 <style>
   :root{
     --accent:#2f6f5e; --accent-rgb:47,111,94;
@@ -178,6 +179,30 @@
   body[data-theme="dark"] .item::after{background:rgba(255,255,255,.14);}
   body[data-theme="dark"] .prog-track{background:rgba(255,255,255,.1);}
   body[data-theme="dark"] .pill{background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.1);}
+
+  /* 공통 헤더가 화면 위에 고정되므로 그만큼 본문을 내림 */
+  body{
+    padding-top:calc(var(--header-h) + 18px); padding-bottom:0;
+    padding-left:var(--side-pad); padding-right:var(--side-pad);
+    --side-pad:16px;
+  }
+  /* body 좌우 여백만큼 되돌려 푸터를 화면 끝까지 펼침
+     (100vw 를 쓰면 세로 스크롤바 폭만큼 어긋나 가로 스크롤이 생김) */
+  footer.site{
+    margin-left:calc(var(--side-pad) * -1);
+    margin-right:calc(var(--side-pad) * -1);
+    margin-top:40px;
+  }
+  /* 공통 헤더/푸터가 이 페이지의 다크 테마를 따라가도록 */
+  body[data-theme="dark"] header.site{background:rgba(34,28,21,.9); border-bottom-color:#eee0c8;}
+  body[data-theme="dark"] header.site nav a{color:#a89d80;}
+  body[data-theme="dark"] header.site nav a:hover,
+  body[data-theme="dark"] header.site nav a.active{color:#2f2a24;}
+  body[data-theme="dark"] .menu-toggle{border-color:#eee0c8; color:#eee0c8;}
+  body[data-theme="dark"] .logo-text{color:#eee0c8;}
+  @media (max-width:860px){
+    body[data-theme="dark"] header.site nav{background:#221c15; border-bottom-color:#eee0c8;}
+  }
 </style>
 </head>
 <body data-theme="soft">
@@ -217,11 +242,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
 <script src="/event/compress.js"></script>
+<script src="/pixel.js"></script>
+<script src="/common.js"></script>
 <script>
-const SB_URL = 'https://ifiemaypzjwdrljmmkgb.supabase.co';
-const SB_KEY = 'sb_publishable_uhn46d4RFI5DeIUjtz3IRA_U9X8iPZj';
-const sb = supabase.createClient(SB_URL, SB_KEY);
-const $ = s => document.querySelector(s);
+buildChrome('event');
 
 const CONFIG = {
   eventSlug: new URLSearchParams(location.search).get('slug') || '',
@@ -268,7 +292,6 @@ function applyHeaderText(){
   document.title = CONFIG.orgName + ' · ' + CONFIG.eventName;
 }
 
-let isAdmin = false;
 async function refreshHubLink(){
   const { data: { session } } = await sb.auth.getSession();
   isAdmin = !!session;
