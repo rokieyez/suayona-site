@@ -26,6 +26,10 @@ const PAL = {
   M: '#a0562c', O: '#6b4226', N: '#f7e3bd',
   // 유튜브 빨강 (사이트 톤에 맞춰 살짝 낮춘 채도)
   R: '#e03e30',
+  // 남산타워 — 멀리 있으므로 흐린 회청색
+  S: '#dfe6ec', T: '#b3c0cc', U: '#8b9bab',
+  // 분홍 여우
+  P: '#ffb0c4', Q: '#5a3a24',
 };
 
 // 풍경을 여러 겹으로 그리기 위한 색 묶음.
@@ -276,6 +280,70 @@ const SPRITES = {
     '.FRRRRRRRRRRF.',
     '..FFFFFFFFFF..',
   ],
+  // 남산타워 11x26 (안테나 · 전망대 · 기둥 · 받침)
+  tower: [
+    '.....S.....',
+    '.....S.....',
+    '.....S.....',
+    '.....T.....',
+    '....STS....',
+    '....STS....',
+    '...SSTSS...',
+    '..SSSTSSS..',
+    '.SSSSTSSSS.',
+    '.SUUUUUUUS.',
+    '.SSSSSSSSS.',
+    '..UUUUUUU..',
+    '....STS....',
+    '....STS....',
+    '....STS....',
+    '....STS....',
+    '....STS....',
+    '....STS....',
+    '...SSTSS...',
+    '...SUTUS...',
+    '...SSTSS...',
+    '..SSSTSSS..',
+    '..SUUUUUS..',
+    '.SSSSSSSSS.',
+    '.SUUUUUUUS.',
+    'SSSSSSSSSSS',
+  ],
+  // 흰 병아리 캐릭터 12x17
+  chick: [
+    '...FFFFFF...',
+    '..FEEEEEEF..',
+    '.FEEEEEEEEF.',
+    'FEEEEEEEEEEF',
+    'FEEFEEEEFEEF',
+    'FEEEEEEEEEEF',
+    'FEEEEhhEEEEF',
+    'FEEEEhhEEEEF',
+    'FEEEEEhEEEEF',
+    '.FEEEEEEEEF.',
+    '..FFEEEEFF..',
+    '...FEEEEF...',
+    '..FEEEEEEF..',
+    '.FEEEEEEEEF.',
+    '.FEEEEEEEEF.',
+    '..FEEEEEEF..',
+    '...FF..FF...',
+  ],
+  // 분홍 여우 18x12 (왼쪽에 갈색 끝 꼬리)
+  fox: [
+    '......FF......FF..',
+    '.....FPPF....FPPF.',
+    '.....FPPPFFFFPPPF.',
+    '....FPPPPPPPPPPPPF',
+    '....FEEEPPPPPPEEEF',
+    '....FEEFEEPPEEFEEF',
+    '.FF.FEEEEEFFEEEEEF',
+    'FQQFFEEEEEEEEEEEEF',
+    'FQPF.FEEEEEEEEEEF.',
+    '.FF...FFPPF..FPPFF',
+    '......FPPF...FPPF.',
+    '......FFFF...FFFF.',
+  ],
   // 나비 7x5
   butterfly: [
     'J.....J',
@@ -483,6 +551,23 @@ function drawBigTree(ctx, W, H, s){
       }
     });
   });
+}
+
+// 계단식 산봉우리. 능선을 살짝 흔들어 밋밋하지 않게 함.
+// 꼭대기 좌표를 돌려줘서 그 위에 타워를 올릴 수 있게 함.
+function drawMountain(ctx, cx, baseY, halfW, height, s, colors, seed){
+  const peakY = baseY - height;
+  for (let x = cx - halfW; x <= cx + halfW; x += s) {
+    const t = Math.abs(x - cx) / halfW;              // 0(꼭대기) ~ 1(기슭)
+    const jag = Math.sin((x + seed * 37) * 0.06) * s * 1.5;
+    const top = Math.round((peakY + Math.pow(t, 1.45) * height + jag) / s) * s;
+    ctx.fillStyle = colors.body;
+    ctx.fillRect(Math.round(x / s) * s, top, s, baseY - top);
+    // 능선 왼쪽에 빛, 오른쪽에 그늘
+    ctx.fillStyle = x < cx ? colors.light : colors.shade;
+    ctx.fillRect(Math.round(x / s) * s, top, s, s * 2);
+  }
+  return { x: cx, y: peakY };
 }
 
 // 구불구불한 오솔길

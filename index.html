@@ -202,11 +202,19 @@ buildChrome('home');
     g.clearRect(0, 0, W, H);
 
     // 원경: 흐린 건물 + 그 앞의 먼 언덕
-    // 가장 먼 산맥 → 건물 → 언덕 순으로 겹쳐 원근을 만듦
-    drawHill(g, [{freq:1.7,amp:34,phase:1.2},{freq:4.3,amp:14,phase:3.1}],
-      '#a9c4dc', S, horizon - H*0.06, W, H);
-    drawHill(g, [{freq:2.6,amp:26,phase:4.4}],
-      '#bcd3e6', S, horizon - H*0.03, W, H);
+    // 원경: 산맥 → 남산(타워) → 건물 → 언덕 순으로 겹쳐 원근을 만듦
+    drawHill(g, [{freq:1.7,amp:40,phase:1.2},{freq:4.3,amp:16,phase:3.1}],
+      '#b6cade', S, horizon - H*0.10, W, H);
+
+    const peak = drawMountain(g, W * 0.30, horizon + H*0.05, W * 0.30, H * 0.30, S,
+      { body:'#9db6cd', light:'#b3c8da', shade:'#89a2ba' }, 2.4);
+    // 꼭대기에 남산타워
+    const tw = SPRITES.tower[0].length, th = SPRITES.tower.length;
+    const ts = Math.max(2, Math.round(S * 0.7));
+    drawSprite(g, SPRITES.tower,
+      Math.round((peak.x - tw * ts / 2) / S) * S,
+      Math.round((peak.y - th * ts + S * 2) / S) * S, ts);
+
     drawSkyline(g, horizon + S * 2, W, S, 3.7);
     drawHill(g, [{freq:2.4,amp:22,phase:0.6},{freq:5.1,amp:8,phase:2.0}], SCENE.hills[0], S, horizon, W, H);
     drawHill(g, [{freq:1.8,amp:26,phase:2.4},{freq:3.7,amp:10,phase:0.3}], SCENE.hills[1], S, horizon + H*0.06, W, H);
@@ -283,6 +291,14 @@ buildChrome('home');
     drawSprite(ctx, SPRITES.easel, Math.round(W*0.62/S)*S, footY(SPRITES.easel), charS);
     drawSprite(ctx, SPRITES.sua,   Math.round(W*0.28/S)*S, footY(SPRITES.sua)  - hop1, charS);
     drawSprite(ctx, SPRITES.yona,  Math.round(W*0.43/S)*S, footY(SPRITES.yona) - hop2, charS);
+
+    // 친구 캐릭터 둘 — 아이들 곁에서 같이 통통 튐
+    const petS = Math.max(2, Math.round(charS * 0.85));
+    const hop3 = Math.abs(Math.sin(t * 1.6 + 1.8)) * 3;
+    drawSprite(ctx, SPRITES.chick, Math.round(W*0.18/S)*S,
+      standY - SPRITES.chick.length * petS - hop3, petS);
+    drawSprite(ctx, SPRITES.fox,   Math.round(W*0.53/S)*S,
+      standY - SPRITES.fox.length * petS, petS);
 
     // 7) 나비 — 8자를 그리며 떠다님
     for (let i = 0; i < 3; i++) {
