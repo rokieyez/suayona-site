@@ -280,9 +280,11 @@ buildChrome('home');
     const hop1 = Math.abs(Math.sin(t * 1.4)) * 4;
     const hop2 = Math.abs(Math.sin(t * 1.4 + 0.9)) * 4;
     const standY = groundY + gy - H * 0.03;
-    drawSprite(ctx, SPRITES.easel, Math.round(W*0.56/S)*S, standY - 18*charS, charS);
-    drawSprite(ctx, SPRITES.sua,   Math.round(W*0.34/S)*S, standY - 18*charS - hop1, charS);
-    drawSprite(ctx, SPRITES.yona,  Math.round(W*0.44/S)*S, standY - 18*charS - hop2, charS);
+    // 스프라이트 높이가 바뀌어도 발이 땅에 붙도록 sprite.length 로 계산
+    const footY = sp => standY - sp.length * charS;
+    drawSprite(ctx, SPRITES.easel, Math.round(W*0.62/S)*S, footY(SPRITES.easel), charS);
+    drawSprite(ctx, SPRITES.sua,   Math.round(W*0.28/S)*S, footY(SPRITES.sua)  - hop1, charS);
+    drawSprite(ctx, SPRITES.yona,  Math.round(W*0.43/S)*S, footY(SPRITES.yona) - hop2, charS);
 
     // 7) 나비 — 8자를 그리며 떠다님
     for (let i = 0; i < 3; i++) {
