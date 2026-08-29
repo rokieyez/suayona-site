@@ -147,20 +147,23 @@ footer.site canvas{display:inline-block; vertical-align:middle;}
 }
 .tag.sua{background:var(--coral); color:#fff;}
 .tag.yona{background:var(--mint); color:#fff;}
+.tag.private{background:var(--ink); color:#fff;}
 
 /* 필터 버튼 줄 */
 .filters{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:26px;}
 
 /* ===== 라이트박스 ===== */
+/* 사진을 화면 가로에 꽉 채우고, 세로로 긴 사진은 웹툰처럼 스크롤해서 봄 */
 .lightbox{
-  display:none; position:fixed; inset:0; z-index:100; background:rgba(30,26,22,.92);
-  align-items:center; justify-content:center; flex-direction:column; padding:24px;
+  display:none; position:fixed; inset:0; z-index:100; background:rgba(30,26,22,.95);
+  align-items:flex-start; justify-content:flex-start; flex-direction:column; padding:0;
+  overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;
 }
 .lightbox.open{display:flex;}
 /* 라이트박스가 열려 있는 동안엔 고정 헤더를 숨겨서 사진에 집중되게 함 */
 body.lb-open header.site{opacity:0; pointer-events:none;}
-.lightbox img, .lightbox video{max-width:100%; max-height:78vh; border:var(--px) solid #fff;}
-.lightbox-cap{color:#fff; font-size:13px; margin-top:14px; text-align:center; opacity:.9;}
+.lightbox img, .lightbox video{width:100%; max-width:100%; height:auto; max-height:none; border:none;}
+.lightbox-cap{color:#fff; font-size:13px; padding:14px 20px 30px; width:100%; text-align:center; opacity:.9;}
 .lightbox-nav{
   position:fixed; top:50%; transform:translateY(-50%); z-index:101;
   width:44px; height:44px; border:var(--px) solid #fff; background:rgba(255,255,255,.14);

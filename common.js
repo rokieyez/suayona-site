@@ -230,6 +230,7 @@ function createLightbox(){
     cap.textContent = (it.caption || '') + pos;
     const multi = items.length > 1;
     prev.hidden = !multi; next.hidden = !multi;
+    lb.scrollTop = 0;   // 사진을 넘길 때마다 맨 위부터 보이게
   }
   function open(list, i){
     items = list; idx = i;

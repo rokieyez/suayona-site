@@ -71,6 +71,36 @@ $$('canvas[data-icon]').forEach(cv => {
   drawSprite(ctx, sp, Math.floor((cv.width - w*s)/2), Math.floor((cv.height - h*s)/2), s);
 });
 
+// ---------- 메일로도 받기 ----------
+// 정적 사이트(브라우저)에서는 메일을 직접 보낼 수 없어서, 무료 중계 서비스를 하나 거칩니다.
+//  1) https://web3forms.com 에서 rokiz@naver.com 을 입력하면 Access Key 를 메일로 보내줍니다
+//  2) 받은 키를 아래 WEB3FORMS_KEY 에 붙여넣으면 그때부터 메일이 옵니다
+// 키가 비어 있어도 메시지는 항상 아래 Supabase 에 저장되므로 유실되지 않습니다.
+const WEB3FORMS_KEY = '';                 // ← 여기에 키를 붙여넣으세요
+const CONTACT_EMAIL = 'rokiz@naver.com';
+
+async function sendMail({ name, contact, body }){
+  if (!WEB3FORMS_KEY) return { sent:false, reason:'key-missing' };
+  try {
+    const res = await fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
+      body: JSON.stringify({
+        access_key: WEB3FORMS_KEY,
+        subject: '[수아·연아 홈페이지] ' + (name || '이름 없음') + '님의 메시지',
+        from_name: '수아·연아 홈페이지',
+        이름: name || '(없음)',
+        답장받을곳: contact || '(없음)',
+        내용: body,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { sent: !!data.success, reason: data.message };
+  } catch (e) {
+    return { sent:false, reason: (e && e.message) || String(e) };
+  }
+}
+
 // ---------- 메시지 보내기 ----------
 $('#cSend').addEventListener('click', async () => {
   const msg = $('#cMsg'), btn = $('#cSend');
@@ -78,15 +108,21 @@ $('#cSend').addEventListener('click', async () => {
   const body = $('#cBody').value.trim();
   if (!body) { msg.className = 'msg err'; msg.textContent = '하고 싶은 말을 적어주세요.'; return; }
 
-  btn.disabled = true; msg.textContent = '보내는 중...';
-  const { error } = await sb.from('messages').insert({
-    name: $('#cName').value.trim() || null,
-    contact: $('#cContact').value.trim() || null,
-    body,
-  });
-  btn.disabled = false;
-  if (error) { msg.className = 'msg err'; msg.textContent = '실패: ' + error.message; return; }
+  const name = $('#cName').value.trim() || null;
+  const contact = $('#cContact').value.trim() || null;
 
+  btn.disabled = true; msg.textContent = '보내는 중...';
+
+  // 저장이 우선 — 메일 중계가 실패해도 메시지는 남아 있음
+  const { error } = await sb.from('messages').insert({ name, contact, body });
+  if (error) {
+    btn.disabled = false;
+    msg.className = 'msg err'; msg.textContent = '실패: ' + error.message;
+    return;
+  }
+  await sendMail({ name, contact, body });
+
+  btn.disabled = false;
   msg.className = 'msg ok'; msg.textContent = '보냈어요! 고마워요 :)';
   $('#cName').value = ''; $('#cContact').value = ''; $('#cBody').value = '';
 });

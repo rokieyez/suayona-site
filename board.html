@@ -54,7 +54,10 @@ function photoPosts(){
 }
 
 async function loadPosts(){
-  const { data, error } = await sb.from('posts').select('*').order('created_at', {ascending:false});
+  // 비공개 글은 로그인한 사람에게만 보임 (서버 정책에서도 한 번 더 막혀 있음)
+  let q = sb.from('posts').select('*').order('created_at', {ascending:false});
+  if (!isAdmin) q = q.eq('is_public', true);
+  const { data, error } = await q;
   if (error) {
     $('#empty').style.display = 'block';
     $('#empty').textContent = '불러오기 실패: ' + error.message;
@@ -76,6 +79,7 @@ function render(){
       '<h3>' + escapeHTML(p.title) + '</h3>' +
       '<div class="meta">' +
         '<span class="tag ' + escapeHTML(p.author) + '">' + (AUTHORS[p.author] || '같이') + '</span> ' +
+        (p.is_public === false ? '<span class="tag private">🔒 비공개</span> ' : '') +
         escapeHTML(formatDate(p.created_at)) +
       '</div>' +
       (p.body ? '<div class="body">' + escapeHTML(p.body) + '</div>' : '') +
@@ -129,7 +133,7 @@ function renderAdminArea(){
     btn.textContent = '✏️ 글 쓰기 (로그인)';
     btn.addEventListener('click', () => {
       btn.remove();
-      mountLoginBox(box, () => renderAdminArea());
+      mountLoginBox(box, () => { renderAdminArea(); loadPosts(); });
     });
     box.appendChild(btn);
     area.appendChild(box);
@@ -137,7 +141,7 @@ function renderAdminArea(){
     return;
   }
 
-  mountAdminBar(area, () => renderAdminArea());
+  mountAdminBar(area, () => { renderAdminArea(); loadPosts(); });
 
   const box = document.createElement('div');
   box.className = 'write-box dot-card';
@@ -146,6 +150,11 @@ function renderAdminArea(){
       '<h3>✏️ 새 글 쓰기</h3>' +
       '<label class="field">누가 쓰나요</label>' +
       '<select id="pAuthor"><option value="sua">수아</option><option value="yona">연아</option><option value="together">같이</option></select>' +
+      '<label class="field">공개 설정</label>' +
+      '<select id="pPublic">' +
+        '<option value="true">🌏 공개 — 누구나 볼 수 있어요</option>' +
+        '<option value="false">🔒 비공개 — 로그인해야 볼 수 있어요</option>' +
+      '</select>' +
       '<label class="field">제목</label><input type="text" id="pTitle" placeholder="예: 오늘 학교에서">' +
       '<label class="field">내용</label><textarea id="pBody" placeholder="자유롭게 적어보세요"></textarea>' +
       '<label class="field">사진 (선택)</label><input type="file" id="pImage" accept="image/*">' +
@@ -171,6 +180,7 @@ function renderAdminArea(){
       msg.textContent = '저장 중...';
       const { error } = await sb.from('posts').insert({
         author: $('#pAuthor').value,
+        is_public: $('#pPublic').value === 'true',
         title,
         body: $('#pBody').value.trim() || null,
         image_url,

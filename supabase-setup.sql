@@ -40,14 +40,16 @@ create table if not exists posts (
   title text not null,
   body text,
   image_url text,
+  is_public boolean not null default true,   -- false 면 로그인한 사람만 볼 수 있음
   created_at timestamptz default now()
 );
 
 alter table posts enable row level security;
 
-create policy "public can read posts"
+-- 공개 글은 누구나, 비공개 글은 로그인한 사람만
+create policy "public can read public posts"
   on posts for select
-  using (true);
+  using (is_public = true or auth.role() = 'authenticated');
 
 create policy "authenticated can write posts"
   on posts for all
