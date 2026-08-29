@@ -282,28 +282,37 @@ buildChrome('home');
     const gy = Math.round(scrollY * 0.06 / S) * S;
     ctx.drawImage(groundLayer, 0, gy, W, H);
 
-    // 6) 두 아이와 이젤 — 통통 튀는 모션
+    // 6) 두 아이와 친구들 — 통통 튀는 모션
     const hop1 = Math.abs(Math.sin(t * 1.4)) * 4;
     const hop2 = Math.abs(Math.sin(t * 1.4 + 0.9)) * 4;
-    const standY = groundY + gy - H * 0.03;
-    // 스프라이트 높이가 바뀌어도 발이 땅에 붙도록 sprite.length 로 계산
-    const footY = sp => standY - sp.length * charS;
-    drawSprite(ctx, SPRITES.easel, Math.round(W*0.62/S)*S, footY(SPRITES.easel), charS);
-    drawSprite(ctx, SPRITES.sua,   Math.round(W*0.28/S)*S, footY(SPRITES.sua)  - hop1, charS);
-    drawSprite(ctx, SPRITES.yona,  Math.round(W*0.43/S)*S, footY(SPRITES.yona) - hop2, charS);
-
-    // 친구 캐릭터 둘 — 아이들 곁에서 같이 통통 튐
-    const petS = Math.max(2, Math.round(charS * 0.85));
     const hop3 = Math.abs(Math.sin(t * 1.6 + 1.8)) * 3;
-    drawSprite(ctx, SPRITES.chick, Math.round(W*0.18/S)*S,
-      standY - SPRITES.chick.length * petS - hop3, petS);
-    drawSprite(ctx, SPRITES.fox,   Math.round(W*0.53/S)*S,
-      standY - SPRITES.fox.length * petS, petS);
+    const standY = groundY + gy - H * 0.03;
+    const petS = Math.max(2, Math.round(charS * 0.85));
+
+    // 좌표를 화면 비율로 박아두면 스프라이트 크기를 바꿀 때마다 서로 겹침.
+    // 실제 폭을 재서 가운데 정렬로 늘어놓고, 발끝은 sprite.length 로 맞춤.
+    const cast = [
+      { sp: SPRITES.chick, s: petS,  bob: hop3 },
+      { sp: SPRITES.sua,   s: charS, bob: hop1 },
+      { sp: SPRITES.yona,  s: charS, bob: hop2 },
+      { sp: SPRITES.fox,   s: petS,  bob: 0 },
+      { sp: SPRITES.easel, s: charS, bob: 0 },
+    ];
+    const castW = cast.reduce((n, c) => n + c.sp[0].length * c.s, 0);
+    // 넓은 화면에서 화면 폭을 다 쓰면 뿔뿔이 흩어져 보여서 간격에 상한을 둠
+    const gap = Math.max(0, Math.min(charS * 7,
+      Math.round((W * 0.94 - castW) / (cast.length - 1))));
+    let cx = Math.round((W - (castW + gap * (cast.length - 1))) / 2 / S) * S;
+    cast.forEach(c => {
+      drawSprite(ctx, c.sp, cx, standY - c.sp.length * c.s - c.bob, c.s);
+      cx += c.sp[0].length * c.s + gap;
+    });
 
     // 7) 나비 — 8자를 그리며 떠다님
     for (let i = 0; i < 3; i++) {
       const bx = W * (0.22 + i * 0.26) + Math.sin(t * 0.7 + i * 2) * W * 0.06;
-      const by = groundY + gy - H * 0.10 + Math.sin(t * 1.5 + i) * S * 5;
+      // 아이들 머리 위로 띄움 — 얼굴 높이면 표정을 가림
+      const by = groundY + gy - H * 0.19 + Math.sin(t * 1.5 + i) * S * 5;
       drawSprite(ctx, SPRITES.butterfly, Math.round(bx/S)*S, Math.round(by/S)*S, Math.max(2, charS - 1));
     }
   }
