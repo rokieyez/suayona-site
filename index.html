@@ -298,9 +298,13 @@ buildChrome('home');
       { sp: SPRITES.fox,   s: petS,  bob: 0 },
       { sp: SPRITES.easel, s: charS, bob: 0 },
     ];
+    // 좁은 화면에서는 캐릭터를 통째로 한 단계씩 줄여 가로로 넘치지 않게 함
+    while (cast[0].s > 2 && cast.reduce((n, c) => n + c.sp[0].length * c.s, 0) > W * 0.92) {
+      cast.forEach(c => c.s -= 1);
+    }
     const castW = cast.reduce((n, c) => n + c.sp[0].length * c.s, 0);
     // 넓은 화면에서 화면 폭을 다 쓰면 뿔뿔이 흩어져 보여서 간격에 상한을 둠
-    const gap = Math.max(0, Math.min(charS * 7,
+    const gap = Math.max(0, Math.min(cast[1].s * 7,
       Math.round((W * 0.94 - castW) / (cast.length - 1))));
     let cx = Math.round((W - (castW + gap * (cast.length - 1))) / 2 / S) * S;
     cast.forEach(c => {
