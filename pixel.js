@@ -24,6 +24,8 @@ const PAL = {
   J: '#ffb7d5', K: '#ff8fc0', L: '#fff3a0',
   // 캐릭터 (티셔츠 그림 기준) — M:연아 머리(적갈색), O:수아 머리(진갈색), N:얼굴(크림)
   M: '#a0562c', O: '#6b4226', N: '#f7e3bd',
+  // 유튜브 빨강 (사이트 톤에 맞춰 살짝 낮춘 채도)
+  R: '#e03e30',
 };
 
 // 풍경을 여러 겹으로 그리기 위한 색 묶음.
@@ -259,6 +261,20 @@ const SPRITES = {
     '..q..........q..',
     '..q..........q..',
     '.qqq........qqq.',
+  ],
+  // 유튜브 아이콘 14x11 (모서리 깎은 사각형 + 오른쪽을 향한 재생 삼각형)
+  youtube: [
+    '..FFFFFFFFFF..',
+    '.FRRRRRRRRRRF.',
+    'FRRRRERRRRRRRF',
+    'FRRRREERRRRRRF',
+    'FRRRREEERRRRRF',
+    'FRRRREEEERRRRF',
+    'FRRRREEERRRRRF',
+    'FRRRREERRRRRRF',
+    'FRRRRERRRRRRRF',
+    '.FRRRRRRRRRRF.',
+    '..FFFFFFFFFF..',
   ],
   // 나비 7x5
   butterfly: [

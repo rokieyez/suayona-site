@@ -115,7 +115,9 @@ footer.site{
   font-size:12.5px; line-height:1.9;
 }
 footer.site a{color:var(--lemon); text-decoration:none;}
-footer.site canvas{display:inline-block; vertical-align:middle;}
+footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:pixelated;}
+.foot-link{display:inline-flex; transition:transform .15s steps(2);}
+.foot-link:hover{transform:translateY(-3px);}
 
 /* ===== 관리자(로그인) 영역 ===== */
 .admin-bar{

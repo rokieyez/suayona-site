@@ -47,19 +47,22 @@ function buildChrome(activeKey){
   const footer = document.createElement('footer');
   footer.className = 'site';
   footer.innerHTML =
-    '<canvas id="footHeart" width="28" height="24"></canvas>' +
-    '<div class="pixel" style="margin-top:8px;">수아 · 연아</div>' +
+    '<a class="foot-link" href="https://www.youtube.com/@sooayeonatv" target="_blank" rel="noopener"' +
+      ' aria-label="수아연아TV 유튜브 채널" title="수아연아TV 유튜브 채널">' +
+      '<canvas id="footYoutube" width="42" height="33"></canvas>' +
+    '</a>' +
+    '<div class="pixel" style="margin-top:8px;">수아연아TV</div>' +
     '<div>© 2026 suayona.com</div>';
   document.body.appendChild(footer);
 
-  // 로고/푸터 하트 도트 찍기
+  // 로고 하트 · 푸터 유튜브 아이콘 도트 찍기
   if (typeof SPRITES !== 'undefined') {
     const lc = $('#logoCanvas').getContext('2d');
     lc.imageSmoothingEnabled = false;
     drawSprite(lc, SPRITES.heart, 1, 3, 5);
-    const fc = $('#footHeart').getContext('2d');
-    fc.imageSmoothingEnabled = false;
-    drawSprite(fc, SPRITES.heart, 0, 0, 4);
+    const yc = $('#footYoutube').getContext('2d');
+    yc.imageSmoothingEnabled = false;
+    drawSprite(yc, SPRITES.youtube, 0, 0, 3);
   }
 
   // 모바일 메뉴
