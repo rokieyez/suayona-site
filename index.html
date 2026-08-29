@@ -30,10 +30,6 @@
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     text-align:center; padding:80px 20px 0; gap:14px;
   }
-  .hero-badge{
-    font-size:12px; padding:6px 14px; background:var(--lemon);
-    border:var(--px) solid var(--ink); box-shadow:var(--px) var(--px) 0 var(--ink);
-  }
   .hero h1{
     margin:0; font-size:clamp(38px, 9vw, 76px); font-weight:800; line-height:1.1;
     color:#fff; text-shadow:var(--px) var(--px) 0 rgba(47,42,36,.55);
@@ -42,7 +38,7 @@
     margin:0; font-size:clamp(14px, 3.4vw, 17px); font-weight:600; color:#fff;
     text-shadow:2px 2px 0 rgba(47,42,36,.5);
   }
-  .hero-actions{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:8px;}
+  .hero-actions{display:flex; gap:9px; flex-wrap:wrap; justify-content:center; margin-top:10px; max-width:520px;}
   .scroll-cue{
     position:absolute; bottom:26px; left:50%; transform:translateX(-50%); z-index:2;
     font-size:11px; color:#fff; text-shadow:2px 2px 0 rgba(47,42,36,.5);
@@ -73,12 +69,14 @@
 <section class="hero" id="top">
   <canvas id="heroCanvas"></canvas>
   <div class="hero-copy">
-    <span class="hero-badge pixel">SUA &amp; YONA</span>
     <h1 class="pixel">수아랑 연아랑</h1>
     <p>그리고, 만들고, 기록하는<br>수아와 연아의 작은 홈페이지</p>
     <div class="hero-actions">
       <a class="dot-btn primary" href="./portfolio.html">작품 보러가기</a>
       <a class="dot-btn" href="./about.html">소개</a>
+      <a class="dot-btn" href="./board.html">일기장</a>
+      <a class="dot-btn" href="./event/">이벤트</a>
+      <a class="dot-btn" href="./contact.html">컨택트</a>
     </div>
   </div>
   <div class="scroll-cue pixel">▼ SCROLL</div>

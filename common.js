@@ -64,8 +64,19 @@ function buildChrome(activeKey){
 
   // 모바일 메뉴
   const nav = $('#nav');
-  $('#menuToggle').addEventListener('click', () => nav.classList.toggle('open'));
+  const toggle = $('#menuToggle');
+  toggle.addEventListener('click', e => { e.stopPropagation(); nav.classList.toggle('open'); });
   nav.addEventListener('click', e => { if (e.target.tagName === 'A') nav.classList.remove('open'); });
+
+  // 메뉴 밖 아무 곳이나 누르면 닫히도록 (ESC 로도 닫힘)
+  document.addEventListener('click', e => {
+    if (!nav.classList.contains('open')) return;
+    if (nav.contains(e.target) || toggle.contains(e.target)) return;
+    nav.classList.remove('open');
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') nav.classList.remove('open');
+  });
 
   // 아래로 스크롤하면 헤더 숨김
   let last = 0;
