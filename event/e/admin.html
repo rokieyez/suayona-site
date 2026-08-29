@@ -135,6 +135,10 @@
   body[data-theme="dark"] header.site nav a.active{color:#2f2a24;}
   body[data-theme="dark"] .menu-toggle{border-color:#eee0c8; color:#eee0c8;}
   body[data-theme="dark"] .logo-text{color:#eee0c8;}
+  /* 다크모드는 --ink 를 밝은 색으로 뒤집기 때문에 푸터 배경까지 밝아짐.
+     푸터는 원래 색 그대로 두도록 값을 고정함. */
+  body[data-theme="dark"] footer.site{background:#3a3226; color:#e9e2d6;}
+  body[data-theme="dark"] footer.site a{color:#ffd979;}
   @media (max-width:860px){
     body[data-theme="dark"] header.site nav{background:#221c15; border-bottom-color:#eee0c8;}
   }
