@@ -438,7 +438,7 @@ function updateProgress(){
     const day = Math.floor((now-start)/86400000) + 1;
     txt.textContent = '일정 ' + day + '일째 · ' + pct + '% 진행';
   } else {
-    dd.textContent = '모든 일정이 무사히 마무리됐습니다 🎉';
+    dd.textContent = '일정이 끝났습니다';
     applyWidth(100);
     txt.textContent = '모든 일정 마침 · 100%';
   }
