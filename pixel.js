@@ -182,7 +182,7 @@ const SPRITES = {
     '.FFFFEEFFFF.',
     '....FFF.....',
   ],
-  // 편지 (컨택트 아이콘) 12x9
+  // 편지 (편지쓰기 아이콘) 12x9
   mail: [
     'FFFFFFFFFFFF',
     'FEEEEEEEEEEF',
