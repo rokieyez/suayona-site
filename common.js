@@ -16,7 +16,7 @@ const MENU = [
   { href: '/',              label: '홈',        key: 'home' },
   { href: '/about.html',    label: '소개',      key: 'about' },
   { href: '/portfolio.html',label: '포트폴리오', key: 'portfolio' },
-  { href: '/board.html',    label: '게시판',    key: 'board' },
+  { href: '/board.html',    label: '일기장',    key: 'board' },
   { href: '/event.html',    label: '이벤트',    key: 'event' },
   { href: '/contact.html',  label: '컨택트',    key: 'contact' },
 ];

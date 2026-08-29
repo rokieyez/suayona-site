@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>게시판 · 수아 · 연아</title>
-<meta property="og:title" content="게시판 · 수아 · 연아">
-<meta property="og:description" content="수아와 연아가 남기는 이야기">
+<title>일기장 · 수아랑 연아랑</title>
+<meta property="og:title" content="일기장 · 수아랑 연아랑">
+<meta property="og:description" content="수아와 연아가 쓰는 일기">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://www.suayona.com/og-image.jpg">
 <meta name="twitter:card" content="summary_large_image">
@@ -26,15 +26,15 @@
 <main class="page-top section-pad">
   <div class="wrap">
     <div class="section-head reveal">
-      <span class="eyebrow pixel">BOARD</span>
-      <h2>게시판</h2>
-      <p>오늘 있었던 일, 하고 싶은 말을 남기는 공간이에요.</p>
+      <span class="eyebrow pixel">DIARY</span>
+      <h2>일기장</h2>
+      <p>오늘 있었던 일, 하고 싶은 말을 적어두는 공간이에요.</p>
     </div>
 
     <div id="adminArea"></div>
 
     <div class="posts" id="posts"></div>
-    <div class="empty-msg" id="empty" style="display:none;">아직 쓴 글이 없어요</div>
+    <div class="empty-msg" id="empty" style="display:none;">아직 쓴 일기가 없어요</div>
   </div>
 </main>
 
@@ -102,15 +102,26 @@ function render(){
     if (isAdmin) {
       const actions = document.createElement('div');
       actions.className = 'actions';
+
+      const edit = document.createElement('button');
+      edit.className = 'dot-btn small';
+      edit.textContent = '수정';
+      edit.addEventListener('click', () => {
+        el.innerHTML = '';
+        el.appendChild(renderEditForm(p));
+      });
+
       const del = document.createElement('button');
       del.className = 'dot-btn small danger';
       del.textContent = '삭제';
       del.addEventListener('click', async () => {
-        if (!confirm('"' + p.title + '" 글을 삭제할까요?')) return;
+        if (!confirm('"' + p.title + '" 일기를 삭제할까요?')) return;
         const { error } = await sb.from('posts').delete().eq('id', p.id);
         if (error) { alert('삭제 실패: ' + error.message); return; }
         loadPosts();
       });
+
+      actions.appendChild(edit);
       actions.appendChild(del);
       el.appendChild(actions);
     }
@@ -118,6 +129,77 @@ function render(){
     list.appendChild(el);
     revealNow(el);
   });
+}
+
+// ---------- 기존 일기 수정 ----------
+function renderEditForm(p){
+  const form = document.createElement('div');
+  form.className = 'edit-form';
+  const sel = (v, cur) => v === cur ? ' selected' : '';
+  form.innerHTML =
+    '<label class="field">누가 쓰나요</label>' +
+    '<select class="eAuthor">' +
+      '<option value="sua"' + sel('sua', p.author) + '>수아</option>' +
+      '<option value="yona"' + sel('yona', p.author) + '>연아</option>' +
+      '<option value="together"' + sel('together', p.author) + '>같이</option>' +
+    '</select>' +
+    '<label class="field">공개 설정</label>' +
+    '<select class="ePublic">' +
+      '<option value="true"' + (p.is_public !== false ? ' selected' : '') + '>🌏 공개 — 누구나 볼 수 있어요</option>' +
+      '<option value="false"' + (p.is_public === false ? ' selected' : '') + '>🔒 비공개 — 로그인해야 볼 수 있어요</option>' +
+    '</select>' +
+    '<label class="field">제목</label><input type="text" class="eTitle" value="' + escapeHTML(p.title) + '">' +
+    '<label class="field">내용</label><textarea class="eBody">' + escapeHTML(p.body || '') + '</textarea>' +
+    '<label class="field">사진</label>' +
+    (p.image_url ? '<img class="post-img" style="margin:0 0 8px; cursor:default;" src="' + escapeHTML(p.image_url) + '">' : '') +
+    '<input type="file" class="eImage" accept="image/*">' +
+    (p.image_url
+      ? '<label style="display:flex; align-items:center; gap:7px; font-size:12.5px; margin-top:8px; color:var(--ink-soft);">' +
+          '<input type="checkbox" class="eRemoveImg" style="width:auto;">사진 삭제</label>'
+      : '') +
+    '<div class="actions" style="margin-top:16px;">' +
+      '<button class="dot-btn small primary eSave">저장</button>' +
+      '<button class="dot-btn small eCancel">취소</button>' +
+    '</div>' +
+    '<div class="msg eMsg"></div>';
+
+  form.querySelector('.eCancel').addEventListener('click', () => render());
+
+  form.querySelector('.eSave').addEventListener('click', async () => {
+    const btn = form.querySelector('.eSave'), msg = form.querySelector('.eMsg');
+    const title = form.querySelector('.eTitle').value.trim();
+    if (!title) { msg.className = 'msg err'; msg.textContent = '제목을 입력해주세요.'; return; }
+
+    btn.disabled = true;
+    msg.className = 'msg'; msg.textContent = '저장 중...';
+
+    let image_url = p.image_url || null;
+    const file = form.querySelector('.eImage').files[0];
+    const removeImg = form.querySelector('.eRemoveImg');
+    try {
+      if (file) {
+        msg.textContent = '사진 올리는 중...';
+        image_url = (await uploadMedia(file, 'posts')).url;
+      } else if (removeImg && removeImg.checked) {
+        image_url = null;
+      }
+      const { error } = await sb.from('posts').update({
+        author: form.querySelector('.eAuthor').value,
+        is_public: form.querySelector('.ePublic').value === 'true',
+        title,
+        body: form.querySelector('.eBody').value.trim() || null,
+        image_url,
+      }).eq('id', p.id);
+      if (error) throw error;
+    } catch (e) {
+      msg.className = 'msg err'; msg.textContent = '실패: ' + ((e && e.message) || e);
+      btn.disabled = false;
+      return;
+    }
+    loadPosts();
+  });
+
+  return form;
 }
 
 function renderAdminArea(){
@@ -130,7 +212,7 @@ function renderAdminArea(){
     box.style.marginBottom = '26px';
     const btn = document.createElement('button');
     btn.className = 'dot-btn small';
-    btn.textContent = '✏️ 글 쓰기 (로그인)';
+    btn.textContent = '✏️ 일기 쓰기 (로그인)';
     btn.addEventListener('click', () => {
       btn.remove();
       mountLoginBox(box, () => { renderAdminArea(); loadPosts(); });
@@ -147,7 +229,7 @@ function renderAdminArea(){
   box.className = 'write-box dot-card';
   box.innerHTML =
     '<div class="inner">' +
-      '<h3>✏️ 새 글 쓰기</h3>' +
+      '<h3>✏️ 새 일기 쓰기</h3>' +
       '<label class="field">누가 쓰나요</label>' +
       '<select id="pAuthor"><option value="sua">수아</option><option value="yona">연아</option><option value="together">같이</option></select>' +
       '<label class="field">공개 설정</label>' +

@@ -187,4 +187,8 @@ body.lb-open header.site{opacity:0; pointer-events:none;}
   cursor:zoom-in; transition:transform .15s steps(2);
 }
 .post .post-img:hover{transform:translate(-2px,-2px);}
-.post .actions{display:flex; gap:8px; margin-top:14px;}
+.post .actions{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;}
+/* 글 안에서 바로 여는 수정 폼 */
+.edit-form .field{margin-top:12px;}
+.edit-form .field:first-of-type{margin-top:0;}
+.edit-form textarea{min-height:110px;}

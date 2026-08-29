@@ -141,7 +141,7 @@ const SPRITES = {
     'FkkkkkkkkkkF',
     'FFFFFFFFFFFF',
   ],
-  // 말풍선 (게시판 아이콘) 12x10
+  // 말풍선 (일기장 아이콘) 12x10
   bubble: [
     '.FFFFFFFFFF.',
     'FEEEEEEEEEEF',
