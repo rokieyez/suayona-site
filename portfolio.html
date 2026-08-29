@@ -58,8 +58,12 @@ const lightbox = createLightbox();
 
 // ---------- 목록 ----------
 async function loadWorks(){
+  // 카드에 보이는 날짜(made_on) 기준 내림차순 — 최근 것이 위, 오래된 것이 아래.
+  // 내림차순 정렬은 NULL 을 먼저 놓는 게 기본이라, 날짜를 안 적은 작품이 맨 위로
+  // 올라와 버림. nullsFirst:false 로 뒤로 보내고 올린 순서로 이어 붙임.
   const { data, error } = await sb.from('works').select('*')
-    .order('sort_order', {ascending:false}).order('created_at', {ascending:false});
+    .order('made_on', {ascending:false, nullsFirst:false})
+    .order('created_at', {ascending:false});
   if (error) {
     $('#empty').style.display = 'block';
     $('#empty').textContent = '불러오기 실패: ' + error.message;
