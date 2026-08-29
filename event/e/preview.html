@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>도트 테마 미리보기</title>
+<meta name="robots" content="noindex">
+
+<!--
+  일정표 페이지를 도트 테마로 갈아입히면 어떻게 보이는지 실제 데이터로 확인하는 페이지.
+
+  기존 페이지는 한 글자도 고치지 않았습니다. 진짜 일정표(index.html)를 iframe 으로
+  띄운 뒤, 같은 출처라서 가능한 방식으로 dot-theme.css 만 끼워 넣습니다.
+  위쪽 스위치로 원래 테마와 즉시 번갈아 볼 수 있습니다.
+
+  이 시안을 접기로 하면 preview.html 과 dot-theme.css 두 파일만 지우면 끝입니다.
+-->
+
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<style>
+  :root{
+    --cream:#fffaf2; --paper:#fff6e9; --ink:#2f2a24; --ink-soft:#6f6558;
+    --coral:#ff7f8a; --mint:#6cc7b3; --lemon:#ffd979; --px:4px;
+    --bar-h:58px;
+  }
+  *,*::before,*::after{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--cream); color:var(--ink);
+    font-family:'Pretendard',sans-serif;
+    display:flex; flex-direction:column;
+  }
+
+  .bar{
+    flex:0 0 auto; height:var(--bar-h);
+    display:flex; align-items:center; gap:12px;
+    padding:0 14px;
+    background:var(--paper);
+    border-bottom:var(--px) solid var(--ink);
+  }
+  .bar .label{
+    font-family:'Galmuri11','Pretendard',sans-serif;
+    font-size:11px; letter-spacing:.5px; color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .bar .spacer{flex:1;}
+
+  .toggle{display:inline-flex; border:var(--px) solid var(--ink); background:var(--cream);}
+  .toggle button{
+    border:none; background:none; cursor:pointer;
+    padding:8px 14px; font-family:inherit; font-size:12.5px; font-weight:800;
+    color:var(--ink-soft);
+  }
+  .toggle button + button{border-left:var(--px) solid var(--ink);}
+  .toggle button.on{background:var(--coral); color:#fff;}
+  .toggle button:focus-visible{outline:3px solid var(--lemon); outline-offset:-3px;}
+
+  .exit{
+    text-decoration:none; color:var(--ink); font-size:12.5px; font-weight:800;
+    border:var(--px) solid var(--ink); background:var(--cream);
+    padding:8px 13px; white-space:nowrap;
+  }
+  .exit:hover{background:var(--lemon);}
+
+  .stage{flex:1 1 auto; position:relative; min-height:0;}
+  iframe{
+    position:absolute; inset:0; width:100%; height:100%;
+    border:0; display:block; background:var(--cream);
+  }
+
+  .miss{
+    padding:40px 20px; text-align:center; color:var(--ink-soft); font-size:14px; line-height:1.9;
+  }
+  .miss code{
+    font-family:'Galmuri11',monospace; background:var(--paper);
+    border:2px solid var(--ink); padding:2px 6px;
+  }
+
+  @media (max-width:520px){
+    .bar{gap:8px; padding:0 10px;}
+    .bar .label{display:none;}
+    .toggle button{padding:8px 11px; font-size:12px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span class="label">DOT THEME PREVIEW</span>
+  <div class="toggle" role="group" aria-label="테마 전환">
+    <button type="button" id="btnDot" class="on">도트 테마</button>
+    <button type="button" id="btnOrig">원래 테마</button>
+  </div>
+  <span class="spacer"></span>
+  <a class="exit" id="exitLink" href="../">← 목록</a>
+</div>
+
+<div class="stage" id="stage"></div>
+
+<script>
+(function(){
+  const params = new URLSearchParams(location.search);
+  const slug = params.get('slug');
+  const stage = document.getElementById('stage');
+
+  if (!slug) {
+    stage.innerHTML =
+      '<div class="miss">어떤 이벤트를 미리 볼지 알려주세요.<br>' +
+      '주소 끝에 <code>?slug=이벤트주소</code> 를 붙이면 됩니다.<br><br>' +
+      '예) <code>preview.html?slug=2024-10-hongchun</code></div>';
+    return;
+  }
+
+  document.getElementById('exitLink').href = '../?slug=' + encodeURIComponent(slug);
+
+  // 진짜 일정표 페이지를 그대로 띄움 — 데이터도 동작도 실제와 같음
+  const frame = document.createElement('iframe');
+  frame.id = 'frame';
+  frame.title = '일정표 미리보기';
+  frame.src = './index.html?slug=' + encodeURIComponent(slug);
+  stage.appendChild(frame);
+
+  const btnDot = document.getElementById('btnDot');
+  const btnOrig = document.getElementById('btnOrig');
+  let dotOn = true;
+
+  // 같은 출처라서 iframe 문서에 스타일시트를 끼워 넣을 수 있음.
+  // 원본 style 블록보다 뒤에 붙으므로 같은 특정도면 이쪽이 이김.
+  function applyTheme(){
+    const doc = frame.contentDocument;
+    if (!doc || !doc.head) return;
+    // 미리보기 안에서 상단 메뉴를 누르면 다른 페이지로 넘어감.
+    // 그 페이지들은 이미 도트 테마라서 덧입히면 안 됨 — 일정표일 때만 적용.
+    const onEventPage = /\/event\/e\//.test(frame.contentWindow.location.pathname);
+    let link = doc.getElementById('dotThemeLink');
+    if (dotOn && onEventPage && !link) {
+      link = doc.createElement('link');
+      link.id = 'dotThemeLink';
+      link.rel = 'stylesheet';
+      link.href = './dot-theme.css?v=1';
+      doc.head.appendChild(link);
+    } else if ((!dotOn || !onEventPage) && link) {
+      link.remove();
+    }
+    btnDot.classList.toggle('on', dotOn);
+    btnOrig.classList.toggle('on', !dotOn);
+  }
+
+  // 완료 문구는 CSS 로 못 바꾸므로(자바스크립트가 써 넣는 글자라) 여기서 갈아 끼움.
+  // 30초마다 다시 계산해 덮어쓰기 때문에, 한 번 바꾸고 끝내면 원래대로 돌아감 —
+  // 그래서 감시자를 붙여 바뀔 때마다 다시 고쳐 씀.
+  const DDAY_TEXT = {
+    '모든 일정이 무사히 마무리됐습니다 🎉': '(일정이 끝났습니다)',
+    '🔥 일정 진행 중! 🔥': '(일정 진행 중)',
+  };
+  function rewriteDday(el){
+    if (!el) return;
+    const now = el.textContent.trim();
+    let next = DDAY_TEXT[now];
+    if (!next) {
+      if (/^일정까지 D-/.test(now)) next = '(' + now.replace(/\s*🔥\s*$/, '') + ')';
+      else if (now && now[0] !== '(') next = '(' + now + ')';
+    }
+    if (next && next !== now) el.textContent = next;
+  }
+  function watchDday(){
+    const doc = frame.contentDocument;
+    const el = doc && doc.getElementById('dday');
+    if (!el) return;
+    rewriteDday(el);
+    new (frame.contentWindow.MutationObserver)(() => rewriteDday(el))
+      .observe(el, { childList:true, characterData:true, subtree:true });
+  }
+
+  // 페이지가 뜬 뒤에도 탭 전환 등으로 DOM 이 계속 바뀌지만,
+  // 스타일시트는 문서 전체에 걸리므로 한 번만 붙여두면 됨.
+  frame.addEventListener('load', () => { applyTheme(); watchDday(); });
+
+  btnDot.addEventListener('click', () => { dotOn = true;  applyTheme(); });
+  btnOrig.addEventListener('click', () => { dotOn = false; applyTheme(); });
+})();
+</script>
+</body>
+</html>
