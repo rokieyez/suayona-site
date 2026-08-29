@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이벤트 목록</title>
+<meta name="robots" content="noindex, nofollow">
+<meta property="og:title" content="이벤트 목록">
+<meta property="og:description" content="지금까지의 이벤트를 확인하세요.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.suayona.com/event/">
+<meta property="og:image" content="https://www.suayona.com/og-image.jpg">
+<meta property="og:image:width" content="2000">
+<meta property="og:image:height" content="1336">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<style>
+  :root{
+    --accent:#2f6f5e; --accent-rgb:47,111,94;
+    --paper:#fffaf2; --paper-card:#fff6e9; --ink:#3a3226; --ink-soft:#6b6148;
+  }
+  *, *::before, *::after{box-sizing:border-box;}
+  body{
+    font-family:'Pretendard',sans-serif; color:var(--ink);
+    margin:0; padding:40px 16px 60px; min-height:100vh;
+    background-color:var(--paper);
+    background-size:140px 140px, cover, cover;
+    background-repeat:repeat, no-repeat, no-repeat;
+    background-attachment:fixed, fixed, fixed;
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+
+
+  h1{text-align:center; font-size:22px; font-weight:800; margin:0 0 6px; color:var(--ink);}
+  .lead{text-align:center; color:var(--ink-soft); font-size:13.5px; margin:0 0 32px;}
+
+  h2{font-size:13px; font-weight:800; color:var(--ink-soft); margin:28px 4px 10px; letter-spacing:.3px;}
+
+  .card{position:relative; padding:16px 18px; margin-bottom:10px; border-radius:14px; background:var(--paper-card);
+    border:1px solid rgba(0,0,0,.08);
+    transition:transform .15s, box-shadow .15s;}
+  .card:hover{transform:translateY(-2px); box-shadow:0 6px 18px rgba(var(--accent-rgb),.18);}
+  .card-link{display:block; text-decoration:none; color:inherit;}
+  .card-top{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:4px; padding-right:56px;}
+  .card-name{font-size:15.5px; font-weight:800; color:var(--ink);}
+  .badge{font-size:11px; font-weight:800; padding:3px 9px; border-radius:20px; flex-shrink:0;}
+  .badge.ongoing{background:rgba(var(--accent-rgb),.15); color:var(--accent);}
+  .badge.upcoming{background:rgba(0,0,0,.06); color:var(--ink-soft);}
+  .badge.done{background:rgba(0,0,0,.06); color:var(--ink-soft);}
+  .card-sub{font-size:12.5px; color:var(--ink-soft);}
+
+  .badge-group{display:flex; align-items:center; gap:5px; flex-shrink:0;}
+  .badge.private{background:rgba(0,0,0,.72); color:#fff;}
+  .card.is-private{border-style:dashed; border-color:rgba(0,0,0,.25);}
+
+  .card-del{position:absolute; top:14px; right:14px; width:24px; height:24px; border:none; border-radius:7px;
+    background:transparent; color:var(--ink-soft); font-size:14px; cursor:pointer; line-height:1;
+    display:flex; align-items:center; justify-content:center;}
+  .card-del:hover{background:rgba(192,57,43,.12); color:#c0392b;}
+  .card-lock{position:absolute; top:14px; right:42px; width:24px; height:24px; border:none; border-radius:7px;
+    background:transparent; font-size:13px; cursor:pointer; line-height:1;
+    display:flex; align-items:center; justify-content:center; opacity:.75;}
+  .card-lock:hover{background:rgba(0,0,0,.07); opacity:1;}
+  .card-lock:disabled{opacity:.4; cursor:default;}
+  .card-confirm{margin-top:10px; padding-top:10px; border-top:1px dashed rgba(0,0,0,.12);}
+  .card-confirm p{margin:0 0 8px; font-size:12.5px; color:#c0392b; font-weight:700;}
+  .card-confirm-btns{display:flex; gap:8px;}
+  .card-confirm-btns button{flex:1; padding:7px 10px; border-radius:8px; border:none; font-size:12.5px;
+    font-weight:700; cursor:pointer; font-family:inherit;}
+  .card-confirm-cancel{background:rgba(0,0,0,.06); color:var(--ink);}
+  .card-confirm-cancel:hover{background:rgba(0,0,0,.1);}
+  .card-confirm-ok{background:#c0392b; color:#fff;}
+  .card-confirm-ok:hover{opacity:.9;}
+  .card-confirm-ok:disabled{opacity:.6; cursor:default;}
+
+  .past .card{opacity:.6;}
+  .past .card:hover{opacity:1;}
+
+  .empty{text-align:center; color:var(--ink-soft); font-size:13px; padding:30px 0;}
+
+  /* ----- 로그인 ----- */
+  #login-box{max-width:340px; margin:0 auto; background:var(--paper-card); border-radius:14px; padding:22px; border:1px solid rgba(0,0,0,.08);}
+  #login-box label{display:block; font-size:12.5px; font-weight:700; color:var(--ink-soft); margin:12px 0 6px;}
+  #login-box label:first-of-type{margin-top:0;}
+  input, select{width:100%; padding:10px 12px; border:1px solid rgba(0,0,0,.15); border-radius:8px; font-size:14px; font-family:inherit; background:#fff; color:var(--ink);}
+  .btn{width:100%; margin-top:14px; padding:10px 16px; border:none; border-radius:8px; font-size:13.5px;
+    font-weight:700; background:var(--accent); color:#fff; cursor:pointer; font-family:inherit;}
+  .btn:hover{opacity:.9;}
+  #login-msg{font-size:12.5px; color:#c0392b; margin-top:10px; min-height:1em; text-align:center;}
+
+  #admin-entry{margin-top:34px; text-align:center;}
+  #loginToggle{background:none; border:none; color:var(--ink-soft); font-size:12px; cursor:pointer; font-family:inherit; opacity:.65;}
+  #loginToggle:hover{color:var(--accent); opacity:1;}
+  #login-box{display:none; margin-top:14px;}
+  #logoutRow{text-align:center; margin-bottom:20px;}
+  #logoutRow button{background:none; border:none; color:var(--ink-soft); font-size:12.5px; cursor:pointer; font-family:inherit;}
+  #logoutRow button:hover{color:var(--accent);}
+
+  /* ----- 새 이벤트 만들기 ----- */
+  #new-event-box{background:var(--paper-card); border-radius:14px; padding:18px; border:1px solid rgba(0,0,0,.08); margin-bottom:26px;}
+  #new-event-box h2{font-size:14px; margin:0 0 12px; color:var(--ink);}
+  #new-event-box label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin:10px 0 5px;}
+  #new-event-box label:first-of-type{margin-top:0;}
+  .date-row{display:flex; gap:8px;}
+  .date-row input{flex:1;}
+  #new-event-msg{font-size:12.5px; margin-top:10px; min-height:1em;}
+  #new-event-msg.ok{color:#2a8a4a;}
+  #new-event-msg.err{color:#c0392b;}
+  .hint{font-size:11.5px; color:var(--ink-soft); margin-top:4px;}
+
+  /* ===== 라이트/다크 스위치 (이벤트 상세 페이지와 같은 모양) ===== */
+  .switch{display:flex; justify-content:center; gap:0; margin:0 auto 22px; max-width:260px;
+    background:rgba(0,0,0,.06); border-radius:30px; padding:4px;}
+  .switch button{flex:1; border:none; background:none; padding:8px 10px; border-radius:24px;
+    font-size:12.5px; font-weight:700; cursor:pointer; color:var(--ink-soft); font-family:inherit; transition:.2s;}
+  .switch button.on{background:var(--paper-card); color:var(--ink); box-shadow:0 2px 8px rgba(0,0,0,.1);}
+
+  /* 기본값은 라이트(수아·연아 사이트와 같은 배경색). 종이 질감은 다크에서만 씀 */
+  body[data-theme="dark"]{
+    --accent:#2f8c73; --accent-rgb:47,140,115;
+    --paper:#221c15; --paper-card:#2b241a; --ink:#eee0c8; --ink-soft:#a89d80;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      radial-gradient(ellipse 70% 40% at 50% 0%, rgba(255,255,255,.4), transparent 70%),
+      radial-gradient(ellipse at 85% 90%, rgba(0,0,0,.05), transparent 50%);
+  }
+  body[data-theme="dark"] input, body[data-theme="dark"] select{background:#332b1f; color:var(--ink); border-color:rgba(255,255,255,.15);}
+  body[data-theme="dark"] .switch{background:rgba(255,255,255,.08);}
+  body[data-theme="dark"] .switch button.on{box-shadow:0 2px 8px rgba(0,0,0,.3);}
+  body[data-theme="dark"] .card{border-color:rgba(255,255,255,.08);}
+  body[data-theme="dark"] .card.is-private{border-color:rgba(255,255,255,.22);}
+  body[data-theme="dark"] .badge.private{background:rgba(255,255,255,.16);}
+  body[data-theme="dark"] .card-lock:hover{background:rgba(255,255,255,.1);}
+  body[data-theme="dark"] .badge.upcoming, body[data-theme="dark"] .badge.done{background:rgba(255,255,255,.08);}
+</style>
+</head>
+<body data-theme="soft">
+<div class="wrap">
+  <h1>🗓️ 이벤트 목록</h1>
+  <p class="lead">지금까지 열린 이벤트를 확인해보세요</p>
+
+  <div class="switch">
+    <button id="btnSoft" class="on" data-th="soft">🔆 라이트</button>
+    <button id="btnDark" data-th="dark">🌙 다크</button>
+  </div>
+
+  <div id="content">
+    <div id="logoutRow"><button id="logoutBtn">로그아웃</button></div>
+
+    <div id="new-event-box">
+      <h2>+ 새 이벤트 만들기</h2>
+      <label>주소(슬러그) — 영문 소문자/숫자/하이픈만</label>
+      <input type="text" id="neSlug" placeholder="예: 2027-01-camp">
+      <label>단체명</label>
+      <input type="text" id="neOrgName" placeholder="예: 수아연아랑">
+      <label>일정명</label>
+      <input type="text" id="neEventName" placeholder="예: 겨울 수련회">
+      <label>아이콘 (이모지, 선택)</label>
+      <input type="text" id="neIcon" placeholder="🗓️">
+      <label>시작일 ~ 종료일</label>
+      <div class="date-row">
+        <input type="date" id="neStart">
+        <input type="date" id="neEnd">
+      </div>
+      <label>공개 설정</label>
+      <select id="nePublic">
+        <option value="true">🌏 공개 — 누구나 목록에서 볼 수 있어요</option>
+        <option value="false">🔒 비공개 — 로그인해야 볼 수 있어요</option>
+      </select>
+      <div class="hint">만들고 나면 www.suayona.com/event/e/?slug=주소 로 바로 접속돼요</div>
+      <button class="btn" id="neBtn" style="margin-top:14px;">만들기</button>
+      <div id="new-event-msg"></div>
+    </div>
+
+    <div id="current-section">
+      <h2>진행중 · 예정</h2>
+      <div id="current-list"></div>
+    </div>
+
+    <div id="past-section" class="past">
+      <h2>지난 이벤트</h2>
+      <div id="past-list"></div>
+    </div>
+
+    <div id="admin-entry">
+      <button id="loginToggle">🔧 관리자 로그인</button>
+      <div id="login-box">
+        <label>이메일</label>
+        <input type="email" id="loginEmail" autocomplete="username">
+        <label>비밀번호</label>
+        <input type="password" id="loginPw" autocomplete="current-password">
+        <button class="btn" id="loginBtn">로그인</button>
+        <div id="login-msg"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SB_URL = 'https://ifiemaypzjwdrljmmkgb.supabase.co';
+const SB_KEY = 'sb_publishable_uhn46d4RFI5DeIUjtz3IRA_U9X8iPZj';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+const $ = s => document.querySelector(s);
+
+/* =========================================================================
+   레거시 이벤트(전용 폴더+파일로 만들어진 것) — 새 이벤트는 여기 추가할 필요 없음.
+   "+ 새 이벤트 만들기"로 만든 이벤트는 자동으로 Supabase에서 불러와 아래 목록에 합쳐짐.
+   ========================================================================= */
+const WEEKDAY = ['일','월','화','수','목','금','토'];
+const EVENTS = [];
+/* ========================================================================= */
+
+function formatDateRangeText(s, e){
+  const f = d => (d[1]+1) + '. ' + d[2] + '(' + WEEKDAY[new Date(d[0],d[1],d[2]).getDay()] + ')';
+  return s[0] + '. ' + f(s) + ' ~ ' + f(e);
+}
+function isoToDateKey(iso){
+  const [y,m,d] = iso.split('-').map(Number);
+  return [y, m-1, d];
+}
+
+function getStatus(ev){
+  const now = new Date();
+  const start = new Date(...ev.startDate);
+  const end = new Date(ev.endDate[0], ev.endDate[1], ev.endDate[2], 23, 59, 59);
+  if (now < start) return 'upcoming';
+  if (now <= end) return 'ongoing';
+  return 'done';
+}
+
+function cardHTML(ev, status){
+  const badgeText = status === 'ongoing' ? '진행중' : status === 'upcoming' ? '예정' : '종료';
+  const adminBtns = (isAdmin && ev.isRegistry)
+    ? '<button class="card-lock" data-slug="' + ev.slug + '" title="' +
+        (ev.isPublic ? '공개 상태 — 눌러서 비공개로' : '비공개 상태 — 눌러서 공개로') + '">' +
+        (ev.isPublic ? '🌏' : '🔒') + '</button>' +
+      '<button class="card-del" data-slug="' + ev.slug + '" title="이벤트 삭제">🗑</button>'
+    : '';
+  const privateTag = (isAdmin && ev.isRegistry && !ev.isPublic)
+    ? '<span class="badge private">🔒 비공개</span>' : '';
+  return '<div class="card' + (ev.isPublic === false ? ' is-private' : '') + '" data-slug="' + ev.slug + '">' +
+    '<a class="card-link" href="' + ev.href + '">' +
+    '<div class="card-top"><span class="card-name">' + ev.orgName + ' · ' + ev.eventName + '</span>' +
+    '<span class="badge-group">' + privateTag +
+    '<span class="badge ' + status + '">' + badgeText + '</span></span></div>' +
+    '<div class="card-sub">' + ev.dateRangeText + '</div></a>' +
+    adminBtns + '</div>';
+}
+
+async function fetchRegistryEvents(){
+  const legacySlugs = new Set(EVENTS.map(e => e.slug));
+  // 비공개 이벤트는 로그인한 사람에게만 (서버 정책에서도 한 번 더 막혀 있음)
+  let q = sb.from('event_meta').select('*').not('start_date', 'is', null).not('end_date', 'is', null);
+  if (!isAdmin) q = q.eq('is_public', true);
+  const { data, error } = await q;
+  if (error) { console.error('이벤트 목록 로딩 오류:', error); return []; }
+  return data
+    .filter(r => !legacySlugs.has(r.event_id))
+    .map(r => {
+      const startDate = isoToDateKey(r.start_date), endDate = isoToDateKey(r.end_date);
+      return {
+        slug: r.event_id,
+        orgName: r.org_name || r.event_id,
+        eventName: r.event_name || '',
+        dateRangeText: r.date_range_text || formatDateRangeText(startDate, endDate),
+        startDate, endDate,
+        href: '/event/e/?slug=' + encodeURIComponent(r.event_id),
+        isRegistry: true,
+        isPublic: r.is_public !== false,
+      };
+    });
+}
+
+async function renderEvents(){
+  const currentList = $('#current-list');
+  const pastList = $('#past-list');
+  const current = [], past = [];
+
+  const registryEvents = await fetchRegistryEvents();
+  const allEvents = [...EVENTS, ...registryEvents];
+
+  allEvents.forEach(ev => {
+    const status = getStatus(ev);
+    (status === 'done' ? past : current).push({ev, status});
+  });
+
+  current.sort((a,b) => new Date(...a.ev.startDate) - new Date(...b.ev.startDate));
+  past.sort((a,b) => new Date(...b.ev.endDate) - new Date(...a.ev.endDate));
+
+  currentList.innerHTML = current.length ? current.map(c => cardHTML(c.ev, c.status)).join('') : '<div class="empty">진행중이거나 예정된 이벤트가 없습니다</div>';
+  $('#past-section').style.display = past.length ? 'block' : 'none';
+  pastList.innerHTML = past.map(c => cardHTML(c.ev, c.status)).join('');
+}
+
+// ----- 이벤트 삭제 (2단계 확인: 🗑 클릭 → 인라인 확인 → 삭제 버튼 클릭) -----
+async function deleteEvent(slug){
+  const buckets = ['event-images', 'gallery-uploads'];
+  for (const bucket of buckets) {
+    const { data: files } = await sb.storage.from(bucket).list(slug, { limit: 1000 });
+    if (files && files.length) {
+      const paths = files.map(f => slug + '/' + f.name);
+      await sb.storage.from(bucket).remove(paths);
+    }
+  }
+  await sb.from('events').delete().eq('event_id', slug);
+  await sb.from('gallery_media').delete().eq('event_id', slug);
+  const { error } = await sb.from('event_meta').delete().eq('event_id', slug);
+  if (error) throw error;
+}
+
+$('#content').addEventListener('click', async (e) => {
+  // 자물쇠 버튼: 공개 <-> 비공개 전환
+  const lockBtn = e.target.closest('.card-lock');
+  if (lockBtn) {
+    e.preventDefault();
+    const slug = lockBtn.dataset.slug;
+    const nowPublic = lockBtn.textContent.trim() === '🌏';
+    lockBtn.disabled = true;
+    const { error } = await sb.from('event_meta').update({ is_public: !nowPublic }).eq('event_id', slug);
+    lockBtn.disabled = false;
+    if (error) { alert('변경 실패: ' + error.message); return; }
+    renderEvents();
+    return;
+  }
+
+  const delBtn = e.target.closest('.card-del');
+  if (delBtn) {
+    e.preventDefault();
+    const card = delBtn.closest('.card');
+    if (card.querySelector('.card-confirm')) return;
+    const box = document.createElement('div');
+    box.className = 'card-confirm';
+    box.innerHTML =
+      '<p>정말 삭제할까요? 이 이벤트의 모든 일정과 사진이 함께 삭제되며 되돌릴 수 없어요.</p>' +
+      '<div class="card-confirm-btns">' +
+      '<button type="button" class="card-confirm-cancel">취소</button>' +
+      '<button type="button" class="card-confirm-ok">삭제</button>' +
+      '</div>';
+    card.appendChild(box);
+    return;
+  }
+
+  const cancelBtn = e.target.closest('.card-confirm-cancel');
+  if (cancelBtn) {
+    e.preventDefault();
+    cancelBtn.closest('.card-confirm').remove();
+    return;
+  }
+
+  const okBtn = e.target.closest('.card-confirm-ok');
+  if (okBtn) {
+    e.preventDefault();
+    const slug = okBtn.closest('.card').dataset.slug;
+    okBtn.disabled = true; okBtn.textContent = '삭제 중...';
+    try {
+      await deleteEvent(slug);
+      renderEvents();
+    } catch (err) {
+      alert('삭제 실패: ' + err.message);
+      okBtn.disabled = false; okBtn.textContent = '삭제';
+    }
+  }
+});
+
+// ----- 새 이벤트 만들기 -----
+$('#neBtn').addEventListener('click', async () => {
+  const msg = $('#new-event-msg');
+  msg.className = ''; msg.textContent = '';
+
+  const slug = $('#neSlug').value.trim().toLowerCase();
+  const orgName = $('#neOrgName').value.trim();
+  const eventName = $('#neEventName').value.trim();
+  const icon = $('#neIcon').value.trim() || '🗓️';
+  const startVal = $('#neStart').value;
+  const endVal = $('#neEnd').value;
+
+  if (!/^[a-z0-9-]+$/.test(slug)) { msg.className = 'err'; msg.textContent = '주소는 영문 소문자/숫자/하이픈만 사용할 수 있어요.'; return; }
+  if (!orgName) { msg.className = 'err'; msg.textContent = '단체명을 입력해주세요.'; return; }
+  if (!startVal || !endVal) { msg.className = 'err'; msg.textContent = '시작일과 종료일을 선택해주세요.'; return; }
+  if (startVal > endVal) { msg.className = 'err'; msg.textContent = '종료일이 시작일보다 빠를 수 없어요.'; return; }
+  if (EVENTS.some(e => e.slug === slug)) { msg.className = 'err'; msg.textContent = '이미 사용 중인 주소예요.'; return; }
+
+  const neBtn = $('#neBtn');
+  neBtn.disabled = true; neBtn.textContent = '만드는 중...';
+
+  const { data: existing } = await sb.from('event_meta').select('event_id').eq('event_id', slug).maybeSingle();
+  if (existing) {
+    msg.className = 'err'; msg.textContent = '이미 사용 중인 주소예요.';
+    neBtn.disabled = false; neBtn.textContent = '만들기';
+    return;
+  }
+
+  const startDate = isoToDateKey(startVal), endDate = isoToDateKey(endVal);
+  const { error } = await sb.from('event_meta').insert({
+    event_id: slug, icon, org_name: orgName, event_name: eventName || null,
+    date_range_text: formatDateRangeText(startDate, endDate),
+    start_date: startVal, end_date: endVal,
+    is_public: $('#nePublic').value === 'true',
+  });
+
+  neBtn.disabled = false; neBtn.textContent = '만들기';
+  if (error) { msg.className = 'err'; msg.textContent = '만들기 실패: ' + error.message; return; }
+
+  msg.className = 'ok'; msg.textContent = '만들어졌어요! 목록에 추가됐습니다.';
+  $('#neSlug').value = ''; $('#neOrgName').value = ''; $('#neEventName').value = '';
+  $('#neIcon').value = ''; $('#neStart').value = ''; $('#neEnd').value = '';
+  renderEvents();
+});
+
+// ----- 목록은 누구나 볼 수 있고, 만들기/삭제만 로그인한 사람에게 노출 -----
+let isAdmin = false;
+async function refreshAuthUI(){
+  const { data: { session } } = await sb.auth.getSession();
+  isAdmin = !!session;
+
+  $('#content').style.display = 'block';            // 목록은 항상 보임
+  $('#login-box').style.display = 'none';
+  $('#loginToggle').style.display = isAdmin ? 'none' : 'block';
+  $('#logoutRow').style.display = isAdmin ? 'block' : 'none';
+  $('#new-event-box').style.display = isAdmin ? 'block' : 'none';
+  $('.lead').textContent = isAdmin
+    ? '지금까지 열린 이벤트를 확인하고 새로 만들 수 있어요'
+    : '지금까지 열린 이벤트를 확인해보세요';
+
+  renderEvents();
+}
+
+// ----- 테마 토글 (기본 라이트, 고른 값은 저장됨 — 이벤트 상세 페이지와 같은 키를 씀) -----
+(function(){
+  const body = document.body, bSoft = $('#btnSoft'), bDark = $('#btnDark');
+  function setTheme(th){
+    if (th !== 'dark') th = 'soft';
+    body.setAttribute('data-theme', th);
+    bSoft.classList.toggle('on', th === 'soft');
+    bDark.classList.toggle('on', th === 'dark');
+    try { localStorage.setItem('event-theme', th); } catch(e) {}
+  }
+  bSoft.addEventListener('click', () => setTheme('soft'));
+  bDark.addEventListener('click', () => setTheme('dark'));
+  try { const saved = localStorage.getItem('event-theme'); if (saved) setTheme(saved); } catch(e) {}
+})();
+
+$('#loginToggle').addEventListener('click', () => {
+  $('#login-box').style.display = 'block';
+  $('#loginToggle').style.display = 'none';
+  $('#loginEmail').focus();
+});
+
+$('#loginBtn').addEventListener('click', async () => {
+  const email = $('#loginEmail').value.trim();
+  const password = $('#loginPw').value;
+  $('#login-msg').textContent = '로그인 중...';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) { $('#login-msg').textContent = '로그인 실패: ' + error.message; return; }
+  $('#login-msg').textContent = '';
+  refreshAuthUI();
+});
+
+$('#logoutBtn').addEventListener('click', async () => {
+  await sb.auth.signOut();
+  refreshAuthUI();
+});
+
+refreshAuthUI();
+</script>
+</body>
+</html>
