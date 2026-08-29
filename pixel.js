@@ -32,6 +32,8 @@ const PAL = {
   S: '#dfe6ec', T: '#b3c0cc', U: '#8b9bab',
   // 분홍 여우
   P: '#ffb0c4', Q: '#5a3a24',
+  // 사랑앵무 — Y:연보라 뺨, Z:배의 청회색(하늘색과 겹치지 않게)
+  Y: '#b9a3d6', Z: '#a8c8d6',
 };
 
 // 풍경을 여러 겹으로 그리기 위한 색 묶음.
@@ -253,6 +255,41 @@ const SPRITES = {
     'kkjjjjjkkk',
     'kjjjjjjjkk',
     'llllllllll',
+  ],
+  // 사진 속 사랑앵무 — 하늘을 나는 두 컷(날개 위/아래) 22x15
+  budgieUp: [
+    '...FUUUFF.............',
+    '...FEEEEEF............',
+    '....FUUUUUFF..........',
+    '.....FEEEEEEF.FFFFF...',
+    '......FUUUUUUFEEEEEF..',
+    '.....FZZZZZZZUEEEEEF..',
+    '..FFFZZZZZZZZEEEFEEF..',
+    '.FTTTZZZZZZZZUEEEEEiF.',
+    'FTTTTZZZZZZZZZEEEEEiiF',
+    '.FTTTZZZZZZZZZZEYYEiF.',
+    '..FFFZZZZZZZZZZZZFFF..',
+    '.....FZZZZZZZZZZF.....',
+    '......FFZZZZZZFF......',
+    '........FFFFFF........',
+    '......................',
+  ],
+  budgieDown: [
+    '......................',
+    '......................',
+    '......................',
+    '..............FFFFF...',
+    '......FFFFFFFFEEEEEF..',
+    '.....FZZZZZZZUEEEEEF..',
+    '..FFFZZZZZZZZEEEFEEF..',
+    '.FTTTZZZZZZZZUEEEEEiF.',
+    'FTTTTZZZZZZZZZEEEEEiiF',
+    '.FTTTZZZZZZZZZZEYYEiF.',
+    '..FFFZZUUUUUUZZZZFFF..',
+    '.....FEEEEEEZZZZF.....',
+    '....FUUUUUZZZZFF......',
+    '...FEEEEEFFFFF........',
+    '...FUUUFF.............',
   ],
   // 새 7x4
   bird: [
