@@ -149,8 +149,15 @@ footer.site canvas{display:inline-block; vertical-align:middle;}
 .tag.yona{background:var(--mint); color:#fff;}
 .tag.private{background:var(--ink); color:#fff;}
 
-/* 필터 버튼 줄 */
+/* 필터 버튼 줄 — 태그와 같은 색을 써서 색만 보고도 구분되게 함 */
 .filters{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:26px;}
+.filters .dot-btn{color:#fff; opacity:.5; transition:opacity .15s steps(2);}
+.filters .dot-btn:hover{opacity:.8;}
+.filters .dot-btn.on{opacity:1; transform:translate(2px,2px); box-shadow:2px 2px 0 var(--ink);}
+.filters .dot-btn[data-filter="all"]{background:var(--ink);}
+.filters .dot-btn[data-filter="sua"]{background:var(--coral);}
+.filters .dot-btn[data-filter="yona"]{background:var(--mint);}
+.filters .dot-btn[data-filter="together"]{background:var(--lemon); color:var(--ink);}
 
 /* ===== 라이트박스 ===== */
 /* 사진을 화면 가로에 꽉 채우고, 세로로 긴 사진은 웹툰처럼 스크롤해서 봄 */

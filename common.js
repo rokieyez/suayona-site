@@ -6,7 +6,9 @@ const sb = supabase.createClient(SB_URL, SB_KEY);
 
 // 사진은 이 버킷에 올라감 (로그인한 사람만 업로드 가능하도록 정책이 걸려 있음)
 const MEDIA_BUCKET = 'event-images';
-const IMAGE_LIMIT = 5 * 1024 * 1024;   // 5MB로 자동 압축
+// 사진은 이 용량을 넘을 때만 압축함 (넘지 않으면 원본 그대로 올라감)
+const IMAGE_LIMIT = 5 * 1024 * 1024;         // 기본 5MB — 일기장 사진
+const PORTFOLIO_IMAGE_LIMIT = 10 * 1024 * 1024;  // 작품은 화질이 중요해서 10MB
 const VIDEO_LIMIT = 100 * 1024 * 1024;
 
 const $ = s => document.querySelector(s);
@@ -183,12 +185,13 @@ async function compressImage(file, maxBytes){
 }
 
 // folder 예: 'works' / 'posts'
-async function uploadMedia(file, folder){
+// imageLimit 을 주면 그 용량 기준으로 압축함 (안 주면 기본 5MB)
+async function uploadMedia(file, folder, imageLimit){
   const isVideo = file.type.startsWith('video/');
   if (isVideo && file.size > VIDEO_LIMIT) {
     throw new Error('영상은 ' + (VIDEO_LIMIT/1024/1024) + 'MB를 넘을 수 없어요.');
   }
-  const upFile = isVideo ? file : await compressImage(file, IMAGE_LIMIT);
+  const upFile = isVideo ? file : await compressImage(file, imageLimit || IMAGE_LIMIT);
   const safe = upFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
   const path = 'suayona/' + folder + '/' + Date.now() + '-' +
     Math.random().toString(36).slice(2,8) + '-' + safe;
