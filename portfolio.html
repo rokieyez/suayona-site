@@ -53,6 +53,33 @@
   }
   .work-box .note{font-size:14px; line-height:1.85; color:var(--ink-soft);
     margin:0 0 14px; white-space:pre-line;}
+  /* QR — 실물 그림 뒤에 붙여, 종이에서 이 페이지로 건너오게 하는 고리 */
+  .qrbox{margin:16px 0 0; padding:14px 16px; border:var(--px) solid var(--ink);
+    background:var(--cream); display:flex; gap:14px; align-items:center; flex-wrap:wrap;}
+  .qrbox .code{width:92px; height:92px; flex:0 0 auto; background:#fff; padding:5px;
+    border:2px solid var(--ink);}
+  .qrbox .code svg{display:block; width:100%; height:100%;}
+  .qrbox .side{flex:1 1 170px; min-width:0;}
+  .qrbox .lab{display:block; font-size:11.5px; font-weight:800; letter-spacing:.04em;
+    color:var(--ink-soft); margin-bottom:6px;}
+  .qrbox .hintline{font-size:12px; line-height:1.6; color:var(--ink-soft); margin:0 0 10px;}
+
+  /* 라벨 인쇄판 — 화면에는 없고 종이에만 나온다 */
+  #qrSheet{display:none;}
+  .qr-label{border:1px dashed #999; padding:6mm 5mm; text-align:center; break-inside:avoid;}
+  .qr-label svg{display:block; width:30mm; height:30mm; margin:0 auto 3mm;}
+  .qr-label .t{font-size:11pt; font-weight:800; line-height:1.35; word-break:keep-all;}
+  .qr-label .m{font-size:8.5pt; color:#555; margin-top:1.5mm;}
+  .qr-label .s{font-size:7.5pt; color:#888; margin-top:2.5mm; letter-spacing:.04em;}
+
+  @media print{
+    @page{margin:10mm;}
+    body.qr-printing > *{display:none !important;}
+    body.qr-printing #qrSheet{display:grid !important;
+      grid-template-columns:repeat(3, 1fr); gap:4mm;}
+    body.qr-printing{background:#fff !important;}
+  }
+
   /* 그날 있었던 일 — 날짜가 같은 일기와 이벤트를 스스로 찾아 붙인다 */
   .thatday{margin:16px 0 0; padding-top:14px; border-top:2px dashed rgba(47,42,36,.3);}
   .thatday .lab{display:block; font-size:11.5px; font-weight:800; letter-spacing:.04em;
@@ -127,6 +154,9 @@
   </div>
 </main>
 
+<!-- 라벨 인쇄판. 평소엔 비어 있고, 인쇄 직전에만 채운다. -->
+<div id="qrSheet" aria-hidden="true"></div>
+
 <div class="work-view" id="workView" role="dialog" aria-modal="true" aria-label="작품 자세히 보기">
   <button class="work-close" id="workClose" aria-label="닫기">✕</button>
   <div class="work-box" id="workBox"></div>
@@ -134,6 +164,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
+<!-- QR 만들기. 직접 짜면 리드-솔로몬 부호까지 손으로 맞춰야 해서, 검증된 것을 쓴다. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="/event/compress.js"></script>
 <script src="./pixel.js"></script>
 <script src="./common.js"></script>
@@ -371,6 +403,68 @@ function fillEventSelect(sel, current){
 // 사진 아래에 아이 말과 메모를 같이 두고, 좌우로 넘길 수 있게 함.
 let viewList = [], viewIdx = -1;
 
+// ---------- QR ----------
+// 실물 그림 뒤에 붙여 두면, 몇 해 뒤 서랍에서 꺼냈을 때 언제 그렸는지·그날 무슨 일이
+// 있었는지·아이가 뭐라고 했는지가 한 번에 열린다. 종이와 이 사이트를 잇는 유일한 고리다.
+function workUrl(w){
+  // 인쇄물은 오래 남는다. 지금 어디서 열어 보고 있든 링크는 늘 진짜 주소를 가리켜야 한다.
+  return 'https://www.suayona.com/portfolio.html?work=' + w.id;
+}
+
+function qrSvg(text, cellSize){
+  if (typeof qrcode === 'undefined') return '';
+  const qr = qrcode(0, 'M');          // 0 = 길이에 맞춰 알아서 고름
+  qr.addData(text);
+  qr.make();
+  return qr.createSvgTag({ cellSize: cellSize || 4, margin: 2, scalable: true });
+}
+
+function renderQr(w){
+  const box = $('#qrBox');
+  if (!box) return;
+  if (!isAdmin) { box.innerHTML = ''; return; }
+  if (typeof qrcode === 'undefined') {
+    box.innerHTML = '<div class="qrbox"><span class="lab">QR</span>' +
+      '<p class="hintline">QR 만드는 도구를 못 불러왔어요. 새로고침해 보세요.</p></div>';
+    return;
+  }
+  box.innerHTML = '<div class="qrbox">' +
+      '<div class="code">' + qrSvg(workUrl(w)) + '</div>' +
+      '<div class="side">' +
+        '<span class="lab">🏷 작품 뒤에 붙일 QR</span>' +
+        '<p class="hintline">그림 뒤에 붙여 두면 이 화면으로 바로 옵니다.</p>' +
+        '<button class="dot-btn small" id="qrOne">이 작품만 인쇄</button>' +
+      '</div>' +
+    '</div>';
+  $('#qrOne').addEventListener('click', () => printQrLabels([w]));
+}
+
+// 라벨을 종이에 앉히고 인쇄한다. 인쇄가 끝나면 화면을 원래대로 되돌린다.
+function printQrLabels(list){
+  const sheet = $('#qrSheet');
+  if (!list.length || typeof qrcode === 'undefined') return;
+
+  sheet.innerHTML = list.map(w =>
+    '<div class="qr-label">' +
+      qrSvg(workUrl(w), 3) +
+      '<div class="t">' + escapeHTML(w.title) + '</div>' +
+      '<div class="m">' + (AUTHORS[w.author] || '같이') +
+        (w.made_on ? ' · ' + escapeHTML(formatDate(w.made_on)) : '') + '</div>' +
+      '<div class="s">suayona.com</div>' +
+    '</div>').join('');
+
+  document.body.classList.add('qr-printing');
+  const done = () => {
+    document.body.classList.remove('qr-printing');
+    sheet.innerHTML = '';
+    window.removeEventListener('afterprint', done);
+  };
+  window.addEventListener('afterprint', done);
+  window.print();
+  // 인쇄 대화상자를 취소했을 때 afterprint 가 안 오는 브라우저가 있어 대비해 둔다
+  setTimeout(() => { if (document.body.classList.contains('qr-printing')) done(); }, 3000);
+}
+
 // ---------- 그날 있었던 일 ----------
 // 손으로 고르게 한 칸은 아무도 안 썼다. 날짜는 이미 다 들어 있으니 그것으로 잇는다.
 function renderThatDay(w){
@@ -602,6 +696,7 @@ function renderWork(){
       (w.description ? '<p class="note">' + escapeHTML(w.description) + '</p>' : '') +
       ev +
       '<div id="noteBox"></div>' +
+      '<div id="qrBox"></div>' +
       '<div id="voiceBox"></div>' +
       '<div id="dayBox"></div>' +
       '<div class="work-nav">' +
@@ -610,6 +705,7 @@ function renderWork(){
       '</div>' +
     '</div>';
   renderVoice(w);
+  renderQr(w);
   renderThatDay(w);
   renderAddNote(w);
   $('#wPrev').disabled = viewIdx <= 0;
@@ -622,11 +718,18 @@ function renderWork(){
 function openWork(list, i){
   viewList = list; viewIdx = i;
   renderWork();
+  // QR 로 찍고 들어온 사람이 다시 이 주소를 나눌 수 있게 남긴다
+  const u = new URL(location.href);
+  u.searchParams.set('work', list[i] && list[i].id);
+  history.replaceState(null, '', u);
   $('#workView').classList.add('open');
   document.body.classList.add('lb-open');       // 배경 겹·스크롤 정리는 기존 규칙을 그대로 씀
   document.body.style.overflow = 'hidden';
 }
 function closeWork(){
+  const u = new URL(location.href);
+  u.searchParams.delete('work');
+  history.replaceState(null, '', u);
   $('#workView').classList.remove('open');
   document.body.classList.remove('lb-open');
   document.body.style.overflow = '';
@@ -730,9 +833,21 @@ function renderAdminArea(){
 
   // 사본이 없는 작품이 남아 있으면 한 번에 만들 수 있게 단추를 띄운다
   const tools = document.createElement('div');
-  tools.style.cssText = 'display:flex; justify-content:center; margin-bottom:18px;';
+  tools.style.cssText = 'display:flex; justify-content:center; gap:9px; flex-wrap:wrap; margin-bottom:18px;';
   area.appendChild(tools);
   showThumbTool(tools);
+
+  // 지금 걸러 놓은 작품들의 라벨을 한 장에 모아 뽑는다
+  const qrBtn = document.createElement('button');
+  qrBtn.className = 'dot-btn small';
+  qrBtn.textContent = '🏷 QR 라벨 인쇄';
+  qrBtn.addEventListener('click', () => {
+    const shown = visible();          // 거르개가 걸린 그대로
+    if (!shown.length) { alert('인쇄할 작품이 없어요.'); return; }
+    if (!confirm('지금 보이는 작품 ' + shown.length + '개의 라벨을 인쇄할까요?')) return;
+    printQrLabels(shown);
+  });
+  tools.appendChild(qrBtn);
 
   loadEventList().then(() => fillEventSelect($('#wEvent'), ''));
 
@@ -820,7 +935,18 @@ function renderAdminArea(){
   initReveal();
   // 그날 자료는 작품을 열었을 때만 쓰이므로 화면을 막지 않고 뒤따라 받는다
   loadDayLinks().catch(() => {});
+  openFromQuery();
 })();
+
+// 그림 뒤 QR 을 찍으면 ?work=13 으로 들어온다. 그 작품을 바로 펴 준다.
+// 거른 조건과 상관없이 열려야 하므로 전체 목록에서 찾는다.
+function openFromQuery(){
+  const want = new URLSearchParams(location.search).get('work');
+  if (!want) return;
+  const i = works.findIndex(w => String(w.id) === String(want));
+  if (i < 0) return;
+  openWork(works, i);
+}
 </script>
 </body>
 </html>
