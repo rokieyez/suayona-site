@@ -53,6 +53,26 @@
   }
   .work-box .note{font-size:14px; line-height:1.85; color:var(--ink-soft);
     margin:0 0 14px; white-space:pre-line;}
+  /* 아이 목소리 — 작품 설명을 글 대신 말로 */
+  .voice{margin:16px 0 0; padding:14px 16px; border:var(--px) solid var(--ink);
+    background:var(--cream);}
+  .voice .lab{display:block; font-size:11.5px; font-weight:800; letter-spacing:.04em;
+    color:var(--ink-soft); margin-bottom:9px;}
+  .voice audio{width:100%; display:block;}
+  .voice .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px;}
+  .voice .row:first-child{margin-top:0;}
+  .voice .hintline{font-size:12px; line-height:1.6; color:var(--ink-soft); margin:9px 0 0;}
+  .voice .rec-dot{display:inline-block; width:9px; height:9px; background:#c0392b;
+    margin-right:7px; vertical-align:1px;}
+  @media (prefers-reduced-motion: no-preference){
+    .voice .rec-dot{animation:recblink 1s steps(2, jump-none) infinite;}
+  }
+  @keyframes recblink{50%{opacity:.15;}}
+  .voice .timer{font-variant-numeric:tabular-nums; font-weight:800; font-size:14px;}
+  .gal-thumb .has-voice{position:absolute; left:8px; bottom:8px; z-index:2;
+    background:var(--cream); border:2px solid var(--ink); font-size:12px;
+    padding:2px 6px; line-height:1.4;}
+
   .work-box .go-event{display:inline-block; font-size:13px; font-weight:800;
     border:2px solid var(--ink); background:var(--lemon); color:var(--ink);
     padding:7px 12px; text-decoration:none;}
@@ -149,7 +169,9 @@ function render(){
       ? '<div class="gal-quote">\u201C' + escapeHTML(w.quote) + '\u201D</div>'
       : (w.description ? '<div class="gal-note">' + escapeHTML(w.description) + '</div>' : '');
     card.innerHTML =
-      '<div class="gal-thumb">' + media + '</div>' +
+      '<div class="gal-thumb">' + media +
+        (w.audio_url ? '<span class="has-voice" title="목소리가 담겨 있어요">🔊</span>' : '') +
+      '</div>' +
       '<div class="gal-cap">' + escapeHTML(w.title) + '</div>' +
       story +
       '<div class="gal-sub">' +
@@ -305,7 +327,141 @@ function fillEventSelect(sel, current){
 // 사진 아래에 아이 말과 메모를 같이 두고, 좌우로 넘길 수 있게 함.
 let viewList = [], viewIdx = -1;
 
+// ---------- 아이 목소리 ----------
+// 글로 쓰는 '아이가 한 말' 칸은 작품 23개 중 0개가 채워졌다. 말로 하면 부담이 훨씬 적고,
+// 몇 해 지나면 그림보다 이쪽이 더 값질 수 있다.
+let voiceRec = null;          // 녹음 중인 녹음기
+let voiceDraft = null;        // 멈췄지만 아직 저장 안 한 것 {blob, secs, ext, url}
+
+function clearVoiceDraft(){
+  if (voiceDraft && voiceDraft.url) URL.revokeObjectURL(voiceDraft.url);
+  voiceDraft = null;
+}
+
+// 다른 작품으로 넘어가거나 창을 닫으면 녹음을 접는다 — 마이크가 켜진 채로 남으면 안 된다
+function stopVoiceWork(){
+  if (voiceRec) { voiceRec.cancel(); voiceRec = null; }
+  clearVoiceDraft();
+}
+
+function renderVoice(w){
+  const box = $('#voiceBox');
+  if (!box) return;
+
+  // 들을 것도 없고 녹음할 권한도 없으면 자리를 아예 두지 않는다
+  if (!w.audio_url && !isAdmin) { box.innerHTML = ''; return; }
+
+  let html = '<div class="voice"><span class="lab">🎙 아이 목소리</span>';
+
+  if (voiceDraft) {
+    html += '<audio controls src="' + voiceDraft.url + '"></audio>' +
+      '<p class="hintline">방금 녹음한 거예요. 들어보고 마음에 들면 저장하세요.</p>' +
+      '<div class="row">' +
+        '<button class="dot-btn small primary" id="vSave">저장</button>' +
+        '<button class="dot-btn small" id="vRedo">다시 녹음</button>' +
+        '<button class="dot-btn small" id="vDrop">버리기</button>' +
+      '</div>';
+  } else if (voiceRec) {
+    html += '<div class="row">' +
+        '<span class="timer" id="vTimer"><span class="rec-dot"></span>0:00</span>' +
+        '<button class="dot-btn small primary" id="vStop">■ 멈추기</button>' +
+      '</div>' +
+      '<p class="hintline">최대 ' + VOICE_MAX_SECS + '초까지 담겨요. "이건 뭐 그린 거야?" 하고 물어보세요.</p>';
+  } else {
+    if (w.audio_url) {
+      html += '<audio controls preload="none" src="' + escapeHTML(w.audio_url) + '"></audio>';
+      if (w.audio_secs) html += '<p class="hintline">' + secsLabel(w.audio_secs) + '</p>';
+    }
+    if (isAdmin) {
+      html += '<div class="row">' +
+        '<button class="dot-btn small" id="vRec">🎙 ' + (w.audio_url ? '다시 녹음' : '녹음하기') + '</button>' +
+        (w.audio_url ? '<button class="dot-btn small danger" id="vDel">지우기</button>' : '') +
+      '</div>';
+      if (!w.audio_url) {
+        html += '<p class="hintline">아이에게 작품을 보여주며 물어보고, 그 대답을 그대로 담아보세요.</p>';
+      }
+      if (!canRecordVoice()) {
+        html += '<p class="hintline">이 브라우저에서는 녹음이 안 돼요. 크롬이나 사파리에서 열어주세요.</p>';
+      }
+    }
+  }
+  html += '<div class="msg" id="vMsg"></div></div>';
+  box.innerHTML = html;
+  wireVoice(w);
+}
+
+function wireVoice(w){
+  const msg = $('#vMsg');
+  const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
+
+  on('#vRec', async () => {
+    if (!canRecordVoice()) { msg.className = 'msg err'; msg.textContent = '이 브라우저에서는 녹음이 안 돼요.'; return; }
+    try {
+      voiceRec = await startVoiceRecorder(secs => {
+        const t = $('#vTimer');
+        if (t) t.innerHTML = '<span class="rec-dot"></span>' + secsLabel(secs);
+        if (secs >= VOICE_MAX_SECS) finishRecording(w);   // 저절로 멈춘 뒤 화면도 맞춰 준다
+      });
+      renderVoice(w);
+    } catch (e) {
+      msg.className = 'msg err';
+      msg.textContent = /NotAllowed|Permission/i.test((e && e.name) + (e && e.message))
+        ? '마이크를 쓸 수 없어요. 브라우저에서 이 사이트의 마이크 사용을 허용해 주세요.'
+        : '녹음을 시작하지 못했어요: ' + ((e && e.message) || e);
+    }
+  });
+
+  on('#vStop', () => finishRecording(w));
+  on('#vRedo', () => { clearVoiceDraft(); $('#vRec') || renderVoice(w); $('#vRec') && $('#vRec').click(); });
+  on('#vDrop', () => { clearVoiceDraft(); renderVoice(w); });
+
+  on('#vSave', async () => {
+    if (!voiceDraft) return;
+    const btn = $('#vSave'); btn.disabled = true;
+    msg.className = 'msg'; msg.textContent = '저장 중...';
+    try {
+      const url = await uploadVoice(voiceDraft.blob, voiceDraft.ext);
+      const { error } = await sb.from('works')
+        .update({ audio_url: url, audio_secs: voiceDraft.secs }).eq('id', w.id);
+      if (error) throw error;
+      w.audio_url = url; w.audio_secs = voiceDraft.secs;
+      clearVoiceDraft();
+      renderVoice(w);
+      render();                     // 격자 카드에 🔊 표시가 붙도록
+    } catch (e) {
+      btn.disabled = false;
+      msg.className = 'msg err'; msg.textContent = (e && e.message) || String(e);
+    }
+  });
+
+  on('#vDel', async () => {
+    if (!confirm('이 목소리를 지울까요?')) return;
+    msg.className = 'msg'; msg.textContent = '지우는 중...';
+    // 저장소 파일도 같이 치운다. 지워지지 않아도 화면에서는 사라지므로 막지는 않는다.
+    const path = pathFromPublicUrl(MEDIA_BUCKET, w.audio_url);
+    const { error } = await sb.from('works')
+      .update({ audio_url: null, audio_secs: null }).eq('id', w.id);
+    if (error) { msg.className = 'msg err'; msg.textContent = '지우지 못했어요: ' + error.message; return; }
+    if (path) await sb.storage.from(MEDIA_BUCKET).remove([path]);
+    w.audio_url = null; w.audio_secs = null;
+    renderVoice(w);
+    render();
+  });
+}
+
+async function finishRecording(w){
+  if (!voiceRec) return;
+  const rec = voiceRec; voiceRec = null;
+  try {
+    const { blob, secs } = await rec.stop();
+    if (!blob || !blob.size) { renderVoice(w); return; }
+    voiceDraft = { blob, secs, ext: rec.ext, url: URL.createObjectURL(blob) };
+  } catch (e) { /* 아무것도 안 담겼으면 그냥 처음 화면으로 */ }
+  renderVoice(w);
+}
+
 function renderWork(){
+  stopVoiceWork();          // 앞 작품에서 녹음 중이었다면 접는다
   const w = viewList[viewIdx];
   if (!w) return;
   const media = w.media_type === 'video'
@@ -325,11 +481,13 @@ function renderWork(){
       (w.quote ? '<p class="quote">\u201C' + escapeHTML(w.quote) + '\u201D</p>' : '') +
       (w.description ? '<p class="note">' + escapeHTML(w.description) + '</p>' : '') +
       ev +
+      '<div id="voiceBox"></div>' +
       '<div class="work-nav">' +
         '<button class="dot-btn small" id="wPrev">← 이전</button>' +
         '<button class="dot-btn small" id="wNext">다음 →</button>' +
       '</div>' +
     '</div>';
+  renderVoice(w);
   $('#wPrev').disabled = viewIdx <= 0;
   $('#wNext').disabled = viewIdx >= viewList.length - 1;
   $('#wPrev').addEventListener('click', () => { if (viewIdx > 0) { viewIdx--; renderWork(); } });
@@ -349,6 +507,8 @@ function closeWork(){
   document.body.classList.remove('lb-open');
   document.body.style.overflow = '';
   const v = $('#workBox').querySelector('video'); if (v) v.pause();
+  const a = $('#workBox').querySelector('audio'); if (a) a.pause();
+  stopVoiceWork();          // 창을 닫으면 마이크도 끈다
 }
 $('#workClose').addEventListener('click', closeWork);
 $('#workView').addEventListener('click', (e) => { if (e.target.id === 'workView') closeWork(); });

@@ -448,6 +448,79 @@ async function backfillThumbs(bucket, rows, save, onStep){
   return { made, skipped, failed, why };
 }
 
+// ---------- 목소리 녹음 ----------
+// 브라우저마다 받아 주는 소리 형식이 다르다. 사파리는 webm 을 못 만들고 mp4 로 준다.
+// 그래서 물어보고 되는 것을 쓴다. 확장자도 거기 맞춰야 나중에 재생이 된다.
+const AUDIO_TYPES = [
+  { mime: 'audio/webm;codecs=opus', ext: 'webm' },
+  { mime: 'audio/webm',             ext: 'webm' },
+  { mime: 'audio/mp4',              ext: 'm4a'  },
+  { mime: 'audio/mpeg',             ext: 'mp3'  },
+];
+const VOICE_MAX_SECS = 60;
+
+function pickAudioType(){
+  if (typeof MediaRecorder === 'undefined') return null;
+  for (const t of AUDIO_TYPES) {
+    try { if (MediaRecorder.isTypeSupported(t.mime)) return t; } catch (e) {}
+  }
+  return { mime: '', ext: 'webm' };     // 브라우저 기본값에 맡김
+}
+
+function canRecordVoice(){
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) &&
+         typeof MediaRecorder !== 'undefined';
+}
+
+// 녹음기 하나를 만들어 돌려준다. stop() 을 부르면 blob 을 준다.
+// 마이크는 반드시 꺼야 한다 — 안 끄면 브라우저 탭에 녹음 표시가 계속 남는다.
+async function startVoiceRecorder(onTick){
+  const type = pickAudioType();
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const rec = new MediaRecorder(stream, type.mime ? { mimeType: type.mime } : undefined);
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+
+  let secs = 0;
+  const timer = setInterval(() => {
+    secs++;
+    if (onTick) onTick(secs);
+    if (secs >= VOICE_MAX_SECS) stop();      // 너무 길어지지 않게 저절로 멈춤
+  }, 1000);
+
+  const done = new Promise(res => { rec.onstop = () => res(); });
+  function stop(){
+    if (rec.state !== 'inactive') rec.stop();
+    clearInterval(timer);
+    stream.getTracks().forEach(t => t.stop());   // 마이크 끄기
+  }
+
+  rec.start();
+  return {
+    ext: type.ext,
+    stop: async () => {
+      stop();
+      await done;
+      return { blob: new Blob(chunks, { type: chunks[0] ? chunks[0].type : type.mime }), secs };
+    },
+    cancel: () => { stop(); },
+  };
+}
+
+async function uploadVoice(blob, ext){
+  const path = 'suayona/voice/' + Date.now() + '-' +
+    Math.random().toString(36).slice(2, 8) + '.' + ext;
+  const file = new File([blob], path.split('/').pop(), { type: blob.type || 'audio/webm' });
+  const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, file);
+  if (error) throw new Error('목소리 올리기 실패: ' + error.message);
+  return sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+function secsLabel(n){
+  const s = Math.max(0, Math.round(n || 0));
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
 // folder 예: 'works' / 'posts'
 // imageLimit 을 주면 그 용량 기준으로 압축함 (안 주면 기본 5MB)
 async function uploadMedia(file, folder, imageLimit){

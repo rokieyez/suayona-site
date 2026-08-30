@@ -197,3 +197,17 @@ create policy "authenticated can update gallery bucket"
   on storage.objects for update to authenticated
   using (bucket_id = 'gallery-uploads')
   with check (bucket_id = 'gallery-uploads');
+
+-- ---------------------------------------------------------------------------
+-- 아이 목소리
+--
+-- 작품 설명을 글로 적는 quote 칸은 작품 23개 중 0개가 채워졌다. 올릴 때만 쓸 수 있고,
+-- 그때는 사진 정리에 바쁘고, 아이가 한 말이 떠오르는 건 나중이라서.
+-- 말로 하면 부담이 훨씬 적다 — "이건 뭐 그린 거야?" 하고 물어 그 대답을 그대로 담는다.
+--
+-- 브라우저에서 바로 녹음해 저장소에 올리고(suayona/voice/), 주소를 여기 적는다.
+-- 최대 60초, opus 로 30초에 100KB 안팎이라 작품 전부에 붙여도 몇 MB 수준이다.
+-- 작품 사진과 같은 곳에 두므로 공개 범위도 작품과 같다.
+-- ---------------------------------------------------------------------------
+alter table works add column if not exists audio_url text;
+alter table works add column if not exists audio_secs smallint;
