@@ -74,15 +74,36 @@ function escapeHTML(s){
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// 노트 탭용 간단한 문법을 HTML로 변환함.
-// "# "는 큰제목, "## "는 소제목. 세로선(|)이 포함된 줄이 연달아 있으면 표(첫 줄이 표 제목).
-// "![](사진주소)"만 있는 줄은 사진 (관리자 화면의 사진 첨부 버튼이 이 형식으로 넣어줌).
-// 빈 줄은 문단/표 구간을 끊는 용도일 뿐, 필수는 아님 — 제목 바로 다음 줄에 표를 이어 써도 됨.
+// 노트 탭용 서식을 HTML로 변환함. 관리자 화면의 서식 버튼이 넣어주는 문법과 짝이다.
+//
+//   블록      # 큰제목 / ## 중간제목 / ### 작은제목
+//             > 인용문
+//             - 글머리 목록      1. 번호 목록
+//             ---               구분선
+//             칸|칸|칸           표 (연달아 쓴 줄이 한 표, 첫 줄이 머리)
+//             ![](주소)          사진
+//   글자안     **굵게**  *기울임*  ~~취소선~~  ==형광펜==  [글자](주소)
+//
+// 빈 줄은 문단·표·목록 구간을 끊는 용도다.
+
+// 한 줄 안의 글자 서식. escapeHTML 을 먼저 걸고 나서 태그를 만들기 때문에,
+// 사용자가 <script> 를 적어도 그대로 글자로만 남는다.
+function inlineFmt(s){
+  let t = escapeHTML(s);
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (m, txt, url) => '<a class="note-link" href="' + url + '" target="_blank" rel="noopener">' + txt + '</a>');
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+  t = t.replace(/~~([^~]+)~~/g, '<s>$1</s>');
+  t = t.replace(/==([^=]+)==/g, '<mark class="note-mark">$1</mark>');
+  return t;
+}
+
 function renderNoteContent(text){
   if (!text || !text.trim()) return '';
   const lines = text.replace(/\r\n/g, '\n').split('\n');
   const parts = [];
-  let mode = null; // 'para' | 'table'
+  let mode = null; // 'para' | 'table' | 'ul' | 'ol' | 'quote'
   let buf = [];
 
   function flush(){
@@ -93,14 +114,20 @@ function renderNoteContent(text){
         .filter(cells => !cells.every(c => /^:?-{1,}:?$/.test(c))); // 마크다운 구분선(---) 행은 무시
       if (rows.length) {
         const [header, ...body] = rows;
-        const thead = '<thead><tr>' + header.map(c => '<th>' + escapeHTML(c) + '</th>').join('') + '</tr></thead>';
+        const thead = '<thead><tr>' + header.map(c => '<th>' + inlineFmt(c) + '</th>').join('') + '</tr></thead>';
         const tbody = body.length
-          ? '<tbody>' + body.map(r => '<tr>' + r.map(c => '<td>' + escapeHTML(c) + '</td>').join('') + '</tr>').join('') + '</tbody>'
+          ? '<tbody>' + body.map(r => '<tr>' + r.map(c => '<td>' + inlineFmt(c) + '</td>').join('') + '</tr>').join('') + '</tbody>'
           : '';
         parts.push('<div class="note-table-wrap"><table class="note-table">' + thead + tbody + '</table></div>');
       }
+    } else if (mode === 'ul' || mode === 'ol') {
+      const tag = mode === 'ul' ? 'ul' : 'ol';
+      parts.push('<' + tag + ' class="note-list">' +
+        buf.map(l => '<li>' + inlineFmt(l) + '</li>').join('') + '</' + tag + '>');
+    } else if (mode === 'quote') {
+      parts.push('<blockquote class="note-quote">' + buf.map(inlineFmt).join('<br>') + '</blockquote>');
     } else if (mode === 'para') {
-      parts.push('<p class="note-para">' + buf.map(escapeHTML).join('<br>') + '</p>');
+      parts.push('<p class="note-para">' + buf.map(inlineFmt).join('<br>') + '</p>');
     }
     buf = []; mode = null;
   }
@@ -108,18 +135,30 @@ function renderNoteContent(text){
   lines.forEach(raw => {
     const line = raw.trim();
     if (!line) { flush(); return; }
-    if (line.startsWith('## ')) { flush(); parts.push('<h4 class="note-subheading">' + escapeHTML(line.slice(3)) + '</h4>'); return; }
-    if (line.startsWith('# ')) { flush(); parts.push('<h3 class="note-heading">' + escapeHTML(line.slice(2)) + '</h3>'); return; }
+
+    if (/^-{3,}$/.test(line)) { flush(); parts.push('<hr class="note-hr">'); return; }
+    if (line.startsWith('### ')) { flush(); parts.push('<h5 class="note-minorheading">' + inlineFmt(line.slice(4)) + '</h5>'); return; }
+    if (line.startsWith('## '))  { flush(); parts.push('<h4 class="note-subheading">' + inlineFmt(line.slice(3)) + '</h4>'); return; }
+    if (line.startsWith('# '))   { flush(); parts.push('<h3 class="note-heading">' + inlineFmt(line.slice(2)) + '</h3>'); return; }
+
     const img = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/);
     if (img) {
       flush();
-      parts.push('<div class="note-img-wrap"><img class="note-img" src="' + escapeHTML(img[2]) + '" alt="' + escapeHTML(img[1]) + '" loading="lazy"></div>');
+      parts.push('<div class="note-img-wrap"><img class="note-img" src="' + escapeHTML(img[2]) +
+        '" alt="' + escapeHTML(img[1]) + '" loading="lazy"></div>');
       return;
     }
-    const lineMode = line.includes('|') ? 'table' : 'para';
+
+    let lineMode, body = line;
+    if (/^>\s?/.test(line))            { lineMode = 'quote'; body = line.replace(/^>\s?/, ''); }
+    else if (/^[-*]\s+/.test(line))    { lineMode = 'ul';    body = line.replace(/^[-*]\s+/, ''); }
+    else if (/^\d+[.)]\s+/.test(line)) { lineMode = 'ol';    body = line.replace(/^\d+[.)]\s+/, ''); }
+    else if (line.includes('|'))       { lineMode = 'table'; }
+    else                               { lineMode = 'para'; }
+
     if (lineMode !== mode) flush();
     mode = lineMode;
-    buf.push(line);
+    buf.push(body);
   });
   flush();
 

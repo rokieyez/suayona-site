@@ -74,6 +74,69 @@
   #customtabs-box label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin:10px 0 5px;}
   #customtabs-box label:first-of-type{margin-top:0;}
   #ctContent{min-height:140px; font-size:13px; line-height:1.6;}
+
+  /* ===== 글쓰기 도구막대 ===== */
+  .fmt-bar{display:flex; flex-wrap:wrap; gap:4px; align-items:center;
+    padding:7px; margin-bottom:-1px;
+    border:1px solid rgba(0,0,0,.14); border-radius:10px 10px 0 0;
+    background:rgba(0,0,0,.03);}
+  .fmt-bar button{
+    border:1px solid rgba(0,0,0,.10); background:var(--paper-card); color:var(--ink);
+    border-radius:7px; padding:5px 9px; font-size:12.5px; font-weight:700;
+    font-family:inherit; cursor:pointer; line-height:1.3; transition:.15s;
+  }
+  .fmt-bar button:hover{background:rgba(var(--accent-rgb),.14); border-color:rgba(var(--accent-rgb),.35);}
+  .fmt-bar button:active{transform:translateY(1px);}
+  .fmt-bar .sep{width:1px; align-self:stretch; margin:2px 3px; background:rgba(0,0,0,.12);}
+  .fmt-bar .b{font-weight:900;} .fmt-bar .i{font-style:italic;} .fmt-bar .s{text-decoration:line-through;}
+  .fmt-bar .hl{background:rgba(255,217,121,.6);}
+  .fmt-bar button.on{background:var(--accent); color:#fff; border-color:var(--accent);}
+  body[data-theme="dark"] .fmt-bar{background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.12);}
+  body[data-theme="dark"] .fmt-bar button{border-color:rgba(255,255,255,.14);}
+  .fmt-bar + textarea{border-radius:0 0 10px 10px;}
+
+  /* 표 크기 고르기 */
+  .grid-pick{position:absolute; z-index:30; padding:9px; border-radius:10px;
+    background:var(--paper-card); border:1px solid rgba(0,0,0,.16); box-shadow:0 8px 24px rgba(0,0,0,.16);}
+  .grid-pick .cells{display:grid; grid-template-columns:repeat(6, 18px); gap:3px;}
+  .grid-pick i{display:block; width:18px; height:18px; border:1px solid rgba(0,0,0,.18); border-radius:3px; cursor:pointer;}
+  .grid-pick i.on{background:var(--accent); border-color:var(--accent);}
+  .grid-pick .cap{margin-top:7px; font-size:11.5px; font-weight:700; color:var(--ink-soft); text-align:center;}
+
+  /* 미리보기 안의 서식은 실제 이벤트 페이지와 같은 규칙을 써야 한다 —
+     여기서만 다르게 보이면 미리보기가 거짓말을 하는 셈이라 없는 것만 못하다.
+     아래는 event/e/index.html 의 노트 서식 CSS 를 그대로 옮겨온 것. */
+  /* ===== 노트 탭 (자유 서식) ===== */
+  .note-heading{font-size:17px; font-weight:800; margin:18px 0 8px; color:var(--ink);}
+  .note-content .note-heading:first-child{margin-top:0;}
+  .note-subheading{font-size:14.5px; font-weight:800; margin:14px 0 6px; color:var(--accent);}
+  .note-para{font-size:13.5px; line-height:1.7; color:var(--ink); margin:0 0 12px; white-space:pre-line;}
+  .note-img-wrap{margin:0 0 14px;}
+  .note-img{display:block; width:100%; border-radius:10px;}
+  .note-minorheading{font-size:13.5px; font-weight:800; margin:12px 0 5px; color:var(--ink-soft);}
+  .note-list{margin:0 0 12px; padding-left:22px; font-size:13.5px; line-height:1.8; color:var(--ink);}
+  .note-list li{margin-bottom:3px;}
+  .note-quote{margin:0 0 14px; padding:10px 14px; border-left:3px solid var(--accent);
+    background:rgba(var(--accent-rgb),.07); border-radius:0 10px 10px 0;
+    font-size:13.5px; line-height:1.7; color:var(--ink);}
+  .note-hr{border:none; border-top:1px solid rgba(0,0,0,.12); margin:18px 0;}
+  body[data-theme="dark"] .note-hr{border-top-color:rgba(255,255,255,.14);}
+  .note-mark{background:rgba(255,217,121,.55); color:inherit; padding:0 2px; border-radius:3px;}
+  body[data-theme="dark"] .note-mark{background:rgba(255,217,121,.28);}
+  .note-link{color:var(--accent); text-decoration:underline; text-underline-offset:2px;}
+  .note-para s, .note-list s, .note-quote s{opacity:.6;}
+  .note-table-wrap{overflow-x:auto; margin:0 0 16px; border-radius:12px; border:1px solid rgba(0,0,0,.08);}
+  .note-table{width:100%; border-collapse:collapse; font-size:13px; background:var(--paper-card);}
+  .note-table th, .note-table td{padding:10px 12px; text-align:left; border-bottom:1px solid rgba(0,0,0,.08); white-space:pre-line;}
+  .note-table th{background:rgba(var(--accent-rgb),.12); color:var(--ink); font-weight:800; font-size:12.5px;}
+  .note-table tr:last-child td{border-bottom:none;}
+  body[data-theme="dark"] .note-table th{background:rgba(255,255,255,.08);}
+  body[data-theme="dark"] .note-table-wrap, body[data-theme="dark"] .note-table td{border-color:rgba(255,255,255,.08);}
+
+  /* 미리보기 */
+  .fmt-preview{margin-top:10px; padding:14px 16px; border-radius:12px;
+    border:1px dashed rgba(var(--accent-rgb),.45); background:var(--paper-card);}
+  .fmt-preview .cap{font-size:11.5px; font-weight:800; color:var(--accent); margin-bottom:8px;}
   #ct-msg{font-size:12.5px; margin-top:10px; min-height:1em;}
   #ct-msg.ok, .ct-edit-msg.ok{color:#2a8a4a;}
   #ct-msg.err, .ct-edit-msg.err{color:#c0392b;}
@@ -196,20 +259,17 @@
     <div id="customtabs-box">
       <h2>🧩 커스텀 탭 관리</h2>
       <p class="hint">
-        시간표가 아닌 자유 서식(제목·문단·표) 탭을 원하는 만큼 만들 수 있어요.<br>
-        · <b>큰제목</b>은 줄 앞에 <code>#</code> + 띄어쓰기, <b>소제목</b>은 <code>##</code> + 띄어쓰기<br>
-        · <b>표</b>는 각 칸을 세로선(<code>|</code>)으로 구분하고, 첫 줄이 표의 제목(헤더)이 돼요<br>
-        · <b>사진</b>은 아래 "사진 추가"로 고르면 내용 맨 끝에 자동으로 들어가요<br>
-        · 그 외의 줄은 일반 문단, 빈 줄은 문단/표를 나누는 구분선이에요
+        시간표가 아닌 자유 서식 탭을 원하는 만큼 만들 수 있어요.<br>
+        아래 <b>버튼</b>으로 제목·굵게·표·사진을 넣을 수 있고, 문법을 직접 써도 똑같이 동작해요.<br>
+        <b>👁 미리보기</b>를 누르면 실제로 어떻게 보이는지 바로 확인할 수 있어요.
       </p>
-      <pre class="example"># 방배정
-구분 | 16일 목 | 17일 금
-8인실 | 김우섭 외 3명 | 박호영 외 2명
-6인실 | 안유리 외 4명 | 심경하 외 3명
+      <pre class="example"># 큰제목    ## 중간제목    ### 작은제목
+**굵게**  *기울임*  ~~취소선~~  ==형광펜==  [링크](https://...)
+&gt; 인용문        - 글머리 목록        1. 번호 목록
+---  (구분선)
 
-## 안내
-숙소는 현장에서 다시 안내됩니다.
-![](https://.../사진.jpg)</pre>
+구분 | 16일 목 | 17일 금
+8인실 | 김우섭 외 3명 | 박호영 외 2명</pre>
       <label>탭 이름 (이모지 포함 가능)</label>
       <input type="text" id="ctLabel" placeholder="예: 🧩 조편성">
       <label>내용</label>
@@ -316,6 +376,164 @@ function fillPanelSelect(){
   sel.innerHTML = CONFIG.panels.map(p => '<option value="' + p.id + '">' + p.label + '</option>').join('');
 }
 
+
+// ============================================================================
+// 글쓰기 도구막대 — 네이버 블로그 편집기처럼 버튼으로 서식을 넣는다.
+// 저장되는 것은 여전히 글자(마크다운 비슷한 문법)이고, 버튼은 그 문법을
+// 커서 자리에 대신 찍어주는 역할만 한다. 그래서 손으로 직접 써도 그대로 동작한다.
+// 아래 문법은 compress.js 의 renderNoteContent 와 짝을 이룬다.
+// ============================================================================
+
+// 커서 위치에 넣기 / 선택한 글자를 감싸기
+function fmtWrap(ta, before, after, placeholder){
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  const sel = ta.value.slice(s, e) || placeholder || '';
+  ta.value = ta.value.slice(0, s) + before + sel + after + ta.value.slice(e);
+  ta.focus();
+  ta.selectionStart = s + before.length;
+  ta.selectionEnd = s + before.length + sel.length;
+  ta.dispatchEvent(new Event('input', { bubbles:true }));
+}
+
+// 선택한 줄들의 앞에 표시를 붙이거나 뗀다 (제목·목록·인용문용)
+function fmtLinePrefix(ta, prefix, numbered){
+  const v = ta.value;
+  const s = v.lastIndexOf('\n', ta.selectionStart - 1) + 1;
+  let e = v.indexOf('\n', ta.selectionEnd);
+  if (e === -1) e = v.length;
+  const lines = v.slice(s, e).split('\n');
+  // 이미 같은 표시가 붙어 있으면 떼어낸다 (토글)
+  const strip = l => l.replace(/^(#{1,3}\s|>\s?|[-*]\s|\d+[.)]\s)/, '');
+  const already = lines.every(l => !l.trim() || (numbered ? /^\d+[.)]\s/.test(l) : l.startsWith(prefix)));
+  const out = lines.map((l, i) => {
+    const bare = strip(l);
+    if (!bare.trim()) return l;
+    return already ? bare : (numbered ? (i + 1) + '. ' : prefix) + bare;
+  });
+  ta.value = v.slice(0, s) + out.join('\n') + v.slice(e);
+  ta.focus();
+  ta.selectionStart = s;
+  ta.selectionEnd = s + out.join('\n').length;
+  ta.dispatchEvent(new Event('input', { bubbles:true }));
+}
+
+// 커서가 있는 줄 뒤에 통째로 끼워넣기 (표·구분선용)
+function fmtBlock(ta, text){
+  const v = ta.value;
+  let s = ta.selectionStart;
+  const atLineStart = s === 0 || v[s - 1] === '\n';
+  const lead = atLineStart ? '' : '\n';
+  const chunk = lead + text + '\n';
+  ta.value = v.slice(0, s) + chunk + v.slice(s);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = s + chunk.length;
+  ta.dispatchEvent(new Event('input', { bubbles:true }));
+}
+
+// 표 크기를 격자에서 고르는 작은 팝업 (최대 6x6)
+function openGridPicker(btn, onPick){
+  document.querySelectorAll('.grid-pick').forEach(el => el.remove());
+  const box = document.createElement('div');
+  box.className = 'grid-pick';
+  const cells = document.createElement('div');
+  cells.className = 'cells';
+  const cap = document.createElement('div');
+  cap.className = 'cap';
+  cap.textContent = '표 크기를 고르세요';
+  for (let r = 1; r <= 6; r++) for (let c = 1; c <= 6; c++) {
+    const i = document.createElement('i');
+    i.dataset.r = r; i.dataset.c = c;
+    i.addEventListener('mouseenter', () => {
+      cells.querySelectorAll('i').forEach(x =>
+        x.classList.toggle('on', +x.dataset.r <= r && +x.dataset.c <= c));
+      cap.textContent = r + '줄 × ' + c + '칸';
+    });
+    i.addEventListener('click', () => { onPick(r, c); box.remove(); });
+    cells.appendChild(i);
+  }
+  box.appendChild(cells); box.appendChild(cap);
+  document.body.appendChild(box);
+  const b = btn.getBoundingClientRect();
+  box.style.left = Math.min(b.left, innerWidth - box.offsetWidth - 10) + 'px';
+  box.style.top  = (b.bottom + window.scrollY + 6) + 'px';
+  setTimeout(() => {
+    const close = ev => {
+      if (box.contains(ev.target) || ev.target === btn) return;
+      box.remove(); document.removeEventListener('click', close);
+    };
+    document.addEventListener('click', close);
+  }, 0);
+}
+
+function tableSkeleton(rows, cols){
+  const head = Array.from({length:cols}, (_, i) => '제목' + (i + 1)).join(' | ');
+  const body = Array.from({length:Math.max(0, rows - 1)},
+    () => Array.from({length:cols}, () => '내용').join(' | '));
+  return [head, ...body].join('\n');
+}
+
+// 도구막대를 만들어 textarea 바로 위에 붙인다.
+// opts.fileInput 이 있으면 "사진" 버튼이 그 입력창을 눌러준다.
+function buildFormatBar(ta, opts){
+  opts = opts || {};
+  const bar = document.createElement('div');
+  bar.className = 'fmt-bar';
+
+  const add = (html, title, fn, cls) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.innerHTML = html; b.title = title;
+    if (cls) b.className = cls;
+    b.addEventListener('click', () => fn(b));
+    bar.appendChild(b);
+    return b;
+  };
+  const sep = () => { const d = document.createElement('span'); d.className = 'sep'; bar.appendChild(d); };
+
+  add('제목',  '큰제목',      () => fmtLinePrefix(ta, '# '));
+  add('소제목', '중간제목',    () => fmtLinePrefix(ta, '## '));
+  add('작은',  '작은제목',    () => fmtLinePrefix(ta, '### '));
+  sep();
+  add('가',    '굵게',        () => fmtWrap(ta, '**', '**', '굵게'), 'b');
+  add('가',    '기울임',      () => fmtWrap(ta, '*', '*', '기울임'), 'i');
+  add('가',    '취소선',      () => fmtWrap(ta, '~~', '~~', '취소선'), 's');
+  add('가',    '형광펜',      () => fmtWrap(ta, '==', '==', '형광펜'), 'hl');
+  sep();
+  add('❝',     '인용문',      () => fmtLinePrefix(ta, '> '));
+  add('• 목록', '글머리 목록', () => fmtLinePrefix(ta, '- '));
+  add('1. 목록','번호 목록',   () => fmtLinePrefix(ta, null, true));
+  add('―',     '구분선',      () => fmtBlock(ta, '---'));
+  sep();
+  add('⊞ 표',  '표 만들기',   (b) => openGridPicker(b, (r, c) => fmtBlock(ta, tableSkeleton(r, c))));
+  add('🔗 링크','링크 넣기',   () => {
+    const url = prompt('링크 주소를 붙여넣으세요', 'https://');
+    if (url && /^https?:\/\//.test(url)) fmtWrap(ta, '[', '](' + url + ')', '링크 글자');
+  });
+  if (opts.fileInput) add('🖼 사진', '사진 올리기', () => opts.fileInput.click());
+  sep();
+
+  // 미리보기 — 문법을 외우지 않아도 결과를 바로 확인할 수 있게
+  const pv = document.createElement('div');
+  pv.className = 'fmt-preview';
+  pv.style.display = 'none';
+  pv.innerHTML = '<div class="cap">미리보기</div><div class="note-content pvBody"></div>';
+  const body = pv.querySelector('.pvBody');
+  const refresh = () => {
+    if (pv.style.display === 'none') return;
+    body.innerHTML = renderNoteContent(ta.value) || '<div class="empty-msg">아직 내용이 없어요</div>';
+  };
+  const pvBtn = add('👁 미리보기', '작성한 내용이 어떻게 보이는지', (b) => {
+    const on = pv.style.display === 'none';
+    pv.style.display = on ? 'block' : 'none';
+    b.classList.toggle('on', on);
+    refresh();
+  });
+  ta.addEventListener('input', refresh);
+
+  ta.parentNode.insertBefore(bar, ta);
+  ta.parentNode.insertBefore(pv, ta.nextSibling);
+  return bar;
+}
+
 // ----- 커스텀 탭 사진 첨부: 업로드한 뒤 내용 맨 끝에 "![](주소)" 한 줄로 붙여줌 -----
 async function appendImagesToTextarea(fileInput, textarea, msgEl){
   const files = Array.from(fileInput.files || []);
@@ -389,6 +607,10 @@ function renderCustomTabEditForm(row){
   form.querySelector('.ctImageInput').addEventListener('change', (e) =>
     appendImagesToTextarea(e.target, form.querySelector('.ctContentInput'), form.querySelector('.ct-edit-msg')));
 
+  // 수정할 때도 같은 도구막대를 쓴다
+  buildFormatBar(form.querySelector('.ctContentInput'),
+    { fileInput: form.querySelector('.ctImageInput') });
+
   form.querySelector('.cancelBtn').addEventListener('click', loadCustomTabsAdmin);
 
   form.querySelector('.saveBtn').addEventListener('click', async () => {
@@ -427,6 +649,9 @@ $('#ctAddBtn').addEventListener('click', async () => {
 
 $('#ctImage').addEventListener('change', (e) =>
   appendImagesToTextarea(e.target, $('#ctContent'), $('#ct-msg')));
+
+// 새 탭 작성칸에 서식 도구막대 붙이기
+buildFormatBar($('#ctContent'), { fileInput: $('#ctImage') });
 
 // ----- 이미지 업로드 (Storage 'event-images' 버킷, 5MB로 자동 압축) -----
 // 사진 파일에는 아무것도 새기지 않고, EXIF 날짜/위치는 별도로 뽑아서 DB 컬럼에 저장함(화면 오버레이용)
