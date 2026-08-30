@@ -15,6 +15,8 @@
 <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
 <link href="./style.css" rel="stylesheet">
 <style>
+  /* 소개문과 거르개 사이를 좁혀, 작품이 더 빨리 눈에 들어오게 */
+  .section-head{margin-bottom:20px;}
   .add-box{max-width:520px; margin:0 auto 30px;}
   .add-box .inner{padding:22px;}
   .add-box h3{margin:0 0 14px; font-size:15px; font-weight:800;}
@@ -403,19 +405,9 @@ $('#years').addEventListener('click', (e) => {
 function renderAdminArea(){
   const area = $('#adminArea');
   area.innerHTML = '';
-  if (!isAdmin) {
-    const wrapDiv = document.createElement('div');
-    wrapDiv.style.textAlign = 'center';
-    wrapDiv.style.marginBottom = '26px';
-    const btn = document.createElement('button');
-    btn.className = 'dot-btn small';
-    btn.textContent = '＋ 작품 올리기 (관리자)';
-    btn.addEventListener('click', openAuthModal);   // 로그인 창은 헤더 것 하나만 쓴다
-    wrapDiv.appendChild(btn);
-    area.appendChild(wrapDiv);
-    render();
-    return;
-  }
+  // 방문자에게는 아무것도 두지 않는다. 작품을 올리는 사람은 한 명뿐이고,
+  // 그 사람은 헤더 로그인으로 들어온다.
+  if (!isAdmin) { render(); return; }
 
   loadEventList().then(() => fillEventSelect($('#wEvent'), ''));
 
