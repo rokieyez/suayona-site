@@ -838,6 +838,7 @@ async function uploadGalleryFiles(fileList){
   if (btn) btn.classList.add('uploading');
   let okCount = 0;
   const skipped = [];
+  let blankedGps = 0;                    // 휴대폰이 위치를 지우고 넘긴 사진 수
 
   msg.className = 'gallery-msg'; msg.textContent = '이미 올라간 사진 확인 중...';
   const seen = await existingPhotoFingerprints();
@@ -857,6 +858,7 @@ async function uploadGalleryFiles(fileList){
         // 압축 전에 EXIF 를 먼저 읽어 중복이면 바로 건너뜀 (헛되이 압축하지 않도록)
         const meta = await extractPhotoMeta(file);
         taken_at = meta.takenAtISO; location_name = meta.place || null;
+        if (meta.gps === 'blanked') blankedGps++;
       }
       const fp = photoFingerprint(file.name, taken_at, location_name);
       if (seen.has(fp)) { skipped.push(file.name); continue; }
@@ -887,6 +889,8 @@ async function uploadGalleryFiles(fileList){
   const parts = [];
   if (okCount) parts.push(okCount + '개 업로드 완료!');
   if (skipped.length) parts.push('이미 올라간 사진 ' + skipped.length + '개는 건너뛰었어요 (' + skipped.join(', ') + ')');
+  // 위치가 왜 비었는지 말해 주지 않으면, 사이트가 못 읽은 건지 사진에 없던 건지 알 길이 없다.
+  if (blankedGps) parts.push('사진 ' + blankedGps + '장은 휴대폰이 위치를 지우고 보내서 장소가 안 들어갔어요 (사진 자체에는 남아 있어요)');
   if (parts.length) {
     msg.className = 'gallery-msg ' + (okCount ? 'ok' : '');
     msg.textContent = parts.join(' · ');

@@ -195,6 +195,17 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
 
 /* ===== 갤러리 격자 (포트폴리오) ===== */
 .gal-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:16px;}
+/* 손전화에서는 한 줄에 한 장씩 나와 훑어보기가 힘들었다 — 두 장씩 늘어놓는다.
+   auto-fill 은 최소폭(180px)이 두 칸 안 나오면 한 칸으로 떨어지므로 칸 수를 직접 못박는다.
+   minmax(0,1fr) 이어야 긴 제목이 칸을 밀어내지 않는다(기본값 auto 는 내용 폭을 최소폭으로 삼음). */
+@media (max-width:560px){
+  .gal-grid{grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px;}
+  .gal-item{padding:7px;}
+  .gal-cap{margin-top:6px; font-size:11.5px; line-height:1.4;}
+  .gal-sub{font-size:10px;}
+  .gal-del, .gal-edit{width:22px; height:22px; font-size:11px;}
+  .gal-edit{right:30px;}
+}
 .gal-item{position:relative; padding:10px; background:var(--paper); cursor:pointer;}
 .gal-thumb{position:relative; aspect-ratio:1; overflow:hidden; background:#000; border:2px solid var(--ink);}
 .gal-thumb img, .gal-thumb video{width:100%; height:100%; object-fit:cover;}

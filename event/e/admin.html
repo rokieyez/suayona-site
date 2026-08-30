@@ -771,8 +771,17 @@ $('#retrofitBtn').addEventListener('click', async () => {
 
   const btn = $('#retrofitBtn'), msgEl = $('#retrofitMsg');
   btn.disabled = true;
-  let done = 0, filled = 0, skipped = 0, failed = 0;
+  let done = 0, filled = 0, skipped = 0, failed = 0, blanked = 0;
   const failReasons = [];
+
+  // 찾은 것만 덮어쓴다. 날짜만 나왔다고 location_name 까지 null 로 밀어 버리면
+  // 예전에 어렵게 채워 둔 장소가 다시 눌러 볼 때마다 지워진다.
+  const patchOf = meta => {
+    const patch = {};
+    if (meta.takenAtISO) patch.taken_at = meta.takenAtISO;
+    if (meta.place) patch.location_name = meta.place;
+    return patch;
+  };
 
   const { data: eventsWithImg } = await sb.from('events').select('id, image_url')
     .eq('event_id', CONFIG.eventSlug).not('image_url', 'is', null);
@@ -782,9 +791,10 @@ $('#retrofitBtn').addEventListener('click', async () => {
     try {
       const file = await fetchAsFile(r.image_url);
       const meta = await extractPhotoMeta(file);
-      if (!meta.takenAtISO && !meta.place) { skipped++; continue; }
-      const { error: updErr } = await sb.from('events')
-        .update({ taken_at: meta.takenAtISO, location_name: meta.place || null }).eq('id', r.id);
+      if (meta.gps === 'blanked') blanked++;
+      const patch = patchOf(meta);
+      if (!Object.keys(patch).length) { skipped++; continue; }
+      const { error: updErr } = await sb.from('events').update(patch).eq('id', r.id);
       if (updErr) throw updErr;
       filled++;
     } catch (e) {
@@ -802,9 +812,10 @@ $('#retrofitBtn').addEventListener('click', async () => {
     try {
       const file = await fetchAsFile(r.media_url);
       const meta = await extractPhotoMeta(file);
-      if (!meta.takenAtISO && !meta.place) { skipped++; continue; }
-      const { error: updErr } = await sb.from('gallery_media')
-        .update({ taken_at: meta.takenAtISO, location_name: meta.place || null }).eq('id', r.id);
+      if (meta.gps === 'blanked') blanked++;
+      const patch = patchOf(meta);
+      if (!Object.keys(patch).length) { skipped++; continue; }
+      const { error: updErr } = await sb.from('gallery_media').update(patch).eq('id', r.id);
       if (updErr) throw updErr;
       filled++;
     } catch (e) {
@@ -817,6 +828,7 @@ $('#retrofitBtn').addEventListener('click', async () => {
   btn.disabled = false;
   msgEl.textContent = '완료! 총 ' + done + '장 확인 · ' + filled + '장에 날짜/위치 채움 · ' + skipped + '장은 EXIF 없어서 건너뜀'
     + (failed ? ' · ' + failed + '장 실패' : '') + '.'
+    + (blanked ? '\n' + blanked + '장은 올릴 때 휴대폰이 위치를 지운 사진이라, 여기서는 장소를 되살릴 수 없어요.' : '')
     + (failReasons.length ? '\n실패 사유: ' + failReasons.join(' / ') : '');
   msgEl.style.whiteSpace = 'pre-line';
   loadList();

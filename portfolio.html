@@ -34,6 +34,10 @@
   }
   .gal-quote{color:var(--ink); font-weight:700;}
   .gal-note{color:var(--ink-soft);}
+  /* 두 장씩 놓이면 칸이 절반이라, 이야기는 한 줄만 남기고 글씨도 함께 줄인다 */
+  @media (max-width:560px){
+    .gal-quote, .gal-note{font-size:11px; line-height:1.5; -webkit-line-clamp:2;}
+  }
 
   /* 작품 상세 — 사진만 크게 띄우지 않고 이야기를 같이 보여줌 */
   .work-view{

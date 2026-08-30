@@ -17,9 +17,10 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 // 모아보기(year.html)는 여기 없다. 포트폴리오의 연도 버튼 옆에서 들어간다 —
 // "2026년 작품"과 "2026년 모아보기"가 메뉴에 나란히 있으면 무엇이 다른지 알기 어렵고,
 // 연도를 이미 고른 자리에서 넘어가면 저쪽에서 다시 고를 필요도 없다.
+// 소개는 메뉴에서 뺐다 — 첫 화면에서 아이들을 눌러 이름을 보는 쪽이 더 재미있어서.
+// about.html 은 그대로 남아 있으니 주소를 아는 사람은 계속 볼 수 있다.
 const MENU = [
   { href: '/',              label: '홈',        key: 'home' },
-  { href: '/about.html',    label: '소개',      key: 'about' },
   { href: '/portfolio.html',label: '포트폴리오', key: 'portfolio' },
   { href: '/board.html',    label: '일기장',    key: 'board' },
   { href: '/event/',        label: '이벤트',    key: 'event' },

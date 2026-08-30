@@ -35,7 +35,11 @@
     position:relative; z-index:2; height:100%;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     text-align:center; padding:80px 20px 170px; gap:14px;   /* 아래 여백으로 내용을 위로 올림 */
+    /* 이 판이 캔버스를 통째로 덮고 있어서, 그냥 두면 캐릭터를 눌러도 여기에 먼저 걸린다.
+       클릭은 캔버스로 흘려보내고 실제 단추만 다시 받게 한다. */
+    pointer-events:none;
   }
+  .hero-copy a, .hero-copy button{pointer-events:auto;}
   .hero h1{
     margin:0; font-size:clamp(38px, 9vw, 76px); font-weight:800; line-height:1.1;
     color:#fff; text-shadow:var(--px) var(--px) 0 rgba(47,42,36,.55);
@@ -79,7 +83,6 @@
     <p>그리고, 만들고, 기록하는<br>수아와 연아의 작은 홈페이지</p>
     <div class="hero-actions">
       <a class="dot-btn primary" href="./portfolio.html">작품 보러가기</a>
-      <a class="dot-btn" href="./about.html">소개</a>
       <a class="dot-btn" href="./board.html">일기장</a>
       <a class="dot-btn" href="./event/">이벤트</a>
       <a class="dot-btn" href="./contact.html">편지쓰기</a>
@@ -97,16 +100,8 @@
     </div>
 
     <div class="menu-grid">
-      <a class="dot-card menu-card reveal" href="./about.html">
-        <span class="num pixel">01</span>
-        <canvas data-icon="sua" width="64" height="64"></canvas>
-        <h3>소개</h3>
-        <p>수아와 연아는 어떤 사람인지, 무엇을 좋아하는지 소개해요.</p>
-        <span class="go pixel">보러가기 →</span>
-      </a>
-
       <a class="dot-card menu-card reveal" href="./portfolio.html">
-        <span class="num pixel">02</span>
+        <span class="num pixel">01</span>
         <canvas data-icon="frame" width="64" height="64"></canvas>
         <h3>포트폴리오</h3>
         <p>그림, 만들기, 사진. 두 사람이 만든 작품을 모아둔 전시실이에요.</p>
@@ -114,7 +109,7 @@
       </a>
 
       <a class="dot-card menu-card reveal" href="./board.html">
-        <span class="num pixel">03</span>
+        <span class="num pixel">02</span>
         <canvas data-icon="bubble" width="64" height="64"></canvas>
         <h3>일기장</h3>
         <p>오늘 있었던 일, 하고 싶은 말을 자유롭게 적어두는 공간이에요.</p>
@@ -122,7 +117,7 @@
       </a>
 
       <a class="dot-card menu-card reveal" href="./event/">
-        <span class="num pixel">04</span>
+        <span class="num pixel">03</span>
         <canvas data-icon="tree" width="64" height="64"></canvas>
         <h3>이벤트</h3>
         <p>수련회, 여행, 행사를 날짜별로 확인하고 사진도 올릴 수 있어요.</p>
@@ -130,7 +125,7 @@
       </a>
 
       <a class="dot-card menu-card reveal" href="./contact.html">
-        <span class="num pixel">05</span>
+        <span class="num pixel">04</span>
         <canvas data-icon="mail" width="64" height="64"></canvas>
         <h3>편지쓰기</h3>
         <p>궁금한 점이나 응원의 말을 편지처럼 남길 수 있어요.</p>
@@ -153,6 +148,15 @@ buildChrome('home');
   const canvas = $('#heroCanvas');
   const ctx = canvas.getContext('2d');
   let W = 0, H = 0, S = 4, t = 0, scrollY = 0;
+
+  // 캐릭터를 누르면 이름이 잠깐 떴다 사라진다.
+  // 소개를 메뉴에서 뺀 대신, 궁금할 때 직접 눌러 보게 하는 자리.
+  // hits 는 그릴 때마다 다시 채운다 — 캐릭터가 화면 폭에 따라 자리를 옮기기 때문에
+  // 좌표를 미리 박아 둘 수가 없다. 그린 그 자리가 곧 누를 자리다.
+  let hits = [];
+  let nameTag = null;                                   // { name, x, y, at }
+  const TAG_IN = 140, TAG_HOLD = 1700, TAG_OUT = 340;   // 뜨고 · 머물고 · 사라지고 (ms)
+  const TAG_LIFE = TAG_IN + TAG_HOLD + TAG_OUT;
 
   const clouds = [
     { x:0.05, y:0.13, sp:0.010, sc:1.6, depth:0.20 },
@@ -367,10 +371,10 @@ buildChrome('home');
     // 좌표를 화면 비율로 박아두면 스프라이트 크기를 바꿀 때마다 서로 겹침.
     // 실제 폭을 재서 가운데 정렬로 늘어놓고, 발끝은 sprite.length 로 맞춤.
     const cast = [
-      { sp: SPRITES.chick, s: petS,  bob: 0, roll: true },   // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다님
-      { sp: SPRITES.sua,   s: castS, bob: hop1 },
-      { sp: SPRITES.yona,  s: castS, bob: hop2, rider: SPRITES.fox },  // 레샤가 머리 위에 탐
-      { sp: SPRITES.easel, s: castS, bob: 0 },
+      { sp: SPRITES.chick, s: petS,  bob: 0, roll: true, name: '상그렐라' },  // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다님
+      { sp: SPRITES.sua,   s: castS, bob: hop1, name: '수아' },
+      { sp: SPRITES.yona,  s: castS, bob: hop2, rider: SPRITES.fox, name: '연아', riderName: '레샤' },
+      { sp: SPRITES.easel, s: castS, bob: 0 },            // 이젤은 사람이 아니라 이름이 없다
     ];
     // 좁은 화면에서는 캐릭터를 통째로 한 단계씩 줄여 가로로 넘치지 않게 함
     while (cast[0].s > 2 && cast.reduce((n, c) => n + c.sp[0].length * c.s, 0) > W * 0.92) {
@@ -381,6 +385,7 @@ buildChrome('home');
     const gap = Math.max(0, Math.min(cast[1].s * 7,
       Math.round((W * 0.94 - castW) / (cast.length - 1))));
     let cx = Math.round((W - (castW + gap * (cast.length - 1))) / 2 / S) * S;
+    hits = [];
     cast.forEach(c => {
       if (c.roll) {
         // 돌처럼 굴러다님: 좌우로 천천히 오가고, 굴러간 거리만큼 실제로 돌아간다.
@@ -396,18 +401,32 @@ buildChrome('home');
         ctx.rotate(dx / radius);
         drawSprite(ctx, c.sp, -Math.round(w / 2), -Math.round(h / 2), c.s);
         ctx.restore();
+        // 돌고 있어도 누를 자리는 네모로 잡는다 — 돌아가는 모양까지 따라가면
+        // 손끝이 계속 빗나가서 오히려 누르기 어렵다
+        if (c.name) hits.push({ name: c.name, x: cx + w / 2 + dx, y: standY - h, w: w, h: h });
       } else {
         const top = standY - c.sp.length * c.s - c.bob;
         drawSprite(ctx, c.sp, cx, top, c.s);
+        const own = c.name
+          ? { name: c.name, x: cx + c.sp[0].length * c.s / 2, y: top,
+              w: c.sp[0].length * c.s, h: c.sp.length * c.s }
+          : null;
+        if (own) hits.push(own);
         if (c.rider) {
           // 머리 위에 올라탄 친구 — 주인이 튀면 같이 튀도록 같은 top 을 기준으로 앉힘.
           // ★ 세로값을 도트 격자로 반올림하면 안 된다. 주인은 실수 좌표로 그려지는데
           //   여기만 S(4~5px) 단위로 끊으면 혼자 뚝뚝 끊겨 보인다.
           const rs = Math.max(2, Math.round(c.s * 0.85));
           const rw = c.rider[0].length * rs, rh = c.rider.length * rs;
-          drawSprite(ctx, c.rider,
-            Math.round((cx + (c.sp[0].length * c.s - rw) / 2) / S) * S,
-            top - rh + rs, rs);
+          const rx = Math.round((cx + (c.sp[0].length * c.s - rw) / 2) / S) * S;
+          const rtop = top - rh + rs;
+          drawSprite(ctx, c.rider, rx, rtop, rs);
+          // 주인을 눌렀을 때 이름표는 머리 위 친구보다 더 높이 띄운다.
+          // 누르는 자리는 몸 그대로 두고 말풍선만 올리는 것 — 안 그러면 이름표가 그 친구를 덮는다.
+          if (own) own.tagY = rtop;
+          // 머리 위 친구는 주인 위에 겹쳐 있으니 뒤에 넣어 둔다 — 찾을 때 뒤에서부터 보므로
+          // 겹친 자리를 누르면 위에 있는 쪽이 잡힌다
+          if (c.riderName) hits.push({ name: c.riderName, x: rx + rw / 2, y: rtop, w: rw, h: rh });
         }
       }
       cx += c.sp[0].length * c.s + gap;
@@ -420,10 +439,96 @@ buildChrome('home');
       const by = groundY + gy - H * 0.19 + Math.sin(t * 1.5 + i) * S * 5;
       drawSprite(ctx, SPRITES.butterfly, Math.round(bx/S)*S, Math.round(by/S)*S, Math.max(2, charS - 1));
     }
+
+    // 8) 눌러서 뜬 이름표 — 맨 위에
+    drawNameTag();
+  }
+
+  // 말풍선도 도트로 그린다 — 사이트의 카드와 같은 굵은 테두리와 4px 어긋난 그림자.
+  // 시간은 t 가 아니라 실제 시계로 잰다. 움직임을 줄인 설정에서는 t 가 멈춰 있기 때문.
+  function drawNameTag(){
+    if (!nameTag) return;
+    const age = performance.now() - nameTag.at;
+    if (age >= TAG_LIFE) { nameTag = null; return; }
+
+    const fade = age < TAG_IN ? age / TAG_IN
+      : age > TAG_IN + TAG_HOLD ? 1 - (age - TAG_IN - TAG_HOLD) / TAG_OUT : 1;
+    const rise = age < TAG_IN ? (1 - age / TAG_IN) * S * 2 : 0;   // 살짝 떠오르며 나타남
+
+    const INK = '#2f2a24', PAPER = '#fff6e9';
+    const fs = Math.max(12, Math.round(S * 3.4));
+    const pad = S * 2;
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, fade));
+    ctx.font = '800 ' + fs + 'px Galmuri11, Pretendard, sans-serif';
+    ctx.textBaseline = 'top';
+
+    const bw = Math.ceil(ctx.measureText(nameTag.name).width) + pad * 2;
+    const bh = fs + pad * 2;
+    // 화면 밖으로 나가지 않게 가두되, 꼬리는 캐릭터를 계속 가리키게 둔다
+    const bx = Math.max(S, Math.min(W - bw - S, Math.round((nameTag.x - bw / 2) / S) * S));
+    const by = Math.round((nameTag.y - bh - S * 4 + rise) / S) * S;
+    const tip = Math.round(Math.max(bx + S * 3, Math.min(bx + bw - S * 3, nameTag.x)) / S) * S;
+
+    ctx.fillStyle = INK;   ctx.fillRect(bx + S, by + S, bw, bh);      // 그림자
+    ctx.fillStyle = PAPER; ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = INK;                                              // 네 변 테두리
+    ctx.fillRect(bx, by, bw, S); ctx.fillRect(bx, by + bh - S, bw, S);
+    ctx.fillRect(bx, by, S, bh); ctx.fillRect(bx + bw - S, by, S, bh);
+
+    // 아래를 가리키는 꼬리 — 먹으로 삼각형을 놓고 그 안에 종이색을 한 겹 작게 얹음
+    for (let i = 0; i < 3; i++) {
+      const half = (3 - i) * S;
+      ctx.fillStyle = INK;
+      ctx.fillRect(tip - half, by + bh - S + i * S, half * 2, S);
+    }
+    for (let i = 0; i < 2; i++) {
+      const half = (2 - i) * S;
+      ctx.fillStyle = PAPER;
+      ctx.fillRect(tip - half, by + bh - S + i * S, half * 2, S);
+    }
+
+    ctx.fillStyle = INK;
+    ctx.fillText(nameTag.name, bx + pad, by + pad);
+    ctx.restore();
+  }
+
+  // 누른 자리에 있는 캐릭터 — 뒤에서부터 찾아 위에 그려진 쪽을 먼저 잡는다.
+  // 손끝은 화살표보다 뭉툭해서 스프라이트 딱 그만큼만 받으면 자꾸 빗나간다. 조금 넉넉히 잡음.
+  function hitAt(px, py){
+    const slack = S * 2;
+    for (let i = hits.length - 1; i >= 0; i--) {
+      const h = hits[i];
+      if (px >= h.x - h.w / 2 - slack && px <= h.x + h.w / 2 + slack &&
+          py >= h.y - slack && py <= h.y + h.h + slack) return h;
+    }
+    return null;
   }
 
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function loop(){ t += 0.016; draw(); requestAnimationFrame(loop); }
+
+  const atCanvas = e => {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+  canvas.addEventListener('click', e => {
+    const p = atCanvas(e);
+    const hit = hitAt(p.x, p.y);
+    if (!hit) return;
+    nameTag = { name: hit.name, x: hit.x, y: hit.tagY != null ? hit.tagY : hit.y, at: performance.now() };
+    // 늘 다시 그리는 화면이면 다음 프레임이 알아서 그려 준다.
+    // 움직임을 줄인 설정에서는 화면이 멈춰 있으니, 이름표가 사는 동안만 따로 돌린다.
+    if (reduce) (function tick(){ draw(); if (nameTag) requestAnimationFrame(tick); })();
+  });
+  // 누를 수 있다는 걸 알려 주는 건 손모양뿐이다 — 화면에 안내 글씨를 더 얹고 싶지는 않았다
+  canvas.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'mouse') return;
+    const p = atCanvas(e);
+    canvas.style.cursor = hitAt(p.x, p.y) ? 'pointer' : '';
+  });
+
   window.addEventListener('resize', () => { resize(); draw(); });
   window.addEventListener('scroll', () => { scrollY = window.scrollY; if (reduce) draw(); }, {passive:true});
   resize();
