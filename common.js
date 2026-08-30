@@ -124,8 +124,11 @@ async function refreshAuth(){
     .select('user_id, role, display, author_key')
     .eq('user_id', session.user.id).maybeSingle();
   me = data || null;
-  // 프로필이 아직 없는 계정은 부모로 본다 — 아이 계정을 만들기 전 상태와의 호환.
-  isAdmin = !me || me.role === 'parent';
+  // 프로필이 없으면 아무 권한도 주지 않는다.
+  // 예전엔 "프로필 없으면 부모"로 뒀는데, 그러면 새로 만든 계정이 전부 부모가 된다.
+  // 서버 정책은 이미 막고 있어서 실제로 쓰이지는 않지만, 화면에 관리 버튼이 뜬 뒤
+  // 눌러야 거절당하는 건 고장난 것과 같다.
+  isAdmin = !!me && me.role === 'parent';
   isChild = !!me && me.role === 'child';
   return session;
 }
