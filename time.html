@@ -119,6 +119,22 @@
   .sheet-in summary{cursor:pointer; font-size:12px; font-weight:800; padding:6px 0;}
   .sheet-btns{display:flex; gap:8px; align-items:center; margin-top:20px;}
   .sheet .msg{margin-top:10px;}
+  /* 요일 일곱 칸. 학교처럼 매일 같은 일정을 다섯 번 넣지 않아도 되게. */
+  .wd-pick{display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-top:5px;}
+  .wd-pick button{
+    font-family:inherit; font-size:13px; font-weight:800; cursor:pointer;
+    border:2px solid var(--ink); background:var(--cream); color:var(--ink);
+    padding:10px 0; border-radius:0;
+  }
+  .wd-pick button[data-wd="6"]{color:#2f6fb0;}
+  .wd-pick button[data-wd="0"]{color:#c0392b;}
+  .wd-pick button:hover{background:var(--lemon);}
+  .wd-pick button.on,
+  .wd-pick button.on[data-wd="6"],
+  .wd-pick button.on[data-wd="0"]{background:var(--coral); color:#fff;}
+  .wd-note{margin:9px 0 4px; font-size:12px; line-height:1.6; color:var(--ink-soft);}
+  .wd-note.warn{color:#c0392b;}
+
   .quick{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;}
   .quick button{font-family:inherit; font-size:11.5px; font-weight:800; cursor:pointer;
     border:2px solid var(--ink); background:var(--cream); padding:4px 9px;}
@@ -236,24 +252,34 @@
     <label class="field" for="fPlace">장소</label>
     <input id="fPlace" placeholder="비워도 괜찮아요" autocomplete="off">
 
-    <div class="row2">
-      <div>
-        <label class="field" for="fMode">언제</label>
-        <select id="fMode">
-          <option value="w">매주</option>
-          <option value="d">그날 하루만</option>
-        </select>
+    <label class="field" for="fMode">언제</label>
+    <select id="fMode">
+      <option value="w">매주</option>
+      <option value="d">그날 하루만</option>
+    </select>
+
+    <div id="fWeekBox">
+      <label class="field">무슨 요일</label>
+      <div class="wd-pick" id="fWeekdays">
+        <button type="button" data-wd="1">월</button>
+        <button type="button" data-wd="2">화</button>
+        <button type="button" data-wd="3">수</button>
+        <button type="button" data-wd="4">목</button>
+        <button type="button" data-wd="5">금</button>
+        <button type="button" data-wd="6">토</button>
+        <button type="button" data-wd="0">일</button>
       </div>
-      <div>
-        <label class="field" for="fWeekday" id="fWhenLabel">요일</label>
-        <select id="fWeekday">
-          <option value="1">월요일</option><option value="2">화요일</option>
-          <option value="3">수요일</option><option value="4">목요일</option>
-          <option value="5">금요일</option><option value="6">토요일</option>
-          <option value="0">일요일</option>
-        </select>
-        <input type="date" id="fDate" hidden>
+      <div class="quick" id="fWdQuick">
+        <button type="button" data-preset="weekday">평일</button>
+        <button type="button" data-preset="weekend">주말</button>
+        <button type="button" data-preset="all">매일</button>
       </div>
+      <p class="wd-note" id="fWdNote"></p>
+    </div>
+
+    <div id="fDateBox" hidden>
+      <label class="field" for="fDate">날짜</label>
+      <input type="date" id="fDate">
     </div>
 
     <div class="row2">
@@ -329,6 +355,7 @@ let all = [];                        // 시간표 전부
 let who = 'sua';                     // 격자에 띄울 아이
 let anchor = new Date();             // 보고 있는 주 안의 아무 날
 let editing = null;                  // 고치는 중인 행 (없으면 새로 넣는 중)
+let editingGroup = [];               // 그 행과 요일만 다른 형제 줄들
 
 // ---------- 날짜·시간 잔손질 ----------
 const toMin = t => { const p = String(t).split(':'); return (+p[0]) * 60 + (+p[1]); };
@@ -554,8 +581,15 @@ function openSheet(row, preset){
 
   const mode = s.on_date ? 'd' : (row ? 'w' : (preset && preset.mode) || 'w');
   $('#fMode').value = mode;
-  $('#fWeekday').value = String(s.weekday != null ? s.weekday
-                              : (preset ? preset.weekday : 1));
+
+  // 같은 일정이 요일만 달리해 여러 줄로 들어가 있으면 한 덩어리로 다룬다.
+  // '학교'를 열면 월~금이 다 켜진 채로 뜨고, 끝 시각을 고치면 다섯 줄이 함께 바뀐다.
+  editingGroup = row && row.weekday != null ? siblingsOf(row) : [];
+  const on = editingGroup.length ? editingGroup.map(r => r.weekday)
+           : (s.weekday != null ? [s.weekday]
+           : (preset && preset.weekday != null ? [preset.weekday] : [1]));
+  setWeekdays(on);
+
   $('#fDate').value = s.on_date || (preset && preset.date) || iso(new Date());
   syncMode();
 
@@ -571,16 +605,65 @@ function openSheet(row, preset){
   holdBack();
   $('#fTitle').focus();
 }
-function closeSheet(){ $('#sheet').hidden = true; editing = null; releaseBack(); }
+function closeSheet(){ $('#sheet').hidden = true; editing = null; editingGroup = []; releaseBack(); }
 function closeCopy(){ $('#copySheet').hidden = true; releaseBack(); }
 
-// '매주'냐 '그날 하루만'이냐에 따라 요일 고르개와 날짜 고르개를 바꿔 끼운다
+// 같은 일정인데 요일만 다른 줄들. 이름·장소·시각·학기가 모두 같아야 한 덩어리로 본다.
+function siblingsOf(row){
+  const same = r =>
+    r.weekday != null && r.who === row.who && r.kind === row.kind &&
+    r.title === row.title && (r.place || '') === (row.place || '') &&
+    r.start_at === row.start_at && (r.end_at || '') === (row.end_at || '') &&
+    (r.valid_from || '') === (row.valid_from || '') &&
+    (r.valid_to || '') === (row.valid_to || '');
+  return all.filter(same).sort((a, b) => a.weekday - b.weekday);
+}
+
+function pickedWeekdays(){
+  return $$('#fWeekdays button.on').map(b => +b.dataset.wd).sort((a, b) => a - b);
+}
+function setWeekdays(list){
+  const set = new Set(list);
+  $$('#fWeekdays button').forEach(b => b.classList.toggle('on', set.has(+b.dataset.wd)));
+  syncWeekdayNote();
+}
+
+// 저장을 누르면 무슨 일이 벌어지는지 미리 적어 준다.
+// 특히 요일을 껐을 때 그 줄이 지워진다는 걸 누르기 전에 알아야 한다.
+function syncWeekdayNote(){
+  const note = $('#fWdNote');
+  const picked = pickedWeekdays();
+  if (!picked.length) {
+    note.className = 'wd-note warn';
+    note.textContent = '요일을 하나 이상 골라주세요.';
+    return;
+  }
+  const names = picked.map(w => DAYNAME[w]).join('·');
+  const had = new Set(editingGroup.map(r => r.weekday));
+  const gone = [...had].filter(w => !picked.includes(w));
+  note.className = 'wd-note' + (gone.length ? ' warn' : '');
+  note.textContent = names + ' ' + picked.length + '개 요일에 저장돼요.' +
+    (gone.length ? '  ' + gone.map(w => DAYNAME[w]).join('·') + '요일은 지워집니다.' : '');
+}
+
+$('#fWeekdays').addEventListener('click', e => {
+  const b = e.target.closest('[data-wd]');
+  if (!b) return;
+  b.classList.toggle('on');
+  syncWeekdayNote();
+});
+$('#fWdQuick').addEventListener('click', e => {
+  const b = e.target.closest('[data-preset]');
+  if (!b) return;
+  const p = b.dataset.preset;
+  setWeekdays(p === 'weekday' ? [1,2,3,4,5] : p === 'weekend' ? [0,6] : [0,1,2,3,4,5,6]);
+});
+
+// '매주'냐 '그날 하루만'이냐에 따라 고르개를 바꿔 끼운다
 function syncMode(){
   const daily = $('#fMode').value === 'd';
-  $('#fWeekday').hidden = daily;
-  $('#fDate').hidden = !daily;
-  $('#fWhenLabel').textContent = daily ? '날짜' : '요일';
-  $('#fWhenLabel').setAttribute('for', daily ? 'fDate' : 'fWeekday');
+  $('#fWeekBox').hidden = daily;
+  $('#fDateBox').hidden = !daily;
   // 하루짜리에는 학기가 없다
   $('#fFrom').disabled = $('#fTo').disabled = daily;
 }
@@ -618,12 +701,16 @@ $('#fSave').addEventListener('click', async () => {
     msg.className = 'msg err'; msg.textContent = '끝나는 시각이 시작보다 빨라요.'; return;
   }
 
-  const row = {
+  const picked = daily ? [] : pickedWeekdays();
+  if (!daily && !picked.length) {
+    msg.className = 'msg err'; msg.textContent = '요일을 하나 이상 골라주세요.'; return;
+  }
+
+  const base = {
     who: $('#fWho').value,
     kind: $('#fKind').value,
     title,
     place: $('#fPlace').value.trim() || null,
-    weekday: daily ? null : (+$('#fWeekday').value),
     on_date: daily ? $('#fDate').value : null,
     start_at: $('#fStart').value,
     end_at: endV || null,
@@ -633,19 +720,60 @@ $('#fSave').addEventListener('click', async () => {
   };
 
   msg.className = 'msg'; msg.textContent = '저장 중...';
-  const q = editing
-    ? sb.from('schedules').update(row).eq('id', editing.id)
-    : sb.from('schedules').insert(row);
-  const { error } = await q;
-  if (error) { msg.className = 'msg err'; msg.textContent = '저장 실패: ' + error.message; return; }
+
+  // 하루짜리는 예전과 같다 — 한 줄이면 한 줄.
+  if (daily) {
+    const row = Object.assign({ weekday: null }, base);
+    const { error } = editing
+      ? await sb.from('schedules').update(row).eq('id', editing.id)
+      : await sb.from('schedules').insert(row);
+    if (error) { msg.className = 'msg err'; msg.textContent = '저장 실패: ' + error.message; return; }
+    closeSheet();
+    await load();
+    return;
+  }
+
+  // 매주 반복은 고른 요일의 수만큼 줄이 있어야 한다.
+  // 이미 있던 줄은 고쳐 쓰고, 새로 고른 요일은 만들고, 끈 요일은 지운다.
+  // 요일을 하나씩 다섯 번 넣지 않아도 되게 하려고 이렇게 둔다.
+  const keep = editingGroup.filter(r => picked.includes(r.weekday));
+  const drop = editingGroup.filter(r => !picked.includes(r.weekday));
+  const fresh = picked.filter(w => !editingGroup.some(r => r.weekday === w));
+
+  try {
+    for (const r of keep) {
+      const { error } = await sb.from('schedules')
+        .update(Object.assign({ weekday: r.weekday }, base)).eq('id', r.id);
+      if (error) throw error;
+    }
+    if (fresh.length) {
+      const { error } = await sb.from('schedules')
+        .insert(fresh.map(w => Object.assign({ weekday: w }, base)));
+      if (error) throw error;
+    }
+    if (drop.length) {
+      const { error } = await sb.from('schedules').delete().in('id', drop.map(r => r.id));
+      if (error) throw error;
+    }
+  } catch (e) {
+    msg.className = 'msg err'; msg.textContent = '저장 실패: ' + ((e && e.message) || e);
+    return;
+  }
+
   closeSheet();
   await load();
 });
 
 $('#fDel').addEventListener('click', async () => {
   if (!editing) return;
-  if (!confirm('"' + editing.title + '" 을(를) 지울까요?')) return;
-  const { error } = await sb.from('schedules').delete().eq('id', editing.id);
+  // 요일만 다른 형제 줄이 있으면 몇 개가 사라지는지 먼저 알려준다
+  const ids = editingGroup.length ? editingGroup.map(r => r.id) : [editing.id];
+  const what = ids.length > 1
+    ? '"' + editing.title + '" 을(를) ' + editingGroup.map(r => DAYNAME[r.weekday]).join('·') +
+      ' 요일에서 모두 지울까요? (' + ids.length + '개)'
+    : '"' + editing.title + '" 을(를) 지울까요?';
+  if (!confirm(what)) return;
+  const { error } = await sb.from('schedules').delete().in('id', ids);
   if (error) {
     $('#fMsg').className = 'msg err'; $('#fMsg').textContent = '지우지 못했어요: ' + error.message; return;
   }
