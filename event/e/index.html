@@ -142,6 +142,14 @@
   .gallery-msg.err{color:#c0392b;}
   .gallery-msg.ok{color:#2a8a4a;}
 
+  .linked-works{margin:0 0 18px;}
+  .lw-head{font-size:13px; font-weight:800; color:var(--ink); margin-bottom:9px;}
+  .lw-strip{display:flex; gap:9px; overflow-x:auto; padding-bottom:4px;}
+  .lw-item{flex:0 0 108px; text-decoration:none; color:var(--ink-soft);}
+  .lw-item img, .lw-item video{width:108px; height:108px; object-fit:cover; display:block;
+    border-radius:10px; border:1px solid rgba(0,0,0,.08);}
+  .lw-item span{display:block; font-size:11.5px; margin-top:5px; line-height:1.4;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .gallery-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;}
   .gallery-thumb{position:relative; aspect-ratio:1; border-radius:10px; overflow:hidden; cursor:pointer;
     border:1px solid rgba(0,0,0,.08); transition:transform .18s; background:#000;}
@@ -621,6 +629,30 @@ const MAX_VIDEO_BYTES = 100 * 1024 * 1024;      // 영상 100MB (압축 없이 �
 const GALLERY_BUCKET = 'gallery-uploads';
 let galleryItems = [];
 
+// 이 일정과 이어진 작품 — 포트폴리오에서 "그날 일정"으로 고른 것들.
+// 작품과 경험이 각자 다른 서랍에 있던 것을 잇는 쪽 절반.
+async function loadLinkedWorks(){
+  const { data, error } = await sb.from('works')
+    .select('id, title, media_url, media_type, author, made_on')
+    .eq('event_id', CONFIG.eventSlug)
+    .order('made_on', { ascending:true, nullsFirst:false });
+  if (error || !data || !data.length) return;
+
+  const panel = document.getElementById('gallery');
+  if (!panel) return;
+  const box = document.createElement('div');
+  box.className = 'linked-works';
+  box.innerHTML = '<div class="lw-head">🎨 이날 만든 작품 ' + data.length + '개</div>' +
+    '<div class="lw-strip">' + data.map(w =>
+      '<a class="lw-item" href="/portfolio.html" title="' + escapeHTML(w.title) + '">' +
+        (w.media_type === 'video'
+          ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
+          : '<img src="' + escapeHTML(w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">') +
+        '<span>' + escapeHTML(w.title) + '</span>' +
+      '</a>').join('') + '</div>';
+  panel.insertBefore(box, panel.querySelector('.gallery-grid'));
+}
+
 async function loadGallery(){
   const grid = $('#galleryGrid');
   if (!grid) return;
@@ -680,6 +712,7 @@ function renderGalleryThumb(r, index){
       const { error } = await sb.from('gallery_media').delete().eq('id', r.id);
       if (error) { alert('삭제 실패: ' + error.message); return; }
       loadGallery();
+  loadLinkedWorks();
     });
     thumb.appendChild(del);
   }

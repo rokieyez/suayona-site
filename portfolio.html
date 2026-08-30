@@ -20,6 +20,44 @@
   .add-box h3{margin:0 0 14px; font-size:15px; font-weight:800;}
   .row2{display:flex; gap:10px;}
   .row2 > *{flex:1;}
+  /* 카드에 얹는 이야기 — 두 줄까지만 보이고 나머지는 상세에서 */
+  .gal-quote, .gal-note{
+    font-size:12.5px; line-height:1.6; padding:0 2px 2px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .gal-quote{color:var(--ink); font-weight:700;}
+  .gal-note{color:var(--ink-soft);}
+
+  /* 작품 상세 — 사진만 크게 띄우지 않고 이야기를 같이 보여줌 */
+  .work-view{
+    position:fixed; inset:0; z-index:120; display:none;
+    background:rgba(30,26,22,.88); overflow-y:auto; padding:24px 16px;
+  }
+  .work-view.open{display:block;}
+  .work-box{
+    max-width:760px; margin:0 auto; background:var(--paper);
+    border:var(--px) solid var(--ink); box-shadow:var(--px) var(--px) 0 rgba(0,0,0,.4);
+  }
+  .work-box .media{background:#000; border-bottom:var(--px) solid var(--ink);}
+  .work-box .media img, .work-box .media video{display:block; width:100%; height:auto;}
+  .work-box .body{padding:20px 22px 24px;}
+  .work-box h3{margin:0 0 6px; font-size:20px; font-weight:900;}
+  .work-box .meta{display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    font-size:12.5px; color:var(--ink-soft); margin-bottom:14px;}
+  .work-box .quote{
+    font-size:15.5px; line-height:1.85; font-weight:700; color:var(--ink);
+    border-left:var(--px) solid var(--coral); padding:4px 0 4px 14px; margin:0 0 14px;
+    white-space:pre-line;
+  }
+  .work-box .note{font-size:14px; line-height:1.85; color:var(--ink-soft);
+    margin:0 0 14px; white-space:pre-line;}
+  .work-box .go-event{display:inline-block; font-size:13px; font-weight:800;
+    border:2px solid var(--ink); background:var(--lemon); color:var(--ink);
+    padding:7px 12px; text-decoration:none;}
+  .work-nav{display:flex; justify-content:space-between; gap:10px; margin-top:18px;}
+  .work-close{position:fixed; top:14px; right:16px; z-index:121;
+    border:var(--px) solid var(--ink); background:var(--cream); color:var(--ink);
+    font-size:16px; font-weight:900; width:42px; height:42px; cursor:pointer;}
 </style>
 </head>
 <body>
@@ -40,13 +78,23 @@
       <button class="dot-btn small" data-filter="yona">연아</button>
       <button class="dot-btn small" data-filter="together">같이</button>
     </div>
+    <div class="filters years reveal" id="years">
+      <button class="dot-btn small on" data-year="all">전체 연도</button>
+    </div>
 
     <div class="gal-grid" id="grid"></div>
     <div class="empty-msg" id="empty" style="display:none;">아직 올라온 작품이 없어요</div>
   </div>
 </main>
 
+<div class="work-view" id="workView" role="dialog" aria-modal="true" aria-label="작품 자세히 보기">
+  <button class="work-close" id="workClose" aria-label="닫기">✕</button>
+  <div class="work-box" id="workBox"></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
+<script src="/event/compress.js"></script>
 <script src="./pixel.js"></script>
 <script src="./common.js"></script>
 <script>
@@ -54,7 +102,7 @@ buildChrome('portfolio');
 buildBackdrop('portfolio');   // 배경 픽셀 겹 (common.js)
 
 const AUTHORS = { sua:'수아', yona:'연아', together:'같이' };
-let works = [], filter = 'all';
+let works = [], filter = 'all', yearFilter = 'all';
 const lightbox = createLightbox();
 
 // ---------- 목록 ----------
@@ -71,11 +119,14 @@ async function loadWorks(){
     return;
   }
   works = data || [];
+  buildYearFilter();
   render();
 }
 
 function visible(){
-  return filter === 'all' ? works : works.filter(w => w.author === filter);
+  return works.filter(w =>
+    (filter === 'all' || w.author === filter) &&
+    (yearFilter === 'all' || (w.made_on && w.made_on.slice(0,4) === yearFilter)));
 }
 
 function render(){
@@ -90,20 +141,20 @@ function render(){
     const media = w.media_type === 'video'
       ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
       : '<img src="' + escapeHTML(w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">';
+    // 적어둔 이야기를 목록에서도 보여준다 — 예전에는 사진을 눌러야만 한 줄로 보였다.
+    const story = w.quote
+      ? '<div class="gal-quote">\u201C' + escapeHTML(w.quote) + '\u201D</div>'
+      : (w.description ? '<div class="gal-note">' + escapeHTML(w.description) + '</div>' : '');
     card.innerHTML =
       '<div class="gal-thumb">' + media + '</div>' +
       '<div class="gal-cap">' + escapeHTML(w.title) + '</div>' +
+      story +
       '<div class="gal-sub">' +
         '<span class="tag ' + escapeHTML(w.author) + '">' + (AUTHORS[w.author] || '같이') + '</span>' +
         (w.made_on ? escapeHTML(formatDate(w.made_on)) : '') +
       '</div>';
 
-    card.addEventListener('click', () => {
-      lightbox.open(list.map(x => ({
-        media_url: x.media_url, media_type: x.media_type,
-        caption: x.title + (x.description ? ' — ' + x.description : ''),
-      })), i);
-    });
+    card.addEventListener('click', () => openWork(list, i));
 
     if (isAdmin) {
       const edit = document.createElement('button');
@@ -145,8 +196,10 @@ function openEditModal(w){
         : '<img class="preview" src="' + escapeHTML(w.media_url) + '" alt="">') +
       '<label class="field">제목</label>' +
       '<input type="text" class="eTitle" value="' + escapeHTML(w.title) + '">' +
-      '<label class="field">설명 (선택)</label>' +
-      '<textarea class="eDesc" style="min-height:70px;">' + escapeHTML(w.description || '') + '</textarea>' +
+      '<label class="field">아이가 한 말 (선택)</label>' +
+      '<textarea class="eQuote" style="min-height:60px;">' + escapeHTML(w.quote || '') + '</textarea>' +
+      '<label class="field">메모 (선택)</label>' +
+      '<textarea class="eDesc" style="min-height:60px;">' + escapeHTML(w.description || '') + '</textarea>' +
       '<div class="row2">' +
         '<div><label class="field">누구 작품</label>' +
           '<select class="eAuthor">' +
@@ -157,6 +210,8 @@ function openEditModal(w){
         '<div><label class="field">만든 날 (선택)</label>' +
           '<input type="date" class="eDate" value="' + escapeHTML(w.made_on || '') + '"></div>' +
       '</div>' +
+      '<label class="field">그날 일정과 잇기 (선택)</label>' +
+      '<select class="eEvent"><option value="">연결 안 함</option></select>' +
       '<label class="field">사진/영상 바꾸기 (선택)</label>' +
       '<input type="file" class="eFile" accept="image/*,video/*">' +
       '<div class="modal-actions">' +
@@ -167,6 +222,8 @@ function openEditModal(w){
     '</div></div>';
   document.body.appendChild(overlay);
   document.body.style.overflow = 'hidden';
+
+  fillEventSelect(overlay.querySelector('.eEvent'), w.event_id);
 
   const close = () => { overlay.remove(); document.body.style.overflow = ''; };
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
@@ -186,6 +243,8 @@ function openEditModal(w){
       description: overlay.querySelector('.eDesc').value.trim() || null,
       author: overlay.querySelector('.eAuthor').value,
       made_on: overlay.querySelector('.eDate').value || null,
+      quote: overlay.querySelector('.eQuote').value.trim() || null,
+      event_id: overlay.querySelector('.eEvent').value || null,
     };
     try {
       const file = overlay.querySelector('.eFile').files[0];
@@ -208,12 +267,119 @@ function openEditModal(w){
   });
 }
 
+// ---------- 사진에서 찍은 날짜 꺼내기 ----------
+// 만든 날을 비우고 올리면 오늘 날짜가 박혀서, 몇 년 전 그림도 오늘 만든 것이 돼버린다.
+// EXIF 가 없는 사진(스캔본·캡처)이면 null 을 돌려주고, 그때는 날짜 없이 저장된다.
+async function exifDate(file){
+  try {
+    const meta = await extractPhotoMeta(file);
+    return meta.takenAtISO ? meta.takenAtISO.slice(0, 10) : null;
+  } catch (e) { return null; }
+}
+
+// ---------- 일정 목록 (작품을 그날과 잇기 위한 것) ----------
+let eventList = [];
+async function loadEventList(){
+  const { data } = await sb.from('event_meta')
+    .select('event_id, org_name, event_name, start_date')
+    .order('start_date', { ascending:false });
+  eventList = data || [];
+}
+function fillEventSelect(sel, current){
+  if (!sel) return;
+  sel.innerHTML = '<option value="">연결 안 함</option>' +
+    eventList.map(e => {
+      const name = [e.org_name, e.event_name].filter(Boolean).join(' · ') || e.event_id;
+      const when = e.start_date ? ' (' + e.start_date.slice(0,7).replace('-', '.') + ')' : '';
+      return '<option value="' + escapeHTML(e.event_id) + '"' +
+        (current === e.event_id ? ' selected' : '') + '>' + escapeHTML(name + when) + '</option>';
+    }).join('');
+}
+
+// ---------- 작품 자세히 보기 ----------
+// 예전에는 사진만 크게 띄우는 라이트박스였다. 작품을 전시하는 게 이 사이트의 목적이라
+// 사진 아래에 아이 말과 메모를 같이 두고, 좌우로 넘길 수 있게 함.
+let viewList = [], viewIdx = -1;
+
+function renderWork(){
+  const w = viewList[viewIdx];
+  if (!w) return;
+  const media = w.media_type === 'video'
+    ? '<video src="' + escapeHTML(w.media_url) + '" controls playsinline></video>'
+    : '<img src="' + escapeHTML(w.media_url) + '" alt="' + escapeHTML(w.title) + '">';
+  const ev = w.event_id
+    ? '<a class="go-event" href="/event/e/?slug=' + encodeURIComponent(w.event_id) + '">📅 이날 무슨 일이 있었는지 보기</a>'
+    : '';
+  $('#workBox').innerHTML =
+    '<div class="media">' + media + '</div>' +
+    '<div class="body">' +
+      '<h3>' + escapeHTML(w.title) + '</h3>' +
+      '<div class="meta">' +
+        '<span class="tag ' + escapeHTML(w.author) + '">' + (AUTHORS[w.author] || '같이') + '</span>' +
+        (w.made_on ? escapeHTML(formatDate(w.made_on)) : '') +
+      '</div>' +
+      (w.quote ? '<p class="quote">\u201C' + escapeHTML(w.quote) + '\u201D</p>' : '') +
+      (w.description ? '<p class="note">' + escapeHTML(w.description) + '</p>' : '') +
+      ev +
+      '<div class="work-nav">' +
+        '<button class="dot-btn small" id="wPrev">← 이전</button>' +
+        '<button class="dot-btn small" id="wNext">다음 →</button>' +
+      '</div>' +
+    '</div>';
+  $('#wPrev').disabled = viewIdx <= 0;
+  $('#wNext').disabled = viewIdx >= viewList.length - 1;
+  $('#wPrev').addEventListener('click', () => { if (viewIdx > 0) { viewIdx--; renderWork(); } });
+  $('#wNext').addEventListener('click', () => { if (viewIdx < viewList.length - 1) { viewIdx++; renderWork(); } });
+  $('#workView').scrollTop = 0;
+}
+
+function openWork(list, i){
+  viewList = list; viewIdx = i;
+  renderWork();
+  $('#workView').classList.add('open');
+  document.body.classList.add('lb-open');       // 배경 겹·스크롤 정리는 기존 규칙을 그대로 씀
+  document.body.style.overflow = 'hidden';
+}
+function closeWork(){
+  $('#workView').classList.remove('open');
+  document.body.classList.remove('lb-open');
+  document.body.style.overflow = '';
+  const v = $('#workBox').querySelector('video'); if (v) v.pause();
+}
+$('#workClose').addEventListener('click', closeWork);
+$('#workView').addEventListener('click', (e) => { if (e.target.id === 'workView') closeWork(); });
+document.addEventListener('keydown', (e) => {
+  if (!$('#workView').classList.contains('open')) return;
+  if (e.key === 'Escape') closeWork();
+  if (e.key === 'ArrowLeft'  && viewIdx > 0) { viewIdx--; renderWork(); }
+  if (e.key === 'ArrowRight' && viewIdx < viewList.length - 1) { viewIdx++; renderWork(); }
+});
+
 // ---------- 필터 ----------
 $('#filters').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-filter]');
   if (!btn) return;
   filter = btn.dataset.filter;
   $$('#filters .dot-btn').forEach(b => b.classList.toggle('on', b === btn));
+  render();
+});
+
+// 연도 버튼은 실제로 있는 연도만 만든다 — 빈 연도를 눌러 아무것도 안 나오는 일이 없게
+function buildYearFilter(){
+  const box = $('#years');
+  const years = [...new Set(works.map(w => w.made_on && w.made_on.slice(0,4)).filter(Boolean))]
+    .sort((a,b) => b.localeCompare(a));
+  box.innerHTML = '<button class="dot-btn small' + (yearFilter === 'all' ? ' on' : '') +
+    '" data-year="all">전체 연도</button>' +
+    years.map(y => '<button class="dot-btn small' + (yearFilter === y ? ' on' : '') +
+      '" data-year="' + y + '">' + y + '</button>').join('');
+  box.style.display = years.length > 1 ? '' : 'none';
+}
+$('#years').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-year]');
+  if (!btn) return;
+  yearFilter = btn.dataset.year;
+  $$('#years .dot-btn').forEach(b => b.classList.toggle('on', b === btn));
   render();
 });
 
@@ -239,6 +405,7 @@ function renderAdminArea(){
   }
 
   mountAdminBar(area, () => renderAdminArea());
+  loadEventList().then(() => fillEventSelect($('#wEvent'), ''));
 
   const box = document.createElement('div');
   box.className = 'add-box dot-card';
@@ -246,13 +413,18 @@ function renderAdminArea(){
     '<div class="inner">' +
       '<h3>＋ 새 작품 올리기</h3>' +
       '<label class="field">제목</label><input type="text" id="wTitle" placeholder="예: 우리 가족 그림">' +
-      '<label class="field">설명 (선택)</label><textarea id="wDesc" style="min-height:70px;" placeholder="어떤 작품인지 간단히"></textarea>' +
+      '<label class="field">아이가 한 말 (선택)</label>' +
+      '<textarea id="wQuote" style="min-height:60px;" placeholder="예: 이건 밤에 우는 나무예요"></textarea>' +
+      '<label class="field">메모 (선택)</label>' +
+      '<textarea id="wDesc" style="min-height:60px;" placeholder="언제 · 어디서 · 무슨 일이 있던 날인지"></textarea>' +
       '<div class="row2">' +
         '<div><label class="field">누구 작품</label>' +
           '<select id="wAuthor"><option value="sua">수아</option><option value="yona">연아</option><option value="together">같이</option></select>' +
         '</div>' +
-        '<div><label class="field">만든 날 (선택)</label><input type="date" id="wDate"></div>' +
+        '<div><label class="field">만든 날 (비우면 사진에서)</label><input type="date" id="wDate"></div>' +
       '</div>' +
+      '<label class="field">그날 일정과 잇기 (선택)</label>' +
+      '<select id="wEvent"><option value="">연결 안 함</option></select>' +
       '<label class="field">사진 / 영상 (여러 개 선택 가능)</label>' +
       '<div style="font-size:11.5px; color:var(--ink-soft); margin:-2px 0 6px; line-height:1.6;">' +
         '사진은 10MB를 넘을 때만 자동으로 줄여서 올라가요 · 영상은 100MB까지</div>' +
@@ -273,17 +445,22 @@ function renderAdminArea(){
     btn.disabled = true;
     const author = $('#wAuthor').value;
     const description = $('#wDesc').value.trim() || null;
-    const made_on = $('#wDate').value || null;
+    const quote = $('#wQuote').value.trim() || null;
+    const event_id = $('#wEvent').value || null;
+    const madeOnTyped = $('#wDate').value || null;
     let ok = 0;
 
     for (let i = 0; i < files.length; i++) {
       msg.className = 'msg';
       msg.textContent = '올리는 중... (' + (i+1) + '/' + files.length + ') ' + files[i].name;
       try {
+        // 만든 날을 비웠으면 사진에 남은 촬영 날짜를 쓴다.
+        // 올린 날이 만든 날로 굳어버리면 연도별 보기도 성장 기록도 어긋난다.
+        const made_on = madeOnTyped || await exifDate(files[i]);
         const up = await uploadMedia(files[i], 'works', PORTFOLIO_IMAGE_LIMIT);
         const { error } = await sb.from('works').insert({
           title: files.length > 1 ? title + ' (' + (i+1) + ')' : title,
-          description, author, made_on,
+          description, quote, event_id, author, made_on,
           media_url: up.url, media_type: up.type,
           sort_order: Math.floor(Date.now() / 1000),
         });
@@ -299,7 +476,7 @@ function renderAdminArea(){
 
     btn.disabled = false;
     msg.className = 'msg ok'; msg.textContent = ok + '개 올렸어요!';
-    $('#wTitle').value = ''; $('#wDesc').value = ''; $('#wFiles').value = '';
+    $('#wTitle').value = ''; $('#wDesc').value = ''; $('#wQuote').value = ''; $('#wFiles').value = '';
     loadWorks();
   });
 

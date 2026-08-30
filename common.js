@@ -306,6 +306,260 @@ function escapeHTML(s){
 }
 
 // ============================================================================
+// 글 서식 — 일정표의 커스텀 탭과 일기장이 함께 쓴다.
+// 저장되는 것은 글자(마크다운 비슷한 문법)이고, 도구막대는 그 문법을 커서 자리에
+// 대신 찍어주는 역할만 한다. 손으로 직접 써도 똑같이 동작한다.
+// ============================================================================
+
+// 노트 탭용 서식을 HTML로 변환함. 관리자 화면의 서식 버튼이 넣어주는 문법과 짝이다.
+//
+//   블록      # 큰제목 / ## 중간제목 / ### 작은제목
+//             > 인용문
+//             - 글머리 목록      1. 번호 목록
+//             ---               구분선
+//             칸|칸|칸           표 (연달아 쓴 줄이 한 표, 첫 줄이 머리)
+//             ![](주소)          사진
+//   글자안     **굵게**  *기울임*  ~~취소선~~  ==형광펜==  [글자](주소)
+//
+// 빈 줄은 문단·표·목록 구간을 끊는 용도다.
+
+// 한 줄 안의 글자 서식. escapeHTML 을 먼저 걸고 나서 태그를 만들기 때문에,
+// 사용자가 <script> 를 적어도 그대로 글자로만 남는다.
+function inlineFmt(s){
+  let t = escapeHTML(s);
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (m, txt, url) => '<a class="note-link" href="' + url + '" target="_blank" rel="noopener">' + txt + '</a>');
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+  t = t.replace(/~~([^~]+)~~/g, '<s>$1</s>');
+  t = t.replace(/==([^=]+)==/g, '<mark class="note-mark">$1</mark>');
+  return t;
+}
+
+function renderNoteContent(text){
+  if (!text || !text.trim()) return '';
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const parts = [];
+  let mode = null; // 'para' | 'table' | 'ul' | 'ol' | 'quote'
+  let buf = [];
+
+  function flush(){
+    if (!buf.length) { mode = null; return; }
+    if (mode === 'table') {
+      const rows = buf
+        .map(l => l.replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim()))
+        .filter(cells => !cells.every(c => /^:?-{1,}:?$/.test(c))); // 마크다운 구분선(---) 행은 무시
+      if (rows.length) {
+        const [header, ...body] = rows;
+        const thead = '<thead><tr>' + header.map(c => '<th>' + inlineFmt(c) + '</th>').join('') + '</tr></thead>';
+        const tbody = body.length
+          ? '<tbody>' + body.map(r => '<tr>' + r.map(c => '<td>' + inlineFmt(c) + '</td>').join('') + '</tr>').join('') + '</tbody>'
+          : '';
+        parts.push('<div class="note-table-wrap"><table class="note-table">' + thead + tbody + '</table></div>');
+      }
+    } else if (mode === 'ul' || mode === 'ol') {
+      const tag = mode === 'ul' ? 'ul' : 'ol';
+      parts.push('<' + tag + ' class="note-list">' +
+        buf.map(l => '<li>' + inlineFmt(l) + '</li>').join('') + '</' + tag + '>');
+    } else if (mode === 'quote') {
+      parts.push('<blockquote class="note-quote">' + buf.map(inlineFmt).join('<br>') + '</blockquote>');
+    } else if (mode === 'para') {
+      parts.push('<p class="note-para">' + buf.map(inlineFmt).join('<br>') + '</p>');
+    }
+    buf = []; mode = null;
+  }
+
+  lines.forEach(raw => {
+    const line = raw.trim();
+    if (!line) { flush(); return; }
+
+    if (/^-{3,}$/.test(line)) { flush(); parts.push('<hr class="note-hr">'); return; }
+    if (line.startsWith('### ')) { flush(); parts.push('<h5 class="note-minorheading">' + inlineFmt(line.slice(4)) + '</h5>'); return; }
+    if (line.startsWith('## '))  { flush(); parts.push('<h4 class="note-subheading">' + inlineFmt(line.slice(3)) + '</h4>'); return; }
+    if (line.startsWith('# '))   { flush(); parts.push('<h3 class="note-heading">' + inlineFmt(line.slice(2)) + '</h3>'); return; }
+
+    const img = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (img) {
+      flush();
+      parts.push('<div class="note-img-wrap"><img class="note-img" src="' + escapeHTML(img[2]) +
+        '" alt="' + escapeHTML(img[1]) + '" loading="lazy"></div>');
+      return;
+    }
+
+    let lineMode, body = line;
+    if (/^>\s?/.test(line))            { lineMode = 'quote'; body = line.replace(/^>\s?/, ''); }
+    else if (/^[-*]\s+/.test(line))    { lineMode = 'ul';    body = line.replace(/^[-*]\s+/, ''); }
+    else if (/^\d+[.)]\s+/.test(line)) { lineMode = 'ol';    body = line.replace(/^\d+[.)]\s+/, ''); }
+    else if (line.includes('|'))       { lineMode = 'table'; }
+    else                               { lineMode = 'para'; }
+
+    if (lineMode !== mode) flush();
+    mode = lineMode;
+    buf.push(body);
+  });
+  flush();
+
+  return parts.join('');
+}
+
+// ============================================================================
+// 글쓰기 도구막대 — 네이버 블로그 편집기처럼 버튼으로 서식을 넣는다.
+// 저장되는 것은 여전히 글자(마크다운 비슷한 문법)이고, 버튼은 그 문법을
+// 커서 자리에 대신 찍어주는 역할만 한다. 그래서 손으로 직접 써도 그대로 동작한다.
+// 아래 문법은 compress.js 의 renderNoteContent 와 짝을 이룬다.
+// ============================================================================
+
+// 커서 위치에 넣기 / 선택한 글자를 감싸기
+function fmtWrap(ta, before, after, placeholder){
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  const sel = ta.value.slice(s, e) || placeholder || '';
+  ta.value = ta.value.slice(0, s) + before + sel + after + ta.value.slice(e);
+  ta.focus();
+  ta.selectionStart = s + before.length;
+  ta.selectionEnd = s + before.length + sel.length;
+  ta.dispatchEvent(new Event('input', { bubbles:true }));
+}
+
+// 선택한 줄들의 앞에 표시를 붙이거나 뗀다 (제목·목록·인용문용)
+function fmtLinePrefix(ta, prefix, numbered){
+  const v = ta.value;
+  const s = v.lastIndexOf('\n', ta.selectionStart - 1) + 1;
+  let e = v.indexOf('\n', ta.selectionEnd);
+  if (e === -1) e = v.length;
+  const lines = v.slice(s, e).split('\n');
+  // 이미 같은 표시가 붙어 있으면 떼어낸다 (토글)
+  const strip = l => l.replace(/^(#{1,3}\s|>\s?|[-*]\s|\d+[.)]\s)/, '');
+  const already = lines.every(l => !l.trim() || (numbered ? /^\d+[.)]\s/.test(l) : l.startsWith(prefix)));
+  const out = lines.map((l, i) => {
+    const bare = strip(l);
+    if (!bare.trim()) return l;
+    return already ? bare : (numbered ? (i + 1) + '. ' : prefix) + bare;
+  });
+  ta.value = v.slice(0, s) + out.join('\n') + v.slice(e);
+  ta.focus();
+  ta.selectionStart = s;
+  ta.selectionEnd = s + out.join('\n').length;
+  ta.dispatchEvent(new Event('input', { bubbles:true }));
+}
+
+// 커서가 있는 줄 뒤에 통째로 끼워넣기 (표·구분선용)
+function fmtBlock(ta, text){
+  const v = ta.value;
+  let s = ta.selectionStart;
+  const atLineStart = s === 0 || v[s - 1] === '\n';
+  const lead = atLineStart ? '' : '\n';
+  const chunk = lead + text + '\n';
+  ta.value = v.slice(0, s) + chunk + v.slice(s);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = s + chunk.length;
+  ta.dispatchEvent(new Event('input', { bubbles:true }));
+}
+
+// 표 크기를 격자에서 고르는 작은 팝업 (최대 6x6)
+function openGridPicker(btn, onPick){
+  document.querySelectorAll('.grid-pick').forEach(el => el.remove());
+  const box = document.createElement('div');
+  box.className = 'grid-pick';
+  const cells = document.createElement('div');
+  cells.className = 'cells';
+  const cap = document.createElement('div');
+  cap.className = 'cap';
+  cap.textContent = '표 크기를 고르세요';
+  for (let r = 1; r <= 6; r++) for (let c = 1; c <= 6; c++) {
+    const i = document.createElement('i');
+    i.dataset.r = r; i.dataset.c = c;
+    i.addEventListener('mouseenter', () => {
+      cells.querySelectorAll('i').forEach(x =>
+        x.classList.toggle('on', +x.dataset.r <= r && +x.dataset.c <= c));
+      cap.textContent = r + '줄 × ' + c + '칸';
+    });
+    i.addEventListener('click', () => { onPick(r, c); box.remove(); });
+    cells.appendChild(i);
+  }
+  box.appendChild(cells); box.appendChild(cap);
+  document.body.appendChild(box);
+  const b = btn.getBoundingClientRect();
+  box.style.left = Math.min(b.left, innerWidth - box.offsetWidth - 10) + 'px';
+  box.style.top  = (b.bottom + window.scrollY + 6) + 'px';
+  setTimeout(() => {
+    const close = ev => {
+      if (box.contains(ev.target) || ev.target === btn) return;
+      box.remove(); document.removeEventListener('click', close);
+    };
+    document.addEventListener('click', close);
+  }, 0);
+}
+
+function tableSkeleton(rows, cols){
+  const head = Array.from({length:cols}, (_, i) => '제목' + (i + 1)).join(' | ');
+  const body = Array.from({length:Math.max(0, rows - 1)},
+    () => Array.from({length:cols}, () => '내용').join(' | '));
+  return [head, ...body].join('\n');
+}
+
+// 도구막대를 만들어 textarea 바로 위에 붙인다.
+// opts.fileInput 이 있으면 "사진" 버튼이 그 입력창을 눌러준다.
+function buildFormatBar(ta, opts){
+  opts = opts || {};
+  const bar = document.createElement('div');
+  bar.className = 'fmt-bar';
+
+  const add = (html, title, fn, cls) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.innerHTML = html; b.title = title;
+    if (cls) b.className = cls;
+    b.addEventListener('click', () => fn(b));
+    bar.appendChild(b);
+    return b;
+  };
+  const sep = () => { const d = document.createElement('span'); d.className = 'sep'; bar.appendChild(d); };
+
+  add('제목',  '큰제목',      () => fmtLinePrefix(ta, '# '));
+  add('소제목', '중간제목',    () => fmtLinePrefix(ta, '## '));
+  add('작은',  '작은제목',    () => fmtLinePrefix(ta, '### '));
+  sep();
+  add('가',    '굵게',        () => fmtWrap(ta, '**', '**', '굵게'), 'b');
+  add('가',    '기울임',      () => fmtWrap(ta, '*', '*', '기울임'), 'i');
+  add('가',    '취소선',      () => fmtWrap(ta, '~~', '~~', '취소선'), 's');
+  add('가',    '형광펜',      () => fmtWrap(ta, '==', '==', '형광펜'), 'hl');
+  sep();
+  add('❝',     '인용문',      () => fmtLinePrefix(ta, '> '));
+  add('• 목록', '글머리 목록', () => fmtLinePrefix(ta, '- '));
+  add('1. 목록','번호 목록',   () => fmtLinePrefix(ta, null, true));
+  add('―',     '구분선',      () => fmtBlock(ta, '---'));
+  sep();
+  add('⊞ 표',  '표 만들기',   (b) => openGridPicker(b, (r, c) => fmtBlock(ta, tableSkeleton(r, c))));
+  add('🔗 링크','링크 넣기',   () => {
+    const url = prompt('링크 주소를 붙여넣으세요', 'https://');
+    if (url && /^https?:\/\//.test(url)) fmtWrap(ta, '[', '](' + url + ')', '링크 글자');
+  });
+  if (opts.fileInput) add('🖼 사진', '사진 올리기', () => opts.fileInput.click());
+  sep();
+
+  // 미리보기 — 문법을 외우지 않아도 결과를 바로 확인할 수 있게
+  const pv = document.createElement('div');
+  pv.className = 'fmt-preview';
+  pv.style.display = 'none';
+  pv.innerHTML = '<div class="cap">미리보기</div><div class="note-content pvBody"></div>';
+  const body = pv.querySelector('.pvBody');
+  const refresh = () => {
+    if (pv.style.display === 'none') return;
+    body.innerHTML = renderNoteContent(ta.value) || '<div class="empty-msg">아직 내용이 없어요</div>';
+  };
+  const pvBtn = add('👁 미리보기', '작성한 내용이 어떻게 보이는지', (b) => {
+    const on = pv.style.display === 'none';
+    pv.style.display = on ? 'block' : 'none';
+    b.classList.toggle('on', on);
+    refresh();
+  });
+  ta.addEventListener('input', refresh);
+
+  ta.parentNode.insertBefore(bar, ta);
+  ta.parentNode.insertBefore(pv, ta.nextSibling);
+  return bar;
+}
+
+// ============================================================================
 // 배경 겹 — 소개 / 포트폴리오 / 일기장 / 편지쓰기
 //
 // 화면에 고정된 세 겹(먼 하늘·중간 소품·가까운 풀)을 깔고, 스크롤에 따라 서로 다른

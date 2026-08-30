@@ -15,6 +15,13 @@
 <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
 <link href="./style.css" rel="stylesheet">
 <style>
+  .row2{display:flex; gap:10px;}
+  .row2 > *{flex:1;}
+  .post .meta .written{font-size:11.5px; opacity:.7; margin-left:6px;}
+  .post .body{margin-bottom:12px;}
+  .post .post-img + .post-img{margin-top:10px;}
+</style>
+<style>
   .write-box{max-width:600px; margin:0 auto 30px;}
   .write-box .inner{padding:22px;}
   .write-box h3{margin:0 0 14px; font-size:15px; font-weight:800;}
@@ -39,6 +46,8 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
+<script src="/event/compress.js"></script>
 <script src="./pixel.js"></script>
 <script src="./common.js"></script>
 <script>
@@ -50,8 +59,16 @@ let posts = [];
 const lightbox = createLightbox();
 
 // 사진이 있는 글만 모아서 라이트박스에서 앞뒤로 넘길 수 있게 함
+// 사진에 남은 촬영 날짜. 없으면 null — 그때는 날짜 없이 저장된다.
+async function exifDate(file){
+  try {
+    const meta = await extractPhotoMeta(file);
+    return meta.takenAtISO ? meta.takenAtISO.slice(0, 10) : null;
+  } catch (e) { return null; }
+}
+
 function photoPosts(){
-  return posts.filter(p => p.image_url);
+  return posts.filter(p => photosOf(p).length);
 }
 
 async function loadPosts(){
@@ -68,6 +85,12 @@ async function loadPosts(){
   render();
 }
 
+// 대표 사진 + 추가 사진을 한 줄로 이어 다룸
+function photosOf(p){
+  return (p.image_url ? [p.image_url] : [])
+    .concat((Array.isArray(p.extra_images) ? p.extra_images : []).map(x => x && x.url).filter(Boolean));
+}
+
 function render(){
   const list = $('#posts');
   list.innerHTML = '';
@@ -81,24 +104,32 @@ function render(){
       '<div class="meta">' +
         '<span class="tag ' + escapeHTML(p.author) + '">' + (AUTHORS[p.author] || '같이') + '</span> ' +
         (p.is_public === false ? '<span class="tag private">🔒 비공개</span> ' : '') +
-        escapeHTML(formatDate(p.created_at)) +
+        // 있었던 날이 적혀 있으면 그것을 보여준다. 쓴 날은 그 뒤에 작게.
+        escapeHTML(formatDate(p.happened_on || p.created_at)) +
+        (p.place ? ' · ' + escapeHTML(p.place) : '') +
+        (p.happened_on && p.happened_on.slice(0,10) !== String(p.created_at).slice(0,10)
+          ? '<span class="written">' + escapeHTML(formatDate(p.created_at)) + '에 씀</span>' : '') +
       '</div>' +
-      (p.body ? '<div class="body">' + escapeHTML(p.body) + '</div>' : '') +
-      (p.image_url ? '<img class="post-img" src="' + escapeHTML(p.image_url) + '" loading="lazy" alt="' + escapeHTML(p.title) + '">' : '');
+      // 일정표 커스텀 탭과 같은 서식으로 그린다 (제목·굵게·목록·표·사진)
+      (p.body ? '<div class="body note-content">' + renderNoteContent(p.body) + '</div>' : '') +
+      photosOf(p).map(u => '<img class="post-img" src="' + escapeHTML(u) +
+        '" loading="lazy" alt="' + escapeHTML(p.title) + '">').join('');
 
     // 첨부 사진을 누르면 라이트박스로 크게 보기 (사진 있는 글끼리 앞뒤로 넘어감)
-    const img = el.querySelector('.post-img');
-    if (img) {
-      img.addEventListener('click', () => {
-        const withPhotos = photoPosts();
-        const idx = withPhotos.findIndex(x => x.id === p.id);
-        lightbox.open(withPhotos.map(x => ({
-          media_url: x.image_url,
-          media_type: 'image',
-          caption: x.title + ' · ' + formatDate(x.created_at),
-        })), Math.max(0, idx));
+    // 사진을 누르면 라이트박스. 글 하나에 여러 장이면 그 안에서 넘어가고,
+    // 모든 글의 사진을 한 줄로 이어 붙여 글과 글 사이도 넘어갈 수 있게 함.
+    const all = [];
+    photoPosts().forEach(x => photosOf(x).forEach(u => all.push({
+      media_url: u, media_type: 'image',
+      caption: x.title + ' · ' + formatDate(x.happened_on || x.created_at) +
+        (x.place ? ' · ' + x.place : ''),
+    })));
+    el.querySelectorAll('.post-img').forEach(im => {
+      im.addEventListener('click', () => {
+        const at = all.findIndex(a => a.media_url === im.getAttribute('src'));
+        lightbox.open(all, Math.max(0, at));
       });
-    }
+    });
 
     if (isAdmin) {
       const actions = document.createElement('div');
@@ -109,7 +140,9 @@ function render(){
       edit.textContent = '수정';
       edit.addEventListener('click', () => {
         el.innerHTML = '';
-        el.appendChild(renderEditForm(p));
+        const ef = renderEditForm(p);
+        el.appendChild(ef);
+        buildFormatBar(ef.querySelector('.eBody'), { fileInput: ef.querySelector('.eImage') });
       });
 
       const del = document.createElement('button');
@@ -150,6 +183,12 @@ function renderEditForm(p){
       '<option value="false"' + (p.is_public === false ? ' selected' : '') + '>🔒 비공개 — 로그인해야 볼 수 있어요</option>' +
     '</select>' +
     '<label class="field">제목</label><input type="text" class="eTitle" value="' + escapeHTML(p.title) + '">' +
+    '<div class="row2">' +
+      '<div><label class="field">있었던 날</label><input type="date" class="eWhen" value="' +
+        escapeHTML(p.happened_on || '') + '"></div>' +
+      '<div><label class="field">장소</label><input type="text" class="ePlace" value="' +
+        escapeHTML(p.place || '') + '"></div>' +
+    '</div>' +
     '<label class="field">내용</label><textarea class="eBody">' + escapeHTML(p.body || '') + '</textarea>' +
     '<label class="field">사진</label>' +
     (p.image_url ? '<img class="post-img" style="margin:0 0 8px; cursor:default;" src="' + escapeHTML(p.image_url) + '">' : '') +
@@ -189,6 +228,8 @@ function renderEditForm(p){
         is_public: form.querySelector('.ePublic').value === 'true',
         title,
         body: form.querySelector('.eBody').value.trim() || null,
+        happened_on: form.querySelector('.eWhen').value || null,
+        place: form.querySelector('.ePlace').value.trim() || null,
         image_url,
       }).eq('id', p.id);
       if (error) throw error;
@@ -239,12 +280,19 @@ function renderAdminArea(){
         '<option value="false">🔒 비공개 — 로그인해야 볼 수 있어요</option>' +
       '</select>' +
       '<label class="field">제목</label><input type="text" id="pTitle" placeholder="예: 오늘 학교에서">' +
+      '<div class="row2">' +
+        '<div><label class="field">있었던 날 (비우면 사진에서)</label><input type="date" id="pWhen"></div>' +
+        '<div><label class="field">장소 (선택)</label><input type="text" id="pPlace" placeholder="예: 홍천밭"></div>' +
+      '</div>' +
       '<label class="field">내용</label><textarea id="pBody" placeholder="자유롭게 적어보세요"></textarea>' +
-      '<label class="field">사진 (선택)</label><input type="file" id="pImage" accept="image/*">' +
+      '<label class="field">사진 (선택 · 여러 장 가능)</label><input type="file" id="pImage" accept="image/*" multiple>' +
       '<button class="dot-btn primary" id="pSave" style="width:100%; margin-top:18px;">올리기</button>' +
       '<div class="msg" id="pMsg"></div>' +
     '</div>';
   area.appendChild(box);
+
+  // 글쓰기 칸에 서식 도구막대 (일정표 커스텀 탭과 같은 것)
+  buildFormatBar($('#pBody'), { fileInput: $('#pImage') });
 
   $('#pSave').addEventListener('click', async () => {
     const msg = $('#pMsg'), btn = $('#pSave');
@@ -253,12 +301,15 @@ function renderAdminArea(){
     if (!title) { msg.className = 'msg err'; msg.textContent = '제목을 입력해주세요.'; return; }
 
     btn.disabled = true;
-    let image_url = null;
-    const file = $('#pImage').files[0];
+    const files = Array.from($('#pImage').files);
+    let image_url = null, extra_images = [], happened_on = $('#pWhen').value || null;
     try {
-      if (file) {
-        msg.textContent = '사진 올리는 중...';
-        image_url = (await uploadMedia(file, 'posts')).url;
+      for (let i = 0; i < files.length; i++) {
+        msg.textContent = '사진 올리는 중... (' + (i+1) + '/' + files.length + ') ' + files[i].name;
+        // 있었던 날을 비웠으면 첫 사진의 촬영 날짜를 쓴다 — 지난 일을 나중에 적어도 날짜가 맞게
+        if (!happened_on && i === 0) happened_on = await exifDate(files[i]);
+        const up = await uploadMedia(files[i], 'posts');
+        if (i === 0) image_url = up.url; else extra_images.push({ url: up.url });
       }
       msg.textContent = '저장 중...';
       const { error } = await sb.from('posts').insert({
@@ -266,7 +317,9 @@ function renderAdminArea(){
         is_public: $('#pPublic').value === 'true',
         title,
         body: $('#pBody').value.trim() || null,
-        image_url,
+        image_url, extra_images,
+        happened_on,
+        place: $('#pPlace').value.trim() || null,
       });
       if (error) throw error;
     } catch (e) {
@@ -278,6 +331,7 @@ function renderAdminArea(){
     btn.disabled = false;
     msg.className = 'msg ok'; msg.textContent = '올렸어요!';
     $('#pTitle').value = ''; $('#pBody').value = ''; $('#pImage').value = '';
+    $('#pWhen').value = ''; $('#pPlace').value = '';
     loadPosts();
   });
 
