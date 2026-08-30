@@ -3,7 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 검색에 걸리지 않게 한다. robots.txt 로 크롤링을 막아 버리면 수집기가 이 줄을
+     읽지도 못해서, 남이 걸어 둔 링크를 타고 주소만 검색결과에 남을 수 있다.
+     그래서 들어와서 읽게 두되, 읽고 나서 빼 가라고 여기서 말한다. -->
+<meta name="robots" content="noindex, nofollow">
 <title>일기장 · 수아랑 연아랑</title>
+<meta name="description" content="오늘 있었던 일과 하고 싶은 말을 적어두는 수아와 연아의 일기장.">
 <meta property="og:title" content="일기장 · 수아랑 연아랑">
 <meta property="og:description" content="수아와 연아가 쓰는 일기">
 <meta property="og:type" content="website">

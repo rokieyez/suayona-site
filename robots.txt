@@ -1,0 +1,20 @@
+# 수아랑 연아랑 — www.suayona.com
+#
+# 이 사이트는 검색에 걸리길 원하지 않는다.
+#
+# 그런데 여기서 Disallow 로 막아 버리면 오히려 반대로 간다.
+# 크롤링을 막으면 수집기가 각 쪽에 적어 둔 noindex 를 읽지 못하고,
+# 남이 어딘가에 걸어 둔 링크만 보고 주소를 검색결과에 남길 수 있기 때문이다.
+#
+# 그래서 들어와 읽는 것은 막지 않는다. 대신 모든 쪽에
+#   <meta name="robots" content="noindex, nofollow">
+# 를 두어, 읽고 나서 가져가지 말라고 말한다. 이쪽이 실제로 검색에서 빠지는 길이다.
+#
+# 링크를 아는 사람은 그대로 볼 수 있다 — 잠그는 것이 아니라 검색에서만 빼는 것이다.
+
+User-agent: *
+Allow: /
+
+# 사람이 볼 것이 없는 자리
+Disallow: /event/e/admin.html
+Disallow: /event/e/preview.html
