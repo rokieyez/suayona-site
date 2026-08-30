@@ -958,7 +958,21 @@ function pickCovers(g){
 }
 
 function twoDigit(n){ return String(n).padStart(2, '0'); }
-function clockOf(t){ const d = new Date(t); return twoDigit(d.getHours()) + ':' + twoDigit(d.getMinutes()); }
+
+// 시각은 30분 단위로 뭉뚱그린다. 12:29-13:57 은 일정표에 12:30-14:00 으로 오른다.
+// 사진이 정확히 그 시각에 찍혔는지는 중요하지 않고, 대강 언제였는지만 알면 되기 때문.
+// 반올림이라 앞뒤 순서가 뒤집히지 않는다 — 뒤 덩어리의 첫 사진은 앞 덩어리의 마지막
+// 사진보다 늦으므로, 반올림한 뒤에도 늦거나 같다. 그래서 다음 일정과 겹칠 수 없다.
+const ROUND_MIN = 30;
+
+function roundClock(t){
+  const d = new Date(t);
+  const m = d.getHours() * 60 + d.getMinutes();
+  return Math.min(Math.round(m / ROUND_MIN) * ROUND_MIN, 24 * 60);
+}
+function clockLabel(mins){
+  return twoDigit(Math.floor(mins / 60)) + ':' + twoDigit(mins % 60);
+}
 
 // 제목은 GPS 로 얻은 지명이 있으면 그걸 쓰고, 없으면 시간대 이름을 넣는다.
 // 어느 쪽이든 미리보기에서 고쳐 쓸 수 있으니 빈칸으로 두지 않는다.
@@ -1031,10 +1045,12 @@ async function openScheduleProposal(){
   Object.keys(byPanel).sort().forEach(pid => {
     clusterShots(byPanel[pid]).forEach(g => {
       const covers = pickCovers(g);
-      const from = clockOf(g[0].t), to = clockOf(g[g.length - 1].t);
+      const from = roundClock(g[0].t), to = roundClock(g[g.length - 1].t);
       proposals.push({
         panel: pid,
-        time: from === to ? from : from + ' - ' + to,
+        // 뭉뚱그린 뒤 같은 칸에 떨어지면(사진 몇 장을 몇 분 사이에 찍은 경우)
+        // 없는 길이를 지어내지 않고 한 시각만 적는다
+        time: from === to ? clockLabel(from) : clockLabel(from) + ' - ' + clockLabel(to),
         title: guessTitle(g),
         count: g.length,
         covers,
