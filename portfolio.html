@@ -410,17 +410,13 @@ function renderAdminArea(){
     const btn = document.createElement('button');
     btn.className = 'dot-btn small';
     btn.textContent = '＋ 작품 올리기 (관리자)';
-    btn.addEventListener('click', () => {
-      btn.remove();
-      mountLoginBox(wrapDiv, () => renderAdminArea());
-    });
+    btn.addEventListener('click', openAuthModal);   // 로그인 창은 헤더 것 하나만 쓴다
     wrapDiv.appendChild(btn);
     area.appendChild(wrapDiv);
     render();
     return;
   }
 
-  mountAdminBar(area, () => renderAdminArea());
   loadEventList().then(() => fillEventSelect($('#wEvent'), ''));
 
   const box = document.createElement('div');

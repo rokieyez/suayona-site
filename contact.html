@@ -174,15 +174,11 @@ function renderAdminArea(){
     const btn = document.createElement('button');
     btn.className = 'dot-btn small';
     btn.textContent = '📬 받은 메시지 보기 (관리자)';
-    btn.addEventListener('click', () => {
-      btn.remove();
-      mountLoginBox(box, () => { renderAdminArea(); loadInbox(); });
-    });
+    btn.addEventListener('click', openAuthModal);   // 로그인 창은 헤더 것 하나만 쓴다
     box.appendChild(btn);
     area.appendChild(box);
     return;
   }
-  mountAdminBar(area, () => { renderAdminArea(); loadInbox(); });
 }
 
 (async () => {

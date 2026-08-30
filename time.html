@@ -148,7 +148,7 @@
   @media print{
     @page{margin:12mm; size:landscape;}
     header.site, footer.site, .bg-deck, .print-btn, .wk-bar, .who-pick,
-    .tools, .hint, .section-head, #adminSlot, #todayHead, #today, #weekHead,
+    .tools, .hint, .section-head, #todayHead, #today, #weekHead,
     #gate, .sheet{display:none !important;}
     body{background:#fff !important; color:#000;}
     body.has-backdrop{min-height:0; display:block;}
@@ -175,8 +175,6 @@
     <div id="gate" class="gate reveal"></div>
 
     <div id="app" hidden>
-      <div id="adminSlot"></div>
-
       <h3 class="day-head" id="todayHead">오늘</h3>
       <div class="today-cards" id="today"></div>
 
@@ -782,10 +780,8 @@ async function load(){
 function showGate(){
   const gate = $('#gate');
   gate.innerHTML = '';
-  $('#adminSlot').innerHTML = '';      // 두 번 불려도 로그인 줄이 겹쳐 쌓이지 않게
   if (isLoggedIn) {
     $('#app').hidden = false;
-    mountAdminBar($('#adminSlot'), reboot);
     return true;
   }
   $('#app').hidden = true;

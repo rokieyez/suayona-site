@@ -274,20 +274,6 @@ function mountLoginBox(container, onChange){
   return box;
 }
 
-function mountAdminBar(container, onChange){
-  const bar = document.createElement('div');
-  bar.className = 'admin-bar';
-  const who = me ? (me.display + (isChild ? ' (아이)' : '')) : '관리자';
-  bar.innerHTML = '<span>' + escapeHTML(who) + '(으)로 로그인됨</span><button class="dot-btn small logoutBtn">로그아웃</button>';
-  container.appendChild(bar);
-  bar.querySelector('.logoutBtn').addEventListener('click', async () => {
-    await sb.auth.signOut();
-    await refreshAuth();
-    onChange(isAdmin);
-  });
-  return bar;
-}
-
 // ---------- 이미지 압축 + 업로드 ----------
 async function compressImage(file, maxBytes){
   if (!file.type || !file.type.startsWith('image/')) return file;

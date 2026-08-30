@@ -321,17 +321,13 @@ function renderAdminArea(){
     const btn = document.createElement('button');
     btn.className = 'dot-btn small';
     btn.textContent = '✏️ 일기 쓰기 (수아 · 연아 · 부모)';
-    btn.addEventListener('click', () => {
-      btn.remove();
-      mountLoginBox(box, () => { renderAdminArea(); loadPosts(); });
-    });
+    btn.addEventListener('click', openAuthModal);   // 로그인 창은 헤더 것 하나만 쓴다
     box.appendChild(btn);
     area.appendChild(box);
     render();
     return;
   }
 
-  mountAdminBar(area, () => { renderAdminArea(); loadPosts(); });
   if (isAdmin) renderPendingBox(area);
 
   const box = document.createElement('div');
