@@ -255,8 +255,11 @@ function render(){
       del.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (!confirm('"' + w.title + '" 작품을 삭제할까요?')) return;
+        const files = [w.media_url, w.thumb_url, w.audio_url];
         const { error } = await sb.from('works').delete().eq('id', w.id);
         if (error) { alert('삭제 실패: ' + error.message); return; }
+        // 줄만 지우면 사진·사본·목소리 파일이 저장소에 그대로 남는다
+        await removeStored(MEDIA_BUCKET, files);
         loadWorks();
       });
       card.appendChild(del);
@@ -332,15 +335,18 @@ function openEditModal(w){
     };
     try {
       const file = overlay.querySelector('.eFile').files[0];
+      const dropped = [];
       if (file) {
         msg.textContent = '새 파일 올리는 중...';
         const up = await uploadMedia(file, 'works', PORTFOLIO_IMAGE_LIMIT);
+        dropped.push(w.media_url, w.thumb_url);     // 갈아치운 옛 사진은 남길 이유가 없다
         patch.media_url = up.url;
         patch.media_type = up.type;
         patch.thumb_url = up.thumbUrl;
       }
       const { error } = await sb.from('works').update(patch).eq('id', w.id);
       if (error) throw error;
+      if (dropped.length) await removeStored(MEDIA_BUCKET, dropped);
     } catch (e) {
       msg.className = 'msg err'; msg.textContent = '실패: ' + ((e && e.message) || e);
       btn.disabled = false;
@@ -832,6 +838,108 @@ async function showThumbTool(box){
   });
 }
 
+// 일기와 이벤트 일정에도 사본이 없는 사진이 남아 있다.
+// 작품과 같은 방식으로 한 번에 만들어 준다.
+async function showOtherThumbTool(box){
+  const [posts, events] = await Promise.all([
+    sb.from('posts').select('id, image_url, thumb_url'),
+    sb.from('events').select('id, image_url, thumb_url, extra_images'),
+  ]);
+  if (posts.error || events.error) return;
+
+  const jobs = [];
+  (posts.data || []).forEach(x => {
+    if (x.image_url && !x.thumb_url)
+      jobs.push({ what: '일기', id: x.id, url: x.image_url,
+                  save: t => sb.from('posts').update({ thumb_url: t }).eq('id', x.id) });
+  });
+  (events.data || []).forEach(x => {
+    if (x.image_url && !x.thumb_url)
+      jobs.push({ what: '일정', id: x.id, url: x.image_url,
+                  save: t => sb.from('events').update({ thumb_url: t }).eq('id', x.id) });
+    // 추가 사진은 배열 안이라 자리를 짚어 그 항목만 갈아 끼운다
+    (Array.isArray(x.extra_images) ? x.extra_images : []).forEach((sh, i) => {
+      if (!sh || !sh.url || sh.thumb) return;
+      jobs.push({ what: '일정', id: x.id + ':' + i, url: sh.url, save: t => {
+        const next = x.extra_images.slice();
+        next[i] = Object.assign({}, next[i], { thumb: t });
+        x.extra_images = next;
+        return sb.from('events').update({ extra_images: next }).eq('id', x.id);
+      }});
+    });
+  });
+  if (!jobs.length) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'dot-btn small';
+  btn.textContent = '🗜 일기·일정 사진 ' + jobs.length + '개 가볍게 만들기';
+  const note = document.createElement('span');
+  note.style.cssText = 'font-size:12.5px; color:var(--ink-soft); margin-left:10px; align-self:center;';
+  box.appendChild(btn); box.appendChild(note);
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    // 사진이 어느 버킷에 있는지는 주소가 알려 준다 — 갤러리에서 가져온 것과 직접 올린 것이 섞여 있다
+    let made = 0, skipped = 0, failed = 0, why = '';
+    for (let i = 0; i < jobs.length; i++) {
+      const j = jobs[i];
+      note.textContent = '만드는 중... (' + (i + 1) + '/' + jobs.length + ')';
+      const bucket = pathFromPublicUrl(GALLERY_BUCKET, j.url) ? GALLERY_BUCKET : MEDIA_BUCKET;
+      const res = await backfillThumbs(bucket, [{ id: j.id, url: j.url }], (_id, t) => j.save(t));
+      made += res.made; skipped += res.skipped; failed += res.failed;
+      if (!why && res.why) why = res.why;
+    }
+    const parts = [made + '개 완료'];
+    if (skipped) parts.push('이미 작은 사진 ' + skipped + '개는 그대로');
+    if (failed)  parts.push(failed + '개 실패 — ' + why);
+    note.textContent = parts.join(' · ');
+    note.style.color = failed ? '#c0392b' : 'var(--ink-soft)';
+    btn.disabled = false;
+  });
+}
+
+// 예전 삭제들이 남겨 둔 파일을 치운다. 치울 것이 없으면 단추 자체가 안 생긴다.
+async function showCleanupTool(box){
+  const note = document.createElement('span');
+  note.style.cssText = 'font-size:12.5px; color:var(--ink-soft); margin-left:10px; align-self:center;';
+
+  let scan;
+  try { scan = await findUnusedFiles(); }
+  catch (e) { console.warn('안 쓰는 파일 찾기 실패:', e); return; }
+  if (!scan.found.length) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'dot-btn small';
+  btn.textContent = '🧹 안 쓰는 사진 파일 ' + scan.found.length + '개 치우기 (' + mbLabel(scan.bytes) + ')';
+  box.appendChild(btn); box.appendChild(note);
+
+  btn.addEventListener('click', async () => {
+    // 지우기 전에 다시 훑는다. 아까 훑고 지금까지 사이에 새로 올라간 것이 있을 수 있다.
+    btn.disabled = true;
+    note.textContent = '다시 확인하는 중...';
+    let fresh;
+    try { fresh = await findUnusedFiles(); }
+    catch (e) { note.textContent = '실패: ' + ((e && e.message) || e); note.style.color = '#c0392b'; btn.disabled = false; return; }
+    if (!fresh.found.length) { note.textContent = '치울 것이 없어요.'; btn.disabled = false; return; }
+
+    const sample = fresh.found.slice(0, 5).map(f => '· ' + f.path).join('\n');
+    if (!confirm('아무 데서도 안 쓰는 파일 ' + fresh.found.length + '개(' + mbLabel(fresh.bytes) + ')를 지웁니다.\n' +
+                 '되돌릴 수 없어요.\n\n' + sample +
+                 (fresh.found.length > 5 ? '\n· ... 외 ' + (fresh.found.length - 5) + '개' : ''))) {
+      btn.disabled = false; note.textContent = ''; return;
+    }
+    try {
+      const gone = await removeUnusedFiles(fresh.found, (i, n) => { note.textContent = '치우는 중... (' + i + '/' + n + ')'; });
+      note.textContent = gone + '개 치웠어요 · ' + mbLabel(fresh.bytes) + ' 되찾음';
+      btn.remove();
+    } catch (e) {
+      note.textContent = '실패: ' + ((e && e.message) || e);
+      note.style.color = '#c0392b';
+      btn.disabled = false;
+    }
+  });
+}
+
 // ---------- 관리자 영역 ----------
 function renderAdminArea(){
   const area = $('#adminArea');
@@ -845,6 +953,8 @@ function renderAdminArea(){
   tools.style.cssText = 'display:flex; justify-content:center; gap:9px; flex-wrap:wrap; margin-bottom:18px;';
   area.appendChild(tools);
   showThumbTool(tools);
+  showOtherThumbTool(tools);
+  showCleanupTool(tools);
 
   // 지금 걸러 놓은 작품들의 라벨을 한 장에 모아 뽑는다
   const qrBtn = document.createElement('button');

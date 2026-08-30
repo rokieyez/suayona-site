@@ -211,3 +211,78 @@ create policy "authenticated can update gallery bucket"
 -- ---------------------------------------------------------------------------
 alter table works add column if not exists audio_url text;
 alter table works add column if not exists audio_secs smallint;
+
+-- ---------------------------------------------------------------------------
+-- 이벤트 쪽 쓰기를 부모로 좁힘
+--
+-- 작품·일기·시간표는 처음부터 my_role() = 'parent' 로 잠겨 있었는데,
+-- 이벤트 쪽 네 표만 "로그인했으면 누구나"로 남아 있었다.
+-- 화면에서는 아이에게 단추를 숨겨 왔지만 데이터베이스는 열려 있어서,
+-- 아이 계정으로 부르면 갤러리 사진이 지워지고 일정이 고쳐졌다(직접 시험해 확인).
+--
+-- 단추를 숨긴 것과 못 하게 막은 것은 다르다. 여기서 실제로 막는다. 읽기는 그대로 둔다.
+-- ---------------------------------------------------------------------------
+drop policy if exists "authenticated can write events" on public.events;
+create policy "parent writes events" on public.events
+  for all to authenticated
+  using (my_role() = 'parent') with check (my_role() = 'parent');
+
+drop policy if exists "authenticated can write event_meta" on public.event_meta;
+create policy "parent writes event_meta" on public.event_meta
+  for all to authenticated
+  using (my_role() = 'parent') with check (my_role() = 'parent');
+
+drop policy if exists "authenticated can write custom_tabs" on public.custom_tabs;
+create policy "parent writes custom_tabs" on public.custom_tabs
+  for all to authenticated
+  using (my_role() = 'parent') with check (my_role() = 'parent');
+
+drop policy if exists "authenticated can insert gallery_media" on public.gallery_media;
+drop policy if exists "authenticated can update gallery_media" on public.gallery_media;
+drop policy if exists "authenticated can delete gallery_media" on public.gallery_media;
+create policy "parent writes gallery_media" on public.gallery_media
+  for all to authenticated
+  using (my_role() = 'parent') with check (my_role() = 'parent');
+
+-- 표를 잠가도 파일 쪽이 열려 있으면 막은 것이 아니다.
+-- 줄은 못 지워도 사진 파일 자체는 지울 수 있었다. 두 버킷 모두 부모로 좁힌다.
+--
+-- select 규칙은 원래 아무것도 없었다. 버킷이 공개라 주소로 보는 것은 되지만
+-- 목록을 훑는 것은 아무도 못 했다 — 그것도 오류 없이 빈 목록이 와서 눈치채기 어렵다.
+-- 안 쓰는 파일을 찾아 치우려면 부모는 목록을 볼 수 있어야 한다.
+drop policy if exists "authenticated can upload event images"       on storage.objects;
+drop policy if exists "authenticated can update event images"       on storage.objects;
+drop policy if exists "authenticated can delete event images"       on storage.objects;
+drop policy if exists "authenticated can upload to gallery bucket"  on storage.objects;
+drop policy if exists "authenticated can update gallery bucket"     on storage.objects;
+drop policy if exists "authenticated can delete from gallery bucket" on storage.objects;
+
+create policy "parent lists media" on storage.objects
+  for select to authenticated
+  using (bucket_id in ('event-images','gallery-uploads') and my_role() = 'parent');
+
+create policy "parent uploads media" on storage.objects
+  for insert to authenticated
+  with check (bucket_id in ('event-images','gallery-uploads') and my_role() = 'parent');
+
+create policy "parent updates media" on storage.objects
+  for update to authenticated
+  using      (bucket_id in ('event-images','gallery-uploads') and my_role() = 'parent')
+  with check (bucket_id in ('event-images','gallery-uploads') and my_role() = 'parent');
+
+create policy "parent deletes media" on storage.objects
+  for delete to authenticated
+  using (bucket_id in ('event-images','gallery-uploads') and my_role() = 'parent');
+
+-- ---------------------------------------------------------------------------
+-- 일기·일정 사진의 작은 사본
+--
+-- 작품과 갤러리는 이미 사본을 쓰는데 이 둘만 원본을 그대로 내려주고 있었다.
+-- 일정 사진은 4000px 를 252px 자리에 — 16배. 일기 사진은 11배.
+--
+-- 대표 사진의 사본은 thumb_url 에, 추가 사진들은 extra_images 안에 thumb 키로 넣는다.
+-- 사진으로 일정을 만들면 갤러리 사진 주소가 그대로 붙으므로, 그때는 갤러리가 이미
+-- 가지고 있는 사본 주소를 그대로 물려준다(새로 만들지 않는다).
+-- ---------------------------------------------------------------------------
+alter table public.posts  add column if not exists thumb_url text;
+alter table public.events add column if not exists thumb_url text;

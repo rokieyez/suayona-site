@@ -369,8 +369,9 @@ const tabsEl = $('#tabs'), panelsEl = $('#panels');
 panelsEl.addEventListener('click', async (e) => {
   const img = e.target.closest('.item-img');
   if (!img) return;
-  // 일정 하나에 사진이 여러 장이라 id 로 찾으면 늘 첫 장이 열림 — 주소로 정확히 찾음
-  const src = img.getAttribute('src');
+  // 일정 하나에 사진이 여러 장이라 id 로 찾으면 늘 첫 장이 열림 — 주소로 정확히 찾음.
+  // src 는 작은 사본일 수 있으므로 원본 주소로 찾는다.
+  const src = img.dataset.full || img.getAttribute('src');
   let idx = galleryItems.findIndex(g => g.media_url === src);
   if (idx === -1) { await loadGallery(); idx = galleryItems.findIndex(g => g.media_url === src); }
   if (idx === -1) return;
@@ -665,10 +666,13 @@ function renderSchedule(byPanel){
       const detail = r.detail ? '<div class="row"><span class="ic">📌</span><span class="detail-text">' + escapeHTML(r.detail) + '</span></div>' : '';
       // 대표 사진(image_url) 뒤에 추가 사진(extra_images)을 이어 붙여 여러 장을 모두 보여줌
       const shots = (r.image_url
-        ? [{ url: r.image_url, taken_at: r.taken_at, location_name: r.location_name }]
+        ? [{ url: r.image_url, thumb: r.thumb_url || null, taken_at: r.taken_at, location_name: r.location_name }]
         : []).concat(Array.isArray(r.extra_images) ? r.extra_images : []);
+      // 사진 칸은 250px 남짓인데 원본은 4000px 이 넘는다. 사본이 있으면 그것만 받고,
+      // 눌러서 크게 볼 때 쓸 원본 주소는 data-full 에 달아 둔다.
       const image = shots.map(sh =>
-        '<div class="item-img-wrap"><img class="item-img" src="' + escapeHTML(sh.url) + '" loading="lazy" data-event-id="' + r.id + '">'
+        '<div class="item-img-wrap"><img class="item-img" src="' + escapeHTML(sh.thumb || sh.url) +
+        '" data-full="' + escapeHTML(sh.url) + '" loading="lazy" data-event-id="' + r.id + '" alt="">'
         + photoMetaOverlayHTML(sh.taken_at, sh.location_name) + '</div>').join('');
       const editBtn = isAdmin ? '<a class="item-edit" href="./admin.html?slug=' + CONFIG.eventSlug + '&edit=' + r.id + '">✏️ 수정</a>' : '';
       timeline.insertAdjacentHTML('beforeend',
@@ -681,7 +685,7 @@ function renderSchedule(byPanel){
 
 const IMAGE_COMPRESS_TARGET = 5 * 1024 * 1024;  // 사진은 5MB로 자동 압축
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;      // 영상 100MB (압축 없이 용량 제한만)
-const GALLERY_BUCKET = 'gallery-uploads';
+// GALLERY_BUCKET 은 common.js 에 있다 (여기서 다시 선언하면 이름이 겹쳐 페이지가 멈춘다)
 let galleryItems = [];
 
 // 이 일정과 이어진 작품 — 포트폴리오에서 "그날 일정"으로 고른 것들.
@@ -765,14 +769,30 @@ function renderGalleryThumb(r, index){
     del.addEventListener('click', async (ev) => {
       ev.stopPropagation();
       if (!confirm('이 파일을 삭제할까요?')) return;
+      // 사진으로 일정을 만들면 갤러리 사진의 주소가 그대로 일정에도 붙는다.
+      // 그런 사진의 파일까지 지우면 일정 쪽 사진이 깨지므로, 파일은 남기고 줄만 지운다.
+      const stillUsed = await usedBySchedule(r.media_url);
       const { error } = await sb.from('gallery_media').delete().eq('id', r.id);
       if (error) { alert('삭제 실패: ' + error.message); return; }
+      await removeStored(GALLERY_BUCKET, stillUsed ? [r.thumb_url] : [r.media_url, r.thumb_url]);
       loadGallery();
   loadLinkedWorks();
     });
     thumb.appendChild(del);
   }
   return thumb;
+}
+
+// 이 사진이 일정(events)에도 붙어 있는지. 붙어 있으면 파일을 남겨야 한다.
+// 확인하지 못하면 "쓰이고 있다"로 친다 — 잘못 지우는 것보다 남기는 쪽이 낫다.
+async function usedBySchedule(url){
+  if (!url) return true;
+  const { data, error } = await sb.from('events')
+    .select('id, image_url, extra_images').eq('event_id', CONFIG.eventSlug);
+  if (error) { console.warn('일정 확인 실패, 파일은 남깁니다:', error.message); return true; }
+  return (data || []).some(r =>
+    r.image_url === url ||
+    (Array.isArray(r.extra_images) && r.extra_images.some(x => x && x.url === url)));
 }
 
 function validateGalleryFile(file){
@@ -1037,8 +1057,8 @@ async function openScheduleProposal(){
     if (!m.taken_at) { noTime++; return; }
     const t = new Date(m.taken_at).getTime();
     if (isNaN(t)) { noTime++; return; }
-    shots.push({ url: m.media_url, t, taken_at: m.taken_at, place: m.location_name || '',
-                 isVideo: m.media_type === 'video' });
+    shots.push({ url: m.media_url, thumb: m.thumb_url || null, t, taken_at: m.taken_at,
+                 place: m.location_name || '', isVideo: m.media_type === 'video' });
   });
 
   // 행사 기간 밖에서 찍힌 사진은 넣을 날짜 탭이 없다
@@ -1113,7 +1133,7 @@ function renderProposal(notes){
           '<span class="prop-when">' + escapeHTML(p.time) + '</span>' +
           '<input type="text" value="' + escapeHTML(p.title) + '" placeholder="일정 이름">' +
           '<span class="prop-shots">' +
-            p.covers.map(c => '<img src="' + escapeHTML(c.url) + '" loading="lazy" alt="">').join('') +
+            p.covers.map(c => '<img src="' + escapeHTML(c.thumb || c.url) + '" loading="lazy" alt="">').join('') +
           '</span>' +
           '<span class="prop-note">사진 ' + p.count + '장 중 ' + p.covers.length + '장을 일정에 붙여요' +
             (p.count > p.covers.length ? ' (나머지는 갤러리에 그대로 있어요)' : '') + '</span>' +
@@ -1174,7 +1194,9 @@ async function createProposedItems(){
 
   const rows = picked.map(p => {
     const first = p.covers[0];
-    const rest = p.covers.slice(1).map(c => ({ url: c.url, taken_at: c.taken_at, location_name: c.place || null }));
+    // 갤러리 사진에는 이미 작은 사본이 있다. 일정에도 그대로 물려 줘야 목록에서 원본을 받지 않는다.
+    const rest = p.covers.slice(1).map(c => ({ url: c.url, thumb: c.thumb || null,
+                                               taken_at: c.taken_at, location_name: c.place || null }));
     base[p.panel] = (base[p.panel] || 0) + 1;
     return {
       event_id: CONFIG.eventSlug,
@@ -1184,6 +1206,7 @@ async function createProposedItems(){
       title: p.title.trim(),
       detail: null,
       image_url: first.url,
+      thumb_url: first.thumb || null,
       taken_at: first.taken_at,
       location_name: first.place || null,
       extra_images: rest,

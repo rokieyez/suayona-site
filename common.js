@@ -4,8 +4,9 @@ const SB_URL = 'https://ifiemaypzjwdrljmmkgb.supabase.co';
 const SB_KEY = 'sb_publishable_uhn46d4RFI5DeIUjtz3IRA_U9X8iPZj';
 const sb = supabase.createClient(SB_URL, SB_KEY);
 
-// 사진은 이 버킷에 올라감 (로그인한 사람만 업로드 가능하도록 정책이 걸려 있음)
-const MEDIA_BUCKET = 'event-images';
+// 사진은 이 버킷에 올라감 (부모로 로그인했을 때만 쓸 수 있도록 정책이 걸려 있음)
+const MEDIA_BUCKET = 'event-images';        // 작품·일기·일정 사진, 목소리
+const GALLERY_BUCKET = 'gallery-uploads';   // 이벤트 갤러리에 올린 사진·영상
 // 사진은 이 용량을 넘을 때만 압축함 (넘지 않으면 원본 그대로 올라감)
 const IMAGE_LIMIT = 5 * 1024 * 1024;         // 기본 5MB — 일기장 사진
 const PORTFOLIO_IMAGE_LIMIT = 10 * 1024 * 1024;  // 작품은 화질이 중요해서 10MB
@@ -401,6 +402,136 @@ function readableError(e){
 function pathFromPublicUrl(bucket, url){
   const tail = String(url).split('/object/public/' + bucket + '/')[1];
   return tail ? decodeURIComponent(tail.split('?')[0]) : null;
+}
+
+// ---------------------------------------------------------------------------
+// 지운 뒤 저장소 치우기
+//
+// 지금까지는 줄만 지우고 사진 파일은 저장소에 그대로 남겨 왔다. 화면에서는 사라지니
+// 눈치채기 어려운데, 무료 용량이 1GB뿐이라 지울수록 자리만 잃는 셈이었다.
+// (점검해 보니 아무도 안 쓰는 파일이 39개 79MB 쌓여 있었다.)
+//
+// 반드시 줄을 먼저 지우고 파일을 나중에 치운다. 순서를 바꾸면 줄 지우기가 실패했을 때
+// 사진 없는 줄이 남아 화면이 깨진다. 이쪽이 실패하면 파일만 남을 뿐 화면은 멀쩡하다.
+// ---------------------------------------------------------------------------
+async function removeStored(bucket, urls){
+  const paths = [];
+  for (const u of (Array.isArray(urls) ? urls : [urls])) {
+    if (!u) continue;
+    const path = pathFromPublicUrl(bucket, u);      // 다른 버킷 주소면 null 이라 걸러진다
+    if (path && !paths.includes(path)) paths.push(path);
+  }
+  if (!paths.length) return 0;
+  const { error } = await sb.storage.from(bucket).remove(paths);
+  if (error) { console.warn('저장소 정리 실패:', error.message, paths); return 0; }
+  return paths.length;
+}
+
+// ---------------------------------------------------------------------------
+// 아무도 안 쓰는 파일 찾기
+//
+// 예전 삭제들이 줄만 지우고 파일을 남겨 둔 탓에 쌓인 것들을 치우기 위한 도구.
+// 파일을 지우는 일이라 되돌릴 수 없다. 그래서 확실하지 않으면 무조건 남기는 쪽으로 만들었다:
+//   · 표를 하나라도 다 못 읽으면 아예 그만둔다 (반만 읽고 지우면 멀쩡한 사진이 날아간다)
+//   · 올린 지 한 시간이 안 된 파일은 건드리지 않는다 (올리는 중일 수 있다)
+// ---------------------------------------------------------------------------
+const CLEANUP_BUCKETS = ['event-images', 'gallery-uploads'];
+const CLEANUP_MIN_AGE_MS = 60 * 60 * 1000;
+
+// 버킷 안의 파일을 모두 훑는다. 폴더가 두 겹까지 있어서(suayona/works) 재귀로 내려간다.
+async function listAllFiles(bucket, prefix, out){
+  out = out || [];
+  const { data, error } = await sb.storage.from(bucket)
+    .list(prefix || '', { limit: 1000, sortBy: { column: 'name', order: 'asc' } });
+  if (error) throw new Error(bucket + ' 파일 목록을 읽지 못했어요: ' + error.message);
+  for (const f of (data || [])) {
+    const full = prefix ? prefix + '/' + f.name : f.name;
+    if (f.id) out.push({ path: full, size: (f.metadata && f.metadata.size) || 0, at: f.created_at });
+    else await listAllFiles(bucket, full, out);      // 폴더면 한 겹 더 내려간다
+  }
+  return out;
+}
+
+// 표를 통째로 읽되, 다 읽었는지 반드시 확인한다.
+// 서버가 줄 수를 제한해 반만 돌려주면 나머지가 "안 쓰는 파일"로 보여 진짜 사진이 지워진다.
+async function selectAllRows(table, cols){
+  const { data, error, count } = await sb.from(table).select(cols, { count: 'exact' });
+  if (error) throw new Error(table + ' 을 읽지 못했어요: ' + error.message);
+  const rows = data || [];
+  if (count != null && rows.length < count)
+    throw new Error(table + ' 을 다 읽지 못했어요 (' + rows.length + '/' + count + '). 안전을 위해 그만둡니다.');
+  return rows;
+}
+
+// 지금 쓰이고 있는 파일 경로를 버킷별로 모은다
+async function collectUsedPaths(){
+  const used = {};
+  CLEANUP_BUCKETS.forEach(b => used[b] = new Set());
+  const add = url => {
+    if (!url) return;
+    for (const b of CLEANUP_BUCKETS) {
+      const path = pathFromPublicUrl(b, url);
+      if (path) { used[b].add(path); return; }
+    }
+  };
+
+  const [works, posts, events, gallery] = await Promise.all([
+    selectAllRows('works',         'media_url, thumb_url, audio_url'),
+    selectAllRows('posts',         'image_url, thumb_url, extra_images'),
+    selectAllRows('events',        'image_url, thumb_url, extra_images'),
+    selectAllRows('gallery_media', 'media_url, thumb_url'),
+  ]);
+  works.forEach(w => { add(w.media_url); add(w.thumb_url); add(w.audio_url); });
+  posts.forEach(x => { add(x.image_url); add(x.thumb_url); urlsIn(x.extra_images).forEach(add); });
+  events.forEach(x => { add(x.image_url); add(x.thumb_url); urlsIn(x.extra_images).forEach(add); });
+  gallery.forEach(g => { add(g.media_url); add(g.thumb_url); });
+  return used;
+}
+
+// 안 쓰는 파일 목록. 지우지는 않는다 — 먼저 보여주고 확인을 받기 위해.
+async function findUnusedFiles(){
+  // 부모가 아니면 표를 반만 읽게 된다(비공개 글은 안 보임). 반만 읽고 지우면 멀쩡한 사진이 날아간다.
+  if (!isAdmin) throw new Error('부모로 로그인했을 때만 쓸 수 있어요.');
+  const used = await collectUsedPaths();
+  const cutoff = Date.now() - CLEANUP_MIN_AGE_MS;
+  const found = [];
+  let bytes = 0, tooNew = 0;
+  for (const bucket of CLEANUP_BUCKETS) {
+    const all = await listAllFiles(bucket);
+    // 목록 권한이 없으면 오류 없이 빈 배열이 온다. 그걸 "파일이 없다"로 읽으면 안 된다.
+    if (!all.length) throw new Error(bucket + ' 의 파일 목록이 비어 있어요. 권한을 확인해 주세요.');
+    for (const f of all) {
+      if (used[bucket].has(f.path)) continue;
+      if (f.at && new Date(f.at).getTime() > cutoff) { tooNew++; continue; }
+      found.push({ bucket, path: f.path, size: f.size });
+      bytes += f.size;
+    }
+  }
+  return { found, bytes, tooNew };
+}
+
+async function removeUnusedFiles(found, onStep){
+  let gone = 0;
+  for (const bucket of CLEANUP_BUCKETS) {
+    const paths = found.filter(f => f.bucket === bucket).map(f => f.path);
+    for (let i = 0; i < paths.length; i += 50) {          // 한 번에 너무 많이 보내지 않는다
+      const chunk = paths.slice(i, i + 50);
+      const { error } = await sb.storage.from(bucket).remove(chunk);
+      if (error) throw new Error('치우지 못했어요: ' + error.message);
+      gone += chunk.length;
+      if (onStep) onStep(gone, found.length);
+    }
+  }
+  return gone;
+}
+
+function mbLabel(bytes){ return (bytes / 1048576).toFixed(1) + ' MB'; }
+
+// {url, thumb} 를 담은 목록(extra_images 등)에서 주소만 한 줄로 뽑음
+function urlsIn(list){
+  return (Array.isArray(list) ? list : [])
+    .flatMap(x => x ? [x.url, x.thumb] : [])
+    .filter(Boolean);
 }
 
 // 파일 하나에서 사본을 만들어 올림. 실패해도 던지지 않는다 —

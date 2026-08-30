@@ -509,7 +509,10 @@ async function uploadImageWithMeta(file){
   const { error } = await sb.storage.from('event-images').upload(path, uploadFile);
   if (error) throw error;
   const { data } = sb.storage.from('event-images').getPublicUrl(path);
-  return { url: data.publicUrl, taken_at: meta.takenAtISO, location_name: meta.place || null };
+  // 일정 목록의 사진 칸은 250px 남짓인데 원본은 4000px 이 넘는다. 작은 사본을 같이 만들어 둔다.
+  const thumb = await makeAndUploadThumb('event-images', path, uploadFile);
+  return { url: data.publicUrl, thumb: thumb || null,
+           taken_at: meta.takenAtISO, location_name: meta.place || null };
 }
 
 // ----- 일정 사진 여러 장 -----
@@ -555,6 +558,7 @@ function splitPhotos(shots){
   const first = shots[0] || null;
   return {
     image_url: first ? first.url : null,
+    thumb_url: first ? (first.thumb || null) : null,
     taken_at: first ? first.taken_at : null,
     location_name: first ? first.location_name : null,
     extra_images: shots.slice(1),
@@ -596,7 +600,7 @@ function renderCard(r){
     '<div class="item-time">' + (r.time || '') + '</div>' +
     '<div class="item-title">' + r.title + '</div>' +
     (r.detail ? '<div class="item-detail">' + escapeHTML(r.detail) + '</div>' : '') +
-    (r.image_url ? '<img class="item-img" src="' + r.image_url + '">' : '') +
+    (r.image_url ? '<img class="item-img" src="' + (r.thumb_url || r.image_url) + '" alt="">' : '') +
     '<div class="item-actions">' +
       '<button class="btn ghost editBtn">수정</button>' +
       '<button class="btn danger delBtn">삭제</button>' +
@@ -604,8 +608,13 @@ function renderCard(r){
 
   card.querySelector('.delBtn').addEventListener('click', async () => {
     if (!confirm('"' + r.title + '" 일정을 삭제할까요?')) return;
+    // event-images 버킷의 것만 치운다. 사진으로 일정을 만들면 갤러리 사진 주소가
+    // 그대로 붙는데, 그건 갤러리가 주인이라 여기서 지우면 갤러리가 깨진다.
+    // removeStored 가 다른 버킷 주소는 알아서 걸러 낸다.
+    const files = [r.image_url, r.thumb_url].concat(urlsIn(extraImagesOf(r)));
     const { error } = await sb.from('events').delete().eq('id', r.id);
     if (error) { alert('삭제 실패: ' + error.message); return; }
+    await removeStored('event-images', files);
     loadList();
   });
 
