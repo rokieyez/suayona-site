@@ -108,3 +108,53 @@ alter table events add column if not exists extra_images jsonb default '[]'::jso
 --   values ('<수아 계정 uuid>', 'child', '수아', 'sua'),
 --          ('<연아 계정 uuid>', 'child', '연아', 'yona');
 -- ---------------------------------------------------------------------------
+
+-- ============================================================
+-- 4) 아이들 시간표 (/time.html)
+--
+-- 학교 수업 · 학원 · 그때그때 생기는 일정을 한 테이블에 담는다.
+-- 세 가지처럼 보이지만 실제로는 두 종류뿐이라 표를 나누지 않았다.
+--
+--   매주 오는 것   → weekday 를 채운다 (0=일 … 6=토). 학기는 valid_from/valid_to.
+--   하루짜리       → on_date 를 채운다.
+--
+-- 둘 중 하나만 채워야 하고, 그걸 schedules_one_shape 가 강제한다.
+-- kind 는 색 구분용 꼬리표일 뿐이라 별도 표를 두지 않았다.
+-- ============================================================
+create table if not exists schedules (
+  id         bigserial primary key,
+  who        text    not null check (who in ('sua','yona','together')),
+  kind       text    not null default 'school' check (kind in ('school','academy','other')),
+  title      text    not null,
+  place      text,
+  weekday    smallint check (weekday between 0 and 6),
+  on_date    date,
+  start_at   time    not null,
+  end_at     time,
+  valid_from date,
+  valid_to   date,
+  note       text,
+  event_slug text,          -- 나들이로 커지면 일정표 페이지로 이어 붙일 자리
+  created_at timestamptz not null default now(),
+  constraint schedules_one_shape  check ((weekday is null) <> (on_date is null)),
+  constraint schedules_time_order check (end_at is null or end_at > start_at)
+);
+
+create index if not exists schedules_weekday_idx on schedules (who, weekday);
+create index if not exists schedules_date_idx    on schedules (on_date);
+
+alter table schedules enable row level security;
+
+-- 보기: 로그인한 가족만.
+-- 작품이나 일기와 달리 시간표는 "이 아이가 몇 시에 어디 있는지"를 그대로 알려준다.
+-- 그래서 이 표만은 공개하지 않고, /time.html 도 검색엔진에서 빼 두었다.
+drop policy if exists schedules_read on schedules;
+create policy schedules_read on schedules
+  for select to authenticated using (true);
+
+-- 고치기: 부모만. 아이는 자기 시간표라도 보기만 한다.
+drop policy if exists schedules_write on schedules;
+create policy schedules_write on schedules
+  for all to authenticated
+  using (public.my_role() = 'parent')
+  with check (public.my_role() = 'parent');

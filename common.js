@@ -24,8 +24,16 @@ const MENU = [
   { href: '/contact.html',  label: '편지쓰기',  key: 'contact' },
 ];
 
+// 로그인한 가족에게만 보이는 메뉴. 시간표는 공개하지 않으므로 링크도 내걸지 않는다.
+const PRIVATE_MENU = [
+  { href: '/time.html', label: '시간표', key: 'time', before: '/year.html' },
+];
+
+let ACTIVE_KEY = null;
+
 // ---------- 헤더 / 푸터 ----------
 function buildChrome(activeKey){
+  ACTIVE_KEY = activeKey;
   const header = document.createElement('header');
   header.className = 'site';
   header.id = 'siteHeader';
@@ -55,6 +63,14 @@ function buildChrome(activeKey){
     '<div class="pixel" style="margin-top:8px;">수아연아TV</div>' +
     '<div>© 2026 suayona.com</div>';
   document.body.appendChild(footer);
+
+  // 홈·소개처럼 로그인 확인을 하지 않는 페이지에서도 비공개 메뉴는 나와야 한다.
+  // getSession 은 저장된 토큰만 읽으므로 서버를 부르지 않는다.
+  sb.auth.getSession().then(({ data: { session } }) => {
+    if (!session) return;
+    isLoggedIn = true;
+    syncPrivateMenu();
+  }).catch(() => {});
 
   // 로고 하트 · 푸터 유튜브 아이콘 도트 찍기
   if (typeof SPRITES !== 'undefined') {
@@ -113,12 +129,14 @@ function revealNow(el){ requestAnimationFrame(() => el.classList.add('in')); }
 // 아이 계정이 생기면서 둘을 갈라야 했다. isAdmin 은 이제 "부모"라는 뜻이다.
 let isAdmin = false;     // 부모 (작품·모든 글을 다룰 수 있음)
 let isChild = false;     // 아이 (자기 글만, 그것도 확인 전까지만)
+let isLoggedIn = false;  // 프로필이 없어도 계정으로 들어와 있으면 참
 let me = null;           // { user_id, role, display, author_key }
 
 async function refreshAuth(){
   const { data: { session } } = await sb.auth.getSession();
   me = null; isAdmin = false; isChild = false;
-  if (!session) return null;
+  isLoggedIn = !!session;
+  if (!session) { syncPrivateMenu(); return null; }
 
   const { data } = await sb.from('profiles')
     .select('user_id, role, display, author_key')
@@ -130,7 +148,27 @@ async function refreshAuth(){
   // 눌러야 거절당하는 건 고장난 것과 같다.
   isAdmin = !!me && me.role === 'parent';
   isChild = !!me && me.role === 'child';
+  syncPrivateMenu();
   return session;
+}
+
+// 로그인/로그아웃에 맞춰 비공개 메뉴를 넣고 뺀다.
+// 헤더는 로그인 확인보다 먼저 그려지므로, 여기서 뒤늦게 붙이는 편이 깜빡임이 없다.
+function syncPrivateMenu(){
+  const nav = document.getElementById('nav');
+  if (!nav) return;
+  PRIVATE_MENU.forEach(m => {
+    const found = nav.querySelector('[data-key="' + m.key + '"]');
+    if (!isLoggedIn) { if (found) found.remove(); return; }
+    if (found) return;
+    const a = document.createElement('a');
+    a.href = m.href;
+    a.textContent = m.label;
+    a.dataset.key = m.key;
+    if (m.key === ACTIVE_KEY) a.className = 'active';
+    const anchor = m.before && nav.querySelector('a[href="' + m.before + '"]');
+    nav.insertBefore(a, anchor || null);
+  });
 }
 
 // 관리자 로그인 상자를 만들어 지정한 위치에 넣음.
@@ -830,6 +868,14 @@ const BACKDROP = {
   // 모아보기 — 한 해를 훑는 페이지. 일기장과 같은 조용한 톤으로.
   year: {
     nearH: [104, 72],
+    far(g, W, H, S, u){ return BACKDROP.board.far(g, W, H, S, u); },
+    mid(g, W, H, S, u){ return BACKDROP.board.mid(g, W, H, S, u); },
+    near(g, W, H, S, u){ return BACKDROP.board.near(g, W, H, S, u); },
+  },
+
+  // 시간표 — 격자가 이미 촘촘해서 배경은 모아보기와 같은 조용한 톤으로 둔다.
+  time: {
+    nearH: [96, 64],
     far(g, W, H, S, u){ return BACKDROP.board.far(g, W, H, S, u); },
     mid(g, W, H, S, u){ return BACKDROP.board.mid(g, W, H, S, u); },
     near(g, W, H, S, u){ return BACKDROP.board.near(g, W, H, S, u); },

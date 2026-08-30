@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시간표 · 수아랑 연아랑</title>
+<!-- 시간표는 아이가 몇 시에 어디 있는지를 그대로 알려주는 정보라 공개하지 않는다.
+     로그인해야 내용이 보이고, 검색엔진에도 올리지 않는다. -->
+<meta name="robots" content="noindex, nofollow">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  /* ---------- 잠긴 화면 ---------- */
+  .gate{max-width:420px; margin:0 auto;}
+  .gate .why{font-size:13.5px; line-height:1.85; color:var(--ink-soft);
+    text-align:center; margin-bottom:20px;}
+
+  /* ---------- 오늘 ---------- */
+  .day-head{margin:0 0 14px; font-size:17px; font-weight:900;
+    border-bottom:var(--px) solid var(--ink); padding-bottom:8px;}
+  .today-cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:14px; margin-bottom:40px;}
+  .tcard{border:var(--px) solid var(--ink); background:var(--paper);
+    box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28);}
+  .tcard > h4{margin:0; padding:11px 15px; font-size:14.5px; font-weight:900;
+    border-bottom:var(--px) solid var(--ink); background:var(--lemon);}
+  .tcard ul{list-style:none; margin:0; padding:6px 0;}
+  .tcard li{display:flex; gap:10px; align-items:baseline; padding:7px 15px;
+    font-size:13.5px; line-height:1.5;}
+  .tcard li b{font-variant-numeric:tabular-nums; font-weight:800; font-size:12.5px;
+    min-width:42px; color:var(--ink-soft);}
+  .tcard li .nm{font-weight:800;}
+  .tcard li .pl{font-size:12px; color:var(--ink-soft);}
+  .tcard li.past{opacity:.4;}
+  .tcard li.now{background:var(--mint); }
+  .tcard li.now b, .tcard li.now .pl{color:var(--ink);}
+  .tcard li .tag{margin-left:auto; font-size:10.5px; font-weight:800;
+    border:2px solid var(--ink); padding:1px 5px; white-space:nowrap;}
+  .tcard .none{padding:16px 15px; font-size:13px; color:var(--ink-soft);}
+  .tcard .next{padding:9px 15px; font-size:12px; font-weight:800;
+    border-top:2px dashed rgba(47,42,36,.3); color:var(--ink-soft);}
+
+  /* ---------- 주 이동 ---------- */
+  .wk-bar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
+  .wk-bar .wk-label{font-size:14px; font-weight:900; margin-left:4px;}
+  .who-pick{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+  .who-pick .dot-btn{background:var(--cream);}
+  .who-pick .dot-btn.on{background:var(--coral); color:#fff;}
+
+  /* ---------- 주간 격자 ----------
+     시간축은 절대 위치로 앉힌다. 겹치는 일정이 생겨도 폭을 나눠 쓸 수 있고,
+     40분짜리 수업과 2시간짜리 학원이 같은 자로 그려진다. */
+  .grid-scroll{overflow-x:auto; border:var(--px) solid var(--ink);
+    box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28); background:var(--paper);
+    margin-bottom:14px;}
+  .grid{display:grid; min-width:520px;}
+  .grid .hcell{padding:8px 4px; text-align:center; font-size:12.5px; font-weight:900;
+    border-bottom:var(--px) solid var(--ink); background:var(--cream);}
+  .grid .hcell.sat{color:#2f6fb0;}
+  .grid .hcell.sun{color:#c0392b;}
+  .grid .hcell.today{background:var(--lemon);}
+  .grid .hcell small{display:block; font-weight:700; font-size:10.5px; color:var(--ink-soft);}
+  .grid .hcell.today small{color:var(--ink);}
+  .grid .gut{position:relative; border-right:2px solid rgba(47,42,36,.35);}
+  .grid .gut span{position:absolute; right:6px;
+    font-size:10.5px; font-weight:800; color:var(--ink-soft);
+    font-variant-numeric:tabular-nums;}
+  .grid .col{position:relative; border-right:1px solid rgba(47,42,36,.18);}
+  .grid .col:last-child{border-right:none;}
+  .grid .col.today{background:rgba(255,217,121,.22);}
+  .grid .col.hot{cursor:copy;}
+
+  .it{position:absolute; overflow:hidden; text-align:left; cursor:default;
+    border:2px solid var(--ink); border-radius:0; padding:3px 5px;
+    font-family:inherit; color:var(--ink); font-size:11.5px; line-height:1.3;}
+  .it b{display:block; font-weight:800; font-size:12px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .it span{display:block; font-size:10.5px; opacity:.8; margin-top:1px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .it.k-school {background:var(--mint);}
+  .it.k-academy{background:var(--lemon);}
+  .it.k-other  {background:var(--coral);}
+  /* 하루짜리 일정은 왼쪽에 굵은 줄 하나 — 매주 오는 것과 구별된다 */
+  .it.once{box-shadow:inset 4px 0 0 var(--ink);}
+  .it.editable{cursor:pointer;}
+  .it.editable:hover{filter:brightness(1.06);}
+  .it.editable:focus-visible{outline:3px solid var(--ink); outline-offset:-3px;}
+
+  .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:12px;
+    color:var(--ink-soft); margin-bottom:26px; align-items:center;}
+  .legend i{display:inline-block; width:13px; height:13px; border:2px solid var(--ink);
+    vertical-align:-2px; margin-right:5px;}
+  .legend .s{background:var(--mint);} .legend .a{background:var(--lemon);}
+  .legend .o{background:var(--coral);}
+  .legend .n{background:var(--paper); box-shadow:inset 4px 0 0 var(--ink);}
+
+  .tools{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:10px;}
+  .hint{font-size:12.5px; color:var(--ink-soft); line-height:1.7;}
+
+  /* ---------- 편집 창 ---------- */
+  .sheet{position:fixed; inset:0; z-index:120; background:rgba(47,42,36,.55);
+    display:flex; align-items:center; justify-content:center; padding:18px;}
+  .sheet[hidden]{display:none;}
+  .sheet-in{width:100%; max-width:430px; max-height:88vh; overflow-y:auto;
+    background:var(--paper); padding:20px 22px 18px;}
+  .sheet-in h4{margin:0 0 14px; font-size:16px; font-weight:900;}
+  .sheet-in .field{display:block; font-size:11.5px; font-weight:800; margin:12px 0 5px;}
+  .sheet-in input, .sheet-in select, .sheet-in textarea{width:100%;}
+  .sheet-in textarea{min-height:64px;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .row2 .field{margin-top:12px;}
+  .sheet-in details{margin-top:14px; border-top:2px dashed rgba(47,42,36,.3); padding-top:6px;}
+  .sheet-in summary{cursor:pointer; font-size:12px; font-weight:800; padding:6px 0;}
+  .sheet-btns{display:flex; gap:8px; align-items:center; margin-top:20px;}
+  .sheet .msg{margin-top:10px;}
+  .quick{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;}
+  .quick button{font-family:inherit; font-size:11.5px; font-weight:800; cursor:pointer;
+    border:2px solid var(--ink); background:var(--cream); padding:4px 9px;}
+  .quick button:hover{background:var(--lemon);}
+
+  @media (max-width:560px){
+    .sheet{padding:0;}
+    .sheet-in{max-width:none; max-height:100vh; height:100%;}
+  }
+</style>
+</head>
+<body>
+
+<main class="page-top section-pad">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">TIMETABLE</span>
+      <h2>시간표</h2>
+      <p>학교랑 학원, 그리고 그때그때 생기는 일정까지 한자리에.</p>
+    </div>
+
+    <div id="gate" class="gate reveal"></div>
+
+    <div id="app" hidden>
+      <div id="adminSlot"></div>
+
+      <h3 class="day-head" id="todayHead">오늘</h3>
+      <div class="today-cards" id="today"></div>
+
+      <h3 class="day-head">한 주 보기</h3>
+      <div class="wk-bar">
+        <button class="dot-btn small" id="prevWk" aria-label="지난 주">‹</button>
+        <button class="dot-btn small" id="thisWk">이번 주</button>
+        <button class="dot-btn small" id="nextWk" aria-label="다음 주">›</button>
+        <span class="wk-label" id="wkLabel"></span>
+      </div>
+      <div class="who-pick" id="whoPick">
+        <button class="dot-btn small on" data-who="sua">수아</button>
+        <button class="dot-btn small" data-who="yona">연아</button>
+      </div>
+
+      <div class="grid-scroll"><div class="grid" id="grid"></div></div>
+      <div class="legend">
+        <span><i class="s"></i>학교</span>
+        <span><i class="a"></i>학원</span>
+        <span><i class="o"></i>그 밖</span>
+        <span><i class="n"></i>그날 하루만</span>
+      </div>
+
+      <div class="tools" id="tools"></div>
+      <p class="hint" id="hint"></p>
+    </div>
+  </div>
+</main>
+
+<!-- 일정 하나를 넣거나 고치는 창 -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-in dot-card" role="dialog" aria-modal="true" aria-labelledby="shTitle">
+    <h4 id="shTitle">일정 넣기</h4>
+
+    <div class="row2">
+      <div>
+        <label class="field" for="fWho">누구</label>
+        <select id="fWho">
+          <option value="sua">수아</option>
+          <option value="yona">연아</option>
+          <option value="together">둘 다</option>
+        </select>
+      </div>
+      <div>
+        <label class="field" for="fKind">종류</label>
+        <select id="fKind">
+          <option value="school">학교</option>
+          <option value="academy">학원</option>
+          <option value="other">그 밖</option>
+        </select>
+      </div>
+    </div>
+
+    <label class="field" for="fTitle">이름</label>
+    <input id="fTitle" placeholder="수학, 피아노, 치과…" autocomplete="off">
+
+    <label class="field" for="fPlace">장소</label>
+    <input id="fPlace" placeholder="비워도 괜찮아요" autocomplete="off">
+
+    <div class="row2">
+      <div>
+        <label class="field" for="fMode">언제</label>
+        <select id="fMode">
+          <option value="w">매주</option>
+          <option value="d">그날 하루만</option>
+        </select>
+      </div>
+      <div>
+        <label class="field" for="fWeekday" id="fWhenLabel">요일</label>
+        <select id="fWeekday">
+          <option value="1">월요일</option><option value="2">화요일</option>
+          <option value="3">수요일</option><option value="4">목요일</option>
+          <option value="5">금요일</option><option value="6">토요일</option>
+          <option value="0">일요일</option>
+        </select>
+        <input type="date" id="fDate" hidden>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div><label class="field" for="fStart">시작</label><input type="time" id="fStart" step="300"></div>
+      <div><label class="field" for="fEnd">끝</label><input type="time" id="fEnd" step="300"></div>
+    </div>
+    <div class="quick" id="fQuick"></div>
+
+    <details id="fMore">
+      <summary>학기 기간 · 메모</summary>
+      <div class="row2">
+        <div><label class="field" for="fFrom">시작하는 날</label><input type="date" id="fFrom"></div>
+        <div><label class="field" for="fTo">끝나는 날</label><input type="date" id="fTo"></div>
+      </div>
+      <p class="hint" style="margin:8px 0 0;">비워두면 계속 반복해요. 학기가 바뀔 때만 채우면 됩니다.</p>
+      <label class="field" for="fNote">메모</label>
+      <textarea id="fNote" placeholder="준비물, 데려다주는 사람…"></textarea>
+    </details>
+
+    <div class="sheet-btns">
+      <button class="dot-btn danger small" id="fDel" hidden>지우기</button>
+      <span style="flex:1"></span>
+      <button class="dot-btn small" id="fCancel">닫기</button>
+      <button class="dot-btn primary small" id="fSave">저장</button>
+    </div>
+    <div class="msg" id="fMsg"></div>
+  </div>
+</div>
+
+<!-- 한 학기 시간표를 통째로 다음 학기로 넘기는 창 -->
+<div class="sheet" id="copySheet" hidden>
+  <div class="sheet-in dot-card" role="dialog" aria-modal="true" aria-labelledby="cpTitle">
+    <h4 id="cpTitle">학기 넘기기</h4>
+    <p class="hint" id="cpWhat"></p>
+
+    <label class="field" for="cpWho">누구 시간표를</label>
+    <select id="cpWho">
+      <option value="sua">수아</option>
+      <option value="yona">연아</option>
+    </select>
+
+    <div class="row2">
+      <div><label class="field" for="cpFrom">새 학기 시작</label><input type="date" id="cpFrom"></div>
+      <div><label class="field" for="cpTo">새 학기 끝</label><input type="date" id="cpTo"></div>
+    </div>
+    <p class="hint" style="margin-top:10px;">
+      지금 시간표를 그대로 복사해 새 학기에 붙입니다.
+      원래 것은 <b>새 학기 시작 하루 전</b>까지만 나오게 정리하니, 겹쳐 보이지 않아요.
+    </p>
+
+    <div class="sheet-btns">
+      <span style="flex:1"></span>
+      <button class="dot-btn small" id="cpCancel">닫기</button>
+      <button class="dot-btn primary small" id="cpGo">넘기기</button>
+    </div>
+    <div class="msg" id="cpMsg"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script>
+buildChrome('time');
+buildBackdrop('time');
+
+const DAYNAME = ['일','월','화','수','목','금','토'];
+const WHONAME = { sua:'수아', yona:'연아', together:'둘 다' };
+const KINDNAME = { school:'학교', academy:'학원', other:'그 밖' };
+const DEFAULT_LEN = 40;              // 끝 시각을 안 적었을 때 (초등 한 교시)
+
+let all = [];                        // 시간표 전부
+let who = 'sua';                     // 격자에 띄울 아이
+let anchor = new Date();             // 보고 있는 주 안의 아무 날
+let editing = null;                  // 고치는 중인 행 (없으면 새로 넣는 중)
+
+// ---------- 날짜·시간 잔손질 ----------
+const toMin = t => { const p = String(t).split(':'); return (+p[0]) * 60 + (+p[1]); };
+const hhmm  = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+const endOf = s => s.end_at ? toMin(s.end_at) : toMin(s.start_at) + DEFAULT_LEN;
+const iso   = d => d.getFullYear() + '-' +
+                   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                   String(d.getDate()).padStart(2, '0');
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+
+// 주는 월요일에 시작한다
+function weekStart(d){
+  const x = new Date(d); x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+
+// 그 아이의, 그 날짜의 일정. 매주 오는 것과 그날 하루짜리를 한 줄로 섞어 돌려준다.
+function itemsOn(date, whoKey){
+  const ds = iso(date), wd = date.getDay();
+  return all.filter(s => {
+    if (s.who !== whoKey && s.who !== 'together') return false;
+    if (s.on_date) return s.on_date === ds;
+    if (s.weekday !== wd) return false;
+    if (s.valid_from && ds < s.valid_from) return false;
+    if (s.valid_to   && ds > s.valid_to)   return false;
+    return true;
+  }).sort((a, b) => toMin(a.start_at) - toMin(b.start_at) || a.title.localeCompare(b.title));
+}
+
+// 겹치는 것끼리 묶어 폭을 나눠 준다. 한 시간에 두 개가 잡혀도 서로 가리지 않는다.
+function spread(items){
+  const out = [];
+  let group = [], groupEnd = -1;
+  const flush = () => {
+    group.forEach((it, i) => out.push({ it, slot:i, of:group.length }));
+    group = []; groupEnd = -1;
+  };
+  items.forEach(it => {
+    if (group.length && toMin(it.start_at) >= groupEnd) flush();
+    group.push(it);
+    groupEnd = Math.max(groupEnd, endOf(it));
+  });
+  flush();
+  return out;
+}
+
+// ---------- 오늘 ----------
+function renderToday(){
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  $('#todayHead').textContent =
+    '오늘 · ' + (now.getMonth() + 1) + '월 ' + now.getDate() + '일 ' + DAYNAME[now.getDay()] + '요일';
+
+  $('#today').innerHTML = ['sua', 'yona'].map(k => {
+    const list = itemsOn(now, k);
+    let inner;
+    if (!list.length) {
+      inner = '<div class="none">오늘은 잡힌 일정이 없어요.</div>';
+    } else {
+      inner = '<ul>' + list.map(s => {
+        const st = toMin(s.start_at), en = endOf(s);
+        const cls = nowMin >= st && nowMin < en ? 'now' : (nowMin >= en ? 'past' : '');
+        return '<li class="' + cls + '">' +
+          '<b>' + s.start_at.slice(0, 5) + '</b>' +
+          '<span><span class="nm">' + escapeHTML(s.title) + '</span>' +
+          (s.place ? ' <span class="pl">' + escapeHTML(s.place) + '</span>' : '') + '</span>' +
+          (cls === 'now' ? '<span class="tag">지금</span>' : '') +
+        '</li>';
+      }).join('') + '</ul>';
+
+      const next = list.find(s => toMin(s.start_at) > nowMin);
+      if (next) {
+        const left = toMin(next.start_at) - nowMin;
+        const h = Math.floor(left / 60), m = left % 60;
+        inner += '<div class="next">다음 · ' + escapeHTML(next.title) + '까지 ' +
+          (h ? h + '시간 ' : '') + m + '분</div>';
+      } else if (list.some(s => endOf(s) <= nowMin)) {
+        inner += '<div class="next">오늘 일정은 다 끝났어요.</div>';
+      }
+    }
+    return '<div class="tcard"><h4>' + WHONAME[k] + '</h4>' + inner + '</div>';
+  }).join('');
+}
+
+// ---------- 한 주 ----------
+function renderWeek(){
+  const mon = weekStart(anchor);
+  const todayStr = iso(new Date());
+
+  // 평일은 늘 열고, 주말은 그 주에 뭔가 있을 때만 연다
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(mon, i);
+    const list = itemsOn(d, who);
+    const weekend = d.getDay() === 0 || d.getDay() === 6;
+    if (!weekend || list.length) days.push({ d, list });
+  }
+
+  $('#wkLabel').textContent =
+    (mon.getMonth() + 1) + '월 ' + mon.getDate() + '일 ~ ' +
+    (() => { const e = addDays(mon, 6); return (e.getMonth() + 1) + '월 ' + e.getDate() + '일'; })();
+
+  // 시간축 범위 — 기본 08~17시에서 일정이 삐져나온 만큼만 넓힌다
+  let lo = 8 * 60, hi = 17 * 60;
+  days.forEach(({ list }) => list.forEach(s => {
+    lo = Math.min(lo, toMin(s.start_at));
+    hi = Math.max(hi, endOf(s));
+  }));
+  lo = Math.floor(lo / 60) * 60;
+  hi = Math.ceil(hi / 60) * 60;
+
+  const HOUR = window.innerWidth < 640 ? 46 : 58;
+  const H = (hi - lo) / 60 * HOUR;
+  const grid = $('#grid');
+  grid.style.gridTemplateColumns = '48px repeat(' + days.length + ', minmax(76px, 1fr))';
+  grid.dataset.lo = lo;          // 빈 칸을 눌렀을 때 시각을 되계산하려면 필요하다
+
+  let html = '<div class="hcell"></div>';
+  days.forEach(({ d }) => {
+    const cls = ['hcell'];
+    if (d.getDay() === 6) cls.push('sat');
+    if (d.getDay() === 0) cls.push('sun');
+    if (iso(d) === todayStr) cls.push('today');
+    html += '<div class="' + cls.join(' ') + '">' + DAYNAME[d.getDay()] +
+      '<small>' + (d.getMonth() + 1) + '/' + d.getDate() + '</small></div>';
+  });
+
+  // 시간 눈금
+  let gut = '<div class="gut" style="height:' + H + 'px">';
+  for (let m = lo; m < hi; m += 60) {          // 마지막 줄은 칸 밖으로 삐져나가서 뺀다
+    gut += '<span style="top:' + ((m - lo) / 60 * HOUR + 3) + 'px">' + hhmm(m) + '</span>';
+  }
+  html += gut + '</div>';
+
+  const lines = 'repeating-linear-gradient(to bottom,' +
+    'transparent 0,transparent ' + (HOUR - 1) + 'px,' +
+    'rgba(47,42,36,.16) ' + (HOUR - 1) + 'px,rgba(47,42,36,.16) ' + HOUR + 'px)';
+
+  days.forEach(({ d, list }) => {
+    const cls = ['col'];
+    if (iso(d) === todayStr) cls.push('today');
+    if (isAdmin) cls.push('hot');
+    html += '<div class="' + cls.join(' ') + '" data-date="' + iso(d) + '" data-wd="' + d.getDay() + '"' +
+      ' style="height:' + H + 'px; background-image:' + lines + '">';
+
+    spread(list).forEach(({ it, slot, of }) => {
+      const st = toMin(it.start_at), en = endOf(it);
+      const top = (st - lo) / 60 * HOUR;
+      const h = Math.max(20, (en - st) / 60 * HOUR - 2);
+      const w = 100 / of;
+      const long = h >= 40;
+      html += '<button type="button" class="it k-' + it.kind + (it.on_date ? ' once' : '') +
+        (isAdmin ? ' editable' : '') + '" data-id="' + it.id + '"' +
+        (isAdmin ? '' : ' tabindex="-1"') +
+        ' style="top:' + top + 'px; height:' + h + 'px; left:' + (slot * w) +
+        '%; width:calc(' + w + '% - 2px)">' +
+        '<b>' + escapeHTML(it.title) + '</b>' +
+        (long ? '<span>' + it.start_at.slice(0, 5) +
+          (it.place ? ' ' + escapeHTML(it.place) : '') + '</span>' : '') +
+      '</button>';
+    });
+    html += '</div>';
+  });
+
+  grid.innerHTML = html;
+}
+
+function render(){ renderToday(); renderWeek(); }
+
+// ---------- 넣고 고치기 (부모만) ----------
+function openSheet(row, preset){
+  editing = row || null;
+  const s = row || {};
+  $('#shTitle').textContent = row ? '일정 고치기' : '일정 넣기';
+  $('#fWho').value   = s.who   || (preset && preset.who)   || who;
+  $('#fKind').value  = s.kind  || (preset && preset.kind)  || 'school';
+  $('#fTitle').value = s.title || '';
+  $('#fPlace').value = s.place || '';
+  $('#fNote').value  = s.note  || '';
+  $('#fFrom').value  = s.valid_from || '';
+  $('#fTo').value    = s.valid_to   || '';
+
+  const mode = s.on_date ? 'd' : (row ? 'w' : (preset && preset.mode) || 'w');
+  $('#fMode').value = mode;
+  $('#fWeekday').value = String(s.weekday != null ? s.weekday
+                              : (preset ? preset.weekday : 1));
+  $('#fDate').value = s.on_date || (preset && preset.date) || iso(new Date());
+  syncMode();
+
+  const start = s.start_at ? s.start_at.slice(0, 5) : (preset && preset.start) || '09:00';
+  $('#fStart').value = start;
+  $('#fEnd').value = s.end_at ? s.end_at.slice(0, 5)
+                              : hhmm(toMin(start) + DEFAULT_LEN);
+
+  $('#fDel').hidden = !row;
+  $('#fMsg').className = 'msg'; $('#fMsg').textContent = '';
+  $('#sheet').hidden = false;
+  $('#fTitle').focus();
+}
+function closeSheet(){ $('#sheet').hidden = true; editing = null; }
+
+// '매주'냐 '그날 하루만'이냐에 따라 요일 고르개와 날짜 고르개를 바꿔 끼운다
+function syncMode(){
+  const daily = $('#fMode').value === 'd';
+  $('#fWeekday').hidden = daily;
+  $('#fDate').hidden = !daily;
+  $('#fWhenLabel').textContent = daily ? '날짜' : '요일';
+  $('#fWhenLabel').setAttribute('for', daily ? 'fDate' : 'fWeekday');
+  // 하루짜리에는 학기가 없다
+  $('#fFrom').disabled = $('#fTo').disabled = daily;
+}
+$('#fMode').addEventListener('change', syncMode);
+
+// 자주 쓰는 길이를 한 번에 — 끝 시각을 매번 계산하지 않도록
+$('#fQuick').innerHTML = [40, 60, 90, 120].map(n =>
+  '<button type="button" data-len="' + n + '">' +
+  (n < 60 ? n + '분' : (n / 60) + '시간' + (n % 60 ? ' ' + (n % 60) + '분' : '')) +
+  '</button>').join('');
+$('#fQuick').addEventListener('click', e => {
+  const b = e.target.closest('[data-len]');
+  if (!b || !$('#fStart').value) return;
+  $('#fEnd').value = hhmm(Math.min(23 * 60 + 55, toMin($('#fStart').value) + (+b.dataset.len)));
+});
+
+$('#fSave').addEventListener('click', async () => {
+  const msg = $('#fMsg');
+  const title = $('#fTitle').value.trim();
+  if (!title) { msg.className = 'msg err'; msg.textContent = '이름을 적어주세요.'; return; }
+  if (!$('#fStart').value) { msg.className = 'msg err'; msg.textContent = '시작 시각을 골라주세요.'; return; }
+
+  const daily = $('#fMode').value === 'd';
+  const endV = $('#fEnd').value;
+  if (endV && toMin(endV) <= toMin($('#fStart').value)) {
+    msg.className = 'msg err'; msg.textContent = '끝나는 시각이 시작보다 빨라요.'; return;
+  }
+
+  const row = {
+    who: $('#fWho').value,
+    kind: $('#fKind').value,
+    title,
+    place: $('#fPlace').value.trim() || null,
+    weekday: daily ? null : (+$('#fWeekday').value),
+    on_date: daily ? $('#fDate').value : null,
+    start_at: $('#fStart').value,
+    end_at: endV || null,
+    valid_from: daily ? null : ($('#fFrom').value || null),
+    valid_to:   daily ? null : ($('#fTo').value   || null),
+    note: $('#fNote').value.trim() || null,
+  };
+
+  msg.className = 'msg'; msg.textContent = '저장 중...';
+  const q = editing
+    ? sb.from('schedules').update(row).eq('id', editing.id)
+    : sb.from('schedules').insert(row);
+  const { error } = await q;
+  if (error) { msg.className = 'msg err'; msg.textContent = '저장 실패: ' + error.message; return; }
+  closeSheet();
+  await load();
+});
+
+$('#fDel').addEventListener('click', async () => {
+  if (!editing) return;
+  if (!confirm('"' + editing.title + '" 을(를) 지울까요?')) return;
+  const { error } = await sb.from('schedules').delete().eq('id', editing.id);
+  if (error) {
+    $('#fMsg').className = 'msg err'; $('#fMsg').textContent = '지우지 못했어요: ' + error.message; return;
+  }
+  closeSheet();
+  await load();
+});
+
+$('#fCancel').addEventListener('click', closeSheet);
+$('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
+
+// 격자를 눌러서 넣기 — 빈 칸을 누르면 그 요일 그 시각이 미리 채워진다
+$('#grid').addEventListener('click', e => {
+  if (!isAdmin) return;
+
+  const it = e.target.closest('.it');
+  if (it) {
+    const row = all.find(s => String(s.id) === it.dataset.id);
+    if (row) openSheet(row);
+    return;
+  }
+
+  const col = e.target.closest('.col');
+  if (!col) return;
+  const HOUR = window.innerWidth < 640 ? 46 : 58;
+  const lo = +$('#grid').dataset.lo;
+  const y = e.clientY - col.getBoundingClientRect().top;
+  const raw = lo + (y / HOUR) * 60;
+  const start = Math.max(0, Math.min(23 * 60 + 30, Math.round(raw / 10) * 10));   // 10분 단위로 맞춤
+  openSheet(null, {
+    who,
+    mode: 'w',
+    weekday: +col.dataset.wd,
+    date: col.dataset.date,
+    start: hhmm(start),
+  });
+});
+
+// ---------- 학기 넘기기 ----------
+function openCopy(){
+  $('#cpWho').value = who;
+  $('#cpFrom').value = ''; $('#cpTo').value = '';
+  $('#cpMsg').className = 'msg'; $('#cpMsg').textContent = '';
+  const n = all.filter(s => s.weekday != null && (s.who === who || s.who === 'together')).length;
+  $('#cpWhat').textContent = '매주 반복하는 일정 ' + n + '개가 대상이에요.';
+  $('#copySheet').hidden = false;
+}
+$('#cpWho').addEventListener('change', () => {
+  const k = $('#cpWho').value;
+  const n = all.filter(s => s.weekday != null && (s.who === k || s.who === 'together')).length;
+  $('#cpWhat').textContent = '매주 반복하는 일정 ' + n + '개가 대상이에요.';
+});
+$('#cpCancel').addEventListener('click', () => { $('#copySheet').hidden = true; });
+$('#copySheet').addEventListener('click', e => { if (e.target.id === 'copySheet') $('#copySheet').hidden = true; });
+
+$('#cpGo').addEventListener('click', async () => {
+  const msg = $('#cpMsg');
+  const from = $('#cpFrom').value, to = $('#cpTo').value;
+  if (!from) { msg.className = 'msg err'; msg.textContent = '새 학기 시작일을 골라주세요.'; return; }
+  if (to && to < from) { msg.className = 'msg err'; msg.textContent = '끝나는 날이 시작보다 빨라요.'; return; }
+
+  const k = $('#cpWho').value;
+  // 새 학기 시작일에 아직 살아 있는 반복 일정만 옮긴다
+  const src = all.filter(s =>
+    s.weekday != null && (s.who === k || s.who === 'together') &&
+    (!s.valid_to || s.valid_to >= from));
+  if (!src.length) { msg.className = 'msg err'; msg.textContent = '넘길 일정이 없어요.'; return; }
+
+  msg.className = 'msg'; msg.textContent = '넘기는 중...';
+
+  const copies = src.map(s => ({
+    who:s.who, kind:s.kind, title:s.title, place:s.place, weekday:s.weekday,
+    start_at:s.start_at, end_at:s.end_at, note:s.note,
+    valid_from: from, valid_to: to || null,
+  }));
+  const ins = await sb.from('schedules').insert(copies);
+  if (ins.error) { msg.className = 'msg err'; msg.textContent = '복사 실패: ' + ins.error.message; return; }
+
+  // 원래 것은 새 학기 하루 전까지만 — 안 그러면 둘이 겹쳐 나온다
+  const cut = iso(addDays(new Date(from + 'T00:00:00'), -1));
+  const upd = await sb.from('schedules').update({ valid_to: cut }).in('id', src.map(s => s.id));
+  if (upd.error) {
+    msg.className = 'msg err';
+    msg.textContent = '복사는 됐는데 예전 것 정리에 실패했어요: ' + upd.error.message;
+    return;
+  }
+
+  $('#copySheet').hidden = true;
+  await load();
+});
+
+// ---------- 화면 조립 ----------
+$('#whoPick').addEventListener('click', e => {
+  const b = e.target.closest('[data-who]');
+  if (!b) return;
+  who = b.dataset.who;
+  $$('#whoPick .dot-btn').forEach(x => x.classList.toggle('on', x === b));
+  renderWeek();
+});
+$('#prevWk').addEventListener('click', () => { anchor = addDays(weekStart(anchor), -7); renderWeek(); });
+$('#nextWk').addEventListener('click', () => { anchor = addDays(weekStart(anchor),  7); renderWeek(); });
+$('#thisWk').addEventListener('click', () => { anchor = new Date(); renderWeek(); });
+
+let resizeT;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => { if (!$('#app').hidden) renderWeek(); }, 160);
+});
+
+async function load(){
+  const { data, error } = await sb.from('schedules').select('*');
+  all = error ? [] : (data || []);
+  render();
+
+  $('#tools').innerHTML = isAdmin
+    ? '<button class="dot-btn primary small" id="addBtn">＋ 일정 넣기</button>' +
+      '<button class="dot-btn small" id="copyBtn">학기 넘기기</button>'
+    : '';
+  $('#hint').textContent = isAdmin
+    ? (all.length
+        ? '격자의 빈 칸을 누르면 그 시간에 바로 넣을 수 있어요. 이미 있는 일정을 누르면 고칩니다.'
+        : '아직 시간표가 비어 있어요. 격자의 빈 칸을 눌러 첫 수업부터 채워보세요.')
+    : (all.length ? '' : '아직 시간표가 없어요.');
+
+  if (isAdmin) {
+    $('#addBtn').addEventListener('click', () => openSheet(null, { who, mode:'w', weekday:1, start:'09:00' }));
+    $('#copyBtn').addEventListener('click', openCopy);
+  }
+}
+
+function showGate(){
+  const gate = $('#gate');
+  gate.innerHTML = '';
+  if (isLoggedIn) {
+    $('#app').hidden = false;
+    mountAdminBar($('#adminSlot'), reboot);
+    return true;
+  }
+  $('#app').hidden = true;
+  gate.innerHTML =
+    '<p class="why">시간표에는 아이가 몇 시에 어디 있는지가 그대로 담겨 있어요.<br>' +
+    '그래서 이 쪽은 가족만 볼 수 있게 잠가 두었습니다.</p>';
+  mountLoginBox(gate, reboot);
+  revealNow(gate);
+  return false;
+}
+
+async function reboot(){
+  await refreshAuth();
+  $('#adminSlot').innerHTML = '';
+  if (showGate()) await load();
+}
+
+(async () => {
+  await refreshAuth();
+  if (showGate()) await load();
+  initReveal();
+  // 오늘 카드의 '지금'과 '다음까지 몇 분'은 시간이 지나면 틀려진다. 1분마다 다시 그린다.
+  setInterval(() => { if (!$('#app').hidden && all.length) renderToday(); }, 60000);
+})();
+</script>
+</body>
+</html>
