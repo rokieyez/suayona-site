@@ -91,8 +91,6 @@
   .fmt-bar .b{font-weight:900;} .fmt-bar .i{font-style:italic;} .fmt-bar .s{text-decoration:line-through;}
   .fmt-bar .hl{background:rgba(255,217,121,.6);}
   .fmt-bar button.on{background:var(--accent); color:#fff; border-color:var(--accent);}
-  body[data-theme="dark"] .fmt-bar{background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.12);}
-  body[data-theme="dark"] .fmt-bar button{border-color:rgba(255,255,255,.14);}
   .fmt-bar + textarea{border-radius:0 0 10px 10px;}
 
   /* 표 크기 고르기 */
@@ -120,9 +118,7 @@
     background:rgba(var(--accent-rgb),.07); border-radius:0 10px 10px 0;
     font-size:13.5px; line-height:1.7; color:var(--ink);}
   .note-hr{border:none; border-top:1px solid rgba(0,0,0,.12); margin:18px 0;}
-  body[data-theme="dark"] .note-hr{border-top-color:rgba(255,255,255,.14);}
   .note-mark{background:rgba(255,217,121,.55); color:inherit; padding:0 2px; border-radius:3px;}
-  body[data-theme="dark"] .note-mark{background:rgba(255,217,121,.28);}
   .note-link{color:var(--accent); text-decoration:underline; text-underline-offset:2px;}
   .note-para s, .note-list s, .note-quote s{opacity:.6;}
   .note-table-wrap{overflow-x:auto; margin:0 0 16px; border-radius:12px; border:1px solid rgba(0,0,0,.08);}
@@ -130,8 +126,6 @@
   .note-table th, .note-table td{padding:10px 12px; text-align:left; border-bottom:1px solid rgba(0,0,0,.08); white-space:pre-line;}
   .note-table th{background:rgba(var(--accent-rgb),.12); color:var(--ink); font-weight:800; font-size:12.5px;}
   .note-table tr:last-child td{border-bottom:none;}
-  body[data-theme="dark"] .note-table th{background:rgba(255,255,255,.08);}
-  body[data-theme="dark"] .note-table-wrap, body[data-theme="dark"] .note-table td{border-color:rgba(255,255,255,.08);}
 
   /* 미리보기 */
   .fmt-preview{margin-top:10px; padding:14px 16px; border-radius:12px;
@@ -160,25 +154,6 @@
 
   #admin-box, #notfound{display:none;}
 
-  /* ===== 다크모드(시스템 설정 기준) ===== */
-  /* 목록/상세 페이지와 같은 방식 — 기본은 라이트, 스위치로 고른 값만 적용 */
-  .switch{display:flex; justify-content:center; gap:0; margin:0 auto 20px; max-width:260px;
-    background:rgba(0,0,0,.06); border-radius:30px; padding:4px;}
-  .switch button{flex:1; border:none; background:none; padding:8px 10px; border-radius:24px;
-    font-size:12.5px; font-weight:700; cursor:pointer; color:var(--ink-soft); font-family:inherit; transition:.2s;}
-  .switch button.on{background:var(--paper-card); color:var(--ink); box-shadow:0 2px 8px rgba(0,0,0,.1);}
-
-  body[data-theme="dark"]{
-    --accent:#2f8c73; --accent-rgb:47,140,115;
-    --paper:#221c15; --paper-card:#2b241a; --ink:#eee0c8; --ink-soft:#a89d80;
-  }
-  body[data-theme="dark"] input,
-  body[data-theme="dark"] textarea,
-  body[data-theme="dark"] select{background:#332b1f; color:var(--ink); border-color:rgba(255,255,255,.15);}
-  body[data-theme="dark"] .switch{background:rgba(255,255,255,.08);}
-  body[data-theme="dark"] #customtabs-box .hint code{background:rgba(255,255,255,.1);}
-  body[data-theme="dark"] #customtabs-box .example{background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.16);}
-
   /* 공통 헤더가 화면 위에 고정되므로 그만큼 본문을 내림 */
   body{
     padding-top:calc(var(--header-h) + 18px); padding-bottom:0;
@@ -192,31 +167,12 @@
     margin-right:calc(var(--side-pad) * -1);
     margin-top:40px;
   }
-  /* 공통 헤더/푸터가 이 페이지의 다크 테마를 따라가도록 */
-  body[data-theme="dark"] header.site{background:rgba(34,28,21,.9); border-bottom-color:#eee0c8;}
-  body[data-theme="dark"] header.site nav a{color:#a89d80;}
-  body[data-theme="dark"] header.site nav a:hover,
-  body[data-theme="dark"] header.site nav a.active{color:#2f2a24;}
-  body[data-theme="dark"] .menu-toggle{border-color:#eee0c8; color:#eee0c8;}
-  body[data-theme="dark"] .logo-text{color:#eee0c8;}
-  /* 다크모드는 --ink 를 밝은 색으로 뒤집기 때문에 푸터 배경까지 밝아짐.
-     푸터는 원래 색 그대로 두도록 값을 고정함. */
-  body[data-theme="dark"] footer.site{background:#3a3226; color:#e9e2d6;}
-  body[data-theme="dark"] footer.site a{color:#ffd979;}
-  @media (max-width:860px){
-    body[data-theme="dark"] header.site nav{background:#221c15; border-bottom-color:#eee0c8;}
-  }
 </style>
 </head>
-<body data-theme="soft">
+<body>
 <div class="wrap">
   <a class="back" href="./" id="backLink">← 이벤트 페이지로</a>
   <h1 id="pageTitle">🔧 일정 관리</h1>
-
-  <div class="switch">
-    <button id="btnSoft" class="on" data-th="soft">🔆 라이트</button>
-    <button id="btnDark" data-th="dark">🌙 다크</button>
-  </div>
 
   <div id="notfound" class="empty">이벤트를 찾을 수 없습니다. 주소를 확인해주세요.</div>
 
@@ -292,21 +248,6 @@
 <script src="/common.js"></script>
 <script>
 buildChrome('event');
-
-// ----- 테마 토글 (이벤트 목록/상세와 같은 저장 키) -----
-(function(){
-  const body = document.body, bSoft = $('#btnSoft'), bDark = $('#btnDark');
-  function setTheme(th){
-    if (th !== 'dark') th = 'soft';
-    body.setAttribute('data-theme', th);
-    bSoft.classList.toggle('on', th === 'soft');
-    bDark.classList.toggle('on', th === 'dark');
-    try { localStorage.setItem('event-theme', th); } catch(e) {}
-  }
-  bSoft.addEventListener('click', () => setTheme('soft'));
-  bDark.addEventListener('click', () => setTheme('dark'));
-  try { const saved = localStorage.getItem('event-theme'); if (saved) setTheme(saved); } catch(e) {}
-})();
 
 const CONFIG = {
   eventSlug: new URLSearchParams(location.search).get('slug') || '',
