@@ -724,18 +724,23 @@ async function loadGallery(){
   if (galleryRes.error) console.error('갤러리 로딩 오류:', galleryRes.error);
   if (eventsRes.error) console.error('일정 사진 로딩 오류:', eventsRes.error);
 
+  // thumb_url 을 여기서 빠뜨리면 아래 renderGalleryThumb 이 늘 원본으로 물러난다.
+  // 갤러리 사본을 지난번에 만들어 두고도 격자가 계속 원본을 받아 온 이유가 이것이었다.
   const fromGallery = (galleryRes.data || []).map(r => ({
-    id: r.id, media_url: r.media_url, media_type: r.media_type, created_at: r.created_at, source: 'gallery',
+    id: r.id, media_url: r.media_url, thumb_url: r.thumb_url || null,
+    media_type: r.media_type, created_at: r.created_at, source: 'gallery',
     taken_at: r.taken_at, location_name: r.location_name,
   }));
   // 일정 하나에 사진이 여러 장이면 전부 갤러리에 넣음. 추가 사진은 id 에 순번을 붙여 구분.
   const fromEvents = (eventsRes.data || []).flatMap(r => {
     const extra = Array.isArray(r.extra_images) ? r.extra_images : [];
     return [{
-      id: r.id, media_url: r.image_url, media_type: 'image', created_at: r.created_at, source: 'event',
+      id: r.id, media_url: r.image_url, thumb_url: r.thumb_url || null,
+      media_type: 'image', created_at: r.created_at, source: 'event',
       taken_at: r.taken_at, location_name: r.location_name,
     }].concat(extra.map((sh, i) => ({
-      id: r.id + ':' + i, media_url: sh.url, media_type: 'image', created_at: r.created_at, source: 'event',
+      id: r.id + ':' + i, media_url: sh.url, thumb_url: sh.thumb || null,
+      media_type: 'image', created_at: r.created_at, source: 'event',
       taken_at: sh.taken_at || null, location_name: sh.location_name || null,
     })));
   });
