@@ -3,183 +3,328 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>도트 테마 미리보기</title>
-<meta name="robots" content="noindex">
+<title>이벤트 페이지 시안</title>
+<meta name="robots" content="noindex, nofollow">
 
 <!--
-  일정표 페이지를 도트 테마로 갈아입히면 어떻게 보이는지 실제 데이터로 확인하는 페이지.
+  이벤트 페이지 옷 갈아입히기 — 시안.
 
-  기존 페이지는 한 글자도 고치지 않았습니다. 진짜 일정표(index.html)를 iframe 으로
-  띄운 뒤, 같은 출처라서 가능한 방식으로 dot-theme.css 만 끼워 넣습니다.
-  위쪽 스위치로 원래 테마와 즉시 번갈아 볼 수 있습니다.
+  실제 페이지(index.html)는 이 파일을 전혀 안 봅니다. 여기를 아무리 고쳐도 홈페이지는
+  그대로입니다. 하나를 고르고 나면 그 모드의 규칙만 index.html 로 옮기면 됩니다.
 
-  이 시안을 접기로 하면 preview.html 과 dot-theme.css 두 파일만 지우면 끝입니다.
+  내용과 사진은 부산여행에서 그대로 가져왔고, 글꼴도 홈페이지와 같은 것을 불러옵니다.
+  그래서 여기 보이는 그대로가 실제 모습입니다.
+
+  ── 예전 도트 시안이 지저분했던 이유 ──
+  모든 것에 4px 테두리를 둘렀습니다. 일정마다, 사진마다, 탭마다, 표마다.
+  홈 화면은 큰 카드 다섯 개라 견디지만 이 페이지는 그런 상자가 마흔 개입니다.
+  게다가 시각·제목·표 머리글까지 도트 글꼴로 바꿔서 읽기가 더 어려워졌습니다.
+
+  ── 이번 시안의 원칙 (시인성 먼저) ──
+  1. 도트 글꼴은 홈페이지와 같은 자리에만 씁니다 — 딱지·눈금 같은 짧은 말에만.
+     읽는 글(제목·시각·설명)은 홈페이지 본문과 같은 Pretendard 입니다.
+     홈페이지도 도트 글꼴을 제목과 딱지에만 쓰지, 본문에는 안 씁니다.
+  2. 진한 테두리는 아껴 씁니다 — 누르는 것(탭)과 사진에만.
+  3. 모서리는 전부 각지게. 이것만으로도 같은 집안이라는 게 바로 보입니다.
 -->
 
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+
 <style>
-  :root{
-    --cream:#fffaf2; --paper:#fff6e9; --ink:#2f2a24; --ink-soft:#6f6558;
-    --coral:#ff7f8a; --mint:#6cc7b3; --lemon:#ffd979; --px:4px;
-    --bar-h:58px;
-  }
-  *,*::before,*::after{box-sizing:border-box;}
-  html,body{height:100%;}
-  body{
-    margin:0; background:var(--cream); color:var(--ink);
-    font-family:'Pretendard',sans-serif;
-    display:flex; flex-direction:column;
-  }
+/* ===========================================================================
+   세 모드가 함께 쓰는 것
+   =========================================================================== */
+:root{
+  --cream:#fffaf2;
+  --paper:#fff6e9;
+  --ink:#2f2a24;
+  --soft:#6f6558;
+  --coral:#ff7f8a;
+  --mint:#6cc7b3;
+  --hair:rgba(47,42,36,.14);
+  --px:3px;
+}
+*,*::before,*::after{box-sizing:border-box;}
+body{
+  margin:0; background:var(--cream); color:var(--ink);
+  font-family:'Pretendard', system-ui, sans-serif;
+  font-size:15px; line-height:1.7; -webkit-font-smoothing:antialiased;
+}
 
-  .bar{
-    flex:0 0 auto; height:var(--bar-h);
-    display:flex; align-items:center; gap:12px;
-    padding:0 14px;
-    background:var(--paper);
-    border-bottom:var(--px) solid var(--ink);
-  }
-  .bar .label{
-    font-family:'Galmuri11','Pretendard',sans-serif;
-    font-size:11px; letter-spacing:.5px; color:var(--ink-soft);
-    white-space:nowrap;
-  }
-  .bar .spacer{flex:1;}
+/* 모드 고르는 줄 — 시안을 볼 때만 쓰는 것이라 실제 페이지에는 안 들어갑니다 */
+.picker{
+  position:sticky; top:0; z-index:50;
+  display:flex; gap:8px; justify-content:center; flex-wrap:wrap;
+  padding:12px; background:var(--cream); border-bottom:2px solid var(--hair);
+}
+.picker button{
+  font-family:'Galmuri11','Pretendard',sans-serif; font-size:12.5px;
+  padding:8px 14px; cursor:pointer; border-radius:0;
+  border:var(--px) solid var(--ink); background:var(--cream); color:var(--ink);
+  box-shadow:var(--px) var(--px) 0 var(--ink);
+  transition:transform .1s steps(2), box-shadow .1s steps(2);
+}
+.picker button:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
+.picker button.on{
+  background:var(--ink); color:var(--cream);
+  transform:translate(var(--px),var(--px)); box-shadow:0 0 0 var(--ink);
+}
+.note{
+  max-width:520px; margin:0 auto; padding:16px 20px 0;
+  font-size:13px; line-height:1.8; color:var(--soft);
+}
+.note b{color:var(--ink);}
+.stage{max-width:520px; margin:0 auto; padding:18px 20px 90px;}
+.shot{position:relative; display:block;}
+.meta{
+  position:absolute; right:8px; bottom:8px;
+  font-family:'Galmuri11','Pretendard',sans-serif; font-size:10.5px;
+  background:rgba(47,42,36,.78); color:#fff; padding:3px 7px;
+}
 
-  .toggle{display:inline-flex; border:var(--px) solid var(--ink); background:var(--cream);}
-  .toggle button{
-    border:none; background:none; cursor:pointer;
-    padding:8px 14px; font-family:inherit; font-size:12.5px; font-weight:800;
-    color:var(--ink-soft);
-  }
-  .toggle button + button{border-left:var(--px) solid var(--ink);}
-  .toggle button.on{background:var(--coral); color:#fff;}
-  .toggle button:focus-visible{outline:3px solid var(--lemon); outline-offset:-3px;}
+/* ===========================================================================
+   [지금] 현재 이벤트 페이지 — 견줘 보려고 그대로 옮겨 둔 것
+   =========================================================================== */
+body[data-mode="now"]{background:#fdf8f0;}
+body[data-mode="now"] .head{text-align:center; margin-bottom:22px;}
+body[data-mode="now"] .eyebrow{
+  display:inline-block; background:#f3ece1; color:#6b6155;
+  border-radius:20px; padding:6px 16px; font-size:13px; font-weight:700; margin-bottom:14px;
+}
+body[data-mode="now"] .h1{font-size:30px; font-weight:800; margin:0 0 6px;}
+body[data-mode="now"] .when{font-size:17px; color:#6b6155; margin:0 0 14px;}
+body[data-mode="now"] .when .status{
+  display:block; width:max-content; margin:14px auto 0;
+  background:#2f7a63; color:#fff; border-radius:22px; padding:10px 22px; font-size:15px; font-weight:700;
+}
+body[data-mode="now"] .track{height:8px; border-radius:6px; background:#e6ded2; overflow:hidden; margin-top:18px;}
+body[data-mode="now"] .fill{height:100%; background:#2f7a63; border-radius:6px;}
+body[data-mode="now"] .pct{text-align:center; font-size:13px; color:#6b6155; margin-top:7px;}
+body[data-mode="now"] .tabs{display:flex; gap:8px; flex-wrap:wrap; margin:20px 0 22px;}
+body[data-mode="now"] .tab{
+  border:none; border-radius:20px; background:#f0e9de; color:#6b6155;
+  padding:9px 16px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;
+}
+body[data-mode="now"] .tab.on{background:#2f7a63; color:#fff;}
+body[data-mode="now"] .dayhead{font-size:17px; font-weight:800; margin:0 0 14px;}
+body[data-mode="now"] .rail{padding-left:22px; position:relative;}
+body[data-mode="now"] .rail::before{
+  content:''; position:absolute; left:5px; top:6px; bottom:6px; width:2px; background:#e2d9cb;
+}
+body[data-mode="now"] .item{
+  position:relative; background:#fffdf9; border:1px solid #efe6d8; border-radius:14px;
+  box-shadow:0 2px 10px rgba(47,42,36,.05); padding:16px 18px; margin-bottom:14px;
+}
+body[data-mode="now"] .item::before{
+  content:''; position:absolute; left:-22px; top:20px; width:11px; height:11px;
+  border-radius:50%; background:#2f7a63;
+}
+body[data-mode="now"] .line{display:block;}
+body[data-mode="now"] .time{font-size:13.5px; font-weight:700; color:#2f7a63; display:block; margin-bottom:2px;}
+body[data-mode="now"] .title{font-size:17px; font-weight:800; margin:0 0 10px;}
+body[data-mode="now"] .detail{font-size:14px; color:#6b6155; margin:0 0 10px;}
+body[data-mode="now"] .shots{display:flex; flex-direction:column; gap:8px;}
+body[data-mode="now"] .shots img{width:100%; border-radius:10px; display:block;}
+body[data-mode="now"] .meta{border-radius:6px;}
 
-  .exit{
-    text-decoration:none; color:var(--ink); font-size:12.5px; font-weight:800;
-    border:var(--px) solid var(--ink); background:var(--cream);
-    padding:8px 13px; white-space:nowrap;
-  }
-  .exit:hover{background:var(--lemon);}
+/* ===========================================================================
+   머리말·탭 — 두 시안이 함께 쓰는 부분
+   =========================================================================== */
+body[data-mode="rule"] .head,
+body[data-mode="card"] .head{margin-bottom:24px;}
+body[data-mode="rule"] .eyebrow,
+body[data-mode="card"] .eyebrow{
+  display:inline-block; font-family:'Galmuri11','Pretendard',sans-serif; font-size:11.5px;
+  letter-spacing:.12em; padding:5px 11px; background:var(--mint); color:var(--ink);
+  border:var(--px) solid var(--ink); margin-bottom:13px;
+}
+body[data-mode="rule"] .h1,
+body[data-mode="card"] .h1{font-size:31px; font-weight:800; margin:0 0 5px; letter-spacing:-.02em;}
+body[data-mode="rule"] .when,
+body[data-mode="card"] .when{
+  font-size:14px; color:var(--soft); margin:0 0 17px; font-variant-numeric:tabular-nums;
+}
+body[data-mode="rule"] .when .status,
+body[data-mode="card"] .when .status{color:var(--ink); font-weight:700;}
+body[data-mode="rule"] .when .status::before,
+body[data-mode="card"] .when .status::before{content:' · '; color:var(--soft); font-weight:400;}
 
-  .stage{flex:1 1 auto; position:relative; min-height:0;}
-  iframe{
-    position:absolute; inset:0; width:100%; height:100%;
-    border:0; display:block; background:var(--cream);
-  }
+/* 눈금이 몇 칸인지 보이는 게이지 — 매끈한 막대보다 "얼마나 지났나"가 또렷합니다 */
+body[data-mode="rule"] .track,
+body[data-mode="card"] .track{
+  height:14px; background:var(--cream); border:var(--px) solid var(--ink);
+  background-image:repeating-linear-gradient(90deg,
+    transparent 0 calc(25% - 1.5px), var(--ink) calc(25% - 1.5px) 25%);
+}
+body[data-mode="rule"] .fill,
+body[data-mode="card"] .fill{height:100%; background:var(--mint);}
+body[data-mode="rule"] .pct,
+body[data-mode="card"] .pct{
+  font-family:'Galmuri11','Pretendard',sans-serif; font-size:11px; color:var(--soft);
+  margin-top:7px; letter-spacing:.06em;
+}
+body[data-mode="rule"] .tabs,
+body[data-mode="card"] .tabs{display:flex; gap:9px; flex-wrap:wrap; margin:22px 0 26px;}
+body[data-mode="rule"] .tab,
+body[data-mode="card"] .tab{
+  font-family:'Galmuri11','Pretendard',sans-serif; font-size:13px;
+  padding:9px 14px; cursor:pointer; border-radius:0;
+  border:var(--px) solid var(--ink); background:var(--cream); color:var(--ink);
+  box-shadow:var(--px) var(--px) 0 var(--ink);
+  transition:transform .1s steps(2), box-shadow .1s steps(2);
+}
+body[data-mode="rule"] .tab:hover,
+body[data-mode="card"] .tab:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
+/* 흰 글씨를 코랄 위에 올리면 대비가 2.4:1 밖에 안 나옵니다(읽기 힘든 수준).
+   먹빛 글씨로 두면 5.8:1 — 같은 색을 쓰면서 훨씬 또렷합니다. */
+body[data-mode="rule"] .tab.on,
+body[data-mode="card"] .tab.on{
+  background:var(--coral); color:var(--ink);
+  transform:translate(var(--px),var(--px)); box-shadow:0 0 0 var(--ink);
+}
+body[data-mode="rule"] .dayhead,
+body[data-mode="card"] .dayhead{
+  font-family:'Galmuri11','Pretendard',sans-serif; font-size:15px; font-weight:400;
+  margin:0 0 20px; padding-bottom:10px; border-bottom:var(--px) solid var(--ink);
+}
+/* 시각과 제목을 한 줄에 — 시각이 세로로 줄 맞춰져 눈이 훑기 쉽습니다 */
+body[data-mode="rule"] .line,
+body[data-mode="card"] .line{display:flex; align-items:baseline; gap:11px; margin-bottom:9px;}
+body[data-mode="rule"] .time,
+body[data-mode="card"] .time{
+  flex:none; font-size:14.5px; font-weight:800; color:var(--ink);
+  font-variant-numeric:tabular-nums; letter-spacing:-.01em;
+}
+body[data-mode="rule"] .item.now .time,
+body[data-mode="card"] .item.now .time{color:var(--coral);}
+body[data-mode="rule"] .title,
+body[data-mode="card"] .title{font-size:19px; font-weight:800; margin:0; line-height:1.3;}
+body[data-mode="rule"] .detail,
+body[data-mode="card"] .detail{font-size:14.5px; color:var(--soft); margin:0 0 12px;}
 
-  .miss{
-    padding:40px 20px; text-align:center; color:var(--ink-soft); font-size:14px; line-height:1.9;
-  }
-  .miss code{
-    font-family:'Galmuri11',monospace; background:var(--paper);
-    border:2px solid var(--ink); padding:2px 6px;
-  }
+/* ===========================================================================
+   [선] 상자를 걷어내고 세로줄 하나로 — 잉크를 사진과 글씨에만 씁니다
+   =========================================================================== */
+body[data-mode="rule"] .rail{position:relative; padding-left:27px;}
+body[data-mode="rule"] .rail::before{
+  content:''; position:absolute; left:4px; top:8px; bottom:16px; width:var(--px); background:var(--ink);
+}
+body[data-mode="rule"] .item{position:relative; padding:0 0 32px;}
+body[data-mode="rule"] .item::before{          /* 줄 위의 네모 눈금 */
+  content:''; position:absolute; left:-27px; top:7px; width:11px; height:11px; background:var(--ink);
+}
+body[data-mode="rule"] .item.now::before{background:var(--coral);}
+body[data-mode="rule"] .shots{display:flex; flex-direction:column; gap:10px;}
+body[data-mode="rule"] .shots img{width:100%; display:block; border:var(--px) solid var(--ink);}
 
-  @media (max-width:520px){
-    .bar{gap:8px; padding:0 10px;}
-    .bar .label{display:none;}
-    .toggle button{padding:8px 11px; font-size:12px;}
-  }
+/* ===========================================================================
+   [카드] 다른 페이지의 카드와 같은 결 — 대신 그림자를 빼고 테두리를 얇게
+   =========================================================================== */
+body[data-mode="card"] .rail{position:relative; padding-left:25px;}
+body[data-mode="card"] .rail::before{
+  content:''; position:absolute; left:4px; top:12px; bottom:22px; width:var(--px); background:var(--ink);
+}
+body[data-mode="card"] .item{
+  position:relative; background:var(--paper);
+  border:2px solid var(--ink); padding:15px 16px; margin-bottom:15px;
+}
+body[data-mode="card"] .item::before{
+  content:''; position:absolute; left:-25px; top:19px; width:11px; height:11px; background:var(--ink);
+}
+body[data-mode="card"] .item.now{border-color:var(--coral); border-width:var(--px);}
+body[data-mode="card"] .item.now::before{background:var(--coral);}
+body[data-mode="card"] .shots{display:flex; flex-direction:column; gap:9px;}
+body[data-mode="card"] .shots img{width:100%; display:block; border:2px solid var(--ink);}
+
+@media (prefers-reduced-motion: reduce){
+  .tab, .picker button{transition:none;}
+}
 </style>
 </head>
-<body>
 
-<div class="bar">
-  <span class="label">DOT THEME PREVIEW</span>
-  <div class="toggle" role="group" aria-label="테마 전환">
-    <button type="button" id="btnDot" class="on">도트 테마</button>
-    <button type="button" id="btnOrig">원래 테마</button>
-  </div>
-  <span class="spacer"></span>
-  <a class="exit" id="exitLink" href="../">← 목록</a>
+<body data-mode="rule">
+
+<div class="picker">
+  <button data-m="now">지금</button>
+  <button data-m="rule">시안 · 선</button>
+  <button data-m="card">시안 · 카드</button>
 </div>
 
-<div class="stage" id="stage"></div>
+<p class="note" id="note"></p>
+
+<div class="stage">
+  <div class="head">
+    <span class="eyebrow">📝 부산여행</span>
+    <div class="h1">수아연아랑</div>
+    <p class="when">2026. 8. 5(수) ~ 8. 8(토)<span class="status">일정 마침</span></p>
+    <div class="track"><div class="fill" style="width:100%"></div></div>
+    <div class="pct">모든 일정 마침 · 100%</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on">8/5 수</button>
+    <button class="tab">8/6 목</button>
+    <button class="tab">8/7 금</button>
+    <button class="tab">📷 갤러리</button>
+  </div>
+
+  <div class="dayhead">8월 5일 수요일</div>
+  <div class="rail" id="rail"></div>
+</div>
 
 <script>
-(function(){
-  const params = new URLSearchParams(location.search);
-  const slug = params.get('slug');
-  const stage = document.getElementById('stage');
+// 실제 부산여행 사진입니다 (작은 사본).
+const B = 'https://ifiemaypzjwdrljmmkgb.supabase.co/storage/v1/object/public/gallery-uploads/2026-08-busan/';
+const P = {
+  p1: B + '1788102857106-wypc63-9924.thumb.jpg',
+  p2: B + '1788102855703-4z7i1w-9934.thumb.jpg',
+  p3: B + '1788102853185-5dv9pl-9954.thumb.jpg',
+  p4: B + '1788102853962-zawpp6-9957.thumb.jpg',
+  p5: B + '1788102851188-1qi3a5-9981.thumb.jpg',
+};
 
-  if (!slug) {
-    stage.innerHTML =
-      '<div class="miss">어떤 이벤트를 미리 볼지 알려주세요.<br>' +
-      '주소 끝에 <code>?slug=이벤트주소</code> 를 붙이면 됩니다.<br><br>' +
-      '예) <code>preview.html?slug=2024-10-hongchun</code></div>';
-    return;
-  }
+// 8월 5일 일정 그대로. 설명 한 줄은 "글이 길어지면 어떻게 보이나"를 보려고 넣어 봤습니다.
+const DAY = [
+  { time:'08:30', title:'아침', shots:['p1'], meta:'2026.08.05 08:27' },
+  { time:'13:00', title:'감천문화마을', shots:['p2'], meta:'2026.08.05 13:05',
+    detail:'골목마다 담벼락 색이 달라서 한참을 돌아다녔다. 연아가 계단을 세다가 중간에 놓쳤다.' },
+  { time:'17:30', title:'늦은 오후', shots:['p3'], meta:'2026.08.05 17:27' },
+  { time:'20:00 - 20:30', title:'국밥', shots:['p4','p5'], meta:'2026.08.05 20:13', now:true },
+];
 
-  document.getElementById('exitLink').href = '../?slug=' + encodeURIComponent(slug);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-  // 진짜 일정표 페이지를 그대로 띄움 — 데이터도 동작도 실제와 같음
-  const frame = document.createElement('iframe');
-  frame.id = 'frame';
-  frame.title = '일정표 미리보기';
-  frame.src = './index.html?slug=' + encodeURIComponent(slug);
-  stage.appendChild(frame);
+document.getElementById('rail').innerHTML = DAY.map(it =>
+  '<div class="item' + (it.now ? ' now' : '') + '">' +
+    '<div class="line">' +
+      '<span class="time">' + esc(it.time) + '</span>' +
+      '<h3 class="title">' + esc(it.title) + '</h3>' +
+    '</div>' +
+    (it.detail ? '<p class="detail">' + esc(it.detail) + '</p>' : '') +
+    '<div class="shots">' +
+      it.shots.map(k => '<span class="shot"><img src="' + P[k] + '" alt="" loading="lazy">' +
+        '<span class="meta">' + esc(it.meta) + '</span></span>').join('') +
+    '</div>' +
+  '</div>').join('');
 
-  const btnDot = document.getElementById('btnDot');
-  const btnOrig = document.getElementById('btnOrig');
-  let dotOn = true;
+const NOTES = {
+  now:  '지금 모습입니다. 둥근 모서리, 부드러운 그림자, 초록 강조색 — 다른 페이지와 결이 다릅니다. ' +
+        '시각(08:30)이 초록 작은 글씨라 눈에 잘 안 들어옵니다.',
+  rule: '<b>선</b> — 일정마다 상자를 두르지 않고 세로줄 하나로 잇습니다. 진한 잉크는 <b>탭과 사진</b>에만 씁니다. ' +
+        '사진 넉 장짜리 하루가 검은 네모 마흔 개로 보이지 않습니다. 시각은 검정 굵은 글씨로 올려 제목과 나란히 뒀습니다.',
+  card: '<b>카드</b> — 일기장·포트폴리오의 카드와 같은 결입니다. 대신 그림자를 빼고 테두리를 2px 로 얇게 해서, ' +
+        '여러 개가 쌓여도 답답하지 않게 했습니다. 결은 더 잘 맞고, 잉크는 선보다 조금 많습니다.',
+};
 
-  // 같은 출처라서 iframe 문서에 스타일시트를 끼워 넣을 수 있음.
-  // 원본 style 블록보다 뒤에 붙으므로 같은 특정도면 이쪽이 이김.
-  function applyTheme(){
-    const doc = frame.contentDocument;
-    if (!doc || !doc.head) return;
-    // 미리보기 안에서 상단 메뉴를 누르면 다른 페이지로 넘어감.
-    // 그 페이지들은 이미 도트 테마라서 덧입히면 안 됨 — 일정표일 때만 적용.
-    const onEventPage = /\/event\/e\//.test(frame.contentWindow.location.pathname);
-    let link = doc.getElementById('dotThemeLink');
-    if (dotOn && onEventPage && !link) {
-      link = doc.createElement('link');
-      link.id = 'dotThemeLink';
-      link.rel = 'stylesheet';
-      link.href = './dot-theme.css?v=1';
-      doc.head.appendChild(link);
-    } else if ((!dotOn || !onEventPage) && link) {
-      link.remove();
-    }
-    btnDot.classList.toggle('on', dotOn);
-    btnOrig.classList.toggle('on', !dotOn);
-  }
-
-  // 완료 문구는 CSS 로 못 바꾸므로(자바스크립트가 써 넣는 글자라) 여기서 갈아 끼움.
-  // 30초마다 다시 계산해 덮어쓰기 때문에, 한 번 바꾸고 끝내면 원래대로 돌아감 —
-  // 그래서 감시자를 붙여 바뀔 때마다 다시 고쳐 씀.
-  const DDAY_TEXT = {
-    '일정이 끝났습니다': '(일정이 끝났습니다)',
-    '🔥 일정 진행 중! 🔥': '(일정 진행 중)',
-  };
-  function rewriteDday(el){
-    if (!el) return;
-    const now = el.textContent.trim();
-    let next = DDAY_TEXT[now];
-    if (!next) {
-      if (/^일정까지 D-/.test(now)) next = '(' + now.replace(/\s*🔥\s*$/, '') + ')';
-      else if (now && now[0] !== '(') next = '(' + now + ')';
-    }
-    if (next && next !== now) el.textContent = next;
-  }
-  function watchDday(){
-    const doc = frame.contentDocument;
-    const el = doc && doc.getElementById('dday');
-    if (!el) return;
-    rewriteDday(el);
-    new (frame.contentWindow.MutationObserver)(() => rewriteDday(el))
-      .observe(el, { childList:true, characterData:true, subtree:true });
-  }
-
-  // 페이지가 뜬 뒤에도 탭 전환 등으로 DOM 이 계속 바뀌지만,
-  // 스타일시트는 문서 전체에 걸리므로 한 번만 붙여두면 됨.
-  frame.addEventListener('load', () => { applyTheme(); watchDday(); });
-
-  btnDot.addEventListener('click', () => { dotOn = true;  applyTheme(); });
-  btnOrig.addEventListener('click', () => { dotOn = false; applyTheme(); });
-})();
+function setMode(m){
+  document.body.dataset.mode = m;
+  document.querySelectorAll('.picker button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  document.getElementById('note').innerHTML = NOTES[m];
+}
+document.querySelectorAll('.picker button').forEach(b =>
+  b.addEventListener('click', () => setMode(b.dataset.m)));
+setMode('rule');
 </script>
 </body>
 </html>
