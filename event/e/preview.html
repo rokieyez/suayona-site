@@ -3,38 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>이벤트 페이지 시안</title>
+<title>이벤트 페이지 시안 · 카드</title>
 <meta name="robots" content="noindex, nofollow">
 
 <!--
-  이벤트 페이지 옷 갈아입히기 — 시안.
+  이벤트 페이지 옷 갈아입히기 — 카드안 (2차).
 
   실제 페이지(index.html)는 이 파일을 전혀 안 봅니다. 여기를 아무리 고쳐도 홈페이지는
-  그대로입니다. 하나를 고르고 나면 그 모드의 규칙만 index.html 로 옮기면 됩니다.
+  그대로입니다. 확정되면 이 규칙을 index.html 로 옮기면 됩니다.
 
-  내용과 사진은 부산여행에서 그대로 가져왔고, 글꼴도 홈페이지와 같은 것을 불러옵니다.
-  그래서 여기 보이는 그대로가 실제 모습입니다.
+  내용·사진·글꼴 모두 실제 것이라 보이는 그대로가 실제 모습입니다.
+  일부러 여러 모양을 섞어 두었습니다 — 사진 한 장 / 두 장 / 넉 장, 사진 없는 일정,
+  긴 설명, 진행 중 표시. 어느 하나에서만 예뻐 보이면 시안이 아니기 때문입니다.
 
-  ── 예전 도트 시안이 지저분했던 이유 ──
-  모든 것에 4px 테두리를 둘렀습니다. 일정마다, 사진마다, 탭마다, 표마다.
-  홈 화면은 큰 카드 다섯 개라 견디지만 이 페이지는 그런 상자가 마흔 개입니다.
-  게다가 시각·제목·표 머리글까지 도트 글꼴로 바꿔서 읽기가 더 어려워졌습니다.
-
-  ── 이번 시안의 원칙 (시인성 먼저) ──
-  1. 도트 글꼴은 홈페이지와 같은 자리에만 씁니다 — 딱지·눈금 같은 짧은 말에만.
-     읽는 글(제목·시각·설명)은 홈페이지 본문과 같은 Pretendard 입니다.
-     홈페이지도 도트 글꼴을 제목과 딱지에만 쓰지, 본문에는 안 씁니다.
-  2. 진한 테두리는 아껴 씁니다 — 누르는 것(탭)과 사진에만.
-  3. 모서리는 전부 각지게. 이것만으로도 같은 집안이라는 게 바로 보입니다.
+  ── 1차에서 고친 것 ──
+  · 사진이 여럿이면 두 칸으로. 한 장씩 세로로 쌓으면 하루가 한없이 길어집니다.
+  · 날짜 탭을 위에 붙여 둡니다. 스크롤을 내려도 다른 날로 건너뛸 수 있게.
+  · 끝난 이벤트의 진행률 막대는 뺐습니다. 늘 100%면 아무 말도 안 하는 셈입니다.
+  · 세로줄을 얇게 하고 눈금을 카드 모서리에 맞췄습니다. 줄과 카드가 따로 놀았습니다.
+  · 시각을 딱지로 만들어 카드 안에서 제일 먼저 눈에 들어오게 했습니다.
 -->
 
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
 
 <style>
-/* ===========================================================================
-   세 모드가 함께 쓰는 것
-   =========================================================================== */
 :root{
   --cream:#fffaf2;
   --paper:#fff6e9;
@@ -42,7 +35,9 @@
   --soft:#6f6558;
   --coral:#ff7f8a;
   --mint:#6cc7b3;
+  --lemon:#ffd979;
   --hair:rgba(47,42,36,.14);
+  --rail:rgba(47,42,36,.22);
   --px:3px;
 }
 *,*::before,*::after{box-sizing:border-box;}
@@ -51,16 +46,17 @@ body{
   font-family:'Pretendard', system-ui, sans-serif;
   font-size:15px; line-height:1.7; -webkit-font-smoothing:antialiased;
 }
+img{max-width:100%;}
 
-/* 모드 고르는 줄 — 시안을 볼 때만 쓰는 것이라 실제 페이지에는 안 들어갑니다 */
+/* 시안을 볼 때만 쓰는 줄 — 실제 페이지에는 안 들어갑니다 */
 .picker{
-  position:sticky; top:0; z-index:50;
+  position:sticky; top:0; z-index:60;
   display:flex; gap:8px; justify-content:center; flex-wrap:wrap;
-  padding:12px; background:var(--cream); border-bottom:2px solid var(--hair);
+  padding:11px; background:var(--cream); border-bottom:2px solid var(--hair);
 }
 .picker button{
   font-family:'Galmuri11','Pretendard',sans-serif; font-size:12.5px;
-  padding:8px 14px; cursor:pointer; border-radius:0;
+  padding:7px 13px; cursor:pointer; border-radius:0;
   border:var(--px) solid var(--ink); background:var(--cream); color:var(--ink);
   box-shadow:var(--px) var(--px) 0 var(--ink);
   transition:transform .1s steps(2), box-shadow .1s steps(2);
@@ -70,21 +66,20 @@ body{
   background:var(--ink); color:var(--cream);
   transform:translate(var(--px),var(--px)); box-shadow:0 0 0 var(--ink);
 }
-.note{
-  max-width:520px; margin:0 auto; padding:16px 20px 0;
-  font-size:13px; line-height:1.8; color:var(--soft);
-}
+.note{max-width:520px; margin:0 auto; padding:15px 20px 0; font-size:13px; line-height:1.8; color:var(--soft);}
 .note b{color:var(--ink);}
 .stage{max-width:520px; margin:0 auto; padding:18px 20px 90px;}
+
+/* 사진 위 촬영 시각 */
 .shot{position:relative; display:block;}
 .meta{
-  position:absolute; right:8px; bottom:8px;
+  position:absolute; right:7px; bottom:7px;
   font-family:'Galmuri11','Pretendard',sans-serif; font-size:10.5px;
   background:rgba(47,42,36,.78); color:#fff; padding:3px 7px;
 }
 
 /* ===========================================================================
-   [지금] 현재 이벤트 페이지 — 견줘 보려고 그대로 옮겨 둔 것
+   [지금] 현재 이벤트 페이지 — 견줘 보려고 옮겨 둔 것
    =========================================================================== */
 body[data-mode="now"]{background:#fdf8f0;}
 body[data-mode="now"] .head{text-align:center; margin-bottom:22px;}
@@ -93,7 +88,7 @@ body[data-mode="now"] .eyebrow{
   border-radius:20px; padding:6px 16px; font-size:13px; font-weight:700; margin-bottom:14px;
 }
 body[data-mode="now"] .h1{font-size:30px; font-weight:800; margin:0 0 6px;}
-body[data-mode="now"] .when{font-size:17px; color:#6b6155; margin:0 0 14px;}
+body[data-mode="now"] .when{font-size:17px; color:#6b6155; margin:0;}
 body[data-mode="now"] .when .status{
   display:block; width:max-content; margin:14px auto 0;
   background:#2f7a63; color:#fff; border-radius:22px; padding:10px 22px; font-size:15px; font-weight:700;
@@ -101,13 +96,14 @@ body[data-mode="now"] .when .status{
 body[data-mode="now"] .track{height:8px; border-radius:6px; background:#e6ded2; overflow:hidden; margin-top:18px;}
 body[data-mode="now"] .fill{height:100%; background:#2f7a63; border-radius:6px;}
 body[data-mode="now"] .pct{text-align:center; font-size:13px; color:#6b6155; margin-top:7px;}
-body[data-mode="now"] .tabs{display:flex; gap:8px; flex-wrap:wrap; margin:20px 0 22px;}
+body[data-mode="now"] .tabs{display:flex; gap:8px; flex-wrap:wrap; margin:20px 0 22px; padding:0; background:none;}
 body[data-mode="now"] .tab{
   border:none; border-radius:20px; background:#f0e9de; color:#6b6155;
   padding:9px 16px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;
 }
 body[data-mode="now"] .tab.on{background:#2f7a63; color:#fff;}
-body[data-mode="now"] .dayhead{font-size:17px; font-weight:800; margin:0 0 14px;}
+body[data-mode="now"] .dayhead{font-size:17px; font-weight:800; margin:0 0 14px; border:none; padding:0;}
+body[data-mode="now"] .daycount{display:none;}
 body[data-mode="now"] .rail{padding-left:22px; position:relative;}
 body[data-mode="now"] .rail::before{
   content:''; position:absolute; left:5px; top:6px; bottom:6px; width:2px; background:#e2d9cb;
@@ -121,121 +117,114 @@ body[data-mode="now"] .item::before{
   border-radius:50%; background:#2f7a63;
 }
 body[data-mode="now"] .line{display:block;}
-body[data-mode="now"] .time{font-size:13.5px; font-weight:700; color:#2f7a63; display:block; margin-bottom:2px;}
+body[data-mode="now"] .time{
+  font-size:13.5px; font-weight:700; color:#2f7a63; display:block; margin-bottom:2px;
+  background:none; border:none; padding:0;
+}
+body[data-mode="now"] .nowtag{display:none;}
 body[data-mode="now"] .title{font-size:17px; font-weight:800; margin:0 0 10px;}
 body[data-mode="now"] .detail{font-size:14px; color:#6b6155; margin:0 0 10px;}
 body[data-mode="now"] .shots{display:flex; flex-direction:column; gap:8px;}
-body[data-mode="now"] .shots img{width:100%; border-radius:10px; display:block;}
+body[data-mode="now"] .shots img{width:100%; border-radius:10px; display:block; aspect-ratio:auto;}
+body[data-mode="now"] .shots .shot{grid-column:auto !important;}
 body[data-mode="now"] .meta{border-radius:6px;}
+body[data-mode="now"] .gal{grid-template-columns:repeat(3,1fr); gap:8px;}
+body[data-mode="now"] .gal img{border-radius:10px; border:none;}
 
 /* ===========================================================================
-   머리말·탭 — 두 시안이 함께 쓰는 부분
+   [카드] — 일기장·포트폴리오와 같은 결. 그림자 없이, 얇은 테두리로.
    =========================================================================== */
-body[data-mode="rule"] .head,
-body[data-mode="card"] .head{margin-bottom:24px;}
-body[data-mode="rule"] .eyebrow,
+body[data-mode="card"] .head{margin-bottom:22px;}
 body[data-mode="card"] .eyebrow{
   display:inline-block; font-family:'Galmuri11','Pretendard',sans-serif; font-size:11.5px;
   letter-spacing:.12em; padding:5px 11px; background:var(--mint); color:var(--ink);
   border:var(--px) solid var(--ink); margin-bottom:13px;
 }
-body[data-mode="rule"] .h1,
 body[data-mode="card"] .h1{font-size:31px; font-weight:800; margin:0 0 5px; letter-spacing:-.02em;}
-body[data-mode="rule"] .when,
-body[data-mode="card"] .when{
-  font-size:14px; color:var(--soft); margin:0 0 17px; font-variant-numeric:tabular-nums;
-}
-body[data-mode="rule"] .when .status,
+body[data-mode="card"] .when{font-size:14px; color:var(--soft); margin:0; font-variant-numeric:tabular-nums;}
 body[data-mode="card"] .when .status{color:var(--ink); font-weight:700;}
-body[data-mode="rule"] .when .status::before,
 body[data-mode="card"] .when .status::before{content:' · '; color:var(--soft); font-weight:400;}
+/* 끝난 여행에 진행률 막대는 늘 100% 라 아무 말도 안 합니다 — 안 그립니다 */
+body[data-mode="card"] .track,
+body[data-mode="card"] .pct{display:none;}
 
-/* 눈금이 몇 칸인지 보이는 게이지 — 매끈한 막대보다 "얼마나 지났나"가 또렷합니다 */
-body[data-mode="rule"] .track,
-body[data-mode="card"] .track{
-  height:14px; background:var(--cream); border:var(--px) solid var(--ink);
-  background-image:repeating-linear-gradient(90deg,
-    transparent 0 calc(25% - 1.5px), var(--ink) calc(25% - 1.5px) 25%);
+/* 날짜 탭 — 스크롤을 내려도 위에 붙어 있어 다른 날로 바로 건너뜁니다 */
+body[data-mode="card"] .tabs{
+  position:sticky; top:0; z-index:40;
+  display:flex; gap:8px; flex-wrap:wrap;
+  margin:20px -20px 24px; padding:12px 20px;
+  background:var(--cream); border-bottom:var(--px) solid var(--ink);
 }
-body[data-mode="rule"] .fill,
-body[data-mode="card"] .fill{height:100%; background:var(--mint);}
-body[data-mode="rule"] .pct,
-body[data-mode="card"] .pct{
-  font-family:'Galmuri11','Pretendard',sans-serif; font-size:11px; color:var(--soft);
-  margin-top:7px; letter-spacing:.06em;
-}
-body[data-mode="rule"] .tabs,
-body[data-mode="card"] .tabs{display:flex; gap:9px; flex-wrap:wrap; margin:22px 0 26px;}
-body[data-mode="rule"] .tab,
 body[data-mode="card"] .tab{
   font-family:'Galmuri11','Pretendard',sans-serif; font-size:13px;
-  padding:9px 14px; cursor:pointer; border-radius:0;
+  padding:8px 13px; cursor:pointer; border-radius:0;
   border:var(--px) solid var(--ink); background:var(--cream); color:var(--ink);
   box-shadow:var(--px) var(--px) 0 var(--ink);
   transition:transform .1s steps(2), box-shadow .1s steps(2);
 }
-body[data-mode="rule"] .tab:hover,
 body[data-mode="card"] .tab:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
-/* 흰 글씨를 코랄 위에 올리면 대비가 2.4:1 밖에 안 나옵니다(읽기 힘든 수준).
-   먹빛 글씨로 두면 5.8:1 — 같은 색을 쓰면서 훨씬 또렷합니다. */
-body[data-mode="rule"] .tab.on,
+/* 흰 글씨를 코랄 위에 올리면 대비가 2.4:1 뿐입니다. 먹빛이면 5.8:1 — 같은 색으로 훨씬 또렷합니다. */
 body[data-mode="card"] .tab.on{
   background:var(--coral); color:var(--ink);
   transform:translate(var(--px),var(--px)); box-shadow:0 0 0 var(--ink);
 }
-body[data-mode="rule"] .dayhead,
+
 body[data-mode="card"] .dayhead{
+  display:flex; align-items:baseline; justify-content:space-between; gap:10px;
   font-family:'Galmuri11','Pretendard',sans-serif; font-size:15px; font-weight:400;
   margin:0 0 20px; padding-bottom:10px; border-bottom:var(--px) solid var(--ink);
 }
-/* 시각과 제목을 한 줄에 — 시각이 세로로 줄 맞춰져 눈이 훑기 쉽습니다 */
-body[data-mode="rule"] .line,
-body[data-mode="card"] .line{display:flex; align-items:baseline; gap:11px; margin-bottom:9px;}
-body[data-mode="rule"] .time,
-body[data-mode="card"] .time{
-  flex:none; font-size:14.5px; font-weight:800; color:var(--ink);
-  font-variant-numeric:tabular-nums; letter-spacing:-.01em;
-}
-body[data-mode="rule"] .item.now .time,
-body[data-mode="card"] .item.now .time{color:var(--coral);}
-body[data-mode="rule"] .title,
-body[data-mode="card"] .title{font-size:19px; font-weight:800; margin:0; line-height:1.3;}
-body[data-mode="rule"] .detail,
-body[data-mode="card"] .detail{font-size:14.5px; color:var(--soft); margin:0 0 12px;}
+body[data-mode="card"] .daycount{font-size:11.5px; color:var(--soft); letter-spacing:.06em;}
 
-/* ===========================================================================
-   [선] 상자를 걷어내고 세로줄 하나로 — 잉크를 사진과 글씨에만 씁니다
-   =========================================================================== */
-body[data-mode="rule"] .rail{position:relative; padding-left:27px;}
-body[data-mode="rule"] .rail::before{
-  content:''; position:absolute; left:4px; top:8px; bottom:16px; width:var(--px); background:var(--ink);
-}
-body[data-mode="rule"] .item{position:relative; padding:0 0 32px;}
-body[data-mode="rule"] .item::before{          /* 줄 위의 네모 눈금 */
-  content:''; position:absolute; left:-27px; top:7px; width:11px; height:11px; background:var(--ink);
-}
-body[data-mode="rule"] .item.now::before{background:var(--coral);}
-body[data-mode="rule"] .shots{display:flex; flex-direction:column; gap:10px;}
-body[data-mode="rule"] .shots img{width:100%; display:block; border:var(--px) solid var(--ink);}
-
-/* ===========================================================================
-   [카드] 다른 페이지의 카드와 같은 결 — 대신 그림자를 빼고 테두리를 얇게
-   =========================================================================== */
-body[data-mode="card"] .rail{position:relative; padding-left:25px;}
+/* 세로줄은 얇게 물러나고, 눈금은 카드의 위쪽 모서리에 맞춥니다.
+   1차에서는 줄과 카드가 따로 노는 느낌이 있었습니다. */
+body[data-mode="card"] .rail{position:relative; padding-left:23px;}
 body[data-mode="card"] .rail::before{
-  content:''; position:absolute; left:4px; top:12px; bottom:22px; width:var(--px); background:var(--ink);
+  content:''; position:absolute; left:4px; top:14px; bottom:24px; width:2px; background:var(--rail);
 }
 body[data-mode="card"] .item{
   position:relative; background:var(--paper);
-  border:2px solid var(--ink); padding:15px 16px; margin-bottom:15px;
+  border:2px solid var(--ink); padding:14px 15px 15px; margin-bottom:16px;
 }
 body[data-mode="card"] .item::before{
-  content:''; position:absolute; left:-25px; top:19px; width:11px; height:11px; background:var(--ink);
+  content:''; position:absolute; left:-23px; top:14px; width:10px; height:10px; background:var(--ink);
 }
 body[data-mode="card"] .item.now{border-color:var(--coral); border-width:var(--px);}
 body[data-mode="card"] .item.now::before{background:var(--coral);}
-body[data-mode="card"] .shots{display:flex; flex-direction:column; gap:9px;}
+
+body[data-mode="card"] .line{display:flex; align-items:center; flex-wrap:wrap; gap:9px; margin-bottom:9px;}
+/* 시각을 딱지로 — 카드 안에서 제일 먼저 눈에 들어오는 것이 시각이어야 합니다 */
+body[data-mode="card"] .time{
+  flex:none; font-size:12.5px; font-weight:800; letter-spacing:.02em;
+  font-variant-numeric:tabular-nums;
+  background:var(--ink); color:var(--cream); padding:3px 8px;
+}
+body[data-mode="card"] .item.now .time{background:var(--coral); color:var(--ink);}
+body[data-mode="card"] .nowtag{
+  font-family:'Galmuri11','Pretendard',sans-serif; font-size:10.5px;
+  background:var(--coral); color:var(--ink); border:2px solid var(--ink); padding:2px 7px;
+}
+body[data-mode="card"] .title{font-size:19px; font-weight:800; margin:0; line-height:1.3; flex:1 1 auto;}
+body[data-mode="card"] .detail{font-size:14.5px; color:var(--soft); margin:0 0 12px; white-space:pre-line;}
+
+/* 사진 — 한 장이면 통으로, 여럿이면 두 칸으로.
+   한 장씩 세로로 쌓으면 사진 넉 장짜리 하루가 한없이 길어집니다. */
+body[data-mode="card"] .shots{display:grid; grid-template-columns:1fr; gap:8px;}
+body[data-mode="card"] .shots.many{grid-template-columns:1fr 1fr;}
 body[data-mode="card"] .shots img{width:100%; display:block; border:2px solid var(--ink);}
+body[data-mode="card"] .shots.many img{aspect-ratio:1; object-fit:cover;}
+/* 홀수면 첫 장을 두 칸에 걸쳐 크게 — 그날의 대표 사진이 됩니다 */
+body[data-mode="card"] .shots.many .shot.lead{grid-column:1 / -1;}
+body[data-mode="card"] .shots.many .shot.lead img{aspect-ratio:4/3;}
+
+/* 갤러리 탭 */
+body[data-mode="card"] .gal{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+body[data-mode="card"] .gal img{
+  width:100%; aspect-ratio:1; object-fit:cover; display:block; border:2px solid var(--ink);
+}
+
+.gal{display:grid;}
+.hidden{display:none !important;}
 
 @media (prefers-reduced-motion: reduce){
   .tab, .picker button{transition:none;}
@@ -243,11 +232,10 @@ body[data-mode="card"] .shots img{width:100%; display:block; border:2px solid va
 </style>
 </head>
 
-<body data-mode="rule">
+<body data-mode="card">
 
 <div class="picker">
   <button data-m="now">지금</button>
-  <button data-m="rule">시안 · 선</button>
   <button data-m="card">시안 · 카드</button>
 </div>
 
@@ -262,59 +250,103 @@ body[data-mode="card"] .shots img{width:100%; display:block; border:2px solid va
     <div class="pct">모든 일정 마침 · 100%</div>
   </div>
 
-  <div class="tabs">
-    <button class="tab on">8/5 수</button>
-    <button class="tab">8/6 목</button>
-    <button class="tab">8/7 금</button>
-    <button class="tab">📷 갤러리</button>
-  </div>
+  <div class="tabs" id="tabs"></div>
 
-  <div class="dayhead">8월 5일 수요일</div>
+  <div class="dayhead" id="dayhead"></div>
   <div class="rail" id="rail"></div>
+  <div class="gal hidden" id="gal"></div>
 </div>
 
 <script>
 // 실제 부산여행 사진입니다 (작은 사본).
 const B = 'https://ifiemaypzjwdrljmmkgb.supabase.co/storage/v1/object/public/gallery-uploads/2026-08-busan/';
 const P = {
-  p1: B + '1788102857106-wypc63-9924.thumb.jpg',
-  p2: B + '1788102855703-4z7i1w-9934.thumb.jpg',
-  p3: B + '1788102853185-5dv9pl-9954.thumb.jpg',
-  p4: B + '1788102853962-zawpp6-9957.thumb.jpg',
-  p5: B + '1788102851188-1qi3a5-9981.thumb.jpg',
+  p1:B+'1788102857106-wypc63-9924.thumb.jpg', p2:B+'1788102855703-4z7i1w-9934.thumb.jpg',
+  p3:B+'1788102853185-5dv9pl-9954.thumb.jpg', p4:B+'1788102853962-zawpp6-9957.thumb.jpg',
+  p5:B+'1788102851188-1qi3a5-9981.thumb.jpg', p6:B+'1788102846346-r5p0bt-10039.thumb.jpg',
 };
 
-// 8월 5일 일정 그대로. 설명 한 줄은 "글이 길어지면 어떻게 보이나"를 보려고 넣어 봤습니다.
-const DAY = [
-  { time:'08:30', title:'아침', shots:['p1'], meta:'2026.08.05 08:27' },
-  { time:'13:00', title:'감천문화마을', shots:['p2'], meta:'2026.08.05 13:05',
-    detail:'골목마다 담벼락 색이 달라서 한참을 돌아다녔다. 연아가 계단을 세다가 중간에 놓쳤다.' },
-  { time:'17:30', title:'늦은 오후', shots:['p3'], meta:'2026.08.05 17:27' },
-  { time:'20:00 - 20:30', title:'국밥', shots:['p4','p5'], meta:'2026.08.05 20:13', now:true },
-];
+// 일부러 여러 모양을 섞었습니다 — 어느 하나에서만 예뻐 보이면 시안이 아니라서.
+const DAYS = {
+  d1: { label:'8/5 수', head:'8월 5일 수요일', items:[
+    { time:'08:30', title:'아침', shots:['p1'], meta:'08:27' },
+    { time:'13:00', title:'감천문화마을', shots:['p2','p6'], meta:'13:05',
+      detail:'골목마다 담벼락 색이 달라서 한참을 돌아다녔다.\n연아가 계단을 세다가 중간에 놓쳤고, 수아는 끝까지 세더니 백여든두 개라고 했다.' },
+    { time:'17:30', title:'숙소에서 쉬는 중', detail:'둘 다 뻗었다. 사진 찍을 정신이 없었음.', shots:[] },
+    { time:'20:00 - 20:30', title:'국밥', shots:['p4','p5','p3'], meta:'20:13' },
+  ]},
+  d2: { label:'8/6 목', head:'8월 6일 목요일', items:[
+    { time:'11:00', title:'오전', shots:['p6'], meta:'11:02' },
+    { time:'12:00 - 12:30', title:'점심 무렵', shots:['p5','p1','p2','p3'], meta:'12:14', now:true },
+  ]},
+  d3: { label:'8/7 금', head:'8월 7일 금요일', items:[
+    { time:'12:30', title:'이재모 피자', shots:['p3','p4'], meta:'12:31' },
+    { time:'17:30', title:'방탈출', shots:['p1'], meta:'17:28' },
+  ]},
+  gal:{ label:'📷 갤러리', head:'사진 모아보기' },
+};
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-document.getElementById('rail').innerHTML = DAY.map(it =>
-  '<div class="item' + (it.now ? ' now' : '') + '">' +
-    '<div class="line">' +
-      '<span class="time">' + esc(it.time) + '</span>' +
-      '<h3 class="title">' + esc(it.title) + '</h3>' +
-    '</div>' +
-    (it.detail ? '<p class="detail">' + esc(it.detail) + '</p>' : '') +
-    '<div class="shots">' +
-      it.shots.map(k => '<span class="shot"><img src="' + P[k] + '" alt="" loading="lazy">' +
-        '<span class="meta">' + esc(it.meta) + '</span></span>').join('') +
-    '</div>' +
-  '</div>').join('');
+function shotsHTML(it){
+  const n = it.shots ? it.shots.length : 0;
+  if (!n) return '';
+  const many = n > 1;
+  // 홀수면 첫 장을 두 칸에 걸쳐 크게 — 남는 칸 없이 채워지고 대표 사진이 생깁니다
+  const lead = many && n % 2 === 1;
+  return '<div class="shots' + (many ? ' many' : '') + '">' +
+    it.shots.map((k, i) =>
+      '<span class="shot' + (lead && i === 0 ? ' lead' : '') + '">' +
+        '<img src="' + P[k] + '" alt="" loading="lazy">' +
+        (i === 0 && it.meta ? '<span class="meta">2026.08.05 ' + esc(it.meta) + '</span>' : '') +
+      '</span>').join('') + '</div>';
+}
+
+function renderDay(key){
+  const day = DAYS[key];
+  const isGal = key === 'gal';
+  document.getElementById('rail').classList.toggle('hidden', isGal);
+  document.getElementById('gal').classList.toggle('hidden', !isGal);
+
+  const count = isGal ? 12 : day.items.length;
+  const shots = isGal ? 0 : day.items.reduce((n, i) => n + (i.shots ? i.shots.length : 0), 0);
+  document.getElementById('dayhead').innerHTML =
+    '<span>' + esc(day.head) + '</span><span class="daycount">' +
+    (isGal ? '사진 ' + count + '장' : count + '가지 · 사진 ' + shots + '장') + '</span>';
+
+  if (isGal) {
+    const all = ['p1','p2','p3','p4','p5','p6','p3','p1','p5','p2','p6','p4'];
+    document.getElementById('gal').innerHTML =
+      all.map(k => '<img src="' + P[k] + '" alt="" loading="lazy">').join('');
+    return;
+  }
+
+  document.getElementById('rail').innerHTML = day.items.map(it =>
+    '<div class="item' + (it.now ? ' now' : '') + '">' +
+      '<div class="line">' +
+        '<span class="time">' + esc(it.time) + '</span>' +
+        (it.now ? '<span class="nowtag">지금</span>' : '') +
+        '<h3 class="title">' + esc(it.title) + '</h3>' +
+      '</div>' +
+      (it.detail ? '<p class="detail">' + esc(it.detail) + '</p>' : '') +
+      shotsHTML(it) +
+    '</div>').join('');
+}
+
+function renderTabs(active){
+  document.getElementById('tabs').innerHTML = Object.keys(DAYS).map(k =>
+    '<button class="tab' + (k === active ? ' on' : '') + '" data-d="' + k + '">' +
+      esc(DAYS[k].label) + '</button>').join('');
+  document.querySelectorAll('.tab').forEach(b =>
+    b.addEventListener('click', () => { renderTabs(b.dataset.d); renderDay(b.dataset.d); }));
+}
 
 const NOTES = {
   now:  '지금 모습입니다. 둥근 모서리, 부드러운 그림자, 초록 강조색 — 다른 페이지와 결이 다릅니다. ' +
-        '시각(08:30)이 초록 작은 글씨라 눈에 잘 안 들어옵니다.',
-  rule: '<b>선</b> — 일정마다 상자를 두르지 않고 세로줄 하나로 잇습니다. 진한 잉크는 <b>탭과 사진</b>에만 씁니다. ' +
-        '사진 넉 장짜리 하루가 검은 네모 마흔 개로 보이지 않습니다. 시각은 검정 굵은 글씨로 올려 제목과 나란히 뒀습니다.',
-  card: '<b>카드</b> — 일기장·포트폴리오의 카드와 같은 결입니다. 대신 그림자를 빼고 테두리를 2px 로 얇게 해서, ' +
-        '여러 개가 쌓여도 답답하지 않게 했습니다. 결은 더 잘 맞고, 잉크는 선보다 조금 많습니다.',
+        '시각(08:30)이 초록 작은 글씨라 눈에 잘 안 들어오고, 사진이 한 장씩 세로로만 쌓입니다.',
+  card: '<b>카드안 2차.</b> 사진이 여럿이면 두 칸으로 놓고, 날짜 탭은 위에 붙여 두고, ' +
+        '끝난 여행의 진행률 막대는 뺐습니다. 시각은 딱지로 만들어 카드에서 제일 먼저 보이게 했습니다.<br>' +
+        '탭을 눌러 <b>사진 없는 일정 · 긴 설명 · 사진 넉 장 · 진행 중 표시 · 갤러리</b>까지 확인해 보세요.',
 };
 
 function setMode(m){
@@ -324,7 +356,10 @@ function setMode(m){
 }
 document.querySelectorAll('.picker button').forEach(b =>
   b.addEventListener('click', () => setMode(b.dataset.m)));
-setMode('rule');
+
+renderTabs('d1');
+renderDay('d1');
+setMode('card');
 </script>
 </body>
 </html>
