@@ -21,8 +21,10 @@
 <link href="/style.css" rel="stylesheet">
 <style>
   :root{
-    --accent:#2f6f5e; --accent-rgb:47,111,94;
-    --paper:#fffaf2; --paper-card:#fff6e9; --ink:#3a3226; --ink-soft:#6b6148;
+    --accent:#ff7f8a; --accent-rgb:255,127,138;   /* 코랄 — 사이트 강조색 */
+    --mint:#6cc7b3; --lemon:#ffd979;
+    --paper:#fffaf2; --paper-card:#fff6e9; --ink:#2f2a24; --ink-soft:#6f6558;
+    --px:3px;
   }
   *, *::before, *::after{box-sizing:border-box;}
   body{
@@ -36,43 +38,45 @@
   .wrap{max-width:640px; margin:0 auto;}
 
 
-  h1{text-align:center; font-size:22px; font-weight:800; margin:0 0 6px; color:var(--ink);}
-  .lead{text-align:center; color:var(--ink-soft); font-size:13.5px; margin:0 0 32px;}
+  h1{text-align:left; font-size:28px; font-weight:800; margin:0 0 5px; color:var(--ink); letter-spacing:-.02em;}
+  .lead{text-align:left; color:var(--ink-soft); font-size:14px; margin:0 0 30px;}
 
-  h2{font-size:13px; font-weight:800; color:var(--ink-soft); margin:28px 4px 10px; letter-spacing:.3px;}
+  h2{font-size:13px; font-weight:800; color:var(--ink-soft); margin:26px 0 12px; letter-spacing:.04em;
+    padding-bottom:8px; border-bottom:var(--px) solid var(--ink);}
 
-  .card{position:relative; padding:16px 18px; margin-bottom:10px; border-radius:14px; background:var(--paper-card);
-    border:1px solid rgba(0,0,0,.08);
-    transition:transform .15s, box-shadow .15s;}
-  .card:hover{transform:translateY(-2px); box-shadow:0 6px 18px rgba(var(--accent-rgb),.18);}
+  .card{position:relative; padding:15px 16px; margin-bottom:12px; border-radius:0; background:var(--paper-card);
+    border:2px solid var(--ink);
+    transition:transform .1s steps(2), box-shadow .1s steps(2);}
+  .card:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
   .card-link{display:block; text-decoration:none; color:inherit;}
   .card-top{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:4px; padding-right:56px;}
-  .card-name{font-size:15.5px; font-weight:800; color:var(--ink);}
-  .badge{font-size:11px; font-weight:800; padding:3px 9px; border-radius:20px; flex-shrink:0;}
-  .badge.ongoing{background:rgba(var(--accent-rgb),.15); color:var(--accent);}
-  .badge.upcoming{background:rgba(0,0,0,.06); color:var(--ink-soft);}
-  .badge.done{background:rgba(0,0,0,.06); color:var(--ink-soft);}
-  .card-sub{font-size:12.5px; color:var(--ink-soft);}
+  .card-name{font-size:17px; font-weight:800; color:var(--ink);}
+  .badge{font-size:10.5px; font-weight:800; padding:3px 8px; border-radius:0; flex-shrink:0;
+    border:2px solid var(--ink); color:var(--ink);}
+  .badge.ongoing{background:var(--accent);}
+  .badge.upcoming{background:var(--lemon);}
+  .badge.done{background:var(--paper); color:var(--ink-soft); border-color:rgba(47,42,36,.3);}
+  .card-sub{font-size:13px; color:var(--ink-soft); font-variant-numeric:tabular-nums;}
 
   .badge-group{display:flex; align-items:center; gap:5px; flex-shrink:0;}
-  .badge.private{background:rgba(0,0,0,.72); color:#fff;}
-  .card.is-private{border-style:dashed; border-color:rgba(0,0,0,.25);}
+  .badge.private{background:var(--ink); color:var(--paper);}
+  .card.is-private{border-style:dashed;}
 
-  .card-del{position:absolute; top:14px; right:14px; width:24px; height:24px; border:none; border-radius:7px;
+  .card-del{position:absolute; top:12px; right:12px; width:24px; height:24px; border:none; border-radius:0;
     background:transparent; color:var(--ink-soft); font-size:14px; cursor:pointer; line-height:1;
     display:flex; align-items:center; justify-content:center;}
   .card-del:hover{background:rgba(192,57,43,.12); color:#c0392b;}
-  .card-lock{position:absolute; top:14px; right:42px; width:24px; height:24px; border:none; border-radius:7px;
+  .card-lock{position:absolute; top:12px; right:40px; width:24px; height:24px; border:none; border-radius:0;
     background:transparent; font-size:13px; cursor:pointer; line-height:1;
     display:flex; align-items:center; justify-content:center; opacity:.75;}
   .card-lock:hover{background:rgba(0,0,0,.07); opacity:1;}
   .card-lock:disabled{opacity:.4; cursor:default;}
-  .card-confirm{margin-top:10px; padding-top:10px; border-top:1px dashed rgba(0,0,0,.12);}
+  .card-confirm{margin-top:10px; padding-top:10px; border-top:2px dashed rgba(47,42,36,.25);}
   .card-confirm p{margin:0 0 8px; font-size:12.5px; color:#c0392b; font-weight:700;}
   .card-confirm-btns{display:flex; gap:8px;}
-  .card-confirm-btns button{flex:1; padding:7px 10px; border-radius:8px; border:none; font-size:12.5px;
-    font-weight:700; cursor:pointer; font-family:inherit;}
-  .card-confirm-cancel{background:rgba(0,0,0,.06); color:var(--ink);}
+  .card-confirm-btns button{flex:1; padding:8px 10px; border-radius:0; border:2px solid var(--ink); font-size:12.5px;
+    font-weight:800; cursor:pointer; font-family:inherit;}
+  .card-confirm-cancel{background:var(--paper); color:var(--ink);}
   .card-confirm-cancel:hover{background:rgba(0,0,0,.1);}
   .card-confirm-ok{background:#c0392b; color:#fff;}
   .card-confirm-ok:hover{opacity:.9;}
@@ -84,25 +88,26 @@
   .empty{text-align:center; color:var(--ink-soft); font-size:13px; padding:30px 0;}
 
   /* ----- 로그인 ----- */
-  #login-box{max-width:340px; margin:0 auto; background:var(--paper-card); border-radius:14px; padding:22px; border:1px solid rgba(0,0,0,.08);}
+  #login-box{max-width:340px; margin:0 auto; background:var(--paper-card); border-radius:0; padding:22px; border:var(--px) solid var(--ink);}
   #login-box label{display:block; font-size:12.5px; font-weight:700; color:var(--ink-soft); margin:12px 0 6px;}
   #login-box label:first-of-type{margin-top:0;}
-  input, select{width:100%; padding:10px 12px; border:1px solid rgba(0,0,0,.15); border-radius:8px; font-size:14px; font-family:inherit; background:#fff; color:var(--ink);}
-  .btn{width:100%; margin-top:14px; padding:10px 16px; border:none; border-radius:8px; font-size:13.5px;
-    font-weight:700; background:var(--accent); color:#fff; cursor:pointer; font-family:inherit;}
-  .btn:hover{opacity:.9;}
+  input, select{width:100%; padding:10px 12px; border:2px solid var(--ink); border-radius:0; font-size:14px; font-family:inherit; background:var(--paper); color:var(--ink);}
+  .btn{width:100%; margin-top:14px; padding:10px 16px; border:var(--px) solid var(--ink); border-radius:0; font-size:13.5px;
+    font-weight:800; background:var(--mint); color:var(--ink); cursor:pointer; font-family:inherit;
+    box-shadow:var(--px) var(--px) 0 var(--ink); transition:transform .1s steps(2), box-shadow .1s steps(2);}
+  .btn:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
   #login-msg{font-size:12.5px; color:#c0392b; margin-top:10px; min-height:1em; text-align:center;}
 
   #admin-entry{margin-top:34px; text-align:center;}
   #loginToggle{background:none; border:none; color:var(--ink-soft); font-size:12px; cursor:pointer; font-family:inherit; opacity:.65;}
-  #loginToggle:hover{color:var(--accent); opacity:1;}
+  #loginToggle:hover{color:var(--ink); opacity:1;}
   #login-box{display:none; margin-top:14px;}
   #logoutRow{text-align:center; margin-bottom:20px;}
   #logoutRow button{background:none; border:none; color:var(--ink-soft); font-size:12.5px; cursor:pointer; font-family:inherit;}
-  #logoutRow button:hover{color:var(--accent);}
+  #logoutRow button:hover{color:var(--ink);}
 
   /* ----- 새 이벤트 만들기 ----- */
-  #new-event-box{background:var(--paper-card); border-radius:14px; padding:18px; border:1px solid rgba(0,0,0,.08); margin-bottom:26px;}
+  #new-event-box{background:var(--paper-card); border-radius:0; padding:18px; border:var(--px) solid var(--ink); margin-bottom:26px;}
   #new-event-box h2{font-size:14px; margin:0 0 12px; color:var(--ink);}
   #new-event-box label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin:10px 0 5px;}
   #new-event-box label:first-of-type{margin-top:0;}

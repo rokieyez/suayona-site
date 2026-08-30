@@ -26,188 +26,255 @@
 <link href="/style.css" rel="stylesheet">
 <style>
   :root{
-    --accent:#2f6f5e; --accent-rgb:47,111,94;
-    --paper:#fffaf2; --paper-card:#fff6e9; --ink:#3a3226; --ink-soft:#6b6148;
+    /* 사이트 공통 색 — 다른 페이지와 같은 값 */
+    --accent:#ff7f8a;          /* 코랄 */
+    --accent-rgb:255,127,138;
+    --mint:#6cc7b3;
+    --lemon:#ffd979;
+    --paper:#fffaf2;           /* 크림 (바탕) */
+    --paper-card:#fff6e9;      /* 종이 (카드) */
+    --ink:#2f2a24;
+    --ink-soft:#6f6558;
+    --rail:rgba(47,42,36,.22);
+    --px:3px;
   }
   *, *::before, *::after{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   body{
     font-family:'Pretendard',sans-serif; color:var(--ink);
-    margin:0; padding:18px 14px 40px; min-height:100vh; transition:background .4s;
+    margin:0; padding:18px 14px 40px; min-height:100vh;
     background-color:var(--paper);
-    background-size:140px 140px, cover, cover;
-    background-repeat:repeat, no-repeat, no-repeat;
-    background-attachment:fixed, fixed, fixed;
   }
   .wrap{max-width:760px; margin:0 auto;}
 
-  /* ===== 커버 배너 ===== */
+  .back-link{display:inline-block; font-size:12.5px; font-weight:700; color:var(--ink-soft); text-decoration:none; margin-bottom:10px;}
+  .back-link:hover{color:var(--ink);}
 
-  .back-link{display:inline-block; font-size:12.5px; font-weight:600; color:var(--ink-soft); text-decoration:none; margin-bottom:10px;}
-  .back-link:hover{color:var(--accent);}
+  /* ===== 머리말 =====
+     가운데 정렬과 초록 배지를 걷어내고 왼쪽 정렬 한 덩어리로. 첫 화면에서
+     차지하던 자리가 절반으로 줄어 바로 일정이 보입니다. */
+  .hero{text-align:left; padding:2px 0 0; user-select:none;}
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    background:var(--mint); color:var(--ink); border:var(--px) solid var(--ink);
+    padding:5px 11px; border-radius:0; font-size:11.5px; font-weight:800;
+    letter-spacing:.06em; margin-bottom:13px; cursor:pointer;
+  }
+  .logo-icon{font-size:14px;}
+  .hero h1{margin:0 0 5px; font-size:31px; letter-spacing:-.02em; font-weight:800; cursor:pointer;}
+  .hero h1:active{transform:translate(2px,2px);}
+  .hero .sub{margin:0; font-size:14px; font-weight:500; color:var(--ink-soft); font-variant-numeric:tabular-nums;}
+  /* 진행 상황은 배지 대신 날짜 옆 한마디로 — 배지 하나가 한 줄을 통째로 먹었습니다 */
+  .dday{display:inline; margin:0; padding:0; font-size:14px; font-weight:700; color:var(--ink); background:none; border-radius:0;}
+  .dday::before{content:' · '; color:var(--ink-soft); font-weight:400;}
+  .prog{max-width:340px; margin:14px 0 4px;}
+  .prog-track{height:13px; border-radius:0; overflow:hidden; background:var(--paper); border:var(--px) solid var(--ink);}
+  .prog-fill{height:100%; width:0; border-radius:0; transition:width 1.2s ease; background:var(--mint);}
+  .prog-txt{text-align:left; font-size:11.5px; margin-top:6px; font-weight:600; color:var(--ink-soft);}
+  /* 끝난 이벤트의 막대는 늘 100% 라 아무 말도 안 합니다 — 안 그립니다 */
+  .prog.done{display:none;}
 
-  /* 헤더 공통 */
-  .hero{text-align:center; padding:6px 0; user-select:none;}
-  .pill{display:inline-flex; align-items:center; gap:6px; background:rgba(0,0,0,.05); border:1px solid rgba(0,0,0,.08);
-    padding:5px 14px 5px 9px; border-radius:20px; font-size:12.5px; font-weight:700; color:var(--ink-soft); margin-bottom:14px; cursor:pointer; transition:.3s;}
-  .logo-icon{font-size:15px; transition:.3s;}
-  .hero h1{margin:0; font-size:25px; letter-spacing:-.5px; font-weight:700; cursor:pointer; transition:.2s;}
-  .hero h1:active{transform:scale(.96);}
-  .hero .sub{margin-top:5px; font-weight:500; color:var(--ink-soft);}
-  .dday{display:inline-block; margin-top:12px; padding:8px 20px; font-size:14px; font-weight:700; color:#fff; border-radius:20px; background:var(--accent);}
-  .prog{max-width:340px; margin:16px auto 4px;}
-  .prog-track{height:7px; border-radius:10px; overflow:hidden; background:rgba(0,0,0,.09);}
-  .prog-fill{height:100%; width:0; border-radius:10px; transition:width 1.2s ease,background .4s; background:var(--accent);}
-  .prog-txt{text-align:center; font-size:11.5px; margin-top:5px; font-weight:600; color:var(--ink-soft);}
+  .egg{display:none; text-align:left; font-size:12.5px; font-weight:700; margin:8px 0 0; color:var(--ink);}
 
-  .egg{display:none; text-align:center; font-size:12.5px; font-weight:700; margin:8px 0 0; color:var(--accent);}
-
-  .tabs{display:flex; flex-wrap:wrap; align-items:center; gap:7px; justify-content:center; margin:20px 0 18px;}
+  /* ===== 날짜 탭 — 스크롤을 내려도 위에 붙어 있어 다른 날로 바로 건너뜁니다 ===== */
+  .tabs{
+    position:sticky; top:var(--header-h, 58px); z-index:40;
+    display:flex; flex-wrap:wrap; align-items:center; gap:8px; justify-content:flex-start;
+    margin:20px calc(var(--side-pad, 16px) * -1) 22px;
+    padding:12px var(--side-pad, 16px);
+    background:var(--paper); border-bottom:var(--px) solid var(--ink);
+  }
   .tab-sep{color:var(--ink-soft); opacity:.5; font-weight:900; font-size:15px; padding:0 1px;}
-  .tab-link{border:1px dashed rgba(var(--accent-rgb),.5); background:none; color:var(--accent);
-    padding:8px 13px; border-radius:20px; font-size:12px; font-weight:700;
-    font-family:inherit; cursor:pointer; transition:.2s;}
-  .tab-link:hover{background:rgba(var(--accent-rgb),.12);}
-  .tab-link.tab-add{border-style:solid; background:var(--accent); color:#fff;
-    text-decoration:none; display:inline-flex; align-items:center;}
-  .tab-link.tab-add:hover{filter:brightness(1.08);}
-  .tab{border:none; padding:9px 15px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; transition:.2s; border-radius:20px; background:rgba(0,0,0,.05); color:var(--ink-soft);}
-  .tab:hover:not(.active){transform:translateY(-2px); color:var(--accent); background:rgba(var(--accent-rgb),.12);}
-  .tab.active{color:#fff; background:var(--accent);}
+  /* 탭이 줄바꿈되면 가운뎃점이 줄 끝에 홀로 남는다 — 좁은 화면에선 안 그린다 */
+  @media (max-width:520px){ .tab-sep{display:none;} }
+  .tab, .tab-link{
+    border:var(--px) solid var(--ink); background:var(--paper); color:var(--ink);
+    padding:8px 13px; border-radius:0; font-size:13px; font-weight:800;
+    font-family:inherit; cursor:pointer; text-decoration:none;
+    box-shadow:var(--px) var(--px) 0 var(--ink);
+    transition:transform .1s steps(2), box-shadow .1s steps(2);
+  }
+  .tab:hover, .tab-link:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
+  .tab-link{font-size:12px; display:inline-flex; align-items:center;}
+  .tab-link.tab-add{background:var(--lemon);}
+  /* 흰 글씨를 코랄 위에 올리면 대비가 2.4:1 뿐입니다. 먹빛이면 5.8:1 — 훨씬 또렷합니다. */
+  .tab.active{
+    background:var(--accent); color:var(--ink);
+    transform:translate(var(--px),var(--px)); box-shadow:0 0 0 var(--ink);
+  }
 
   .panel{display:none;}
-  .panel.active{display:block; animation:fade .45s ease;}
-  @keyframes fade{from{opacity:0; transform:translateY(12px);}to{opacity:1; transform:translateY(0);}}
-  .day-head{display:flex; align-items:center; gap:9px; font-weight:700; padding:4px 6px 14px; font-size:16px;}
+  .panel.active{display:block;}
+  .day-head{
+    display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+    font-weight:800; padding:0 0 10px; margin-bottom:20px; font-size:15px;
+    border-bottom:var(--px) solid var(--ink);
+  }
+  .day-count{font-size:11.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.04em;}
 
-  .timeline{position:relative; padding-left:30px;}
+  /* ===== 일정 =====
+     세로줄은 얇게 물러나고, 눈금은 카드의 위쪽 모서리에 맞춥니다. */
+  .timeline{position:relative; padding-left:23px;}
+  .timeline::before{content:''; position:absolute; left:4px; top:14px; bottom:24px; width:2px; background:var(--rail);}
 
-  .item{position:relative; padding:15px 17px; margin-bottom:11px; border-radius:14px; border:1px solid rgba(0,0,0,.08);
-    transition:transform .22s, box-shadow .22s, border-color .2s; opacity:0; transform:translateY(14px); background:var(--paper-card);}
-  .item::after{content:''; position:absolute; left:-21px; top:23px; bottom:0; width:2px; background:rgba(0,0,0,.1); border-radius:2px;}
-  .item::before{content:''; position:absolute; left:-26px; top:17px; width:12px; height:12px; border-radius:50%;
-    background:var(--accent); z-index:1;}
-  .item.show{opacity:1; transform:translateY(0);}
-  .item.now{border-color:var(--accent); box-shadow:0 4px 16px rgba(var(--accent-rgb),.22);}
-  .item.now::before{animation:nowPulse 1.6s ease-out infinite;}
-  @keyframes nowPulse{0%{box-shadow:0 0 0 0 rgba(var(--accent-rgb),.5);}70%{box-shadow:0 0 0 10px rgba(var(--accent-rgb),0);}100%{box-shadow:0 0 0 0 rgba(var(--accent-rgb),0);}}
-  .now-tag{display:block; width:fit-content; font-size:12px; font-weight:900; color:#fff; background:var(--accent);
-    padding:3px 9px; border-radius:10px; margin-bottom:8px;}
-  .time{font-size:12.5px; font-weight:700; color:var(--accent); margin-bottom:3px;}
-  .title{font-size:15px; font-weight:700; margin-bottom:6px; color:var(--ink);}
-  .row{display:flex; gap:7px; font-size:13px; line-height:1.5; color:var(--ink-soft); margin-top:4px;}
+  .item{
+    position:relative; padding:14px 15px 15px; margin-bottom:16px; border-radius:0;
+    border:2px solid var(--ink); background:var(--paper-card);
+  }
+  .item::before{content:''; position:absolute; left:-23px; top:14px; width:10px; height:10px; background:var(--ink); border-radius:0;}
+  .item::after{content:none;}                 /* 세로줄은 .timeline 이 그립니다 */
+  .item.now{border-color:var(--accent); border-width:var(--px);}
+  .item.now::before{background:var(--accent);}
+  .now-tag{
+    display:inline-block; width:auto; font-size:10.5px; font-weight:800; color:var(--ink);
+    background:var(--accent); border:2px solid var(--ink); padding:2px 7px; border-radius:0; margin:0;
+  }
+  /* 시각·「지금」·제목을 한 줄에 — 카드에서 제일 먼저 보여야 하는 것이 시각입니다 */
+  .item-line{display:flex; align-items:center; flex-wrap:wrap; gap:9px; margin-bottom:9px;}
+  .time{
+    flex:none; font-size:12.5px; font-weight:800; letter-spacing:.02em; margin:0;
+    font-variant-numeric:tabular-nums;
+    background:var(--ink); color:var(--paper); padding:3px 8px;
+  }
+  .item.now .time{background:var(--accent); color:var(--ink);}
+  .title{font-size:19px; font-weight:800; margin:0; line-height:1.3; color:var(--ink); flex:1 1 auto;}
+  .row{display:flex; gap:7px; font-size:14.5px; line-height:1.7; color:var(--ink-soft); margin:0 0 12px;}
   .row .ic{flex-shrink:0;}
   .row .detail-text{white-space:pre-line;}   /* 입력한 줄바꿈 그대로 보이도록 */
-  .item-img-wrap{position:relative; margin-top:10px;}
-  .item-img{display:block; width:100%; border-radius:10px; cursor:zoom-in;}
-  .photo-meta{position:absolute; right:8px; bottom:8px; background:rgba(0,0,0,.42); color:#fff;
-    font-size:11px; font-weight:600; padding:4px 9px; border-radius:10px; pointer-events:none;}
-  .item-edit{position:absolute; top:12px; right:14px; font-size:11.5px; font-weight:700; color:var(--accent);
-    text-decoration:none; background:rgba(var(--accent-rgb),.12); padding:4px 9px; border-radius:12px;}
-  .item-edit:hover{background:rgba(var(--accent-rgb),.22);}
+
+  /* 사진이 여럿이면 두 칸으로. 한 장씩 세로로 쌓으면 하루가 한없이 길어집니다.
+     홀수면 첫 장을 두 칸에 걸쳐 크게 — 빈 칸 없이 채워지고 대표 사진이 생깁니다. */
+  .shots{display:grid; grid-template-columns:1fr; gap:8px;}
+  .shots.many{grid-template-columns:1fr 1fr;}
+  .item-img-wrap{position:relative; margin:0;}
+  .item-img{display:block; width:100%; border-radius:0; border:2px solid var(--ink); cursor:zoom-in;}
+  .shots.many .item-img{aspect-ratio:1; object-fit:cover;}
+  .shots.many .item-img-wrap.lead{grid-column:1 / -1;}
+  .shots.many .item-img-wrap.lead .item-img{aspect-ratio:4/3;}
+  .photo-meta{
+    position:absolute; right:7px; bottom:7px; background:rgba(47,42,36,.78); color:#fff;
+    font-size:10.5px; font-weight:600; padding:3px 7px; border-radius:0; pointer-events:none;
+  }
+  .item-edit{
+    position:absolute; top:-2px; right:-2px; font-size:11px; font-weight:800; color:var(--ink);
+    text-decoration:none; background:var(--lemon); border:2px solid var(--ink);
+    padding:3px 8px; border-radius:0;
+  }
+  .item-edit:hover{transform:translate(1px,1px);}
 
   /* ===== 노트 탭 (자유 서식) ===== */
-  .note-heading{font-size:17px; font-weight:800; margin:18px 0 8px; color:var(--ink);}
+  .note-heading{font-size:18px; font-weight:800; margin:20px 0 9px; color:var(--ink);}
   .note-content .note-heading:first-child{margin-top:0;}
-  .note-subheading{font-size:14.5px; font-weight:800; margin:14px 0 6px; color:var(--accent);}
-  .note-para{font-size:13.5px; line-height:1.7; color:var(--ink); margin:0 0 12px; white-space:pre-line;}
+  .note-subheading{font-size:15px; font-weight:800; margin:15px 0 6px; color:var(--ink);
+    border-left:var(--px) solid var(--accent); padding-left:9px;}
+  .note-para{font-size:14.5px; line-height:1.8; color:var(--ink); margin:0 0 13px; white-space:pre-line;}
   .note-img-wrap{margin:0 0 14px;}
-  .note-img{display:block; width:100%; border-radius:10px;}
-  .note-minorheading{font-size:13.5px; font-weight:800; margin:12px 0 5px; color:var(--ink-soft);}
-  .note-list{margin:0 0 12px; padding-left:22px; font-size:13.5px; line-height:1.8; color:var(--ink);}
+  .note-img{display:block; width:100%; border-radius:0; border:2px solid var(--ink);}
+  .note-minorheading{font-size:14px; font-weight:800; margin:12px 0 5px; color:var(--ink-soft);}
+  .note-list{margin:0 0 13px; padding-left:22px; font-size:14.5px; line-height:1.8; color:var(--ink);}
   .note-list li{margin-bottom:3px;}
-  .note-quote{margin:0 0 14px; padding:10px 14px; border-left:3px solid var(--accent);
-    background:rgba(var(--accent-rgb),.07); border-radius:0 10px 10px 0;
-    font-size:13.5px; line-height:1.7; color:var(--ink);}
-  .note-hr{border:none; border-top:1px solid rgba(0,0,0,.12); margin:18px 0;}
-  .note-mark{background:rgba(255,217,121,.55); color:inherit; padding:0 2px; border-radius:3px;}
-  .note-link{color:var(--accent); text-decoration:underline; text-underline-offset:2px;}
+  .note-quote{margin:0 0 14px; padding:11px 14px; border-left:var(--px) solid var(--accent);
+    background:var(--paper-card); border-radius:0; font-size:14.5px; line-height:1.8; color:var(--ink);}
+  .note-hr{border:none; border-top:2px solid rgba(47,42,36,.16); margin:18px 0;}
+  .note-mark{background:var(--lemon); color:inherit; padding:0 3px; border-radius:0;}
+  .note-link{color:var(--ink); text-decoration:underline; text-underline-offset:2px; text-decoration-thickness:2px;}
   .note-para s, .note-list s, .note-quote s{opacity:.6;}
-  .note-table-wrap{overflow-x:auto; margin:0 0 16px; border-radius:12px; border:1px solid rgba(0,0,0,.08);}
-  .note-table{width:100%; border-collapse:collapse; font-size:13px; background:var(--paper-card);}
-  .note-table th, .note-table td{padding:10px 12px; text-align:left; border-bottom:1px solid rgba(0,0,0,.08); white-space:pre-line;}
-  .note-table th{background:rgba(var(--accent-rgb),.12); color:var(--ink); font-weight:800; font-size:12.5px;}
+  .note-table-wrap{overflow-x:auto; margin:0 0 16px; border-radius:0; border:2px solid var(--ink);}
+  .note-table{width:100%; border-collapse:collapse; font-size:13.5px; background:var(--paper-card);}
+  .note-table th, .note-table td{padding:10px 12px; text-align:left; border-bottom:2px solid rgba(47,42,36,.14); white-space:pre-line;}
+  .note-table th{background:var(--mint); color:var(--ink); font-weight:800; font-size:13px;}
   .note-table tr:last-child td{border-bottom:none;}
 
   /* ===== 갤러리 ===== */
   .gallery-toolbar{margin-bottom:14px;}
-  .upload-btn{display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:20px;
-    background:var(--accent); color:#fff; font-size:13px; font-weight:700; cursor:pointer; border:none; font-family:inherit;}
-  .upload-btn:hover{opacity:.9;}
+  .upload-btn, .auto-btn, .add-schedule-btn{
+    display:inline-flex; align-items:center; gap:6px; padding:9px 15px; border-radius:0;
+    background:var(--paper); color:var(--ink); font-size:13px; font-weight:800;
+    cursor:pointer; border:var(--px) solid var(--ink); font-family:inherit; text-decoration:none;
+    box-shadow:var(--px) var(--px) 0 var(--ink);
+    transition:transform .1s steps(2), box-shadow .1s steps(2);
+  }
+  .upload-btn{background:var(--mint);}
+  .upload-btn:hover, .auto-btn:hover, .add-schedule-btn:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
   .upload-btn.uploading{opacity:.6; pointer-events:none;}
+  .auto-btn{margin-left:8px;}
+  .auto-btn:disabled{opacity:.5; cursor:default; box-shadow:var(--px) var(--px) 0 var(--ink); transform:none;}
+  .add-schedule-btn{margin-top:14px;}
   .gallery-msg{font-size:12.5px; margin:8px 2px; min-height:1em; color:var(--ink-soft);}
   .gallery-msg.err{color:#c0392b;}
   .gallery-msg.ok{color:#2a8a4a;}
-  .gallery-msg a{color:var(--accent); font-weight:700;}
-  .auto-btn{display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:20px;
-    background:none; color:var(--accent); font-size:13px; font-weight:700; cursor:pointer;
-    border:1px solid rgba(var(--accent-rgb),.5); font-family:inherit; margin-left:8px;}
-  .auto-btn:hover{background:rgba(var(--accent-rgb),.1);}
-  .auto-btn:disabled{opacity:.5; cursor:default;}
+  .gallery-msg a{color:var(--ink); font-weight:800;}
 
   /* ===== 사진으로 일정 만들기 (미리보기) ===== */
-  .prop{border:1px solid rgba(var(--accent-rgb),.35); border-radius:14px; padding:16px;
-    margin-bottom:16px; background:rgba(var(--accent-rgb),.05);}
-  .prop h4{margin:0 0 4px; font-size:14.5px; font-weight:800; color:var(--ink);}
+  .prop{border:2px solid var(--ink); border-radius:0; padding:16px; margin-bottom:16px; background:var(--paper-card);}
+  .prop h4{margin:0 0 4px; font-size:15px; font-weight:800; color:var(--ink);}
   .prop .lead{font-size:12.5px; color:var(--ink-soft); line-height:1.7; margin:0 0 12px;}
-  .prop-item{display:flex; gap:11px; padding:11px 0; border-top:1px solid rgba(var(--accent-rgb),.18);}
+  .prop-item{display:flex; gap:11px; padding:11px 0; border-top:2px solid rgba(47,42,36,.14);}
   .prop-item.off{opacity:.42;}
   .prop-item > input[type=checkbox]{margin-top:4px; width:17px; height:17px; flex:0 0 auto; accent-color:var(--accent);}
   .prop-main{flex:1 1 auto; min-width:0;}
-  .prop-when{font-size:11.5px; font-weight:700; color:var(--accent); font-variant-numeric:tabular-nums;}
-  .prop-main input[type=text]{width:100%; margin-top:5px; padding:7px 9px; font-family:inherit;
-    font-size:13px; border:1px solid rgba(0,0,0,.18); border-radius:8px; background:var(--paper);
-    color:var(--ink);}
+  .prop-when{font-size:11.5px; font-weight:800; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .prop-main input[type=text]{width:100%; margin-top:5px; padding:8px 9px; font-family:inherit;
+    font-size:13px; border:2px solid var(--ink); border-radius:0; background:var(--paper); color:var(--ink);}
   .prop-shots{display:flex; gap:5px; margin-top:7px;}
-  .prop-shots img{width:52px; height:52px; object-fit:cover; border-radius:7px;
-    border:1px solid rgba(0,0,0,.1);}
+  .prop-shots img{width:52px; height:52px; object-fit:cover; border-radius:0; border:2px solid var(--ink);}
   .prop-note{font-size:11.5px; color:var(--ink-soft); margin-top:5px;}
   .prop-btns{display:flex; gap:8px; align-items:center; margin-top:14px; flex-wrap:wrap;}
-  .prop-btns .upload-btn{border:none;}
 
   .linked-works{margin:0 0 18px;}
   .lw-head{font-size:13px; font-weight:800; color:var(--ink); margin-bottom:9px;}
   .lw-strip{display:flex; gap:9px; overflow-x:auto; padding-bottom:4px;}
   .lw-item{flex:0 0 108px; text-decoration:none; color:var(--ink-soft);}
   .lw-item img, .lw-item video{width:108px; height:108px; object-fit:cover; display:block;
-    border-radius:10px; border:1px solid rgba(0,0,0,.08);}
+    border-radius:0; border:2px solid var(--ink);}
   .lw-item span{display:block; font-size:11.5px; margin-top:5px; line-height:1.4;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
   .gallery-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;}
-  .gallery-thumb{position:relative; aspect-ratio:1; border-radius:10px; overflow:hidden; cursor:pointer;
-    border:1px solid rgba(0,0,0,.08); transition:transform .18s; background:#000;}
-  .gallery-thumb:hover{transform:scale(1.03);}
+  .gallery-thumb{position:relative; aspect-ratio:1; border-radius:0; overflow:hidden; cursor:pointer;
+    border:2px solid var(--ink); background:#000;}
   .gallery-thumb img, .gallery-thumb video{width:100%; height:100%; object-fit:cover; display:block;}
   .gallery-thumb.is-video::after{content:'▶'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     color:#fff; font-size:20px; background:rgba(0,0,0,.15); text-shadow:0 1px 4px rgba(0,0,0,.5);}
-  .gallery-del{position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; border:none;
-    background:rgba(0,0,0,.6); color:#fff; font-size:12px; line-height:22px; text-align:center; cursor:pointer; z-index:2;}
+  .gallery-del{position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:0;
+    border:2px solid var(--ink); background:var(--accent); color:var(--ink);
+    font-size:12px; line-height:1; text-align:center; cursor:pointer; z-index:2; font-weight:800;}
 
-  /* 사진을 화면 가로에 꽉 채우고, 세로로 긴 사진은 웹툰처럼 스크롤해서 봄 */
-  .lightbox{display:none; position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:100;
-    align-items:center; justify-content:flex-start; flex-direction:column; padding:0; cursor:zoom-out;
+  /* ===== 라이트박스 — 포트폴리오와 같은 모양 =====
+     사진을 화면 가로에 꽉 채우고, 세로로 긴 사진은 웹툰처럼 스크롤해서 봄 */
+  .lightbox{display:none; position:fixed; inset:0; background:rgba(30,26,22,.95); z-index:100;
+    align-items:center; justify-content:flex-start; flex-direction:column; padding:0;
     overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;}
   .lightbox.open{display:flex;}
   /* width:auto + max-width:100% → 큰 사진은 가로에 꽉, 작은 사진은 원본보다 크게 늘리지 않음 */
   .lightbox img, .lightbox video{width:auto; max-width:100%; height:auto; max-height:none;
-    border-radius:0; cursor:zoom-in; transition:transform .25s ease;}
+    border-radius:0; border:none; cursor:zoom-in; transition:transform .25s ease;}
   /* 확대(더블탭)한 동안엔 스크롤 대신 드래그로 움직이도록 */
   .lightbox.zoomed{overflow:hidden;}
   .lightbox.zoomed img, .lightbox.zoomed video{cursor:zoom-out;}
-  .lightbox-caption{color:#fff; font-size:13px; padding:14px 20px 28px; width:100%;
-    text-align:center; opacity:.85;}
+  .lightbox-caption{color:#fff; font-size:13px; padding:14px 20px 30px; width:100%;
+    text-align:center; opacity:.9;}
   .lightbox-nav{position:fixed; top:50%; transform:translateY(-50%); z-index:101; width:44px; height:44px;
-    border-radius:50%; border:none; background:rgba(255,255,255,.12); color:#fff; font-size:26px; line-height:1;
-    cursor:pointer; display:flex; align-items:center; justify-content:center;}
-  .lightbox-nav:hover{background:rgba(255,255,255,.22);}
+    border-radius:0; border:var(--px) solid #fff; background:rgba(255,255,255,.14); color:#fff;
+    font-size:22px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-family:inherit;}
+  .lightbox-nav:hover{background:rgba(255,255,255,.26);}
   .lightbox-nav.prev{left:12px;}
   .lightbox-nav.next{right:12px;}
   .lightbox-nav[hidden]{display:none;}
-  @media (max-width:520px){ .lightbox-nav{width:38px; height:38px; font-size:22px;} .lightbox-nav.prev{left:6px;} .lightbox-nav.next{right:6px;} }
-  .empty-msg{text-align:center; padding:40px 10px; color:var(--ink-soft); font-size:13px;}
-  .add-schedule-btn{display:inline-block; margin-top:14px; padding:9px 18px; border-radius:20px;
-    background:var(--accent); color:#fff; font-size:13px; font-weight:700; text-decoration:none;}
-  .add-schedule-btn:hover{opacity:.9;}
+  .lightbox-close{
+    position:fixed; top:16px; right:16px; z-index:101;
+    padding:8px 13px; border-radius:0; font-size:12.5px; font-weight:800; cursor:pointer;
+    border:var(--px) solid var(--ink); background:var(--paper); color:var(--ink);
+    box-shadow:var(--px) var(--px) 0 var(--ink); font-family:inherit;
+  }
+  .lightbox-close:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
+  @media (max-width:520px){
+    .lightbox-nav{width:38px; height:38px; font-size:19px;}
+    .lightbox-nav.prev{left:6px;} .lightbox-nav.next{right:6px;}
+    .lightbox-close{top:10px; right:10px;}
+  }
 
+  .empty-msg{text-align:center; padding:40px 10px; color:var(--ink-soft); font-size:13px;}
   .notfound{text-align:center; padding:80px 20px; color:var(--ink-soft);}
 
   /* 공통 헤더가 화면 위에 고정되므로 그만큼 본문을 내림 */
@@ -223,6 +290,9 @@
     margin-right:calc(var(--side-pad) * -1);
     margin-top:40px;
   }
+  @media (prefers-reduced-motion: reduce){
+    .tab, .tab-link, .upload-btn, .auto-btn, .add-schedule-btn{transition:none;}
+  }
 </style>
 </head>
 <body>
@@ -231,8 +301,7 @@
   <div class="hero">
     <div class="pill"><span class="logo-icon" id="logoIcon">🗓️</span><span id="pillText">일정명</span></div>
     <h1 id="logo">이벤트</h1>
-    <div class="sub">날짜 범위</div>
-    <div class="dday" id="dday">D-day 계산중…</div>
+    <div class="sub"><span id="dateRange">날짜 범위</span><span class="dday" id="dday"></span></div>
   </div>
 
   <div class="prog">
@@ -247,6 +316,7 @@
 </div>
 
 <div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lightboxClose" aria-label="닫기">✕ 닫기</button>
   <button class="lightbox-nav prev" id="lightboxPrev" aria-label="이전 사진">‹</button>
   <img id="lightboxImg" src="" alt="" style="display:none;">
   <video id="lightboxVideo" controls style="display:none;"></video>
@@ -303,7 +373,7 @@ function showNotFound(msg){
 function applyHeaderText(){
   $('#logo').textContent = CONFIG.orgName;
   $('#pillText').textContent = CONFIG.eventName;
-  document.querySelector('.sub').textContent = CONFIG.dateRangeText;
+  document.getElementById('dateRange').textContent = CONFIG.dateRangeText;
   document.title = CONFIG.orgName + ' · ' + CONFIG.eventName;
 }
 
@@ -364,7 +434,8 @@ function buildTabsAndPanels(){
         '<div class="gallery-grid" id="galleryGrid"></div>' +
         '<div class="empty-msg" id="galleryEmpty" style="display:none;">아직 등록된 사진/영상이 없습니다</div>'
       : '<div class="timeline"></div>';
-    panel.innerHTML = '<div class="day-head">' + label + '</div>' + body;
+    panel.innerHTML = '<div class="day-head"><span>' + label + '</span>' +
+      '<span class="day-count"></span></div>' + body;
     panelsEl.appendChild(panel);
   });
 }
@@ -400,10 +471,20 @@ function addCustomTabPanel(row){
 }
 
 function reveal(panel){
-  panel.querySelectorAll('.item').forEach((it, i) => {
-    setTimeout(() => it.classList.add('show'), i * 60);
-  });
+  panel.querySelectorAll('.item').forEach(it => it.classList.add('show'));
+  countDay(panel);
   markNow(panel);
+}
+
+// 날짜 머리글 오른쪽에 "4가지 · 사진 6장" — 그날이 얼마나 되는지 미리 알 수 있게
+function countDay(panel){
+  const box = panel && panel.querySelector('.day-count');
+  if (!box) return;
+  const items = panel.querySelectorAll('.timeline .item').length;
+  const shots = panel.querySelectorAll('.timeline .item-img').length;
+  const cells = panel.querySelectorAll('.gallery-thumb').length;
+  box.textContent = items ? items + '가지 · 사진 ' + shots + '장'
+    : cells ? '사진 ' + cells + '장' : '';
 }
 
 function showPanel(id, opts){
@@ -517,7 +598,8 @@ function markNow(panel){
     const s = +m[1]*60 + +m[2], e = +m[3]*60 + +m[4];
     if (hm >= s && hm < e) {
       it.classList.add('now'); if (!nowItem) nowItem = it;
-      it.insertAdjacentHTML('afterbegin', '<span class="now-tag">🔴 NOW</span>');
+      // 시각 바로 뒤에 붙인다. 카드 맨 앞에 넣으면 시각·제목 줄 위로 혼자 떨어진다.
+      t.insertAdjacentHTML('afterend', '<span class="now-tag">지금</span>');
     }
   });
   if (nowItem) setTimeout(() => nowItem.scrollIntoView({behavior:'smooth', block:'center'}), 400);
@@ -541,10 +623,13 @@ function updateProgress(){
     const day = Math.floor((now-start)/86400000) + 1;
     txt.textContent = '일정 ' + day + '일째 · ' + pct + '% 진행';
   } else {
-    dd.textContent = '일정이 끝났습니다';
+    dd.textContent = '일정 마침';
     applyWidth(100);
     txt.textContent = '모든 일정 마침 · 100%';
   }
+  // 끝난 이벤트에서 막대는 늘 100% 라 첫 화면 자리만 차지한다
+  const box = document.querySelector('.prog');
+  if (box) box.classList.toggle('done', now > end);
   firstProgressRun = false;
 }
 
@@ -609,13 +694,24 @@ function renderSchedule(byPanel){
         : []).concat(Array.isArray(r.extra_images) ? r.extra_images : []);
       // 사진 칸은 250px 남짓인데 원본은 4000px 이 넘는다. 사본이 있으면 그것만 받고,
       // 눌러서 크게 볼 때 쓸 원본 주소는 data-full 에 달아 둔다.
-      const image = shots.map(sh =>
-        '<div class="item-img-wrap"><img class="item-img" src="' + escapeHTML(sh.thumb || sh.url) +
-        '" data-full="' + escapeHTML(sh.url) + '" loading="lazy" data-event-id="' + r.id + '" alt="">'
-        + photoMetaOverlayHTML(sh.taken_at, sh.location_name) + '</div>').join('');
+      //
+      // 여러 장이면 두 칸으로 놓는다 — 한 장씩 세로로만 쌓으면 하루가 한없이 길어진다.
+      // 홀수면 첫 장을 두 칸에 걸쳐 크게 두어 빈 칸 없이 채운다(그날의 대표 사진이 된다).
+      const many = shots.length > 1;
+      const lead = many && shots.length % 2 === 1;
+      const image = !shots.length ? '' :
+        '<div class="shots' + (many ? ' many' : '') + '">' + shots.map((sh, i) =>
+          '<div class="item-img-wrap' + (lead && i === 0 ? ' lead' : '') + '">' +
+          '<img class="item-img" src="' + escapeHTML(sh.thumb || sh.url) +
+          '" data-full="' + escapeHTML(sh.url) + '" loading="lazy" data-event-id="' + r.id + '" alt="">'
+          + photoMetaOverlayHTML(sh.taken_at, sh.location_name) + '</div>').join('') + '</div>';
       const editBtn = isAdmin ? '<a class="item-edit" href="./admin.html?slug=' + CONFIG.eventSlug + '&edit=' + r.id + '">✏️ 수정</a>' : '';
       timeline.insertAdjacentHTML('beforeend',
-        '<div class="item">' + editBtn + '<div class="time">' + escapeHTML(r.time || '') + '</div><div class="title">' + escapeHTML(r.title) + '</div>' + detail + image + '</div>');
+        '<div class="item">' + editBtn +
+          '<div class="item-line">' +
+            '<span class="time">' + escapeHTML(r.time || '') + '</span>' +
+            '<h3 class="title">' + escapeHTML(r.title) + '</h3>' +
+          '</div>' + detail + image + '</div>');
     });
   });
 
@@ -694,6 +790,7 @@ async function loadGallery(){
   });
   $('#galleryEmpty').style.display = galleryItems.length ? 'none' : 'block';
   galleryItems.forEach((r, i) => grid.appendChild(renderGalleryThumb(r, i)));
+  countDay(grid.closest('.panel'));       // 갤러리 탭의 "사진 N장"
 }
 
 function renderGalleryThumb(r, index){
@@ -1299,6 +1396,7 @@ const DOUBLE_TAP_MS = 420, DOUBLE_TAP_DIST = 50;
 function setupLightboxInteractions(){
   lightboxPrevBtn = $('#lightboxPrev'); lightboxNextBtn = $('#lightboxNext');
   $('#lightbox').addEventListener('click', (e) => { if (e.target.id === 'lightbox') closeLightbox(); });
+  $('#lightboxClose').addEventListener('click', (e) => { e.stopPropagation(); closeLightbox(); });
   lightboxPrevBtn.addEventListener('click', (e) => { e.stopPropagation(); showPrevMedia(); });
   lightboxNextBtn.addEventListener('click', (e) => { e.stopPropagation(); showNextMedia(); });
 

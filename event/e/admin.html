@@ -12,8 +12,10 @@
 <link href="/style.css" rel="stylesheet">
 <style>
   :root{
-    --accent:#2f6f5e; --accent-rgb:47,111,94;
-    --paper:#fffaf2; --paper-card:#fff6e9; --ink:#3a3226; --ink-soft:#6b6148;
+    --accent:#ff7f8a; --accent-rgb:255,127,138;   /* 코랄 — 사이트 강조색 */
+    --mint:#6cc7b3; --lemon:#ffd979;
+    --paper:#fffaf2; --paper-card:#fff6e9; --ink:#2f2a24; --ink-soft:#6f6558;
+    --px:3px;
   }
   *, *::before, *::after{box-sizing:border-box;}
   body{
@@ -26,21 +28,21 @@
   }
   .wrap{max-width:520px; margin:0 auto;}
   a.back{display:inline-block; font-size:12.5px; font-weight:600; color:var(--ink-soft); text-decoration:none; margin-bottom:14px;}
-  a.back:hover{color:var(--accent);}
+  a.back:hover{color:var(--ink);}
 
   h1{font-size:18px; font-weight:800; margin:0 0 20px; color:var(--ink);}
 
   /* ----- 로그인 ----- */
-  #login-box{background:var(--paper-card); border-radius:14px; padding:22px; border:1px solid rgba(0,0,0,.08);}
+  #login-box{background:var(--paper-card); border-radius:0; padding:22px; border:1px solid rgba(0,0,0,.08);}
   #login-box label{display:block; font-size:12.5px; font-weight:700; color:var(--ink-soft); margin:12px 0 6px;}
   #login-box label:first-of-type{margin-top:0;}
-  input, textarea, select{width:100%; padding:10px 12px; border:1px solid rgba(0,0,0,.15); border-radius:8px; font-size:14px;
+  input, textarea, select{width:100%; padding:10px 12px; border:1px solid rgba(0,0,0,.15); border-radius:0; font-size:14px;
     font-family:inherit; background:#fff; color:var(--ink);}
   textarea{resize:vertical; min-height:56px;}
   button{font-family:inherit; cursor:pointer;}
-  .btn{padding:10px 16px; border:none; border-radius:8px; font-size:13.5px; font-weight:700; background:var(--accent); color:#fff;}
+  .btn{padding:10px 16px; border:none; border-radius:0; font-size:13.5px; font-weight:700; background:var(--accent); color:#fff;}
   .btn:hover{opacity:.9;}
-  .btn.ghost{background:none; color:var(--accent); border:1px solid var(--accent);}
+  .btn.ghost{background:none; color:var(--ink); border:1px solid var(--accent);}
   .btn.danger{background:none; color:#c0392b; border:1px solid #c0392b;}
   .btn-row{display:flex; gap:8px; margin-top:14px;}
   #login-msg{font-size:12.5px; color:#c0392b; margin-top:10px; min-height:1em;}
@@ -55,7 +57,7 @@
   #retrofitMsg{font-size:12.5px; color:var(--ink-soft); margin-top:8px; min-height:1em;}
 
   /* ----- 새 일정 추가 ----- */
-  #add-box{background:var(--paper-card); border-radius:14px; padding:18px; border:1px solid rgba(0,0,0,.08); margin-bottom:22px;}
+  #add-box{background:var(--paper-card); border-radius:0; padding:18px; border:1px solid rgba(0,0,0,.08); margin-bottom:22px;}
   #add-box h2{font-size:14px; margin:0 0 12px; color:var(--ink);}
   #add-box label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin:10px 0 5px;}
   #add-box label:first-of-type{margin-top:0;}
@@ -64,11 +66,11 @@
   #add-msg.err{color:#c0392b;}
 
   /* ----- 커스텀 탭 관리 ----- */
-  #customtabs-box{background:var(--paper-card); border-radius:14px; padding:18px; border:1px solid rgba(0,0,0,.08); margin-bottom:22px;}
+  #customtabs-box{background:var(--paper-card); border-radius:0; padding:18px; border:1px solid rgba(0,0,0,.08); margin-bottom:22px;}
   #customtabs-box h2{font-size:14px; margin:0 0 8px; color:var(--ink);}
   #customtabs-box .hint{font-size:11.5px; color:var(--ink-soft); margin:0 0 8px; line-height:1.7;}
-  #customtabs-box .hint code{background:rgba(0,0,0,.07); border-radius:4px; padding:1px 4px; font-size:11px;}
-  #customtabs-box .example{background:rgba(0,0,0,.05); border:1px dashed rgba(0,0,0,.14); border-radius:8px;
+  #customtabs-box .hint code{background:rgba(0,0,0,.07); border-radius:0; padding:1px 4px; font-size:11px;}
+  #customtabs-box .example{background:rgba(0,0,0,.05); border:1px dashed rgba(0,0,0,.14); border-radius:0;
     padding:10px 12px; margin:0 0 14px; font-size:11.5px; line-height:1.7; color:var(--ink-soft);
     white-space:pre-wrap; overflow-x:auto; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;}
   #customtabs-box label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin:10px 0 5px;}
@@ -78,11 +80,11 @@
   /* ===== 글쓰기 도구막대 ===== */
   .fmt-bar{display:flex; flex-wrap:wrap; gap:4px; align-items:center;
     padding:7px; margin-bottom:-1px;
-    border:1px solid rgba(0,0,0,.14); border-radius:10px 10px 0 0;
+    border:1px solid rgba(0,0,0,.14); border-radius:0 10px 0 0;
     background:rgba(0,0,0,.03);}
   .fmt-bar button{
     border:1px solid rgba(0,0,0,.10); background:var(--paper-card); color:var(--ink);
-    border-radius:7px; padding:5px 9px; font-size:12.5px; font-weight:700;
+    border-radius:0; padding:5px 9px; font-size:12.5px; font-weight:700;
     font-family:inherit; cursor:pointer; line-height:1.3; transition:.15s;
   }
   .fmt-bar button:hover{background:rgba(var(--accent-rgb),.14); border-color:rgba(var(--accent-rgb),.35);}
@@ -90,15 +92,15 @@
   .fmt-bar .sep{width:1px; align-self:stretch; margin:2px 3px; background:rgba(0,0,0,.12);}
   .fmt-bar .b{font-weight:900;} .fmt-bar .i{font-style:italic;} .fmt-bar .s{text-decoration:line-through;}
   .fmt-bar .hl{background:rgba(255,217,121,.6);}
-  .fmt-bar button.on{background:var(--accent); color:#fff; border-color:var(--accent);}
+  .fmt-bar button.on{background:var(--accent); color:#fff; border-color:var(--ink);}
   .fmt-bar + textarea{border-radius:0 0 10px 10px;}
 
   /* 표 크기 고르기 */
-  .grid-pick{position:absolute; z-index:30; padding:9px; border-radius:10px;
+  .grid-pick{position:absolute; z-index:30; padding:9px; border-radius:0;
     background:var(--paper-card); border:1px solid rgba(0,0,0,.16); box-shadow:0 8px 24px rgba(0,0,0,.16);}
   .grid-pick .cells{display:grid; grid-template-columns:repeat(6, 18px); gap:3px;}
-  .grid-pick i{display:block; width:18px; height:18px; border:1px solid rgba(0,0,0,.18); border-radius:3px; cursor:pointer;}
-  .grid-pick i.on{background:var(--accent); border-color:var(--accent);}
+  .grid-pick i{display:block; width:18px; height:18px; border:1px solid rgba(0,0,0,.18); border-radius:0; cursor:pointer;}
+  .grid-pick i.on{background:var(--accent); border-color:var(--ink);}
   .grid-pick .cap{margin-top:7px; font-size:11.5px; font-weight:700; color:var(--ink-soft); text-align:center;}
 
   /* 미리보기 안의 서식은 실제 이벤트 페이지와 같은 규칙을 써야 한다 —
@@ -107,10 +109,10 @@
   /* ===== 노트 탭 (자유 서식) ===== */
   .note-heading{font-size:17px; font-weight:800; margin:18px 0 8px; color:var(--ink);}
   .note-content .note-heading:first-child{margin-top:0;}
-  .note-subheading{font-size:14.5px; font-weight:800; margin:14px 0 6px; color:var(--accent);}
+  .note-subheading{font-size:14.5px; font-weight:800; margin:14px 0 6px; color:var(--ink);}
   .note-para{font-size:13.5px; line-height:1.7; color:var(--ink); margin:0 0 12px; white-space:pre-line;}
   .note-img-wrap{margin:0 0 14px;}
-  .note-img{display:block; width:100%; border-radius:10px;}
+  .note-img{display:block; width:100%; border-radius:0;}
   .note-minorheading{font-size:13.5px; font-weight:800; margin:12px 0 5px; color:var(--ink-soft);}
   .note-list{margin:0 0 12px; padding-left:22px; font-size:13.5px; line-height:1.8; color:var(--ink);}
   .note-list li{margin-bottom:3px;}
@@ -118,19 +120,19 @@
     background:rgba(var(--accent-rgb),.07); border-radius:0 10px 10px 0;
     font-size:13.5px; line-height:1.7; color:var(--ink);}
   .note-hr{border:none; border-top:1px solid rgba(0,0,0,.12); margin:18px 0;}
-  .note-mark{background:rgba(255,217,121,.55); color:inherit; padding:0 2px; border-radius:3px;}
-  .note-link{color:var(--accent); text-decoration:underline; text-underline-offset:2px;}
+  .note-mark{background:rgba(255,217,121,.55); color:inherit; padding:0 2px; border-radius:0;}
+  .note-link{color:var(--ink); text-decoration:underline; text-underline-offset:2px;}
   .note-para s, .note-list s, .note-quote s{opacity:.6;}
-  .note-table-wrap{overflow-x:auto; margin:0 0 16px; border-radius:12px; border:1px solid rgba(0,0,0,.08);}
+  .note-table-wrap{overflow-x:auto; margin:0 0 16px; border-radius:0; border:1px solid rgba(0,0,0,.08);}
   .note-table{width:100%; border-collapse:collapse; font-size:13px; background:var(--paper-card);}
   .note-table th, .note-table td{padding:10px 12px; text-align:left; border-bottom:1px solid rgba(0,0,0,.08); white-space:pre-line;}
   .note-table th{background:rgba(var(--accent-rgb),.12); color:var(--ink); font-weight:800; font-size:12.5px;}
   .note-table tr:last-child td{border-bottom:none;}
 
   /* 미리보기 */
-  .fmt-preview{margin-top:10px; padding:14px 16px; border-radius:12px;
+  .fmt-preview{margin-top:10px; padding:14px 16px; border-radius:0;
     border:1px dashed rgba(var(--accent-rgb),.45); background:var(--paper-card);}
-  .fmt-preview .cap{font-size:11.5px; font-weight:800; color:var(--accent); margin-bottom:8px;}
+  .fmt-preview .cap{font-size:11.5px; font-weight:800; color:var(--ink); margin-bottom:8px;}
   #ct-msg{font-size:12.5px; margin-top:10px; min-height:1em;}
   #ct-msg.ok, .ct-edit-msg.ok{color:#2a8a4a;}
   #ct-msg.err, .ct-edit-msg.err{color:#c0392b;}
@@ -140,13 +142,13 @@
   /* ----- 목록 ----- */
   .panel-group{margin-bottom:20px;}
   .panel-group h3{font-size:13px; font-weight:800; color:var(--ink-soft); margin:0 0 8px; padding:0 2px;}
-  .item-card{background:var(--paper-card); border-radius:12px; padding:13px 15px; margin-bottom:8px; border:1px solid rgba(0,0,0,.08);}
-  .item-time{font-size:12px; font-weight:700; color:var(--accent);}
+  .item-card{background:var(--paper-card); border-radius:0; padding:13px 15px; margin-bottom:8px; border:1px solid rgba(0,0,0,.08);}
+  .item-time{font-size:12px; font-weight:700; color:var(--ink);}
   .item-title{font-size:14.5px; font-weight:800; margin:2px 0 3px; color:var(--ink);}
   .item-detail{font-size:12.5px; color:var(--ink-soft); white-space:pre-line;}
-  .item-img{display:block; max-width:100%; border-radius:8px; margin-top:8px;}
+  .item-img{display:block; max-width:100%; border-radius:0; margin-top:8px;}
   .item-actions{display:flex; gap:6px; margin-top:10px;}
-  .item-actions button{padding:6px 12px; font-size:12px; border-radius:7px;}
+  .item-actions button{padding:6px 12px; font-size:12px; border-radius:0;}
   .empty{color:var(--ink-soft); font-size:13px; padding:10px 2px;}
 
   .edit-form label{display:block; font-size:11.5px; font-weight:700; color:var(--ink-soft); margin:8px 0 4px;}
