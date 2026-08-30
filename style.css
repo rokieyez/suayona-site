@@ -6,6 +6,7 @@
   --ink:#2f2a24; --ink-soft:#6f6558;
   --coral:#ff7f8a; --mint:#6cc7b3; --lemon:#ffd979; --grass:#6fb567;
   --px:4px;                    /* 도트 한 칸 크기(테두리/그림자용) */
+  --ink-bg-safe:#5c5448;       /* 배경 겹 위에 맨살로 앉는 글자용 — 크림 대비 7.17:1 */
   --header-h:61px;
 }
 *, *::before, *::after{box-sizing:border-box;}
@@ -219,3 +220,32 @@ body.lb-open header.site{opacity:0; pointer-events:none;}
 .edit-form .field{margin-top:12px;}
 .edit-form .field:first-of-type{margin-top:0;}
 .edit-form textarea{min-height:110px;}
+
+/* ===== 배경 겹 (소개·포트폴리오·일기장·편지쓰기 전용) =====
+   ★ <main> 에 background-color 를 주지 말 것 — 배경 겹이 통째로 가려진다.
+   ★ <main> 에 transform / opacity / filter / isolation 을 주지 말 것 —
+     쌓임 맥락이 생기면 z-index:-1 인 겹이 사라진다.
+   첫 페이지와 이벤트 페이지는 buildBackdrop 을 호출하지 않으므로 영향을 받지 않는다. */
+.bg-deck{position:fixed; inset:0; z-index:-1; pointer-events:none; overflow:hidden;}
+.bg-layer{position:absolute; left:0; width:100%;}
+.bg-layer canvas{width:100%; height:100%; display:block; image-rendering:pixelated;}
+.bg-far { top:0; height:var(--bg-far-h, 360px);}
+.bg-mid { top:var(--bg-mid-top, 360px); height:var(--bg-mid-h, 128px);}
+/* 가까운 겹은 이동 상한만큼 미리 화면 아래에 앉혀 둔다 —
+   위로 밀려 올라와도 화면 바닥에 닿을 뿐, 빈틈이 생길 수 없다. */
+.bg-near{bottom:calc(-1 * var(--bg-near-rise, 64px)); height:var(--bg-near-h, 140px);}
+
+/* 라이트박스·모달이 떠 있는 동안엔 합성 레이어를 뗀다 */
+body.lb-open .bg-deck{display:none;}
+
+/* 내용이 짧은 페이지에서는 푸터가 화면 중간에 끝나고, 화면에 고정된 풀 겹이 그 아래
+   허공에 뜬 띠처럼 보인다. 푸터를 화면 바닥까지 밀어 풀이 그 뒤로 숨게 한다.
+   (.bg-deck 은 position:fixed 라 이 flex 흐름에 끼지 않는다) */
+body.has-backdrop{min-height:100svh; display:flex; flex-direction:column;}
+body.has-backdrop main{flex:1 0 auto;}
+
+/* 카드 보호를 못 받고 배경 위에 맨살로 앉는 글자만 한 단계 진하게.
+   --ink-soft 자체는 건드리지 않는다 (카드 안 글자와 첫 페이지는 그대로). */
+body.has-backdrop .section-head p,
+body.has-backdrop .empty-msg,
+body.has-backdrop .admin-bar{color:var(--ink-bg-safe);}

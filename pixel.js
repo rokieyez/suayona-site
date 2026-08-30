@@ -759,3 +759,50 @@ function mixHex(a, b, t) {
   const mixed = pa.map((v, i) => q(Math.round(v + (pb[i] - v) * t)));
   return '#' + mixed.map(v => Math.min(255, Math.max(0, v)).toString(16).padStart(2, '0')).join('');
 }
+
+// ---------- 배경 겹 전용 도구 (내부 페이지에서만 씀) ----------
+// pixel.js 는 event/ 도 로드하지만 아래 셋은 호출하지 않으면 아무 일도 안 하는 순수 함수다.
+
+// 스프라이트가 실제로 쓰는 팔레트 문자만 훑어, 크림 쪽으로 물 뺀 paletteOverride 를 만든다.
+// 문자를 손으로 열거하면 반드시 샌다 — tree 는 7문자, frame 은 6문자다.
+// 어두운 색(윤곽선)은 배경에서 글자를 가장 방해하므로 조금 더 세게 뺀다.
+function washPal(sprite, t, base){
+  const used = new Set();
+  for (const row of sprite) for (const ch of row) if (ch !== '.') used.add(ch);
+  const out = {};
+  used.forEach(ch => {
+    const c = PAL[ch];
+    if (!c) return;
+    const lum = [1,3,5].reduce((n,i) => n + parseInt(c.substr(i,2),16), 0) / 765;
+    out[ch] = mixHex(c, base, Math.min(0.95, t + (lum < 0.35 ? 0.02 : 0)));
+  });
+  return out;
+}
+
+// SCENE 의 일부를 잠깐 바꿔 끼우고 fn 을 실행한 뒤 반드시 되돌린다.
+// drawFluffyCloud 는 색을 인자로 못 받고 SCENE.cloud 를 함수 안에서 직접 읽기 때문에 필요하다.
+// SCENE 은 첫 페이지·이벤트 페이지와 공유하는 전역이라, 원복이 빠지면 그쪽 색이 같이 죽는다.
+function withScene(patch, fn){
+  const saved = {};
+  Object.keys(patch).forEach(k => { saved[k] = SCENE[k]; });
+  Object.assign(SCENE, patch);
+  try { return fn(); }
+  finally { Object.assign(SCENE, saved); }
+}
+
+// 먼 겹 캔버스의 아래 이음매 전용. y0 부터 여섯 줄에 걸쳐 크림으로 계단식으로 흩어지고,
+// 그 아래는 크림 단색으로 채운다. 겹이 위로 밀려 올라가도 화면에 빈틈이 안 생기게 하는 장치.
+function groundOut(ctx, W, H, y0, s, fromColor, toColor){
+  const cols = Math.ceil(W / s);
+  const steps = [1, 2, 2, 3, 4, 4];          // 아래로 갈수록 크림 비율이 늘어남 (4칸 중 몇 칸)
+  steps.forEach((thresh, k) => {
+    const y = Math.round((y0 + k * s) / s) * s;
+    for (let c = 0; c < cols; c++) {
+      ctx.fillStyle = ((c + k * 2) % 4) < thresh ? toColor : fromColor;
+      ctx.fillRect(c * s, y, s, s);
+    }
+  });
+  const solid = Math.round((y0 + steps.length * s) / s) * s;
+  ctx.fillStyle = toColor;
+  ctx.fillRect(0, solid, W, Math.max(0, H - solid));
+}
