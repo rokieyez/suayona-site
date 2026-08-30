@@ -437,6 +437,7 @@ function showPanel(id, opts){
 // 주소창을 직접 복사해도 되지만, 휴대폰에서는 그게 번거로워서 버튼을 둠.
 function addTabLinkButton(){
   if (document.querySelector('.tab-link')) return;
+  if (!isAdmin) return;                     // 링크 복사·일정 추가 둘 다 관리자에게만
   const b = document.createElement('button');
   b.className = 'tab-link';
   b.type = 'button';
@@ -445,9 +446,7 @@ function addTabLinkButton(){
   b.addEventListener('click', () => copyTabLink(b));
   tabsEl.appendChild(b);
 
-  // 관리자에게만 보이는 일정 추가 버튼.
   // 지금 열려 있는 날짜 탭을 관리 화면에 넘겨줘서, 들어가자마자 그 날짜가 골라져 있게 한다.
-  if (!isAdmin) return;
   const add = document.createElement('a');
   add.className = 'tab-link tab-add';
   add.textContent = '＋ 일정 추가';
