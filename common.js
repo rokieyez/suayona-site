@@ -368,9 +368,18 @@ async function makeThumbBlob(img){
 // 원본 옆에 나란히 올린다: ".../abc.jpg" -> ".../abc.thumb.jpg"
 async function uploadThumbAt(bucket, path, blob){
   const tp = path.replace(/\.\w+$/, '') + '.thumb.jpg';
-  const { error } = await sb.storage.from(bucket)
-    .upload(tp, blob, { upsert: true, contentType: 'image/jpeg' });
-  if (error) throw new Error('올리기 실패: ' + error.message);
+
+  // 잘 되고 있는 '작품 올리기'와 똑같은 모양으로 부른다.
+  // 원래는 upsert:true 에 맨 blob 을 넘겼는데, 그 둘 다 여기서만 쓰던 방식이었다.
+  // upsert 는 파일이 이미 있는지 보려고 덮어쓰기 경로를 타는데, 이 저장소에는
+  // 읽기 정책이 따로 없어서 그 길에서 걸린다.
+  const file = new File([blob], tp.split('/').pop(), { type: 'image/jpeg' });
+  const { error } = await sb.storage.from(bucket).upload(tp, file);
+
+  if (error && !/exists|duplicate/i.test(error.message)) {
+    throw new Error('사본 올리기 실패: ' + error.message);
+  }
+  // 이미 있다면 앞선 시도에서 파일만 올라가고 주소를 못 적은 것이다. 실패가 아니다.
   return sb.storage.from(bucket).getPublicUrl(tp).data.publicUrl;
 }
 
@@ -378,7 +387,7 @@ async function uploadThumbAt(bucket, path, blob){
 function readableError(e){
   const m = (e && e.message) || String(e);
   if (/row-level security|permission|not authorized/i.test(m))
-    return '권한이 없어요. 로그인이 풀렸는지 확인하고 다시 눌러주세요.';
+    return '권한이 없어요 (로그인이 풀렸는지 확인해 주세요) — ' + m;
   if (/Failed to fetch|NetworkError|HTTP 4|HTTP 5/i.test(m))
     return '사진을 내려받지 못했어요 (' + m + ')';
   if (/tainted|SecurityError/i.test(m))
