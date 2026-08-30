@@ -28,6 +28,13 @@
   .letter .meta{font-size:11.5px; color:var(--ink-soft); margin-bottom:8px;}
   .letter .body{font-size:14px; line-height:1.8; white-space:pre-line;}
   .letter .actions{margin-top:12px;}
+  /* 몇 자까지 쓸 수 있는지 미리 보여 준다 — 다 쓰고 나서 막히면 억울하다 */
+  .count{
+    display:block; text-align:right; margin-top:5px;
+    font-size:11.5px; color:var(--ink-soft); font-variant-numeric:tabular-nums;
+  }
+  .count.near{color:var(--ink);}
+  .count.over{color:#c0392b; font-weight:800;}
 </style>
 </head>
 <body>
@@ -44,11 +51,12 @@
       <div class="inner">
         <canvas class="mail-icon" data-icon="mail" width="96" height="72"></canvas>
         <label class="field">이름 (선택)</label>
-        <input type="text" id="cName" placeholder="누구신가요?">
+        <input type="text" id="cName" placeholder="누구신가요?" maxlength="40">
         <label class="field">답장받을 곳 (선택)</label>
-        <input type="text" id="cContact" placeholder="이메일이나 연락처">
+        <input type="text" id="cContact" placeholder="이메일이나 연락처" maxlength="120">
         <label class="field">하고 싶은 말</label>
-        <textarea id="cBody" placeholder="여기에 적어주세요"></textarea>
+        <textarea id="cBody" placeholder="여기에 적어주세요" maxlength="2000"></textarea>
+        <span class="count" id="cCount">0 / 2000자</span>
         <button class="dot-btn primary" id="cSend" style="width:100%; margin-top:18px;">보내기</button>
         <div class="msg" id="cMsg"></div>
       </div>
@@ -107,15 +115,42 @@ async function sendMail({ name, contact, body }){
   }
 }
 
+// ---------- 글자 수 ----------
+// 여기서 막는 것은 알려 주기 위한 것일 뿐이다. 진짜로 막는 곳은 서버다 —
+// 이 화면을 건너뛰고 곧장 보낼 수 있으므로, 화면만 믿으면 안 막은 것과 같다.
+const MAX = { name: 40, contact: 120, body: 2000 };
+
+function showCount(){
+  const n = $('#cBody').value.length;
+  const el = $('#cCount');
+  el.textContent = n + ' / ' + MAX.body + '자';
+  el.className = 'count' + (n >= MAX.body ? ' over' : n > MAX.body * 0.9 ? ' near' : '');
+}
+$('#cBody').addEventListener('input', showCount);
+showCount();
+
+// 서버가 돌려준 말은 사람이 읽기 어렵다. 무엇을 어떻게 고치면 되는지로 바꿔 준다.
+function whyRefused(error){
+  const m = (error && error.message) || '';
+  if (/messages_length/.test(m)) return '글이 너무 길어요. 하고 싶은 말은 ' + MAX.body + '자까지 쓸 수 있어요.';
+  if (/편지가 너무 많이/.test(m)) return '지금은 편지가 너무 많이 왔어요. 잠시 뒤에 다시 보내주세요.';
+  return '보내지 못했어요: ' + m;
+}
+
 // ---------- 메시지 보내기 ----------
 $('#cSend').addEventListener('click', async () => {
   const msg = $('#cMsg'), btn = $('#cSend');
   msg.className = 'msg'; msg.textContent = '';
   const body = $('#cBody').value.trim();
   if (!body) { msg.className = 'msg err'; msg.textContent = '하고 싶은 말을 적어주세요.'; return; }
+  if (body.length > MAX.body) {
+    msg.className = 'msg err';
+    msg.textContent = '하고 싶은 말은 ' + MAX.body + '자까지 쓸 수 있어요. (지금 ' + body.length + '자)';
+    return;
+  }
 
-  const name = $('#cName').value.trim() || null;
-  const contact = $('#cContact').value.trim() || null;
+  const name = $('#cName').value.trim().slice(0, MAX.name) || null;
+  const contact = $('#cContact').value.trim().slice(0, MAX.contact) || null;
 
   btn.disabled = true; msg.textContent = '보내는 중...';
 
@@ -123,7 +158,7 @@ $('#cSend').addEventListener('click', async () => {
   const { error } = await sb.from('messages').insert({ name, contact, body });
   if (error) {
     btn.disabled = false;
-    msg.className = 'msg err'; msg.textContent = '실패: ' + error.message;
+    msg.className = 'msg err'; msg.textContent = whyRefused(error);
     return;
   }
   await sendMail({ name, contact, body });
@@ -131,6 +166,7 @@ $('#cSend').addEventListener('click', async () => {
   btn.disabled = false;
   msg.className = 'msg ok'; msg.textContent = '보냈어요! 고마워요 :)';
   $('#cName').value = ''; $('#cContact').value = ''; $('#cBody').value = '';
+  showCount();
 });
 
 // ---------- 관리자: 받은 메시지 확인 ----------

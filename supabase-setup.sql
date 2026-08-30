@@ -293,3 +293,43 @@ alter table public.events add column if not exists thumb_url text;
 create policy "parent reads all profiles" on public.profiles
   for select to authenticated
   using (my_role() = 'parent');
+
+-- ---------------------------------------------------------------------------
+-- 편지쓰기에 제한 걸기
+--
+-- 누구나 쓸 수 있어야 하는 화면이라 열어 두었는데, 아무 제한이 없었다.
+-- 아주 긴 글을 몇 번이고 넣으면 무료 용량이 그만큼 부푼다.
+--
+-- 화면에서 막는 것만으로는 소용이 없다 — 화면을 건너뛰고 곧장 보낼 수 있으므로.
+-- 그래서 여기(서버)에 건다. 화면 쪽 글자 수 표시는 미리 알려 주기 위한 것일 뿐이다.
+-- 길이는 넉넉하게 잡았다. 지금까지 온 편지 중 가장 긴 것이 28자다.
+-- ---------------------------------------------------------------------------
+alter table public.messages
+  add constraint messages_length check (
+        length(coalesce(name, ''))    <= 40
+    and length(coalesce(contact, '')) <= 120
+    and length(body) between 1 and 2000
+  );
+
+-- 짧은 글을 수없이 넣는 것도 막아야 한다. 길이만 재면 그쪽이 열려 있다.
+--
+-- 규칙(policy)이 아니라 방아쇠(trigger)로 두는 이유:
+-- 규칙 안에서 messages 를 세려면 읽기 권한이 필요한데 편지는 부모만 읽을 수 있어서
+-- 늘 0으로 세어진다. 권한을 빌려 세는 함수를 만들면 그 함수가 밖에서도 불릴 수 있게 된다.
+-- 방아쇠 함수는 밖에서 부를 수 없으므로 여는 문이 늘지 않는다.
+create or replace function public.messages_flood_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare recent int;
+begin
+  select count(*) into recent from messages where created_at > now() - interval '10 minutes';
+  if recent >= 10 then
+    raise exception '지금은 편지가 너무 많이 왔어요. 잠시 뒤에 다시 보내주세요.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists messages_flood_guard on public.messages;
+create trigger messages_flood_guard
+  before insert on public.messages
+  for each row execute function public.messages_flood_guard();
