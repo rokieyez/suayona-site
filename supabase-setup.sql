@@ -286,3 +286,10 @@ create policy "parent deletes media" on storage.objects
 -- ---------------------------------------------------------------------------
 alter table public.posts  add column if not exists thumb_url text;
 alter table public.events add column if not exists thumb_url text;
+
+-- profiles 는 "자기 것만 읽기" 라서 부모가 백업을 받아도 세 줄 중 한 줄만 들어왔다.
+-- 개수까지 걸러진 채로 오기 때문에 "다 받았나" 확인하는 장치로도 잡히지 않는다.
+-- 누가 어떤 역할인지는 부모가 알아야 할 것이고, 그래야 백업도 온전해진다.
+create policy "parent reads all profiles" on public.profiles
+  for select to authenticated
+  using (my_role() = 'parent');
