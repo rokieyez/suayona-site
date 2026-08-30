@@ -42,16 +42,20 @@ function buildChrome(activeKey){
       '<canvas id="logoCanvas" width="36" height="36"></canvas>' +
       '<span class="logo-text pixel">수아랑 연아랑</span>' +
     '</a>' +
-    '<button class="menu-toggle pixel" id="menuToggle" aria-label="메뉴 열기">☰</button>' +
-    '<nav id="nav">' +
-      MENU.map(m =>
-        '<a href="' + m.href + '"' +
-        (m.external ? ' target="_blank" rel="noopener"' : '') +
-        (m.key === activeKey ? ' class="active"' : '') +
-        '>' + m.label + '</a>'
-      ).join('') +
-    '</nav>';
+    '<div class="hdr-right">' +
+      '<nav id="nav">' +
+        MENU.map(m =>
+          '<a href="' + m.href + '"' +
+          (m.external ? ' target="_blank" rel="noopener"' : '') +
+          (m.key === activeKey ? ' class="active"' : '') +
+          '>' + m.label + '</a>'
+        ).join('') +
+      '</nav>' +
+      '<button class="hdr-auth" id="hdrAuth" aria-label="로그인">로그인</button>' +
+      '<button class="menu-toggle pixel" id="menuToggle" aria-label="메뉴 열기">☰</button>' +
+    '</div>';
   document.body.prepend(header);
+  buildAuthModal();
 
   const footer = document.createElement('footer');
   footer.className = 'site';
@@ -70,6 +74,7 @@ function buildChrome(activeKey){
     if (!session) return;
     isLoggedIn = true;
     syncPrivateMenu();
+    syncAuthButton();
   }).catch(() => {});
 
   // 로고 하트 · 푸터 유튜브 아이콘 도트 찍기
@@ -136,7 +141,7 @@ async function refreshAuth(){
   const { data: { session } } = await sb.auth.getSession();
   me = null; isAdmin = false; isChild = false;
   isLoggedIn = !!session;
-  if (!session) { syncPrivateMenu(); return null; }
+  if (!session) { syncPrivateMenu(); syncAuthButton(); return null; }
 
   const { data } = await sb.from('profiles')
     .select('user_id, role, display, author_key')
@@ -149,6 +154,7 @@ async function refreshAuth(){
   isAdmin = !!me && me.role === 'parent';
   isChild = !!me && me.role === 'child';
   syncPrivateMenu();
+  syncAuthButton();
   return session;
 }
 
@@ -171,6 +177,70 @@ function syncPrivateMenu(){
   });
 }
 
+// ---------- 헤더의 로그인 단추와 창 ----------
+// 로그인 상자는 페이지마다 따로 있었는데, 첫 페이지처럼 상자가 없는 곳에서는
+// 들어갈 방법이 아예 없었다. 헤더에 두면 어느 페이지에서든 같은 자리다.
+function buildAuthModal(){
+  if (document.getElementById('authModal')) return;
+  const m = document.createElement('div');
+  m.className = 'auth-modal';
+  m.id = 'authModal';
+  m.hidden = true;
+  m.innerHTML =
+    '<div class="auth-in dot-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">' +
+      '<button class="auth-x" id="authClose" aria-label="닫기">✕</button>' +
+      '<h4 id="authTitle">로그인</h4>' +
+      '<div id="authBody"></div>' +
+    '</div>';
+  document.body.appendChild(m);
+
+  document.getElementById('hdrAuth').addEventListener('click', openAuthModal);
+  document.getElementById('authClose').addEventListener('click', closeAuthModal);
+  m.addEventListener('click', e => { if (e.target === m) closeAuthModal(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !m.hidden) closeAuthModal();
+  });
+}
+
+function syncAuthButton(){
+  const b = document.getElementById('hdrAuth');
+  if (!b) return;
+  b.textContent = isLoggedIn ? (me ? me.display : '내 계정') : '로그인';
+  b.classList.toggle('in', isLoggedIn);
+  b.setAttribute('aria-label', isLoggedIn ? '내 계정' : '로그인');
+}
+
+async function openAuthModal(){
+  // 첫 페이지처럼 로그인 확인을 미룬 곳에서는 여기서 한 번만 확인한다
+  if (isLoggedIn && !me) { await refreshAuth(); }
+
+  const body = document.getElementById('authBody');
+  body.innerHTML = '';
+  if (isLoggedIn) {
+    document.getElementById('authTitle').textContent = '내 계정';
+    const name = me ? me.display + (isChild ? ' (아이)' : '') : '이 계정';
+    body.innerHTML =
+      '<p class="auth-who">' + escapeHTML(name) + '(으)로 들어와 있어요.</p>' +
+      '<button class="dot-btn primary" id="authOut" style="width:100%;">로그아웃</button>';
+    document.getElementById('authOut').addEventListener('click', async () => {
+      await sb.auth.signOut();
+      location.reload();      // 페이지마다 로그인 여부에 따라 보이는 게 달라서 새로 그린다
+    });
+  } else {
+    document.getElementById('authTitle').textContent = '로그인';
+    mountLoginBox(body, () => location.reload());
+  }
+
+  document.getElementById('authModal').hidden = false;
+  const first = body.querySelector('input');
+  if (first) setTimeout(() => first.focus(), 40);
+}
+
+function closeAuthModal(){
+  const m = document.getElementById('authModal');
+  if (m) m.hidden = true;
+}
+
 // 관리자 로그인 상자를 만들어 지정한 위치에 넣음.
 // onChange(isAdmin) 는 로그인/로그아웃 직후에 호출됨.
 function mountLoginBox(container, onChange){
@@ -185,14 +255,23 @@ function mountLoginBox(container, onChange){
     '</div>';
   container.appendChild(box);
 
+  // 비밀번호 칸에서 엔터를 치면 그대로 들어가지도록 (모바일 자판의 '완료' 도 이걸 탄다)
+  box.querySelectorAll('input').forEach(inp =>
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); box.querySelector('.lgBtn').click(); }
+    }));
+
+  // 이 자리를 매번 다시 찾지 않는다. className 을 통째로 갈아끼우면서 lgMsg 라는
+  // 표식까지 지워 버렸던 탓에, 한 번 실패하면 다음 누름부터 단추가 먹통이 됐다.
+  const msg = box.querySelector('.lgMsg');
+
   box.querySelector('.lgBtn').addEventListener('click', async () => {
-    const msg = box.querySelector('.lgMsg');
-    msg.className = 'msg'; msg.textContent = '로그인 중...';
+    msg.className = 'msg lgMsg'; msg.textContent = '로그인 중...';
     const { error } = await sb.auth.signInWithPassword({
       email: box.querySelector('.lgEmail').value.trim(),
       password: box.querySelector('.lgPw').value,
     });
-    if (error) { msg.className = 'msg err'; msg.textContent = '로그인 실패: ' + error.message; return; }
+    if (error) { msg.className = 'msg lgMsg err'; msg.textContent = '로그인 실패: ' + error.message; return; }
     msg.textContent = '';
     await refreshAuth();
     onChange(isAdmin);

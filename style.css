@@ -79,6 +79,21 @@ header.site nav a:hover{color:var(--ink); border-color:var(--ink); background:va
 header.site nav a.active{color:var(--ink); background:var(--lemon); border-color:var(--ink);}
 .menu-toggle{display:none; background:none; border:var(--px) solid var(--ink); padding:6px 10px; cursor:pointer; font-size:16px;}
 
+/* 헤더 오른쪽 묶음 — 넓은 화면에선 메뉴+로그인, 좁은 화면에선 로그인+햄버거.
+   메뉴는 좁아지면 fixed 로 빠지므로, 로그인 단추가 저절로 햄버거 왼편에 붙는다. */
+.hdr-right{display:flex; align-items:center; gap:8px;}
+.hdr-auth{
+  font-family:inherit; font-size:12.5px; font-weight:800; cursor:pointer;
+  color:var(--ink); background:var(--cream); white-space:nowrap;
+  border:var(--px) solid var(--ink); border-radius:0; padding:7px 12px;
+  box-shadow:2px 2px 0 var(--ink);
+  transition:transform .12s steps(2), box-shadow .12s steps(2);
+}
+.hdr-auth:hover{background:var(--lemon);}
+.hdr-auth:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--ink);}
+.hdr-auth.in{background:var(--mint);}
+.hdr-auth:focus-visible{outline:3px solid var(--ink); outline-offset:2px;}
+
 @media (max-width:860px){
   header.site nav{
     position:fixed; top:var(--header-h); left:0; right:0; flex-direction:column; gap:0;
@@ -89,6 +104,31 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
   header.site nav a{padding:14px 20px; border:none; border-top:2px solid rgba(47,42,36,.12); font-size:14px;}
   .menu-toggle{display:block;}
 }
+/* 아주 좁은 화면에선 로고 글씨를 접어 로그인 단추 자리를 낸다 */
+@media (max-width:400px){
+  .logo-text{display:none;}
+  .hdr-auth{padding:7px 10px; font-size:12px;}
+}
+
+/* ===== 로그인 창 (헤더 단추로 열림) ===== */
+.auth-modal{
+  position:fixed; inset:0; z-index:130; padding:18px;
+  background:rgba(47,42,36,.55);
+  display:flex; align-items:center; justify-content:center;
+}
+.auth-modal[hidden]{display:none;}
+.auth-in{position:relative; width:100%; max-width:340px; padding:24px 24px 20px;}
+.auth-in h4{margin:0 0 16px; font-size:17px; font-weight:900;}
+.auth-x{
+  position:absolute; top:8px; right:8px; padding:8px; cursor:pointer;
+  border:none; background:none; font-family:inherit; font-size:15px; line-height:1;
+  color:var(--ink-soft);
+}
+.auth-x:hover{color:var(--ink);}
+.auth-who{margin:0 0 16px; font-size:13.5px; line-height:1.75; color:var(--ink-soft);}
+/* 창 안에서는 로그인 상자의 테두리를 지운다 — 카드 안의 카드가 되지 않도록 */
+#authBody .login-box{max-width:none; margin:0; border:none; box-shadow:none; background:none;}
+#authBody .login-box .inner{padding:0;}
 
 /* ===== 페이지 공통 레이아웃 ===== */
 .wrap{max-width:960px; margin:0 auto; padding:0 20px;}
