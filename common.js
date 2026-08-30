@@ -110,11 +110,15 @@ function buildChrome(activeKey){
     if (e.key === 'Escape') nav.classList.remove('open');
   });
 
-  // 아래로 스크롤하면 헤더 숨김
+  // 아래로 스크롤하면 헤더 숨김.
+  // 헤더 아래에 따라붙는 것(이벤트 페이지의 날짜 탭 등)이 있어서, 숨은 사실을 body 에도 남긴다.
+  // 안 그러면 그것들이 헤더가 있던 자리에 그대로 떠 있어 그 틈으로 내용이 지나간다.
   let last = 0;
   window.addEventListener('scroll', () => {
     const y = window.scrollY;
-    header.classList.toggle('hidden', y > 200 && y > last);
+    const hide = y > 200 && y > last;
+    header.classList.toggle('hidden', hide);
+    document.body.classList.toggle('header-hidden', hide);
     last = y;
   }, {passive:true});
 }
