@@ -361,7 +361,7 @@ buildChrome('home');
     // 좌표를 화면 비율로 박아두면 스프라이트 크기를 바꿀 때마다 서로 겹침.
     // 실제 폭을 재서 가운데 정렬로 늘어놓고, 발끝은 sprite.length 로 맞춤.
     const cast = [
-      { sp: SPRITES.chick, s: petS,  bob: hop3 },
+      { sp: SPRITES.chick, s: petS,  bob: 0, roll: true },   // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다님
       { sp: SPRITES.sua,   s: castS, bob: hop1 },
       { sp: SPRITES.yona,  s: castS, bob: hop2 },
       { sp: SPRITES.fox,   s: petS,  bob: 0 },
@@ -377,7 +377,23 @@ buildChrome('home');
       Math.round((W * 0.94 - castW) / (cast.length - 1))));
     let cx = Math.round((W - (castW + gap * (cast.length - 1))) / 2 / S) * S;
     cast.forEach(c => {
-      drawSprite(ctx, c.sp, cx, standY - c.sp.length * c.s - c.bob, c.s);
+      if (c.roll) {
+        // 돌처럼 굴러다님: 좌우로 천천히 오가고, 굴러간 거리만큼 실제로 돌아간다.
+        // 각도 = 이동거리 / 반지름 이라서 미끄러지지 않고 굴러가는 것으로 보임.
+        const w = c.sp[0].length * c.s, h = c.sp.length * c.s;
+        const radius = w / 2;
+        const amp = Math.min(w * 1.6, W * 0.05);
+        const dx = Math.sin(t * 0.42) * amp;
+        ctx.save();
+        // 회전 중심을 도트 격자에 맞춰 잡아야 돌 때 그림이 떨리지 않음
+        ctx.translate(Math.round((cx + w / 2 + dx) / S) * S,
+                      Math.round((standY - h / 2) / S) * S);
+        ctx.rotate(dx / radius);
+        drawSprite(ctx, c.sp, -Math.round(w / 2), -Math.round(h / 2), c.s);
+        ctx.restore();
+      } else {
+        drawSprite(ctx, c.sp, cx, standY - c.sp.length * c.s - c.bob, c.s);
+      }
       cx += c.sp[0].length * c.s + gap;
     });
 
