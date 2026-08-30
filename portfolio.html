@@ -142,7 +142,8 @@ function render(){
     card.className = 'gal-item dot-card hoverable reveal';
     const media = w.media_type === 'video'
       ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
-      : '<img src="' + escapeHTML(w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">';
+      // 격자 칸은 264px 인데 원본은 1800px 이 넘는다. 사본이 있으면 그것만 받는다.
+      : '<img src="' + escapeHTML(w.thumb_url || w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">';
     // 적어둔 이야기를 목록에서도 보여준다 — 예전에는 사진을 눌러야만 한 줄로 보였다.
     const story = w.quote
       ? '<div class="gal-quote">\u201C' + escapeHTML(w.quote) + '\u201D</div>'
@@ -255,6 +256,7 @@ function openEditModal(w){
         const up = await uploadMedia(file, 'works', PORTFOLIO_IMAGE_LIMIT);
         patch.media_url = up.url;
         patch.media_type = up.type;
+        patch.thumb_url = up.thumbUrl;
       }
       const { error } = await sb.from('works').update(patch).eq('id', w.id);
       if (error) throw error;
@@ -401,6 +403,38 @@ $('#years').addEventListener('click', (e) => {
   render();
 });
 
+// ---------- 작품 사진 가볍게 만들기 ----------
+// 격자는 264px 칸인데 예전에 올린 작품은 원본(1800px 넘음)밖에 없다.
+// 없는 것만 골라 작은 사본을 만들어 둔다.
+async function showThumbTool(box){
+  const missing = works.filter(w => w.media_type !== 'video' && !w.thumb_url);
+  if (!missing.length) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'dot-btn small';
+  btn.textContent = '🗜 작품 사진 ' + missing.length + '개 가볍게 만들기';
+  const note = document.createElement('span');
+  note.style.cssText = 'font-size:12.5px; color:var(--ink-soft); margin-left:10px; align-self:center;';
+  box.appendChild(btn);
+  box.appendChild(note);
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    const res = await backfillThumbs(
+      MEDIA_BUCKET,
+      missing.map(w => ({ id: w.id, url: w.media_url })),
+      (id, thumb_url) => sb.from('works').update({ thumb_url }).eq('id', id),
+      (i, n) => { note.textContent = '만드는 중... (' + i + '/' + n + ')'; });
+
+    const parts = [res.made + '개 완료'];
+    if (res.skipped) parts.push('이미 작은 사진 ' + res.skipped + '개는 그대로');
+    if (res.failed)  parts.push(res.failed + '개 실패');
+    note.textContent = parts.join(' · ');
+    btn.disabled = false;
+    await loadWorks();
+  });
+}
+
 // ---------- 관리자 영역 ----------
 function renderAdminArea(){
   const area = $('#adminArea');
@@ -408,6 +442,12 @@ function renderAdminArea(){
   // 방문자에게는 아무것도 두지 않는다. 작품을 올리는 사람은 한 명뿐이고,
   // 그 사람은 헤더 로그인으로 들어온다.
   if (!isAdmin) { render(); return; }
+
+  // 사본이 없는 작품이 남아 있으면 한 번에 만들 수 있게 단추를 띄운다
+  const tools = document.createElement('div');
+  tools.style.cssText = 'display:flex; justify-content:center; margin-bottom:18px;';
+  area.appendChild(tools);
+  showThumbTool(tools);
 
   loadEventList().then(() => fillEventSelect($('#wEvent'), ''));
 
@@ -465,7 +505,7 @@ function renderAdminArea(){
         const { error } = await sb.from('works').insert({
           title: files.length > 1 ? title + ' (' + (i+1) + ')' : title,
           description, quote, event_id, author, made_on,
-          media_url: up.url, media_type: up.type,
+          media_url: up.url, media_type: up.type, thumb_url: up.thumbUrl,
           sort_order: Math.floor(Date.now() / 1000),
         });
         if (error) throw error;

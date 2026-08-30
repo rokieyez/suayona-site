@@ -158,3 +158,42 @@ create policy schedules_write on schedules
   for all to authenticated
   using (public.my_role() = 'parent')
   with check (public.my_role() = 'parent');
+
+-- ---------------------------------------------------------------------------
+-- 작은 사본(썸네일)
+--
+-- 격자는 손톱만 한 칸인데 원본을 통째로 내려받고 있었다. 1855px 짜리 작품 사진을
+-- 264px 칸에, 2400px 짜리 갤러리 사진을 81px 칸에 그리느라 한 장에 1~3MB 가 나갔다.
+-- 갤러리를 한 번 끝까지 내리면 180MB, 무료 플랜의 월 전송량 5GB 로는 스물몇 번이면
+-- 동난다.
+--
+-- 그래서 올릴 때 긴 변 400px 짜리 사본을 나란히 올려 두고(같은 경로에 .thumb.jpg),
+-- 그 주소를 여기에 담는다. 격자는 이것만 쓰고, 원본은 눌러서 크게 볼 때만 받는다.
+-- 실측: 3,496KB -> 32KB (0.9%).
+-- 사본이 없으면 화면은 원본으로 물러나므로, 예전 자료도 그대로 보인다.
+-- ---------------------------------------------------------------------------
+alter table works         add column if not exists thumb_url text;
+alter table gallery_media add column if not exists thumb_url text;
+
+-- ---------------------------------------------------------------------------
+-- 갤러리에 누구나 올릴 수 있던 구멍 막기
+--
+-- 화면의 올리기 단추는 진작 관리자에게만 보였지만 서버는 한 번도 막힌 적이 없었다.
+-- 브라우저 콘솔만 열면 낯선 사람이 아이들 갤러리에 사진을 올릴 수 있었고,
+-- 저장공간(1GB)도 그렇게 채울 수 있었다.
+-- ---------------------------------------------------------------------------
+drop policy if exists "anyone can insert gallery_media" on gallery_media;
+create policy "authenticated can insert gallery_media"
+  on gallery_media for insert to authenticated with check (true);
+
+drop policy if exists "anyone can upload to gallery bucket" on storage.objects;
+create policy "authenticated can upload to gallery bucket"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'gallery-uploads');
+
+-- 사본을 다시 만들 때 같은 자리에 덮어써야 해서 update 도 필요하다 (원래 없었음)
+drop policy if exists "authenticated can update gallery bucket" on storage.objects;
+create policy "authenticated can update gallery bucket"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'gallery-uploads')
+  with check (bucket_id = 'gallery-uploads');

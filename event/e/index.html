@@ -400,6 +400,7 @@ function buildTabsAndPanels(){
               '<label class="upload-btn" id="uploadBtn" for="galleryFileInput">📤 사진/영상 올리기</label>' +
               '<input type="file" id="galleryFileInput" accept="image/*,video/*" multiple style="display:none;">' +
               '<button type="button" class="auto-btn" id="autoBtn">🪄 사진으로 일정 만들기</button>' +
+              '<button type="button" class="auto-btn" id="thumbBtn" hidden>🗜 사진 가볍게 만들기</button>' +
             '</div>'
           : '') +
         '<div class="gallery-msg" id="galleryMsg"></div>' +
@@ -749,7 +750,8 @@ function renderGalleryThumb(r, index){
   thumb.className = 'gallery-thumb' + (isVideo ? ' is-video' : '');
   thumb.innerHTML = isVideo
     ? '<video src="' + r.media_url + '" preload="metadata" muted></video>'
-    : '<img src="' + r.media_url + '" loading="lazy" alt="">';
+    // 손톱만 한 칸이다. 사본이 있으면 원본을 받지 않는다.
+    : '<img src="' + (r.thumb_url || r.media_url) + '" loading="lazy" alt="">';
   thumb.addEventListener('click', () => openLightbox(index));
 
   if (isAdmin && r.source === 'gallery') {
@@ -863,9 +865,12 @@ async function uploadGalleryFiles(fileList){
       const { error: upErr } = await sb.storage.from(GALLERY_BUCKET).upload(path, uploadFile);
       if (upErr) throw upErr;
       const { data: pub } = sb.storage.from(GALLERY_BUCKET).getPublicUrl(path);
+      // 격자에 쓸 작은 사본. 없어도 화면은 원본으로 물러나므로 실패해도 넘어간다.
+      const thumb_url = check.isVideo ? null
+        : await makeAndUploadThumb(GALLERY_BUCKET, path, uploadFile);
       const { error: insErr } = await sb.from('gallery_media').insert({
         event_id: CONFIG.eventSlug, media_url: pub.publicUrl, media_type: check.isVideo ? 'video' : 'image',
-        taken_at, location_name,
+        taken_at, location_name, thumb_url,
       });
       if (insErr) throw insErr;
       okCount++;
@@ -1192,6 +1197,57 @@ async function createProposedItems(){
   setTimeout(() => location.reload(), 700);
 }
 
+// ---------------------------------------------------------------------------
+// 이미 올라간 사진의 작은 사본 만들기
+//
+// 사본을 쓰기 시작한 건 나중이라, 그 전에 올린 사진에는 사본이 없다.
+// 없는 것만 골라 한 번 훑어 만들어 준다. 한 장씩 처리하는 게 느려 보여도,
+// 브라우저 메모리에 큰 사진을 여러 장 동시에 올리는 것보다 안전하다.
+// ---------------------------------------------------------------------------
+async function countMissingThumbs(){
+  const btn = $('#thumbBtn');
+  if (!btn) return;
+  const { count, error } = await sb.from('gallery_media')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_id', CONFIG.eventSlug).eq('media_type', 'image').is('thumb_url', null);
+  if (error || !count) { btn.hidden = true; return; }
+  btn.hidden = false;
+  btn.textContent = '🗜 사진 ' + count + '장 가볍게 만들기';
+}
+
+async function makeGalleryThumbs(){
+  const btn = $('#thumbBtn'), msg = $('#galleryMsg');
+  btn.disabled = true;
+
+  const { data, error } = await sb.from('gallery_media')
+    .select('id, media_url')
+    .eq('event_id', CONFIG.eventSlug).eq('media_type', 'image').is('thumb_url', null);
+  if (error) {
+    btn.disabled = false;
+    msg.className = 'gallery-msg err'; msg.textContent = '목록을 읽지 못했어요: ' + error.message;
+    return;
+  }
+  const rows = (data || []).map(r => ({ id: r.id, url: r.media_url }));
+  if (!rows.length) { btn.hidden = true; btn.disabled = false; return; }
+
+  const res = await backfillThumbs(
+    GALLERY_BUCKET, rows,
+    (id, thumb_url) => sb.from('gallery_media').update({ thumb_url }).eq('id', id),
+    (i, n) => {
+      msg.className = 'gallery-msg';
+      msg.textContent = '가볍게 만드는 중... (' + i + '/' + n + ')';
+    });
+
+  btn.disabled = false;
+  const parts = [res.made + '장 완료'];
+  if (res.skipped) parts.push('이미 작은 사진 ' + res.skipped + '장은 그대로');
+  if (res.failed)  parts.push(res.failed + '장 실패');
+  msg.className = 'gallery-msg ' + (res.made ? 'ok' : 'err');
+  msg.textContent = parts.join(' · ');
+  await countMissingThumbs();
+  loadGallery();
+}
+
 let lightboxIndex = -1;
 let lightboxPrevBtn, lightboxNextBtn;
 
@@ -1405,6 +1461,11 @@ function isPageZoomed(){
   }
   const autoBtn = $('#autoBtn');
   if (autoBtn) autoBtn.addEventListener('click', openScheduleProposal);
+  const thumbBtn = $('#thumbBtn');
+  if (thumbBtn) {
+    thumbBtn.addEventListener('click', makeGalleryThumbs);
+    countMissingThumbs();
+  }
   if (byPanel) renderSchedule(byPanel);
   showAdminAddLink(byPanel);
   setupLightboxInteractions();

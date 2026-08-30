@@ -315,6 +315,86 @@ async function compressImage(file, maxBytes){
   return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type:'image/jpeg' });
 }
 
+// ---------- 작은 사본(썸네일) ----------
+// 격자는 손톱만 한 칸인데 원본을 통째로 받고 있었다. 1855px 짜리 사진을 264px 칸에
+// 그리느라 사진 한 장에 1~2MB 가 나갔다. 올릴 때 긴 변 400px 사본을 같이 만들어 두고,
+// 격자는 그것만 쓴다. 원본은 눌러서 크게 볼 때만 받는다.
+const THUMB_DIM = 400;
+const THUMB_Q = 0.72;
+
+// 다른 출처의 주소를 canvas 로 읽으려면 crossOrigin 이 필요하다.
+// 없으면 캔버스가 오염돼서 toBlob 이 막힌다.
+function loadImage(src, cross){
+  return new Promise((res, rej) => {
+    const im = new Image();
+    if (cross) im.crossOrigin = 'anonymous';
+    im.onload = () => res(im);
+    im.onerror = () => rej(new Error('사진을 읽지 못했어요'));
+    im.src = src;
+  });
+}
+
+// 원본이 이미 400px 보다 작으면 사본을 만들지 않는다 (null 을 돌려줌)
+async function makeThumbBlob(img){
+  const long = Math.max(img.naturalWidth, img.naturalHeight);
+  if (!long || long <= THUMB_DIM) return null;
+  const sc = THUMB_DIM / long;
+  const w = Math.round(img.naturalWidth * sc), h = Math.round(img.naturalHeight * sc);
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').drawImage(img, 0, 0, w, h);
+  return await new Promise(r => c.toBlob(r, 'image/jpeg', THUMB_Q));
+}
+
+// 원본 옆에 나란히 올린다: ".../abc.jpg" -> ".../abc.thumb.jpg"
+async function uploadThumbAt(bucket, path, blob){
+  const tp = path.replace(/\.\w+$/, '') + '.thumb.jpg';
+  const { error } = await sb.storage.from(bucket)
+    .upload(tp, blob, { upsert: true, contentType: 'image/jpeg' });
+  if (error) return null;
+  return sb.storage.from(bucket).getPublicUrl(tp).data.publicUrl;
+}
+
+// 공개 주소에서 버킷 안 경로만 되돌림
+//   ".../object/public/<버킷>/<경로>" -> "<경로>"
+function pathFromPublicUrl(bucket, url){
+  const tail = String(url).split('/object/public/' + bucket + '/')[1];
+  return tail ? decodeURIComponent(tail.split('?')[0]) : null;
+}
+
+// 파일 하나에서 사본을 만들어 올림. 실패해도 던지지 않는다 —
+// 사본이 없으면 화면이 원본으로 물러날 뿐이라, 업로드 자체를 막을 이유가 없다.
+async function makeAndUploadThumb(bucket, path, file){
+  try {
+    const src = URL.createObjectURL(file);
+    try {
+      const blob = await makeThumbBlob(await loadImage(src));
+      if (!blob) return null;
+      return await uploadThumbAt(bucket, path, blob);
+    } finally { URL.revokeObjectURL(src); }
+  } catch (e) { return null; }
+}
+
+// 이미 올라가 있는 사진들의 사본을 뒤늦게 만들어 준다.
+// rows: [{id, url}] · save(id, thumbUrl) 로 각 줄을 갱신
+async function backfillThumbs(bucket, rows, save, onStep){
+  let made = 0, skipped = 0, failed = 0;
+  for (let i = 0; i < rows.length; i++) {
+    if (onStep) onStep(i + 1, rows.length, made, failed);
+    try {
+      const path = pathFromPublicUrl(bucket, rows[i].url);
+      if (!path) { failed++; continue; }
+      const blob = await makeThumbBlob(await loadImage(rows[i].url, true));
+      if (!blob) { skipped++; continue; }        // 원본이 이미 작음
+      const tu = await uploadThumbAt(bucket, path, blob);
+      if (!tu) { failed++; continue; }
+      await save(rows[i].id, tu);
+      made++;
+    } catch (e) { failed++; }
+  }
+  return { made, skipped, failed };
+}
+
 // folder 예: 'works' / 'posts'
 // imageLimit 을 주면 그 용량 기준으로 압축함 (안 주면 기본 5MB)
 async function uploadMedia(file, folder, imageLimit){
@@ -329,7 +409,8 @@ async function uploadMedia(file, folder, imageLimit){
   const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, upFile);
   if (error) throw error;
   const { data } = sb.storage.from(MEDIA_BUCKET).getPublicUrl(path);
-  return { url: data.publicUrl, type: isVideo ? 'video' : 'image' };
+  const thumbUrl = isVideo ? null : await makeAndUploadThumb(MEDIA_BUCKET, path, upFile);
+  return { url: data.publicUrl, thumbUrl, type: isVideo ? 'video' : 'image' };
 }
 
 // ---------- 라이트박스 ----------

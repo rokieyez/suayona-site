@@ -201,7 +201,7 @@ function render(){
     '<div class="yr-work">' +
       (w.media_type === 'video'
         ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
-        : '<img src="' + escapeHTML(w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">') +
+        : '<img src="' + escapeHTML(w.thumb_url || w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">') +
       '<div class="cap">' +
         '<div class="t">' + escapeHTML(w.title) + '</div>' +
         (w.quote ? '<div class="q">“' + escapeHTML(w.quote) + '”</div>' : '') +
