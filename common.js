@@ -322,16 +322,35 @@ async function compressImage(file, maxBytes){
 const THUMB_DIM = 400;
 const THUMB_Q = 0.72;
 
-// 다른 출처의 주소를 canvas 로 읽으려면 crossOrigin 이 필요하다.
-// 없으면 캔버스가 오염돼서 toBlob 이 막힌다.
-function loadImage(src, cross){
+function loadImage(src){
   return new Promise((res, rej) => {
     const im = new Image();
-    if (cross) im.crossOrigin = 'anonymous';
     im.onload = () => res(im);
     im.onerror = () => rej(new Error('사진을 읽지 못했어요'));
     im.src = src;
   });
+}
+
+// 남의 출처에 있는 사진을 canvas 로 다루는 방법.
+//
+// <img crossOrigin="anonymous"> 로 바로 읽는 길이 짧지만, 그 사진이 이미 평범한
+// <img> 로 화면에 떠서 브라우저 캐시에 들어가 있으면 브라우저(특히 사파리)가
+// 캐시에 든 CORS 표시 없는 응답을 그대로 돌려준다. 그러면 캔버스가 오염되고
+// toBlob 이 통째로 막힌다 — 한 장이 아니라 전부 실패한다.
+//
+// 그래서 fetch 로 바이트를 먼저 받아 온다. 내 손에 든 blob 에서 만든 주소는
+// 같은 출처라, 캐시가 어떻든 오염될 일이 없다.
+async function loadImageFromUrl(url){
+  const res = await fetch(url, { mode: 'cors' });
+  if (!res.ok) throw new Error('내려받기 실패 (HTTP ' + res.status + ')');
+  const src = URL.createObjectURL(await res.blob());
+  try {
+    const img = await loadImage(src);
+    return { img, done: () => URL.revokeObjectURL(src) };
+  } catch (e) {
+    URL.revokeObjectURL(src);
+    throw e;
+  }
 }
 
 // 원본이 이미 400px 보다 작으면 사본을 만들지 않는다 (null 을 돌려줌)
@@ -351,8 +370,20 @@ async function uploadThumbAt(bucket, path, blob){
   const tp = path.replace(/\.\w+$/, '') + '.thumb.jpg';
   const { error } = await sb.storage.from(bucket)
     .upload(tp, blob, { upsert: true, contentType: 'image/jpeg' });
-  if (error) return null;
+  if (error) throw new Error('올리기 실패: ' + error.message);
   return sb.storage.from(bucket).getPublicUrl(tp).data.publicUrl;
+}
+
+// 서버가 돌려주는 영어 원문은 무슨 말인지 알 수 없다. 실제로 마주칠 만한 것만 옮긴다.
+function readableError(e){
+  const m = (e && e.message) || String(e);
+  if (/row-level security|permission|not authorized/i.test(m))
+    return '권한이 없어요. 로그인이 풀렸는지 확인하고 다시 눌러주세요.';
+  if (/Failed to fetch|NetworkError|HTTP 4|HTTP 5/i.test(m))
+    return '사진을 내려받지 못했어요 (' + m + ')';
+  if (/tainted|SecurityError/i.test(m))
+    return '브라우저가 사진 읽기를 막았어요. 새로고침한 뒤 다시 눌러주세요.';
+  return m;
 }
 
 // 공개 주소에서 버킷 안 경로만 되돌림
@@ -365,34 +396,47 @@ function pathFromPublicUrl(bucket, url){
 // 파일 하나에서 사본을 만들어 올림. 실패해도 던지지 않는다 —
 // 사본이 없으면 화면이 원본으로 물러날 뿐이라, 업로드 자체를 막을 이유가 없다.
 async function makeAndUploadThumb(bucket, path, file){
+  const src = URL.createObjectURL(file);
   try {
-    const src = URL.createObjectURL(file);
-    try {
-      const blob = await makeThumbBlob(await loadImage(src));
-      if (!blob) return null;
-      return await uploadThumbAt(bucket, path, blob);
-    } finally { URL.revokeObjectURL(src); }
-  } catch (e) { return null; }
+    const blob = await makeThumbBlob(await loadImage(src));
+    if (!blob) return null;
+    return await uploadThumbAt(bucket, path, blob);
+  } catch (e) {
+    console.error('썸네일 만들기 실패:', e);
+    return null;                      // 사본이 없으면 화면은 원본으로 물러난다
+  } finally { URL.revokeObjectURL(src); }
 }
 
 // 이미 올라가 있는 사진들의 사본을 뒤늦게 만들어 준다.
 // rows: [{id, url}] · save(id, thumbUrl) 로 각 줄을 갱신
+//
+// 실패를 세기만 하면 무엇이 잘못됐는지 알 길이 없다. 첫 번째 이유를 들고 나온다.
 async function backfillThumbs(bucket, rows, save, onStep){
-  let made = 0, skipped = 0, failed = 0;
+  let made = 0, skipped = 0, failed = 0, why = '';
   for (let i = 0; i < rows.length; i++) {
     if (onStep) onStep(i + 1, rows.length, made, failed);
+    let handle = null;
     try {
       const path = pathFromPublicUrl(bucket, rows[i].url);
-      if (!path) { failed++; continue; }
-      const blob = await makeThumbBlob(await loadImage(rows[i].url, true));
+      if (!path) throw new Error('주소에서 파일 경로를 못 찾았어요');
+
+      handle = await loadImageFromUrl(rows[i].url);
+      const blob = await makeThumbBlob(handle.img);
       if (!blob) { skipped++; continue; }        // 원본이 이미 작음
+
       const tu = await uploadThumbAt(bucket, path, blob);
-      if (!tu) { failed++; continue; }
-      await save(rows[i].id, tu);
+      const { error } = await save(rows[i].id, tu) || {};
+      if (error) throw new Error('자리 표시 저장 실패: ' + error.message);
       made++;
-    } catch (e) { failed++; }
+    } catch (e) {
+      failed++;
+      if (!why) why = readableError(e);
+      console.error('사본 만들기 실패', rows[i].url, e);
+    } finally {
+      if (handle) handle.done();
+    }
   }
-  return { made, skipped, failed };
+  return { made, skipped, failed, why };
 }
 
 // folder 예: 'works' / 'posts'

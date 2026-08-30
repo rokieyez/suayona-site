@@ -1241,8 +1241,8 @@ async function makeGalleryThumbs(){
   btn.disabled = false;
   const parts = [res.made + '장 완료'];
   if (res.skipped) parts.push('이미 작은 사진 ' + res.skipped + '장은 그대로');
-  if (res.failed)  parts.push(res.failed + '장 실패');
-  msg.className = 'gallery-msg ' + (res.made ? 'ok' : 'err');
+  if (res.failed)  parts.push(res.failed + '장 실패 — ' + res.why);
+  msg.className = 'gallery-msg ' + (res.failed ? 'err' : 'ok');
   msg.textContent = parts.join(' · ');
   await countMissingThumbs();
   loadGallery();

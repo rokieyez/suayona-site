@@ -428,8 +428,9 @@ async function showThumbTool(box){
 
     const parts = [res.made + '개 완료'];
     if (res.skipped) parts.push('이미 작은 사진 ' + res.skipped + '개는 그대로');
-    if (res.failed)  parts.push(res.failed + '개 실패');
+    if (res.failed)  parts.push(res.failed + '개 실패 — ' + res.why);
     note.textContent = parts.join(' · ');
+    note.style.color = res.failed ? '#c0392b' : 'var(--ink-soft)';
     btn.disabled = false;
     await loadWorks();
   });
