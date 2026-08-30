@@ -19,15 +19,14 @@ const MENU = [
   { href: '/about.html',    label: '소개',      key: 'about' },
   { href: '/portfolio.html',label: '포트폴리오', key: 'portfolio' },
   { href: '/board.html',    label: '일기장',    key: 'board' },
-  { href: '/event/',        label: '일정표',    key: 'event' },
+  { href: '/event/',        label: '이벤트',    key: 'event' },
   { href: '/year.html',     label: '모아보기',  key: 'year' },
   { href: '/contact.html',  label: '편지쓰기',  key: 'contact' },
 ];
 
-// 로그인한 가족에게만 보이는 메뉴. 시간표는 공개하지 않으므로 링크도 내걸지 않는다.
-const PRIVATE_MENU = [
-  { href: '/time.html', label: '시간표', key: 'time', before: '/year.html' },
-];
+// 로그인한 가족에게만 보이는 곳. 메뉴 목록에 섞지 않고 헤더에 아이콘 단추로 따로 둔다 —
+// 공개 메뉴와 성격이 다르고, 자주 여는 곳이라 햄버거 안에 숨기면 매번 두 번 눌러야 한다.
+const PRIVATE_LINK = { href: '/time.html', icon: '🗓️', label: '시간표', key: 'time' };
 
 let ACTIVE_KEY = null;
 
@@ -52,6 +51,10 @@ function buildChrome(activeKey){
         ).join('') +
       '</nav>' +
       '<button class="hdr-auth" id="hdrAuth" aria-label="로그인">로그인</button>' +
+      '<a class="hdr-icon' + (PRIVATE_LINK.key === activeKey ? ' active' : '') + '"' +
+        ' id="hdrTime" href="' + PRIVATE_LINK.href + '" hidden' +
+        ' title="' + PRIVATE_LINK.label + '" aria-label="' + PRIVATE_LINK.label + '">' +
+        PRIVATE_LINK.icon + '</a>' +
       '<button class="menu-toggle pixel" id="menuToggle" aria-label="메뉴 열기">☰</button>' +
     '</div>';
   document.body.prepend(header);
@@ -158,23 +161,13 @@ async function refreshAuth(){
   return session;
 }
 
-// 로그인/로그아웃에 맞춰 비공개 메뉴를 넣고 뺀다.
-// 헤더는 로그인 확인보다 먼저 그려지므로, 여기서 뒤늦게 붙이는 편이 깜빡임이 없다.
+// 로그인/로그아웃에 맞춰 시간표 단추를 보이고 감춘다.
+// 헤더는 로그인 확인보다 먼저 그려지므로, 여기서 뒤늦게 켜는 편이 깜빡임이 없다.
 function syncPrivateMenu(){
-  const nav = document.getElementById('nav');
-  if (!nav) return;
-  PRIVATE_MENU.forEach(m => {
-    const found = nav.querySelector('[data-key="' + m.key + '"]');
-    if (!isLoggedIn) { if (found) found.remove(); return; }
-    if (found) return;
-    const a = document.createElement('a');
-    a.href = m.href;
-    a.textContent = m.label;
-    a.dataset.key = m.key;
-    if (m.key === ACTIVE_KEY) a.className = 'active';
-    const anchor = m.before && nav.querySelector('a[href="' + m.before + '"]');
-    nav.insertBefore(a, anchor || null);
-  });
+  const btn = document.getElementById('hdrTime');
+  if (!btn) return;
+  btn.hidden = !isLoggedIn;
+  btn.classList.toggle('active', PRIVATE_LINK.key === ACTIVE_KEY);
 }
 
 // ---------- 헤더의 로그인 단추와 창 ----------

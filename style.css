@@ -93,6 +93,18 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
 .hdr-auth:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--ink);}
 .hdr-auth.in{background:var(--mint);}
 .hdr-auth:focus-visible{outline:3px solid var(--ink); outline-offset:2px;}
+/* 로그인한 가족에게만 보이는 아이콘 단추 (시간표). 이름 오른쪽, 햄버거 왼쪽. */
+.hdr-icon{
+  display:inline-flex; align-items:center; text-decoration:none; line-height:1;
+  font-size:15px; padding:7px 10px; background:var(--cream); color:var(--ink);
+  border:var(--px) solid var(--ink); box-shadow:2px 2px 0 var(--ink);
+  transition:transform .12s steps(2), box-shadow .12s steps(2);
+}
+.hdr-icon[hidden]{display:none;}
+.hdr-icon:hover{background:var(--lemon);}
+.hdr-icon:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--ink);}
+.hdr-icon.active{background:var(--lemon);}
+.hdr-icon:focus-visible{outline:3px solid var(--ink); outline-offset:2px;}
 
 @media (max-width:860px){
   header.site nav{
@@ -105,9 +117,11 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
   .menu-toggle{display:block;}
 }
 /* 아주 좁은 화면에선 로고 글씨를 접어 로그인 단추 자리를 낸다 */
-@media (max-width:400px){
+@media (max-width:430px){
   .logo-text{display:none;}
-  .hdr-auth{padding:7px 10px; font-size:12px;}
+  .hdr-auth{padding:7px 9px; font-size:12px;}
+  .hdr-icon{padding:7px 8px; font-size:14px;}
+  .hdr-right{gap:6px;}
 }
 
 /* ===== 로그인 창 (헤더 단추로 열림) ===== */

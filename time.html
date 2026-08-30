@@ -30,8 +30,8 @@
   .tcard ul{list-style:none; margin:0; padding:6px 0;}
   .tcard li{display:flex; gap:10px; align-items:baseline; padding:7px 15px;
     font-size:13.5px; line-height:1.5;}
-  .tcard li b{font-variant-numeric:tabular-nums; font-weight:800; font-size:12.5px;
-    min-width:42px; color:var(--ink-soft);}
+  .tcard li b{font-variant-numeric:tabular-nums; font-weight:800; font-size:11.5px;
+    min-width:82px; white-space:nowrap; color:var(--ink-soft);}
   .tcard li .nm{font-weight:800;}
   .tcard li .pl{font-size:12px; color:var(--ink-soft);}
   .tcard li.past{opacity:.4;}
@@ -56,7 +56,7 @@
   .grid-scroll{overflow-x:auto; border:var(--px) solid var(--ink);
     box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28); background:var(--paper);
     margin-bottom:14px;}
-  .grid{display:grid; min-width:520px;}
+  .grid{display:grid;}
   .grid .hcell{padding:8px 4px; text-align:center; font-size:12.5px; font-weight:900;
     border-bottom:var(--px) solid var(--ink); background:var(--cream);}
   .grid .hcell.sat{color:#2f6fb0;}
@@ -121,9 +121,41 @@
     border:2px solid var(--ink); background:var(--cream); padding:4px 9px;}
   .quick button:hover{background:var(--lemon);}
 
+  /* 좁은 화면 — 이레가 다 들어오도록 글씨와 여백을 줄이고, 제목은 줄바꿈을 허용한다.
+     한 줄로 잘라 …을 붙이면 40px 칸에서는 읽을 게 남지 않는다. */
+  @media (max-width:640px){
+    .grid .hcell{padding:5px 2px; font-size:11px;}
+    .grid .hcell small{font-size:9.5px;}
+    .grid .gut span{right:3px; font-size:9px;}
+    .it{padding:2px 3px; border-width:1px;}
+    .it b{font-size:9.5px; line-height:1.15; white-space:normal; text-overflow:clip;}
+    .it span{font-size:8.5px; margin-top:0; line-height:1.15;
+      white-space:normal; text-overflow:clip;}
+    .legend{gap:10px; font-size:11px;}
+  }
   @media (max-width:560px){
     .sheet{padding:0;}
     .sheet-in{max-width:none; max-height:100vh; height:100%;}
+  }
+
+  /* ---------- 인쇄 ---------- */
+  .print-btn{display:block; margin:24px auto 0;}
+  .print-title{display:none; text-align:center; margin-bottom:14px;}
+  .print-title h1{margin:0; font-size:20px; font-weight:900;}
+  @media print{
+    @page{margin:12mm; size:landscape;}
+    header.site, footer.site, .bg-deck, .print-btn, .wk-bar, .who-pick,
+    .tools, .hint, .section-head, #adminSlot, #todayHead, #today, #weekHead,
+    #gate, .sheet{display:none !important;}
+    body{background:#fff !important; color:#000;}
+    body.has-backdrop{min-height:0; display:block;}
+    .page-top{padding-top:0 !important;}
+    .section-pad{padding:0 !important;}
+    .wrap{max-width:none; padding:0;}
+    .grid-scroll{box-shadow:none !important; overflow:visible !important;}
+    /* 종류별 색이 사라지면 학교와 학원을 구별할 수 없다 */
+    .grid .col, .grid .hcell, .it{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    .print-title{display:block !important;}
   }
 </style>
 </head>
@@ -145,7 +177,7 @@
       <h3 class="day-head" id="todayHead">오늘</h3>
       <div class="today-cards" id="today"></div>
 
-      <h3 class="day-head">한 주 보기</h3>
+      <h3 class="day-head" id="weekHead">한 주 보기</h3>
       <div class="wk-bar">
         <button class="dot-btn small" id="prevWk" aria-label="지난 주">‹</button>
         <button class="dot-btn small" id="thisWk">이번 주</button>
@@ -157,6 +189,7 @@
         <button class="dot-btn small" data-who="yona">연아</button>
       </div>
 
+      <div class="print-title" id="printTitle"></div>
       <div class="grid-scroll"><div class="grid" id="grid"></div></div>
       <div class="legend">
         <span><i class="s"></i>학교</span>
@@ -167,6 +200,7 @@
 
       <div class="tools" id="tools"></div>
       <p class="hint" id="hint"></p>
+      <button class="dot-btn primary print-btn" id="printBtn">🖨 이 시간표 인쇄하기</button>
     </div>
   </div>
 </main>
@@ -299,6 +333,9 @@ let editing = null;                  // 고치는 중인 행 (없으면 새로 �
 const toMin = t => { const p = String(t).split(':'); return (+p[0]) * 60 + (+p[1]); };
 const hhmm  = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
 const endOf = s => s.end_at ? toMin(s.end_at) : toMin(s.start_at) + DEFAULT_LEN;
+// 시작만 적어 두면 언제 끝나는지 몰라 답답하다. 끝 시각이 있으면 같이 적는다.
+const spanLabel = (s, sep) =>
+  s.start_at.slice(0, 5) + (s.end_at ? (sep || '-') + s.end_at.slice(0, 5) : '');
 const iso   = d => d.getFullYear() + '-' +
                    String(d.getMonth() + 1).padStart(2, '0') + '-' +
                    String(d.getDate()).padStart(2, '0');
@@ -358,7 +395,7 @@ function renderToday(){
         const st = toMin(s.start_at), en = endOf(s);
         const cls = nowMin >= st && nowMin < en ? 'now' : (nowMin >= en ? 'past' : '');
         return '<li class="' + cls + '">' +
-          '<b>' + s.start_at.slice(0, 5) + '</b>' +
+          '<b>' + spanLabel(s) + '</b>' +
           '<span><span class="nm">' + escapeHTML(s.title) + '</span>' +
           (s.place ? ' <span class="pl">' + escapeHTML(s.place) + '</span>' : '') + '</span>' +
           (cls === 'now' ? '<span class="tag">지금</span>' : '') +
@@ -384,15 +421,16 @@ function renderWeek(){
   const mon = weekStart(anchor);
   const todayStr = iso(new Date());
 
-  // 평일은 늘 열고, 주말은 그 주에 뭔가 있을 때만 연다
+  // 이레를 다 편다. 주말에도 학원과 나들이가 있어서, 비어 있는 칸이 보이는 편이
+  // "그날은 아무것도 없다"를 알려 준다.
   const days = [];
   for (let i = 0; i < 7; i++) {
     const d = addDays(mon, i);
-    const list = itemsOn(d, who);
-    const weekend = d.getDay() === 0 || d.getDay() === 6;
-    if (!weekend || list.length) days.push({ d, list });
+    days.push({ d, list: itemsOn(d, who) });
   }
 
+  $('#printTitle').innerHTML = '<h1>' + escapeHTML(WHONAME[who]) + ' 시간표 · ' +
+    (mon.getMonth() + 1) + '월 ' + mon.getDate() + '일 주</h1>';
   $('#wkLabel').textContent =
     (mon.getMonth() + 1) + '월 ' + mon.getDate() + '일 ~ ' +
     (() => { const e = addDays(mon, 6); return (e.getMonth() + 1) + '월 ' + e.getDate() + '일'; })();
@@ -406,10 +444,15 @@ function renderWeek(){
   lo = Math.floor(lo / 60) * 60;
   hi = Math.ceil(hi / 60) * 60;
 
-  const HOUR = window.innerWidth < 640 ? 46 : 58;
+  // 좁은 화면에서는 칸의 최소 너비를 풀어 이레가 가로로 다 들어오게 한다.
+  // 옆으로 밀어야 토요일이 보이면 "한 주 보기"가 아니게 된다.
+  const narrow = window.innerWidth < 640;
+  const HOUR = narrow ? 42 : 58;
+  const GUT  = narrow ? 28 : 48;
   const H = (hi - lo) / 60 * HOUR;
   const grid = $('#grid');
-  grid.style.gridTemplateColumns = '48px repeat(' + days.length + ', minmax(76px, 1fr))';
+  grid.style.gridTemplateColumns =
+    GUT + 'px repeat(' + days.length + ', minmax(' + (narrow ? 0 : 76) + 'px, 1fr))';
   grid.dataset.lo = lo;          // 빈 칸을 눌렀을 때 시각을 되계산하려면 필요하다
 
   let html = '<div class="hcell"></div>';
@@ -425,7 +468,8 @@ function renderWeek(){
   // 시간 눈금
   let gut = '<div class="gut" style="height:' + H + 'px">';
   for (let m = lo; m < hi; m += 60) {          // 마지막 줄은 칸 밖으로 삐져나가서 뺀다
-    gut += '<span style="top:' + ((m - lo) / 60 * HOUR + 3) + 'px">' + hhmm(m) + '</span>';
+    const label = narrow ? String(m / 60) : hhmm(m);   // 좁으면 시(時)만
+    gut += '<span style="top:' + ((m - lo) / 60 * HOUR + 3) + 'px">' + label + '</span>';
   }
   html += gut + '</div>';
 
@@ -445,15 +489,17 @@ function renderWeek(){
       const top = (st - lo) / 60 * HOUR;
       const h = Math.max(20, (en - st) / 60 * HOUR - 2);
       const w = 100 / of;
-      const long = h >= 40;
+      const long = h >= (narrow ? 36 : 40);
+      const when = spanLabel(it, narrow ? ' ~' : '-');
       html += '<button type="button" class="it k-' + it.kind + (it.on_date ? ' once' : '') +
         (isAdmin ? ' editable' : '') + '" data-id="' + it.id + '"' +
         (isAdmin ? '' : ' tabindex="-1"') +
+        ' title="' + escapeHTML(spanLabel(it) + ' ' + it.title + (it.place ? ' · ' + it.place : '')) + '"' +
         ' style="top:' + top + 'px; height:' + h + 'px; left:' + (slot * w) +
         '%; width:calc(' + w + '% - 2px)">' +
         '<b>' + escapeHTML(it.title) + '</b>' +
-        (long ? '<span>' + it.start_at.slice(0, 5) +
-          (it.place ? ' ' + escapeHTML(it.place) : '') + '</span>' : '') +
+        (long ? '<span>' + escapeHTML(when) +
+          (it.place && !narrow ? ' ' + escapeHTML(it.place) : '') + '</span>' : '') +
       '</button>';
     });
     html += '</div>';
@@ -463,6 +509,34 @@ function renderWeek(){
 }
 
 function render(){ renderToday(); renderWeek(); }
+
+// ---------- 창을 연 동안 뒤로가기 막기 ----------
+// 휴대폰에서 창을 열어 둔 채 뒤로가기를 누르면 쓰던 내용째로 페이지를 벗어난다.
+// 창을 열 때 히스토리에 한 칸을 밀어 넣어, 뒤로가기가 그 칸을 대신 먹게 한다.
+let sheetPushed = false;
+
+function holdBack(){
+  if (sheetPushed) return;
+  sheetPushed = true;
+  history.pushState({ sheet: 1 }, '');
+}
+function releaseBack(){
+  if (!sheetPushed) return;
+  sheetPushed = false;
+  history.back();                 // 우리가 넣어 둔 칸을 되돌린다
+}
+window.addEventListener('popstate', () => {
+  if (!sheetPushed) return;
+  sheetPushed = false;            // 칸은 이미 빠졌으니 back 을 또 부르지 않는다
+  $('#sheet').hidden = true;
+  $('#copySheet').hidden = true;
+  editing = null;
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('#sheet').hidden) closeSheet();
+  else if (!$('#copySheet').hidden) closeCopy();
+});
 
 // ---------- 넣고 고치기 (부모만) ----------
 function openSheet(row, preset){
@@ -486,15 +560,18 @@ function openSheet(row, preset){
 
   const start = s.start_at ? s.start_at.slice(0, 5) : (preset && preset.start) || '09:00';
   $('#fStart').value = start;
-  $('#fEnd').value = s.end_at ? s.end_at.slice(0, 5)
-                              : hhmm(toMin(start) + DEFAULT_LEN);
+  // 새로 넣을 때는 끝 시각을 비워 둔다. 아래 길이 단추가 시작 시각에서부터
+  // 쌓이도록 하려면 미리 채워 두면 안 된다.
+  $('#fEnd').value = s.end_at ? s.end_at.slice(0, 5) : '';
 
   $('#fDel').hidden = !row;
   $('#fMsg').className = 'msg'; $('#fMsg').textContent = '';
   $('#sheet').hidden = false;
+  holdBack();
   $('#fTitle').focus();
 }
-function closeSheet(){ $('#sheet').hidden = true; editing = null; }
+function closeSheet(){ $('#sheet').hidden = true; editing = null; releaseBack(); }
+function closeCopy(){ $('#copySheet').hidden = true; releaseBack(); }
 
 // '매주'냐 '그날 하루만'이냐에 따라 요일 고르개와 날짜 고르개를 바꿔 끼운다
 function syncMode(){
@@ -508,15 +585,24 @@ function syncMode(){
 }
 $('#fMode').addEventListener('change', syncMode);
 
-// 자주 쓰는 길이를 한 번에 — 끝 시각을 매번 계산하지 않도록
-$('#fQuick').innerHTML = [40, 60, 90, 120].map(n =>
-  '<button type="button" data-len="' + n + '">' +
-  (n < 60 ? n + '분' : (n / 60) + '시간' + (n % 60 ? ' ' + (n % 60) + '분' : '')) +
-  '</button>').join('');
+// 끝 시각을 손으로 계산하지 않도록. 누를 때마다 그만큼 뒤로 밀린다 —
+// 9시에서 30분을 세 번 누르면 10시 30분. 지우고 다시 하려면 '비우기'.
+$('#fQuick').innerHTML =
+  [30, 60, 120].map(n =>
+    '<button type="button" data-len="' + n + '">' +
+    (n < 60 ? n + '분' : (n / 60) + '시간') + '</button>').join('') +
+  '<button type="button" data-clear="1">비우기</button>';
+
 $('#fQuick').addEventListener('click', e => {
+  const clear = e.target.closest('[data-clear]');
+  if (clear) { $('#fEnd').value = ''; return; }
   const b = e.target.closest('[data-len]');
-  if (!b || !$('#fStart').value) return;
-  $('#fEnd').value = hhmm(Math.min(23 * 60 + 55, toMin($('#fStart').value) + (+b.dataset.len)));
+  const st = $('#fStart').value;
+  if (!b || !st) return;
+  const end = $('#fEnd').value;
+  // 이미 적힌 끝 시각이 있으면 거기서 이어 붙이고, 없으면 시작 시각에서 출발한다
+  const from = (end && toMin(end) > toMin(st)) ? toMin(end) : toMin(st);
+  $('#fEnd').value = hhmm(Math.min(23 * 60 + 59, from + (+b.dataset.len)));
 });
 
 $('#fSave').addEventListener('click', async () => {
@@ -604,14 +690,15 @@ function openCopy(){
   const n = all.filter(s => s.weekday != null && (s.who === who || s.who === 'together')).length;
   $('#cpWhat').textContent = '매주 반복하는 일정 ' + n + '개가 대상이에요.';
   $('#copySheet').hidden = false;
+  holdBack();
 }
 $('#cpWho').addEventListener('change', () => {
   const k = $('#cpWho').value;
   const n = all.filter(s => s.weekday != null && (s.who === k || s.who === 'together')).length;
   $('#cpWhat').textContent = '매주 반복하는 일정 ' + n + '개가 대상이에요.';
 });
-$('#cpCancel').addEventListener('click', () => { $('#copySheet').hidden = true; });
-$('#copySheet').addEventListener('click', e => { if (e.target.id === 'copySheet') $('#copySheet').hidden = true; });
+$('#cpCancel').addEventListener('click', closeCopy);
+$('#copySheet').addEventListener('click', e => { if (e.target.id === 'copySheet') closeCopy(); });
 
 $('#cpGo').addEventListener('click', async () => {
   const msg = $('#cpMsg');
@@ -645,7 +732,7 @@ $('#cpGo').addEventListener('click', async () => {
     return;
   }
 
-  $('#copySheet').hidden = true;
+  closeCopy();
   await load();
 });
 
@@ -657,6 +744,7 @@ $('#whoPick').addEventListener('click', e => {
   $$('#whoPick .dot-btn').forEach(x => x.classList.toggle('on', x === b));
   renderWeek();
 });
+$('#printBtn').addEventListener('click', () => window.print());
 $('#prevWk').addEventListener('click', () => { anchor = addDays(weekStart(anchor), -7); renderWeek(); });
 $('#nextWk').addEventListener('click', () => { anchor = addDays(weekStart(anchor),  7); renderWeek(); });
 $('#thisWk').addEventListener('click', () => { anchor = new Date(); renderWeek(); });
@@ -691,6 +779,7 @@ async function load(){
 function showGate(){
   const gate = $('#gate');
   gate.innerHTML = '';
+  $('#adminSlot').innerHTML = '';      // 두 번 불려도 로그인 줄이 겹쳐 쌓이지 않게
   if (isLoggedIn) {
     $('#app').hidden = false;
     mountAdminBar($('#adminSlot'), reboot);
@@ -707,7 +796,6 @@ function showGate(){
 
 async function reboot(){
   await refreshAuth();
-  $('#adminSlot').innerHTML = '';
   if (showGate()) await load();
 }
 
