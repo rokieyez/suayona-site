@@ -20,6 +20,7 @@ const MENU = [
   { href: '/portfolio.html',label: '포트폴리오', key: 'portfolio' },
   { href: '/board.html',    label: '일기장',    key: 'board' },
   { href: '/event/',        label: '일정표',    key: 'event' },
+  { href: '/year.html',     label: '모아보기',  key: 'year' },
   { href: '/contact.html',  label: '편지쓰기',  key: 'contact' },
 ];
 
@@ -108,10 +109,24 @@ function initReveal(){
 function revealNow(el){ requestAnimationFrame(() => el.classList.add('in')); }
 
 // ---------- 로그인 ----------
-let isAdmin = false;
+// 로그인한 사람이 부모인지 아이인지. 예전에는 "로그인했으면 관리자"였는데,
+// 아이 계정이 생기면서 둘을 갈라야 했다. isAdmin 은 이제 "부모"라는 뜻이다.
+let isAdmin = false;     // 부모 (작품·모든 글을 다룰 수 있음)
+let isChild = false;     // 아이 (자기 글만, 그것도 확인 전까지만)
+let me = null;           // { user_id, role, display, author_key }
+
 async function refreshAuth(){
   const { data: { session } } = await sb.auth.getSession();
-  isAdmin = !!session;
+  me = null; isAdmin = false; isChild = false;
+  if (!session) return null;
+
+  const { data } = await sb.from('profiles')
+    .select('user_id, role, display, author_key')
+    .eq('user_id', session.user.id).maybeSingle();
+  me = data || null;
+  // 프로필이 아직 없는 계정은 부모로 본다 — 아이 계정을 만들기 전 상태와의 호환.
+  isAdmin = !me || me.role === 'parent';
+  isChild = !!me && me.role === 'child';
   return session;
 }
 
@@ -147,7 +162,8 @@ function mountLoginBox(container, onChange){
 function mountAdminBar(container, onChange){
   const bar = document.createElement('div');
   bar.className = 'admin-bar';
-  bar.innerHTML = '<span>관리자로 로그인됨</span><button class="dot-btn small logoutBtn">로그아웃</button>';
+  const who = me ? (me.display + (isChild ? ' (아이)' : '')) : '관리자';
+  bar.innerHTML = '<span>' + escapeHTML(who) + '(으)로 로그인됨</span><button class="dot-btn small logoutBtn">로그아웃</button>';
   container.appendChild(bar);
   bar.querySelector('.logoutBtn').addEventListener('click', async () => {
     await sb.auth.signOut();
@@ -806,6 +822,14 @@ const BACKDROP = {
       // 벽이 아니라 술처럼 얇은 풀 가장자리. 가장 조용한 페이지.
       drawTallGrass(g, -S*2, W + S*2, H * 0.86, S, 3.7, NEAR_SHADES(u), 4);
     },
+  },
+
+  // 모아보기 — 한 해를 훑는 페이지. 일기장과 같은 조용한 톤으로.
+  year: {
+    nearH: [104, 72],
+    far(g, W, H, S, u){ return BACKDROP.board.far(g, W, H, S, u); },
+    mid(g, W, H, S, u){ return BACKDROP.board.mid(g, W, H, S, u); },
+    near(g, W, H, S, u){ return BACKDROP.board.near(g, W, H, S, u); },
   },
 
   // 편지쓰기 — 우체국. 폼 한 칸짜리라 스크롤이 거의 없어서, 움직임이 아니라 겹침으로 깊이를 낸다.

@@ -20,6 +20,20 @@
   .post .meta .written{font-size:11.5px; opacity:.7; margin-left:6px;}
   .post .body{margin-bottom:12px;}
   .post .post-img + .post-img{margin-top:10px;}
+  .tag.pending{background:var(--lemon); color:var(--ink);}
+  .child-note{border:var(--px) solid var(--ink); background:var(--sky-soft); color:var(--ink);
+    padding:11px 13px; font-size:13px; line-height:1.7; margin-bottom:6px;}
+  .pending-box{max-width:520px; margin:0 auto 26px;}
+  .pending-box .inner{padding:20px 22px;}
+  .pending-box h3{margin:0 0 4px; font-size:15px; font-weight:900;}
+  .pending-hint{margin:0 0 12px; font-size:12.5px; color:var(--ink-soft);}
+  .pending-row{display:flex; gap:12px; align-items:flex-start; padding:12px 0;
+    border-top:2px dashed rgba(47,42,36,.16);}
+  .pr-main{flex:1; display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .pr-main b{font-size:14px;}
+  .pr-meta{font-size:11.5px; color:var(--ink-soft);}
+  .pr-body{font-size:12.5px; color:var(--ink-soft); line-height:1.6;}
+  .pr-acts{display:flex; flex-direction:column; gap:6px; flex:0 0 auto;}
 </style>
 <style>
   .write-box{max-width:600px; margin:0 auto 30px;}
@@ -103,6 +117,7 @@ function render(){
       '<h3>' + escapeHTML(p.title) + '</h3>' +
       '<div class="meta">' +
         '<span class="tag ' + escapeHTML(p.author) + '">' + (AUTHORS[p.author] || '같이') + '</span> ' +
+        (p.status === 'pending' ? '<span class="tag pending">⏳ 확인 기다림</span> ' : '') +
         (p.is_public === false ? '<span class="tag private">🔒 비공개</span> ' : '') +
         // 있었던 날이 적혀 있으면 그것을 보여준다. 쓴 날은 그 뒤에 작게.
         escapeHTML(formatDate(p.happened_on || p.created_at)) +
@@ -244,17 +259,68 @@ function renderEditForm(p){
   return form;
 }
 
+// 아이가 올린 글은 여기 모인다. 부모가 보고 공개하거나 지운다.
+function renderPendingBox(area){
+  const waiting = posts.filter(p => p.status === 'pending');
+  if (!waiting.length) return;
+
+  const box = document.createElement('div');
+  box.className = 'pending-box dot-card';
+  box.innerHTML = '<div class="inner"><h3>⏳ 아이가 쓴 글 ' + waiting.length + '개가 기다려요</h3>' +
+    '<p class="pending-hint">공개하기를 누르기 전에는 다른 사람에게 보이지 않아요.</p></div>';
+  const inner = box.querySelector('.inner');
+
+  waiting.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'pending-row';
+    row.innerHTML =
+      '<div class="pr-main">' +
+        '<b>' + escapeHTML(p.title) + '</b>' +
+        '<span class="pr-meta">' + escapeHTML(AUTHORS[p.author] || p.author) + ' · ' +
+          escapeHTML(formatDate(p.happened_on || p.created_at)) + '</span>' +
+        (p.body ? '<span class="pr-body">' + escapeHTML(p.body.slice(0, 70)) +
+          (p.body.length > 70 ? '…' : '') + '</span>' : '') +
+      '</div>';
+    const ok = document.createElement('button');
+    ok.className = 'dot-btn small mint';
+    ok.textContent = '공개하기';
+    ok.addEventListener('click', async () => {
+      ok.disabled = true;
+      const { error } = await sb.from('posts').update({ status: 'published' }).eq('id', p.id);
+      if (error) { alert('실패: ' + error.message); ok.disabled = false; return; }
+      await loadPosts();
+      renderAdminArea();
+    });
+    const no = document.createElement('button');
+    no.className = 'dot-btn small danger';
+    no.textContent = '지우기';
+    no.addEventListener('click', async () => {
+      if (!confirm('이 글을 지울까요? 되돌릴 수 없어요.')) return;
+      const { error } = await sb.from('posts').delete().eq('id', p.id);
+      if (error) { alert('실패: ' + error.message); return; }
+      await loadPosts();
+      renderAdminArea();
+    });
+    const acts = document.createElement('div');
+    acts.className = 'pr-acts';
+    acts.appendChild(ok); acts.appendChild(no);
+    row.appendChild(acts);
+    inner.appendChild(row);
+  });
+  area.appendChild(box);
+}
+
 function renderAdminArea(){
   const area = $('#adminArea');
   area.innerHTML = '';
 
-  if (!isAdmin) {
+  if (!isAdmin && !isChild) {
     const box = document.createElement('div');
     box.style.textAlign = 'center';
     box.style.marginBottom = '26px';
     const btn = document.createElement('button');
     btn.className = 'dot-btn small';
-    btn.textContent = '✏️ 일기 쓰기 (로그인)';
+    btn.textContent = '✏️ 일기 쓰기 (수아 · 연아 · 부모)';
     btn.addEventListener('click', () => {
       btn.remove();
       mountLoginBox(box, () => { renderAdminArea(); loadPosts(); });
@@ -266,19 +332,27 @@ function renderAdminArea(){
   }
 
   mountAdminBar(area, () => { renderAdminArea(); loadPosts(); });
+  if (isAdmin) renderPendingBox(area);
 
   const box = document.createElement('div');
   box.className = 'write-box dot-card';
   box.innerHTML =
     '<div class="inner">' +
       '<h3>✏️ 새 일기 쓰기</h3>' +
-      '<label class="field">누가 쓰나요</label>' +
-      '<select id="pAuthor"><option value="sua">수아</option><option value="yona">연아</option><option value="together">같이</option></select>' +
-      '<label class="field">공개 설정</label>' +
-      '<select id="pPublic">' +
-        '<option value="true">🌏 공개 — 누구나 볼 수 있어요</option>' +
-        '<option value="false">🔒 비공개 — 로그인해야 볼 수 있어요</option>' +
-      '</select>' +
+      // 아이는 자기 이름으로만 쓸 수 있고 공개 여부도 정하지 못한다 (규칙이 서버에서도 막힘).
+      // 화면에서 미리 감춰야 눌렀다가 거절당하는 일이 없다.
+      (isChild
+        ? '<div class="child-note">' + escapeHTML(me.display) + '이(가) 쓰는 일기예요.<br>' +
+          '올리면 <b>부모님이 확인한 뒤</b> 다른 사람에게 보여요.</div>' +
+          '<input type="hidden" id="pAuthor" value="' + escapeHTML(me.author_key || 'sua') + '">' +
+          '<input type="hidden" id="pPublic" value="true">'
+        : '<label class="field">누가 쓰나요</label>' +
+          '<select id="pAuthor"><option value="sua">수아</option><option value="yona">연아</option><option value="together">같이</option></select>' +
+          '<label class="field">공개 설정</label>' +
+          '<select id="pPublic">' +
+            '<option value="true">🌏 공개 — 누구나 볼 수 있어요</option>' +
+            '<option value="false">🔒 비공개 — 로그인해야 볼 수 있어요</option>' +
+          '</select>') +
       '<label class="field">제목</label><input type="text" id="pTitle" placeholder="예: 오늘 학교에서">' +
       '<div class="row2">' +
         '<div><label class="field">있었던 날 (비우면 사진에서)</label><input type="date" id="pWhen"></div>' +
@@ -312,9 +386,12 @@ function renderAdminArea(){
         if (i === 0) image_url = up.url; else extra_images.push({ url: up.url });
       }
       msg.textContent = '저장 중...';
+      const { data: { session } } = await sb.auth.getSession();
       const { error } = await sb.from('posts').insert({
         author: $('#pAuthor').value,
         is_public: $('#pPublic').value === 'true',
+        status: isChild ? 'pending' : 'published',
+        written_by: session ? session.user.id : null,
         title,
         body: $('#pBody').value.trim() || null,
         image_url, extra_images,
@@ -329,7 +406,8 @@ function renderAdminArea(){
     }
 
     btn.disabled = false;
-    msg.className = 'msg ok'; msg.textContent = '올렸어요!';
+    msg.className = 'msg ok';
+    msg.textContent = isChild ? '올렸어요! 부모님이 확인하면 보여요.' : '올렸어요!';
     $('#pTitle').value = ''; $('#pBody').value = ''; $('#pImage').value = '';
     $('#pWhen').value = ''; $('#pPlace').value = '';
     loadPosts();

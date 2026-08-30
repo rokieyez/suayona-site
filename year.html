@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>한 해 모아보기 · 수아랑 연아랑</title>
+<meta property="og:title" content="한 해 모아보기 · 수아랑 연아랑">
+<meta property="og:description" content="한 해 동안 만든 것과 있었던 일을 한자리에">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://www.suayona.com/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .year-pick{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:8px;}
+  .year-pick .dot-btn{background:var(--cream);}
+  .year-pick .dot-btn.on{background:var(--ink); color:var(--cream);}
+  .who-pick{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:26px;}
+  .who-pick .dot-btn{background:var(--cream);}
+  .who-pick .dot-btn.on{background:var(--coral); color:#fff;}
+
+  .print-btn{display:block; margin:0 auto 30px;}
+
+  /* 한 해 요약 숫자 */
+  .sum{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin-bottom:34px;}
+  .sum .box{border:var(--px) solid var(--ink); background:var(--paper);
+    box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28); padding:14px 14px 12px;}
+  .sum .n{font-size:29px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums;}
+  .sum .k{font-size:12.5px; font-weight:800; margin-top:3px;}
+
+  .yr-section{margin-bottom:38px;}
+  .yr-section > h3{
+    margin:0 0 14px; font-size:17px; font-weight:900;
+    border-bottom:var(--px) solid var(--ink); padding-bottom:8px;
+  }
+  .yr-empty{font-size:13.5px; color:var(--ink-soft); padding:6px 2px;}
+
+  /* 작품 격자 */
+  .yr-works{display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:16px;}
+  .yr-work{border:var(--px) solid var(--ink); background:var(--paper); overflow:hidden;
+    break-inside:avoid;}
+  .yr-work img, .yr-work video{display:block; width:100%; aspect-ratio:1; object-fit:cover;
+    border-bottom:var(--px) solid var(--ink); background:#000;}
+  .yr-work .cap{padding:9px 10px 10px;}
+  .yr-work .t{font-size:13px; font-weight:800; line-height:1.4;}
+  .yr-work .q{font-size:12px; line-height:1.55; margin-top:4px;}
+  .yr-work .m{font-size:11px; color:var(--ink-soft); margin-top:5px;}
+
+  /* 일기 */
+  .yr-post{border:var(--px) solid var(--ink); background:var(--paper); padding:16px 18px;
+    margin-bottom:14px; break-inside:avoid;}
+  .yr-post h4{margin:0 0 4px; font-size:15px; font-weight:900;}
+  .yr-post .m{font-size:11.5px; color:var(--ink-soft); margin-bottom:9px;}
+  .yr-post .b{font-size:13.5px; line-height:1.8; white-space:pre-line;}
+  .yr-post img{display:block; width:100%; margin-top:10px; border:2px solid var(--ink);}
+
+  /* 일정 */
+  .yr-events{display:flex; flex-direction:column; gap:10px;}
+  .yr-event{border:var(--px) solid var(--ink); background:var(--paper); padding:13px 16px;
+    display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; break-inside:avoid;
+    text-decoration:none; color:inherit;}
+  .yr-event b{font-size:14.5px;}
+  .yr-event span{font-size:12.5px; color:var(--ink-soft);}
+
+  /* ===== 인쇄 =====
+     화면용 장식(헤더·푸터·배경 겹·버튼)은 종이에 필요 없다.
+     카드 그림자도 잉크만 먹으므로 뺀다. */
+  @media print{
+    @page{margin:14mm;}
+    header.site, footer.site, .bg-deck, .print-btn,
+    .year-pick, .who-pick, .section-head p, .scroll-cue{display:none !important;}
+    body{background:#fff !important; color:#000;}
+    body.has-backdrop{min-height:0; display:block;}
+    .page-top{padding-top:0 !important;}
+    .section-pad{padding:0 !important;}
+    .wrap{max-width:none; padding:0;}
+    .dot-card, .yr-work, .yr-post, .yr-event, .sum .box{box-shadow:none !important;}
+    .yr-works{grid-template-columns:repeat(3,1fr); gap:10px;}
+    .yr-section{break-inside:auto;}
+    .yr-section > h3{break-after:avoid;}
+    a{text-decoration:none; color:#000;}
+    .print-title{display:block !important;}
+  }
+  .print-title{display:none; text-align:center; margin-bottom:20px;}
+  .print-title h1{margin:0 0 4px; font-size:26px; font-weight:900;}
+  .print-title p{margin:0; font-size:13px; color:#444;}
+</style>
+</head>
+<body>
+
+<main class="page-top section-pad">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">YEAR</span>
+      <h2>한 해 모아보기</h2>
+      <p>그 해에 만든 것과 있었던 일을 한자리에 모았어요. 그대로 인쇄할 수도 있어요.</p>
+    </div>
+
+    <div class="year-pick reveal" id="yearPick"></div>
+    <div class="who-pick reveal" id="whoPick">
+      <button class="dot-btn small on" data-who="all">전체</button>
+      <button class="dot-btn small" data-who="sua">수아</button>
+      <button class="dot-btn small" data-who="yona">연아</button>
+      <button class="dot-btn small" data-who="together">같이</button>
+    </div>
+
+    <button class="dot-btn primary print-btn" id="printBtn">🖨 이대로 인쇄하기</button>
+
+    <!-- 종이에만 나오는 표지 줄 -->
+    <div class="print-title" id="printTitle"></div>
+
+    <div id="body"></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script>
+buildChrome('year');
+buildBackdrop('year');
+
+const AUTHORS = { sua:'수아', yona:'연아', together:'같이' };
+let allWorks = [], allPosts = [], allEvents = [];
+let year = null, who = 'all';
+
+const yearOf = d => d ? String(d).slice(0, 4) : null;
+
+async function loadAll(){
+  const [w, p, e] = await Promise.all([
+    sb.from('works').select('*').order('made_on', { ascending:true, nullsFirst:false }),
+    sb.from('posts').select('*').order('created_at', { ascending:true }),
+    sb.from('event_meta').select('*').order('start_date', { ascending:true }),
+  ]);
+  allWorks  = w.data || [];
+  allPosts  = p.data || [];
+  allEvents = (e.data || []).filter(x => x.is_public !== false || isAdmin);
+
+  // 연도 목록은 실제로 자료가 있는 해만 — 빈 해를 눌러 허탕치지 않게
+  const years = [...new Set([
+    ...allWorks.map(x => yearOf(x.made_on)),
+    ...allPosts.map(x => yearOf(x.happened_on || x.created_at)),
+    ...allEvents.map(x => yearOf(x.start_date)),
+  ].filter(Boolean))].sort((a, b) => b.localeCompare(a));
+
+  year = years[0] || String(new Date().getFullYear());
+  $('#yearPick').innerHTML = years.map(y =>
+    '<button class="dot-btn small' + (y === year ? ' on' : '') + '" data-year="' + y + '">' +
+    y + '년</button>').join('');
+  render();
+}
+
+function pick(){
+  const okWho = a => who === 'all' || a === who;
+  return {
+    works:  allWorks.filter(x => yearOf(x.made_on) === year && okWho(x.author)),
+    posts:  allPosts.filter(x => yearOf(x.happened_on || x.created_at) === year && okWho(x.author)
+                                 && x.status !== 'pending'),
+    events: allEvents.filter(x => yearOf(x.start_date) === year),
+  };
+}
+
+function render(){
+  const { works, posts, events } = pick();
+  const whoLabel = who === 'all' ? '수아와 연아' : AUTHORS[who];
+
+  $('#printTitle').innerHTML =
+    '<h1>' + year + '년 · ' + escapeHTML(whoLabel) + '</h1>' +
+    '<p>작품 ' + works.length + '개 · 일기 ' + posts.length + '개 · 일정 ' + events.length + '개</p>';
+
+  let html =
+    '<div class="sum">' +
+      '<div class="box"><div class="n">' + works.length + '</div><div class="k">작품</div></div>' +
+      '<div class="box"><div class="n">' + posts.length + '</div><div class="k">일기</div></div>' +
+      '<div class="box"><div class="n">' + events.length + '</div><div class="k">일정</div></div>' +
+    '</div>';
+
+  // 작품
+  html += '<div class="yr-section"><h3>🎨 만든 것</h3>';
+  html += works.length ? '<div class="yr-works">' + works.map(w =>
+    '<div class="yr-work">' +
+      (w.media_type === 'video'
+        ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
+        : '<img src="' + escapeHTML(w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">') +
+      '<div class="cap">' +
+        '<div class="t">' + escapeHTML(w.title) + '</div>' +
+        (w.quote ? '<div class="q">“' + escapeHTML(w.quote) + '”</div>' : '') +
+        '<div class="m">' + escapeHTML(AUTHORS[w.author] || '') +
+          (w.made_on ? ' · ' + escapeHTML(formatDate(w.made_on)) : '') + '</div>' +
+      '</div>' +
+    '</div>').join('') + '</div>'
+    : '<div class="yr-empty">이 해에 올린 작품이 없어요.</div>';
+  html += '</div>';
+
+  // 일기
+  html += '<div class="yr-section"><h3>📖 있었던 일</h3>';
+  html += posts.length ? posts.map(p =>
+    '<div class="yr-post">' +
+      '<h4>' + escapeHTML(p.title) + '</h4>' +
+      '<div class="m">' + escapeHTML(AUTHORS[p.author] || '') + ' · ' +
+        escapeHTML(formatDate(p.happened_on || p.created_at)) +
+        (p.place ? ' · ' + escapeHTML(p.place) : '') + '</div>' +
+      (p.body ? '<div class="b note-content">' + renderNoteContent(p.body) + '</div>' : '') +
+      (p.image_url ? '<img src="' + escapeHTML(p.image_url) + '" loading="lazy" alt="">' : '') +
+    '</div>').join('')
+    : '<div class="yr-empty">이 해에 쓴 일기가 없어요.</div>';
+  html += '</div>';
+
+  // 일정
+  html += '<div class="yr-section"><h3>📅 함께한 날</h3>';
+  html += events.length ? '<div class="yr-events">' + events.map(e =>
+    '<a class="yr-event" href="/event/e/?slug=' + encodeURIComponent(e.event_id) + '">' +
+      '<b>' + escapeHTML([e.org_name, e.event_name].filter(Boolean).join(' · ') || e.event_id) + '</b>' +
+      '<span>' + escapeHTML(e.date_range_text || e.start_date || '') + '</span>' +
+    '</a>').join('') + '</div>'
+    : '<div class="yr-empty">이 해에 만든 일정표가 없어요.</div>';
+  html += '</div>';
+
+  $('#body').innerHTML = html;
+  initReveal();
+}
+
+$('#yearPick').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-year]');
+  if (!b) return;
+  year = b.dataset.year;
+  $$('#yearPick .dot-btn').forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+$('#whoPick').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-who]');
+  if (!b) return;
+  who = b.dataset.who;
+  $$('#whoPick .dot-btn').forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+
+// 인쇄하기 전에 사진이 다 와 있어야 한다. lazy 인 채로 인쇄하면 아직 안 온 것은 빈칸으로 나온다.
+$('#printBtn').addEventListener('click', async () => {
+  const btn = $('#printBtn');
+  const imgs = $$('#body img');
+  const pending = imgs.filter(im => { im.loading = 'eager'; return !im.complete; });
+  if (pending.length) {
+    btn.disabled = true;
+    btn.textContent = '사진 불러오는 중... (' + pending.length + '장)';
+    await Promise.all(pending.map(im => new Promise(r => {
+      im.addEventListener('load', r, { once:true });
+      im.addEventListener('error', r, { once:true });
+      setTimeout(r, 8000);
+    })));
+    btn.disabled = false;
+    btn.textContent = '🖨 이대로 인쇄하기';
+  }
+  window.print();
+});
+
+(async () => {
+  await refreshAuth();
+  await loadAll();
+  initReveal();
+})();
+</script>
+</body>
+</html>
