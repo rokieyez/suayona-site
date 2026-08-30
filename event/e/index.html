@@ -66,6 +66,10 @@
 
   .tabs{display:flex; flex-wrap:wrap; align-items:center; gap:7px; justify-content:center; margin:20px 0 18px;}
   .tab-sep{color:var(--ink-soft); opacity:.5; font-weight:900; font-size:15px; padding:0 1px;}
+  .tab-link{border:1px dashed rgba(var(--accent-rgb),.5); background:none; color:var(--accent);
+    padding:8px 13px; border-radius:20px; font-size:12px; font-weight:700;
+    font-family:inherit; cursor:pointer; transition:.2s;}
+  .tab-link:hover{background:rgba(var(--accent-rgb),.12);}
   .tab{border:none; padding:9px 15px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; transition:.2s; border-radius:20px; background:rgba(0,0,0,.05); color:var(--ink-soft);}
   .tab:hover:not(.active){transform:translateY(-2px); color:var(--accent); background:rgba(var(--accent-rgb),.12);}
   .tab.active{color:#fff; background:var(--accent);}
@@ -403,11 +407,83 @@ function reveal(panel){
   markNow(panel);
 }
 
-function showPanel(id){
+function showPanel(id, opts){
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.t === id));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === id));
   const panel = document.getElementById(id);
   if (panel) reveal(panel);
+  // 지금 보고 있는 탭을 주소에 남긴다 — 주소창을 그대로 복사하면 그 탭이 열린 링크가 된다.
+  // replaceState 라서 뒤로가기는 이 페이지에 들어오기 전으로 간다.
+  if (!(opts && opts.silent) && panel) {
+    const u = new URL(location.href);
+    u.searchParams.set('tab', id);
+    history.replaceState(null, '', u);
+  }
+}
+
+// 탭 줄 맨 끝에 "이 탭 링크 복사" 버튼을 붙인다.
+// 주소창을 직접 복사해도 되지만, 휴대폰에서는 그게 번거로워서 버튼을 둠.
+function addTabLinkButton(){
+  if (document.querySelector('.tab-link')) return;
+  const b = document.createElement('button');
+  b.className = 'tab-link';
+  b.type = 'button';
+  b.textContent = '🔗 이 탭 링크 복사';
+  b.title = '지금 열려 있는 탭이 그대로 열리는 주소를 복사합니다';
+  b.addEventListener('click', () => copyTabLink(b));
+  tabsEl.appendChild(b);
+}
+
+// 주소의 ?tab= 을 실제 탭으로 옮긴다.
+// 탭 id(d1, gallery, custom-3) 를 그대로 받고, 날짜(10-04, 1004)로도 찾을 수 있게 했다.
+function panelIdFromQuery(raw){
+  if (!raw) return null;
+  const want = String(raw).trim();
+  if (document.getElementById(want)) return want;
+
+  const digits = want.replace(/[^0-9]/g, '');
+  if (digits.length === 3 || digits.length === 4) {
+    const mm = +digits.slice(0, digits.length - 2), dd = +digits.slice(-2);
+    for (const id in PANEL_DATE) {
+      const d = PANEL_DATE[id];
+      if (d && d[1] + 1 === mm && d[2] === dd && document.getElementById(id)) return id;
+    }
+  }
+  // 탭 이름으로도 찾기 (이모지·공백 무시)
+  const norm = t => t.replace(/[^0-9a-zA-Z가-힣]/g, '').toLowerCase();
+  const hit = [...document.querySelectorAll('.tab')]
+    .find(t => norm(t.textContent) === norm(want));
+  return hit ? hit.dataset.t : null;
+}
+
+// 지금 탭이 열린 채로 열리는 주소를 클립보드에 복사
+function copyTabLink(btn){
+  const active = document.querySelector('.tab.active');
+  const u = new URL(location.href);
+  if (active) u.searchParams.set('tab', active.dataset.t);
+  const label = btn.textContent;
+  const done = ok => {
+    if (ok) {
+      btn.textContent = '복사했어요';
+      setTimeout(() => { btn.textContent = label; }, 1600);
+    } else {
+      // 클립보드를 못 쓰는 환경(구형 브라우저, http 접속)에서는 주소를 직접 띄워 준다.
+      // "복사 실패"만 보여주면 사용자가 할 수 있는 게 없다.
+      btn.textContent = label;
+      prompt('아래 주소를 복사해서 보내주세요', u.toString());
+    }
+  };
+  if (navigator.clipboard && location.protocol === 'https:') {
+    navigator.clipboard.writeText(u.toString()).then(() => done(true), () => done(false));
+  } else {
+    // http 나 구형 브라우저 대비
+    const ta = document.createElement('textarea');
+    ta.value = u.toString(); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    ta.remove(); done(ok);
+  }
 }
 
 let PANEL_DATE = {};
@@ -928,6 +1004,7 @@ function isPageZoomed(){
   CONFIG.panels.forEach(p => { if (p.dateKey) PANEL_DATE[p.id] = p.dateKey; });
 
   buildTabsAndPanels();
+  addTabLinkButton();
   // 탭을 만든 뒤에 붙여야 함 (도구막대가 여기서 생성되므로)
   const galleryFileInput = $('#galleryFileInput');
   if (galleryFileInput) {
@@ -944,7 +1021,11 @@ function isPageZoomed(){
   setInterval(() => { const active = document.querySelector('.panel.active'); if (active) markNow(active); }, 30000);
 
   loadGallery();
-  loadCustomTabs();
+  // 커스텀 탭은 나중에 붙으므로, 다 붙은 뒤에 ?tab= 을 적용해야 custom-3 같은 주소도 열린다
+  await loadCustomTabs();
+
+  const want = panelIdFromQuery(new URLSearchParams(location.search).get('tab'));
+  if (want) showPanel(want, { silent:true });
 })();
 </script>
 </body>
