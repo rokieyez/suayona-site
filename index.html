@@ -394,12 +394,14 @@ buildChrome('home');
         const top = standY - c.sp.length * c.s - c.bob;
         drawSprite(ctx, c.sp, cx, top, c.s);
         if (c.rider) {
-          // 머리 위에 올라탄 친구 — 주인이 튀면 같이 튀도록 같은 top 을 기준으로 앉힘
+          // 머리 위에 올라탄 친구 — 주인이 튀면 같이 튀도록 같은 top 을 기준으로 앉힘.
+          // ★ 세로값을 도트 격자로 반올림하면 안 된다. 주인은 실수 좌표로 그려지는데
+          //   여기만 S(4~5px) 단위로 끊으면 혼자 뚝뚝 끊겨 보인다.
           const rs = Math.max(2, Math.round(c.s * 0.85));
           const rw = c.rider[0].length * rs, rh = c.rider.length * rs;
           drawSprite(ctx, c.rider,
             Math.round((cx + (c.sp[0].length * c.s - rw) / 2) / S) * S,
-            Math.round((top - rh + rs) / S) * S, rs);
+            top - rh + rs, rs);
         }
       }
       cx += c.sp[0].length * c.s + gap;
