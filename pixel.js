@@ -398,6 +398,8 @@ const SPRITES = {
     'SSSSSSSSSSS',
   ],
   // 첨부 그림의 캐릭터 — 얼굴만 떼어 씀. 돌처럼 굴러다니는 용도 18x15
+  // 상그렐라 18x15 — 부리를 벌린 모양. 윗부리(2줄)와 아랫부리(1줄) 사이에
+  // 검은 선을 한 줄 넣고, 아랫부리는 한 칸 왼쪽으로 물려 벌어진 느낌을 준다.
   chick: [
     '.....FFFFFFFF.....',
     '...FFEEEEEEEEFF...',
@@ -409,9 +411,9 @@ const SPRITES = {
     'FEEEEEEEFFFEEEEEEF',
     'FEEEEEEFhhhFEEEEEF',
     'FEEEEEEFhhhFEEEEEF',
-    'FEEEEEEFhhFEEEEEEF',
-    '.FEEEEEFhhFEEEEEF.',
-    '..FEEEEEFFEEEEEF..',
+    'FEEEEEFFFFFFEEEEEF',
+    '.FEEEEFhhhFEEEEEF.',
+    '..FEEEEFFFEEEEEF..',
     '...FFEEEEEEEEFF...',
     '.....FFFFFFFF.....',
   ],
