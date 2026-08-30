@@ -339,8 +339,9 @@ const loginBox = $('#login-box'), adminBox = $('#admin-box');
 
 // ----- 로그인 상태에 따라 화면 전환 -----
 async function refreshAuthUI(){
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
+  // 관리 화면은 부모만. 아이 계정으로 들어오면 로그인 화면에 머문다.
+  const session = await refreshAuth();
+  if (session && isAdmin) {
     loginBox.style.display = 'none';
     adminBox.style.display = 'block';
     $('#whoami').textContent = session.user.email + ' 로 로그인됨';

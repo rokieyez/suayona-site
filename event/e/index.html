@@ -70,6 +70,9 @@
     padding:8px 13px; border-radius:20px; font-size:12px; font-weight:700;
     font-family:inherit; cursor:pointer; transition:.2s;}
   .tab-link:hover{background:rgba(var(--accent-rgb),.12);}
+  .tab-link.tab-add{border-style:solid; background:var(--accent); color:#fff;
+    text-decoration:none; display:inline-flex; align-items:center;}
+  .tab-link.tab-add:hover{filter:brightness(1.08);}
   .tab{border:none; padding:9px 15px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; transition:.2s; border-radius:20px; background:rgba(0,0,0,.05); color:var(--ink-soft);}
   .tab:hover:not(.active){transform:translateY(-2px); color:var(--accent); background:rgba(var(--accent-rgb),.12);}
   .tab.active{color:#fff; background:var(--accent);}
@@ -322,8 +325,9 @@ function applyHeaderText(){
 }
 
 async function refreshHubLink(){
-  const { data: { session } } = await sb.auth.getSession();
-  isAdmin = !!session;
+  // 공용 refreshAuth 가 역할(부모/아이)까지 봐준다.
+  // 예전처럼 "로그인했으면 관리자"로 두면 아이 계정이 여기서 일정을 고칠 수 있게 된다.
+  await refreshAuth();
   $('#hubLink').style.display = isAdmin ? 'inline-block' : 'none';
 }
 
@@ -440,6 +444,23 @@ function addTabLinkButton(){
   b.title = '지금 열려 있는 탭이 그대로 열리는 주소를 복사합니다';
   b.addEventListener('click', () => copyTabLink(b));
   tabsEl.appendChild(b);
+
+  // 관리자에게만 보이는 일정 추가 버튼.
+  // 지금 열려 있는 날짜 탭을 관리 화면에 넘겨줘서, 들어가자마자 그 날짜가 골라져 있게 한다.
+  if (!isAdmin) return;
+  const add = document.createElement('a');
+  add.className = 'tab-link tab-add';
+  add.textContent = '＋ 일정 추가';
+  add.title = '지금 보고 있는 날짜에 일정을 추가합니다';
+  add.href = './admin.html?slug=' + encodeURIComponent(CONFIG.eventSlug);
+  add.addEventListener('click', () => {
+    // 누르는 순간의 활성 탭을 넘긴다. 갤러리·노트처럼 날짜가 아닌 탭에서는 날짜를 안 붙임.
+    const act = document.querySelector('.tab.active');
+    const id = act && act.dataset.t;
+    add.href = './admin.html?slug=' + encodeURIComponent(CONFIG.eventSlug) +
+      (id && PANEL_DATE[id] ? '&addPanel=' + encodeURIComponent(id) : '');
+  });
+  tabsEl.appendChild(add);
 }
 
 // 주소의 ?tab= 을 실제 탭으로 옮긴다.

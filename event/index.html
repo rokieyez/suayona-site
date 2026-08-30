@@ -441,8 +441,8 @@ $('#neBtn').addEventListener('click', async () => {
 
 // ----- 목록은 누구나 볼 수 있고, 만들기/삭제만 로그인한 사람에게 노출 -----
 async function refreshAuthUI(){
-  const { data: { session } } = await sb.auth.getSession();
-  isAdmin = !!session;
+  // 역할까지 확인 — 아이 계정은 이벤트를 만들거나 지울 수 없어야 한다
+  const session = await refreshAuth();
 
   $('#content').style.display = 'block';            // 목록은 항상 보임
   $('#login-box').style.display = 'none';
