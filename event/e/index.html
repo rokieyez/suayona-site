@@ -775,11 +775,12 @@ function renderGalleryThumb(r, index){
       ev.stopPropagation();
       if (!confirm('이 파일을 삭제할까요?')) return;
       // 사진으로 일정을 만들면 갤러리 사진의 주소가 그대로 일정에도 붙는다.
-      // 그런 사진의 파일까지 지우면 일정 쪽 사진이 깨지므로, 파일은 남기고 줄만 지운다.
-      const stillUsed = await usedBySchedule(r.media_url);
+      // 그런 사진은 파일을 남기고 줄만 지운다 — 안 그러면 일정 쪽 사진이 깨진다.
+      // 사본도 마찬가지다. 일정 목록이 바로 그 사본을 쓰고 있으므로 같이 남겨야 한다.
+      const stillUsed = await usedBySchedule(r.media_url, r.thumb_url);
       const { error } = await sb.from('gallery_media').delete().eq('id', r.id);
       if (error) { alert('삭제 실패: ' + error.message); return; }
-      await removeStored(GALLERY_BUCKET, stillUsed ? [r.thumb_url] : [r.media_url, r.thumb_url]);
+      if (!stillUsed) await removeStored(GALLERY_BUCKET, [r.media_url, r.thumb_url]);
       loadGallery();
   loadLinkedWorks();
     });
@@ -788,16 +789,25 @@ function renderGalleryThumb(r, index){
   return thumb;
 }
 
-// 이 사진이 일정(events)에도 붙어 있는지. 붙어 있으면 파일을 남겨야 한다.
+// 이 사진(또는 사본)이 일정(events)에도 붙어 있는지. 붙어 있으면 파일을 남겨야 한다.
 // 확인하지 못하면 "쓰이고 있다"로 친다 — 잘못 지우는 것보다 남기는 쪽이 낫다.
-async function usedBySchedule(url){
-  if (!url) return true;
+async function usedBySchedule(...urls){
+  const want = urls.filter(Boolean);
+  if (!want.length) return true;
   const { data, error } = await sb.from('events')
-    .select('id, image_url, extra_images').eq('event_id', CONFIG.eventSlug);
+    .select('id, image_url, thumb_url, extra_images').eq('event_id', CONFIG.eventSlug);
   if (error) { console.warn('일정 확인 실패, 파일은 남깁니다:', error.message); return true; }
-  return (data || []).some(r =>
-    r.image_url === url ||
-    (Array.isArray(r.extra_images) && r.extra_images.some(x => x && x.url === url)));
+  const inUse = new Set();
+  (data || []).forEach(r => {
+    if (r.image_url) inUse.add(r.image_url);
+    if (r.thumb_url) inUse.add(r.thumb_url);
+    (Array.isArray(r.extra_images) ? r.extra_images : []).forEach(x => {
+      if (!x) return;
+      if (x.url) inUse.add(x.url);
+      if (x.thumb) inUse.add(x.thumb);      // 일정 목록이 바로 이 사본을 쓴다
+    });
+  });
+  return want.some(u => inUse.has(u));
 }
 
 function validateGalleryFile(file){
