@@ -15,6 +15,13 @@
 <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
 <link href="./style.css" rel="stylesheet">
 <style>
+  /* 다른 페이지에서 이 글로 건너왔을 때, 어느 글인지 잠깐 짚어 준다 */
+  .post.jumped{outline:var(--px) solid var(--coral); outline-offset:6px;}
+  @media (prefers-reduced-motion: no-preference){
+    .post.jumped{animation:jumpfade 2.4s ease-out forwards;}
+  }
+  @keyframes jumpfade{0%,60%{outline-color:var(--coral);}100%{outline-color:transparent;}}
+
   /* 일기 쓰기 단추를 소개문 쪽으로 붙여 올린다 */
   .section-head{margin-bottom:18px;}
   .row2{display:flex; gap:10px;}
@@ -115,6 +122,7 @@ function render(){
   posts.forEach(p => {
     const el = document.createElement('article');
     el.className = 'post dot-card reveal';
+    el.id = 'post-' + p.id;      // 작품에서 "그날의 일기"로 바로 건너올 수 있도록
     el.innerHTML =
       '<h3>' + escapeHTML(p.title) + '</h3>' +
       '<div class="meta">' +
@@ -414,12 +422,24 @@ function renderAdminArea(){
   render();
 }
 
+// 주소에 #post-12 가 붙어 오면 그 글로 데려간다.
+// 글은 나중에 그려지므로 브라우저가 알아서 못 찾는다 — 다 그린 뒤에 직접 옮긴다.
+function jumpToHash(){
+  const id = (location.hash || '').match(/^#post-(\d+)$/);
+  const el = id && document.getElementById('post-' + id[1]);
+  if (!el) return;
+  el.classList.add('jumped');
+  requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+}
+
 (async () => {
   await refreshAuth();
   await loadPosts();
   renderAdminArea();
   initReveal();
+  jumpToHash();
 })();
+window.addEventListener('hashchange', jumpToHash);
 </script>
 </body>
 </html>
