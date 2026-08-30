@@ -116,12 +116,19 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
   header.site nav a{padding:14px 20px; border:none; border-top:2px solid rgba(47,42,36,.12); font-size:14px;}
   .menu-toggle{display:block;}
 }
-/* 아주 좁은 화면에선 로고 글씨를 접어 로그인 단추 자리를 낸다 */
+/* 좁은 화면에선 단추와 로고 글씨를 함께 줄여 자리를 낸다.
+   하트는 도트 그림이라 캔버스 크기는 건드리지 않는다 — 정수 배율이 아니면 뭉개진다.
+   이렇게 하면 흔한 휴대폰 폭(360·375·390·412)에서 이름이 그대로 남는다. */
 @media (max-width:430px){
-  .logo-text{display:none;}
   .hdr-auth{padding:7px 9px; font-size:12px;}
   .hdr-icon{padding:7px 8px; font-size:14px;}
   .hdr-right{gap:6px;}
+  .logo{gap:7px;}
+  .logo-text{font-size:15px;}
+}
+/* 여기서부터는 정말 자리가 없다 (아이폰 SE 1세대 등) */
+@media (max-width:340px){
+  .logo-text{display:none;}
 }
 
 /* ===== 로그인 창 (헤더 단추로 열림) ===== */
