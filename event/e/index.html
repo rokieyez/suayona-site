@@ -144,6 +144,34 @@
   .gallery-msg{font-size:12.5px; margin:8px 2px; min-height:1em; color:var(--ink-soft);}
   .gallery-msg.err{color:#c0392b;}
   .gallery-msg.ok{color:#2a8a4a;}
+  .gallery-msg a{color:var(--accent); font-weight:700;}
+  .auto-btn{display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:20px;
+    background:none; color:var(--accent); font-size:13px; font-weight:700; cursor:pointer;
+    border:1px solid rgba(var(--accent-rgb),.5); font-family:inherit; margin-left:8px;}
+  .auto-btn:hover{background:rgba(var(--accent-rgb),.1);}
+  .auto-btn:disabled{opacity:.5; cursor:default;}
+
+  /* ===== 사진으로 일정 만들기 (미리보기) ===== */
+  .prop{border:1px solid rgba(var(--accent-rgb),.35); border-radius:14px; padding:16px;
+    margin-bottom:16px; background:rgba(var(--accent-rgb),.05);}
+  .prop h4{margin:0 0 4px; font-size:14.5px; font-weight:800; color:var(--ink);}
+  .prop .lead{font-size:12.5px; color:var(--ink-soft); line-height:1.7; margin:0 0 12px;}
+  .prop-item{display:flex; gap:11px; padding:11px 0; border-top:1px solid rgba(var(--accent-rgb),.18);}
+  .prop-item.off{opacity:.42;}
+  .prop-item > input[type=checkbox]{margin-top:4px; width:17px; height:17px; flex:0 0 auto; accent-color:var(--accent);}
+  .prop-main{flex:1 1 auto; min-width:0;}
+  .prop-when{font-size:11.5px; font-weight:700; color:var(--accent); font-variant-numeric:tabular-nums;}
+  .prop-main input[type=text]{width:100%; margin-top:5px; padding:7px 9px; font-family:inherit;
+    font-size:13px; border:1px solid rgba(0,0,0,.18); border-radius:8px; background:var(--paper);
+    color:var(--ink);}
+  .prop-shots{display:flex; gap:5px; margin-top:7px;}
+  .prop-shots img{width:52px; height:52px; object-fit:cover; border-radius:7px;
+    border:1px solid rgba(0,0,0,.1);}
+  .prop-note{font-size:11.5px; color:var(--ink-soft); margin-top:5px;}
+  .prop-btns{display:flex; gap:8px; align-items:center; margin-top:14px; flex-wrap:wrap;}
+  .prop-btns .upload-btn{border:none;}
+  body[data-theme="dark"] .prop{background:rgba(255,255,255,.04);}
+  body[data-theme="dark"] .prop-main input[type=text]{background:rgba(0,0,0,.25); border-color:rgba(255,255,255,.15);}
 
   .linked-works{margin:0 0 18px;}
   .lw-head{font-size:13px; font-weight:800; color:var(--ink); margin-bottom:9px;}
@@ -371,9 +399,11 @@ function buildTabsAndPanels(){
           ? '<div class="gallery-toolbar">' +
               '<label class="upload-btn" id="uploadBtn" for="galleryFileInput">📤 사진/영상 올리기</label>' +
               '<input type="file" id="galleryFileInput" accept="image/*,video/*" multiple style="display:none;">' +
+              '<button type="button" class="auto-btn" id="autoBtn">🪄 사진으로 일정 만들기</button>' +
             '</div>'
           : '') +
         '<div class="gallery-msg" id="galleryMsg"></div>' +
+        '<div id="propBox"></div>' +
         '<div class="gallery-grid" id="galleryGrid"></div>' +
         '<div class="empty-msg" id="galleryEmpty" style="display:none;">아직 등록된 사진/영상이 없습니다</div>'
       : '<div class="timeline"></div>';
@@ -851,8 +881,299 @@ async function uploadGalleryFiles(fileList){
   if (parts.length) {
     msg.className = 'gallery-msg ' + (okCount ? 'ok' : '');
     msg.textContent = parts.join(' · ');
+    // 사진을 막 올린 지금이 일정을 만들기 제일 좋은 때라, 그 자리에서 이어 갈 수 있게 둔다
+    if (okCount) {
+      msg.insertAdjacentHTML('beforeend',
+        ' · <a href="#" id="autoLink">🪄 이 사진들로 일정 만들기</a>');
+      const link = $('#autoLink');
+      if (link) link.addEventListener('click', e => { e.preventDefault(); openScheduleProposal(); });
+    }
   }
   if (okCount) loadGallery();
+}
+
+// ---------------------------------------------------------------------------
+// 사진으로 일정 만들기
+//
+// 일정을 한 줄씩 손으로 적는 게 제일 고된 일이라, 이미 올라간 사진의 촬영 시각으로
+// 초안을 뽑아 준다. 다만 바로 쓰지 않고 미리보기를 먼저 보여준다 — 잘못 만들어진
+// 일정은 관리 화면에서 하나씩 지워야 해서, 되돌리는 비용이 만드는 비용보다 크다.
+//
+// 묶는 기준은 "몇 시부터 두 시간" 같은 고정 칸이 아니라 사진 사이의 간격이다.
+// 11:55 과 12:05 처럼 붙어 찍은 두 장이 정각을 사이에 뒀다는 이유로 갈라지면
+// 안 되기 때문. 대신 한 덩어리가 두 시간을 넘지 않게 상한을 둔다.
+// ---------------------------------------------------------------------------
+const GROUP_GAP_MIN = 40;    // 이만큼 벌어지면 다른 덩어리
+const GROUP_MAX_MIN = 120;   // 한 덩어리의 최대 길이
+const COVER_MAX = 3;         // 일정에 붙일 대표 사진 수
+
+// 날짜 탭은 내용이 있는 날만 남기고 걸러지므로(PANEL_DATE), 사진이 있는 빈 날을
+// 찾으려면 거르기 전의 전체 날짜 목록이 필요하다.
+function panelIdForDate(d){
+  if (!CONFIG.startDate || !CONFIG.endDate) return null;
+  const all = buildDatePanels(CONFIG.startDate, CONFIG.endDate);
+  for (const p of all) {
+    if (!p.dateKey) continue;
+    const [y, m, dd] = p.dateKey;
+    if (d.getFullYear() === y && d.getMonth() === m && d.getDate() === dd) return p.id;
+  }
+  return null;
+}
+
+function clusterShots(shots){
+  const sorted = shots.slice().sort((a, b) => a.t - b.t);
+  const groups = [];
+  let cur = null;
+  sorted.forEach(sh => {
+    if (cur && (sh.t - cur[cur.length - 1].t) / 60000 <= GROUP_GAP_MIN) { cur.push(sh); return; }
+    cur = [sh];
+    groups.push(cur);
+  });
+  // 두 시간을 넘는 덩어리는 나누되, 시계가 두 시간을 가리키는 자리가 아니라
+  // 사진이 가장 크게 끊긴 자리에서 자른다. 1분 간격으로 이어 찍은 사진이
+  // 정각을 사이에 뒀다는 이유로 갈라지지 않도록.
+  return groups.reduce((acc, g) => acc.concat(splitLongGroup(g)), []);
+}
+
+function splitLongGroup(g){
+  if (g.length < 2) return [g];
+  if ((g[g.length - 1].t - g[0].t) / 60000 <= GROUP_MAX_MIN) return [g];
+
+  // 자를 자리는 가운데 쪽에서만 찾는다. 끝자락을 골라 한 장씩 떼어내면
+  // 아주 촘촘히 찍은 무리가 낱개로 흩어지기 때문.
+  const lo = Math.max(1, Math.floor(g.length * 0.2));
+  const hi = Math.max(lo + 1, Math.ceil(g.length * 0.8));
+  let cutAt = lo, widest = -1;
+  for (let i = lo; i < hi && i < g.length; i++) {
+    const gap = g[i].t - g[i - 1].t;
+    if (gap > widest) { widest = gap; cutAt = i; }
+  }
+  return splitLongGroup(g.slice(0, cutAt)).concat(splitLongGroup(g.slice(cutAt)));
+}
+
+// 처음·중간·끝 — 그 시간대가 어떻게 흘렀는지가 석 장에 담긴다
+function pickCovers(g){
+  if (g.length <= COVER_MAX) return g.slice();
+  return [g[0], g[Math.floor(g.length / 2)], g[g.length - 1]];
+}
+
+function twoDigit(n){ return String(n).padStart(2, '0'); }
+function clockOf(t){ const d = new Date(t); return twoDigit(d.getHours()) + ':' + twoDigit(d.getMinutes()); }
+
+// 제목은 GPS 로 얻은 지명이 있으면 그걸 쓰고, 없으면 시간대 이름을 넣는다.
+// 어느 쪽이든 미리보기에서 고쳐 쓸 수 있으니 빈칸으로 두지 않는다.
+function guessTitle(g){
+  const place = g.map(x => x.place).find(Boolean);
+  if (place) return place;
+  // 한 날에 같은 이름이 여러 번 나오면 고쳐 쓰기가 번거로워서 구간을 잘게 뒀다
+  const h = new Date(g[0].t).getHours();
+  if (h < 9)  return '아침';
+  if (h < 12) return '오전';
+  if (h < 14) return '점심 무렵';
+  if (h < 16) return '이른 오후';
+  if (h < 18) return '늦은 오후';
+  if (h < 20) return '저녁';
+  return '밤';
+}
+
+let proposals = [];
+
+async function openScheduleProposal(){
+  const box = $('#propBox'), btn = $('#autoBtn'), msg = $('#galleryMsg');
+  if (btn) btn.disabled = true;
+  box.innerHTML = '';
+  msg.className = 'gallery-msg'; msg.textContent = '사진을 살펴보는 중...';
+
+  const [gal, ev] = await Promise.all([
+    sb.from('gallery_media').select('*').eq('event_id', CONFIG.eventSlug),
+    sb.from('events').select('*').eq('event_id', CONFIG.eventSlug),
+  ]);
+  if (btn) btn.disabled = false;
+  if (gal.error || ev.error) {
+    msg.className = 'gallery-msg err';
+    msg.textContent = '사진을 불러오지 못했어요: ' + ((gal.error || ev.error).message);
+    return;
+  }
+
+  // 이미 일정에 붙어 있는 사진은 다시 제안하지 않는다 — 여러 번 눌러도 안전하도록
+  const used = new Set();
+  (ev.data || []).forEach(r => {
+    if (r.image_url) used.add(r.image_url);
+    (Array.isArray(r.extra_images) ? r.extra_images : []).forEach(x => x && x.url && used.add(x.url));
+  });
+
+  const media = gal.data || [];
+  let noTime = 0, alreadyUsed = 0;
+  const shots = [];
+  media.forEach(m => {
+    if (used.has(m.media_url)) { alreadyUsed++; return; }
+    if (!m.taken_at) { noTime++; return; }
+    const t = new Date(m.taken_at).getTime();
+    if (isNaN(t)) { noTime++; return; }
+    shots.push({ url: m.media_url, t, taken_at: m.taken_at, place: m.location_name || '',
+                 isVideo: m.media_type === 'video' });
+  });
+
+  // 행사 기간 밖에서 찍힌 사진은 넣을 날짜 탭이 없다
+  const outside = [];
+  const inside = [];
+  shots.forEach(sh => {
+    const pid = panelIdForDate(new Date(sh.t));
+    if (pid) { sh.panel = pid; inside.push(sh); } else outside.push(sh);
+  });
+
+  // 날짜별로 먼저 갈라 놓고 묶는다. 자정을 사이에 둔 사진이 한 덩어리가 되면
+  // 어느 날 탭에 넣어야 할지 정할 수 없기 때문.
+  const byPanel = {};
+  inside.forEach(sh => (byPanel[sh.panel] = byPanel[sh.panel] || []).push(sh));
+
+  proposals = [];
+  Object.keys(byPanel).sort().forEach(pid => {
+    clusterShots(byPanel[pid]).forEach(g => {
+      const covers = pickCovers(g);
+      const from = clockOf(g[0].t), to = clockOf(g[g.length - 1].t);
+      proposals.push({
+        panel: pid,
+        time: from === to ? from : from + ' - ' + to,
+        title: guessTitle(g),
+        count: g.length,
+        covers,
+        on: true,
+      });
+    });
+  });
+
+  const notes = [];
+  if (alreadyUsed) notes.push('이미 일정에 쓰인 사진 ' + alreadyUsed + '장은 뺐어요');
+  if (noTime)      notes.push('촬영 시각이 없는 파일 ' + noTime + '개는 뺐어요 (영상은 대개 시각이 없어요)');
+  if (outside.length) notes.push('행사 기간 밖에서 찍힌 사진 ' + outside.length + '장은 넣을 날짜가 없어요');
+
+  if (!proposals.length) {
+    msg.className = 'gallery-msg';
+    msg.textContent = ['만들 수 있는 일정이 없어요.'].concat(notes).join(' · ');
+    return;
+  }
+
+  msg.textContent = '';
+  renderProposal(notes);
+}
+
+function renderProposal(notes){
+  const dayLabel = pid => {
+    const p = buildDatePanels(CONFIG.startDate, CONFIG.endDate).find(x => x.id === pid);
+    return p && p.dateKey ? formatDateLabel(p.dateKey) : pid;
+  };
+
+  let html =
+    '<div class="prop">' +
+    '<h4>이렇게 만들까요?</h4>' +
+    '<p class="lead">사진 찍힌 시각으로 ' + proposals.length + '개를 뽑았어요. ' +
+    '이름은 고쳐 쓸 수 있고, 뺄 것은 체크를 풀면 됩니다.' +
+    (notes.length ? '<br>' + escapeHTML(notes.join(' · ')) : '') + '</p>';
+
+  let lastPanel = null;
+  proposals.forEach((p, i) => {
+    if (p.panel !== lastPanel) {
+      html += '<div class="prop-when" style="margin-top:10px;">' + escapeHTML(dayLabel(p.panel)) + '</div>';
+      lastPanel = p.panel;
+    }
+    html +=
+      '<label class="prop-item" data-i="' + i + '">' +
+        '<input type="checkbox" checked>' +
+        '<span class="prop-main">' +
+          '<span class="prop-when">' + escapeHTML(p.time) + '</span>' +
+          '<input type="text" value="' + escapeHTML(p.title) + '" placeholder="일정 이름">' +
+          '<span class="prop-shots">' +
+            p.covers.map(c => '<img src="' + escapeHTML(c.url) + '" loading="lazy" alt="">').join('') +
+          '</span>' +
+          '<span class="prop-note">사진 ' + p.count + '장 중 ' + p.covers.length + '장을 일정에 붙여요' +
+            (p.count > p.covers.length ? ' (나머지는 갤러리에 그대로 있어요)' : '') + '</span>' +
+        '</span>' +
+      '</label>';
+  });
+
+  html +=
+    '<div class="prop-btns">' +
+      '<button type="button" class="upload-btn" id="propGo">일정 만들기</button>' +
+      '<button type="button" class="auto-btn" id="propCancel">닫기</button>' +
+      '<span class="prop-note" id="propMsg"></span>' +
+    '</div></div>';
+
+  const box = $('#propBox');
+  box.innerHTML = html;
+
+  // 위임 처리는 상자 자체에 걸리므로 한 번만 단다. 두 번 열 때마다 겹쳐 달면
+  // 같은 이벤트가 두 번씩 처리된다.
+  if (box.dataset.bound) { box.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return; }
+  box.dataset.bound = '1';
+
+  box.addEventListener('change', e => {
+    const item = e.target.closest('.prop-item');
+    if (!item) return;
+    const p = proposals[+item.dataset.i];
+    if (e.target.type === 'checkbox') { p.on = e.target.checked; item.classList.toggle('off', !p.on); }
+    if (e.target.type === 'text') p.title = e.target.value;
+  });
+  box.addEventListener('input', e => {
+    if (e.target.type !== 'text') return;
+    const item = e.target.closest('.prop-item');
+    if (item) proposals[+item.dataset.i].title = e.target.value;
+  });
+  box.addEventListener('click', e => {
+    if (e.target.id === 'propCancel') { box.innerHTML = ''; proposals = []; }
+    if (e.target.id === 'propGo') createProposedItems();
+  });
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function createProposedItems(){
+  const go = $('#propGo'), pmsg = $('#propMsg');
+  const picked = proposals.filter(p => p.on && p.title.trim());
+  if (!picked.length) { pmsg.textContent = '만들 일정을 하나 이상 골라주세요.'; return; }
+
+  go.disabled = true;
+  pmsg.textContent = '만드는 중...';
+
+  // 손으로 넣어 둔 일정 뒤에 붙인다. 이미 있는 줄의 순서는 건드리지 않는다.
+  const { data: exist, error: exErr } = await sb.from('events')
+    .select('panel, sort_order').eq('event_id', CONFIG.eventSlug);
+  if (exErr) { go.disabled = false; pmsg.textContent = '실패: ' + exErr.message; return; }
+  const base = {};
+  (exist || []).forEach(r => {
+    base[r.panel] = Math.max(base[r.panel] || 0, r.sort_order || 0);
+  });
+
+  const rows = picked.map(p => {
+    const first = p.covers[0];
+    const rest = p.covers.slice(1).map(c => ({ url: c.url, taken_at: c.taken_at, location_name: c.place || null }));
+    base[p.panel] = (base[p.panel] || 0) + 1;
+    return {
+      event_id: CONFIG.eventSlug,
+      panel: p.panel,
+      sort_order: base[p.panel],
+      time: p.time,
+      title: p.title.trim(),
+      detail: null,
+      image_url: first.url,
+      taken_at: first.taken_at,
+      location_name: first.place || null,
+      extra_images: rest,
+    };
+  });
+
+  const { error } = await sb.from('events').insert(rows);
+  if (error) {
+    go.disabled = false;
+    // 권한 거절은 원문이 영어라 무슨 말인지 알 수 없다. 실제로는 로그인이 풀린 경우다.
+    pmsg.textContent = /row-level security|permission/i.test(error.message)
+      ? '관리자로 로그인해야 만들 수 있어요. 로그인 뒤 다시 눌러주세요.'
+      : '실패: ' + error.message;
+    return;
+  }
+
+  pmsg.textContent = rows.length + '개를 만들었어요. 새로 고칩니다...';
+  // 날짜 탭은 내용이 있어야 생기므로, 새 일정이 들어간 날 탭을 띄우려면 다시 그려야 한다
+  setTimeout(() => location.reload(), 700);
 }
 
 let lightboxIndex = -1;
@@ -1066,6 +1387,8 @@ function isPageZoomed(){
       e.target.value = '';
     });
   }
+  const autoBtn = $('#autoBtn');
+  if (autoBtn) autoBtn.addEventListener('click', openScheduleProposal);
   if (byPanel) renderSchedule(byPanel);
   showAdminAddLink(byPanel);
   setupLightboxInteractions();
