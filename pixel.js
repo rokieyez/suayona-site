@@ -680,9 +680,13 @@ function drawBigTree(ctx, W, H, s){
     }
   }
 
-  // 줄기에서 왼쪽 위로 뻗는 가지 — 끝으로 갈수록 가늘어지게
-  for (let i = 0; i < 26; i++) {
-    const t = i / 26;
+  // 줄기에서 왼쪽 위로 뻗는 가지 — 끝으로 갈수록 가늘어지게.
+  // 길이는 반드시 화면 폭 비율로 잡는다. 절대 px 로 두면 잎(비율로 배치됨)보다 길게 뻗어
+  // 좁은 화면에서 하늘에 갈색 줄만 덩그러니 남는다.
+  const reach = W * 0.22;                       // 잎 덩어리(0.73W 안쪽)에 가려지는 범위
+  const steps = Math.max(4, Math.round(reach / (s * 2.4)));
+  for (let i = 0; i < steps; i++) {
+    const t = i / steps;
     const bx = W * 1.00 - i * s * 2.4;
     const by = H * 0.17 + Math.sin(t * 1.4) * s * 5;
     ctx.fillStyle = SCENE.trunk.dark;
