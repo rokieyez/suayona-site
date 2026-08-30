@@ -363,8 +363,7 @@ buildChrome('home');
     const cast = [
       { sp: SPRITES.chick, s: petS,  bob: 0, roll: true },   // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다님
       { sp: SPRITES.sua,   s: castS, bob: hop1 },
-      { sp: SPRITES.yona,  s: castS, bob: hop2 },
-      { sp: SPRITES.fox,   s: petS,  bob: 0 },
+      { sp: SPRITES.yona,  s: castS, bob: hop2, rider: SPRITES.fox },  // 레샤가 머리 위에 탐
       { sp: SPRITES.easel, s: castS, bob: 0 },
     ];
     // 좁은 화면에서는 캐릭터를 통째로 한 단계씩 줄여 가로로 넘치지 않게 함
@@ -392,7 +391,16 @@ buildChrome('home');
         drawSprite(ctx, c.sp, -Math.round(w / 2), -Math.round(h / 2), c.s);
         ctx.restore();
       } else {
-        drawSprite(ctx, c.sp, cx, standY - c.sp.length * c.s - c.bob, c.s);
+        const top = standY - c.sp.length * c.s - c.bob;
+        drawSprite(ctx, c.sp, cx, top, c.s);
+        if (c.rider) {
+          // 머리 위에 올라탄 친구 — 주인이 튀면 같이 튀도록 같은 top 을 기준으로 앉힘
+          const rs = Math.max(2, Math.round(c.s * 0.85));
+          const rw = c.rider[0].length * rs, rh = c.rider.length * rs;
+          drawSprite(ctx, c.rider,
+            Math.round((cx + (c.sp[0].length * c.s - rw) / 2) / S) * S,
+            Math.round((top - rh + rs) / S) * S, rs);
+        }
       }
       cx += c.sp[0].length * c.s + gap;
     });
