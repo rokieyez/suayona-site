@@ -239,6 +239,18 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
 .filters.years .dot-btn{color:var(--ink); opacity:1; background:var(--cream);}
 .filters.years .dot-btn:hover{background:var(--lemon);}
 .filters.years .dot-btn.on{background:var(--ink); color:var(--cream);}
+/* 연도 버튼 줄 끝의 문집 링크. 거르개가 아니라 다른 곳으로 넘어가는 링크라
+   버튼과 같은 모양을 주지 않는다. */
+.yearbook-link{
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+  padding:7px 14px; font-size:12.5px; font-weight:800; text-decoration:none;
+  color:var(--ink); background:var(--lemon);
+  border:var(--px) solid var(--ink); box-shadow:2px 2px 0 var(--ink);
+  transition:transform .12s steps(2), box-shadow .12s steps(2);
+}
+.yearbook-link:hover{background:#ffe9a6;}
+.yearbook-link:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--ink);}
+.yearbook-link:focus-visible{outline:3px solid var(--ink); outline-offset:2px;}
 
 /* ===== 라이트박스 ===== */
 /* 사진을 화면 가로에 꽉 채우고, 세로로 긴 사진은 웹툰처럼 스크롤해서 봄 */

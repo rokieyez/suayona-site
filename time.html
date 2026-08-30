@@ -73,12 +73,15 @@
   .grid .col.today{background:rgba(255,217,121,.22);}
   .grid .col.hot{cursor:copy;}
 
-  .it{position:absolute; overflow:hidden; text-align:left; cursor:default;
+  /* 이름과 시각을 칸 한가운데에 둔다. safe 를 붙이면 내용이 칸보다 클 때
+     위아래가 같이 잘리지 않고 위쪽부터 보인다. */
+  .it{position:absolute; overflow:hidden; text-align:center; cursor:default;
+    display:flex; flex-direction:column; justify-content:safe center; align-items:center;
     border:2px solid var(--ink); border-radius:0; padding:3px 5px;
     font-family:inherit; color:var(--ink); font-size:11.5px; line-height:1.3;}
-  .it b{display:block; font-weight:800; font-size:12px;
+  .it b{display:block; max-width:100%; font-weight:800; font-size:12px;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .it span{display:block; font-size:10.5px; opacity:.8; margin-top:1px;
+  .it span{display:block; max-width:100%; font-size:10.5px; opacity:.8; margin-top:1px;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .it.k-school {background:var(--mint);}
   .it.k-academy{background:var(--lemon);}

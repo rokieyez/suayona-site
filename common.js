@@ -14,13 +14,15 @@ const VIDEO_LIMIT = 100 * 1024 * 1024;
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 
+// 모아보기(year.html)는 여기 없다. 포트폴리오의 연도 버튼 옆에서 들어간다 —
+// "2026년 작품"과 "2026년 모아보기"가 메뉴에 나란히 있으면 무엇이 다른지 알기 어렵고,
+// 연도를 이미 고른 자리에서 넘어가면 저쪽에서 다시 고를 필요도 없다.
 const MENU = [
   { href: '/',              label: '홈',        key: 'home' },
   { href: '/about.html',    label: '소개',      key: 'about' },
   { href: '/portfolio.html',label: '포트폴리오', key: 'portfolio' },
   { href: '/board.html',    label: '일기장',    key: 'board' },
   { href: '/event/',        label: '이벤트',    key: 'event' },
-  { href: '/year.html',     label: '모아보기',  key: 'year' },
   { href: '/contact.html',  label: '편지쓰기',  key: 'contact' },
 ];
 

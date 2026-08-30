@@ -146,11 +146,28 @@ async function loadAll(){
     ...allEvents.map(x => yearOf(x.start_date)),
   ].filter(Boolean))].sort((a, b) => b.localeCompare(a));
 
-  year = years[0] || String(new Date().getFullYear());
+  // 포트폴리오에서 연도를 골라 넘어오면 그 해로 연다 (?year=2026&who=sua).
+  // 여기까지 와서 다시 고르게 하면 옮겨 온 뜻이 없다.
+  const q = new URLSearchParams(location.search);
+  const wantYear = q.get('year');
+  year = (wantYear && years.includes(wantYear)) ? wantYear
+       : (years[0] || String(new Date().getFullYear()));
+  const wantWho = q.get('who');
+  if (AUTHORS[wantWho] || wantWho === 'all') who = wantWho;
+
   $('#yearPick').innerHTML = years.map(y =>
     '<button class="dot-btn small' + (y === year ? ' on' : '') + '" data-year="' + y + '">' +
     y + '년</button>').join('');
+  $$('#whoPick .dot-btn').forEach(x => x.classList.toggle('on', x.dataset.who === who));
   render();
+}
+
+// 지금 보고 있는 해와 아이를 주소에 남긴다 — 주소창을 그대로 보내면 같은 화면이 열린다
+function syncQuery(){
+  const u = new URL(location.href);
+  u.searchParams.set('year', year);
+  u.searchParams.set('who', who);
+  history.replaceState(null, '', u);
 }
 
 function pick(){
@@ -228,6 +245,7 @@ $('#yearPick').addEventListener('click', (e) => {
   if (!b) return;
   year = b.dataset.year;
   $$('#yearPick .dot-btn').forEach(x => x.classList.toggle('on', x === b));
+  syncQuery();
   render();
 });
 $('#whoPick').addEventListener('click', (e) => {
@@ -235,6 +253,7 @@ $('#whoPick').addEventListener('click', (e) => {
   if (!b) return;
   who = b.dataset.who;
   $$('#whoPick .dot-btn').forEach(x => x.classList.toggle('on', x === b));
+  syncQuery();
   render();
 });
 

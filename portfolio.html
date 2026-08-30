@@ -372,14 +372,30 @@ function buildYearFilter(){
   box.innerHTML = '<button class="dot-btn small' + (yearFilter === 'all' ? ' on' : '') +
     '" data-year="all">전체 연도</button>' +
     years.map(y => '<button class="dot-btn small' + (yearFilter === y ? ' on' : '') +
-      '" data-year="' + y + '">' + y + '</button>').join('');
-  box.style.display = years.length > 1 ? '' : 'none';
+      '" data-year="' + y + '">' + y + '</button>').join('') +
+    '<a class="yearbook-link" id="yearbookLink" href="/year.html"></a>';
+  // 연도가 하나뿐이라 버튼 줄을 감추더라도 문집 입구는 남겨야 한다
+  box.style.display = '';
+  box.querySelectorAll('[data-year]').forEach(b => { b.hidden = years.length <= 1; });
+  syncYearbookLink(years);
+}
+
+// 지금 고른 연도를 그대로 문집으로 넘긴다. 저쪽에서 다시 고르지 않아도 되도록.
+let yearsCache = [];
+function syncYearbookLink(years){
+  if (years) yearsCache = years;
+  const a = $('#yearbookLink');
+  if (!a) return;
+  const y = yearFilter !== 'all' ? yearFilter : (yearsCache[0] || '');
+  a.href = '/year.html' + (y ? '?year=' + encodeURIComponent(y) : '');
+  a.textContent = '📖 ' + (y ? y + '년 ' : '') + '한 해 모아보기 →';
 }
 $('#years').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-year]');
   if (!btn) return;
   yearFilter = btn.dataset.year;
   $$('#years .dot-btn').forEach(b => b.classList.toggle('on', b === btn));
+  syncYearbookLink();
   render();
 });
 
