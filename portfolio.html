@@ -789,21 +789,36 @@ function renderWork(){
   $('#workView').scrollTop = 0;
 }
 
+// 작품 창을 열 때 뒤로가기 자리를 하나 만들어 둔다.
+// 손전화에서 창을 닫는 몸짓은 곧 뒤로가기다. 그런데 여기서 뒤로를 누르면
+// 창만 닫히는 게 아니라 사이트 밖으로 나가 버려서, 보던 목록과 걸러 놓은 것을
+// 통째로 잃었다. 이제 뒤로는 창만 닫는다.
+let workPushed = false;
+
 function openWork(list, i){
   viewList = list; viewIdx = i;
   renderWork();
   // QR 로 찍고 들어온 사람이 다시 이 주소를 나눌 수 있게 남긴다
   const u = new URL(location.href);
   u.searchParams.set('work', list[i] && list[i].id);
-  history.replaceState(null, '', u);
+  if (workPushed) {
+    history.replaceState({ work:true }, '', u);   // 이미 자리를 만들어 뒀으면 덧대지 않는다
+  } else {
+    // ?work= 를 달고 들어온 경우(QR)에는 지금 자리를 먼저 깨끗한 주소로 바꾼다.
+    // 그래야 뒤로 갔을 때 주소까지 목록 화면이 된다.
+    const bare = new URL(location.href);
+    bare.searchParams.delete('work');
+    history.replaceState(null, '', bare);
+    history.pushState({ work:true }, '', u);
+    workPushed = true;
+  }
   $('#workView').classList.add('open');
   document.body.classList.add('lb-open');       // 배경 겹·스크롤 정리는 기존 규칙을 그대로 씀
   document.body.style.overflow = 'hidden';
 }
-function closeWork(){
-  const u = new URL(location.href);
-  u.searchParams.delete('work');
-  history.replaceState(null, '', u);
+
+// 화면만 정리한다. 뒤로가기 자리를 어떻게 할지는 부르는 쪽이 정한다.
+function closeWorkView(){
   $('#workView').classList.remove('open');
   document.body.classList.remove('lb-open');
   document.body.style.overflow = '';
@@ -814,6 +829,23 @@ function closeWork(){
   const f = $('#workBox').querySelector('iframe'); if (f) f.remove();
   stopVoiceWork();          // 창을 닫으면 마이크도 끈다
 }
+
+// ✕ · ESC · 바깥 누르기 — 뒤로가기와 같은 결과가 되도록 한 자리를 물러난다.
+// 그래야 닫을 때마다 자리가 쌓여서 뒤로를 여러 번 눌러야 하는 일이 없다.
+function closeWork(){
+  if (!$('#workView').classList.contains('open')) return;
+  if (workPushed) { history.back(); return; }   // 아래 popstate 가 받아서 닫는다
+  const u = new URL(location.href);
+  u.searchParams.delete('work');
+  history.replaceState(null, '', u);
+  closeWorkView();
+}
+
+// 뒤로가기 — 페이지를 떠나는 대신 창만 닫는다
+window.addEventListener('popstate', () => {
+  workPushed = false;
+  if ($('#workView').classList.contains('open')) closeWorkView();
+});
 $('#workClose').addEventListener('click', closeWork);
 $('#workView').addEventListener('click', (e) => { if (e.target.id === 'workView') closeWork(); });
 document.addEventListener('keydown', (e) => {
