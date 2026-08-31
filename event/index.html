@@ -48,27 +48,23 @@
      이벤트마다 사진 한 장씩. 띠가 얇아 전국이 한 화면에 들어오는데, 그 크기에서는
      한 여행에서 다닌 곳들이 서로 몇 km 안이라 장소마다 찍으면 사진이 통째로 포개진다.
      장소를 아직 아무 데도 안 적었으면 이 띠는 아예 안 그려진다(hidden 인 채로 둔다). */
-  .band{position:relative; border:2px solid var(--ink); margin-bottom:26px;}
+  .band{border:2px solid var(--ink); margin-bottom:26px;}
   .band[hidden]{display:none;}
   .band .map{height:210px; background:#dfe6e2;}
-  .band-label{
-    position:absolute; left:0; top:0; z-index:3; pointer-events:none;
-    background:var(--ink); color:var(--paper); font-size:11px; font-weight:800;
-    padding:4px 9px; letter-spacing:.03em;
-  }
-  .band .slide{
-    position:absolute; left:0; right:0; bottom:0; z-index:3;
-    background:var(--paper-card); border-top:2px solid var(--ink);
+  /* 이름표는 지도 위에 덮지 않고 아래에 붙여 둔다.
+     띠가 얇아 지도가 이미 끝까지 물러나 있는데(레벨 14), 그 위를 덮으면 덮은 만큼
+     핀이 잘린다 — 실제로 부산 핀이 반쯤 잘렸다. 늘 자리를 지키고 있으니
+     눌렀다고 화면이 밀리지도 않고, 아무것도 안 눌렀을 땐 전체 요약을 보여 준다. */
+  .band .strip{
+    border-top:2px solid var(--ink); background:var(--paper-card);
     padding:9px 12px; font-size:12.5px; font-weight:700;
     display:flex; align-items:center; justify-content:space-between; gap:10px;
-    transform:translateY(101%); transition:transform .2s ease;
   }
-  .band .slide.open{transform:translateY(0);}
-  .band .slide > span{min-width:0;}
-  .band .slide a{color:var(--ink); font-size:11.5px; font-weight:800; white-space:nowrap;}
-  .band .slide .sub{display:block; font-size:11px; font-weight:600; color:var(--ink-soft);
+  .band .strip > span{min-width:0;}
+  .band .strip a{color:var(--ink); font-size:11.5px; font-weight:800; white-space:nowrap;}
+  .band .strip a[hidden]{display:none;}
+  .band .strip .sub{display:block; font-size:11px; font-weight:600; color:var(--ink-soft);
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  @media (prefers-reduced-motion: reduce){ .band .slide{transition:none;} }
 
   /* 핀 — 그 자리에서 찍은 사진이 그대로 핀이 된다 */
   .pin-photo{
@@ -174,11 +170,10 @@
   <p class="lead">지금까지 열린 이벤트를 확인해보세요</p>
 
   <div class="band" id="mapBand" hidden>
-    <span class="band-label">📍 다녀온 곳</span>
     <div class="map" id="eventMap"></div>
-    <div class="slide" id="mapSlide">
-      <span id="slideText"></span>
-      <a href="#" id="slideLink">보러가기 →</a>
+    <div class="strip">
+      <span id="stripText"></span>
+      <a href="#" id="stripLink" hidden>보러가기 →</a>
     </div>
   </div>
 
@@ -377,9 +372,16 @@ async function drawMapBand(events){
   const map = new kakao.maps.Map($('#eventMap'), {
     center: new kakao.maps.LatLng(36.5, 127.9), level: 13, scrollwheel: false,
   });
-  const slide = $('#mapSlide');
   const bounds = new kakao.maps.LatLngBounds();
   const pins = [];
+
+  const placeCount = shown.reduce((a, ev) => a + byEvent[ev.slug].length, 0);
+  function showSummary(){
+    pins.forEach(p => p.classList.remove('on'));
+    $('#stripText').innerHTML = '📍 다녀온 곳<span class="sub">이벤트 ' + shown.length +
+      '개 · ' + placeCount + '군데 · 사진을 눌러보세요</span>';
+    $('#stripLink').hidden = true;
+  }
 
   const spots = [];
   shown.forEach(ev => {
@@ -399,18 +401,14 @@ async function drawMapBand(events){
     pin.addEventListener('click', () => {
       pins.forEach(p => p.classList.remove('on'));
       pin.classList.add('on');
-      // 이름표는 한 줄로. 길어지면 띠를 다 덮어서 정작 사진이 안 보인다.
+      // 이름표는 한 줄로. 길어지면 줄이 두 겹이 되어 띠가 들썩인다.
       const names = rows.map(r => r.place_name).filter(Boolean);
       const label = names.slice(0, 2).join(', ') +
         (names.length > 2 ? ' 외 ' + (names.length - 2) + '곳' : '');
-      $('#slideText').innerHTML = escapeHTML(ev.eventName || ev.orgName) +
+      $('#stripText').innerHTML = escapeHTML(ev.eventName || ev.orgName) +
         '<span class="sub">' + escapeHTML(label) + '</span>';
-      $('#slideLink').href = ev.href;
-      slide.classList.add('open');
-      // 누른 사진을 한가운데로 데려온다. 아래에서 올라오는 이름표가 사진을 덮지 않게
-      // 미리 자리를 비워 두는 대신, 누를 때 옮기는 쪽이 낫다 —
-      // 여백을 크게 잡으면 지도가 그만큼 더 물러나야 하는데 물러날 곳이 없다(아래 참고).
-      map.panTo(here);
+      $('#stripLink').href = ev.href;
+      $('#stripLink').hidden = false;
     });
     pins.push(pin);
 
@@ -439,7 +437,8 @@ async function drawMapBand(events){
       map.setCenter(new kakao.maps.LatLng((sw.getLat()+ne.getLat())/2, (sw.getLng()+ne.getLng())/2));
     }
   }
-  kakao.maps.event.addListener(map, 'click', () => slide.classList.remove('open'));
+  showSummary();
+  kakao.maps.event.addListener(map, 'click', showSummary);
 }
 
 // ----- 이벤트 삭제 (2단계 확인: 🗑 클릭 → 인라인 확인 → 삭제 버튼 클릭) -----
