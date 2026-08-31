@@ -592,6 +592,48 @@ async function makeAndUploadThumb(bucket, path, file){
   } finally { URL.revokeObjectURL(src); }
 }
 
+// ---------------------------------------------------------------------------
+// 이벤트 갤러리에 파일 넣기
+//
+// 사진을 받는 자리가 두 군데다 — 이벤트 안의 갤러리, 그리고 이벤트 목록의
+// "사진 골라서 바로 만들기". 넣는 절차(압축 → 저장 → 작은 사본 → 줄 추가)는
+// 똑같아서 한 벌만 둔다. 버킷 이름이나 압축 기준이 바뀔 때 한 군데만 고치면 된다.
+//
+// EXIF 는 부르는 쪽이 이미 읽어 둔 것을 넘겨받는다 — 한쪽은 중복을 거르려고,
+// 한쪽은 날짜 범위를 정하려고 어차피 먼저 읽기 때문에 여기서 또 읽을 이유가 없다.
+// compressImageToLimit 은 event/compress.js 에 있다(갤러리를 쓰는 두 페이지가 함께 부름).
+// ---------------------------------------------------------------------------
+function validateGalleryFile(file){
+  const isVideo = file.type.startsWith('video/');
+  const isImage = file.type.startsWith('image/');
+  if (!isVideo && !isImage) return { ok:false, reason: file.name + ' — 사진/영상 파일만 올릴 수 있어요.' };
+  // 사진은 크기 제한 없이 받고 5MB로 자동 압축함. 영상만 100MB 상한을 그대로 둠.
+  if (isVideo && file.size > VIDEO_LIMIT) {
+    return { ok:false, reason: file.name + ' — 영상 파일은 ' + (VIDEO_LIMIT/1024/1024) + 'MB를 넘을 수 없어요.' };
+  }
+  return { ok:true, isVideo };
+}
+
+// meta: { isVideo, taken_at, location_name } — 부르는 쪽이 읽어 둔 EXIF
+async function putGalleryFile(eventSlug, file, meta){
+  const isVideo = !!(meta && meta.isVideo);
+  const uploadFile = isVideo ? file : await compressImageToLimit(file, IMAGE_LIMIT);
+  const path = eventSlug + '/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '-' +
+    uploadFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+  const { error: upErr } = await sb.storage.from(GALLERY_BUCKET).upload(path, uploadFile);
+  if (upErr) throw upErr;
+  const { data: pub } = sb.storage.from(GALLERY_BUCKET).getPublicUrl(path);
+  // 격자에 쓸 작은 사본. 없어도 화면은 원본으로 물러나므로 실패해도 넘어간다.
+  const thumb_url = isVideo ? null : await makeAndUploadThumb(GALLERY_BUCKET, path, uploadFile);
+  const { error: insErr } = await sb.from('gallery_media').insert({
+    event_id: eventSlug, media_url: pub.publicUrl, media_type: isVideo ? 'video' : 'image',
+    taken_at: (meta && meta.taken_at) || null,
+    location_name: (meta && meta.location_name) || null,
+    thumb_url,
+  });
+  if (insErr) throw insErr;
+}
+
 // 이미 올라가 있는 사진들의 사본을 뒤늦게 만들어 준다.
 // rows: [{id, url}] · save(id, thumbUrl) 로 각 줄을 갱신
 //

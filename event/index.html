@@ -136,21 +136,43 @@
   #loginToggle{background:none; border:none; color:var(--ink-soft); font-size:12px; cursor:pointer; font-family:inherit; opacity:.65;}
   #loginToggle:hover{color:var(--ink); opacity:1;}
   #login-box{display:none; margin-top:14px;}
-  #logoutRow{text-align:center; margin-bottom:20px;}
-  #logoutRow button{background:none; border:none; color:var(--ink-soft); font-size:12.5px; cursor:pointer; font-family:inherit;}
-  #logoutRow button:hover{color:var(--ink);}
+  /* 로그아웃 단추는 머리말의 「내 계정」 안에 있다 — 여기 또 두면 같은 일을 하는
+     단추가 한 화면에 둘이 된다. */
 
   /* ----- 새 이벤트 만들기 ----- */
   #new-event-box{background:var(--paper-card); border-radius:0; padding:18px; border:var(--px) solid var(--ink); margin-bottom:26px;}
   #new-event-box h2{font-size:14px; margin:0 0 12px; color:var(--ink);}
-  #new-event-box label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin:10px 0 5px;}
-  #new-event-box label:first-of-type{margin-top:0;}
+  #manual-new label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin:10px 0 5px;}
+  #manual-new label:first-of-type{margin-top:0;}
   .date-row{display:flex; gap:8px;}
   .date-row input{flex:1;}
   #new-event-msg{font-size:12.5px; margin-top:10px; min-height:1em;}
   #new-event-msg.ok{color:#2a8a4a;}
   #new-event-msg.err{color:#c0392b;}
-  .hint{font-size:11.5px; color:var(--ink-soft); margin-top:4px;}
+  .hint{font-size:11.5px; color:var(--ink-soft); margin-top:6px; line-height:1.75;}
+  .hint b{color:var(--ink);}
+
+  /* 사진만 골라 만드는 길. 이쪽이 기본이고 손으로 적는 폼은 접어 둔다 —
+     사진을 옮겨 담을 때 정작 필요한 건 주소·이름이 아니라서. */
+  #quick-pick{
+    display:inline-flex; align-items:center; gap:6px; padding:11px 17px; border-radius:0;
+    background:var(--mint); color:var(--ink); font-size:13.5px; font-weight:800;
+    cursor:pointer; border:var(--px) solid var(--ink); font-family:inherit;
+    box-shadow:var(--px) var(--px) 0 var(--ink); transition:transform .1s steps(2), box-shadow .1s steps(2);
+  }
+  #quick-pick:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
+  #quick-pick.busy{opacity:.6; pointer-events:none;}
+  #quick-msg{font-size:12.5px; margin-top:9px; min-height:1em; color:var(--ink-soft); line-height:1.85;}
+  #quick-msg.ok{color:#2a8a4a;}
+  #quick-msg.err{color:#c0392b;}
+  #quick-msg b, #quick-msg a{color:var(--ink); font-weight:800;}
+  #manualToggle{
+    display:block; margin-top:18px; padding:0; background:none; border:none;
+    color:var(--ink-soft); font-size:12px; cursor:pointer; font-family:inherit;
+    text-decoration:underline; text-underline-offset:3px;
+  }
+  #manualToggle:hover{color:var(--ink);}
+  #manual-new{display:none; margin-top:14px; padding-top:16px; border-top:2px dashed var(--ink);}
 
   /* 공통 헤더가 화면 위에 고정되므로 그만큼 본문을 내림 */
   body{
@@ -181,31 +203,42 @@
   </div>
 
   <div id="content">
-    <div id="logoutRow"><button id="logoutBtn">로그아웃</button></div>
-
     <div id="new-event-box">
       <h2>+ 새 이벤트 만들기</h2>
-      <label>주소(슬러그) — 영문 소문자/숫자/하이픈만</label>
-      <input type="text" id="neSlug" placeholder="예: 2027-01-camp">
-      <label>단체명</label>
-      <input type="text" id="neOrgName" placeholder="예: 수아연아랑">
-      <label>일정명</label>
-      <input type="text" id="neEventName" placeholder="예: 겨울 수련회">
-      <label>아이콘 (이모지, 선택)</label>
-      <input type="text" id="neIcon" placeholder="🗓️">
-      <label>시작일 ~ 종료일</label>
-      <div class="date-row">
-        <input type="date" id="neStart">
-        <input type="date" id="neEnd">
+
+      <label id="quick-pick" for="quickFiles">📷 사진 골라서 바로 만들기</label>
+      <input type="file" id="quickFiles" accept="image/*,video/*" multiple hidden>
+      <p class="hint">
+        고른 사진의 촬영 날짜로 기간과 주소가 정해집니다.
+        이름은 <b>가족끼리 · 나들이</b>로 먼저 두니 만든 뒤에 바꾸시면 돼요.
+        🔒 비공개로 만들어집니다.
+      </p>
+      <div id="quick-msg"></div>
+
+      <button type="button" id="manualToggle">✏️ 직접 적어서 만들기</button>
+      <div id="manual-new">
+        <label>주소(슬러그) — 영문 소문자/숫자/하이픈만</label>
+        <input type="text" id="neSlug" placeholder="예: 2027-01-camp">
+        <label>단체명</label>
+        <input type="text" id="neOrgName" placeholder="예: 수아연아랑">
+        <label>일정명</label>
+        <input type="text" id="neEventName" placeholder="예: 겨울 수련회">
+        <label>아이콘 (이모지, 선택)</label>
+        <input type="text" id="neIcon" placeholder="🗓️">
+        <label>시작일 ~ 종료일</label>
+        <div class="date-row">
+          <input type="date" id="neStart">
+          <input type="date" id="neEnd">
+        </div>
+        <label>공개 설정</label>
+        <select id="nePublic">
+          <option value="true">🌏 공개 — 누구나 목록에서 볼 수 있어요</option>
+          <option value="false">🔒 비공개 — 로그인해야 볼 수 있어요</option>
+        </select>
+        <div class="hint">만들고 나면 www.suayona.com/event/e/?slug=주소 로 바로 접속돼요</div>
+        <button class="btn" id="neBtn" style="margin-top:14px;">만들기</button>
+        <div id="new-event-msg"></div>
       </div>
-      <label>공개 설정</label>
-      <select id="nePublic">
-        <option value="true">🌏 공개 — 누구나 목록에서 볼 수 있어요</option>
-        <option value="false">🔒 비공개 — 로그인해야 볼 수 있어요</option>
-      </select>
-      <div class="hint">만들고 나면 www.suayona.com/event/e/?slug=주소 로 바로 접속돼요</div>
-      <button class="btn" id="neBtn" style="margin-top:14px;">만들기</button>
-      <div id="new-event-msg"></div>
     </div>
 
     <div id="current-section">
@@ -233,6 +266,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
+<script src="/event/compress.js"></script>
 <script src="/pixel.js"></script>
 <script src="/common.js"></script>
 <script>
@@ -559,6 +594,145 @@ $('#neBtn').addEventListener('click', async () => {
   renderEvents();
 });
 
+// ---------------------------------------------------------------------------
+// 사진만 골라서 새 이벤트 만들기
+//
+// 이벤트를 하나 열려면 주소·이름·기간을 먼저 다 적어야 했다. 그런데 사진을 막
+// 옮겨 담는 순간에 알고 싶은 건 그게 아니다. 날짜는 이미 사진 안에 박혀 있으니
+// 그걸 읽어 쓰고, 이름은 나중에 바꿀 수 있는 값으로 먼저 채워 둔다.
+//
+// 미리 물어보지 않고 바로 만드는 건 되돌리는 값이 싸기 때문이다 — 카드의 🗑
+// 하나로 일정·사진·저장된 파일까지 통째로 지워진다(deleteEvent 참고).
+// 대신 만들고 나서 무엇을 어떻게 정했는지(날짜의 출처, 바뀐 주소) 빠짐없이 말한다.
+// ---------------------------------------------------------------------------
+const QUICK_ORG = '가족끼리';
+const QUICK_EVENT = '나들이';
+
+function isoDay(d){
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+// 같은 날 두 번째 이벤트면 뒤에 번호를 붙인다 (2026-08-23 → 2026-08-23-2)
+async function freeSlug(base){
+  const { data } = await sb.from('event_meta').select('event_id').like('event_id', base + '%');
+  const taken = new Set((data || []).map(r => r.event_id));
+  EVENTS.forEach(e => taken.add(e.slug));
+  if (!taken.has(base)) return base;
+  for (let n = 2; n < 100; n++) if (!taken.has(base + '-' + n)) return base + '-' + n;
+  return base + '-' + Date.now();
+}
+
+async function createEventFromPhotos(fileList){
+  const files = Array.from(fileList);
+  if (!files.length) return;
+  const msg = $('#quick-msg'), btn = $('#quick-pick');
+  msg.className = ''; msg.textContent = '';
+
+  const picked = [], rejected = [];
+  files.forEach(f => {
+    const check = validateGalleryFile(f);
+    if (check.ok) picked.push({ file: f, isVideo: check.isVideo, taken_at: null, location_name: null });
+    else rejected.push(check.reason);
+  });
+  if (!picked.length) {
+    msg.className = 'err';
+    msg.textContent = rejected[0] || '사진이나 영상을 골라주세요.';
+    return;
+  }
+
+  btn.classList.add('busy');
+
+  // 1) 사진에 박힌 촬영 시각과 장소 읽기 (영상에는 없다)
+  for (let i = 0; i < picked.length; i++) {
+    msg.textContent = '사진을 살펴보는 중... (' + (i+1) + '/' + picked.length + ')';
+    if (picked[i].isVideo) continue;
+    const meta = await extractPhotoMeta(picked[i].file);
+    picked[i].taken_at = meta.takenAtISO;
+    picked[i].location_name = meta.place || null;
+  }
+
+  // 2) 기간 정하기.
+  //    촬영 시각이 첫째 기준이고, 한 장도 없으면(영상만 골랐거나 편집하면서 지워졌거나)
+  //    파일 날짜로 물러선다. 물러선 사실은 아래에서 반드시 말해 준다 —
+  //    파일 날짜는 찍은 날이 아니라 옮겨 담은 날일 수 있어서.
+  let from = 'photo';
+  let days = picked.map(p => p.taken_at ? new Date(p.taken_at) : null)
+                   .filter(d => d && !isNaN(d));
+  if (!days.length) {
+    from = 'file';
+    days = picked.map(p => new Date(p.file.lastModified))
+                 .filter(d => !isNaN(d) && d.getFullYear() > 1980);
+  }
+  if (!days.length) { from = 'today'; days = [new Date()]; }
+  days.sort((a, b) => a - b);
+  const startVal = isoDay(days[0]), endVal = isoDay(days[days.length - 1]);
+
+  // 3) 자리부터 잡는다 — 사진이 저장되는 경로에 주소가 쓰이므로 사진보다 먼저.
+  msg.textContent = '이벤트 만드는 중...';
+  const slug = await freeSlug(startVal);
+  const { error: metaErr } = await sb.from('event_meta').insert({
+    event_id: slug, icon: '🗓️', org_name: QUICK_ORG, event_name: QUICK_EVENT,
+    date_range_text: formatDateRangeText(isoToDateKey(startVal), isoToDateKey(endVal)),
+    start_date: startVal, end_date: endVal,
+    // 이름도 아직 안 정한 이벤트가 만들자마자 밖에 보이지는 않게. 자물쇠로 공개한다.
+    is_public: false,
+  });
+  if (metaErr) {
+    btn.classList.remove('busy');
+    msg.className = 'err'; msg.textContent = '만들기 실패: ' + metaErr.message;
+    return;
+  }
+  renderEvents();                       // 사진 올리는 동안 카드는 먼저 보이도록
+
+  // 4) 갤러리에 사진 넣기
+  let okPhoto = 0, okVideo = 0, firstFail = '';
+  for (let i = 0; i < picked.length; i++) {
+    const p = picked[i];
+    msg.textContent = '올리는 중... (' + (i+1) + '/' + picked.length + ') ' + p.file.name;
+    try {
+      await putGalleryFile(slug, p.file, p);
+      if (p.isVideo) okVideo++; else okPhoto++;
+    } catch (err) {
+      if (!firstFail) firstFail = p.file.name + ' — ' + (err.message || err);
+    }
+  }
+  const okCount = okPhoto + okVideo;
+
+  btn.classList.remove('busy');
+
+  const span = startVal === endVal ? startVal : startVal + ' ~ ' + endVal;
+  const what = [okPhoto ? '사진 ' + okPhoto + '장' : '', okVideo ? '영상 ' + okVideo + '개' : '']
+    .filter(Boolean).join(' · ');
+  const lines = [okCount
+    ? '<b>' + span + '</b> 이벤트를 만들고 ' + what + ' 올렸어요.'
+    : '<b>' + span + '</b> 이벤트는 만들었는데 올라간 것이 하나도 없어요.'];
+  if (from === 'file')  lines.push('촬영 날짜를 못 찾아 <b>파일 날짜</b>로 잡았어요. 다르면 이벤트 안에서 고쳐주세요.');
+  if (from === 'today') lines.push('날짜를 찾지 못해 <b>오늘</b>로 잡았어요. 이벤트 안에서 고쳐주세요.');
+  if (slug !== startVal) lines.push('그날 이벤트가 이미 있어서 주소는 <b>' + slug + '</b> 로 했어요.');
+  if (rejected.length) lines.push(rejected.length + '개는 올리지 않았어요 — ' + escapeHTML(rejected[0]));
+  if (firstFail) lines.push('올리다 실패한 것이 있어요 — ' + escapeHTML(firstFail));
+  lines.push('이름은 <b>' + QUICK_ORG + ' · ' + QUICK_EVENT + '</b> 로 뒀어요. ' +
+             '<a href="/event/e/?slug=' + slug + '">열어서 바꾸기 →</a>');
+  lines.push('지금은 🔒 비공개예요. 아래 카드의 자물쇠를 누르면 공개됩니다.');
+  msg.className = okCount ? 'ok' : 'err';
+  msg.innerHTML = lines.join('<br>');
+
+  renderEvents();
+}
+
+$('#quickFiles').addEventListener('change', (e) => {
+  createEventFromPhotos(e.target.files);
+  e.target.value = '';                  // 같은 사진을 다시 고를 수 있게 비워 둔다
+});
+
+$('#manualToggle').addEventListener('click', () => {
+  const box = $('#manual-new');
+  const open = box.style.display === 'block';
+  box.style.display = open ? 'none' : 'block';
+  $('#manualToggle').textContent = open ? '✏️ 직접 적어서 만들기' : '✏️ 접기';
+});
+
 // ----- 목록은 누구나 볼 수 있고, 만들기/삭제만 로그인한 사람에게 노출 -----
 async function refreshAuthUI(){
   // 역할까지 확인 — 아이 계정은 이벤트를 만들거나 지울 수 없어야 한다
@@ -567,7 +741,6 @@ async function refreshAuthUI(){
   $('#content').style.display = 'block';            // 목록은 항상 보임
   $('#login-box').style.display = 'none';
   $('#loginToggle').style.display = isAdmin ? 'none' : 'block';
-  $('#logoutRow').style.display = isAdmin ? 'block' : 'none';
   $('#new-event-box').style.display = isAdmin ? 'block' : 'none';
   $('.lead').textContent = isAdmin
     ? '지금까지 열린 이벤트를 확인하고 새로 만들 수 있어요'
@@ -589,11 +762,6 @@ $('#loginBtn').addEventListener('click', async () => {
   const { error } = await sb.auth.signInWithPassword({ email, password });
   if (error) { $('#login-msg').textContent = '로그인 실패: ' + error.message; return; }
   $('#login-msg').textContent = '';
-  refreshAuthUI();
-});
-
-$('#logoutBtn').addEventListener('click', async () => {
-  await sb.auth.signOut();
   refreshAuthUI();
 });
 

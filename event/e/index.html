@@ -983,9 +983,9 @@ function renderSchedule(byPanel){
   reveal(document.querySelector('.panel.active'));
 }
 
-const IMAGE_COMPRESS_TARGET = 5 * 1024 * 1024;  // 사진은 5MB로 자동 압축
-const MAX_VIDEO_BYTES = 100 * 1024 * 1024;      // 영상 100MB (압축 없이 용량 제한만)
-// GALLERY_BUCKET 은 common.js 에 있다 (여기서 다시 선언하면 이름이 겹쳐 페이지가 멈춘다)
+// GALLERY_BUCKET · IMAGE_LIMIT(5MB) · VIDEO_LIMIT(100MB) 과 갤러리에 파일을 넣는
+// putGalleryFile 은 common.js 에 있다 — 이벤트 목록에서도 같은 절차로 사진을 올린다.
+// (여기서 다시 선언하면 이름이 겹쳐 페이지가 멈춘다)
 let galleryItems = [];
 
 // 이 일정과 이어진 작품 — 포트폴리오에서 "그날 일정"으로 고른 것들.
@@ -1111,17 +1111,6 @@ async function usedBySchedule(...urls){
   return want.some(u => inUse.has(u));
 }
 
-function validateGalleryFile(file){
-  const isVideo = file.type.startsWith('video/');
-  const isImage = file.type.startsWith('image/');
-  if (!isVideo && !isImage) return { ok:false, reason: file.name + ' — 사진/영상 파일만 올릴 수 있어요.' };
-  // 사진은 크기 제한 없이 받고 5MB로 자동 압축함. 영상만 100MB 상한을 그대로 둠.
-  if (isVideo && file.size > MAX_VIDEO_BYTES) {
-    return { ok:false, reason: file.name + ' — 영상 파일은 ' + (MAX_VIDEO_BYTES/1024/1024) + 'MB를 넘을 수 없어요.' };
-  }
-  return { ok:true, isVideo };
-}
-
 // ----- 같은 사진 다시 올리는 것 막기 -----
 // 파일 이름 + EXIF(촬영시각·장소)가 이미 올라간 사진과 같으면 업로드를 건너뜀.
 // 5MB가 넘는 사진은 저장할 때 .jpg 로 바뀌므로 확장자는 빼고 비교함.
@@ -1188,7 +1177,6 @@ async function uploadGalleryFiles(fileList){
       continue;
     }
     try {
-      let uploadFile = file;
       let taken_at = null, location_name = null;
       if (!check.isVideo) {
         // 압축 전에 EXIF 를 먼저 읽어 중복이면 바로 건너뜀 (헛되이 압축하지 않도록)
@@ -1199,22 +1187,9 @@ async function uploadGalleryFiles(fileList){
       const fp = photoFingerprint(file.name, taken_at, location_name);
       if (seen.has(fp)) { skipped.push(file.name); continue; }
       seen.add(fp);                          // 이번에 고른 파일들 사이의 중복도 함께 거름
-      if (!check.isVideo) {
-        msg.textContent = '압축 중... (' + (i+1) + '/' + files.length + ') ' + file.name;
-        uploadFile = await compressImageToLimit(file, IMAGE_COMPRESS_TARGET);
-      }
-      const path = CONFIG.eventSlug + '/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '-' + uploadFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-      const { error: upErr } = await sb.storage.from(GALLERY_BUCKET).upload(path, uploadFile);
-      if (upErr) throw upErr;
-      const { data: pub } = sb.storage.from(GALLERY_BUCKET).getPublicUrl(path);
-      // 격자에 쓸 작은 사본. 없어도 화면은 원본으로 물러나므로 실패해도 넘어간다.
-      const thumb_url = check.isVideo ? null
-        : await makeAndUploadThumb(GALLERY_BUCKET, path, uploadFile);
-      const { error: insErr } = await sb.from('gallery_media').insert({
-        event_id: CONFIG.eventSlug, media_url: pub.publicUrl, media_type: check.isVideo ? 'video' : 'image',
-        taken_at, location_name, thumb_url,
-      });
-      if (insErr) throw insErr;
+      if (!check.isVideo) msg.textContent = '압축 중... (' + (i+1) + '/' + files.length + ') ' + file.name;
+      await putGalleryFile(CONFIG.eventSlug, file,
+        { isVideo: check.isVideo, taken_at, location_name });
       okCount++;
     } catch (err) {
       msg.className = 'gallery-msg err'; msg.textContent = file.name + ' 업로드 실패: ' + err.message;
