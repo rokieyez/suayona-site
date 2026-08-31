@@ -232,6 +232,50 @@
   .note-table th{background:var(--mint); color:var(--ink); font-weight:800; font-size:13px;}
   .note-table tr:last-child td{border-bottom:none;}
 
+  /* ===== 동선 지도 =====
+     그날 어디를 거쳐 갔는지 순서대로 잇는다. 일정표는 "언제"를 세로로 보여 주는데,
+     같은 것을 지도 위에 펼치면 "얼마나 돌아다녔나" 가 한눈에 보인다. */
+  .trip-wrap{border:2px solid var(--ink); margin-bottom:16px;}
+  .trip-map{height:340px; background:#dfe6e2;}
+  .trip-strip{
+    border-top:2px solid var(--ink); background:var(--paper-card);
+    padding:10px 12px; font-size:13px; font-weight:700;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .trip-strip > span{min-width:0;}
+  .trip-strip .sub{display:block; font-size:11.5px; font-weight:600; color:var(--ink-soft);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .trip-strip button{
+    flex:none; border:2px solid var(--ink); background:var(--lemon); color:var(--ink);
+    font-family:inherit; font-size:11.5px; font-weight:800; padding:5px 9px; cursor:pointer;
+    box-shadow:2px 2px 0 var(--ink); white-space:nowrap;
+  }
+  .trip-strip button:hover{transform:translate(1px,1px); box-shadow:1px 1px 0 var(--ink);}
+  .trip-strip button[hidden]{display:none;}
+
+  /* 날짜 고르기 — 색이 곧 범례라, 누르면 그날만 남는다 */
+  .trip-days{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:14px;}
+  .trip-day{
+    display:inline-flex; align-items:center; gap:6px;
+    border:2px solid var(--ink); background:var(--paper); color:var(--ink);
+    font-family:inherit; font-size:12px; font-weight:800; padding:5px 10px; cursor:pointer;
+  }
+  .trip-day .dot{width:11px; height:11px; border:2px solid var(--ink); flex:none;}
+  .trip-day.on{box-shadow:inset 0 0 0 2px var(--lemon);}
+
+  /* 지도 핀 — 그날 색 + 몇 번째로 들렀는지 */
+  .trip-pin{
+    width:25px; height:25px; border:2px solid var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:800; color:var(--ink); line-height:1;
+    box-shadow:2px 2px 0 var(--ink); cursor:pointer; font-family:inherit;
+  }
+  .trip-pin.dim{opacity:.28;}
+  .trip-pin.on{outline:3px solid var(--lemon); z-index:5;}
+
+  /* 지도에서 "일정 보기" 로 건너왔을 때 어디로 왔는지 한 번 알려 준다 */
+  .item.flash{outline:3px solid var(--lemon); outline-offset:2px;}
+
   /* ===== 갤러리 ===== */
   .gallery-toolbar{margin-bottom:14px;}
   .upload-btn, .auto-btn, .add-schedule-btn{
@@ -509,6 +553,15 @@ function buildTabsAndPanels(){
         '<div id="propBox"></div>' +
         '<div class="gallery-grid" id="galleryGrid"></div>' +
         '<div class="empty-msg" id="galleryEmpty" style="display:none;">아직 등록된 사진/영상이 없습니다</div>'
+      : p.id === 'map'
+      ? '<div class="trip-days" id="tripDays"></div>' +
+        '<div class="trip-wrap">' +
+          '<div class="trip-map" id="tripMap"></div>' +
+          '<div class="trip-strip">' +
+            '<span id="tripText"></span>' +
+            '<button type="button" id="tripGo" hidden>일정 보기 →</button>' +
+          '</div>' +
+        '</div>'
       : '<div class="timeline"></div>';
     panel.innerHTML = '<div class="day-head"><span>' + label + '</span>' +
       '<span class="day-count"></span></div>' + body;
@@ -546,11 +599,147 @@ function addCustomTabPanel(row){
   panelsEl.appendChild(panel);
 }
 
+/* =========================================================================
+   동선 지도
+   ------------------------------------------------------------------------
+   일정에 적어 둔 장소(place_lat/place_lng)를 날짜별로 색을 나눠 찍고,
+   그날 들른 순서대로 선으로 잇는다. 핀의 숫자가 그날 몇 번째로 들렀는지다.
+   ========================================================================= */
+const DAY_COLORS = ['#ff7f8a', '#6cc7b3', '#ffd979', '#5aa9e6', '#b9a3d6', '#ffa45c'];
+let TRIP_STOPS = [], tripDrawn = false;
+
+// 좌표가 있는 일정만 날짜 순서대로 모은다
+function collectTripStops(byPanel){
+  const stops = [];
+  CONFIG.panels.filter(p => p.dateKey).forEach((p, dayIndex) => {
+    let no = 0;
+    (byPanel[p.id] || []).forEach(r => {
+      if (!Number.isFinite(r.place_lat) || !Number.isFinite(r.place_lng)) return;
+      stops.push({
+        id: r.id, panelId: p.id, dayIndex, dayLabel: formatDateLabel(p.dateKey),
+        no: ++no, time: r.time || '', title: r.title, place: r.place_name,
+        lat: r.place_lat, lng: r.place_lng,
+      });
+    });
+  });
+  return stops;
+}
+
+// 지도에서 "일정 보기" 를 누르면 그 날짜 탭으로 건너가 해당 일정을 짚어 준다
+function goToItem(panelId, id){
+  showPanel(panelId);
+  const el = document.querySelector('#' + panelId + ' .item[data-id="' + id + '"]');
+  if (!el) return;
+  el.scrollIntoView({ behavior:'smooth', block:'center' });
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 1800);
+}
+
+// 지도는 탭이 열려 있어야 크기를 잴 수 있다 — 처음 열 때 한 번만 그린다.
+async function drawTripMap(){
+  if (tripDrawn || !TRIP_STOPS.length) return;
+  const box = document.getElementById('tripMap');
+  if (!box || !box.offsetHeight) return;             // 아직 안 보이는 탭
+
+  try { await loadKakaoMaps(); }
+  catch (e) {
+    tripDrawn = true;
+    box.innerHTML = '<div class="empty-msg">지도를 불러오지 못했어요</div>';
+    return;
+  }
+  tripDrawn = true;
+
+  const map = new kakao.maps.Map(box, {
+    center: new kakao.maps.LatLng(TRIP_STOPS[0].lat, TRIP_STOPS[0].lng),
+    level: 6, scrollwheel: false,
+  });
+  map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPLEFT);
+
+  const color = i => DAY_COLORS[i % DAY_COLORS.length];
+  const days = [...new Set(TRIP_STOPS.map(s => s.dayIndex))];
+  const pins = [], lines = [];
+
+  // 날짜마다 선 하나 — 그날 들른 차례대로
+  days.forEach(di => {
+    const path = TRIP_STOPS.filter(s => s.dayIndex === di)
+      .map(s => new kakao.maps.LatLng(s.lat, s.lng));
+    if (path.length < 2) return;                     // 한 곳뿐이면 이을 데가 없다
+    const line = new kakao.maps.Polyline({
+      map, path, strokeWeight: 4, strokeColor: color(di),
+      strokeOpacity: 0.95, strokeStyle: 'solid',
+    });
+    lines.push({ dayIndex: di, line });
+  });
+
+  TRIP_STOPS.forEach(s => {
+    const node = document.createElement('div');
+    node.className = 'trip-pin';
+    node.style.background = color(s.dayIndex);
+    node.textContent = s.no;
+    node.title = s.place;
+    node.addEventListener('click', () => {
+      pins.forEach(p => p.node.classList.remove('on'));
+      node.classList.add('on');
+      document.getElementById('tripText').innerHTML =
+        escapeHTML(s.place) +
+        '<span class="sub">' + escapeHTML(s.dayLabel) +
+        (s.time ? ' · ' + escapeHTML(s.time) : '') + ' · ' + escapeHTML(s.title) + '</span>';
+      const go = document.getElementById('tripGo');
+      go.hidden = false;
+      go.onclick = () => goToItem(s.panelId, s.id);
+    });
+    pins.push({ stop: s, node });
+    new kakao.maps.CustomOverlay({
+      map, position: new kakao.maps.LatLng(s.lat, s.lng), content: node,
+      xAnchor: 0.5, yAnchor: 0.5, clickable: true, zIndex: 3,
+    });
+  });
+
+  const fitTo = list => {
+    if (!list.length) return;
+    const b = new kakao.maps.LatLngBounds();
+    list.forEach(s => b.extend(new kakao.maps.LatLng(s.lat, s.lng)));
+    if (list.length === 1) { map.setCenter(new kakao.maps.LatLng(list[0].lat, list[0].lng)); map.setLevel(5); }
+    else map.setBounds(b, 40, 40, 40, 40);
+  };
+
+  // 날짜 단추 — 색이 곧 범례다. 누르면 그날만 남고, 다시 누르면 전체로 돌아온다.
+  const daysBox = document.getElementById('tripDays');
+  let picked = null;
+  function applyPick(){
+    pins.forEach(p => p.node.classList.toggle('dim', picked !== null && p.stop.dayIndex !== picked));
+    lines.forEach(l => l.line.setOptions({ strokeOpacity: (picked === null || l.dayIndex === picked) ? 0.95 : 0.15 }));
+    daysBox.querySelectorAll('.trip-day').forEach(b =>
+      b.classList.toggle('on', b.dataset.day === String(picked)));
+    fitTo(picked === null ? TRIP_STOPS : TRIP_STOPS.filter(s => s.dayIndex === picked));
+    document.getElementById('tripText').innerHTML = picked === null
+      ? '\uD83D\uDDFA 다녀온 길<span class="sub">모두 ' + TRIP_STOPS.length + '곳 · 핀을 눌러보세요</span>'
+      : TRIP_STOPS.filter(s => s.dayIndex === picked)[0].dayLabel +
+        '<span class="sub">' + TRIP_STOPS.filter(s => s.dayIndex === picked).length + '곳 · 핀을 눌러보세요</span>';
+    document.getElementById('tripGo').hidden = true;
+    pins.forEach(p => p.node.classList.remove('on'));
+  }
+  days.forEach(di => {
+    const label = TRIP_STOPS.find(s => s.dayIndex === di).dayLabel;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'trip-day'; b.dataset.day = String(di);
+    b.innerHTML = '<span class="dot" style="background:' + color(di) + '"></span>' + escapeHTML(label);
+    b.addEventListener('click', () => { picked = (picked === di) ? null : di; applyPick(); });
+    daysBox.appendChild(b);
+  });
+  applyPick();
+  kakao.maps.event.addListener(map, 'click', () => {
+    pins.forEach(p => p.node.classList.remove('on'));
+    document.getElementById('tripGo').hidden = true;
+  });
+}
+
 function reveal(panel){
   panel.querySelectorAll('.item').forEach(it => it.classList.add('show'));
   countDay(panel);
   markNow(panel);
   alignTimelineDots(panel);
+  if (panel.id === 'map') drawTripMap();
 }
 
 // 눈금 높이를 오른쪽 시각 칸의 한가운데에 맞춘다.
@@ -771,7 +960,7 @@ function renderSchedule(byPanel){
           + '</div>').join('') + '</div>';
       const editBtn = isAdmin ? '<a class="item-edit" href="./admin.html?slug=' + CONFIG.eventSlug + '&edit=' + r.id + '">✏️ 수정</a>' : '';
       timeline.insertAdjacentHTML('beforeend',
-        '<div class="item">' + editBtn +
+        '<div class="item" data-id="' + r.id + '">' + editBtn +
           '<div class="item-line' + (isAdmin ? ' has-edit' : '') + '">' +
             '<span class="time">' + escapeHTML(r.time || '') + '</span>' +
             '<h3 class="title">' + escapeHTML(r.title) + '</h3>' +
@@ -1596,6 +1785,17 @@ function isPageZoomed(){
       !p.dateKey || (byPanel[p.id] && byPanel[p.id].length));
   }
   CONFIG.panels.forEach(p => { if (p.dateKey) PANEL_DATE[p.id] = p.dateKey; });
+
+  // 장소를 적어 둔 일정이 하나라도 있으면 「지도」 탭을 갤러리 앞에 끼워 넣는다.
+  // 하나도 없으면 탭 자체를 안 만든다 — 빈 지도를 띄우느니 없는 편이 낫다.
+  if (byPanel) {
+    TRIP_STOPS = collectTripStops(byPanel);
+    if (TRIP_STOPS.length) {
+      const gi = CONFIG.panels.findIndex(p => p.id === 'gallery');
+      CONFIG.panels.splice(gi < 0 ? CONFIG.panels.length : gi, 0,
+        { id: 'map', label: '\uD83D\uDDFA 지도', dateKey: null });
+    }
+  }
 
   buildTabsAndPanels();
   addTabLinkButton();
