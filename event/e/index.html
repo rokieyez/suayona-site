@@ -49,8 +49,17 @@
   }
   .wrap{max-width:760px; margin:0 auto;}
 
-  .back-link{display:inline-block; font-size:12.5px; font-weight:700; color:var(--ink-soft); text-decoration:none; margin-bottom:10px;}
-  .back-link:hover{color:var(--ink);}
+  /* 목록으로 돌아가는 단추. 예전엔 관리자에게만 보였는데, 정작 길이 필요한 건
+     들어온 사람 쪽이라 늘 보이게 했다. 글자만 두면 눌러도 되는지 모르므로 테두리를 준다. */
+  .back-link{
+    display:inline-flex; align-items:center; gap:5px; margin-bottom:12px;
+    border:2px solid var(--ink); background:var(--paper-card); color:var(--ink);
+    font-size:12px; font-weight:800; text-decoration:none; padding:6px 11px;
+    box-shadow:2px 2px 0 var(--ink);
+    transition:transform .1s steps(2), box-shadow .1s steps(2);
+  }
+  .back-link:hover{transform:translate(1px,1px); box-shadow:1px 1px 0 var(--ink);}
+  @media (prefers-reduced-motion: reduce){ .back-link{transition:none;} }
 
   /* ===== 머리말 =====
      가운데 정렬과 초록 배지를 걷어내고 왼쪽 정렬 한 덩어리로. 첫 화면에서
@@ -389,7 +398,7 @@
 </head>
 <body>
 <div class="wrap" id="wrap">
-  <a href="/event/" class="back-link" id="hubLink" style="display:none;">← 전체 이벤트</a>
+  <a href="/event/" class="back-link" id="hubLink">← 이벤트 목록</a>
   <div class="hero">
     <div class="pill"><span class="logo-icon" id="logoIcon">🗓️</span><span id="pillText">단체명</span></div>
     <h1 id="logo">일정명</h1>
@@ -501,7 +510,6 @@ async function refreshHubLink(){
   // 공용 refreshAuth 가 역할(부모/아이)까지 봐준다.
   // 예전처럼 "로그인했으면 관리자"로 두면 아이 계정이 여기서 일정을 고칠 수 있게 된다.
   await refreshAuth();
-  $('#hubLink').style.display = isAdmin ? 'inline-block' : 'none';
 }
 
 const tabsEl = $('#tabs'), panelsEl = $('#panels');
