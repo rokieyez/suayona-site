@@ -194,9 +194,39 @@ buildChrome('home');
   // hits 는 그릴 때마다 다시 채운다 — 캐릭터가 화면 폭에 따라 자리를 옮기기 때문에
   // 좌표를 미리 박아 둘 수가 없다. 그린 그 자리가 곧 누를 자리다.
   let hits = [];
-  let nameTag = null;                                   // { name, x, y, at }
+  let nameTag = null;                                   // { text, x, y, at }
   const TAG_IN = 140, TAG_HOLD = 1700, TAG_OUT = 340;   // 뜨고 · 머물고 · 사라지고 (ms)
   const TAG_LIFE = TAG_IN + TAG_HOLD + TAG_OUT;
+
+  // 처음 누르면 이름을 알려 주고, 그 다음부터는 한 마디씩 한다.
+  // 이름을 한 번은 보여 줘야 누가 누군지 알 수 있고, 그 뒤로도 계속 이름만 나오면
+  // 두 번 누를 이유가 없다.
+  const LINES = {
+    '상그렐라': ['상그상그~', '꽥!', '뎅굴뎅굴', '난 오리야', '어지러워~', '꽥꽥', '꽤애액?!'],
+    '수아':     ['아 연아야...', '꺼억~', '미안해', '홍홍홍~', '아이디어가 안떠오르네...',
+                 '피아노가 안보이네', '날씨 좋다!'],
+    '연아':     ['뿡~', '레샤 귀여워!', '아 언니이!', '햐~ 날씨도 좋코~', '사냥이나 해볼까?',
+                 '아빠 가죽벗겨!', '카페가자~'],
+    '레샤':     ['뀨?', '뀨웅~', '뀌잉?', '뀽??', '뀨우우~', '뀩!', '뀨뀨~'],
+    '미미':     ['짹?', '짹짹!', '짹짹짹~', '째애애애액~', '....', '멀리 떠나고 싶다~'],
+  };
+
+  // 누른 횟수와 방금 한 말을 캐릭터마다 따로 센다 —
+  // 수아를 두 번 눌렀다고 해서 연아까지 이름을 건너뛰면 안 되니까.
+  const said = {};
+
+  function speak(name){
+    const lines = LINES[name];
+    const s = said[name] || (said[name] = { n: 0, last: -1 });
+    s.n++;
+    if (s.n === 1 || !lines || !lines.length) return name;
+    // 방금 한 말은 다시 안 고른다. 예닐곱 마디뿐이라 그냥 뽑으면
+    // 같은 말이 연달아 나오는 일이 일곱 번에 한 번씩 생긴다.
+    let i = Math.floor(Math.random() * lines.length);
+    if (lines.length > 1 && i === s.last) i = (i + 1) % lines.length;
+    s.last = i;
+    return lines[i];
+  }
 
   const clouds = [
     { x:0.05, y:0.13, sp:0.010, sc:1.6, depth:0.20 },
@@ -511,7 +541,7 @@ buildChrome('home');
     ctx.font = '800 ' + fs + 'px Galmuri11, Pretendard, sans-serif';
     ctx.textBaseline = 'top';
 
-    const bw = Math.ceil(ctx.measureText(nameTag.name).width) + pad * 2;
+    const bw = Math.ceil(ctx.measureText(nameTag.text).width) + pad * 2;
     const bh = fs + pad * 2;
     // 화면 밖으로 나가지 않게 가두되, 꼬리는 캐릭터를 계속 가리키게 둔다
     const bx = Math.max(S, Math.min(W - bw - S, Math.round((nameTag.x - bw / 2) / S) * S));
@@ -545,7 +575,7 @@ buildChrome('home');
     }
 
     ctx.fillStyle = INK;
-    ctx.fillText(nameTag.name, bx + pad, by + pad);
+    ctx.fillText(nameTag.text, bx + pad, by + pad);
     ctx.restore();
   }
 
@@ -572,7 +602,7 @@ buildChrome('home');
     const p = atCanvas(e);
     const hit = hitAt(p.x, p.y);
     if (!hit) return;
-    nameTag = { name: hit.name, x: hit.x, at: performance.now(),
+    nameTag = { text: speak(hit.name), x: hit.x, at: performance.now(),
                 y: hit.tagY != null ? hit.tagY : hit.y, bottom: hit.y + hit.h };
     // 늘 다시 그리는 화면이면 다음 프레임이 알아서 그려 준다.
     // 움직임을 줄인 설정에서는 화면이 멈춰 있으니, 이름표가 사는 동안만 따로 돌린다.
