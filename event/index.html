@@ -50,7 +50,7 @@
      장소를 아직 아무 데도 안 적었으면 이 띠는 아예 안 그려진다(hidden 인 채로 둔다). */
   .band{position:relative; border:2px solid var(--ink); margin-bottom:26px;}
   .band[hidden]{display:none;}
-  .band .map{height:190px; background:#dfe6e2;}
+  .band .map{height:210px; background:#dfe6e2;}
   .band-label{
     position:absolute; left:0; top:0; z-index:3; pointer-events:none;
     background:var(--ink); color:var(--paper); font-size:11px; font-weight:800;
@@ -381,11 +381,14 @@ async function drawMapBand(events){
   const bounds = new kakao.maps.LatLngBounds();
   const pins = [];
 
+  const spots = [];
   shown.forEach(ev => {
     const rows = byEvent[ev.slug];
     const lat = rows.reduce((a,r) => a + r.place_lat, 0) / rows.length;
     const lng = rows.reduce((a,r) => a + r.place_lng, 0) / rows.length;
-    rows.forEach(r => bounds.extend(new kakao.maps.LatLng(r.place_lat, r.place_lng)));
+    const here = new kakao.maps.LatLng(lat, lng);
+    spots.push(here);
+    bounds.extend(here);
 
     // 그 장소에 붙여 둔 사진을 핀으로. 사진이 없는 일정이면 이벤트 아이콘으로 대신한다.
     const shot = rows.map(r => r.thumb_url || r.image_url).find(Boolean);
@@ -404,17 +407,38 @@ async function drawMapBand(events){
         '<span class="sub">' + escapeHTML(label) + '</span>';
       $('#slideLink').href = ev.href;
       slide.classList.add('open');
+      // 누른 사진을 한가운데로 데려온다. 아래에서 올라오는 이름표가 사진을 덮지 않게
+      // 미리 자리를 비워 두는 대신, 누를 때 옮기는 쪽이 낫다 —
+      // 여백을 크게 잡으면 지도가 그만큼 더 물러나야 하는데 물러날 곳이 없다(아래 참고).
+      map.panTo(here);
     });
     pins.push(pin);
 
     new kakao.maps.CustomOverlay({
-      map, position: new kakao.maps.LatLng(lat, lng), content: pin,
+      map, position: here, content: pin,
       xAnchor: 0.5, yAnchor: 0.5, clickable: true, zIndex: 2,
     });
   });
 
-  // 아래쪽을 넉넉히 비워 둔다 — 이름표가 올라와도 사진이 가려지지 않게.
-  map.setBounds(bounds, 30, 30, 58, 30);
+  // 핀이 다 들어오게 맞춘다.
+  //
+  // 띠가 얇아서 여백을 크게 두면 안 된다. 카카오 지도는 레벨 14 보다 더 물러날 수
+  // 없는데, 210px 짜리 띠가 그 레벨에서 담는 세로 폭이 위도 3.8도쯤이다.
+  // 부산~홍천만 해도 2.6도라, 여백을 위아래 58px 씩 두었더니 담을 자리가 모자라
+  // setBounds 가 한쪽을 통째로 잘라 버렸다(핀 두 개 중 하나가 사라졌다).
+  // 그래서 여백은 작게 두고, 그래도 다 안 들어오면 한가운데에 놓는 쪽으로 물러선다.
+  if (spots.length === 1) {
+    map.setCenter(spots[0]);
+    map.setLevel(6);                       // 한 곳뿐이면 동네가 보일 만큼만
+  } else {
+    map.setBounds(bounds, 22, 22, 22, 22);
+    const view = map.getBounds();
+    if (!spots.every(p => view.contain(p))) {
+      const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+      map.setLevel(14);
+      map.setCenter(new kakao.maps.LatLng((sw.getLat()+ne.getLat())/2, (sw.getLng()+ne.getLng())/2));
+    }
+  }
   kakao.maps.event.addListener(map, 'click', () => slide.classList.remove('open'));
 }
 
