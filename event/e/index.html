@@ -324,7 +324,12 @@
   .linked-works{margin:0 0 18px;}
   .lw-head{font-size:13px; font-weight:800; color:var(--ink); margin-bottom:9px;}
   .lw-strip{display:flex; gap:9px; overflow-x:auto; padding-bottom:4px;}
-  .lw-item{flex:0 0 108px; text-decoration:none; color:var(--ink-soft);}
+  .lw-item{position:relative; flex:0 0 108px; text-decoration:none; color:var(--ink-soft);}
+  .lw-play{
+    position:absolute; left:0; top:0; z-index:2; background:#e03a2f; color:#fff;
+    font-size:9.5px; font-weight:800; padding:2px 5px; border:2px solid var(--ink);
+  }
+  .lw-play::after{content:'▶';}
   .lw-item img, .lw-item video{width:108px; height:108px; object-fit:cover; display:block;
     border-radius:0; border:2px solid var(--ink);}
   .lw-item span{display:block; font-size:11.5px; margin-top:5px; line-height:1.4;
@@ -1004,7 +1009,9 @@ async function loadLinkedWorks(){
   box.innerHTML = '<div class="lw-head">🎨 이날 만든 작품 ' + data.length + '개</div>' +
     '<div class="lw-strip">' + data.map(w =>
       '<a class="lw-item" href="/portfolio.html" title="' + escapeHTML(w.title) + '">' +
-        (w.media_type === 'video'
+        (w.media_type === 'youtube'
+          ? youtubeThumbHTML(youtubeId(w.media_url), w.title) + '<span class="lw-play"></span>'
+          : w.media_type === 'video'
           ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
           : '<img src="' + escapeHTML(w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">') +
         '<span>' + escapeHTML(w.title) + '</span>' +

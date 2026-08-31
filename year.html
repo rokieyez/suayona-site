@@ -48,7 +48,15 @@
 
   /* 작품 격자 */
   .yr-works{display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:16px;}
-  .yr-work{border:var(--px) solid var(--ink); background:var(--paper); overflow:hidden;
+  /* 영상은 그림만으로는 사진과 구별이 안 되니 모서리에 표시를 붙인다.
+     한가운데 재생 단추를 얹으려면 그림 높이를 알아야 하는데, 여기 카드는
+     그림과 설명이 한 상자라 그 높이를 CSS 로 짚을 수가 없다. 모서리는 늘 맞는다. */
+  .yr-play{
+    position:absolute; left:0; top:0; z-index:2; background:#e03a2f; color:#fff;
+    font-size:10px; font-weight:800; padding:3px 7px; border:2px solid var(--ink);
+  }
+  .yr-play::after{content:'▶ 영상';}
+  .yr-work{position:relative; border:var(--px) solid var(--ink); background:var(--paper); overflow:hidden;
     break-inside:avoid;}
   .yr-work img, .yr-work video{display:block; width:100%; aspect-ratio:1; object-fit:cover;
     border-bottom:var(--px) solid var(--ink); background:#000;}
@@ -207,7 +215,9 @@ function render(){
   html += '<div class="yr-section"><h3>🎨 만든 것</h3>';
   html += works.length ? '<div class="yr-works">' + works.map(w =>
     '<div class="yr-work">' +
-      (w.media_type === 'video'
+      (w.media_type === 'youtube'
+        ? youtubeThumbHTML(youtubeId(w.media_url), w.title) + '<span class="yr-play"></span>'
+        : w.media_type === 'video'
         ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
         : '<img src="' + escapeHTML(w.thumb_url || w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">') +
       '<div class="cap">' +

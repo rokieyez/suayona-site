@@ -595,6 +595,80 @@ async function makeAndUploadThumb(bucket, path, file){
 }
 
 // ---------------------------------------------------------------------------
+// 유튜브 영상
+//
+// 영상은 유튜브가 들고 있고 우리는 주소만 적어 둔다 — 저장공간을 한 칸도 안 쓴다.
+// 사진이 벌써 무료 한도(1GB)의 4분의 1을 먹은 걸 생각하면 이게 작지 않다.
+//
+// 열쇠(API 키)도 필요 없다. 미리보기 그림은 주소만으로 받고, 제목과 채널 이름은
+// oEmbed 로 물어본다. 열쇠를 쓰면 그 열쇠가 페이지 소스에 그대로 실려야 해서
+// 애초에 못 쓸 길이기도 하다.
+// ---------------------------------------------------------------------------
+
+// 붙여넣은 주소에서 영상 번호(11글자)만 꺼낸다.
+// 일반 주소 · youtu.be 짧은 주소 · Shorts · embed 를 다 받는다.
+// 유튜브가 아닌 곳은 빈 값을 돌려준다 — evil-youtube.com 같은 흉내에 안 속게
+// 점 앞까지 맞춰서 본다.
+function youtubeId(raw){
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  if (/^[\w-]{11}$/.test(s)) return s;               // 번호만 붙여넣은 경우
+  let u;
+  try { u = new URL(s.startsWith('http') ? s : 'https://' + s); } catch (e) { return ''; }
+  if (!/(^|\.)youtube\.com$|(^|\.)youtu\.be$/.test(u.hostname)) return '';
+  const pick = v => (/^[\w-]{11}$/.test(v || '') ? v : '');
+  if (u.hostname.endsWith('youtu.be')) return pick(u.pathname.slice(1, 12));
+  const v = pick((u.searchParams.get('v') || '').slice(0, 11));
+  if (v) return v;
+  const m = u.pathname.match(/\/(shorts|embed|v|live)\/([\w-]{11})/);
+  return m ? m[2] : '';
+}
+
+// 저장할 때는 늘 같은 모양으로 — 나중에 같은 영상인지 견주기 쉽게
+function youtubeUrl(id){ return 'https://www.youtube.com/watch?v=' + id; }
+
+// 미리보기 그림. 유튜브가 주는 것 중 골라야 한다:
+//   maxresdefault  1280x720  16:9 — 높은 화질로 찍은 영상에만 있다
+//   mqdefault       320x180  16:9 — 늘 있다
+// hqdefault(480x360)는 늘 있지만 4:3 이라 위아래에 검은 띠가 들어 있다.
+// 네모 칸에 맞춰 자르면 그 띠가 그대로 보여서 안 쓴다.
+//
+// 없는 그림을 물으면 유튜브는 404 를 주지 않는다. 200 과 함께 120x90 짜리
+// 회색 판을 준다. 그래서 onerror 만 걸어 두면 아무 일도 안 일어나고, 그 회색 판이
+// 칸에 늘어난 채로 남는다. 실제로 그렇게 됐다 — 크기를 보고 갈아 끼운다.
+function youtubeThumbHTML(id, alt, cls){
+  const small = 'https://img.youtube.com/vi/' + id + '/mqdefault.jpg';
+  const swap = "this.onload=null; this.onerror=null; this.src='" + small + "';";
+  return '<img' + (cls ? ' class="' + cls + '"' : '') +
+    ' src="https://img.youtube.com/vi/' + id + '/maxresdefault.jpg" loading="lazy"' +
+    ' onload="if(this.naturalWidth<200){' + swap + '}"' +
+    ' onerror="' + swap + '"' +
+    ' alt="' + escapeHTML(alt || '') + '">';
+}
+
+// 재생기. 쿠키를 안 심는 주소로 띄우고, 목록에서는 안 부른다 —
+// 영상마다 재생기를 미리 얹으면 페이지가 눈에 띄게 무거워진다.
+function youtubeEmbedHTML(id, title){
+  return '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0"' +
+    ' title="' + escapeHTML(title || '영상') + '" loading="lazy" allowfullscreen' +
+    ' allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share"' +
+    ' referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+}
+
+// 제목과 채널 이름을 물어본다. 없는 영상·비공개 영상이면 400 을 주므로
+// 저장하기 전에 걸러낼 수 있다. 그물이 끊겨 못 물어본 것과 구분해서 돌려준다.
+async function youtubeInfo(id){
+  try {
+    const res = await fetch('https://www.youtube.com/oembed?format=json&url=' +
+      encodeURIComponent(youtubeUrl(id)));
+    if (res.status === 400 || res.status === 404) return { ok:false, gone:true };
+    if (!res.ok) return { ok:false, gone:false };
+    const j = await res.json();
+    return { ok:true, title: j.title || '', channel: j.author_name || '' };
+  } catch (e) { return { ok:false, gone:false }; }
+}
+
+// ---------------------------------------------------------------------------
 // 이벤트 갤러리에 파일 넣기
 //
 // 사진을 받는 자리가 두 군데다 — 이벤트 안의 갤러리, 그리고 이벤트 목록의

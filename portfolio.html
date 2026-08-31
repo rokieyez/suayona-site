@@ -28,6 +28,15 @@
   .add-box{max-width:520px; margin:0 auto 30px;}
   .add-box .inner{padding:22px;}
   .add-box h3{margin:0 0 14px; font-size:15px; font-weight:800;}
+  /* 파일과 유튜브 주소는 둘 중 하나만 쓰는 자리라, 나란히 두지 않고 갈라 놓는다 */
+  .or-line{
+    display:flex; align-items:center; gap:10px; margin:16px 0 4px;
+    font-size:11.5px; font-weight:800; color:var(--ink-soft); letter-spacing:.06em;
+  }
+  .or-line::before, .or-line::after{content:''; flex:1; height:2px; background:rgba(47,42,36,.25);}
+  .yt-hint{font-size:11.5px; line-height:1.65; color:var(--ink-soft); margin-top:5px; min-height:1em;}
+  .yt-hint.ok{color:#2a8a4a; font-weight:700;}
+  .yt-hint.err{color:#c0392b; font-weight:700;}
   .row2{display:flex; gap:10px;}
   .row2 > *{flex:1;}
   /* 카드에 얹는 이야기 — 두 줄까지만 보이고 나머지는 상세에서 */
@@ -126,6 +135,26 @@
   }
   @keyframes recblink{50%{opacity:.15;}}
   .voice .timer{font-variant-numeric:tabular-nums; font-weight:800; font-size:14px;}
+  /* 유튜브 영상 — 격자에서 그림만 보면 사진과 구별이 안 되니 모서리에 띠를 하나 */
+  .yt-mark{
+    position:absolute; left:-2px; top:-2px; z-index:2; background:#e03a2f; color:#fff;
+    font-size:10px; font-weight:800; padding:3px 7px; border:2px solid var(--ink);
+  }
+  .yt-play{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2;
+    width:40px; height:28px; background:#e03a2f; border:2px solid var(--ink);
+    box-shadow:2px 2px 0 rgba(0,0,0,.45);
+    display:flex; align-items:center; justify-content:center; pointer-events:none;
+  }
+  .yt-play::after{content:''; border-left:10px solid #fff; border-top:6px solid transparent;
+    border-bottom:6px solid transparent; margin-left:3px;}
+  /* 상세에서는 재생기를 그 자리에 그대로 — 16:9 로 자리를 잡아 두면 뜰 때 화면이 안 튄다 */
+  .modal-box .yt-prev{position:relative; aspect-ratio:16/9; background:#000; overflow:hidden;}
+  .modal-box .yt-prev img{width:100%; height:100%; object-fit:cover; display:block;}
+  .work-box .yt{position:relative; aspect-ratio:16/9; background:#000;}
+  .work-box .yt iframe{position:absolute; inset:0; width:100%; height:100%; border:0; display:block;}
+  .filters .dot-btn[data-filter="youtube"]{background:#e03a2f;}
+
   .gal-thumb .has-voice{position:absolute; left:8px; bottom:8px; z-index:2;
     background:var(--cream); border:2px solid var(--ink); font-size:12px;
     padding:2px 6px; line-height:1.4;}
@@ -156,6 +185,7 @@
       <button class="dot-btn small" data-filter="sua">수아</button>
       <button class="dot-btn small" data-filter="yona">연아</button>
       <button class="dot-btn small" data-filter="together">같이</button>
+      <button class="dot-btn small" data-filter="youtube">▶ 영상</button>
     </div>
     <div class="filters years reveal" id="years">
       <button class="dot-btn small on" data-year="all">전체 연도</button>
@@ -208,8 +238,11 @@ async function loadWorks(){
 }
 
 function visible(){
+  // 「영상」만 작가가 아니라 종류로 거른다 — 누구 작품인지와는 다른 축이라
+  // 같은 줄에 섞여 있어도 서로 부딪히지 않는다(하나만 켜지므로).
   return works.filter(w =>
-    (filter === 'all' || w.author === filter) &&
+    (filter === 'all' ||
+     (filter === 'youtube' ? w.media_type === 'youtube' : w.author === filter)) &&
     (yearFilter === 'all' || (w.made_on && w.made_on.slice(0,4) === yearFilter)));
 }
 
@@ -222,7 +255,10 @@ function render(){
   list.forEach((w, i) => {
     const card = document.createElement('div');
     card.className = 'gal-item dot-card hoverable reveal';
-    const media = w.media_type === 'video'
+    const ytId = w.media_type === 'youtube' ? youtubeId(w.media_url) : '';
+    const media = ytId
+      ? youtubeThumbHTML(ytId, w.title) + '<span class="yt-mark">▶ 영상</span><span class="yt-play"></span>'
+      : w.media_type === 'video'
       ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
       // 격자 칸은 264px 인데 원본은 1800px 이 넘는다. 사본이 있으면 그것만 받는다.
       : '<img src="' + escapeHTML(w.thumb_url || w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">';
@@ -281,9 +317,16 @@ function openEditModal(w){
   overlay.innerHTML =
     '<div class="modal-box dot-card"><div class="inner">' +
       '<h3>✎ 작품 수정</h3>' +
-      (w.media_type === 'video'
+      (w.media_type === 'youtube'
+        ? '<div class="preview yt-prev">' + youtubeThumbHTML(youtubeId(w.media_url), w.title) + '</div>'
+        : w.media_type === 'video'
         ? '<video class="preview" src="' + escapeHTML(w.media_url) + '" controls playsinline></video>'
         : '<img class="preview" src="' + escapeHTML(w.media_url) + '" alt="">') +
+      // 주소를 잘못 붙여넣었을 때 지웠다 다시 넣지 않아도 되게. 영상일 때만 나온다.
+      (w.media_type === 'youtube'
+        ? '<label class="field">유튜브 주소</label>' +
+          '<input type="text" class="eYoutube" value="' + escapeHTML(w.media_url) + '">'
+        : '') +
       '<label class="field">제목</label>' +
       '<input type="text" class="eTitle" value="' + escapeHTML(w.title) + '">' +
       '<label class="field">아이가 한 말 (선택)</label>' +
@@ -336,6 +379,26 @@ function openEditModal(w){
       quote: overlay.querySelector('.eQuote').value.trim() || null,
       event_id: overlay.querySelector('.eEvent').value || null,
     };
+    // 영상 주소를 고쳤으면 그것부터 확인한다. 없는 영상으로 바꿔 두면
+    // 목록에 빈 칸만 남고 왜 그런지 알 길이 없다.
+    const ytBox = overlay.querySelector('.eYoutube');
+    if (ytBox) {
+      const id = youtubeId(ytBox.value);
+      if (!id) {
+        msg.className = 'msg err'; msg.textContent = '유튜브 주소가 아닌 것 같아요.';
+        btn.disabled = false; return;
+      }
+      if (youtubeUrl(id) !== w.media_url) {
+        const info = await youtubeInfo(id);
+        if (info.gone) {
+          msg.className = 'msg err';
+          msg.textContent = '그런 영상을 못 찾았어요. 주소를 다시 확인해 주세요.';
+          btn.disabled = false; return;
+        }
+        patch.media_url = youtubeUrl(id);
+      }
+    }
+
     try {
       const file = overlay.querySelector('.eFile').files[0];
       const dropped = [];
@@ -696,7 +759,10 @@ function renderWork(){
   stopVoiceWork();          // 앞 작품에서 녹음 중이었다면 접는다
   const w = viewList[viewIdx];
   if (!w) return;
-  const media = w.media_type === 'video'
+  const ytId = w.media_type === 'youtube' ? youtubeId(w.media_url) : '';
+  const media = ytId
+    ? '<div class="yt">' + youtubeEmbedHTML(ytId, w.title) + '</div>'
+    : w.media_type === 'video'
     ? '<video src="' + escapeHTML(w.media_url) + '" controls playsinline></video>'
     : '<img src="' + escapeHTML(w.media_url) + '" alt="' + escapeHTML(w.title) + '">';
   const ev = w.event_id
@@ -812,7 +878,9 @@ $('#years').addEventListener('click', (e) => {
 // 격자는 264px 칸인데 예전에 올린 작품은 원본(1800px 넘음)밖에 없다.
 // 없는 것만 골라 작은 사본을 만들어 둔다.
 async function showThumbTool(box){
-  const missing = works.filter(w => w.media_type !== 'video' && !w.thumb_url);
+  // 유튜브는 미리보기 그림을 유튜브가 주므로 우리가 만들 것이 없다
+  const missing = works.filter(w =>
+    w.media_type !== 'video' && w.media_type !== 'youtube' && !w.thumb_url);
   if (!missing.length) return;
 
   const btn = document.createElement('button');
@@ -995,18 +1063,56 @@ function renderAdminArea(){
       '<div style="font-size:11.5px; color:var(--ink-soft); margin:-2px 0 6px; line-height:1.6;">' +
         '사진은 10MB를 넘을 때만 자동으로 줄여서 올라가요 · 영상은 100MB까지</div>' +
       '<input type="file" id="wFiles" accept="image/*,video/*" multiple>' +
+      '<div class="or-line">또는</div>' +
+      '<label class="field">유튜브 주소</label>' +
+      '<input type="text" id="wYoutube" placeholder="https://youtu.be/... · Shorts 주소도 돼요">' +
+      '<div class="yt-hint" id="wYtHint">붙여넣으면 제목을 채워드려요. 영상은 저장공간을 안 씁니다.</div>' +
       '<button class="dot-btn primary" id="wSave" style="width:100%; margin-top:18px;">올리기</button>' +
       '<div class="msg" id="wMsg"></div>' +
     '</div>';
   area.appendChild(box);
+
+  // 주소를 붙여넣는 순간 그게 진짜 영상인지 물어보고, 제목 칸이 비어 있으면 채워 준다.
+  // 저장한 뒤에 "없는 영상이었다"를 알게 되면 지웠다 다시 넣어야 해서 미리 본다.
+  let ytChecked = '';                       // 방금 확인한 번호 (같은 주소를 두 번 안 묻게)
+  const ytHint = () => $('#wYtHint');
+  async function checkYoutube(){
+    const raw = $('#wYoutube').value.trim();
+    const id = youtubeId(raw);
+    if (!raw) { ytChecked = ''; ytHint().className = 'yt-hint';
+      ytHint().textContent = '붙여넣으면 제목을 채워드려요. 영상은 저장공간을 안 씁니다.'; return; }
+    if (!id) { ytChecked = ''; ytHint().className = 'yt-hint err';
+      ytHint().textContent = '유튜브 주소가 아닌 것 같아요.'; return; }
+    if (id === ytChecked) return;
+    ytHint().className = 'yt-hint'; ytHint().textContent = '영상을 확인하는 중...';
+    const info = await youtubeInfo(id);
+    if (info.gone) { ytChecked = ''; ytHint().className = 'yt-hint err';
+      ytHint().textContent = '그런 영상을 못 찾았어요. 비공개 영상이거나 주소가 틀렸을 수 있어요.'; return; }
+    ytChecked = id;
+    if (info.ok) {
+      if (!$('#wTitle').value.trim()) $('#wTitle').value = info.title;
+      ytHint().className = 'yt-hint ok';
+      ytHint().textContent = '확인했어요 — ' + info.channel + ' · 제목은 원하시는 말로 고치셔도 돼요.';
+    } else {
+      ytHint().className = 'yt-hint';
+      ytHint().textContent = '제목은 못 물어봤지만 그대로 올릴 수 있어요.';
+    }
+  }
+  $('#wYoutube').addEventListener('change', checkYoutube);
+  $('#wYoutube').addEventListener('paste', () => setTimeout(checkYoutube, 0));
 
   $('#wSave').addEventListener('click', async () => {
     const msg = $('#wMsg'), btn = $('#wSave');
     msg.className = 'msg'; msg.textContent = '';
     const title = $('#wTitle').value.trim();
     const files = Array.from($('#wFiles').files || []);
+    const ytId = youtubeId($('#wYoutube').value);
     if (!title) { msg.className = 'msg err'; msg.textContent = '제목을 입력해주세요.'; return; }
-    if (!files.length) { msg.className = 'msg err'; msg.textContent = '사진이나 영상을 선택해주세요.'; return; }
+    if (!files.length && !ytId) {
+      msg.className = 'msg err';
+      msg.textContent = '사진·영상을 고르거나 유튜브 주소를 넣어주세요.';
+      return;
+    }
 
     btn.disabled = true;
     const author = $('#wAuthor').value;
@@ -1015,6 +1121,34 @@ function renderAdminArea(){
     const event_id = $('#wEvent').value || null;
     const madeOnTyped = $('#wDate').value || null;
     let ok = 0;
+
+    // 유튜브는 파일이 없으므로 여기서 끝난다.
+    // 만든 날을 비웠으면 오늘로 잡는다 — 사진과 달리 찍은 날을 알 길이 없고,
+    // 비워 두면 연도별 보기에서 통째로 빠져 버린다.
+    if (ytId) {
+      msg.className = 'msg'; msg.textContent = '영상을 확인하는 중...';
+      const info = await youtubeInfo(ytId);
+      if (info.gone) {
+        msg.className = 'msg err';
+        msg.textContent = '그런 영상을 못 찾았어요. 주소를 다시 확인해 주세요.';
+        btn.disabled = false; return;
+      }
+      const { error } = await sb.from('works').insert({
+        title, description, quote, event_id, author,
+        made_on: madeOnTyped || new Date().toLocaleDateString('sv-SE'),
+        media_url: youtubeUrl(ytId), media_type: 'youtube', thumb_url: null,
+        sort_order: Math.floor(Date.now() / 1000),
+      });
+      btn.disabled = false;
+      if (error) { msg.className = 'msg err'; msg.textContent = '실패: ' + error.message; return; }
+      msg.className = 'msg ok'; msg.textContent = '영상을 올렸어요!';
+      $('#wTitle').value = ''; $('#wDesc').value = ''; $('#wQuote').value = '';
+      $('#wYoutube').value = ''; ytChecked = '';
+      ytHint().className = 'yt-hint';
+      ytHint().textContent = '붙여넣으면 제목을 채워드려요. 영상은 저장공간을 안 씁니다.';
+      loadWorks();
+      return;
+    }
 
     for (let i = 0; i < files.length; i++) {
       msg.className = 'msg';
