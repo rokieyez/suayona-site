@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이벤트 지도 시안</title>
+<meta name="robots" content="noindex, nofollow">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+<style>
+  :root{
+    --accent:#ff7f8a; --mint:#6cc7b3; --lemon:#ffd979;
+    --paper:#fffaf2; --paper-card:#fff6e9; --ink:#2f2a24; --ink-soft:#6f6558;
+    --px:3px;
+  }
+  *, *::before, *::after{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    font-family:'Pretendard',sans-serif; color:var(--ink); background:var(--paper);
+    margin:0; padding:26px 16px 70px;
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+
+  /* ===== 안내 ===== */
+  .doc-head{margin-bottom:30px;}
+  .doc-head h1{font-size:23px; font-weight:800; margin:0 0 8px; letter-spacing:-.02em;}
+  .doc-head p{font-size:13.5px; line-height:1.8; color:var(--ink-soft); margin:0 0 8px;}
+  .doc-head b{color:var(--ink);}
+
+  .variant{margin-bottom:44px;}
+  .variant > h2{
+    display:inline-block; font-size:13px; font-weight:800; letter-spacing:.03em;
+    background:var(--ink); color:var(--paper); padding:5px 11px; margin:0 0 9px;
+  }
+  .variant > .why{font-size:13px; line-height:1.85; color:var(--ink-soft); margin:0 0 16px;}
+  .variant > .why b{color:var(--ink);}
+  .pros{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 0; font-size:12px; line-height:1.7;}
+  .pros div{flex:1 1 200px; border:2px solid var(--ink); background:var(--paper-card); padding:10px 12px;}
+  .pros dt{font-weight:800; font-size:11.5px; letter-spacing:.04em; margin-bottom:4px; color:var(--ink);}
+  .pros dd{margin:0;}   /* 브라우저 기본 들여쓰기(40px) 없앰 */
+  .pros .good dt{color:#2a8a4a;}
+  .pros .bad dt{color:#c0392b;}
+
+  /* 실제 페이지처럼 보이도록 감싸는 틀 */
+  .frame{border:var(--px) solid var(--ink); background:var(--paper); padding:15px 14px 18px;}
+  .frame h3{text-align:center; font-size:20px; font-weight:800; margin:0 0 4px;}
+  .frame .lead{text-align:center; font-size:12.5px; color:var(--ink-soft); margin:0 0 16px;}
+  .frame h4{font-size:12px; font-weight:800; color:var(--ink-soft); margin:20px 0 10px; letter-spacing:.04em;
+    padding-bottom:7px; border-bottom:var(--px) solid var(--ink);}
+
+  /* 이벤트 카드 (실제 목록과 같은 모양) */
+  .card{position:relative; padding:13px 14px; margin-bottom:10px; background:var(--paper-card);
+    border:2px solid var(--ink); cursor:pointer;}
+  .card.lit{background:var(--lemon);}
+  .card-top{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:3px;}
+  .card-name{font-size:15.5px; font-weight:800;}
+  .badge{font-size:10px; font-weight:800; padding:3px 7px; border:2px solid var(--ink); flex-shrink:0;}
+  .badge.done{background:var(--paper); color:var(--ink-soft); border-color:rgba(47,42,36,.3);}
+  .badge.ongoing{background:var(--accent);}
+  .card-sub{font-size:12px; color:var(--ink-soft);}
+
+  /* 지도 공통 */
+  .map{border:2px solid var(--ink); background:#dfe6e2;}
+  .leaflet-container{font-family:inherit; background:#dfe6e2;}
+  /* 라이플릿 기본 모양(둥근 모서리·그림자)을 사이트 결에 맞춰 각지게 */
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip{
+    border-radius:0; box-shadow:none; border:2px solid var(--ink); background:var(--paper-card); color:var(--ink);}
+  .leaflet-popup-content{margin:9px 11px; font-size:12.5px; line-height:1.6; font-weight:600;}
+  .leaflet-popup-content b{display:block; font-size:14px; font-weight:800; margin-bottom:2px;}
+  .leaflet-popup-content a{color:var(--ink); font-weight:800; font-size:12px;}
+  .leaflet-popup-close-button{display:none;}
+  .leaflet-control-zoom a{border-radius:0 !important; border:2px solid var(--ink) !important;
+    color:var(--ink) !important; background:var(--paper) !important; font-weight:800;}
+  .leaflet-control-attribution{font-size:9px; background:rgba(255,250,242,.85);}
+
+  /* 핀 — 사이트의 각진 결에 맞춘 네모 핀 */
+  .pin{
+    width:24px; height:24px; border:2px solid var(--ink); background:var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:800; color:var(--ink); line-height:1;
+    box-shadow:2px 2px 0 var(--ink); cursor:pointer;
+  }
+  .pin.on{background:var(--lemon); transform:scale(1.18);}
+  /* 이벤트 하나를 통째로 가리키는 큰 핀 — 이름과 장소 수를 달고 있다 */
+  .pin-ev{
+    display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+    padding:5px 9px; border:2px solid var(--ink); background:var(--paper-card); color:var(--ink);
+    font-size:12px; font-weight:800; box-shadow:2px 2px 0 var(--ink); cursor:pointer;
+  }
+  .pin-ev b{background:var(--accent); border:2px solid var(--ink); padding:0 5px; font-size:11px;}
+  .map-back{
+    position:absolute; right:8px; top:8px; z-index:500;
+    padding:5px 10px; border:2px solid var(--ink); background:var(--paper); color:var(--ink);
+    font-family:inherit; font-size:11.5px; font-weight:800; cursor:pointer;
+    box-shadow:2px 2px 0 var(--ink);
+  }
+  .map-back[hidden]{display:none;}
+  .pin-photo{width:40px; height:40px; border:var(--px) solid var(--ink); box-shadow:2px 2px 0 var(--ink);
+    background:#000; overflow:hidden; cursor:pointer;}
+  .pin-photo img{width:100%; height:100%; object-fit:cover; display:block;}
+  .pin-photo.on{outline:var(--px) solid var(--lemon);}
+
+  /* ── 시안 1 ── */
+  .v1 .map{height:300px;}
+  .v1 .band{position:relative;}
+  .v1 .map-cap{display:flex; align-items:center; justify-content:space-between; gap:8px;
+    font-size:11.5px; font-weight:700; color:var(--ink-soft); margin:7px 1px 16px;}
+
+  /* ── 시안 2 ── */
+  .v2 .split{display:grid; grid-template-columns:1fr; gap:12px;}
+  .v2 .map{height:230px;}
+  @media (min-width:620px){
+    .v2 .split{grid-template-columns:1fr 1fr; align-items:start;}
+    .v2 .map{height:100%; min-height:290px;}
+  }
+
+  /* ── 시안 3 ── */
+  .v3 .band{position:relative; border:2px solid var(--ink);}
+  .v3 .map{height:190px; border:none;}
+  .v3 .pin-photo{width:44px; height:44px;}
+  .v3 .band-label{
+    position:absolute; left:0; top:0; z-index:500; pointer-events:none;
+    background:var(--ink); color:var(--paper); font-size:11px; font-weight:800;
+    padding:4px 9px; letter-spacing:.03em;
+  }
+  .v3 .slide{
+    position:absolute; left:0; right:0; bottom:0; z-index:500;
+    background:var(--paper-card); border-top:2px solid var(--ink);
+    padding:9px 12px; font-size:12.5px; font-weight:700;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    transform:translateY(101%); transition:transform .2s ease;
+  }
+  .v3 .slide.open{transform:translateY(0);}
+  .v3 .slide a{color:var(--ink); font-size:11.5px; font-weight:800; white-space:nowrap;}
+  .v3 .slide .sub{display:block; font-size:11px; font-weight:600; color:var(--ink-soft);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .v3 .slide > span{min-width:0;}
+  @media (prefers-reduced-motion: reduce){ .v3 .slide{transition:none;} }
+
+  /* ===== 마무리 ===== */
+  .closing{border:var(--px) solid var(--ink); background:var(--paper-card); padding:18px 17px; margin-top:8px;}
+  .closing h2{font-size:15px; font-weight:800; margin:0 0 10px;}
+  .closing p{font-size:13.5px; line-height:1.85; margin:0 0 11px; color:var(--ink);}
+  .closing p:last-child{margin-bottom:0;}
+  .closing b{font-weight:800;}
+  .closing .tag{display:inline-block; background:var(--lemon); border:2px solid var(--ink);
+    font-size:11.5px; font-weight:800; padding:2px 7px; margin-right:5px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="doc-head">
+  <h1>이벤트 목록 첫 화면 · 지도 시안 3가지</h1>
+  <p>세 가지 모두 <b>실제로 움직이는 지도</b>입니다. 끌어서 움직이고, 핀을 눌러 보세요.
+     핀은 부산여행·홍천 두 이벤트에 실제로 다녀온 자리에 찍었습니다.</p>
+  <p>지도는 <b>열쇠(API 키)도 등록도 결제도 없이</b> 그냥 동작하는 것으로 만들었습니다.
+     맨 아래에 다른 지도로 바꿀 때의 이야기를 적어 두었어요.</p>
+</div>
+
+<!-- ==================== 시안 1 ==================== -->
+<section class="variant v1">
+  <h2>시안 1 · 큰 지도</h2>
+  <p class="why">목록 맨 위에 <b>지도를 주인공으로</b> 놓습니다. 처음엔 <b>이벤트마다 핀 하나</b>씩만 —
+    전국을 한 화면에 놓으면 한 여행에서 다닌 곳들이 서로 겹쳐 뭉개지기 때문입니다.
+    핀을 누르면 그 여행 안으로 들어가 <b>장소 하나하나</b>가 펼쳐지고, 거기서 이벤트로 갑니다.</p>
+
+  <div class="frame">
+    <h3>🗓️ 이벤트 목록</h3>
+    <p class="lead">지금까지 열린 이벤트를 확인해보세요</p>
+
+    <div class="band">
+      <div class="map" id="map1"></div>
+      <button type="button" class="map-back" id="back1" hidden>← 전체 보기</button>
+    </div>
+    <div class="map-cap"><span id="cap1">이벤트 2개 · 다녀온 곳 7군데</span><span>핀을 눌러보세요</span></div>
+
+    <h4>진행중 · 예정</h4>
+    <div class="card"><div class="card-top"><span class="card-name">수아연아랑 · 부산여행</span>
+      <span class="badge ongoing">진행중</span></div>
+      <div class="card-sub">2026. 8. 5(수) ~ 8. 8(토)</div></div>
+
+    <h4>지난 이벤트</h4>
+    <div class="card"><div class="card-top"><span class="card-name">연아친구들 · 홍천밭에서 놀기</span>
+      <span class="badge done">종료</span></div>
+      <div class="card-sub">2024. 10. 3(목) ~ 10. 4(금)</div></div>
+  </div>
+
+  <dl class="pros">
+    <div class="good"><dt>좋은 점</dt><dd>“우리가 어디를 다녔나”가 한눈에 들어옵니다. 이벤트가 쌓일수록 지도가 채워져서
+      그 자체로 볼거리가 됩니다.</dd></div>
+    <div class="bad"><dt>아쉬운 점</dt><dd>첫 화면의 절반을 지도가 먹습니다. 이벤트가 적을 땐 넓은 지도에 핀 몇 개라
+      휑해 보일 수 있어요.</dd></div>
+  </dl>
+</section>
+
+<!-- ==================== 시안 2 ==================== -->
+<section class="variant v2">
+  <h2>시안 2 · 지도와 목록이 서로 가리킴</h2>
+  <p class="why">지도와 목록을 나란히 두고 <b>서로 연결</b>합니다. 카드에 손을 올리면 그 이벤트의 핀이
+    노랗게 켜지고, 핀을 누르면 그 카드가 켜집니다. 목록이 여전히 주인공이고 지도는 거드는 쪽입니다.
+    <br>좁은 화면에서는 지도가 위, 목록이 아래로 내려옵니다.</p>
+
+  <div class="frame">
+    <h3>🗓️ 이벤트 목록</h3>
+    <p class="lead">지금까지 열린 이벤트를 확인해보세요</p>
+    <div class="split">
+      <div class="map" id="map2"></div>
+      <div>
+        <div class="card" data-ev="busan"><div class="card-top"><span class="card-name">부산여행</span>
+          <span class="badge ongoing">진행중</span></div>
+          <div class="card-sub">2026. 8. 5(수) ~ 8. 8(토) · 📍4곳</div></div>
+        <div class="card" data-ev="hongchun"><div class="card-top"><span class="card-name">홍천밭에서 놀기</span>
+          <span class="badge done">종료</span></div>
+          <div class="card-sub">2024. 10. 3(목) ~ 10. 4(금) · 📍3곳</div></div>
+      </div>
+    </div>
+  </div>
+
+  <dl class="pros">
+    <div class="good"><dt>좋은 점</dt><dd>이벤트가 많아져도 “이건 어디였더라”를 바로 찾습니다.
+      지도가 목록을 밀어내지 않아요.</dd></div>
+    <div class="bad"><dt>아쉬운 점</dt><dd>화면을 반씩 나눠 쓰니 둘 다 조금씩 작아집니다.
+      손가락으로 쓰는 휴대폰에서는 “손 올리면 켜짐”이 안 되고 눌러야 켜집니다.</dd></div>
+  </dl>
+</section>
+
+<!-- ==================== 시안 3 ==================== -->
+<section class="variant v3">
+  <h2>시안 3 · 얇은 띠 지도</h2>
+  <p class="why">제목 아래에 <b>손가락 두 마디 높이의 띠</b>만 깔고, 핀 대신 <b>그 이벤트의 사진</b>을 세워 둡니다.
+    사진을 누르면 아래에서 이름표가 올라오고(다녀온 곳들이 함께 적힙니다), 거기서 이벤트로 갑니다.
+    <br>띠가 얇아 전국이 한 화면에 들어오는데, 그 크기에서는 한 여행 안의 장소들이 서로 포개지므로
+    <b>이벤트마다 사진 한 장</b>으로 묶었습니다.</p>
+
+  <div class="frame">
+    <h3>🗓️ 이벤트 목록</h3>
+    <p class="lead">지금까지 열린 이벤트를 확인해보세요</p>
+
+    <div class="band">
+      <span class="band-label">📍 다녀온 곳</span>
+      <div class="map" id="map3"></div>
+      <div class="slide" id="slide3">
+        <span id="slideText"></span>
+        <a href="#" id="slideLink">보러가기 →</a>
+      </div>
+    </div>
+
+    <h4 style="margin-top:16px;">진행중 · 예정</h4>
+    <div class="card"><div class="card-top"><span class="card-name">수아연아랑 · 부산여행</span>
+      <span class="badge ongoing">진행중</span></div>
+      <div class="card-sub">2026. 8. 5(수) ~ 8. 8(토)</div></div>
+
+    <h4>지난 이벤트</h4>
+    <div class="card"><div class="card-top"><span class="card-name">연아친구들 · 홍천밭에서 놀기</span>
+      <span class="badge done">종료</span></div>
+      <div class="card-sub">2024. 10. 3(목) ~ 10. 4(금)</div></div>
+  </div>
+
+  <dl class="pros">
+    <div class="good"><dt>좋은 점</dt><dd>첫 화면을 거의 안 밀어냅니다. 사진이 그대로 핀이라
+      지도가 앨범처럼 보여요. 이벤트가 적어도 휑해 보이지 않습니다.</dd></div>
+    <div class="bad"><dt>아쉬운 점</dt><dd>장소 하나하나는 지도에서 볼 수 없습니다 — 어디를 다녔는지는
+      이름표의 글로만 나옵니다. 그리고 띠가 얇은 만큼 지도를 멀리서 봐야 해서
+      서해 건너까지 같이 보입니다.</dd></div>
+  </dl>
+</section>
+
+<div class="closing">
+  <h2>제 생각</h2>
+  <p><span class="tag">추천</span><b>시안 3</b>을 권합니다. 이 사이트에서 목록 페이지가 하는 일은
+    “들어갈 이벤트 고르기”인데, 시안 1은 그 일을 지도가 반쯤 밀어냅니다. 지금 이벤트가 두 개뿐이라
+    큰 지도는 특히 휑해 보이고요. 시안 3은 자리를 거의 안 뺏으면서 사진이 핀이라 눈에 붙습니다.
+    나중에 이벤트가 열 개쯤 쌓이면 그때 <b>시안 1</b>로 키우면 됩니다 — 지도 높이만 바꾸는 일이라 언제든 됩니다.</p>
+  <p><b>지도는 무엇을 쓸까.</b> 지금 이 시안은 <b>오픈스트리트맵</b>입니다. 열쇠도 등록도 결제도 없이
+    바로 됩니다. 한국 지명이 얼마나 나오는지 직접 여섯 군데를 넣어 봤더니 다섯 군데를 찾았어요 —
+    감천문화마을·부산역·팔봉산·롯데월드·밀양돼지국밥은 찾았고, “부산 광안리 스타벅스”처럼
+    <b>같은 이름의 가게가 여럿인 것</b>은 못 찾았습니다. 지명과 주소는 쓸 만하고 체인점이 약합니다.
+    <br><b>카카오맵</b>은 그런 가게 검색까지 잘 되고 역시 무료지만, 개발자 사이트에서 열쇠를 하나 받아
+    <code>www.suayona.com</code>을 등록해 주셔야 합니다(10분쯤). 나중에 바꿔도 늦지 않아요.
+    <b>구글지도</b>는 카드 등록이 필요해서 이 사이트에는 권하지 않습니다.</p>
+  <p><b>핀은 어디서 오나.</b> 사진 속 위치정보로는 못 찍습니다 — 올라와 있는 사진 115장을 확인해 보니
+    좌표가 살아 있는 것이 <b>0장</b>이었어요(휴대폰이 사진을 넘길 때 지웁니다).
+    그래서 일정을 추가할 때 <b>장소를 손으로 적으면</b> 그 자리에서 좌표를 찾아 저장하도록 해 두었습니다.
+    앞으로 장소를 적은 일정이 곧 지도의 핀이 됩니다.</p>
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// 실제 두 이벤트에서 다녀온 자리. 나중에는 events 표의 place_lat/place_lng 를 그대로 읽어 옵니다.
+const PLACES = [
+  { ev:'busan', name:'부산역',         when:'8/5 09:20', lat:35.1151, lng:129.0415 },
+  { ev:'busan', name:'감천문화마을',   when:'8/5 13:00', lat:35.0975, lng:129.0107 },
+  { ev:'busan', name:'해운대해수욕장', when:'8/6 11:00', lat:35.1587, lng:129.1604 },
+  { ev:'busan', name:'광안리해변',     when:'8/7 18:30', lat:35.1532, lng:129.1186 },
+  { ev:'hongchun', name:'홍천 밭',     when:'10/3 10:00', lat:37.6971, lng:127.8888 },
+  { ev:'hongchun', name:'홍천강',      when:'10/3 15:00', lat:37.7156, lng:127.8583 },
+  { ev:'hongchun', name:'팔봉산',      when:'10/4 09:30', lat:37.6392, lng:127.7639 },
+];
+const BASE = 'https://ifiemaypzjwdrljmmkgb.supabase.co/storage/v1/object/public/gallery-uploads/';
+const EVENTS = {
+  busan:    { label:'부산여행',       href:'/event/e/?slug=2026-08-busan',
+              photo: BASE + '2026-08-busan/1788102835120-r0yfwh-10147.thumb.jpg' },
+  hongchun: { label:'홍천밭에서 놀기', href:'/event/e/?slug=2024-10-hongchun',
+              photo: BASE + '2024-10-hongchun/1788018333573-m1k58r-2024-10-03_14_45________3840x2560_.thumb.jpg' },
+};
+
+const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const ATTR = '지도 © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+
+function baseMap(id, opts){
+  const m = L.map(id, Object.assign({
+    scrollWheelZoom:false,          // 페이지를 스크롤하다 지도에 걸려 확대되는 일을 막음
+    zoomControl:true,
+  }, opts || {}));
+  L.tileLayer(TILES, { maxZoom:18, attribution:ATTR }).addTo(m);
+  return m;
+}
+function fitAll(m, pad){
+  m.fitBounds(L.latLngBounds(PLACES.map(p => [p.lat, p.lng])), { padding:[pad||28, pad||28] });
+}
+function squarePin(text){
+  return L.divIcon({ className:'', iconSize:[26,26], iconAnchor:[13,13],
+    html:'<div class="pin">' + text + '</div>' });
+}
+
+/* ---------- 시안 1 : 큰 지도 (이벤트 핀 → 눌러서 장소 핀) ---------- */
+(function(){
+  const m = baseMap('map1');
+  const back = document.getElementById('back1'), cap = document.getElementById('cap1');
+  let layer = null;
+
+  const placesOf = ev => PLACES.filter(p => p.ev === ev);
+  const center = list => [
+    list.reduce((a,p) => a + p.lat, 0) / list.length,
+    list.reduce((a,p) => a + p.lng, 0) / list.length,
+  ];
+
+  function showEvents(){
+    if (layer) m.removeLayer(layer);
+    layer = L.layerGroup().addTo(m);
+    Object.keys(EVENTS).forEach(ev => {
+      const list = placesOf(ev);
+      const icon = L.divIcon({ className:'', iconSize:null, iconAnchor:[0,14],
+        html:'<div class="pin-ev">' + EVENTS[ev].label + '<b>' + list.length + '</b></div>' });
+      L.marker(center(list), { icon }).addTo(layer).on('click', () => showPlaces(ev));
+    });
+    fitAll(m);
+    back.hidden = true;
+    cap.textContent = '이벤트 ' + Object.keys(EVENTS).length + '개 · 다녀온 곳 ' + PLACES.length + '군데';
+  }
+
+  function showPlaces(ev){
+    if (layer) m.removeLayer(layer);
+    layer = L.layerGroup().addTo(m);
+    const list = placesOf(ev);
+    list.forEach(p => {
+      L.marker([p.lat, p.lng], { icon: squarePin('📍') }).addTo(layer)
+        .bindPopup('<b>' + p.name + '</b>' + p.when +
+                   '<br><a href="' + EVENTS[ev].href + '">이 이벤트 보러가기 →</a>');
+    });
+    m.fitBounds(L.latLngBounds(list.map(p => [p.lat, p.lng])), { padding:[40,40] });
+    back.hidden = false;
+    cap.textContent = EVENTS[ev].label + ' · ' + list.length + '군데';
+  }
+
+  back.addEventListener('click', showEvents);
+  showEvents();
+})();
+
+/* ---------- 시안 2 : 지도와 목록이 서로 가리킴 ---------- */
+(function(){
+  const m = baseMap('map2');
+  const marks = {};
+  PLACES.forEach(p => {
+    const mk = L.marker([p.lat, p.lng], { icon: squarePin('📍') }).addTo(m);
+    (marks[p.ev] = marks[p.ev] || []).push(mk);
+    mk.on('click', () => light(p.ev, true));
+  });
+  fitAll(m, 34);
+
+  const cards = document.querySelectorAll('.v2 .card');
+  function light(ev, fromMap){
+    cards.forEach(c => c.classList.toggle('lit', c.dataset.ev === ev));
+    Object.keys(marks).forEach(k => marks[k].forEach(mk => {
+      const el = mk.getElement && mk.getElement();
+      if (el) el.querySelector('.pin').classList.toggle('on', k === ev);
+    }));
+    if (fromMap) {
+      const card = [...cards].find(c => c.dataset.ev === ev);
+      if (card) card.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    } else if (marks[ev] && marks[ev].length) {
+      m.fitBounds(L.latLngBounds(marks[ev].map(mk => mk.getLatLng())), { padding:[34,34] });
+    }
+  }
+  cards.forEach(c => {
+    c.addEventListener('mouseenter', () => light(c.dataset.ev));
+    c.addEventListener('click',      () => light(c.dataset.ev));
+    c.addEventListener('mouseleave', () => {
+      cards.forEach(x => x.classList.remove('lit'));
+      Object.keys(marks).forEach(k => marks[k].forEach(mk => {
+        const el = mk.getElement && mk.getElement();
+        if (el) el.querySelector('.pin').classList.remove('on');
+      }));
+    });
+  });
+})();
+
+/* ---------- 시안 3 : 얇은 띠 지도 ---------- */
+(function(){
+  // 띠가 얇아서 전국이 한 화면에 들어온다. 그 크기에서는 한 여행에서 다닌 곳들이
+  // 서로 몇 km 안이라 사진이 통째로 포개진다 — 그래서 여기서는 이벤트마다 사진 한 장.
+  const m = baseMap('map3', { zoomControl:false, attributionControl:false });
+  L.control.attribution({ position:'topright', prefix:false }).addAttribution(ATTR).addTo(m);
+  const slide = document.getElementById('slide3');
+  const pins = [];
+
+  Object.keys(EVENTS).forEach(ev => {
+    const list = PLACES.filter(p => p.ev === ev);
+    const c = [ list.reduce((a,p) => a + p.lat, 0) / list.length,
+                list.reduce((a,p) => a + p.lng, 0) / list.length ];
+    const icon = L.divIcon({ className:'', iconSize:[44,44], iconAnchor:[22,22],
+      html:'<div class="pin-photo"><img alt="" src="' + EVENTS[ev].photo + '"></div>' });
+    const mk = L.marker(c, { icon }).addTo(m);
+    pins.push(mk);
+    mk.on('click', () => {
+      pins.forEach(x => { const e = x.getElement && x.getElement();
+        if (e) e.querySelector('.pin-photo').classList.remove('on'); });
+      const el = mk.getElement(); if (el) el.querySelector('.pin-photo').classList.add('on');
+      // 이름표는 한 줄로. 길어지면 띠를 다 덮어서 정작 사진이 안 보인다.
+      const names = list.slice(0, 2).map(p => p.name).join(', ') +
+        (list.length > 2 ? ' 외 ' + (list.length - 2) + '곳' : '');
+      document.getElementById('slideText').innerHTML =
+        EVENTS[ev].label + '<span class="sub">' + names + '</span>';
+      document.getElementById('slideLink').href = EVENTS[ev].href;
+      slide.classList.add('open');
+    });
+  });
+  // 아래쪽을 넉넉히 비워 둔다 — 이름표가 올라와도 사진이 가려지지 않게.
+  m.fitBounds(L.latLngBounds(PLACES.map(p => [p.lat, p.lng])),
+    { paddingTopLeft:[26, 26], paddingBottomRight:[26, 52] });
+  m.on('click', () => slide.classList.remove('open'));
+})();
+</script>
+</body>
+</html>

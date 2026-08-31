@@ -72,6 +72,49 @@ async function _reverseGeocode(lat, lng){
   return task.catch(() => '');
 }
 
+// ---------------------------------------------------------------------------
+// 지명 → 좌표 (위와 반대 방향)
+//
+// 관리 화면에서 장소를 적으면 지도에 핀을 찍기 위한 좌표를 찾아 둔다.
+// 같은 서비스를 쓰므로 같은 줄에 세워 보낸다 — 위쪽 _geoChain 을 그대로 공유한다.
+//
+// 돌려주는 값
+//   {lat, lng, label}  찾음
+//   null               못 찾았거나 물어보지 못함 (이름만 저장하고 핀은 안 찍힘)
+// ---------------------------------------------------------------------------
+async function _lookupCoords(q){
+  let res;
+  try {
+    res = await Promise.race([
+      fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=ko&q=' + encodeURIComponent(q)),
+      _sleep(GEO_TIMEOUT_MS).then(() => null),
+    ]);
+  } catch (e) { return null; }
+  if (!res) return null;
+  if (res.status === 429 || res.status === 403) { _geoBlocked = true; return null; }
+  if (!res.ok) return null;
+
+  let data;
+  try { data = await res.json(); } catch (e) { return null; }
+  const hit = Array.isArray(data) && data[0];
+  if (!hit) return null;
+  const lat = parseFloat(hit.lat), lng = parseFloat(hit.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng, label: hit.display_name || '' };
+}
+
+function geocodePlace(query){
+  const q = String(query || '').trim();
+  if (!q) return Promise.resolve(null);
+  const task = _geoChain.then(async () => {
+    if (_geoBlocked) return null;
+    return await _lookupCoords(q);
+  });
+  const wait = () => _sleep(GEO_GAP_MS);
+  _geoChain = task.then(wait, wait);
+  return task.catch(() => null);
+}
+
 // 사진 파일의 EXIF에서 촬영 일시/위치를 꺼냄.
 // 반환: { takenAtISO: string|null, place: string, gps: 'ok'|'blanked'|'none' }
 //   ok      — 좌표가 들어 있었음

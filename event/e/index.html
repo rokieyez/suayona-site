@@ -59,6 +59,9 @@
     padding:5px 11px; border-radius:0; font-size:11.5px; font-weight:800;
     letter-spacing:.06em; margin-bottom:13px; cursor:pointer;
   }
+  /* 일정명을 안 적은 이벤트에서는 위 칸이 비므로 아예 안 그린다.
+     (display 를 쓰는 요소라 hidden 속성만으로는 안 숨는다) */
+  .pill[hidden]{display:none;}
   .logo-icon{font-size:14px;}
   .hero h1{margin:0 0 5px; font-size:31px; letter-spacing:-.02em; font-weight:800; cursor:pointer;}
   .hero h1:active{transform:translate(2px,2px);}
@@ -121,24 +124,51 @@
   .day-count{font-size:11.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.04em;}
 
   /* ===== 일정 =====
-     세로줄은 얇게 물러나고, 눈금은 카드의 위쪽 모서리에 맞춥니다. */
-  .timeline{position:relative; padding-left:23px;}
-  .timeline::before{content:''; position:absolute; left:4px; top:14px; bottom:24px; width:2px; background:var(--rail);}
+     세로줄과 눈금은 오른쪽 시각 칸의 한가운데 높이에서 만난다.
+     눈금 위로 줄이 삐져나오지 않도록, 첫 카드는 자기 눈금에서 줄을 시작하고
+     마지막 카드는 자기 눈금에서 줄을 끝낸다.
+
+     가로 위치를 맞추는 데 테두리 두께가 걸린다 — absolute 의 기준점이 테두리
+     "안쪽" 이라, 두께가 다르면(지금 진행중인 카드는 3px) 그만큼 눈금이 밀린다.
+     그래서 두께를 --bw 로 두고 계산에서 되돌려 준다. */
+  .timeline{--rail-pad:23px; position:relative; padding-left:var(--rail-pad);}
 
   .item{
-    position:relative; padding:14px 15px 15px; margin-bottom:16px; border-radius:0;
-    border:2px solid var(--ink); background:var(--paper-card);
+    --bw:2px;                    /* 테두리 두께 */
+    --gap:16px;                  /* 카드 사이 간격 (margin-bottom 과 같은 값) */
+    --dot-y:28px;                /* 카드 안쪽 위끝에서 눈금 중심까지 — 실제 값은 화면에서 재서 채운다 */
+    position:relative; padding:14px 15px 15px; margin-bottom:var(--gap); border-radius:0;
+    border:var(--bw) solid var(--ink); background:var(--paper-card);
   }
-  .item::before{content:''; position:absolute; left:-23px; top:14px; width:10px; height:10px; background:var(--ink); border-radius:0;}
-  .item::after{content:none;}                 /* 세로줄은 .timeline 이 그립니다 */
-  .item.now{border-color:var(--accent); border-width:var(--px);}
+  /* 눈금(네모) — 세로줄 한가운데(x=5)에 정확히 걸치게. 왼쪽 끝이 x=0 이 되면 된다. */
+  .item::before{
+    content:''; position:absolute; z-index:1;
+    left:calc(-1 * var(--rail-pad) - var(--bw));
+    top:calc(var(--dot-y) - 5px);
+    width:10px; height:10px; background:var(--ink); border-radius:0;
+  }
+  /* 세로줄 — 카드 위끝에서 시작해 아래 틈까지 (x=4~6, 한가운데가 5).
+     아래로 카드 사이 틈을 다 덮으므로 다음 카드의 줄과 딱 맞닿는다. 겹치면 안 된다 —
+     줄 색이 반투명이라, 겹친 만큼 그 구간만 진해져서 자국이 남는다. */
+  .item::after{
+    content:''; position:absolute; width:2px; background:var(--rail);
+    left:calc(4px - var(--rail-pad) - var(--bw));
+    top:calc(-1 * var(--bw));
+    bottom:calc(-1 * (var(--gap) + var(--bw)));
+  }
+  .item:first-child::after{top:var(--dot-y);}                                  /* 첫 눈금 위로는 안 그림 */
+  .item:last-child::after{bottom:auto; height:calc(var(--bw) + var(--dot-y));} /* 마지막 눈금 아래로도 안 그림 */
+  .item:first-child:last-child::after{display:none;}                           /* 한 개뿐이면 줄이 필요 없음 */
+  .item.now{--bw:var(--px); border-color:var(--accent);}
   .item.now::before{background:var(--accent);}
   .now-tag{
     display:inline-block; width:auto; font-size:10.5px; font-weight:800; color:var(--ink);
     background:var(--accent); border:2px solid var(--ink); padding:2px 7px; border-radius:0; margin:0;
   }
-  /* 시각·「지금」·제목을 한 줄에 — 카드에서 제일 먼저 보여야 하는 것이 시각입니다 */
+  /* 시각·「지금」·제목·장소를 한 줄에 — 카드에서 제일 먼저 보여야 하는 것이 시각입니다 */
   .item-line{display:flex; align-items:center; flex-wrap:wrap; gap:9px; margin-bottom:9px;}
+  /* 로그인했을 때만 오른쪽 위에 뜨는 ✏️수정 단추와 장소가 겹치지 않게 자리를 비워 둔다 */
+  .item-line.has-edit{padding-right:62px;}
   .time{
     flex:none; font-size:12.5px; font-weight:800; letter-spacing:.02em; margin:0;
     font-variant-numeric:tabular-nums;
@@ -146,6 +176,16 @@
   }
   .item.now .time{background:var(--accent); color:var(--ink);}
   .title{font-size:19px; font-weight:800; margin:0; line-height:1.3; color:var(--ink); flex:1 1 auto;}
+  /* 장소 — 줄의 오른쪽 끝. 누르면 지도가 그 지점을 찍어 준다.
+     칸이 모자라면 아래 줄로 내려가고, 이름이 길면 말줄임표로 자른다. */
+  .place{
+    flex:0 1 auto; min-width:0; margin-left:auto;
+    display:inline-flex; align-items:center; gap:4px;
+    font-size:12.5px; font-weight:700; color:var(--ink-soft); text-decoration:none;
+    border-bottom:2px solid rgba(47,42,36,.22); padding-bottom:1px;
+  }
+  .place span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .place:hover{color:var(--ink); border-bottom-color:var(--ink);}
   .row{display:flex; gap:7px; font-size:14.5px; line-height:1.7; color:var(--ink-soft); margin:0 0 12px;}
   .row .ic{flex-shrink:0;}
   .row .detail-text{white-space:pre-line;}   /* 입력한 줄바꿈 그대로 보이도록 */
@@ -159,10 +199,6 @@
   .shots.many .item-img{aspect-ratio:1; object-fit:cover;}
   .shots.many .item-img-wrap.lead{grid-column:1 / -1;}
   .shots.many .item-img-wrap.lead .item-img{aspect-ratio:4/3;}
-  .photo-meta{
-    position:absolute; right:7px; bottom:7px; background:rgba(47,42,36,.78); color:#fff;
-    font-size:10.5px; font-weight:600; padding:3px 7px; border-radius:0; pointer-events:none;
-  }
   .item-edit{
     position:absolute; top:-2px; right:-2px; font-size:11px; font-weight:800; color:var(--ink);
     text-decoration:none; background:var(--lemon); border:2px solid var(--ink);
@@ -308,8 +344,8 @@
 <div class="wrap" id="wrap">
   <a href="/event/" class="back-link" id="hubLink" style="display:none;">← 전체 이벤트</a>
   <div class="hero">
-    <div class="pill"><span class="logo-icon" id="logoIcon">🗓️</span><span id="pillText">일정명</span></div>
-    <h1 id="logo">이벤트</h1>
+    <div class="pill"><span class="logo-icon" id="logoIcon">🗓️</span><span id="pillText">단체명</span></div>
+    <h1 id="logo">일정명</h1>
     <div class="sub"><span id="dateRange">날짜 범위</span><span class="dday" id="dday"></span></div>
   </div>
 
@@ -348,6 +384,21 @@ const CONFIG = {
   panels: [],
 };
 
+// 장소를 지도로 이어 준다.
+// 열쇠(API 키)도 등록도 필요 없는 주소만 쓴다 — 좌표가 있으면 그 지점을, 없으면 이름으로 찾아 준다.
+// 휴대폰에서는 지도 앱이 열리고, 컴퓨터에서는 지도 사이트가 열린다.
+function mapLinkFor(name, lat, lng){
+  const q = (Number.isFinite(lat) && Number.isFinite(lng)) ? (lat + ',' + lng) : name;
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+}
+function placeChipHTML(name, lat, lng){
+  if (!name) return '';
+  const pin = (Number.isFinite(lat) && Number.isFinite(lng)) ? '📍' : '🔎';
+  return '<a class="place" href="' + escapeHTML(mapLinkFor(name, lat, lng)) + '"' +
+    ' target="_blank" rel="noopener" title="지도에서 보기">' + pin +
+    '<span>' + escapeHTML(name) + '</span></a>';
+}
+
 const WEEKDAY = ['일','월','화','수','목','금','토'];
 function formatDateLabel(dateKey){
   const [y,m,d] = dateKey;
@@ -380,10 +431,17 @@ function showNotFound(msg){
 }
 
 function applyHeaderText(){
-  $('#logo').textContent = CONFIG.orgName;
-  $('#pillText').textContent = CONFIG.eventName;
+  // 단체명은 위쪽에 작게, 일정명은 그 아래 크게.
+  // 매일 눈으로 찾는 것은 "부산여행" 이지 "수아연아랑" 이 아니라서, 큰 글씨 자리를 일정명에 준다.
+  const org = (CONFIG.orgName || '').trim();
+  const name = (CONFIG.eventName || '').trim();
+  const big = name || org;             // 일정명을 안 적은 이벤트는 단체명이 큰 글씨로 올라온다
+  const small = name ? org : '';
+  $('#logo').textContent = big;
+  $('#pillText').textContent = small;
+  document.querySelector('.pill').hidden = !small;
   document.getElementById('dateRange').textContent = CONFIG.dateRangeText;
-  document.title = CONFIG.orgName + ' · ' + CONFIG.eventName;
+  document.title = [big, small].filter(Boolean).join(' · ');
 }
 
 async function refreshHubLink(){
@@ -483,7 +541,33 @@ function reveal(panel){
   panel.querySelectorAll('.item').forEach(it => it.classList.add('show'));
   countDay(panel);
   markNow(panel);
+  alignTimelineDots(panel);
 }
+
+// 눈금 높이를 오른쪽 시각 칸의 한가운데에 맞춘다.
+// CSS 만으로는 알 수 없다 — 제목이 길어 두 줄이 되면 그 줄의 한가운데가 내려가기 때문.
+// 사진이 몇 장이든 이 값은 안 변한다(시각 줄이 사진보다 위에 있으므로) — 한 번만 재면 된다.
+// 숨어 있는 탭은 높이가 0 으로 나오므로 열려 있는 탭만 잰다.
+function alignTimelineDots(panel){
+  if (!panel) return;
+  panel.querySelectorAll('.timeline .item').forEach(it => {
+    if (!it.offsetHeight) return;
+    const t = it.querySelector('.time');
+    if (!t) return;
+    // offsetTop 은 카드 테두리 "안쪽" 부터 잰 값이고, CSS 의 top 도 같은 기준이라 그대로 쓴다.
+    it.style.setProperty('--dot-y', (t.offsetTop + t.offsetHeight / 2).toFixed(1) + 'px');
+  });
+}
+
+const activePanel = () => document.querySelector('.panel.active');
+// 글꼴이 늦게 도착하면 줄 높이가 바뀐다 — 도착한 뒤에 한 번 더 잰다.
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => alignTimelineDots(activePanel()));
+// 화면 폭이 바뀌면 제목이 접히거나 펴져서 줄 높이가 달라진다.
+let dotTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(dotTimer);
+  dotTimer = setTimeout(() => alignTimelineDots(activePanel()), 150);
+});
 
 // 날짜 머리글 오른쪽에 "4가지 · 사진 6장" — 그날이 얼마나 되는지 미리 알 수 있게
 function countDay(panel){
@@ -510,18 +594,10 @@ function showPanel(id, opts){
   }
 }
 
-// 탭 줄 맨 끝에 "이 탭 링크 복사" 버튼을 붙인다.
-// 주소창을 직접 복사해도 되지만, 휴대폰에서는 그게 번거로워서 버튼을 둠.
+// 탭 줄 맨 끝에 "＋ 일정 추가" 를 붙인다. (관리자에게만)
 function addTabLinkButton(){
   if (document.querySelector('.tab-link')) return;
-  if (!isAdmin) return;                     // 링크 복사·일정 추가 둘 다 관리자에게만
-  const b = document.createElement('button');
-  b.className = 'tab-link';
-  b.type = 'button';
-  b.textContent = '🔗 이 탭 링크 복사';
-  b.title = '지금 열려 있는 탭이 그대로 열리는 주소를 복사합니다';
-  b.addEventListener('click', () => copyTabLink(b));
-  tabsEl.appendChild(b);
+  if (!isAdmin) return;
 
   // 지금 열려 있는 날짜 탭을 관리 화면에 넘겨줘서, 들어가자마자 그 날짜가 골라져 있게 한다.
   const add = document.createElement('a');
@@ -559,36 +635,6 @@ function panelIdFromQuery(raw){
   const hit = [...document.querySelectorAll('.tab')]
     .find(t => norm(t.textContent) === norm(want));
   return hit ? hit.dataset.t : null;
-}
-
-// 지금 탭이 열린 채로 열리는 주소를 클립보드에 복사
-function copyTabLink(btn){
-  const active = document.querySelector('.tab.active');
-  const u = new URL(location.href);
-  if (active) u.searchParams.set('tab', active.dataset.t);
-  const label = btn.textContent;
-  const done = ok => {
-    if (ok) {
-      btn.textContent = '복사했어요';
-      setTimeout(() => { btn.textContent = label; }, 1600);
-    } else {
-      // 클립보드를 못 쓰는 환경(구형 브라우저, http 접속)에서는 주소를 직접 띄워 준다.
-      // "복사 실패"만 보여주면 사용자가 할 수 있는 게 없다.
-      btn.textContent = label;
-      prompt('아래 주소를 복사해서 보내주세요', u.toString());
-    }
-  };
-  if (navigator.clipboard && location.protocol === 'https:') {
-    navigator.clipboard.writeText(u.toString()).then(() => done(true), () => done(false));
-  } else {
-    // http 나 구형 브라우저 대비
-    const ta = document.createElement('textarea');
-    ta.value = u.toString(); ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
-    let ok = false;
-    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-    ta.remove(); done(ok);
-  }
 }
 
 let PANEL_DATE = {};
@@ -713,13 +759,14 @@ function renderSchedule(byPanel){
           '<div class="item-img-wrap' + (lead && i === 0 ? ' lead' : '') + '">' +
           '<img class="item-img" src="' + escapeHTML(sh.thumb || sh.url) +
           '" data-full="' + escapeHTML(sh.url) + '" loading="lazy" data-event-id="' + r.id + '" alt="">'
-          + photoMetaOverlayHTML(sh.taken_at, sh.location_name) + '</div>').join('') + '</div>';
+          + '</div>').join('') + '</div>';
       const editBtn = isAdmin ? '<a class="item-edit" href="./admin.html?slug=' + CONFIG.eventSlug + '&edit=' + r.id + '">✏️ 수정</a>' : '';
       timeline.insertAdjacentHTML('beforeend',
         '<div class="item">' + editBtn +
-          '<div class="item-line">' +
+          '<div class="item-line' + (isAdmin ? ' has-edit' : '') + '">' +
             '<span class="time">' + escapeHTML(r.time || '') + '</span>' +
             '<h3 class="title">' + escapeHTML(r.title) + '</h3>' +
+            placeChipHTML(r.place_name, r.place_lat, r.place_lng) +
           '</div>' + detail + image + '</div>');
     });
   });

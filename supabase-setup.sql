@@ -333,3 +333,42 @@ drop trigger if exists messages_flood_guard on public.messages;
 create trigger messages_flood_guard
   before insert on public.messages
   for each row execute function public.messages_flood_guard();
+
+-- ---------------------------------------------------------------------------
+-- 일정마다 "어디서"
+--
+-- 사진 속 위치정보로는 못 채운다. 올라와 있는 사진 115장을 확인해 보니 좌표가
+-- 살아 있는 것이 0장이었다 — 안드로이드는 사진을 브라우저에 넘길 때 위치 칸은
+-- 남겨 두고 값만 지운다. 그래서 장소는 캐내는 값이 아니라 사람이 적는 값으로 둔다.
+--
+--   place_name      화면에 그대로 보여 줄 이름 ("해운대해수욕장")
+--   place_lat/lng   지도에 핀을 찍기 위한 좌표.
+--                   이름만 적고 좌표를 못 찾은 경우도 있어서 이름과 따로 둔다.
+--                   (둘 다 있어야만 핀이 찍힌다. 이름만 있어도 지도는 열린다 —
+--                    좌표가 없으면 이름으로 찾아 주는 주소로 이어 준다.)
+--
+-- 좌표는 관리 화면에서 장소를 적는 순간 Nominatim 에 물어 채운다.
+-- 사진의 좌표 -> 지명 을 물어보던 그 서비스의 반대 방향이고, 같은 줄(초당 1회)에 세워 보낸다.
+-- ---------------------------------------------------------------------------
+alter table public.events
+  add column if not exists place_name text,
+  add column if not exists place_lat  double precision,
+  add column if not exists place_lng  double precision;
+
+-- 지구 밖 좌표가 들어오면 지도가 엉뚱한 곳으로 날아간다
+alter table public.events drop constraint if exists events_place_latlng_range;
+alter table public.events add constraint events_place_latlng_range check (
+  (place_lat is null or (place_lat >= -90  and place_lat <= 90)) and
+  (place_lng is null or (place_lng >= -180 and place_lng <= 180))
+);
+
+-- 이름이 너무 길면 일정 줄이 통째로 밀린다
+alter table public.events drop constraint if exists events_place_name_length;
+alter table public.events add constraint events_place_name_length check (
+  place_name is null or char_length(place_name) <= 80
+);
+
+-- 목록 페이지 지도는 "좌표가 있는 일정" 만 긁어 온다
+create index if not exists events_place_idx
+  on public.events (event_id)
+  where place_lat is not null and place_lng is not null;

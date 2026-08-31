@@ -54,7 +54,33 @@
     margin:0; font-size:clamp(14px, 3.4vw, 17px); font-weight:600; color:#fff;
     text-shadow:2px 2px 0 rgba(47,42,36,.5);
   }
-  .hero-actions{display:flex; gap:9px; flex-wrap:wrap; justify-content:center; margin-top:10px; max-width:520px;}
+  /* ===== 바로가기 단추 =====
+     예전에는 폭에 따라 3+1 로 접혀서 두 번째 줄이 휑했다. 이제 좁은 화면에서는
+     두 개씩 두 줄로 딱 맞춰 놓는다 — 접힌 게 아니라 그렇게 짠 모양으로 보인다.
+     배경이 도트 그림인데 단추만 매끈해서 겉돌았으므로, 아래 메뉴 카드에서 쓰는
+     같은 도트 아이콘을 단추 안에 넣어 배경과 한 식구로 묶었다. */
+  .hero-actions{
+    display:grid; grid-template-columns:1fr 1fr; gap:8px;
+    width:100%; max-width:330px; margin-top:14px;
+  }
+  .hero-btn{
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    padding:8px 10px; border:var(--px) solid var(--ink);
+    background:var(--cream); color:var(--ink); text-decoration:none;
+    font-weight:800; font-size:13px; letter-spacing:-.01em; white-space:nowrap;
+    box-shadow:var(--px) var(--px) 0 var(--ink);
+    transition:transform .12s steps(2), box-shadow .12s steps(2);
+  }
+  /* 도트 그림은 늘리거나 줄이면 뭉개진다 — 캔버스 크기와 화면 크기를 똑같이 둔다 */
+  .hero-btn canvas{width:24px; height:24px; flex:none; image-rendering:pixelated;}
+  .hero-btn:hover{transform:translate(2px,2px); box-shadow:2px 2px 0 var(--ink);}
+  .hero-btn:active{transform:translate(var(--px),var(--px)); box-shadow:0 0 0 var(--ink);}
+  /* 흰 글씨를 코랄 위에 얹으면 대비가 2.4:1 뿐이다. 먹빛이면 5.8:1 */
+  .hero-btn.primary{background:var(--coral); color:var(--ink);}
+  @media (min-width:620px){
+    .hero-actions{grid-template-columns:repeat(4, auto); justify-content:center; max-width:none; gap:9px;}
+    .hero-btn{padding:9px 15px; font-size:13.5px;}
+  }
   .scroll-cue{
     position:absolute; bottom:26px; left:50%; transform:translateX(-50%); z-index:2;
     font-size:11px; color:#fff; text-shadow:2px 2px 0 rgba(47,42,36,.5);
@@ -87,12 +113,16 @@
   <div class="hero-copy">
     <h1 class="pixel">수아랑 연아랑</h1>
     <p>그리고, 만들고, 기록하는<br>수아와 연아의 작은 홈페이지</p>
-    <div class="hero-actions">
-      <a class="dot-btn primary" href="./portfolio.html">작품 보러가기</a>
-      <a class="dot-btn" href="./board.html">일기장</a>
-      <a class="dot-btn" href="./event/">이벤트</a>
-      <a class="dot-btn" href="./contact.html">편지쓰기</a>
-    </div>
+    <nav class="hero-actions" aria-label="바로가기">
+      <a class="hero-btn primary" href="./portfolio.html">
+        <canvas data-icon="frame" width="24" height="24" aria-hidden="true"></canvas>포트폴리오</a>
+      <a class="hero-btn" href="./board.html">
+        <canvas data-icon="bubble" width="24" height="24" aria-hidden="true"></canvas>일기장</a>
+      <a class="hero-btn" href="./event/">
+        <canvas data-icon="tree" width="24" height="24" aria-hidden="true"></canvas>이벤트</a>
+      <a class="hero-btn" href="./contact.html">
+        <canvas data-icon="mail" width="24" height="24" aria-hidden="true"></canvas>편지쓰기</a>
+    </nav>
   </div>
   <div class="scroll-cue pixel">▼ SCROLL</div>
 </section>
@@ -559,7 +589,8 @@ buildChrome('home');
 })();
 
 // ================= 카드 아이콘 =================
-$$('.menu-card canvas[data-icon]').forEach(cv => {
+// 메뉴 카드와 첫 화면 바로가기 단추가 같은 도트 아이콘을 쓴다
+$$('canvas[data-icon]').forEach(cv => {
   const ctx = cv.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   const sp = SPRITES[cv.dataset.icon];
