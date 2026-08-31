@@ -9,6 +9,12 @@
 #   security add-generic-password -a "이메일주소" -s suayona-backup -w
 #   (비밀번호를 물어봅니다. 화면에 안 보입니다.)
 #
+# 나중에 사이트 비밀번호를 바꾸면 여기도 같이 바꿔야 한다. -U 를 붙이면 덮어쓴다:
+#   security add-generic-password -U -a "이메일주소" -s suayona-backup -w
+#
+# 키체인이 "허용하시겠습니까" 를 안 물어보는 것이 정상이다. 항목을 만든 프로그램은
+# 그 항목을 물어보지 않고 읽을 수 있는데, 만든 것도 읽는 것도 security 라서 그렇다.
+#
 # 기록 보기:
 #   tail -40 ~/Library/Logs/suayona-backup.log
 
@@ -63,7 +69,7 @@ PASSWORD=$(security find-generic-password -s suayona-backup -w 2>/dev/null)
 
 if [[ -z ${EMAIL:-} || -z ${PASSWORD:-} ]]; then
   say "멈춤: 키체인에서 정보를 꺼내지 못했습니다."
-  say "      이 파일을 손으로 한 번 돌려서 '항상 허용'을 눌러 주세요: $HERE/backup-weekly.sh"
+  say "      security add-generic-password -a \"이메일주소\" -s suayona-backup -w"
   exit 1
 fi
 
@@ -81,13 +87,25 @@ fi
 say "받는 중... (계정 $EMAIL)"
 
 # 비밀번호는 명령줄에 안 쓴다 — ps 로 남이 볼 수 있는 자리라서.
+OUT=$(mktemp -t suayona-backup) || exit 1
 SUAYONA_EMAIL="$EMAIL" SUAYONA_PASSWORD="$PASSWORD" \
-  "$NODE" "$REPO/tools/backup.mjs" >> "$LOG" 2>&1
+  "$NODE" "$REPO/tools/backup.mjs" > "$OUT" 2>&1
 CODE=$?
+cat "$OUT" >> "$LOG"
 
 if (( CODE == 0 )); then
   say "── 끝 (잘 받았습니다) ──"
 else
+  # 제일 흔한 실패는 "키체인에 넣어 둔 비밀번호가 지금 것과 다름" 이다. 사이트
+  # 비밀번호를 바꾸면 키체인은 옛것을 그대로 들고 있어서 매주 조용히 실패한다.
+  # 원래 메시지("Invalid login credentials")만 보면 어디를 고쳐야 할지 알 수 없다.
+  if grep -q 'Invalid login credentials' "$OUT"; then
+    say "키체인에 넣어 둔 비밀번호가 지금 쓰는 것과 다릅니다."
+    say "      사이트 비밀번호를 바꾸셨다면 키체인도 같이 고쳐 주세요:"
+    say "      security add-generic-password -U -a \"$EMAIL\" -s suayona-backup -w"
+    say "      (실행하면 비밀번호를 물어봅니다. 화면에 안 보입니다.)"
+  fi
   say "── 끝 (실패, 코드 $CODE) — 위 줄을 확인해 주세요 ──"
 fi
+rm -f "$OUT"
 exit $CODE
