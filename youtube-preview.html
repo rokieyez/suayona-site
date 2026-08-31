@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>유튜브 영상 붙이기 시안</title>
+<meta name="robots" content="noindex, nofollow">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<style>
+  :root{
+    --accent:#ff7f8a; --coral:#ff7f8a; --mint:#6cc7b3; --lemon:#ffd979;
+    --paper:#fffaf2; --paper-card:#fff6e9; --ink:#2f2a24; --ink-soft:#6f6558;
+    --tube:#e03a2f;                       /* 유튜브 빨강 — 사이트 코랄보다 한 단계 진하게 */
+    --px:3px;
+  }
+  *, *::before, *::after{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    font-family:'Pretendard',sans-serif; color:var(--ink); background:var(--paper);
+    margin:0; padding:26px 16px 70px;
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+  .pixel{font-family:'Galmuri11','Pretendard',sans-serif;}
+
+  /* ===== 안내 ===== */
+  .doc-head{margin-bottom:26px;}
+  .doc-head h1{font-size:23px; font-weight:800; margin:0 0 8px; letter-spacing:-.02em;}
+  .doc-head p{font-size:13.5px; line-height:1.85; color:var(--ink-soft); margin:0 0 8px;}
+  .doc-head b{color:var(--ink);}
+
+  .variant{margin-bottom:46px;}
+  .variant > h2{
+    display:inline-block; font-size:13px; font-weight:800; letter-spacing:.03em;
+    background:var(--ink); color:var(--paper); padding:5px 11px; margin:0 0 9px;
+  }
+  .variant > .why{font-size:13px; line-height:1.85; color:var(--ink-soft); margin:0 0 16px;}
+  .variant > .why b{color:var(--ink);}
+  .pros{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 0; font-size:12px; line-height:1.7;}
+  .pros div{flex:1 1 200px; border:2px solid var(--ink); background:var(--paper-card); padding:10px 12px;}
+  .pros dt{font-weight:800; font-size:11.5px; letter-spacing:.04em; margin-bottom:4px;}
+  .pros dd{margin:0;}
+  .pros .good dt{color:#2a8a4a;}
+  .pros .bad dt{color:#c0392b;}
+
+  /* 실제 페이지처럼 보이도록 감싸는 틀 */
+  .frame{border:var(--px) solid var(--ink); background:var(--paper); padding:15px 14px 18px;}
+  .frame h3{text-align:center; font-size:20px; font-weight:800; margin:0 0 4px;}
+  .frame .lead{text-align:center; font-size:12.5px; color:var(--ink-soft); margin:0 0 16px;}
+  .frame h4{font-size:12px; font-weight:800; color:var(--ink-soft); margin:18px 0 10px; letter-spacing:.04em;
+    padding-bottom:7px; border-bottom:var(--px) solid var(--ink);}
+  .frame h4:first-child{margin-top:0;}
+
+  /* ===== 직접 넣어보기 ===== */
+  .tryout{border:var(--px) solid var(--ink); background:var(--lemon); padding:15px 16px; margin-bottom:34px;}
+  .tryout h2{margin:0 0 4px; font-size:14px; font-weight:800;}
+  .tryout p{margin:0 0 11px; font-size:12.5px; line-height:1.7; color:#6a5a2a;}
+  .tryout .row{display:flex; gap:8px;}
+  .tryout input{
+    flex:1; min-width:0; padding:9px 11px; border:2px solid var(--ink); background:var(--paper);
+    font-size:13px; font-family:inherit; color:var(--ink);
+  }
+  .tryout button{
+    padding:9px 15px; border:2px solid var(--ink); background:var(--ink); color:var(--paper);
+    font-size:13px; font-weight:800; font-family:inherit; cursor:pointer; white-space:nowrap;
+  }
+  .tryout .msg{font-size:12px; margin-top:9px; min-height:1em; font-weight:700; color:#6a5a2a;}
+  .tryout .msg.err{color:#a3281c;}
+
+  /* ===== 영상 조각 (세 시안이 함께 씀) ===== */
+  .thumb{position:relative; display:block; background:#1b1714; overflow:hidden;}
+  .thumb img{display:block; width:100%; height:100%; object-fit:cover;}
+  .thumb.wide{aspect-ratio:16/9;}
+  .thumb.square{aspect-ratio:1;}
+  /* 재생 표시 — 유튜브 것을 그대로 쓰지 않고 사이트처럼 각지게 */
+  .play{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:46px; height:32px; background:var(--tube); border:2px solid var(--ink);
+    box-shadow:2px 2px 0 rgba(0,0,0,.45);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .play::after{content:''; border-left:11px solid #fff; border-top:7px solid transparent;
+    border-bottom:7px solid transparent; margin-left:3px;}
+  .play.sm{width:34px; height:24px;}
+  .play.sm::after{border-left-width:8px; border-top-width:5px; border-bottom-width:5px;}
+  .secs{
+    position:absolute; right:5px; bottom:5px; background:rgba(20,17,14,.86); color:#fff;
+    font-size:10.5px; font-weight:800; padding:2px 5px; letter-spacing:.02em;
+  }
+
+  /* ===== 시안 1 — 포트폴리오 격자 ===== */
+  .gal-grid{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;}
+  .gal-item{position:relative; padding:9px; background:var(--paper-card); border:2px solid var(--ink);}
+  .gal-cap{margin-top:7px; font-size:12.5px; font-weight:700; line-height:1.45;}
+  .gal-note{font-size:11.5px; line-height:1.55; color:var(--ink-soft); margin-top:2px;}
+  .gal-sub{margin-top:5px; font-size:11px; color:var(--ink-soft);}
+  .tag{display:inline-block; font-size:10.5px; padding:2px 7px; margin-right:4px;
+    border:2px solid var(--ink); background:var(--lemon);}
+  .tag.sua{background:var(--coral); color:#fff;}
+  .tag.yona{background:var(--mint); color:#fff;}
+  /* 영상임을 격자에서 한눈에 — 모서리 띠 하나 */
+  .ribbon{
+    position:absolute; left:-2px; top:-2px; z-index:2; background:var(--tube); color:#fff;
+    font-size:10px; font-weight:800; padding:3px 7px; border:2px solid var(--ink);
+  }
+  .filters{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-bottom:14px;}
+  .filters span{
+    font-size:11.5px; font-weight:800; padding:5px 10px; border:2px solid var(--ink);
+    background:var(--paper); color:var(--ink-soft);
+  }
+  .filters span.on{background:var(--ink); color:var(--paper);}
+  .filters span.tube{background:var(--tube); color:#fff; border-color:var(--ink);}
+
+  /* ===== 시안 2 — 전용 페이지 ===== */
+  .ch-strip{
+    display:flex; align-items:center; gap:11px; padding:11px 13px; margin-bottom:16px;
+    border:2px solid var(--ink); background:var(--ink);
+  }
+  .ch-strip .dot{width:34px; height:34px; flex:0 0 auto; background:var(--tube);
+    border:2px solid var(--paper); display:flex; align-items:center; justify-content:center;}
+  .ch-strip .dot::after{content:''; border-left:10px solid #fff; border-top:6px solid transparent;
+    border-bottom:6px solid transparent; margin-left:3px;}
+  .ch-strip .who{flex:1; min-width:0;}
+  .ch-strip .who b{display:block; font-size:13.5px; color:var(--paper); font-weight:800;}
+  .ch-strip .who span{display:block; font-size:11px; color:#b9b0a4; margin-top:2px;}
+  .ch-strip a{font-size:11.5px; font-weight:800; color:var(--ink); background:var(--lemon);
+    border:2px solid var(--paper); padding:5px 9px; text-decoration:none; white-space:nowrap;}
+
+  .vid-row{display:flex; gap:11px; padding:11px; margin-bottom:10px;
+    border:2px solid var(--ink); background:var(--paper-card);}
+  .vid-row .thumb{flex:0 0 132px; align-self:flex-start; border:2px solid var(--ink);}
+  .vid-row .side{flex:1; min-width:0;}
+  .vid-row .ttl, .vid-row .note, .vid-row .foot{display:block;}
+  .vid-row .ttl{font-size:13.5px; font-weight:800; line-height:1.45;}
+  .vid-row .note{font-size:11.5px; line-height:1.6; color:var(--ink-soft); margin-top:4px;}
+  .vid-row .foot{margin-top:7px; font-size:10.5px; color:var(--ink-soft);}
+  .empty-note{border:2px dashed rgba(47,42,36,.4); padding:16px; text-align:center;
+    font-size:12px; line-height:1.7; color:var(--ink-soft); margin-top:10px;}
+
+  /* ===== 시안 3 — 일정 안에 ===== */
+  .timeline{position:relative; padding-left:23px;}
+  .item{position:relative; border:2px solid var(--ink); background:var(--paper-card);
+    padding:12px 13px; margin-bottom:14px;}
+  .item::before{content:''; position:absolute; left:calc(-23px - 2px); top:22px;
+    width:10px; height:10px; background:var(--ink);}
+  .item::after{content:''; position:absolute; left:calc(4px - 23px - 2px); top:-2px; bottom:-16px;
+    width:2px; background:rgba(47,42,36,.28);}
+  .item:last-child::after{bottom:auto; height:24px;}
+  .item .when{font-size:11.5px; font-weight:800; color:var(--ink-soft); letter-spacing:.02em;}
+  .item .what{font-size:14.5px; font-weight:800; margin-top:3px;}
+  .item .desc{font-size:12.5px; line-height:1.7; color:var(--ink-soft); margin-top:5px;}
+  /* 일정 안에 얹히는 영상 — 사진 첨부와 같은 자리, 같은 크기 */
+  .inline-vid{display:flex; gap:10px; margin-top:10px; padding:8px;
+    border:2px solid var(--ink); background:var(--paper);}
+  .inline-vid .thumb{flex:0 0 108px; border:2px solid var(--ink);}
+  .inline-vid .side{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center;}
+  .inline-vid .lab, .inline-vid .ttl, .inline-vid .sub{display:block;}
+  .inline-vid .lab{font-size:9.5px; font-weight:800; letter-spacing:.06em; color:var(--tube);}
+  .inline-vid .ttl{font-size:12.5px; font-weight:800; line-height:1.45; margin-top:3px;}
+  .inline-vid .sub{font-size:10.5px; color:var(--ink-soft); margin-top:4px;}
+
+  /* ===== 맺음말 ===== */
+  .closing{border:var(--px) solid var(--ink); background:var(--paper-card); padding:18px 18px 20px;}
+  .closing h2{font-size:15px; font-weight:800; margin:0 0 12px;}
+  .closing h3{font-size:12.5px; font-weight:800; margin:18px 0 7px; letter-spacing:.03em;}
+  .closing p, .closing li{font-size:13px; line-height:1.85; color:var(--ink-soft); margin:0 0 8px;}
+  .closing b{color:var(--ink);}
+  .closing ul{margin:0 0 8px; padding-left:19px;}
+  .closing table{width:100%; border-collapse:collapse; font-size:12px; margin:4px 0 10px;}
+  .closing th, .closing td{border:2px solid var(--ink); padding:6px 8px; text-align:left;}
+  .closing th{background:var(--ink); color:var(--paper); font-weight:800; font-size:11px;}
+  .closing td.y{background:#e5f3ea; font-weight:800; color:#2a8a4a;}
+  .closing td.n{color:var(--ink-soft);}
+  .pick{background:var(--lemon); border:2px solid var(--ink); padding:12px 14px; margin-top:14px;}
+  .pick p{color:#6a5a2a; margin:0;}
+  .pick b{color:var(--ink);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <h1>유튜브 영상을 어디에 붙일까</h1>
+    <p>
+      수아연아TV 영상을 <b>가끔 한두 개씩</b> 걸 수 있는 자리를 세 군데로 그려봤습니다.
+      셋 다 <b>열쇠(API 키)가 필요 없고</b>, 주소만 붙여넣으면 제목·채널·미리보기 그림이
+      알아서 따라옵니다. 실제로 이 사이트 주소에서 되는지 확인했습니다.
+    </p>
+    <p>
+      그리고 유튜브 영상은 <b>저장공간을 한 칸도 안 씁니다.</b> 영상은 유튜브가 들고 있고
+      우리는 주소만 적어두니까요 — 사진 246MB가 벌써 무료 한도의 1/4을 먹은 걸 생각하면
+      이게 은근히 큽니다.
+    </p>
+  </div>
+
+  <div class="tryout">
+    <h2>직접 넣어보기</h2>
+    <p>
+      수아연아TV 영상 주소를 하나 붙여넣으면 아래 세 시안이 <b>그 영상으로 바뀝니다.</b>
+      실제로 어떻게 보일지 그대로 볼 수 있어요.
+    </p>
+    <div class="row">
+      <input type="text" id="url" placeholder="https://www.youtube.com/watch?v=...  또는 Shorts 주소">
+      <button type="button" id="go">넣어보기</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <!-- ================= 시안 1 ================= -->
+  <div class="variant">
+    <h2>시안 1 — 작품으로</h2>
+    <p class="why">
+      영상을 <b>포트폴리오 안</b>에 그림·만들기와 나란히 둡니다. 새 페이지도, 새 메뉴도,
+      새 표도 없습니다 — 지금 있는 작품에 <b>종류 하나가 늘 뿐</b>입니다.<br>
+      그래서 작품이 이미 가진 것을 <b>영상도 그대로 물려받습니다</b>: 누가 만들었는지,
+      언제인지, 무슨 이야기가 있었는지, 그날 어떤 이벤트였는지, 연도별로 모아보기까지.
+    </p>
+
+    <div class="frame">
+      <h3>🎨 포트폴리오</h3>
+      <p class="lead">수아랑 연아랑이 만든 것들</p>
+      <div class="filters">
+        <span class="on">전체</span><span>수아</span><span>연아</span><span>같이</span>
+        <span class="tube">▶ 영상만</span>
+      </div>
+      <div class="gal-grid">
+        <div class="gal-item">
+          <span class="ribbon">▶ 영상</span>
+          <a class="thumb square" id="t1" href="#" onclick="return false;">
+            <img alt="">
+            <span class="play"></span>
+          </a>
+          <div class="gal-cap" id="c1">피아노로 학교 종을 쳤어요</div>
+          <div class="gal-note">틀리고 다시 치기를 여덟 번 하고 겨우 성공한 날</div>
+          <div class="gal-sub"><span class="tag sua">수아</span> 2026. 8. 23.</div>
+        </div>
+        <div class="gal-item">
+          <div class="thumb square" style="background:var(--mint); display:flex; align-items:center; justify-content:center; font-size:40px;">🖍</div>
+          <div class="gal-cap">우리집 강아지</div>
+          <div class="gal-note">색연필로 그렸어요</div>
+          <div class="gal-sub"><span class="tag yona">연아</span> 2026. 8. 20.</div>
+        </div>
+      </div>
+      <p style="font-size:11.5px; color:var(--ink-soft); line-height:1.7; margin:14px 0 0; text-align:center;">
+        누르면 지금 작품 상세가 열리는 그 자리에서 영상이 재생됩니다.
+      </p>
+    </div>
+
+    <div class="pros">
+      <div class="good"><dt>좋은 점</dt><dd>
+        만들 것이 거의 없습니다. 작가·날짜·이야기·이벤트 연결·연도 모아보기를
+        <b>공짜로 물려받습니다.</b> 영상이 한 개여도 페이지가 비어 보이지 않고요.
+      </dd></div>
+      <div class="bad"><dt>아쉬운 점</dt><dd>
+        그림 사이에 섞여서 <b>영상만 따로 보긴 어렵습니다.</b>
+        (다만 위의 「▶ 영상만」 단추 하나로 해결됩니다 — 시안 2가 여기 들어오는 셈)
+      </dd></div>
+    </div>
+  </div>
+
+  <!-- ================= 시안 2 ================= -->
+  <div class="variant">
+    <h2>시안 2 — 따로 방을</h2>
+    <p class="why">
+      <b>「영상」 페이지를 새로</b> 만들고 메뉴에 올립니다. 맨 위에 채널을 걸어두고,
+      아래로 영상이 큰 그림과 함께 하나씩 쌓입니다.<br>
+      영상이 <b>주인공 대접</b>을 받고, 채널로 가는 길도 확실해집니다.
+    </p>
+
+    <div class="frame">
+      <h3>📺 영상</h3>
+      <p class="lead">수아랑 연아랑의 움직이는 기록</p>
+      <div class="ch-strip">
+        <span class="dot"></span>
+        <span class="who"><b>수아연아TV</b><span>유튜브 채널에서 더 많은 영상을 볼 수 있어요</span></span>
+        <a href="https://www.youtube.com/@sooayeonatv" target="_blank" rel="noopener">채널 →</a>
+      </div>
+
+      <div class="vid-row">
+        <span class="thumb wide" id="t2"><img alt=""><span class="play sm"></span><span class="secs">1:12</span></span>
+        <span class="side">
+          <span class="ttl" id="c2">피아노로 학교 종을 쳤어요</span>
+          <span class="note">틀리고 다시 치기를 여덟 번 하고 겨우 성공한 날</span>
+          <span class="foot"><span class="tag sua">수아</span> 2026. 8. 23.</span>
+        </span>
+      </div>
+      <div class="vid-row">
+        <span class="thumb wide" style="background:var(--ink);"><span class="play sm"></span><span class="secs">0:41</span></span>
+        <span class="side">
+          <span class="ttl">해운대에서 춤췄어요</span>
+          <span class="note">파도 소리가 너무 커서 노래가 안 들렸음</span>
+          <span class="foot"><span class="tag">같이</span> 2026. 8. 6.</span>
+        </span>
+      </div>
+
+      <div class="empty-note">
+        …그리고 여기서 끝입니다.<br>
+        <b>가끔 한두 개씩</b>이면 이 페이지는 한동안 이 모습입니다.
+      </div>
+    </div>
+
+    <div class="pros">
+      <div class="good"><dt>좋은 점</dt><dd>
+        영상이 <b>확실히 눈에 띕니다.</b> 채널로 가는 길도 크게 열리고,
+        「영상 보러 가기」라고 말하기 쉬운 자리가 생깁니다.
+      </dd></div>
+      <div class="bad"><dt>아쉬운 점</dt><dd>
+        <b>세 개짜리 페이지가 메뉴에 걸립니다.</b> 빈 방은 만들다 만 것처럼 보입니다.
+        표도 화면도 새로 만들어야 해서 손도 제일 많이 갑니다.
+      </dd></div>
+    </div>
+  </div>
+
+  <!-- ================= 시안 3 ================= -->
+  <div class="variant">
+    <h2>시안 3 — 이야기 옆에</h2>
+    <p class="why">
+      새 자리를 안 만듭니다. <b>일정이나 일기를 쓰다가</b> 주소를 붙여넣으면
+      바로 그 자리에서 영상 카드가 됩니다. 사진을 붙이는 것과 똑같이요.<br>
+      <b>영상이 그 이야기 옆에 있습니다</b> — 이 사이트가 원래 하려던 일이기도 하고요.
+    </p>
+
+    <div class="frame">
+      <h4>8/6 목 · 부산여행</h4>
+      <div class="timeline">
+        <div class="item">
+          <div class="when">10:30</div>
+          <div class="what">감천문화마을</div>
+          <div class="desc">골목이 너무 많아서 세 번 길을 잃었다.</div>
+        </div>
+        <div class="item">
+          <div class="when">14:30</div>
+          <div class="what">해운대</div>
+          <div class="desc">물이 차가운데도 둘 다 안 나오려고 했다.</div>
+          <div class="inline-vid">
+            <span class="thumb wide" id="t3"><img alt=""><span class="play sm"></span></span>
+            <span class="side">
+              <span class="lab">영상</span>
+              <span class="ttl" id="c3">해운대에서 춤췄어요</span>
+              <span class="sub">수아연아TV · 눌러서 보기</span>
+            </span>
+          </div>
+        </div>
+        <div class="item">
+          <div class="when">18:00</div>
+          <div class="what">저녁 — 돼지국밥</div>
+          <div class="desc">연아는 국물만 먹었다.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pros">
+      <div class="good"><dt>좋은 점</dt><dd>
+        영상이 <b>이야기 한복판에</b> 놓입니다. 나중에 그날을 다시 볼 때
+        사진·글·영상이 한자리에 있습니다. 새로 만들 화면이 없습니다.
+      </dd></div>
+      <div class="bad"><dt>아쉬운 점</dt><dd>
+        <b>영상을 모아볼 곳이 없습니다.</b> 한참 뒤에 "그 영상 어디 뒀더라" 하면
+        일정을 하나씩 뒤져야 합니다.
+      </dd></div>
+    </div>
+  </div>
+
+  <!-- ================= 맺음말 ================= -->
+  <div class="closing">
+    <h2>고르실 때 참고하실 것</h2>
+
+    <h3>세 시안이 하는 일</h3>
+    <table>
+      <tr><th>&nbsp;</th><th>시안 1<br>작품으로</th><th>시안 2<br>따로 방을</th><th>시안 3<br>이야기 옆에</th></tr>
+      <tr><td>새로 만들 화면</td><td class="y">없음</td><td class="n">페이지+표</td><td class="y">없음</td></tr>
+      <tr><td>메뉴가 늘어남</td><td class="y">아니오</td><td class="n">예</td><td class="y">아니오</td></tr>
+      <tr><td>영상만 모아보기</td><td class="y">단추로</td><td class="y">예</td><td class="n">아니오</td></tr>
+      <tr><td>이야기 옆에</td><td class="n">따로</td><td class="n">따로</td><td class="y">예</td></tr>
+      <tr><td>한 개만 있어도</td><td class="y">괜찮음</td><td class="n">허전함</td><td class="y">괜찮음</td></tr>
+    </table>
+
+    <h3>어떻게 넣게 되나</h3>
+    <p>
+      셋 다 <b>주소를 붙여넣는 것</b>으로 끝납니다. 붙여넣는 순간 제목·채널 이름·
+      미리보기 그림이 따라오고, 제목은 <b>원하시는 말로 고쳐 쓰시면 됩니다</b> —
+      「Untitled_0831」보다 「피아노로 학교 종을 쳤어요」가 나으니까요.
+    </p>
+    <ul>
+      <li>일반 주소, <b>youtu.be</b> 짧은 주소, <b>Shorts</b> 주소 모두 됩니다</li>
+      <li>없는 영상 주소를 넣으면 <b>넣기 전에 알려줍니다</b></li>
+      <li>영상은 <b>쿠키를 안 심는 주소</b>(youtube-nocookie)로 띄웁니다</li>
+      <li>목록에서는 미리보기 그림만 받고, <b>누를 때 재생기를 불러옵니다</b> — 페이지가 안 무거워지게</li>
+      <li>미리보기 그림은 <b>검은 띠가 없는 것</b>으로 골라 받습니다 (유튜브가 주는 것 중 4:3 짜리는 위아래가 검습니다)</li>
+    </ul>
+
+    <h3>제 생각</h3>
+    <p>
+      <b>시안 1로 시작하시길 권합니다.</b> 「가끔 한두 개씩」이라는 말이 결정적이라고 봅니다 —
+      영상 세 개짜리 페이지를 메뉴에 걸면 그게 제일 먼저 눈에 띄는 빈칸이 됩니다.
+      시안 1은 하나만 있어도 어색하지 않고, 작품이 가진 것을 전부 물려받습니다.
+    </p>
+    <p>
+      그리고 <b>시안 2는 나중에 공짜로 생깁니다.</b> 시안 1을 해두면 포트폴리오에
+      「▶ 영상만」 단추 하나만 붙이면 그게 곧 영상 페이지입니다. 영상이 스무 개쯤 쌓여서
+      방을 따로 낼 값이 생겼을 때 그때 옮기면 됩니다.
+    </p>
+    <div class="pick">
+      <p>
+        <b>시안 1 먼저, 시안 3은 이어서.</b> 시안 3은 주소를 읽는 코드를 그대로 한 번 더
+        쓰는 것뿐이라 거의 덤입니다. 시안 2만 지금은 미뤄두시는 걸 권합니다.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// 붙여넣은 주소에서 영상 번호만 꺼낸다.
+// 일반 주소 / youtu.be 짧은 주소 / Shorts / embed 를 모두 받는다.
+function videoId(raw){
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  if (/^[\w-]{11}$/.test(s)) return s;              // 번호만 붙여넣은 경우
+  let u;
+  try { u = new URL(s.startsWith('http') ? s : 'https://' + s); } catch (e) { return ''; }
+  if (!/(^|\.)youtube\.com$|(^|\.)youtu\.be$/.test(u.hostname)) return '';
+  if (u.hostname.endsWith('youtu.be')) return u.pathname.slice(1, 12);
+  const v = u.searchParams.get('v');
+  if (v) return v.slice(0, 11);
+  const m = u.pathname.match(/\/(shorts|embed|v|live)\/([\w-]{11})/);
+  return m ? m[2] : '';
+}
+
+const $ = s => document.querySelector(s);
+const msg = $('#msg');
+
+async function show(raw){
+  const id = videoId(raw);
+  if (!id) {
+    msg.className = 'msg err';
+    msg.textContent = '유튜브 주소가 아닌 것 같아요. 영상 페이지의 주소를 그대로 붙여넣어 주세요.';
+    return;
+  }
+  msg.className = 'msg';
+  msg.textContent = '영상을 확인하는 중...';
+
+  // 열쇠 없이 제목과 채널 이름을 물어본다.
+  // 없는 영상이면 400 을 주므로, 넣기 전에 걸러낼 수 있다.
+  let info = null;
+  try {
+    const res = await fetch('https://www.youtube.com/oembed?format=json&url=' +
+      encodeURIComponent('https://www.youtube.com/watch?v=' + id));
+    if (res.ok) info = await res.json();
+    else if (res.status === 400 || res.status === 404) {
+      msg.className = 'msg err';
+      msg.textContent = '그런 영상을 못 찾았어요. 비공개 영상이거나 주소가 틀렸을 수 있어요.';
+      return;
+    }
+  } catch (e) { /* 그물이 끊겨도 그림은 붙는다 */ }
+
+  // 미리보기 그림에는 두 종류가 있다.
+  //   maxresdefault  1280x720  16:9 — 높은 화질로 찍은 영상에만 있다
+  //   mqdefault       320x180  16:9 — 늘 있다
+  // hqdefault(480x360)는 늘 있지만 4:3 이라 위아래에 검은 띠가 붙는다.
+  // 네모 칸에 맞춰 자르면 그 띠가 그대로 보여서 안 쓴다.
+  ['#t1', '#t2', '#t3'].forEach(sel => {
+    const img = document.querySelector(sel + ' img');
+    if (!img) return;
+    img.onerror = () => { img.onerror = null; img.src = 'https://img.youtube.com/vi/' + id + '/mqdefault.jpg'; };
+    img.src = 'https://img.youtube.com/vi/' + id + '/maxresdefault.jpg';
+  });
+  if (info && info.title) {
+    ['#c1', '#c2', '#c3'].forEach(sel => { const el = $(sel); if (el) el.textContent = info.title; });
+  }
+
+  msg.className = 'msg';
+  msg.textContent = info
+    ? '넣었습니다 — “' + info.title + '” · ' + info.author_name
+    : '그림은 넣었어요. (제목은 못 물어봤습니다 — 그물 상태를 확인해 주세요)';
+}
+
+$('#go').addEventListener('click', () => show($('#url').value));
+$('#url').addEventListener('keydown', e => { if (e.key === 'Enter') show($('#url').value); });
+</script>
+</body>
+</html>
