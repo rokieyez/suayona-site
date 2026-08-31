@@ -80,6 +80,45 @@
   #add-msg.ok{color:#2a8a4a;}
   #add-msg.err{color:#c0392b;}
 
+  /* ----- 장소 고르기 ----- */
+  .place-state{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    font-size:12px; margin-top:6px; color:var(--ink-soft);
+  }
+  .place-state.has{color:#2a8a4a; font-weight:700;}
+  .place-state button{
+    border:none; background:none; color:#c0392b; font-size:11.5px; font-weight:700;
+    padding:0; text-decoration:underline; cursor:pointer;
+  }
+  .place-state button[hidden]{display:none;}
+  .place-open{
+    margin-top:8px; width:100%; padding:9px 12px; border:1px solid rgba(0,0,0,.15);
+    background:#fff; color:var(--ink); font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .place-open:hover{background:rgba(0,0,0,.04);}
+  .place-box{margin-top:8px; border:1px solid rgba(0,0,0,.15); padding:12px; background:#fff;}
+  .place-box[hidden]{display:none;}
+  .place-search{display:flex; gap:6px;}
+  .place-search input{flex:1;}
+  .place-search button{
+    flex:none; padding:0 14px; border:none; background:var(--accent); color:#fff;
+    font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .place-results{list-style:none; margin:10px 0 0; padding:0; max-height:132px; overflow-y:auto;}
+  .place-results li{
+    padding:8px 9px; border-bottom:1px solid rgba(0,0,0,.08); cursor:pointer; font-size:12.5px;
+  }
+  .place-results li:hover{background:rgba(0,0,0,.05);}
+  .place-results li b{display:block; font-size:13px; color:var(--ink);}
+  .place-results li span{color:var(--ink-soft); font-size:11.5px;}
+  .place-results .none{cursor:default; color:var(--ink-soft);}
+  .place-map{height:250px; margin-top:10px; background:#dfe6e2; border:1px solid rgba(0,0,0,.15);}
+  .place-tip{font-size:11.5px; color:var(--ink-soft); margin:8px 0 0; line-height:1.7;}
+  .place-mark{
+    width:22px; height:22px; border:3px solid #fff; border-radius:50%;
+    background:var(--accent); box-shadow:0 1px 5px rgba(0,0,0,.4);
+  }
+
   /* ----- 커스텀 탭 관리 ----- */
   #customtabs-box{background:var(--paper-card); border-radius:0; padding:18px; border:1px solid rgba(0,0,0,.08); margin-bottom:22px;}
   #customtabs-box h2{font-size:14px; margin:0 0 8px; color:var(--ink);}
@@ -236,9 +275,7 @@
       <label>제목</label>
       <input type="text" id="addTitle" placeholder="예: 아침식사">
       <label>장소 (선택)</label>
-      <input type="text" id="addPlace" placeholder="예: 부산 해운대해수욕장" maxlength="80">
-      <p class="hint">일정 줄 오른쪽 끝에 보이고, 누르면 지도가 열립니다.<br>
-        가게 이름보다 <b>주소나 큰 지명</b>이 좌표를 더 잘 찾아요.</p>
+      <div id="addPlaceField"></div>
       <label>상세 설명 (선택)</label>
       <textarea id="addDetail" placeholder="예: 식당 1층"></textarea>
       <label>사진 첨부 (선택 · 여러 장 가능)</label>
@@ -364,6 +401,172 @@ $('#mSaveBtn').addEventListener('click', async () => {
   msg.className = 'ok'; msg.textContent = '저장했어요. 이벤트 페이지를 새로고침하면 바뀌어 있습니다.';
 });
 
+/* =========================================================================
+   장소 고르기
+   ------------------------------------------------------------------------
+   세 가지 길을 준다. 하나만 되면 되도록.
+     1. 이름만 적고 저장   — 저장할 때 알아서 찾아 본다 (예전과 같음)
+     2. 찾아서 고르기      — 이름이나 주소로 찾아 나온 목록에서 고른다
+     3. 지도를 눌러 찍기   — 검색으로 안 나오는 곳(밭, 캠핑장, 친구네)을 위해
+
+   3번이 있어야 하는 이유: 카카오가 못 찾는 곳은 이름만 남고 핀이 안 찍혔는데,
+   그걸 고칠 방법이 화면에 없었다. 이제 손으로 찍을 수 있다.
+   ========================================================================= */
+function makePlacePicker(host, init){
+  init = init || {};
+  const st = { lat: Number.isFinite(init.lat) ? init.lat : null,
+               lng: Number.isFinite(init.lng) ? init.lng : null };
+
+  host.innerHTML =
+    '<input type="text" class="pName" maxlength="80" placeholder="예: 부산 해운대해수욕장">' +
+    '<div class="place-state"><span class="pWhere"></span>' +
+      '<button type="button" class="pClear" hidden>핀 지우기</button></div>' +
+    '<button type="button" class="place-open">\uD83D\uDDFA 지도에서 고르기</button>' +
+    '<div class="place-box" hidden>' +
+      '<div class="place-search">' +
+        '<input type="text" class="pQuery" placeholder="이름이나 주소로 찾기">' +
+        '<button type="button" class="pFind">찾기</button>' +
+      '</div>' +
+      '<ul class="place-results"></ul>' +
+      '<div class="place-map"></div>' +
+      '<p class="place-tip">목록에서 고르거나, <b>지도를 직접 눌러</b> 핀을 옮길 수 있어요.</p>' +
+    '</div>';
+
+  const q = sel => host.querySelector(sel);
+  const nameEl = q('.pName'), whereEl = q('.pWhere'), clearEl = q('.pClear');
+  const boxEl = q('.place-box'), listEl = q('.place-results');
+  nameEl.value = init.name || '';
+
+  let map = null, marker = null;
+
+  function drawState(){
+    const has = Number.isFinite(st.lat) && Number.isFinite(st.lng);
+    whereEl.textContent = has
+      ? '\uD83D\uDCCD ' + st.lat.toFixed(5) + ', ' + st.lng.toFixed(5) + ' — 지도에 찍힘'
+      : (nameEl.value.trim() ? '아직 안 찍힘 — 저장할 때 찾아 봅니다' : '');
+    whereEl.parentElement.classList.toggle('has', has);
+    clearEl.hidden = !has;
+  }
+  drawState();
+  nameEl.addEventListener('input', drawState);
+  clearEl.addEventListener('click', () => {
+    st.lat = st.lng = null;
+    if (marker) { marker.setMap(null); marker = null; }
+    drawState();
+  });
+
+  function setPoint(lat, lng, center){
+    st.lat = lat; st.lng = lng;
+    if (map) {
+      const pos = new kakao.maps.LatLng(lat, lng);
+      if (!marker) {
+        const node = document.createElement('div');
+        node.className = 'place-mark';
+        marker = new kakao.maps.CustomOverlay({ map, position: pos, content: node,
+          xAnchor: 0.5, yAnchor: 0.5, zIndex: 5 });
+      } else marker.setPosition(pos);
+      if (center) map.setCenter(pos);
+    }
+    drawState();
+  }
+
+  function showResults(items, render){
+    listEl.innerHTML = '';
+    if (!items.length) {
+      listEl.innerHTML = '<li class="none">못 찾았어요. 지도를 직접 눌러 찍어 주세요.</li>';
+      return;
+    }
+    items.slice(0, 5).forEach(it => {
+      const r = render(it);
+      const li = document.createElement('li');
+      li.innerHTML = '<b>' + escapeHTML(r.title) + '</b><span>' + escapeHTML(r.sub || '') + '</span>';
+      li.addEventListener('click', () => {
+        setPoint(r.lat, r.lng, true);
+        if (!nameEl.value.trim()) nameEl.value = r.title.slice(0, 80);
+        listEl.innerHTML = '';
+        drawState();
+      });
+      listEl.appendChild(li);
+    });
+  }
+
+  // 이름으로 먼저 찾고(가게·명소), 안 나오면 주소로 한 번 더
+  async function find(){
+    const text = q('.pQuery').value.trim();
+    if (!text) return;
+    listEl.innerHTML = '<li class="none">찾는 중...</li>';
+    const places = new kakao.maps.services.Places();
+    const byName = await new Promise(res => places.keywordSearch(text, (d, stt) =>
+      res(stt === kakao.maps.services.Status.OK ? d : [])));
+    if (byName.length) {
+      showResults(byName, it => ({ title: it.place_name,
+        sub: it.road_address_name || it.address_name || '',
+        lat: parseFloat(it.y), lng: parseFloat(it.x) }));
+      return;
+    }
+    const geocoder = new kakao.maps.services.Geocoder();
+    const byAddr = await new Promise(res => geocoder.addressSearch(text, (d, stt) =>
+      res(stt === kakao.maps.services.Status.OK ? d : [])));
+    showResults(byAddr, it => ({ title: it.address_name, sub: '주소',
+      lat: parseFloat(it.y), lng: parseFloat(it.x) }));
+  }
+
+  q('.place-open').addEventListener('click', async () => {
+    if (!boxEl.hidden) { boxEl.hidden = true; return; }
+    boxEl.hidden = false;
+    if (map) { map.relayout(); return; }
+
+    try { await loadKakaoMaps(); }
+    catch (e) { q('.place-map').textContent = '지도를 불러오지 못했어요'; return; }
+
+    const start = (Number.isFinite(st.lat) && Number.isFinite(st.lng))
+      ? new kakao.maps.LatLng(st.lat, st.lng)
+      : new kakao.maps.LatLng(36.5, 127.9);          // 아무것도 없으면 전국
+    map = new kakao.maps.Map(q('.place-map'), {
+      center: start, level: (Number.isFinite(st.lat) ? 4 : 12),
+    });
+    map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPLEFT);
+    if (Number.isFinite(st.lat)) setPoint(st.lat, st.lng, false);
+
+    kakao.maps.event.addListener(map, 'click', e => {
+      const ll = e.latLng;
+      setPoint(ll.getLat(), ll.getLng(), false);
+      // 누른 자리가 어디인지 알려 준다 — 이름 칸이 비어 있으면 채워도 준다
+      new kakao.maps.services.Geocoder().coord2Address(ll.getLng(), ll.getLat(), (d, stt) => {
+        if (stt !== kakao.maps.services.Status.OK || !d[0]) return;
+        const addr = (d[0].road_address && d[0].road_address.address_name) ||
+                     (d[0].address && d[0].address.address_name) || '';
+        if (addr) {
+          whereEl.textContent = '\uD83D\uDCCD ' + addr;
+          if (!nameEl.value.trim()) { nameEl.value = addr.slice(0, 80); }
+        }
+      });
+    });
+
+    q('.pQuery').value = nameEl.value.trim();
+    if (q('.pQuery').value) find();
+  });
+
+  q('.pFind').addEventListener('click', find);
+  q('.pQuery').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); find(); } });
+
+  return {
+    // 저장할 값. 이름을 지웠으면 좌표도 같이 버린다.
+    async value(onMsg){
+      const name = nameEl.value.trim();
+      if (!name) return { place_name: null, place_lat: null, place_lng: null, found: null };
+      if (Number.isFinite(st.lat) && Number.isFinite(st.lng)) {
+        return { place_name: name, place_lat: st.lat, place_lng: st.lng, found: true };
+      }
+      // 손으로 안 찍었으면 예전처럼 이름으로 찾아 본다
+      if (onMsg) onMsg('장소를 지도에서 찾는 중...');
+      return await resolvePlace(name);
+    },
+  };
+}
+
+let addPlacePicker = null;
+
 // ----- 장소 -> 좌표 -----
 // 이름만 저장해도 지도는 열린다(이름으로 찾아 준다). 좌표는 목록 페이지 지도에 핀을 찍는 데 쓴다.
 // 못 찾아도 저장은 그대로 진행한다 — 장소 하나 때문에 일정이 안 들어가면 안 되므로.
@@ -393,6 +596,7 @@ async function refreshAuthUI(){
     $('#whoami').textContent = session.user.email + ' 로 로그인됨';
     fillPanelSelect();
     fillMetaForm();
+    if (!addPlacePicker) addPlacePicker = makePlacePicker($('#addPlaceField'));
     await checkExtraImagesColumn();     // 사진 여러 장 컬럼 유무를 먼저 확인
     await loadList();
     await loadCustomTabsAdmin();
@@ -711,7 +915,7 @@ function renderEditForm(r){
   form.innerHTML =
     '<label>시간</label><input type="text" class="eTime" value="' + escapeHTML(r.time || '') + '">' +
     '<label>제목</label><input type="text" class="eTitle" value="' + escapeHTML(r.title) + '">' +
-    '<label>장소</label><input type="text" class="ePlace" maxlength="80" value="' + escapeHTML(r.place_name || '') + '">' +
+    '<label>장소</label><div class="ePlaceField"></div>' +
     '<label>상세 설명</label><textarea class="eDetail">' + escapeHTML(r.detail || '') + '</textarea>' +
     '<label>사진</label>' +
     // 이미 올라간 사진들을 한 줄씩 보여주고, 장마다 삭제 체크박스를 붙임
@@ -725,13 +929,17 @@ function renderEditForm(r){
     '<div class="btn-row"><button class="btn saveBtn">저장</button><button class="btn ghost cancelBtn">취소</button></div>' +
     '<div class="add-msg"></div>';
 
+  // 폼이 화면에 붙은 뒤에 만들어야 지도가 크기를 잴 수 있다
+  const editPlacePicker = makePlacePicker(form.querySelector('.ePlaceField'), {
+    name: r.place_name || '', lat: r.place_lat, lng: r.place_lng,
+  });
+
   form.querySelector('.cancelBtn').addEventListener('click', loadList);
 
   form.querySelector('.saveBtn').addEventListener('click', async () => {
     const saveBtn = form.querySelector('.saveBtn');
     const time = form.querySelector('.eTime').value.trim();
     const title = form.querySelector('.eTitle').value.trim();
-    const place = form.querySelector('.ePlace').value.trim();
     const detail = form.querySelector('.eDetail').value.trim();
     const files = Array.from(form.querySelector('.eImage').files);
     if (!title) { alert('제목을 입력해주세요.'); return; }
@@ -755,14 +963,8 @@ function renderEditForm(r){
     }
     if (!hasExtraImages) shots = shots.slice(0, 1);
 
-    // 장소를 안 건드렸으면 다시 물어보지 않는다 — 이미 찾아 둔 좌표를 그대로 둔다.
-    let placeRes;
-    if (place && place === (r.place_name || '')) {
-      placeRes = { place_name: place, place_lat: r.place_lat, place_lng: r.place_lng, found: Number.isFinite(r.place_lat) };
-    } else {
-      if (place) msgEl.textContent = '장소를 지도에서 찾는 중...';
-      placeRes = await resolvePlace(place);
-    }
+    // 지도에서 직접 찍었으면 그 좌표를 그대로, 이름만 적었으면 찾아 본다
+    const placeRes = await editPlacePicker.value(t => { msgEl.textContent = t; });
 
     const photos = splitPhotos(shots);
     const patch = { time, title, detail: detail || null,
@@ -783,7 +985,6 @@ $('#addBtn').addEventListener('click', async () => {
   const panel = $('#addPanel').value;
   const time = $('#addTime').value.trim();
   const title = $('#addTitle').value.trim();
-  const place = $('#addPlace').value.trim();
   const detail = $('#addDetail').value.trim();
   const files = Array.from($('#addImage').files);
   const msg = $('#add-msg');
@@ -807,8 +1008,7 @@ $('#addBtn').addEventListener('click', async () => {
     }
   }
 
-  if (place) { msg.className = ''; msg.textContent = '장소를 지도에서 찾는 중...'; }
-  const placeRes = await resolvePlace(place);
+  const placeRes = await addPlacePicker.value(t => { msg.className = ''; msg.textContent = t; });
 
   const { data: existing } = await sb.from('events').select('sort_order')
     .eq('event_id', CONFIG.eventSlug).eq('panel', panel)
@@ -829,8 +1029,9 @@ $('#addBtn').addEventListener('click', async () => {
   msg.className = 'ok';
   msg.textContent = '추가됐습니다!' + placeNote(placeRes) + (files.length > 1 && !hasExtraImages
     ? ' (사진은 첫 장만 저장됐어요 — 위 안내의 SQL을 실행하면 여러 장이 저장됩니다)' : '');
-  $('#addTime').value = ''; $('#addTitle').value = ''; $('#addPlace').value = '';
+  $('#addTime').value = ''; $('#addTitle').value = '';
   $('#addDetail').value = ''; $('#addImage').value = '';
+  addPlacePicker = makePlacePicker($('#addPlaceField'));   // 장소 칸도 비운다
   loadList();
 });
 
