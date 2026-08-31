@@ -399,3 +399,22 @@ create policy "parent can read messages"
 create policy "parent can delete messages"
   on public.messages for delete
   using (public.my_role() = 'parent');
+
+-- ---------------------------------------------------------------------------
+-- 시간표는 가족만
+--
+-- 편지에서 고쳤던 것과 같은 종류가 여기 남아 있었다. 읽기 조건이 그냥 true 라
+-- (로그인한 사람 전체) 낯선 사람이 계정을 하나 만들면 아이들 시간표가 통째로 보였다.
+-- 요일마다 아이가 몇 시에 어디 있는지 적힌 표라 공개될 값이 아니다.
+--
+-- 아이도 읽어야 하니 '부모만' 이 아니라 '프로필이 있는 사람만' 으로 둔다.
+-- profiles 줄은 부모가 직접 넣어야 생기므로 가입만 한 사람에게는 없다.
+-- 쓰기(schedules_write)는 이미 부모 전용이라 손대지 않았다.
+--
+-- 확인(고친 뒤): 로그인 안 함 0줄 · 낯선 가입자 0줄 · 아이 13줄 · 부모 13줄.
+-- ---------------------------------------------------------------------------
+drop policy if exists "schedules_read" on public.schedules;
+
+create policy "family can read schedules"
+  on public.schedules for select
+  using (public.my_role() is not null);
