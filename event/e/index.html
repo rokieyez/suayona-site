@@ -1077,9 +1077,22 @@ async function loadGallery(){
     })));
   });
 
+  // 「사진으로 일정 만들기」로 만든 일정은 갤러리 사진의 주소를 그대로 물려받는다.
+  // 그래서 위의 두 곳에서 같은 사진이 한 번씩 올라오고, 그냥 이으면 격자에
+  // 같은 사진이 두 번 나온다("사진 N장" 수도 그만큼 부풀었다).
+  //
+  // 남기는 쪽은 갤러리다 — 지우기와 ★ 를 달 수 있는 줄이 그쪽이라서.
+  // 갤러리에 없이 일정에만 붙은 사진(관리 화면에서 직접 첨부한 것)은 그대로 나온다.
+  const seenUrls = new Set(fromGallery.map(r => r.media_url));
+  const eventsOnly = fromEvents.filter(r => {
+    if (seenUrls.has(r.media_url)) return false;
+    seenUrls.add(r.media_url);      // 한 사진을 여러 일정이 나눠 쓴 경우도 한 번만
+    return true;
+  });
+
   // 촬영 시각(EXIF) 기준 오름차순 정렬 — 먼저 찍힌 사진이 먼저 나옴.
   // EXIF 날짜가 없는 사진/영상은 맨 뒤로 밀리고, 그 안에서는 업로드 순으로 정렬됨.
-  galleryItems = [...fromGallery, ...fromEvents].sort((a, b) => {
+  galleryItems = [...fromGallery, ...eventsOnly].sort((a, b) => {
     const aHas = !!a.taken_at, bHas = !!b.taken_at;
     if (aHas && bHas) return new Date(a.taken_at) - new Date(b.taken_at);
     if (aHas !== bHas) return aHas ? -1 : 1;
