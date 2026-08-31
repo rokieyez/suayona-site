@@ -129,12 +129,25 @@ function failureFromUrl(){
   }
 
   if (!session) {
-    show('stBad', '링크를 쓸 수 없어요');
-    $('#badWhy').textContent = '이 화면은 메일로 받은 링크로 들어와야 열려요.';
+    // 메일 없이도 바꿀 수 있다 — 지금 비밀번호를 알고 있으면 그냥 로그인하면 된다.
+    // (Supabase 무료 요금제는 메일을 시간당 몇 통으로 묶어 두어서, 한도에 걸리면
+    //  이쪽이 유일하게 바로 되는 길이다.)
+    show('stBad', '로그인하고 바꿔도 돼요');
+    $('#badWhy').innerHTML =
+      '메일 링크로 들어오지 않으셨네요. 그래도 괜찮아요 —<br>' +
+      '<b>오른쪽 위 「로그인」</b>을 눌러 지금 비밀번호로 들어오시면 바로 바꿀 수 있어요.';
     return;
   }
   show('stForm', (session.user.email || '') + ' 의 비밀번호를 바꿉니다');
 })();
+
+// 화면을 띄운 뒤에 머리말에서 로그인하면 그때 폼으로 바꿔 준다.
+// (처음 확인은 이미 지나갔으므로 이게 없으면 안내문만 계속 보인다)
+sb.auth.onAuthStateChange((event, session) => {
+  if (!session) return;
+  if (document.getElementById('stDone').classList.contains('on')) return;   // 다 바꾼 뒤엔 그대로 둠
+  show('stForm', (session.user.email || '') + ' 의 비밀번호를 바꿉니다');
+});
 
 // ----- 입력 확인 -----
 const pw1 = $('#pw1'), pw2 = $('#pw2');
