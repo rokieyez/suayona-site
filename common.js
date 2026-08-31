@@ -680,6 +680,21 @@ function youtubeCardHTML(id, label){
     '</button>';
 }
 
+// 재생기를 다시 그림 카드로 되돌린다.
+// 유튜브 재생기는 담긴 상자를 display:none 으로 숨겨도 소리가 계속 나온다 —
+// 화면에서 사라지게만 하면 배경에서 노래만 남는다. 실제로 그렇게 됐다.
+// 그래서 가리는 쪽이 아니라 떼어 내는 쪽으로 멈춘다. 카드로 되돌려 두면
+// 다시 돌아왔을 때 누르는 것으로 이어 볼 수 있다.
+function stopYoutubeIn(root){
+  if (!root) return;
+  root.querySelectorAll('.yt-frame').forEach(frame => {
+    const f = frame.querySelector('iframe');
+    const m = f && String(f.src).match(/\/embed\/([\w-]{11})/);
+    if (m) frame.outerHTML = youtubeCardHTML(m[1]);
+    else frame.remove();
+  });
+}
+
 // 영상 칸은 어느 페이지에서 나오든 같은 방식으로 열린다.
 // 페이지마다 따로 걸면 새 자리를 만들 때 빼먹기 쉬워서 문서에 한 번만 건다.
 document.addEventListener('click', e => {

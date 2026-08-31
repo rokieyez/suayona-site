@@ -809,6 +809,9 @@ function closeWork(){
   document.body.style.overflow = '';
   const v = $('#workBox').querySelector('video'); if (v) v.pause();
   const a = $('#workBox').querySelector('audio'); if (a) a.pause();
+  // 유튜브 재생기는 pause 가 없다 — 창을 숨겨도 소리가 계속 나와서 통째로 떼어 낸다.
+  // 다시 열면 renderWork 가 새로 그리니 잃는 것이 없다.
+  const f = $('#workBox').querySelector('iframe'); if (f) f.remove();
   stopVoiceWork();          // 창을 닫으면 마이크도 끈다
 }
 $('#workClose').addEventListener('click', closeWork);

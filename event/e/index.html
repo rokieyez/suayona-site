@@ -807,7 +807,12 @@ function countDay(panel){
 
 function showPanel(id, opts){
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.t === id));
-  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === id));
+  document.querySelectorAll('.panel').forEach(p => {
+    const was = p.classList.contains('active');
+    p.classList.toggle('active', p.id === id);
+    // 떠나는 탭에서 틀어 둔 유튜브를 카드로 되돌린다 — 숨긴다고 소리가 멎지 않는다
+    if (was && p.id !== id) stopYoutubeIn(p);
+  });
   const panel = document.getElementById(id);
   if (panel) reveal(panel);
   // 지금 보고 있는 탭을 주소에 남긴다 — 주소창을 그대로 복사하면 그 탭이 열린 링크가 된다.
