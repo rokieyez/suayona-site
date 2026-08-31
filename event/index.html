@@ -121,21 +121,13 @@
 
   .empty{text-align:center; color:var(--ink-soft); font-size:13px; padding:30px 0;}
 
-  /* ----- 로그인 ----- */
-  #login-box{max-width:340px; margin:0 auto; background:var(--paper-card); border-radius:0; padding:22px; border:var(--px) solid var(--ink);}
-  #login-box label{display:block; font-size:12.5px; font-weight:700; color:var(--ink-soft); margin:12px 0 6px;}
-  #login-box label:first-of-type{margin-top:0;}
+  /* 로그인·로그아웃은 둘 다 머리말의 단추 하나로 한다. 페이지마다 또 두면
+     같은 일을 하는 자리가 화면에 둘씩 생긴다. */
   input, select{width:100%; padding:10px 12px; border:2px solid var(--ink); border-radius:0; font-size:14px; font-family:inherit; background:var(--paper); color:var(--ink);}
   .btn{width:100%; margin-top:14px; padding:10px 16px; border:var(--px) solid var(--ink); border-radius:0; font-size:13.5px;
     font-weight:800; background:var(--mint); color:var(--ink); cursor:pointer; font-family:inherit;
     box-shadow:var(--px) var(--px) 0 var(--ink); transition:transform .1s steps(2), box-shadow .1s steps(2);}
   .btn:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
-  #login-msg{font-size:12.5px; color:#c0392b; margin-top:10px; min-height:1em; text-align:center;}
-
-  #admin-entry{margin-top:34px; text-align:center;}
-  #loginToggle{background:none; border:none; color:var(--ink-soft); font-size:12px; cursor:pointer; font-family:inherit; opacity:.65;}
-  #loginToggle:hover{color:var(--ink); opacity:1;}
-  #login-box{display:none; margin-top:14px;}
   /* 로그아웃 단추는 머리말의 「내 계정」 안에 있다 — 여기 또 두면 같은 일을 하는
      단추가 한 화면에 둘이 된다. */
 
@@ -249,18 +241,6 @@
     <div id="past-section" class="past">
       <h2>지난 이벤트</h2>
       <div id="past-list"></div>
-    </div>
-
-    <div id="admin-entry">
-      <button id="loginToggle">🔧 관리자 로그인</button>
-      <div id="login-box">
-        <label>이메일</label>
-        <input type="email" id="loginEmail" autocomplete="username">
-        <label>비밀번호</label>
-        <input type="password" id="loginPw" autocomplete="current-password">
-        <button class="btn" id="loginBtn">로그인</button>
-        <div id="login-msg"></div>
-      </div>
     </div>
   </div>
 </div>
@@ -739,8 +719,6 @@ async function refreshAuthUI(){
   const session = await refreshAuth();
 
   $('#content').style.display = 'block';            // 목록은 항상 보임
-  $('#login-box').style.display = 'none';
-  $('#loginToggle').style.display = isAdmin ? 'none' : 'block';
   $('#new-event-box').style.display = isAdmin ? 'block' : 'none';
   $('.lead').textContent = isAdmin
     ? '지금까지 열린 이벤트를 확인하고 새로 만들 수 있어요'
@@ -748,22 +726,6 @@ async function refreshAuthUI(){
 
   renderEvents();
 }
-
-$('#loginToggle').addEventListener('click', () => {
-  $('#login-box').style.display = 'block';
-  $('#loginToggle').style.display = 'none';
-  $('#loginEmail').focus();
-});
-
-$('#loginBtn').addEventListener('click', async () => {
-  const email = $('#loginEmail').value.trim();
-  const password = $('#loginPw').value;
-  $('#login-msg').textContent = '로그인 중...';
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) { $('#login-msg').textContent = '로그인 실패: ' + error.message; return; }
-  $('#login-msg').textContent = '';
-  refreshAuthUI();
-});
 
 refreshAuthUI();
 </script>
