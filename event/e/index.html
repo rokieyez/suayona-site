@@ -680,6 +680,7 @@ async function drawTripMap(){
     center: new kakao.maps.LatLng(TRIP_STOPS[0].lat, TRIP_STOPS[0].lng),
     level: 6, scrollwheel: false,
   });
+  enablePinchZoom(map, box);
   map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPLEFT);
 
   const color = i => DAY_COLORS[i % DAY_COLORS.length];

@@ -406,6 +406,7 @@ async function drawMapBand(events){
   const map = new kakao.maps.Map($('#eventMap'), {
     center: new kakao.maps.LatLng(36.5, 127.9), level: 13, scrollwheel: false,
   });
+  enablePinchZoom(map, $('#eventMap'));
   const bounds = new kakao.maps.LatLngBounds();
   const pins = [];
 

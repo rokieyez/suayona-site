@@ -54,6 +54,36 @@ function loadKakaoMaps(){
   return _kakaoReady;
 }
 
+// 트랙패드에서 두 손가락을 오므리면 브라우저는 그것을 「ctrl 을 누른 채 굴린 휠」로
+// 보낸다. 그런데 페이지 한가운데 띠로 놓인 지도는 scrollwheel:false 로 휠을 꺼 둔다 —
+// 안 그러면 지도 위에서 페이지를 못 넘기고 지도만 확대돼 버리기 때문이다.
+// 그 설정이 확대 몸짓까지 같이 꺼 버렸다. 더블클릭 확대는 다른 길이라 살아 있어서
+// "핀치만 안 되는" 것처럼 보였다.
+//
+// 손전화는 원래 잘 된다 — 카카오가 지도 안쪽 칸에 touch-action:none 을 걸어 두어
+// 손가락 몸짓을 브라우저 대신 지도가 받는다. 그래서 여기서는 휠만 손본다.
+function enablePinchZoom(map, el){
+  let acc = 0;
+  el.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;            // 그냥 휠은 페이지 넘기기로 그대로 둔다
+    e.preventDefault();
+    // 한 번 오므리면 휠 알림이 여러 번 온다. 조금 모았다가 한 칸씩 움직인다 —
+    // 알림마다 한 칸씩 바꾸면 손을 대자마자 끝까지 튀어 버린다.
+    acc += e.deltaY;
+    if (Math.abs(acc) < 18) return;
+    const step = acc > 0 ? 1 : -1;
+    acc = 0;
+    // 손가락이 놓인 자리를 붙잡고 확대한다(못 구하면 가운데 기준).
+    let anchor = null;
+    try {
+      const r = el.getBoundingClientRect();
+      anchor = map.getProjection().coordsFromContainerPoint(
+        new kakao.maps.Point(e.clientX - r.left, e.clientY - r.top));
+    } catch (err) {}
+    map.setLevel(map.getLevel() + step, anchor ? { anchor } : undefined);
+  }, { passive:false });
+}
+
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 
