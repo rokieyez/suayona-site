@@ -219,6 +219,10 @@ async function loadWorks(){
     return;
   }
   works = data || [];
+  // 유튜브 작품이 하나도 없으면 「▶ 영상」 거르개는 숨긴다 —
+  // 연도가 한 해뿐이면 연도 단추가 숨는 것과 같은 규칙.
+  const ytBtn = document.querySelector('#filters [data-filter="youtube"]');
+  if (ytBtn) ytBtn.hidden = !works.some(w => w.media_type === 'youtube');
   buildYearFilter();
   render();
 }
@@ -831,7 +835,7 @@ function buildYearFilter(){
   const years = [...new Set(works.map(w => w.made_on && w.made_on.slice(0,4)).filter(Boolean))]
     .sort((a,b) => b.localeCompare(a));
   box.innerHTML = '<button class="dot-btn small' + (yearFilter === 'all' ? ' on' : '') +
-    '" data-year="all">전체 연도</button>' +
+    '" data-year="all">전체</button>' +
     years.map(y => '<button class="dot-btn small' + (yearFilter === y ? ' on' : '') +
       '" data-year="' + y + '">' + y + '</button>').join('') +
     '<a class="yearbook-link" id="yearbookLink" href="/year.html"></a>';
@@ -849,7 +853,7 @@ function syncYearbookLink(years){
   if (!a) return;
   const y = yearFilter !== 'all' ? yearFilter : (yearsCache[0] || '');
   a.href = '/year.html' + (y ? '?year=' + encodeURIComponent(y) : '');
-  a.textContent = '📖 ' + (y ? y + '년 ' : '') + '한 해 모아보기 →';
+  a.textContent = '📖 ' + (y ? y + '년 ' : '') + '모아보기 →';
 }
 $('#years').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-year]');
@@ -1009,6 +1013,20 @@ function renderAdminArea(){
   const tools = document.createElement('div');
   tools.style.cssText = 'display:flex; justify-content:center; gap:9px; flex-wrap:wrap; margin-bottom:18px;';
   area.appendChild(tools);
+
+  // 올리기 폼은 접어 둔다. 펼쳐 두었더니 화면 한 장(889px)을 통째로 먹어서,
+  // 작품을 보러 온 날에도 매번 폼부터 지나쳐야 했다. 올리는 날에만 편다.
+  const addToggle = document.createElement('button');
+  addToggle.className = 'dot-btn small primary';
+  addToggle.textContent = '＋ 새 작품 올리기';
+  addToggle.addEventListener('click', () => {
+    const open = box.style.display !== 'none';
+    box.style.display = open ? 'none' : '';
+    addToggle.textContent = open ? '＋ 새 작품 올리기' : '－ 접기';
+    if (!open) { $('#wTitle').focus(); box.scrollIntoView({ behavior:'smooth', block:'start' }); }
+  });
+  tools.appendChild(addToggle);
+
   showThumbTool(tools);
   showOtherThumbTool(tools);
   showCleanupTool(tools);
@@ -1029,6 +1047,7 @@ function renderAdminArea(){
 
   const box = document.createElement('div');
   box.className = 'add-box dot-card';
+  box.style.display = 'none';
   box.innerHTML =
     '<div class="inner">' +
       '<h3>＋ 새 작품 올리기</h3>' +
