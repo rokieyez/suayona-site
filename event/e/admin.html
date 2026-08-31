@@ -717,7 +717,7 @@ function renderEditForm(r){
     // 이미 올라간 사진들을 한 줄씩 보여주고, 장마다 삭제 체크박스를 붙임
     existing.map((sh, i) =>
       '<div class="ePhoto" data-idx="' + i + '" style="margin-bottom:8px;">' +
-        '<img class="item-img" src="' + escapeHTML(sh.url) + '">' +
+        '<img class="item-img" alt="첨부한 사진" src="' + escapeHTML(sh.url) + '">' +
         '<label style="display:flex; align-items:center; gap:6px; font-weight:400; margin-top:4px;">' +
           '<input type="checkbox" class="eDrop" style="width:auto;">이 사진 삭제</label>' +
       '</div>').join('') +
