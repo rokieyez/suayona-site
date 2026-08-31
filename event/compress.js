@@ -81,27 +81,9 @@ async function _reverseGeocode(lat, lng){
 // 직접 재 봤을 때 오픈스트리트맵은 여섯 곳 중 다섯 곳을 찾았고, 못 찾은 하나가
 // "부산 광안리 스타벅스" 처럼 같은 이름이 여럿인 가게였다. 카카오는 그쪽이 강하다.
 //
-// 아래 열쇠는 숨기는 값이 아니다. 카카오의 JavaScript 키는 페이지 소스에 그대로
-// 들어가라고 만든 것이고, 등록해 둔 도메인(www.suayona.com)이 아니면 동작하지 않는다.
-// 밖으로 나가면 안 되는 것은 REST API 키와 Admin 키 쪽이다 — 그 둘은 여기 없다.
+// 지도 꾸러미를 받아 오는 loadKakaoMaps 는 common.js 에 있다 — 이벤트 목록 페이지도
+// 같은 것을 쓰는데, 그쪽은 이 파일(사진 압축)을 부르지 않기 때문.
 // ---------------------------------------------------------------------------
-const KAKAO_JS_KEY = '4d0e9436c2a93d4222d355d33ce5045d';
-
-// 지도 꾸러미는 무겁다. 장소를 실제로 물어볼 때(관리 화면) 그때 한 번만 받아 온다.
-let _kakaoReady = null;
-function loadKakaoMaps(libs){
-  if (_kakaoReady) return _kakaoReady;
-  _kakaoReady = new Promise((resolve, reject) => {
-    if (window.kakao && window.kakao.maps && window.kakao.maps.services) return resolve(true);
-    const sc = document.createElement('script');
-    sc.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + KAKAO_JS_KEY +
-             '&libraries=' + (libs || 'services') + '&autoload=false';
-    sc.onload = () => window.kakao.maps.load(() => resolve(true));
-    sc.onerror = () => reject(new Error('카카오 지도를 불러오지 못했습니다'));
-    document.head.appendChild(sc);
-  });
-  return _kakaoReady;
-}
 
 // 카카오는 x 가 경도, y 가 위도이고 둘 다 문자열로 온다.
 function _kakaoAsk(fn, q){

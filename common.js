@@ -12,6 +12,35 @@ const IMAGE_LIMIT = 5 * 1024 * 1024;         // 기본 5MB — 일기장 사진
 const PORTFOLIO_IMAGE_LIMIT = 10 * 1024 * 1024;  // 작품은 화질이 중요해서 10MB
 const VIDEO_LIMIT = 100 * 1024 * 1024;
 
+// ---------------------------------------------------------------------------
+// 카카오 지도 불러오기
+//
+// 이 열쇠는 숨기는 값이 아니다. 카카오의 JavaScript 키는 페이지 소스에 그대로
+// 들어가라고 만든 것이고, 등록해 둔 도메인(www.suayona.com)이 아니면 동작하지 않는다.
+// 밖으로 나가면 안 되는 것은 REST API 키와 Admin 키 쪽이다 — 그 둘은 여기 없다.
+//
+// 꾸러미가 무거워서 미리 받지 않는다. 지도를 실제로 그릴 때(이벤트 목록의 지도 띠),
+// 장소를 실제로 물어볼 때(관리 화면) 그때 한 번만 받아 온다.
+// 서비스가 꺼져 있거나 도메인이 안 맞으면 여기서 실패하고, 부른 쪽이 조용히 접는다.
+// ---------------------------------------------------------------------------
+const KAKAO_JS_KEY = '4d0e9436c2a93d4222d355d33ce5045d';
+
+let _kakaoReady = null;
+function loadKakaoMaps(){
+  if (_kakaoReady) return _kakaoReady;
+  _kakaoReady = new Promise((resolve, reject) => {
+    if (window.kakao && window.kakao.maps && window.kakao.maps.services) return resolve(true);
+    const sc = document.createElement('script');
+    // 부르는 곳마다 꾸러미 목록이 다르면 주소가 갈려 두 번 받게 된다 — 늘 같은 주소로 부른다.
+    sc.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + KAKAO_JS_KEY +
+             '&libraries=services&autoload=false';
+    sc.onload = () => window.kakao.maps.load(() => resolve(true));
+    sc.onerror = () => reject(new Error('카카오 지도를 불러오지 못했습니다'));
+    document.head.appendChild(sc);
+  });
+  return _kakaoReady;
+}
+
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 

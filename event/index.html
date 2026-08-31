@@ -44,6 +44,41 @@
   h2{font-size:13px; font-weight:800; color:var(--ink-soft); margin:26px 0 12px; letter-spacing:.04em;
     padding-bottom:8px; border-bottom:var(--px) solid var(--ink);}
 
+  /* ===== 지도 띠 =====
+     이벤트마다 사진 한 장씩. 띠가 얇아 전국이 한 화면에 들어오는데, 그 크기에서는
+     한 여행에서 다닌 곳들이 서로 몇 km 안이라 장소마다 찍으면 사진이 통째로 포개진다.
+     장소를 아직 아무 데도 안 적었으면 이 띠는 아예 안 그려진다(hidden 인 채로 둔다). */
+  .band{position:relative; border:2px solid var(--ink); margin-bottom:26px;}
+  .band[hidden]{display:none;}
+  .band .map{height:190px; background:#dfe6e2;}
+  .band-label{
+    position:absolute; left:0; top:0; z-index:3; pointer-events:none;
+    background:var(--ink); color:var(--paper); font-size:11px; font-weight:800;
+    padding:4px 9px; letter-spacing:.03em;
+  }
+  .band .slide{
+    position:absolute; left:0; right:0; bottom:0; z-index:3;
+    background:var(--paper-card); border-top:2px solid var(--ink);
+    padding:9px 12px; font-size:12.5px; font-weight:700;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    transform:translateY(101%); transition:transform .2s ease;
+  }
+  .band .slide.open{transform:translateY(0);}
+  .band .slide > span{min-width:0;}
+  .band .slide a{color:var(--ink); font-size:11.5px; font-weight:800; white-space:nowrap;}
+  .band .slide .sub{display:block; font-size:11px; font-weight:600; color:var(--ink-soft);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  @media (prefers-reduced-motion: reduce){ .band .slide{transition:none;} }
+
+  /* 핀 — 그 자리에서 찍은 사진이 그대로 핀이 된다 */
+  .pin-photo{
+    width:44px; height:44px; border:var(--px) solid var(--ink); box-shadow:2px 2px 0 var(--ink);
+    background:var(--paper-card); overflow:hidden; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+  }
+  .pin-photo img{width:100%; height:100%; object-fit:cover; display:block;}
+  .pin-photo.on{outline:var(--px) solid var(--lemon);}
+
   .card{position:relative; padding:15px 16px; margin-bottom:12px; border-radius:0; background:var(--paper-card);
     border:2px solid var(--ink);
     transition:transform .1s steps(2), box-shadow .1s steps(2);}
@@ -137,6 +172,15 @@
 <div class="wrap">
   <h1>🗓️ 이벤트 목록</h1>
   <p class="lead">지금까지 열린 이벤트를 확인해보세요</p>
+
+  <div class="band" id="mapBand" hidden>
+    <span class="band-label">📍 다녀온 곳</span>
+    <div class="map" id="eventMap"></div>
+    <div class="slide" id="mapSlide">
+      <span id="slideText"></span>
+      <a href="#" id="slideLink">보러가기 →</a>
+    </div>
+  </div>
 
   <div id="content">
     <div id="logoutRow"><button id="logoutBtn">로그아웃</button></div>
@@ -258,6 +302,7 @@ async function fetchRegistryEvents(){
         eventName: r.event_name || '',
         dateRangeText: r.date_range_text || formatDateRangeText(startDate, endDate),
         startDate, endDate,
+        icon: r.icon || '📍',
         href: '/event/e/?slug=' + encodeURIComponent(r.event_id),
         isRegistry: true,
         isPublic: r.is_public !== false,
@@ -284,6 +329,93 @@ async function renderEvents(){
   currentList.innerHTML = current.length ? current.map(c => cardHTML(c.ev, c.status)).join('') : '<div class="empty">진행중이거나 예정된 이벤트가 없습니다</div>';
   $('#past-section').style.display = past.length ? 'block' : 'none';
   pastList.innerHTML = past.map(c => cardHTML(c.ev, c.status)).join('');
+
+  // 목록을 다 그린 뒤에 지도를 붙인다 — 지도가 늦어도 목록은 먼저 보이도록.
+  drawMapBand(allEvents);
+}
+
+/* =========================================================================
+   지도 띠
+   ------------------------------------------------------------------------
+   핀은 일정에 적어 둔 장소(events.place_lat/place_lng)에서 온다.
+   사진의 위치정보로는 못 만든다 — 올라와 있는 사진 중 좌표가 남은 것이 없다.
+   그래서 관리 화면에서 장소를 적은 일정이 하나도 없으면 띠는 안 나온다.
+   ========================================================================= */
+let mapBandDrawn = false;
+
+// 목록에 실제로 보이는 이벤트만 물어본다 — 비공개 이벤트의 위치가
+// 로그인 안 한 사람의 지도에 찍히면 안 되므로.
+async function fetchEventPlaces(slugs){
+  if (!slugs.length) return {};
+  const { data, error } = await sb.from('events')
+    .select('event_id, place_name, place_lat, place_lng, thumb_url, image_url')
+    .in('event_id', slugs)
+    .not('place_lat', 'is', null)
+    .order('panel', {ascending:true}).order('sort_order', {ascending:true});
+  if (error) { console.error('장소 로딩 오류:', error); return {}; }
+  const byEvent = {};
+  (data || []).forEach(r => {
+    if (!Number.isFinite(r.place_lat) || !Number.isFinite(r.place_lng)) return;
+    (byEvent[r.event_id] = byEvent[r.event_id] || []).push(r);
+  });
+  return byEvent;
+}
+
+async function drawMapBand(events){
+  if (mapBandDrawn) return;
+  const band = $('#mapBand');
+  const byEvent = await fetchEventPlaces(events.map(e => e.slug));
+  const shown = events.filter(e => byEvent[e.slug] && byEvent[e.slug].length);
+  if (!shown.length) return;                       // 적어 둔 장소가 없으면 띠를 안 그린다
+
+  // 여기서 실패하면(서비스가 꺼져 있거나 도메인이 안 맞으면) 조용히 접는다.
+  // 지도 하나 때문에 이벤트 목록이 안 보이면 안 되므로.
+  try { await loadKakaoMaps(); } catch (e) { console.warn('지도를 건너뜁니다:', e.message); return; }
+
+  mapBandDrawn = true;
+  band.hidden = false;
+  const map = new kakao.maps.Map($('#eventMap'), {
+    center: new kakao.maps.LatLng(36.5, 127.9), level: 13, scrollwheel: false,
+  });
+  const slide = $('#mapSlide');
+  const bounds = new kakao.maps.LatLngBounds();
+  const pins = [];
+
+  shown.forEach(ev => {
+    const rows = byEvent[ev.slug];
+    const lat = rows.reduce((a,r) => a + r.place_lat, 0) / rows.length;
+    const lng = rows.reduce((a,r) => a + r.place_lng, 0) / rows.length;
+    rows.forEach(r => bounds.extend(new kakao.maps.LatLng(r.place_lat, r.place_lng)));
+
+    // 그 장소에 붙여 둔 사진을 핀으로. 사진이 없는 일정이면 이벤트 아이콘으로 대신한다.
+    const shot = rows.map(r => r.thumb_url || r.image_url).find(Boolean);
+    const pin = document.createElement('div');
+    pin.className = 'pin-photo';
+    pin.innerHTML = shot ? '<img alt="" src="' + escapeHTML(shot) + '">' : (ev.icon || '📍');
+
+    pin.addEventListener('click', () => {
+      pins.forEach(p => p.classList.remove('on'));
+      pin.classList.add('on');
+      // 이름표는 한 줄로. 길어지면 띠를 다 덮어서 정작 사진이 안 보인다.
+      const names = rows.map(r => r.place_name).filter(Boolean);
+      const label = names.slice(0, 2).join(', ') +
+        (names.length > 2 ? ' 외 ' + (names.length - 2) + '곳' : '');
+      $('#slideText').innerHTML = escapeHTML(ev.eventName || ev.orgName) +
+        '<span class="sub">' + escapeHTML(label) + '</span>';
+      $('#slideLink').href = ev.href;
+      slide.classList.add('open');
+    });
+    pins.push(pin);
+
+    new kakao.maps.CustomOverlay({
+      map, position: new kakao.maps.LatLng(lat, lng), content: pin,
+      xAnchor: 0.5, yAnchor: 0.5, clickable: true, zIndex: 2,
+    });
+  });
+
+  // 아래쪽을 넉넉히 비워 둔다 — 이름표가 올라와도 사진이 가려지지 않게.
+  map.setBounds(bounds, 30, 30, 58, 30);
+  kakao.maps.event.addListener(map, 'click', () => slide.classList.remove('open'));
 }
 
 // ----- 이벤트 삭제 (2단계 확인: 🗑 클릭 → 인라인 확인 → 삭제 버튼 클릭) -----
