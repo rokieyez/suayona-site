@@ -372,3 +372,30 @@ alter table public.events add constraint events_place_name_length check (
 create index if not exists events_place_idx
   on public.events (event_id)
   where place_lat is not null and place_lng is not null;
+
+-- ---------------------------------------------------------------------------
+-- 편지는 부모만
+--
+-- 다른 표들을 my_role()='parent' 로 옮길 때 이 표만 빠져 있었다.
+-- 정책이 "auth.role() = 'authenticated'" 로 남아 있었는데, 그건 "로그인만 했으면
+-- 누구든" 이라는 뜻이다. 그래서 아이 계정(수아·연아)으로 편지가 다 보이고
+-- 지워졌다. 가입이 열려 있다면 낯선 사람이 계정 하나 만들어도 마찬가지였다.
+--
+-- 화면(contact.html)은 진작부터 isAdmin 일 때만 편지함을 그렸으므로
+-- 서버를 화면에 맞추는 것뿐이고, 없어지는 기능은 없다.
+--
+-- 확인(고친 뒤): 로그인 안 함 0통 · 아이 0통/삭제 0줄 · 부모 2통 · 보내기 그대로 됨.
+--
+-- insert 는 열어 둔다 — 편지쓰기는 로그인 없이 쓰는 기능이다.
+-- 길이 제한(messages_length)과 도배 방지(messages_flood_guard)가 대신 지킨다.
+-- ---------------------------------------------------------------------------
+drop policy if exists "authenticated can read messages"   on public.messages;
+drop policy if exists "authenticated can delete messages" on public.messages;
+
+create policy "parent can read messages"
+  on public.messages for select
+  using (public.my_role() = 'parent');
+
+create policy "parent can delete messages"
+  on public.messages for delete
+  using (public.my_role() = 'parent');
