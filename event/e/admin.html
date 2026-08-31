@@ -752,7 +752,7 @@ buildFormatBar($('#ctContent'), { fileInput: $('#ctImage') });
 
 // ----- 이미지 업로드 (Storage 'event-images' 버킷, 5MB로 자동 압축) -----
 // 사진 파일에는 아무것도 새기지 않고, EXIF 날짜/위치는 별도로 뽑아서 DB 컬럼에 저장함(화면 오버레이용)
-const IMAGE_COMPRESS_TARGET = 5 * 1024 * 1024;
+const IMAGE_COMPRESS_TARGET = 3 * 1024 * 1024;   // common.js 의 IMAGE_LIMIT 과 같은 기준
 async function uploadImageWithMeta(file){
   const meta = await extractPhotoMeta(file);
   const uploadFile = await compressImageToLimit(file, IMAGE_COMPRESS_TARGET);

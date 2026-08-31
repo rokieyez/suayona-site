@@ -18,8 +18,10 @@ const sb = supabase.createClient(SB_URL, SB_KEY);
 // 사진은 이 버킷에 올라감 (부모로 로그인했을 때만 쓸 수 있도록 정책이 걸려 있음)
 const MEDIA_BUCKET = 'event-images';        // 작품·일기·일정 사진, 목소리
 const GALLERY_BUCKET = 'gallery-uploads';   // 이벤트 갤러리에 올린 사진·영상
-// 사진은 이 용량을 넘을 때만 압축함 (넘지 않으면 원본 그대로 올라감)
-const IMAGE_LIMIT = 5 * 1024 * 1024;         // 기본 5MB — 일기장 사진
+// 사진은 이 용량을 넘을 때만 압축함 (넘지 않으면 원본 그대로 올라감).
+// 3MB 로 잡아 두면 요즘 휴대폰 사진(보통 4~5MB)이 거의 다 걸려서 긴 변 2400px 로
+// 줄어든다. 화면에서는 차이가 안 보이는데 무료 저장공간(1GB)은 두 배 넘게 간다.
+const IMAGE_LIMIT = 3 * 1024 * 1024;         // 갤러리·일기장 사진
 const PORTFOLIO_IMAGE_LIMIT = 10 * 1024 * 1024;  // 작품은 화질이 중요해서 10MB
 const VIDEO_LIMIT = 100 * 1024 * 1024;
 
