@@ -830,18 +830,34 @@ $('#filters').addEventListener('click', (e) => {
 });
 
 // 연도 버튼은 실제로 있는 연도만 만든다 — 빈 연도를 눌러 아무것도 안 나오는 일이 없게
+//
+// 그리고 최근 몇 해만 단추로 둔다. 평소에 보는 건 최근 한두 해고, 옛날 연도는
+// 작정하고 찾아 들어가는 것이라 클릭 한 번을 더 받아도 된다 — 단추 열몇 개를
+// 매일 보는 화면에 늘어놓는 것보다는. 5개까지는 지금처럼 다 보인다.
+const RECENT_YEARS = 4;
+let yearsOpen = false;
 function buildYearFilter(){
   const box = $('#years');
   const years = [...new Set(works.map(w => w.made_on && w.made_on.slice(0,4)).filter(Boolean))]
     .sort((a,b) => b.localeCompare(a));
+  const foldable = years.length > RECENT_YEARS + 1;
+  // 접혀 있어도 지금 고른 연도는 보여야 한다 — 켜진 단추가 숨으면 뭘 보고 있는지 모른다
+  const shown = (foldable && !yearsOpen)
+    ? years.filter((y, i) => i < RECENT_YEARS || y === yearFilter)
+    : years;
   box.innerHTML = '<button class="dot-btn small' + (yearFilter === 'all' ? ' on' : '') +
     '" data-year="all">전체</button>' +
-    years.map(y => '<button class="dot-btn small' + (yearFilter === y ? ' on' : '') +
+    shown.map(y => '<button class="dot-btn small' + (yearFilter === y ? ' on' : '') +
       '" data-year="' + y + '">' + y + '</button>').join('') +
+    (foldable
+      ? '<button class="dot-btn small" id="yearsMore">' + (yearsOpen ? '접기 ▴' : '그전 ▾') + '</button>'
+      : '') +
     '<a class="yearbook-link" id="yearbookLink" href="/year.html"></a>';
   // 연도가 하나뿐이라 버튼 줄을 감추더라도 문집 입구는 남겨야 한다
   box.style.display = '';
   box.querySelectorAll('[data-year]').forEach(b => { b.hidden = years.length <= 1; });
+  const more = box.querySelector('#yearsMore');
+  if (more) more.addEventListener('click', () => { yearsOpen = !yearsOpen; buildYearFilter(); });
   syncYearbookLink(years);
 }
 

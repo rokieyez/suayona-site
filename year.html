@@ -148,6 +148,7 @@ buildBackdrop('year');
 const AUTHORS = { sua:'수아', yona:'연아', together:'같이' };
 let allWorks = [], allPosts = [], allEvents = [], allBest = [];
 let year = null, who = 'all';
+let allYears = [], yearsOpen = false;
 
 const yearOf = d => d ? String(d).slice(0, 4) : null;
 
@@ -185,11 +186,28 @@ async function loadAll(){
   const wantWho = q.get('who');
   if (AUTHORS[wantWho] || wantWho === 'all') who = wantWho;
 
-  $('#yearPick').innerHTML = years.map(y =>
-    '<button class="dot-btn small' + (y === year ? ' on' : '') + '" data-year="' + y + '">' +
-    y + '년</button>').join('');
+  allYears = years;
+  buildYearPick();
   $$('#whoPick .dot-btn').forEach(x => x.classList.toggle('on', x.dataset.who === who));
   render();
+}
+
+// 포트폴리오의 연도 줄과 같은 규칙: 최근 몇 해만 단추로 두고 나머지는 접는다.
+// 5개까지는 다 보이고, 접혀 있어도 지금 보는 해는 반드시 보인다.
+const RECENT_YEARS = 4;
+function buildYearPick(){
+  const foldable = allYears.length > RECENT_YEARS + 1;
+  const shown = (foldable && !yearsOpen)
+    ? allYears.filter((y, i) => i < RECENT_YEARS || y === year)
+    : allYears;
+  $('#yearPick').innerHTML = shown.map(y =>
+    '<button class="dot-btn small' + (y === year ? ' on' : '') + '" data-year="' + y + '">' +
+    y + '년</button>').join('') +
+    (foldable
+      ? '<button class="dot-btn small" id="yearsMore">' + (yearsOpen ? '접기 ▴' : '그전 ▾') + '</button>'
+      : '');
+  const more = $('#yearsMore');
+  if (more) more.addEventListener('click', () => { yearsOpen = !yearsOpen; buildYearPick(); });
 }
 
 // 지금 보고 있는 해와 아이를 주소에 남긴다 — 주소창을 그대로 보내면 같은 화면이 열린다
