@@ -174,6 +174,8 @@ create policy schedules_write on schedules
 -- ---------------------------------------------------------------------------
 alter table works         add column if not exists thumb_url text;
 alter table gallery_media add column if not exists thumb_url text;
+-- 베스트 컷(★). 부모가 갤러리에서 표시하고, 「N년 전 오늘」과 연도 모아보기가 우선해서 쓴다.
+alter table gallery_media add column if not exists is_best boolean not null default false;
 
 -- ---------------------------------------------------------------------------
 -- 갤러리에 누구나 올릴 수 있던 구멍 막기

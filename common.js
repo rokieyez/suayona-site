@@ -877,6 +877,7 @@ function createLightbox(){
   lb.className = 'lightbox';
   lb.innerHTML =
     '<button class="dot-btn small lightbox-close" aria-label="닫기">✕ 닫기</button>' +
+    '<button class="dot-btn small lightbox-play" aria-label="슬라이드쇼">▶ 슬라이드쇼</button>' +
     '<button class="lightbox-nav prev" aria-label="이전">‹</button>' +
     '<button class="lightbox-nav next" aria-label="다음">›</button>' +
     '<img id="lbImg" alt=""><video id="lbVid" controls playsinline style="display:none;"></video>' +
@@ -887,6 +888,40 @@ function createLightbox(){
   const img = lb.querySelector('#lbImg'), vid = lb.querySelector('#lbVid');
   const cap = lb.querySelector('#lbCap');
   const prev = lb.querySelector('.prev'), next = lb.querySelector('.next');
+  const playBtn = lb.querySelector('.lightbox-play');
+
+  // ----- 슬라이드쇼 -----
+  // 소파에서 다 같이 볼 때 사진 백 장을 손가락으로 넘기지 않아도 되게.
+  // 사진은 4초씩, 영상은 끝까지 틀고 나서 넘어간다. 한 바퀴 돌면 처음부터 다시 —
+  // 멈추는 건 보는 사람 몫이다(✕ 나 ⏸).
+  const SHOW_MS = 4000;
+  let playing = false, showTimer = null;
+  function queueNext(){
+    clearTimeout(showTimer);
+    if (!playing) return;
+    const it = items[idx];
+    if (it && it.media_type === 'video') {
+      vid.onended = () => { vid.onended = null; if (playing) go(1); };
+      vid.play().catch(() => {          // 자동재생이 막히면 영상도 사진처럼 시간으로 넘긴다
+        showTimer = setTimeout(() => { if (playing) go(1); }, SHOW_MS);
+      });
+    } else {
+      showTimer = setTimeout(() => { if (playing) go(1); }, SHOW_MS);
+    }
+  }
+  function stopShow(){
+    playing = false;
+    clearTimeout(showTimer);
+    vid.onended = null;
+    playBtn.textContent = '▶ 슬라이드쇼';
+  }
+  playBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (playing) { stopShow(); return; }
+    playing = true;
+    playBtn.textContent = '⏸ 멈추기';
+    queueNext();
+  });
 
   function render(){
     const it = items[idx];
@@ -902,7 +937,9 @@ function createLightbox(){
     cap.textContent = (it.caption || '') + pos;
     const multi = items.length > 1;
     prev.hidden = !multi; next.hidden = !multi;
+    playBtn.hidden = !multi;              // 한 장짜리에 슬라이드쇼는 우스우니까
     lb.scrollTop = 0;   // 사진을 넘길 때마다 맨 위부터 보이게
+    queueNext();                          // 슬라이드쇼 중이면 다음 장을 예약
   }
   function open(list, i){
     items = list; idx = i;
@@ -912,6 +949,7 @@ function createLightbox(){
     render();
   }
   function close(){
+    stopShow();
     lb.classList.remove('open');
     document.body.classList.remove('lb-open');
     document.body.style.overflow = '';

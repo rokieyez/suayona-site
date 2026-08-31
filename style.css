@@ -424,3 +424,8 @@ body.has-backdrop .admin-bar{color:var(--ink-bg-safe);}
   pointer-events:none;
 }
 .note-video{margin:14px 0;}
+
+/* 슬라이드쇼 단추 — 닫기 옆에 나란히 */
+.lightbox-play{position:fixed; top:16px; right:110px; z-index:101;}
+.lightbox-play[hidden]{display:none;}
+@media (max-width:560px){ .lightbox-play{top:10px; right:104px;} }

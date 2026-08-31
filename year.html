@@ -40,6 +40,11 @@
   .sum .k{font-size:12.5px; font-weight:800; margin-top:3px;}
 
   .yr-section{margin-bottom:38px;}
+  /* 베스트 컷 — 설명 없이 사진만. 이야기는 눌러 들어간 이벤트가 한다 */
+  .yr-shots{display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;}
+  .yr-shot{display:block; border:var(--px) solid var(--ink); background:#1b1714; overflow:hidden;}
+  .yr-shot img{width:100%; aspect-ratio:1; object-fit:cover; display:block;}
+  @media (max-width:560px){ .yr-shots{grid-template-columns:repeat(2, 1fr); gap:8px;} }
   .yr-section > h3{
     margin:0 0 14px; font-size:17px; font-weight:900;
     border-bottom:var(--px) solid var(--ink); padding-bottom:8px;
@@ -95,6 +100,7 @@
     .wrap{max-width:none; padding:0;}
     .dot-card, .yr-work, .yr-post, .yr-event, .sum .box{box-shadow:none !important;}
     .yr-works{grid-template-columns:repeat(3,1fr); gap:10px;}
+    .yr-shots{grid-template-columns:repeat(3,1fr); gap:8px;}
     .yr-section{break-inside:auto;}
     .yr-section > h3{break-after:avoid;}
     a{text-decoration:none; color:#000;}
@@ -140,20 +146,28 @@ buildChrome('year');
 buildBackdrop('year');
 
 const AUTHORS = { sua:'수아', yona:'연아', together:'같이' };
-let allWorks = [], allPosts = [], allEvents = [];
+let allWorks = [], allPosts = [], allEvents = [], allBest = [];
 let year = null, who = 'all';
 
 const yearOf = d => d ? String(d).slice(0, 4) : null;
 
 async function loadAll(){
-  const [w, p, e] = await Promise.all([
+  const [w, p, e, b] = await Promise.all([
     sb.from('works').select('*').order('made_on', { ascending:true, nullsFirst:false }),
     sb.from('posts').select('*').order('created_at', { ascending:true }),
     sb.from('event_meta').select('*').order('start_date', { ascending:true }),
+    // 갤러리에서 ★ 찍어 둔 사진만. 전부 실으면 여행마다 백 장씩이라
+    // 모아보기가 모아보기가 아니게 된다 — 고른 것만이 한 해의 얼굴이다.
+    sb.from('gallery_media').select('media_url, thumb_url, taken_at, event_id')
+      .eq('is_best', true).eq('media_type', 'image')
+      .order('taken_at', { ascending:true }),
   ]);
   allWorks  = w.data || [];
   allPosts  = p.data || [];
   allEvents = (e.data || []).filter(x => x.is_public !== false || isAdmin);
+  // 볼 수 있는 이벤트의 사진만 — 비공개 이벤트가 여기로 새면 안 된다
+  const okEvents = new Set(allEvents.map(x => x.event_id));
+  allBest = (b.data || []).filter(x => okEvents.has(x.event_id));
 
   // 연도 목록은 실제로 자료가 있는 해만 — 빈 해를 눌러 허탕치지 않게
   const years = [...new Set([
@@ -193,11 +207,12 @@ function pick(){
     posts:  allPosts.filter(x => yearOf(x.happened_on || x.created_at) === year && okWho(x.author)
                                  && x.status !== 'pending'),
     events: allEvents.filter(x => yearOf(x.start_date) === year),
+    best:   allBest.filter(x => yearOf(x.taken_at) === year),
   };
 }
 
 function render(){
-  const { works, posts, events } = pick();
+  const { works, posts, events, best } = pick();
   const whoLabel = who === 'all' ? '수아와 연아' : AUTHORS[who];
 
   $('#printTitle').innerHTML =
@@ -243,6 +258,18 @@ function render(){
     '</div>').join('')
     : '<div class="yr-empty">이 해에 쓴 일기가 없어요.</div>';
   html += '</div>';
+
+  // 베스트 컷 — ★ 를 하나도 안 찍은 해에는 구간째 안 나온다
+  if (best.length) {
+    const names = new Map(allEvents.map(e =>
+      [e.event_id, [e.org_name, e.event_name].filter(Boolean).join(' · ') || e.event_id]));
+    html += '<div class="yr-section"><h3>📷 베스트 컷</h3><div class="yr-shots">' +
+      best.map(s2 =>
+        '<a class="yr-shot" href="/event/e/?slug=' + encodeURIComponent(s2.event_id) + '&tab=gallery"' +
+          ' title="' + escapeHTML(names.get(s2.event_id) || '') + '">' +
+          '<img src="' + escapeHTML(s2.thumb_url || s2.media_url) + '" loading="lazy" alt="">' +
+        '</a>').join('') + '</div></div>';
+  }
 
   // 일정
   html += '<div class="yr-section"><h3>📅 함께한 날</h3>';

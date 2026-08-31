@@ -345,6 +345,15 @@
   .gallery-del{position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:0;
     border:2px solid var(--ink); background:var(--accent); color:var(--ink);
     font-size:12px; line-height:1; text-align:center; cursor:pointer; z-index:2; font-weight:800;}
+  /* 베스트 컷 ★ — 지우기(오른쪽)와 반대편에 둔다 */
+  .gallery-star{position:absolute; top:4px; left:4px; width:22px; height:22px; border-radius:0;
+    border:2px solid var(--ink); background:var(--paper); color:var(--ink-soft);
+    font-size:12px; line-height:1; text-align:center; cursor:pointer; z-index:2; font-weight:800; padding:0;}
+  .gallery-star.on{background:var(--lemon); color:var(--ink);}
+  /* 손님에게는 단추가 아니라 표시만 */
+  .gallery-star.mark{pointer-events:none; background:var(--lemon); color:var(--ink);
+    display:flex; align-items:center; justify-content:center;}
+  .gallery-thumb.best{outline:2px solid var(--lemon); outline-offset:-2px;}
 
   /* ===== 라이트박스 — 포트폴리오와 같은 모양 =====
      사진을 화면 가로에 꽉 채우고, 세로로 긴 사진은 웹툰처럼 스크롤해서 봄 */
@@ -375,10 +384,13 @@
     box-shadow:var(--px) var(--px) 0 var(--ink); font-family:inherit;
   }
   .lightbox-close:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
+  .lightbox-play{right:auto; left:16px;}     /* 닫기(오른쪽)와 반대편 */
+  .lightbox-play[hidden]{display:none;}
   @media (max-width:520px){
     .lightbox-nav{width:38px; height:38px; font-size:19px;}
     .lightbox-nav.prev{left:6px;} .lightbox-nav.next{right:6px;}
     .lightbox-close{top:10px; right:10px;}
+    .lightbox-play{right:auto; left:10px;}
   }
 
   .empty-msg{text-align:center; padding:40px 10px; color:var(--ink-soft); font-size:13px;}
@@ -424,6 +436,7 @@
 
 <div class="lightbox" id="lightbox">
   <button class="lightbox-close" id="lightboxClose" aria-label="닫기">✕ 닫기</button>
+  <button class="lightbox-close lightbox-play" id="lightboxPlay" aria-label="슬라이드쇼">▶ 슬라이드쇼</button>
   <button class="lightbox-nav prev" id="lightboxPrev" aria-label="이전 사진">‹</button>
   <img id="lightboxImg" src="" alt="" style="display:none;">
   <video id="lightboxVideo" controls style="display:none;"></video>
@@ -1043,7 +1056,7 @@ async function loadGallery(){
   const fromGallery = (galleryRes.data || []).map(r => ({
     id: r.id, media_url: r.media_url, thumb_url: r.thumb_url || null,
     media_type: r.media_type, created_at: r.created_at, source: 'gallery',
-    taken_at: r.taken_at, location_name: r.location_name,
+    taken_at: r.taken_at, location_name: r.location_name, is_best: !!r.is_best,
   }));
   // 일정 하나에 사진이 여러 장이면 전부 갤러리에 넣음. 추가 사진은 id 에 순번을 붙여 구분.
   const fromEvents = (eventsRes.data || []).flatMap(r => {
@@ -1081,6 +1094,35 @@ function renderGalleryThumb(r, index){
     // 손톱만 한 칸이다. 사본이 있으면 원본을 받지 않는다.
     : '<img src="' + (r.thumb_url || r.media_url) + '" loading="lazy" alt="">';
   thumb.addEventListener('click', () => openLightbox(index));
+
+  // 베스트 컷 — 표시는 모두에게 보이고, 고르는 것은 부모만.
+  // 일정에 붙은 사진(source==='event')은 gallery_media 에 줄이 없어서 못 고른다.
+  if (r.is_best) thumb.classList.add('best');
+  if (isAdmin && r.source === 'gallery') {
+    const star = document.createElement('button');
+    star.className = 'gallery-star' + (r.is_best ? ' on' : '');
+    star.textContent = r.is_best ? '★' : '☆';
+    star.title = r.is_best ? '베스트에서 빼기' : '베스트 컷으로';
+    star.addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      const want = !r.is_best;
+      star.disabled = true;
+      const { error } = await sb.from('gallery_media').update({ is_best: want }).eq('id', r.id);
+      star.disabled = false;
+      if (error) { alert('저장 실패: ' + error.message); return; }
+      r.is_best = want;
+      star.textContent = want ? '★' : '☆';
+      star.classList.toggle('on', want);
+      star.title = want ? '베스트에서 빼기' : '베스트 컷으로';
+      thumb.classList.toggle('best', want);
+    });
+    thumb.appendChild(star);
+  } else if (r.is_best) {
+    const mark = document.createElement('span');
+    mark.className = 'gallery-star mark';
+    mark.textContent = '★';
+    thumb.appendChild(mark);
+  }
 
   if (isAdmin && r.source === 'gallery') {
     const del = document.createElement('button');
@@ -1606,6 +1648,9 @@ function renderLightboxAt(index){
   const multi = galleryItems.length > 1;
   lightboxPrevBtn.hidden = !multi;
   lightboxNextBtn.hidden = !multi;
+  const play = $('#lightboxPlay');
+  if (play) play.hidden = !multi;      // 한 장짜리에 슬라이드쇼는 우습다
+  queueSlide();                        // 슬라이드쇼 중이면 다음 장을 예약
 }
 
 function openLightbox(index){
@@ -1613,10 +1658,38 @@ function openLightbox(index){
   $('#lightbox').classList.add('open');
 }
 function closeLightbox(){
+  stopSlideshow();
   $('#lightbox').classList.remove('open');
   const img = $('#lightboxImg'), vid = $('#lightboxVideo');
   img.src = ''; vid.pause(); vid.src = '';
   resetManualZoom();
+}
+
+// ----- 슬라이드쇼 -----
+// 여행 하나에 사진이 백 장 가까이 쌓인다. 소파에서 다 같이 볼 때
+// 백 번 넘기지 않아도 되게. 사진은 4초씩, 영상은 끝나면 넘어간다.
+const SLIDESHOW_MS = 4000;
+let slideshowOn = false, slideshowTimer = null;
+function queueSlide(){
+  clearTimeout(slideshowTimer);
+  if (!slideshowOn) return;
+  const it = galleryItems[lightboxIndex];
+  const vid = $('#lightboxVideo');
+  if (it && it.media_type === 'video') {
+    vid.onended = () => { vid.onended = null; if (slideshowOn) showNextMedia(); };
+    vid.play().catch(() => {     // 자동재생이 막히면 영상도 사진처럼 시간으로 넘긴다
+      slideshowTimer = setTimeout(() => { if (slideshowOn) showNextMedia(); }, SLIDESHOW_MS);
+    });
+  } else {
+    slideshowTimer = setTimeout(() => { if (slideshowOn) showNextMedia(); }, SLIDESHOW_MS);
+  }
+}
+function stopSlideshow(){
+  slideshowOn = false;
+  clearTimeout(slideshowTimer);
+  $('#lightboxVideo').onended = null;
+  const b = $('#lightboxPlay');
+  if (b) b.textContent = '▶ 슬라이드쇼';
 }
 function showPrevMedia(){ resetManualZoom(); renderLightboxAt((lightboxIndex - 1 + galleryItems.length) % galleryItems.length); }
 function showNextMedia(){ resetManualZoom(); renderLightboxAt((lightboxIndex + 1) % galleryItems.length); }
@@ -1651,6 +1724,13 @@ function setupLightboxInteractions(){
   lightboxPrevBtn = $('#lightboxPrev'); lightboxNextBtn = $('#lightboxNext');
   $('#lightbox').addEventListener('click', (e) => { if (e.target.id === 'lightbox') closeLightbox(); });
   $('#lightboxClose').addEventListener('click', (e) => { e.stopPropagation(); closeLightbox(); });
+  $('#lightboxPlay').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (slideshowOn) { stopSlideshow(); return; }
+    slideshowOn = true;
+    $('#lightboxPlay').textContent = '⏸ 멈추기';
+    queueSlide();
+  });
   lightboxPrevBtn.addEventListener('click', (e) => { e.stopPropagation(); showPrevMedia(); });
   lightboxNextBtn.addEventListener('click', (e) => { e.stopPropagation(); showNextMedia(); });
 
