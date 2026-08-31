@@ -48,21 +48,53 @@ node tools/backup.mjs /Volumes/외장하드/수아랑연아랑-백업
 홈페이지를 처음부터 다시 세우게 되면 계정은 새로 만들고, `profiles.json` 을 보고
 누가 어떤 역할이었는지 다시 이어 주면 됩니다.
 
-## 자동으로 돌리고 싶다면
+## 주마다 알아서 받게 하기
 
-`SUAYONA_EMAIL` 과 `SUAYONA_PASSWORD` 가 있으면 아무것도 묻지 않습니다.
-다만 비밀번호를 파일에 적어 두는 건 권하지 않습니다. 맥의 키체인에서 꺼내 쓰는 편이
-안전합니다:
+이미 걸려 있습니다. **일요일 밤 9시**에 맥이 알아서 받습니다.
+맥이 꺼져 있었으면 다음에 켰을 때 한 번 돕니다.
+
+### 처음 한 번만 (직접)
+
+로그인 정보를 키체인에 넣어 둡니다. 비밀번호는 물어보기만 하고 화면에 안 보입니다.
 
 ```bash
-# 한 번만: 키체인에 넣어 두기
-security add-generic-password -a suayona -s suayona-backup -w
-
-# 그 뒤로는 이렇게
-SUAYONA_EMAIL=(이메일) \
-SUAYONA_PASSWORD="$(security find-generic-password -a suayona -s suayona-backup -w)" \
-node tools/backup.mjs
+security add-generic-password -a "이메일주소" -s suayona-backup -w
 ```
+
+그다음 아래를 한 번 손으로 돌려 주세요. 키체인이 "쓰게 해줄까요?" 하고 물으면
+**항상 허용**을 누릅니다. 이걸 안 해두면 밤에 혼자 돌 때 그 창에서 멈춥니다.
+
+```bash
+tools/backup-weekly.sh
+```
+
+이메일은 여기 적어 두지 않고 키체인의 '계정' 칸에서 꺼내 씁니다 —
+이 폴더는 홈페이지와 함께 인터넷에 올라가는 곳이라서요.
+
+### 잘 되고 있나 보기
+
+```bash
+tail -40 ~/Library/Logs/suayona-backup.log
+```
+
+무슨 일이 있었는지 날짜와 함께 남습니다. 실패했으면 왜 실패했는지도 적힙니다.
+
+### 지금 당장 한 번 돌려보기
+
+```bash
+launchctl kickstart -p gui/$UID/com.suayona.backup
+```
+
+### 끄기 / 다시 켜기
+
+```bash
+launchctl bootout gui/$UID/com.suayona.backup                              # 끄기
+launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.suayona.backup.plist   # 켜기
+```
+
+**홈페이지 폴더를 옮기면 끊깁니다.** 옮기셨다면 위의 끄기/켜기를 다시 하시고,
+`~/Library/LaunchAgents/com.suayona.backup.plist` 안의 경로도 새 자리로 고쳐야 합니다.
+(그냥 두면 기록에 "백업 도구가 없습니다" 라고 남습니다 — 조용히 안 되는 일은 없습니다.)
 
 ## 이 폴더는 홈페이지가 아닙니다
 
