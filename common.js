@@ -956,20 +956,37 @@ function createLightbox(){
     lb.scrollTop = 0;   // 사진을 넘길 때마다 맨 위부터 보이게
     queueNext();                          // 슬라이드쇼 중이면 다음 장을 예약
   }
+  // 사진을 크게 띄우면 뒤로가기 자리를 하나 만들어 둔다. 손전화에서 창을 닫는
+  // 몸짓이 곧 뒤로가기라, 그냥 두면 사진 한 장 닫으려다 페이지를 떠나게 된다.
+  let pushed = false;
+
   function open(list, i){
     items = list; idx = i;
+    if (!pushed) { history.pushState({ lb:true }, ''); pushed = true; }
     lb.classList.add('open');
     document.body.classList.add('lb-open');   // 헤더를 잠시 숨김
     document.body.style.overflow = 'hidden';
     render();
   }
-  function close(){
+  // 화면만 정리한다. 뒤로가기 자리는 부르는 쪽이 맡는다.
+  function closeView(){
     stopShow();
     lb.classList.remove('open');
     document.body.classList.remove('lb-open');
     document.body.style.overflow = '';
     vid.pause();
   }
+  // ✕ · ESC · 바깥 누르기 — 뒤로가기와 같은 길로 닫는다.
+  // 그래야 열고 닫을 때마다 자리가 쌓여 뒤로를 여러 번 눌러야 하는 일이 없다.
+  function close(){
+    if (!lb.classList.contains('open')) return;
+    if (pushed) { history.back(); return; }   // 아래 popstate 가 받아서 닫는다
+    closeView();
+  }
+  window.addEventListener('popstate', () => {
+    pushed = false;
+    if (lb.classList.contains('open')) closeView();
+  });
   function go(d){ idx = (idx + d + items.length) % items.length; render(); }
 
   lb.addEventListener('click', e => { if (e.target === lb) close(); });

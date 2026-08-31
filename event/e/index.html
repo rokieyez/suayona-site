@@ -1658,17 +1658,34 @@ function renderLightboxAt(index){
   queueSlide();                        // 슬라이드쇼 중이면 다음 장을 예약
 }
 
+// 사진을 크게 띄우면 뒤로가기 자리를 하나 만들어 둔다. 손전화에서 창을 닫는
+// 몸짓이 곧 뒤로가기라, 그냥 두면 사진 한 장 닫으려다 이벤트를 통째로 나가게 된다.
+let lbPushed = false;
+
 function openLightbox(index){
   renderLightboxAt(index);
+  if (!lbPushed) { history.pushState({ lb:true }, ''); lbPushed = true; }
   $('#lightbox').classList.add('open');
 }
-function closeLightbox(){
+// 화면만 정리한다. 뒤로가기 자리는 부르는 쪽이 맡는다.
+function closeLightboxView(){
   stopSlideshow();
   $('#lightbox').classList.remove('open');
   const img = $('#lightboxImg'), vid = $('#lightboxVideo');
   img.src = ''; vid.pause(); vid.src = '';
   resetManualZoom();
 }
+// ✕ · ESC · 바깥 누르기 — 뒤로가기와 같은 길로 닫는다.
+// 그래야 열고 닫을 때마다 자리가 쌓여 뒤로를 여러 번 눌러야 하는 일이 없다.
+function closeLightbox(){
+  if (!$('#lightbox').classList.contains('open')) return;
+  if (lbPushed) { history.back(); return; }   // 아래 popstate 가 받아서 닫는다
+  closeLightboxView();
+}
+window.addEventListener('popstate', () => {
+  lbPushed = false;
+  if ($('#lightbox').classList.contains('open')) closeLightboxView();
+});
 
 // ----- 슬라이드쇼 -----
 // 여행 하나에 사진이 백 장 가까이 쌓인다. 소파에서 다 같이 볼 때
