@@ -648,12 +648,49 @@ function youtubeThumbHTML(id, alt, cls){
 
 // 재생기. 쿠키를 안 심는 주소로 띄우고, 목록에서는 안 부른다 —
 // 영상마다 재생기를 미리 얹으면 페이지가 눈에 띄게 무거워진다.
-function youtubeEmbedHTML(id, title){
-  return '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0"' +
+function youtubeEmbedHTML(id, title, autoplay){
+  return '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0' +
+    (autoplay ? '&autoplay=1' : '') + '"' +
     ' title="' + escapeHTML(title || '영상') + '" loading="lazy" allowfullscreen' +
     ' allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share"' +
     ' referrerpolicy="strict-origin-when-cross-origin"></iframe>';
 }
+
+// 글 안에 홀로 놓인 유튜브 주소를 찾아낸다.
+// 한 줄을 통째로 차지하고 있을 때만 "이걸 보여 달라"는 뜻으로 읽는다.
+// 문장 속에 섞인 주소는 그냥 둔다 — "이 주소 참고하세요" 같은 줄이
+// 갑자기 커다란 영상 칸으로 부풀면 곤란하다.
+function pullYoutubeLines(text){
+  const ids = [], rest = [];
+  String(text || '').replace(/\r\n/g, '\n').split('\n').forEach(line => {
+    const one = line.trim();
+    const id = (one && !/\s/.test(one)) ? youtubeId(one) : '';
+    if (id) { if (!ids.includes(id)) ids.push(id); }
+    else rest.push(line);
+  });
+  return { ids, text: rest.join('\n').replace(/\n{3,}/g, '\n\n').trim() };
+}
+
+// 미리보기 그림만 놓고, 누르면 그 자리에서 재생기로 바뀐다.
+// 하루에 영상이 여럿 붙는 날도 있어서, 미리 다 얹어 두면 그 날짜 탭이 눈에 띄게 무겁다.
+function youtubeCardHTML(id, label){
+  return '<button type="button" class="yt-card" data-yt="' + escapeHTML(id) + '" aria-label="영상 재생">' +
+    youtubeThumbHTML(id, label || '영상') +
+    '<span class="yt-play"></span><span class="yt-mark">▶ 영상</span>' +
+    '</button>';
+}
+
+// 영상 칸은 어느 페이지에서 나오든 같은 방식으로 열린다.
+// 페이지마다 따로 걸면 새 자리를 만들 때 빼먹기 쉬워서 문서에 한 번만 건다.
+document.addEventListener('click', e => {
+  const card = e.target.closest && e.target.closest('.yt-card');
+  if (!card || !card.dataset.yt) return;
+  e.preventDefault();
+  const box = document.createElement('div');
+  box.className = 'yt-frame';
+  box.innerHTML = youtubeEmbedHTML(card.dataset.yt, '영상', true);
+  card.replaceWith(box);
+});
 
 // 제목과 채널 이름을 물어본다. 없는 영상·비공개 영상이면 400 을 주므로
 // 저장하기 전에 걸러낼 수 있다. 그물이 끊겨 못 물어본 것과 구분해서 돌려준다.
@@ -995,6 +1032,13 @@ function renderNoteContent(text){
     if (line.startsWith('### ')) { flush(); parts.push('<h5 class="note-minorheading">' + inlineFmt(line.slice(4)) + '</h5>'); return; }
     if (line.startsWith('## '))  { flush(); parts.push('<h4 class="note-subheading">' + inlineFmt(line.slice(3)) + '</h4>'); return; }
     if (line.startsWith('# '))   { flush(); parts.push('<h3 class="note-heading">' + inlineFmt(line.slice(2)) + '</h3>'); return; }
+
+    // 유튜브 주소가 한 줄을 통째로 차지하고 있으면 영상 칸으로 바꾼다.
+    // 바로 아래 사진 규칙과 같은 자리, 같은 방식이다.
+    if (!/\s/.test(line)) {
+      const yt = youtubeId(line);
+      if (yt) { flush(); parts.push('<div class="note-video">' + youtubeCardHTML(yt) + '</div>'); return; }
+    }
 
     const img = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/);
     if (img) {
