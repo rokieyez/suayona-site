@@ -1,5 +1,16 @@
 // 모든 페이지가 함께 쓰는 공통 코드 — 헤더/푸터, 로그인, 이미지 업로드, 스크롤 효과.
 
+// 들어올 때 주소 뒤에 붙어 있던 것을 그대로 적어 둔다.
+// supabase-js 는 클라이언트를 만드는 순간 주소 뒤(#access_token=... 또는 #error=...)를
+// 읽고 지워 버린다. 그래서 그 뒤에 보면 이미 없다 — 지워지기 전에 챙겨 둬야 한다.
+const INITIAL_HASH = location.hash;
+
+// 비밀번호 재설정 메일의 링크는 Supabase 에 적어 둔 Site URL 로 떨어진다.
+// 그게 어느 페이지든(대개 첫 화면) 비밀번호 바꾸는 화면으로 옮겨 준다.
+if (/[#&]type=recovery/.test(INITIAL_HASH) && !/\/reset\.html$/.test(location.pathname)) {
+  location.replace('/reset.html' + INITIAL_HASH);
+}
+
 const SB_URL = 'https://ifiemaypzjwdrljmmkgb.supabase.co';
 const SB_KEY = 'sb_publishable_uhn46d4RFI5DeIUjtz3IRA_U9X8iPZj';
 const sb = supabase.createClient(SB_URL, SB_KEY);

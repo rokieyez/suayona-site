@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 검색에 걸리지 않게 한다. robots.txt 로 크롤링을 막아 버리면 수집기가 이 줄을
+     읽지도 못해서, 남이 걸어 둔 링크를 타고 주소만 검색결과에 남을 수 있다. -->
+<meta name="robots" content="noindex, nofollow">
+<title>비밀번호 바꾸기 · 수아랑 연아랑</title>
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .form-box{max-width:460px; margin:0 auto;}
+  .form-box .inner{padding:26px 24px;}
+  .key-icon{width:72px; height:72px; margin:0 auto 18px; display:block; font-size:48px; text-align:center; line-height:1;}
+  .msg{font-size:13px; line-height:1.75; margin-top:14px; min-height:1em;}
+  .msg.err{color:#c0392b; font-weight:700;}
+  .msg.ok{color:#2a8a4a; font-weight:700;}
+  .note{font-size:12px; line-height:1.8; color:var(--ink-soft); margin:14px 0 0;}
+  /* 몇 자인지 보여 준다 — 규칙에 걸려 되돌아오면 억울하다 */
+  .rule{
+    display:flex; align-items:center; gap:6px;
+    font-size:12px; color:var(--ink-soft); margin-top:6px;
+  }
+  .rule.ok{color:#2a8a4a; font-weight:700;}
+  .state{display:none;}
+  .state.on{display:block;}
+</style>
+</head>
+<body>
+
+<main class="page-top section-pad">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow pixel">PASSWORD</span>
+      <h2>비밀번호 바꾸기</h2>
+      <p id="lead">확인하는 중이에요…</p>
+    </div>
+
+    <div class="form-box dot-card">
+      <div class="inner">
+        <div class="key-icon">🔑</div>
+
+        <!-- (1) 메일 링크가 만료됐거나 잘못된 경우 -->
+        <div class="state" id="stBad">
+          <div class="msg err" id="badWhy"></div>
+          <p class="note">
+            메일의 링크는 한 번만, 그리고 짧은 시간 동안만 쓸 수 있어요.<br>
+            Supabase 관리 화면에서 <b>비밀번호 재설정 메일</b>을 새로 보내고,
+            받은 링크를 <b>바로</b> 눌러주세요.
+          </p>
+        </div>
+
+        <!-- (2) 바꿀 수 있는 상태 -->
+        <div class="state" id="stForm">
+          <label class="field" for="pw1">새 비밀번호</label>
+          <input type="password" id="pw1" autocomplete="new-password" placeholder="새로 쓸 비밀번호">
+          <div class="rule" id="ruleLen">· 8자 이상</div>
+
+          <label class="field" for="pw2">한 번 더</label>
+          <input type="password" id="pw2" autocomplete="new-password" placeholder="같은 것을 다시">
+          <div class="rule" id="ruleSame">· 위와 같아야 해요</div>
+
+          <button class="dot-btn primary" id="saveBtn" style="width:100%; margin-top:18px;">바꾸기</button>
+          <div class="msg" id="formMsg"></div>
+          <p class="note">
+            바꾸고 나면 <b>다른 기기에서는 모두 로그아웃</b>됩니다.
+            혹시 남아 있던 접속이 있어도 그때 끊겨요.
+          </p>
+        </div>
+
+        <!-- (3) 다 됐을 때 -->
+        <div class="state" id="stDone">
+          <div class="msg ok">비밀번호를 바꿨어요.</div>
+          <p class="note">
+            다른 기기에서 쓰던 접속은 모두 끊었습니다.<br>
+            이제 새 비밀번호로 로그인하시면 돼요.
+          </p>
+          <a class="dot-btn" href="./event/" style="width:100%; margin-top:14px;">이벤트로 가기</a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/pixel.js"></script>
+<script src="/common.js"></script>
+<script>
+buildChrome('');
+
+const MIN_LEN = 8;
+
+function show(id, leadText){
+  document.querySelectorAll('.state').forEach(s => s.classList.toggle('on', s.id === id));
+  if (leadText) $('#lead').textContent = leadText;
+}
+
+// ----- 링크가 실패한 경우 -----
+// Supabase 는 실패를 주소 뒤(#error=...)에 붙여 보낸다. 사람이 읽을 수 있게 바꿔 준다.
+// location.hash 를 지금 보면 이미 비어 있다 — supabase-js 가 읽고 지운 뒤라서.
+// common.js 가 지워지기 전에 챙겨 둔 INITIAL_HASH 를 본다.
+function failureFromUrl(){
+  const h = new URLSearchParams(String(INITIAL_HASH || '').replace(/^#/, ''));
+  const code = h.get('error_code') || h.get('error');
+  if (!code) return null;
+  const why = h.get('error_description') || '';
+  if (/expired/i.test(code + why)) return '이 링크는 시간이 지나 만료됐어요.';
+  if (/invalid/i.test(code + why)) return '이 링크는 이미 썼거나 올바르지 않아요.';
+  return '링크를 확인하지 못했어요. (' + code + ')';
+}
+
+// ----- 준비 -----
+(async () => {
+  const failed = failureFromUrl();
+  if (failed) { show('stBad', '링크를 쓸 수 없어요'); $('#badWhy').textContent = failed; return; }
+
+  // supabase-js 가 주소 뒤의 열쇠를 읽어 세션을 만드는 데 잠깐 걸린다.
+  // 바로 물어보면 아직 없다고 나오므로, 생길 때까지 짧게 기다린다.
+  let session = null;
+  for (let i = 0; i < 20 && !session; i++) {
+    const { data } = await sb.auth.getSession();
+    session = data.session;
+    if (!session) await new Promise(r => setTimeout(r, 150));
+  }
+
+  if (!session) {
+    show('stBad', '링크를 쓸 수 없어요');
+    $('#badWhy').textContent = '이 화면은 메일로 받은 링크로 들어와야 열려요.';
+    return;
+  }
+  show('stForm', (session.user.email || '') + ' 의 비밀번호를 바꿉니다');
+})();
+
+// ----- 입력 확인 -----
+const pw1 = $('#pw1'), pw2 = $('#pw2');
+function checkRules(){
+  const okLen = pw1.value.length >= MIN_LEN;
+  const okSame = pw2.value.length > 0 && pw1.value === pw2.value;
+  $('#ruleLen').className = 'rule' + (okLen ? ' ok' : '');
+  $('#ruleLen').textContent = (okLen ? '✓' : '·') + ' ' + MIN_LEN + '자 이상';
+  $('#ruleSame').className = 'rule' + (okSame ? ' ok' : '');
+  $('#ruleSame').textContent = (okSame ? '✓ 같아요' : '· 위와 같아야 해요');
+  return okLen && okSame;
+}
+pw1.addEventListener('input', checkRules);
+pw2.addEventListener('input', checkRules);
+
+// ----- 바꾸기 -----
+$('#saveBtn').addEventListener('click', async () => {
+  const btn = $('#saveBtn'), msg = $('#formMsg');
+  msg.className = 'msg'; msg.textContent = '';
+
+  if (pw1.value.length < MIN_LEN) { msg.className = 'msg err'; msg.textContent = MIN_LEN + '자 이상으로 지어주세요.'; return; }
+  if (pw1.value !== pw2.value)    { msg.className = 'msg err'; msg.textContent = '두 칸이 서로 달라요.'; return; }
+
+  btn.disabled = true; btn.textContent = '바꾸는 중...';
+  const { error } = await sb.auth.updateUser({ password: pw1.value });
+  if (error) {
+    btn.disabled = false; btn.textContent = '바꾸기';
+    msg.className = 'msg err';
+    msg.textContent = /weak|short|characters/i.test(error.message)
+      ? '더 어려운 비밀번호가 필요해요. 길이를 늘리거나 숫자·기호를 섞어보세요.'
+      : '바꾸지 못했어요: ' + error.message;
+    return;
+  }
+
+  // 남아 있는 다른 접속을 끊는다.
+  // 비밀번호가 새어 나갔을지 모르는 상황에서 바꾸는 것이므로, 예전 열쇠를 살려 두면
+  // 비밀번호만 바뀌고 남의 접속은 그대로 남는다. 실패해도 비밀번호는 이미 바뀐 뒤라
+  // 여기서 되돌리지 않고 넘어간다.
+  try { await sb.auth.signOut({ scope: 'others' }); } catch (e) {}
+
+  show('stDone', '다 됐어요');
+});
+</script>
+</body>
+</html>
