@@ -384,12 +384,18 @@ const CONFIG = {
   panels: [],
 };
 
-// 장소를 지도로 이어 준다.
-// 열쇠(API 키)도 등록도 필요 없는 주소만 쓴다 — 좌표가 있으면 그 지점을, 없으면 이름으로 찾아 준다.
-// 휴대폰에서는 지도 앱이 열리고, 컴퓨터에서는 지도 사이트가 열린다.
+// 장소를 카카오맵으로 이어 준다.
+// 이 주소는 열쇠(API 키)가 필요 없다 — 지도를 이 페이지 안에 그리는 게 아니라
+// 카카오맵으로 넘겨 주는 것뿐이라서. 휴대폰에서는 카카오맵 앱이, 컴퓨터에서는 지도 사이트가 열린다.
+//
+// 좌표가 있으면 이름표를 단 채 그 지점에 핀을 찍어 주고(/link/map/이름,위도,경도),
+// 없으면 이름으로 찾아 준다(/link/search/이름).
+// 이름 안의 쉼표는 encodeURIComponent 가 %2C 로 바꿔 주므로, 자리를 나누는 쉼표와 섞이지 않는다.
 function mapLinkFor(name, lat, lng){
-  const q = (Number.isFinite(lat) && Number.isFinite(lng)) ? (lat + ',' + lng) : name;
-  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  const label = encodeURIComponent(name);
+  return (Number.isFinite(lat) && Number.isFinite(lng))
+    ? 'https://map.kakao.com/link/map/' + label + ',' + lat + ',' + lng
+    : 'https://map.kakao.com/link/search/' + label;
 }
 function placeChipHTML(name, lat, lng){
   if (!name) return '';

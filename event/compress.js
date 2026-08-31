@@ -73,46 +73,71 @@ async function _reverseGeocode(lat, lng){
 }
 
 // ---------------------------------------------------------------------------
-// 지명 → 좌표 (위와 반대 방향)
+// 지명 → 좌표 (카카오맵)
 //
-// 관리 화면에서 장소를 적으면 지도에 핀을 찍기 위한 좌표를 찾아 둔다.
-// 같은 서비스를 쓰므로 같은 줄에 세워 보낸다 — 위쪽 _geoChain 을 그대로 공유한다.
+// 위쪽의 "좌표 → 지명" 은 오픈스트리트맵을 그대로 쓴다. 사진에서 좌표가 나오는 일이
+// 사실상 없어서(올라온 115장 중 0장) 손댈 값이 없기 때문.
+// 반대로 "관리 화면에서 적은 장소 → 좌표" 는 실제로 매번 쓰이는 길이라 카카오로 옮겼다.
+// 직접 재 봤을 때 오픈스트리트맵은 여섯 곳 중 다섯 곳을 찾았고, 못 찾은 하나가
+// "부산 광안리 스타벅스" 처럼 같은 이름이 여럿인 가게였다. 카카오는 그쪽이 강하다.
 //
-// 돌려주는 값
-//   {lat, lng, label}  찾음
-//   null               못 찾았거나 물어보지 못함 (이름만 저장하고 핀은 안 찍힘)
+// 아래 열쇠는 숨기는 값이 아니다. 카카오의 JavaScript 키는 페이지 소스에 그대로
+// 들어가라고 만든 것이고, 등록해 둔 도메인(www.suayona.com)이 아니면 동작하지 않는다.
+// 밖으로 나가면 안 되는 것은 REST API 키와 Admin 키 쪽이다 — 그 둘은 여기 없다.
 // ---------------------------------------------------------------------------
-async function _lookupCoords(q){
-  let res;
-  try {
-    res = await Promise.race([
-      fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=ko&q=' + encodeURIComponent(q)),
-      _sleep(GEO_TIMEOUT_MS).then(() => null),
-    ]);
-  } catch (e) { return null; }
-  if (!res) return null;
-  if (res.status === 429 || res.status === 403) { _geoBlocked = true; return null; }
-  if (!res.ok) return null;
+const KAKAO_JS_KEY = '4d0e9436c2a93d4222d355d33ce5045d';
 
-  let data;
-  try { data = await res.json(); } catch (e) { return null; }
-  const hit = Array.isArray(data) && data[0];
-  if (!hit) return null;
-  const lat = parseFloat(hit.lat), lng = parseFloat(hit.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng, label: hit.display_name || '' };
+// 지도 꾸러미는 무겁다. 장소를 실제로 물어볼 때(관리 화면) 그때 한 번만 받아 온다.
+let _kakaoReady = null;
+function loadKakaoMaps(libs){
+  if (_kakaoReady) return _kakaoReady;
+  _kakaoReady = new Promise((resolve, reject) => {
+    if (window.kakao && window.kakao.maps && window.kakao.maps.services) return resolve(true);
+    const sc = document.createElement('script');
+    sc.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + KAKAO_JS_KEY +
+             '&libraries=' + (libs || 'services') + '&autoload=false';
+    sc.onload = () => window.kakao.maps.load(() => resolve(true));
+    sc.onerror = () => reject(new Error('카카오 지도를 불러오지 못했습니다'));
+    document.head.appendChild(sc);
+  });
+  return _kakaoReady;
 }
 
-function geocodePlace(query){
-  const q = String(query || '').trim();
-  if (!q) return Promise.resolve(null);
-  const task = _geoChain.then(async () => {
-    if (_geoBlocked) return null;
-    return await _lookupCoords(q);
+// 카카오는 x 가 경도, y 가 위도이고 둘 다 문자열로 온다.
+function _kakaoAsk(fn, q){
+  return new Promise(resolve => {
+    let done = false;
+    const finish = v => { if (!done) { done = true; resolve(v); } };
+    setTimeout(() => finish(null), 6000);           // 답이 안 오면 그냥 넘어간다
+    try {
+      fn(q, (data, status) => {
+        finish(status === kakao.maps.services.Status.OK && data && data[0] ? data[0] : null);
+      });
+    } catch (e) { finish(null); }
   });
-  const wait = () => _sleep(GEO_GAP_MS);
-  _geoChain = task.then(wait, wait);
-  return task.catch(() => null);
+}
+
+// 장소 이름/주소 → {lat, lng, label}. 못 찾으면 null.
+// 이름으로 먼저 찾고(가게·명소), 안 나오면 주소로 한 번 더 찾는다.
+async function geocodePlace(query){
+  const q = String(query || '').trim();
+  if (!q) return null;
+  try { await loadKakaoMaps('services'); } catch (e) { return null; }
+
+  const places = new kakao.maps.services.Places();
+  const hit = await _kakaoAsk(places.keywordSearch.bind(places), q);
+  if (hit) return {
+    lat: parseFloat(hit.y), lng: parseFloat(hit.x),
+    label: hit.place_name + (hit.road_address_name ? ' · ' + hit.road_address_name : ''),
+  };
+
+  const geocoder = new kakao.maps.services.Geocoder();
+  const addr = await _kakaoAsk(geocoder.addressSearch.bind(geocoder), q);
+  if (addr) return {
+    lat: parseFloat(addr.y), lng: parseFloat(addr.x),
+    label: addr.address_name || q,
+  };
+  return null;
 }
 
 // 사진 파일의 EXIF에서 촬영 일시/위치를 꺼냄.

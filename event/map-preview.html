@@ -8,7 +8,6 @@
 
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
 <style>
   :root{
     --accent:#ff7f8a; --mint:#6cc7b3; --lemon:#ffd979;
@@ -62,17 +61,20 @@
 
   /* 지도 공통 */
   .map{border:2px solid var(--ink); background:#dfe6e2;}
-  .leaflet-container{font-family:inherit; background:#dfe6e2;}
-  /* 라이플릿 기본 모양(둥근 모서리·그림자)을 사이트 결에 맞춰 각지게 */
-  .leaflet-popup-content-wrapper, .leaflet-popup-tip{
-    border-radius:0; box-shadow:none; border:2px solid var(--ink); background:var(--paper-card); color:var(--ink);}
-  .leaflet-popup-content{margin:9px 11px; font-size:12.5px; line-height:1.6; font-weight:600;}
-  .leaflet-popup-content b{display:block; font-size:14px; font-weight:800; margin-bottom:2px;}
-  .leaflet-popup-content a{color:var(--ink); font-weight:800; font-size:12px;}
-  .leaflet-popup-close-button{display:none;}
-  .leaflet-control-zoom a{border-radius:0 !important; border:2px solid var(--ink) !important;
-    color:var(--ink) !important; background:var(--paper) !important; font-weight:800;}
-  .leaflet-control-attribution{font-size:9px; background:rgba(255,250,242,.85);}
+  /* 카카오맵 위에 얹는 말풍선 — 사이트 결에 맞춰 각지게 */
+  .bubble{
+    position:relative; background:var(--paper-card); border:2px solid var(--ink);
+    padding:9px 11px; font-size:12.5px; line-height:1.55; font-weight:600; white-space:nowrap;
+    box-shadow:2px 2px 0 var(--ink);
+  }
+  .bubble b{display:block; font-size:14px; font-weight:800; margin-bottom:2px;}
+  .bubble a{color:var(--ink); font-weight:800; font-size:12px;}
+  .bubble::after{               /* 아래쪽 꼬리 */
+    content:''; position:absolute; left:50%; bottom:-9px; margin-left:-6px;
+    width:10px; height:10px; background:var(--paper-card);
+    border-right:2px solid var(--ink); border-bottom:2px solid var(--ink);
+    transform:rotate(45deg);
+  }
 
   /* 핀 — 사이트의 각진 결에 맞춘 네모 핀 */
   .pin{
@@ -155,8 +157,8 @@
   <h1>이벤트 목록 첫 화면 · 지도 시안 3가지</h1>
   <p>세 가지 모두 <b>실제로 움직이는 지도</b>입니다. 끌어서 움직이고, 핀을 눌러 보세요.
      핀은 부산여행·홍천 두 이벤트에 실제로 다녀온 자리에 찍었습니다.</p>
-  <p>지도는 <b>열쇠(API 키)도 등록도 결제도 없이</b> 그냥 동작하는 것으로 만들었습니다.
-     맨 아래에 다른 지도로 바꿀 때의 이야기를 적어 두었어요.</p>
+  <p>지도는 <b>카카오맵</b>입니다. 받아 주신 열쇠로 붙였어요 — 그러니 지금 보고 계신 그대로가
+     실제 화면이 됩니다. 고르시면 목록 페이지에 그대로 옮기겠습니다.</p>
 </div>
 
 <!-- ==================== 시안 1 ==================== -->
@@ -273,13 +275,12 @@
     “들어갈 이벤트 고르기”인데, 시안 1은 그 일을 지도가 반쯤 밀어냅니다. 지금 이벤트가 두 개뿐이라
     큰 지도는 특히 휑해 보이고요. 시안 3은 자리를 거의 안 뺏으면서 사진이 핀이라 눈에 붙습니다.
     나중에 이벤트가 열 개쯤 쌓이면 그때 <b>시안 1</b>로 키우면 됩니다 — 지도 높이만 바꾸는 일이라 언제든 됩니다.</p>
-  <p><b>지도는 무엇을 쓸까.</b> 지금 이 시안은 <b>오픈스트리트맵</b>입니다. 열쇠도 등록도 결제도 없이
-    바로 됩니다. 한국 지명이 얼마나 나오는지 직접 여섯 군데를 넣어 봤더니 다섯 군데를 찾았어요 —
-    감천문화마을·부산역·팔봉산·롯데월드·밀양돼지국밥은 찾았고, “부산 광안리 스타벅스”처럼
-    <b>같은 이름의 가게가 여럿인 것</b>은 못 찾았습니다. 지명과 주소는 쓸 만하고 체인점이 약합니다.
-    <br><b>카카오맵</b>은 그런 가게 검색까지 잘 되고 역시 무료지만, 개발자 사이트에서 열쇠를 하나 받아
-    <code>www.suayona.com</code>을 등록해 주셔야 합니다(10분쯤). 나중에 바꿔도 늦지 않아요.
-    <b>구글지도</b>는 카드 등록이 필요해서 이 사이트에는 권하지 않습니다.</p>
+  <p><b>장소 검색도 카카오로 옮겼습니다.</b> 관리 화면에서 장소를 적으면 이제 카카오가 찾습니다 —
+    가게 이름으로 먼저 찾고, 안 나오면 주소로 한 번 더 찾습니다.
+    전에 쓰던 오픈스트리트맵은 “부산 광안리 스타벅스”처럼 같은 이름이 여럿인 가게를 못 찾았는데,
+    그쪽이 카카오가 강한 부분입니다.
+    <br>사진의 좌표에서 지명을 얻는 쪽(그 반대 방향)은 손대지 않았습니다 —
+    쓰이는 일이 없어서(좌표가 남은 사진 0장) 바꿔서 얻을 게 없기 때문입니다.</p>
   <p><b>핀은 어디서 오나.</b> 사진 속 위치정보로는 못 찍습니다 — 올라와 있는 사진 115장을 확인해 보니
     좌표가 살아 있는 것이 <b>0장</b>이었어요(휴대폰이 사진을 넘길 때 지웁니다).
     그래서 일정을 추가할 때 <b>장소를 손으로 적으면</b> 그 자리에서 좌표를 찾아 저장하도록 해 두었습니다.
@@ -288,7 +289,8 @@
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- 카카오 지도. 이 열쇠는 등록해 둔 도메인(www.suayona.com)에서만 동작합니다 -->
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=4d0e9436c2a93d4222d355d33ce5045d"></script>
 <script>
 // 실제 두 이벤트에서 다녀온 자리. 나중에는 events 표의 place_lat/place_lng 를 그대로 읽어 옵니다.
 const PLACES = [
@@ -308,104 +310,122 @@ const EVENTS = {
               photo: BASE + '2024-10-hongchun/1788018333573-m1k58r-2024-10-03_14_45________3840x2560_.thumb.jpg' },
 };
 
-const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const ATTR = '지도 © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const LL = (lat, lng) => new kakao.maps.LatLng(lat, lng);
+const placesOf = ev => PLACES.filter(p => p.ev === ev);
+const centerOf = list => LL(
+  list.reduce((a,p) => a + p.lat, 0) / list.length,
+  list.reduce((a,p) => a + p.lng, 0) / list.length);
 
 function baseMap(id, opts){
-  const m = L.map(id, Object.assign({
-    scrollWheelZoom:false,          // 페이지를 스크롤하다 지도에 걸려 확대되는 일을 막음
-    zoomControl:true,
-  }, opts || {}));
-  L.tileLayer(TILES, { maxZoom:18, attribution:ATTR }).addTo(m);
-  return m;
+  opts = opts || {};
+  // 페이지를 스크롤하다 지도에 걸려 확대되는 일이 없도록 휠 확대는 꺼 둔다
+  const map = new kakao.maps.Map(document.getElementById(id), {
+    center: LL(36.5, 127.9), level: 13, scrollwheel: false,
+  });
+  if (opts.zoomControl) map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPLEFT);
+  return map;
 }
-function fitAll(m, pad){
-  m.fitBounds(L.latLngBounds(PLACES.map(p => [p.lat, p.lng])), { padding:[pad||28, pad||28] });
+function fit(map, list, pad){
+  const b = new kakao.maps.LatLngBounds();
+  list.forEach(p => b.extend(LL(p.lat, p.lng)));
+  pad = pad || {};
+  map.setBounds(b, pad.top || 30, pad.right || 30, pad.bottom || 30, pad.left || 30);
 }
-function squarePin(text){
-  return L.divIcon({ className:'', iconSize:[26,26], iconAnchor:[13,13],
-    html:'<div class="pin">' + text + '</div>' });
+// 화면에 얹는 딱지 하나. content 를 진짜 요소로 만들어야 눌렀을 때 반응할 수 있다.
+function overlay(map, latlng, el, z){
+  return new kakao.maps.CustomOverlay({
+    map, position: latlng, content: el, xAnchor: 0.5, yAnchor: 0.5,
+    clickable: true, zIndex: z || 1,
+  });
+}
+function el(html){
+  const d = document.createElement('div');
+  d.innerHTML = html.trim();
+  return d.firstElementChild;
 }
 
 /* ---------- 시안 1 : 큰 지도 (이벤트 핀 → 눌러서 장소 핀) ---------- */
 (function(){
-  const m = baseMap('map1');
+  const map = baseMap('map1', { zoomControl:true });
   const back = document.getElementById('back1'), cap = document.getElementById('cap1');
-  let layer = null;
+  let shown = [], bubble = null;
 
-  const placesOf = ev => PLACES.filter(p => p.ev === ev);
-  const center = list => [
-    list.reduce((a,p) => a + p.lat, 0) / list.length,
-    list.reduce((a,p) => a + p.lng, 0) / list.length,
-  ];
+  const clear = () => {
+    shown.forEach(o => o.setMap(null)); shown = [];
+    if (bubble) { bubble.setMap(null); bubble = null; }
+  };
 
   function showEvents(){
-    if (layer) m.removeLayer(layer);
-    layer = L.layerGroup().addTo(m);
+    clear();
     Object.keys(EVENTS).forEach(ev => {
       const list = placesOf(ev);
-      const icon = L.divIcon({ className:'', iconSize:null, iconAnchor:[0,14],
-        html:'<div class="pin-ev">' + EVENTS[ev].label + '<b>' + list.length + '</b></div>' });
-      L.marker(center(list), { icon }).addTo(layer).on('click', () => showPlaces(ev));
+      const node = el('<div class="pin-ev">' + EVENTS[ev].label + '<b>' + list.length + '</b></div>');
+      node.addEventListener('click', () => showPlaces(ev));
+      shown.push(overlay(map, centerOf(list), node, 2));
     });
-    fitAll(m);
+    fit(map, PLACES, { top:40, right:40, bottom:40, left:40 });
     back.hidden = true;
     cap.textContent = '이벤트 ' + Object.keys(EVENTS).length + '개 · 다녀온 곳 ' + PLACES.length + '군데';
   }
 
   function showPlaces(ev){
-    if (layer) m.removeLayer(layer);
-    layer = L.layerGroup().addTo(m);
+    clear();
     const list = placesOf(ev);
     list.forEach(p => {
-      L.marker([p.lat, p.lng], { icon: squarePin('📍') }).addTo(layer)
-        .bindPopup('<b>' + p.name + '</b>' + p.when +
-                   '<br><a href="' + EVENTS[ev].href + '">이 이벤트 보러가기 →</a>');
+      const node = el('<div class="pin">📍</div>');
+      node.addEventListener('click', () => {
+        if (bubble) bubble.setMap(null);
+        const card = el('<div class="bubble"><b>' + p.name + '</b>' + p.when +
+          '<br><a href="' + EVENTS[ev].href + '">이 이벤트 보러가기 →</a></div>');
+        bubble = new kakao.maps.CustomOverlay({
+          map, position: LL(p.lat, p.lng), content: card,
+          xAnchor: 0.5, yAnchor: 1.5, clickable: true, zIndex: 5,
+        });
+      });
+      shown.push(overlay(map, LL(p.lat, p.lng), node, 2));
     });
-    m.fitBounds(L.latLngBounds(list.map(p => [p.lat, p.lng])), { padding:[40,40] });
+    fit(map, list, { top:56, right:44, bottom:44, left:44 });
     back.hidden = false;
     cap.textContent = EVENTS[ev].label + ' · ' + list.length + '군데';
   }
 
   back.addEventListener('click', showEvents);
+  kakao.maps.event.addListener(map, 'click', () => { if (bubble) { bubble.setMap(null); bubble = null; } });
   showEvents();
 })();
 
 /* ---------- 시안 2 : 지도와 목록이 서로 가리킴 ---------- */
 (function(){
-  const m = baseMap('map2');
-  const marks = {};
+  const map = baseMap('map2', { zoomControl:true });
+  const nodes = {};
   PLACES.forEach(p => {
-    const mk = L.marker([p.lat, p.lng], { icon: squarePin('📍') }).addTo(m);
-    (marks[p.ev] = marks[p.ev] || []).push(mk);
-    mk.on('click', () => light(p.ev, true));
+    const node = el('<div class="pin">📍</div>');
+    node.addEventListener('click', () => light(p.ev, true));
+    (nodes[p.ev] = nodes[p.ev] || []).push(node);
+    overlay(map, LL(p.lat, p.lng), node, 2);
   });
-  fitAll(m, 34);
+  fit(map, PLACES, { top:36, right:36, bottom:36, left:36 });
 
   const cards = document.querySelectorAll('.v2 .card');
+  const dim = () => {
+    cards.forEach(c => c.classList.remove('lit'));
+    Object.keys(nodes).forEach(k => nodes[k].forEach(n => n.classList.remove('on')));
+  };
   function light(ev, fromMap){
+    dim();
     cards.forEach(c => c.classList.toggle('lit', c.dataset.ev === ev));
-    Object.keys(marks).forEach(k => marks[k].forEach(mk => {
-      const el = mk.getElement && mk.getElement();
-      if (el) el.querySelector('.pin').classList.toggle('on', k === ev);
-    }));
+    nodes[ev].forEach(n => n.classList.add('on'));
     if (fromMap) {
       const card = [...cards].find(c => c.dataset.ev === ev);
       if (card) card.scrollIntoView({ behavior:'smooth', block:'nearest' });
-    } else if (marks[ev] && marks[ev].length) {
-      m.fitBounds(L.latLngBounds(marks[ev].map(mk => mk.getLatLng())), { padding:[34,34] });
+    } else {
+      fit(map, placesOf(ev), { top:36, right:36, bottom:36, left:36 });
     }
   }
   cards.forEach(c => {
     c.addEventListener('mouseenter', () => light(c.dataset.ev));
     c.addEventListener('click',      () => light(c.dataset.ev));
-    c.addEventListener('mouseleave', () => {
-      cards.forEach(x => x.classList.remove('lit'));
-      Object.keys(marks).forEach(k => marks[k].forEach(mk => {
-        const el = mk.getElement && mk.getElement();
-        if (el) el.querySelector('.pin').classList.remove('on');
-      }));
-    });
+    c.addEventListener('mouseleave', dim);
   });
 })();
 
@@ -413,23 +433,16 @@ function squarePin(text){
 (function(){
   // 띠가 얇아서 전국이 한 화면에 들어온다. 그 크기에서는 한 여행에서 다닌 곳들이
   // 서로 몇 km 안이라 사진이 통째로 포개진다 — 그래서 여기서는 이벤트마다 사진 한 장.
-  const m = baseMap('map3', { zoomControl:false, attributionControl:false });
-  L.control.attribution({ position:'topright', prefix:false }).addAttribution(ATTR).addTo(m);
+  const map = baseMap('map3');
   const slide = document.getElementById('slide3');
-  const pins = [];
+  const nodes = [];
 
   Object.keys(EVENTS).forEach(ev => {
-    const list = PLACES.filter(p => p.ev === ev);
-    const c = [ list.reduce((a,p) => a + p.lat, 0) / list.length,
-                list.reduce((a,p) => a + p.lng, 0) / list.length ];
-    const icon = L.divIcon({ className:'', iconSize:[44,44], iconAnchor:[22,22],
-      html:'<div class="pin-photo"><img alt="" src="' + EVENTS[ev].photo + '"></div>' });
-    const mk = L.marker(c, { icon }).addTo(m);
-    pins.push(mk);
-    mk.on('click', () => {
-      pins.forEach(x => { const e = x.getElement && x.getElement();
-        if (e) e.querySelector('.pin-photo').classList.remove('on'); });
-      const el = mk.getElement(); if (el) el.querySelector('.pin-photo').classList.add('on');
+    const list = placesOf(ev);
+    const node = el('<div class="pin-photo"><img alt="" src="' + EVENTS[ev].photo + '"></div>');
+    node.addEventListener('click', () => {
+      nodes.forEach(n => n.classList.remove('on'));
+      node.classList.add('on');
       // 이름표는 한 줄로. 길어지면 띠를 다 덮어서 정작 사진이 안 보인다.
       const names = list.slice(0, 2).map(p => p.name).join(', ') +
         (list.length > 2 ? ' 외 ' + (list.length - 2) + '곳' : '');
@@ -438,11 +451,12 @@ function squarePin(text){
       document.getElementById('slideLink').href = EVENTS[ev].href;
       slide.classList.add('open');
     });
+    nodes.push(node);
+    overlay(map, centerOf(list), node, 2);
   });
   // 아래쪽을 넉넉히 비워 둔다 — 이름표가 올라와도 사진이 가려지지 않게.
-  m.fitBounds(L.latLngBounds(PLACES.map(p => [p.lat, p.lng])),
-    { paddingTopLeft:[26, 26], paddingBottomRight:[26, 52] });
-  m.on('click', () => slide.classList.remove('open'));
+  fit(map, PLACES, { top:30, right:30, bottom:58, left:30 });
+  kakao.maps.event.addListener(map, 'click', () => slide.classList.remove('open'));
 })();
 </script>
 </body>
