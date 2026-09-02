@@ -867,6 +867,9 @@ buildChrome('home');
     // 아이들 머리 위 언덕에 세운다 — 0.55 에 두면 레샤와 겹쳤다(375px 에서 확인)
     [0.27, 0.47].forEach((xr, i) => {
       const r = tapProp(g, SPRITES.picFrame, 'frame' + (i + 1), xr, bigS, H * 0.19);
+      // 빈 액자는 흰 바탕 — 비워 두면 잔디가 비쳐서 액자가 아니라 창틀처럼 보인다
+      g.fillStyle = '#ffffff';
+      g.fillRect(r.x + 2 * r.sc, r.y + 2 * r.sc, 10 * r.sc, 8 * r.sc);
       if (!hung[i]) return;
       g.imageSmoothingEnabled = false;
       g.drawImage(drawingToCanvas(hung[i]), r.x + 3 * r.sc, r.y + 2 * r.sc, 8 * r.sc, 8 * r.sc);
