@@ -924,7 +924,7 @@ function drawStars(ctx, W, H, s, count, phase){
     ctx.globalAlpha = 0.5 + 0.5 * Math.sin(phase * 1.5 + i * 2.1);
     ctx.fillStyle = i % 7 === 0 ? '#ffe9a8' : '#ffffff';
     ctx.fillRect(x, y, s, s);
-    if (i % 13 === 0) {                       // 몇 개만 십자로 크게 — 전부 크면 촘촘해서 답답하다
+    if (i % 5 === 0) {                        // 다섯에 하나는 십자로 크게 — 이것들이 누를 수 있는 별이다
       ctx.fillRect(x - s, y, s, s); ctx.fillRect(x + s, y, s, s);
       ctx.fillRect(x, y - s, s, s); ctx.fillRect(x, y + s, s, s);
     }
@@ -986,3 +986,98 @@ Object.assign(SPRITES, {
     '..FFF..',
   ],
 });
+
+// ---------- 첫 화면 두 번째 묶음에서 쓰는 조각들 ----------
+Object.assign(SPRITES, {
+  // 우산 13x8 — 비 오는 날 아이들 머리 위
+  umbrella: [
+    '.....HHH.....',
+    '...HHHHHHH...',
+    '..HHHHHHHHH..',
+    '.HHHHHHHHHHH.',
+    'HHHHHHHHHHHHH',
+    'FHHHFHHHFHHHF',
+    '......F......',
+    '......F......',
+  ],
+  // 액자 14x16 — 안쪽 10x8 이 비어 있고, 거기에 아이가 그린 도트 그림이 들어간다
+  // (frame 은 포트폴리오 아이콘이 먼저 쓰고 있어서 이름을 달리 둔다)
+  picFrame: [
+    'qqqqqqqqqqqqqq',
+    'qppppppppppppq',
+    'qp..........pq',
+    'qp..........pq',
+    'qp..........pq',
+    'qp..........pq',
+    'qp..........pq',
+    'qp..........pq',
+    'qp..........pq',
+    'qp..........pq',
+    'qppppppppppppq',
+    'qqqqqqqqqqqqqq',
+    '......qq......',
+    '......qq......',
+    '......qq......',
+    '.....qqqq.....',
+  ],
+  // 생일 케이크 11x9
+  cake: [
+    '.....G.....',
+    '.....E.....',
+    '.....E.....',
+    '.JJJJJJJJJ.',
+    'JJJJJJJJJJJ',
+    'KKKKKKKKKKK',
+    'rrrrrrrrrrr',
+    'rrrrrrrrrrr',
+    'FFFFFFFFFFF',
+  ],
+  // 풍선 5x8 — H 를 paletteOverride 로 바꿔 색을 달리한다
+  balloon: [
+    '.HHH.',
+    'HHHHH',
+    'HHHHH',
+    'HHHHH',
+    '.HHH.',
+    '..H..',
+    '..F..',
+    '..F..',
+  ],
+});
+
+// 도트 그리기(draw.html)의 색 24가지. 첫 화면이 걸린 그림을 그릴 때도 같은 표를 읽어야
+// 하므로 한 곳에 둔다. 순서를 바꾸면 이미 저장된 그림의 색이 어긋난다 — 뒤에만 덧붙일 것.
+const DRAW_PALETTE = [
+  '#2f2a24', '#6f6558', '#a2988a', '#ffffff',
+  '#ff7f8a', '#ff9aa2', '#ffb7d5', '#c0392b',
+  '#e8912f', '#ffd979', '#fff3a0', '#f7b733',
+  '#6cc7b3', '#8fd9c8', '#6fb567', '#3f7d3c',
+  '#8ec9ee', '#5aa9e6', '#2e3a54', '#b9a3d6',
+  '#c79b6d', '#8a5f3a', '#fbdcc4', '#ffe0c4',
+];
+
+// 저장된 도트 그림({ n, s }) 을 n×n 캔버스로. s 는 칸마다 한 글자: '.' 은 빈 칸, 나머지는 색 번호(36진수).
+function drawingToCanvas(h){
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = h.n;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#fffaf2'; g.fillRect(0, 0, h.n, h.n);
+  for (let i = 0; i < h.s.length; i++) {
+    const ch = h.s[i];
+    if (ch === '.') continue;
+    g.fillStyle = DRAW_PALETTE[parseInt(ch, 36)] || '#2f2a24';
+    g.fillRect(i % h.n, Math.floor(i / h.n), 1, 1);
+  }
+  return cv;
+}
+
+// 스프라이트의 윤곽선 칸들 — 색칠 밑그림용. 칠해진 칸 중 이웃 하나라도 비어 있으면 윤곽이다.
+function outlineOf(sprite){
+  const H = sprite.length, W = sprite[0].length, out = [];
+  const on = (x, y) => x >= 0 && y >= 0 && x < W && y < H && sprite[y][x] !== '.';
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!on(x, y)) continue;
+    if (!on(x-1, y) || !on(x+1, y) || !on(x, y-1) || !on(x, y+1)) out.push([x, y]);
+  }
+  return out;
+}

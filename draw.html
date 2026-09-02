@@ -53,6 +53,8 @@
   }
   .sizes button.on{background:var(--ink); color:var(--cream);}
 
+  .sizes .lbl{align-self:center; font-size:12px; font-weight:800; color:var(--ink-soft); margin-right:4px;}
+  .tools.hang{margin-top:10px;}
   .hint{text-align:center; font-size:12.5px; color:var(--ink-soft); margin:12px 0 0; line-height:1.7;}
 
   /* 내 그림 — 브라우저에만 남는다는 걸 분명히 적어 둔다 */
@@ -91,6 +93,15 @@
       <button data-n="32">32칸</button>
     </div>
 
+    <!-- 빈 판보다 밑그림이 있으면 훨씬 쉽게 시작한다. 윤곽선만 깔리고 색은 아이가 칠한다. -->
+    <div class="sizes" id="stencils">
+      <span class="lbl">밑그림</span>
+      <button data-st="chick">상그렐라</button>
+      <button data-st="fox">레샤</button>
+      <button data-st="budgieUp">미미</button>
+      <button data-st="heart">하트</button>
+    </div>
+
     <div class="tools">
       <button class="dot-btn small" id="eraser">🧽 지우개</button>
       <button class="dot-btn small" id="undo">↩ 되돌리기</button>
@@ -98,9 +109,14 @@
       <button class="dot-btn small primary" id="keep">＋ 내 그림에 담기</button>
       <button class="dot-btn small" id="save">⬇ 그림 파일로 저장</button>
     </div>
+    <!-- 첫 화면 잔디밭의 액자 두 개. 이 브라우저에서 첫 화면을 열면 거기 걸려 있다. -->
+    <div class="tools hang">
+      <button class="dot-btn small mint" data-hang="1">🖼 첫 화면 왼쪽 액자에 걸기</button>
+      <button class="dot-btn small mint" data-hang="2">🖼 오른쪽 액자에 걸기</button>
+    </div>
 
     <p class="hint">칸을 누르거나 손가락으로 죽 그어보세요.<br>
-      칸 수를 바꾸면 그리던 그림은 지워져요.</p>
+      칸 수를 바꾸면 그리던 그림은 지워져요. 액자에 건 그림은 <b>이 기기의 첫 화면</b>에만 보여요.</p>
 
     <div class="mine">
       <h2>내 그림</h2>
@@ -120,14 +136,8 @@ buildChrome('draw');
 
 // 사이트가 실제로 쓰는 색에서 골랐다. 아무 색이나 다 주면 그린 그림이 이 사이트의
 // 그림처럼 안 보인다 — 칸이 적을수록 색을 좁혀 주는 편이 결과가 낫다.
-const PALETTE = [
-  '#2f2a24', '#6f6558', '#a2988a', '#ffffff',
-  '#ff7f8a', '#ff9aa2', '#ffb7d5', '#c0392b',
-  '#e8912f', '#ffd979', '#fff3a0', '#f7b733',
-  '#6cc7b3', '#8fd9c8', '#6fb567', '#3f7d3c',
-  '#8ec9ee', '#5aa9e6', '#2e3a54', '#b9a3d6',
-  '#c79b6d', '#8a5f3a', '#fbdcc4', '#ffe0c4',
-];
+// 표 자체는 pixel.js 에 있다 — 첫 화면이 걸린 그림을 그릴 때 같은 표를 읽어야 해서.
+const PALETTE = DRAW_PALETTE;
 const EMPTY = -1;
 
 const board = $('#board');
@@ -236,11 +246,38 @@ $$('#sizes button').forEach(b => {
     if (n === N) return;
     // 칸 수가 바뀌면 옮겨 담을 방법이 마땅치 않다. 지워진다고 미리 말해 두고 확인만 받는다.
     if (cells.some(c => c !== EMPTY) && !confirm('그리던 그림이 지워져요. 칸 수를 바꿀까요?')) return;
-    N = n;
-    cells = new Array(N * N).fill(EMPTY);
-    history = [];
-    $$('#sizes button').forEach(x => x.classList.toggle('on', x === b));
+    setN(n);
     paintBoard();
+  });
+});
+
+// ---------- 밑그림 ----------
+// 스프라이트 윤곽선을 먹색(0번)으로 깐다. 판보다 크면 들어가는 칸 수로 올린다.
+function setN(n){
+  N = n; cells = new Array(N * N).fill(EMPTY); history = [];
+  $$('#sizes button').forEach(x => x.classList.toggle('on', Number(x.dataset.n) === N));
+}
+$$('#stencils button').forEach(b => {
+  b.addEventListener('click', () => {
+    const sp = SPRITES[b.dataset.st];
+    if (!sp) return;
+    if (cells.some(c => c !== EMPTY) && !confirm('그리던 그림 위에 밑그림을 깔면 지워져요. 계속할까요?')) return;
+    const w = sp[0].length, h = sp.length, need = Math.max(w, h) + 2;
+    setN([16, 24, 32].find(n => n >= need) || 32);
+    const ox = Math.floor((N - w) / 2), oy = Math.floor((N - h) / 2);
+    outlineOf(sp).forEach(([x, y]) => { cells[(y + oy) * N + (x + ox)] = 0; });
+    paintBoard();
+    board.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+});
+
+// ---------- 첫 화면 액자에 걸기 ----------
+$$('[data-hang]').forEach(b => {
+  b.addEventListener('click', () => {
+    if (!cells.some(c => c !== EMPTY)) { alert('아직 아무것도 안 그렸어요.'); return; }
+    try { localStorage.setItem('sy.hang.' + b.dataset.hang, JSON.stringify({ n: N, s: encode(cells) })); }
+    catch (e) { alert('저장이 안 됐어요.'); return; }
+    if (confirm('걸었어요! 첫 화면에서 볼까요?')) location.href = '/';
   });
 });
 

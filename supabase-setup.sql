@@ -479,3 +479,66 @@ drop trigger if exists garden_flood_guard on public.garden;
 create trigger garden_flood_guard
   before insert on public.garden
   for each row execute function public.garden_flood_guard();
+
+-- ---------------------------------------------------------------------------
+-- 타임캡슐 — 1년 뒤의 나에게
+--
+-- 「N년 전 오늘」의 반대 방향. 지금 쓰면 잠기고 1년 뒤 오늘부터 첫 화면에서 열린다.
+-- 잠그는 쪽이 서버라는 게 요점이다 — 읽기 규칙이 opens_on <= 오늘 인 줄만 돌려주므로
+-- 브라우저 콘솔을 열어도 미리 볼 수 없다.
+--
+-- 쓰기는 꽃밭(garden)처럼 로그인 없이 연다(아이가 로그인 안 한 폰에서도 쓸 수 있어야 해서).
+-- 대신 열리는 날은 "오늘로부터 1년" 근처로 못 박고, 길이와 도배는 서버에서 막는다.
+-- ---------------------------------------------------------------------------
+create table if not exists public.capsules (
+  id         bigint generated always as identity primary key,
+  author     text not null check (author in ('sua', 'yona', 'together')),
+  body       text not null check (char_length(body) between 1 and 200),
+  opens_on   date not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists capsules_opens_idx on public.capsules (opens_on desc);
+
+alter table public.capsules enable row level security;
+
+-- 열린 것만 읽힌다. 날짜 비교는 서버 시계(UTC)라 한국 자정보다 아홉 시간 늦게 열린다 — 아침이면 열려 있다.
+drop policy if exists "opened capsules are public" on public.capsules;
+create policy "opened capsules are public"
+  on public.capsules for select using (opens_on <= current_date);
+
+-- 넣을 때 열리는 날을 마음대로 못 정한다: 364~366일 뒤만 된다 (윤년·시차 여유)
+drop policy if exists "anyone can bury a capsule" on public.capsules;
+create policy "anyone can bury a capsule"
+  on public.capsules for insert
+  with check (opens_on between current_date + 364 and current_date + 366);
+
+drop policy if exists "parent digs up capsules" on public.capsules;
+create policy "parent digs up capsules"
+  on public.capsules for delete using (public.my_role() = 'parent');
+
+-- 잠긴 편지가 몇 통이고 다음은 언제 열리는지. 줄은 못 보여 주지만 이 둘은 보여 줘야
+-- "묻혀 있다"는 게 느껴진다. 권한을 빌려 세되, 내용은 절대 돌려주지 않는다.
+create or replace function public.capsules_locked()
+returns table (n bigint, next_open date)
+language sql security definer set search_path = public stable as $$
+  select count(*), min(opens_on) from capsules where opens_on > current_date;
+$$;
+grant execute on function public.capsules_locked() to anon, authenticated;
+
+create or replace function public.capsules_flood_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare recent int;
+begin
+  select count(*) into recent from capsules where created_at > now() - interval '10 minutes';
+  if recent >= 20 then
+    raise exception '편지가 너무 많이 묻히고 있어요. 잠시 뒤에 다시 써주세요.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists capsules_flood_guard on public.capsules;
+create trigger capsules_flood_guard
+  before insert on public.capsules
+  for each row execute function public.capsules_flood_guard();
