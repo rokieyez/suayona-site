@@ -672,7 +672,7 @@ buildChrome('home');
 
   // ---- 생일 ----
   // 'MM-DD'. 비워 두면 그냥 안 켜진다. 주소에 ?birthday=수아 를 붙이면 미리 볼 수 있다.
-  const BIRTHDAYS = { '수아': '', '연아': '' };
+  const BIRTHDAYS = { '수아': '07-09', '연아': '03-19' };
   const BIRTHDAY = (() => {
     const q = new URLSearchParams(location.search).get('birthday');
     if (q && BIRTHDAYS.hasOwnProperty(q)) return q;
@@ -871,7 +871,8 @@ buildChrome('home');
       g.imageSmoothingEnabled = false;
       g.drawImage(drawingToCanvas(hung[i]), r.x + 3 * r.sc, r.y + 2 * r.sc, 8 * r.sc, 8 * r.sc);
     });
-    houseAt = tapProp(g, SPRITES.house, 'house', 0.10, bigS, H*0.055);
+    // 집은 언덕 위쪽(후방)에. 크기가 커져서(34x28) 앞에 두면 아이들을 가린다.
+    houseAt = tapProp(g, SPRITES.house, 'house', 0.06, bigS, H*0.15);
     tapProp(g, SPRITES.tree,  'tree',  0.03, bigS, H*0.045);
     tapProp(g, SPRITES.tree,  'tree',  0.20, bigS, H*0.050);
     tapProp(g, SPRITES.tree,  'tree',  0.44, bigS, H*0.020);
@@ -1115,9 +1116,9 @@ buildChrome('home');
     // 두드려서 열린 문 — 집은 땅 겹에 박혀 있으니 그 위에 문틀만 어둡게 덧그리고 고양이를 내보낸다
     if (houseAt && performance.now() < doorOpen) {
       const sc = houseAt.sc, hx = houseAt.x, hy = houseAt.y + gy;
-      ctx.fillStyle = '#3a2a1a'; ctx.fillRect(hx + 10 * sc, hy + 12 * sc, 2 * sc, 5 * sc);
-      const cs = Math.max(2, Math.round(sc * 0.55));
-      drawSprite(ctx, SPRITES.cat, hx + 13 * sc, hy + 17 * sc - SPRITES.cat.length * cs, cs, wash(SPRITES.cat));
+      ctx.fillStyle = '#3a2a1a'; ctx.fillRect(hx + 15 * sc, hy + 18 * sc, 4 * sc, 9 * sc);   // 문(15~18열, 18~26행)
+      const cs = Math.max(2, Math.round(sc * 0.7));
+      drawSprite(ctx, SPRITES.cat, hx + 21 * sc, hy + 27 * sc - SPRITES.cat.length * cs, cs, wash(SPRITES.cat));
     }
     propHits.forEach(p => hits.push({ kind:p.kind, key:p.key, x:p.x, y:p.y + gy, w:p.w, h:p.h }));
 
