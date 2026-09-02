@@ -375,12 +375,18 @@ buildChrome('home');
   let W = 0, H = 0, S = 4, t = 0, scrollY = 0;
   let headerH = 0;                 // 헤더가 캔버스 위에 떠 있어서, 이름표가 그 아래로 내려와야 한다
 
+  // 새 HTML 과 예전 pixel.js 가 짝이 되는 창이 배포 직후 10분쯤 있다 (둘 다 max-age=600).
+  // 그때 phaseAt 같은 게 없다고 여기서 죽으면 첫 화면이 통째로 빈 칸이 된다.
+  // 없으면 "그냥 낮" 으로 물러나서, 색만 예전 그대로이고 나머지는 다 돌아가게 둔다.
+  const HAS_PHASE = typeof PHASES !== 'undefined' && typeof phaseAt === 'function';
+
   // 지금이 언제인지는 들어온 순간에 한 번만 정한다.
   // 보고 있는 도중에 낮이 밤으로 넘어가면 그게 더 이상하다.
-  const PHASE  = phaseAt();
-  const SEASON = seasonAt();
+  const PHASE  = HAS_PHASE ? phaseAt() : 'day';
+  const SEASON = HAS_PHASE ? seasonAt() : 'summer';
   const NIGHT  = PHASE === 'night';
-  const wash   = sp => phaseWash(sp, PHASE);        // 밤이면 스프라이트 색을 물 뺀다
+  const wash   = sp => HAS_PHASE ? phaseWash(sp, PHASE) : undefined;   // 밤이면 스프라이트 색을 물 뺀다
+  const paint  = (fn) => HAS_PHASE ? withPhase(PHASE, fn) : fn();
   const DAY_SEED = (() => { const d = new Date();
     return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); })();
 
@@ -493,7 +499,7 @@ buildChrome('home');
     { key:'snail',    sp:SPRITES.snail,    label:'달팽이',   line:'느릿... 느릿...' },
     { key:'mushroom', sp:SPRITES.mushroom, label:'버섯',     line:'뽕!' },
     { key:'ladybug',  sp:SPRITES.ladybug,  label:'무당벌레', line:'톡' },
-  ];
+  ].filter(k => k.sp);                       // 예전 pixel.js 와 짝이 되면 그림이 없다 (위 HAS_PHASE 와 같은 이유)
   const SECRET_SPOTS = [
     { xr:0.07, yr:0.885 }, { xr:0.235, yr:0.905 }, { xr:0.38, yr:0.875 },
     { xr:0.52, yr:0.915 }, { xr:0.63,  yr:0.870 }, { xr:0.78, yr:0.900 },
@@ -505,7 +511,8 @@ buildChrome('home');
 
   const secrets = (() => {
     const kinds = SECRET_KINDS.slice(), spots = SECRET_SPOTS.slice(), out = [];
-    for (let i = 0; i < 3; i++) {
+    const n = Math.min(3, kinds.length);
+    for (let i = 0; i < n; i++) {
       const k = kinds.splice(Math.floor(prand(DAY_SEED + i * 3.1) * kinds.length), 1)[0];
       const s = spots.splice(Math.floor(prand(DAY_SEED + i * 7.7) * spots.length), 1)[0];
       out.push(Object.assign({}, k, s));
@@ -516,9 +523,11 @@ buildChrome('home');
   const hud = $('#findHud');
   function syncHud(){
     if (!hud) return;
+    const all = secrets.length;
+    if (!all) { hud.hidden = true; return; }
     const n = secrets.filter(s => found.has(s.key)).length;
-    hud.textContent = n >= 3 ? '🔍 다 찾았다!' : '🔍 숨은 친구 ' + n + '/3';
-    hud.classList.toggle('done', n >= 3);
+    hud.textContent = n >= all ? '🔍 다 찾았다!' : '🔍 숨은 친구 ' + n + '/' + all;
+    hud.classList.toggle('done', n >= all);
   }
 
   // ---- 심어 둔 꽃 ----
@@ -556,7 +565,7 @@ buildChrome('home');
       g.imageSmoothingEnabled = false;
       g.clearRect(0, 0, W, H);
     });
-    withPhase(PHASE, () => { paintSky(); paintGround(); });
+    paint(() => { paintSky(); paintGround(); });
   }
 
   function paintSky(){
@@ -567,7 +576,7 @@ buildChrome('home');
       { at:0.70, color:SCENE.sky[4] }, { at:0.86, color:SCENE.sky[5] },
       { at:1.00, color:SCENE.sky[6] },
     ]);
-    if (NIGHT) drawStars(g, W, H, S, Math.round(W / 14), 0);
+    if (NIGHT) drawStars(g, W, H, S, Math.round(W / 14), 0);   // NIGHT 는 HAS_PHASE 일 때만 참이다
   }
 
   // 화면 가로 위치에 따른 "가까움" 정도. 0 = 왼쪽 끝(멀다), 1 = 오른쪽 끝(가깝다).
@@ -691,7 +700,7 @@ buildChrome('home');
 
     // 시간대 색은 맨 마지막에 한 겹으로 덮는다. 소재마다 색을 다시 잡는 것보다
     // 훨씬 싸고, source-atop 이라 하늘로 비치는 빈 자리에는 묻지 않는다.
-    tintLayer(g, W, H, PHASE);
+    if (HAS_PHASE) tintLayer(g, W, H, PHASE);
 
     // 덮개 뒤에 켜는 창문. 덮기 전에 그리면 같이 어두워져서 불이 꺼진 것처럼 보인다.
     if (NIGHT) {
@@ -778,7 +787,7 @@ buildChrome('home');
     ctx.clearRect(0, 0, W, H);
     hits = [];                      // 그리는 순서대로 다시 채운다 (뒤에 넣은 것이 위에 있는 것)
 
-    withPhase(PHASE, () => drawScene());
+    paint(() => drawScene());
     drawNameTag();                  // 이름표는 시간대 색을 안 탄다 — 늘 읽혀야 하므로
   }
 
