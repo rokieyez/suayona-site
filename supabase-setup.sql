@@ -542,3 +542,86 @@ drop trigger if exists capsules_flood_guard on public.capsules;
 create trigger capsules_flood_guard
   before insert on public.capsules
   for each row execute function public.capsules_flood_guard();
+
+-- ---------------------------------------------------------------------------
+-- 비공개 이벤트를 정말로 비공개로 (2026-09 점검에서 고침)
+--
+-- 여태 is_public 은 event_meta 한 표에만 걸려 있었다. 목록에서는 사라지는데
+-- 사진(gallery_media)·일정(events)·노트(custom_tabs) 는 "누구나 읽기" 였다.
+-- 즉 주소만 알면, 아니 API 를 그냥 부르기만 해도 그 이벤트의 사진이 전부 나왔다.
+--
+-- 정책 안에서 event_meta 를 그냥 조회하면 그 표의 정책이 또 걸린다. 비공개 행은
+-- 애초에 안 보이니 "그런 이벤트 없음" 이 되고, 그러면 공개로 뒤집혀 버린다.
+-- 그래서 깃발만 곧이곧대로 읽어 주는 정의자 권한(security definer) 함수를 둔다.
+-- ---------------------------------------------------------------------------
+create or replace function public.event_is_public(eid text)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  -- 짝이 되는 event_meta 가 없으면(예: 학교 일정표처럼 탭만 있는 것) 여태처럼 보인다.
+  select coalesce((select is_public from public.event_meta where event_id = eid), true)
+$$;
+
+drop policy if exists "public can read events" on public.events;
+create policy "public can read events"
+  on public.events for select
+  using (public.event_is_public(event_id) or auth.role() = 'authenticated');
+
+drop policy if exists "public can read gallery_media" on public.gallery_media;
+create policy "public can read gallery_media"
+  on public.gallery_media for select
+  using (public.event_is_public(event_id) or auth.role() = 'authenticated');
+
+drop policy if exists "public can read custom_tabs" on public.custom_tabs;
+create policy "public can read custom_tabs"
+  on public.custom_tabs for select
+  using (public.event_is_public(event_id) or auth.role() = 'authenticated');
+
+-- ---------------------------------------------------------------------------
+-- 로그인 없이 쓸 수 있는 자리에는 길이 상한을 둔다
+--
+-- 타임캡슐과 방명록은 일부러 로그인을 안 받는다. 그런데 길이 제한이 없으면
+-- 아무나 소설 한 편을 넣어 둘 수 있고, 캡슐은 1년 뒤 아이들 첫 화면에 그대로 뜬다.
+-- ---------------------------------------------------------------------------
+alter table public.capsules
+  add constraint capsules_body_len   check (char_length(body) between 1 and 500),
+  add constraint capsules_author_len check (char_length(coalesce(author, '')) <= 20);
+
+alter table public.messages
+  add constraint messages_body_len    check (char_length(body) between 1 and 2000),
+  add constraint messages_name_len    check (char_length(coalesce(name, '')) <= 40),
+  add constraint messages_contact_len check (char_length(coalesce(contact, '')) <= 200);
+
+-- ---------------------------------------------------------------------------
+-- 트리거 함수는 트리거만 부르게 한다
+--
+-- 정의자 권한 함수는 PostgREST 가 /rest/v1/rpc/<이름> 으로 그대로 열어 준다.
+-- 트리거용으로 만든 것들까지 밖에서 부를 수 있을 이유가 없다.
+-- 권한을 걷어내도 트리거는 그대로 돈다 — 심는 건 되고, 호출은 404 가 되는 것을 확인했다.
+-- ---------------------------------------------------------------------------
+revoke execute on function public.garden_flood_guard()   from anon, authenticated;
+revoke execute on function public.capsules_flood_guard() from anon, authenticated;
+revoke execute on function public.messages_flood_guard() from anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 첫 화면 「우리가 쌓은 것」 숫자 한 번에
+--
+-- 표 네 곳에 각각 물으면 첫 화면 한 번 여는 데 왕복이 넷 더 붙는다.
+-- security invoker 인 것이 중요하다 — 부른 사람의 권한으로 세기 때문에
+-- 숨긴 일기나 비공개 이벤트가 숫자에 슬쩍 섞이지 않는다.
+-- ---------------------------------------------------------------------------
+create or replace function public.home_counts()
+returns table (works bigint, posts bigint, photos bigint, events bigint, gallery_images bigint)
+language sql stable security invoker set search_path = public as $$
+  select
+    (select count(*) from public.works),
+    (select count(*) from public.posts),
+    (select count(*) from public.gallery_media),
+    (select count(*) from public.event_meta),
+    (select count(*) from public.gallery_media where media_type = 'image')
+$$;
+grant execute on function public.home_counts() to anon, authenticated;
+
+-- 코드가 영상 100MB 까지 허용하는데 gallery-uploads 는 50MB 였다.
+-- 그 사이 크기의 영상은 다 올린 다음에야 거부당했다.
+update storage.buckets set file_size_limit = 104857600
+ where id in ('event-images', 'gallery-uploads');

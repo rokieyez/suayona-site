@@ -28,8 +28,10 @@
 <meta name="twitter:card" content="summary_large_image">
 
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
-<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" rel="stylesheet"
+      integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" crossorigin="anonymous">
+<link href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css" rel="stylesheet"
+      integrity="sha384-55uQGdclWjXwWY0yHikdtcfcat9pPBqMBCVFIeWjRhvPPUYbpJLhIJegzTcFoh/A" crossorigin="anonymous">
 <link href="/style.css" rel="stylesheet">
 <style>
   :root{
@@ -47,7 +49,7 @@
   }
   *, *::before, *::after{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   body{
-    font-family:'Pretendard',sans-serif; color:var(--ink);
+    font-family:'Pretendard Variable', 'Pretendard', sans-serif; color:var(--ink);
     margin:0; padding:18px 14px 40px; min-height:100vh;
     background-color:var(--paper);
   }
@@ -448,7 +450,9 @@
   <div class="lightbox-caption" id="lightboxCaption"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
+        crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
 <script src="/event/compress.js"></script>
 <script src="/pixel.js"></script>

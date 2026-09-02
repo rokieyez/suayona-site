@@ -19,12 +19,12 @@
 html{scroll-behavior:smooth;}
 body{
   margin:0; color:var(--ink); background:var(--cream);
-  font-family:'Pretendard', sans-serif;
+  font-family:'Pretendard Variable', 'Pretendard', sans-serif;
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
 }
 img, canvas{display:block;}
-.pixel{font-family:'Galmuri11', 'Pretendard', sans-serif; letter-spacing:.5px;}
+.pixel{font-family:'Galmuri11', 'Pretendard Variable', 'Pretendard', sans-serif; letter-spacing:.5px;}
 
 /* ===== 도트 느낌 공통 부품 ===== */
 .dot-card{

@@ -122,6 +122,35 @@ async function geocodePlace(query){
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// EXIF 읽는 꾸러미(exifr) 는 사진을 실제로 고를 때만 받는다.
+//
+// 예전에는 일기장·관리 화면을 열기만 해도 26KB 를 늘 받았다. 그런데 그 두 화면은
+// 대개 「읽으러」 들어오는 곳이고, 사진을 올리는 건 어쩌다 한 번이다.
+// 그래서 파일을 고른 그 순간에 받아 온다. 한 번 받으면 그 뒤로는 그대로 쓴다.
+//
+// 주소에 버전을 박고 무결성 해시를 붙였다 — 버전을 안 적으면 CDN 이 어느 날
+// 다른 코드를 내줘도 그대로 실행된다. 해시가 어긋나면 브라우저가 막는다.
+// ---------------------------------------------------------------------------
+const EXIFR_SRC = 'https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js';
+const EXIFR_SRI = 'sha384-KrOocIA+lZcNUz2MDavnT/FuX+CbTREJihUi0bp8QUSwhE2AkGTNpv2b7yMbBkx5';
+let _exifrReady = null;
+function loadExifr(){
+  if (_exifrReady) return _exifrReady;
+  _exifrReady = new Promise(resolve => {
+    if (typeof exifr !== 'undefined') return resolve(true);
+    const sc = document.createElement('script');
+    sc.src = EXIFR_SRC;
+    sc.integrity = EXIFR_SRI;
+    sc.crossOrigin = 'anonymous';
+    sc.onload = () => resolve(true);
+    // 못 받아도 업로드까지 막지는 않는다 — 날짜/위치만 비게 된다.
+    sc.onerror = () => resolve(false);
+    document.head.appendChild(sc);
+  });
+  return _exifrReady;
+}
+
 // 사진 파일의 EXIF에서 촬영 일시/위치를 꺼냄.
 // 반환: { takenAtISO: string|null, place: string, gps: 'ok'|'blanked'|'none' }
 //   ok      — 좌표가 들어 있었음
@@ -129,7 +158,9 @@ async function geocodePlace(query){
 //   none    — 위치 칸 자체가 없음. 위치 기록을 끄고 찍었거나, 중간에 한 번 걸러진 사진.
 async function extractPhotoMeta(file){
   const empty = { takenAtISO: null, place: '', gps: 'none' };
-  if (!file.type || !file.type.startsWith('image/') || typeof exifr === 'undefined') return empty;
+  if (!file.type || !file.type.startsWith('image/')) return empty;
+  await loadExifr();
+  if (typeof exifr === 'undefined') return empty;
 
   // 날짜와 좌표는 따로 읽어야 한다.
   // exifr 의 pick 은 파일에 실제로 박혀 있는 "태그 이름" 만 통과시키는데,

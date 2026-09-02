@@ -28,8 +28,10 @@
 <meta name="twitter:card" content="summary_large_image">
 
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
-<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" rel="stylesheet"
+      integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" crossorigin="anonymous">
+<link href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css" rel="stylesheet"
+      integrity="sha384-55uQGdclWjXwWY0yHikdtcfcat9pPBqMBCVFIeWjRhvPPUYbpJLhIJegzTcFoh/A" crossorigin="anonymous">
 <link href="./style.css" rel="stylesheet">
 <style>
   /* ===== 히어로 (이 페이지에서만 쓰임) ===== */
@@ -406,11 +408,22 @@
 
 <div class="strip"><canvas id="stripCanvas"></canvas></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
+        crossorigin="anonymous"></script>
 <script src="./pixel.js"></script>
 <script src="./common.js"></script>
 <script>
 buildChrome('home');
+
+// ================= 첫 화면이 함께 쓰는 조회 =================
+// 아래 조각들이 같은 표를 각자 물어보고 있었다. 「N년 전 오늘」과 「여긴 어디였을까」가
+// event_meta 를 한 번씩, 숫자 넷이 표 네 곳에 한 번씩 — 첫 화면 한 번 여는 데 왕복이 열둘.
+//
+// supabase 의 질의 객체는 await 할 때마다 새로 물어보러 간다. 그래서 객체를 나눠 쓰면
+// 소용이 없고, 이렇게 결과 약속(Promise) 자체를 만들어 두고 나눠 써야 한 번만 다녀온다.
+const metaOnce   = (async () => (await sb.from('event_meta').select('event_id, org_name, event_name')).data || [])();
+const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] || {})();
 
 // ================= N년 전 오늘 =================
 // 지난 10년의 "오늘" 하루씩을 시각 범위로 물어본다. 촬영 시각은 UTC 로 저장돼
@@ -428,13 +441,13 @@ buildChrome('home');
 
   // 비공개 이벤트는 서버 정책이 로그인한 가족에게만 돌려준다.
   // 그래서 여기 나온 이벤트 목록이 곧 "이 사람이 봐도 되는 것"의 목록이다.
-  const [photosRes, metaRes] = await Promise.all([
+  const [photosRes, metaList] = await Promise.all([
     sb.from('gallery_media')
       .select('media_url, thumb_url, taken_at, is_best, event_id, media_type')
       .eq('media_type', 'image').or(orExpr),
-    sb.from('event_meta').select('event_id, org_name, event_name'),
+    metaOnce,
   ]);
-  const metas = new Map((metaRes.data || []).map(m => [m.event_id, m]));
+  const metas = new Map(metaList.map(m => [m.event_id, m]));
   const hits = (photosRes.data || []).filter(r => metas.has(r.event_id));
   if (!hits.length) return;                      // 오늘은 겹치는 날이 없다 — 조용히 지나간다
 
@@ -1303,7 +1316,7 @@ buildChrome('home');
 
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, fade));
-    ctx.font = '800 ' + fs + 'px Galmuri11, Pretendard, sans-serif';
+    ctx.font = '800 ' + fs + 'px Galmuri11, Pretendard Variable, Pretendard, sans-serif';
     ctx.textBaseline = 'top';
 
     const bw = Math.ceil(ctx.measureText(nameTag.text).width) + pad * 2;
@@ -1639,15 +1652,13 @@ $$('canvas[data-char]').forEach(cv => {
 })();
 
 // ================= 우리가 쌓은 것 =================
-// 줄을 받아와서 세지 않는다 — head:true 면 개수만 오고 본문은 안 온다.
+// 줄을 받아와서 세지 않는다. 서버가 다섯 숫자를 한 번에 세어서 준다(home_counts).
+// 그 함수는 부른 사람의 권한으로 세기 때문에, 화면에 뜨는 수와 실제로 볼 수 있는 수가 늘 같다.
 (async () => {
-  const one = (table) => sb.from(table).select('*', { count: 'exact', head: true });
-  const [works, posts, photos, events] = await Promise.all([
-    one('works'), one('posts'), one('gallery_media'), one('event_meta'),
-  ]);
+  const c = await countsOnce;
   const nums = {
-    works: works.count || 0, posts: posts.count || 0,
-    photos: photos.count || 0, events: events.count || 0,
+    works: c.works || 0, posts: c.posts || 0,
+    photos: c.photos || 0, events: c.events || 0,
   };
 
   function countUp(el, target){
@@ -1674,16 +1685,23 @@ $$('canvas[data-char]').forEach(cv => {
 // ================= 여긴 어디였을까? =================
 // 사진은 갤러리에서 날짜로 한 장 고르고, 보기는 이벤트 이름 전부(최대 셋). 정답은 그 사진의 이벤트.
 (async () => {
-  const [metaRes, photoRes] = await Promise.all([
-    sb.from('event_meta').select('event_id, org_name, event_name'),
-    sb.from('gallery_media').select('id, event_id, thumb_url, media_url').eq('media_type', 'image'),
-  ]);
-  const metas = (metaRes.data || []).filter(m => m.event_name);
-  const photos = (photoRes.data || []).filter(r => metas.some(m => m.event_id === r.event_id));
-  if (metas.length < 2 || !photos.length) return;
-
+  // 사진을 전부 받아 와서 그중 한 장을 고르던 자리였다. 지금은 111장이라 3KB 지만
+  // 사진은 해마다 늘기만 한다 — 한 장 고르자고 전부 받아 오는 모양은 언젠가 무거워진다.
+  // 그래서 총 장수만 받아서 「오늘의 자리」를 셈하고, 그 자리부터 스무 장만 떠 온다.
+  // 스무 장인 이유: 고른 자리의 사진이 이름 없는 이벤트일 수도 있어서 여유를 둔 것.
   const d = new Date();
   const seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  const [metaAll, c] = await Promise.all([metaOnce, countsOnce]);
+  const metas = metaAll.filter(m => m.event_name);
+  const total = c.gallery_images || 0;
+  if (metas.length < 2 || !total) return;
+
+  const from = seed % total;
+  const { data: slice } = await sb.from('gallery_media')
+    .select('id, event_id, thumb_url, media_url')
+    .eq('media_type', 'image').order('id').range(from, from + 20);
+  const photos = (slice || []).filter(r => metas.some(m => m.event_id === r.event_id));
+  if (!photos.length) return;
   const pick = photos[seed % photos.length];
   const answer = metas.find(m => m.event_id === pick.event_id);
   // 보기: 정답 + 다른 것들, 날짜로 섞어서 셋까지
