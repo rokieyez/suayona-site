@@ -420,3 +420,62 @@ drop policy if exists "schedules_read" on public.schedules;
 create policy "family can read schedules"
   on public.schedules for select
   using (public.my_role() is not null);
+
+-- ---------------------------------------------------------------------------
+-- 꽃밭
+--
+-- 첫 화면 잔디밭을 누르면 그 자리에 꽃이 핀다. 내 화면에만 피고 마는 게 아니라
+-- 남아서, 다음에 들어온 사람이 앞사람이 심고 간 꽃을 본다.
+--
+-- 로그인 없이 심을 수 있어야 하는 기능이라(할머니도, 친구도) insert 를 열어 둔다.
+-- 대신 편지(messages)와 같은 방식으로 지킨다: 값의 범위를 못에 박고, 도배는 방아쇠로 막는다.
+-- 한 줄이 30바이트 남짓이라 도배 상한(10분에 60송이)에 계속 걸려도 하루 8천 줄, 240KB 다.
+--
+--   xr, yr   화면 안의 자리를 1000분율로 (해상도가 달라도 같은 자리에 핀다)
+--   kind     꽃잎 색 번호. 화면 쪽 SCENE.petal 이 여섯 가지라 0~5.
+-- ---------------------------------------------------------------------------
+create table if not exists public.garden (
+  id         bigint generated always as identity primary key,
+  xr         smallint not null check (xr between 0 and 1000),
+  yr         smallint not null check (yr between 0 and 1000),
+  kind       smallint not null default 0 check (kind between 0 and 5),
+  created_at timestamptz not null default now()
+);
+
+-- 최근 것부터 120송이만 그리므로 id 역순으로 훑는다
+create index if not exists garden_recent_idx on public.garden (id desc);
+
+alter table public.garden enable row level security;
+
+drop policy if exists "anyone can read garden" on public.garden;
+create policy "anyone can read garden"
+  on public.garden for select using (true);
+
+drop policy if exists "anyone can plant" on public.garden;
+create policy "anyone can plant"
+  on public.garden for insert with check (true);
+
+-- 치우는 건 부모만. 심은 사람이 누군지 남기지 않으므로(남길 이유도 없고)
+-- 자기 것만 지우는 규칙은 만들 수 없다.
+drop policy if exists "parent weeds garden" on public.garden;
+create policy "parent weeds garden"
+  on public.garden for delete using (public.my_role() = 'parent');
+
+-- 도배 막기. messages_flood_guard 와 같은 이유로 규칙이 아니라 방아쇠로 둔다 —
+-- 규칙 안에서 세려면 읽기 권한이 필요한데, 방아쇠 함수는 밖에서 부를 수 없어 여는 문이 늘지 않는다.
+create or replace function public.garden_flood_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare recent int;
+begin
+  select count(*) into recent from garden where created_at > now() - interval '10 minutes';
+  if recent >= 60 then
+    raise exception '꽃이 너무 빨리 피고 있어요. 잠시 뒤에 다시 심어주세요.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists garden_flood_guard on public.garden;
+create trigger garden_flood_guard
+  before insert on public.garden
+  for each row execute function public.garden_flood_guard();

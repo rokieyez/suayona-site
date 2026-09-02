@@ -807,3 +807,182 @@ function groundOut(ctx, W, H, y0, s, fromColor, toColor){
   ctx.fillStyle = toColor;
   ctx.fillRect(0, solid, W, Math.max(0, H - solid));
 }
+
+// ---------------------------------------------------------------------------
+// 시간대와 계절
+//
+// 첫 화면 풍경이 실제 시각을 따라간다. 아침에 들어온 아이와 밤에 들어온 아이가
+// 다른 그림을 본다 — 누르지 않아도 되는 상호작용이라, 이 페이지에서 가장 값싸고
+// 가장 크게 달라지는 부분이다.
+//
+// 색을 소재마다 다시 칠하지 않는다. 하늘·구름·해만 갈아 끼우고, 이미 그려 놓은
+// 땅 그림 위에는 source-atop 으로 한 겹 덮는다 (그려진 픽셀에만 얹힌다).
+// 움직이는 캐릭터는 캔버스가 따로 없으므로 washPal 로 스프라이트 색을 물 뺀다.
+// ---------------------------------------------------------------------------
+const PHASES = {
+  dawn: {
+    scene: {
+      sky:   ['#2f5590', '#9d7fb0', '#ffc79a', '#ffe3c0', '#fff0d8', '#fffaf0', '#fffdf6'],
+      cloud: { hi:'#fff0e2', body:'#f6ddcc', mid:'#e6bcb2', shade:'#c1938f', deep:'#9c7278' },
+      sun:   { core:'#fff2cf', ring:'#ffcf8a', glow:'rgba(255,214,170,.20)' },
+    },
+    ground: { color:'#4f4676', alpha:0.30 },
+    wash:   { base:'#4f4676', t:0.24 },
+  },
+  day: null,                                   // null = SCENE 원본 그대로
+  dusk: {
+    scene: {
+      sky:   ['#1f3566', '#7a4a86', '#ff8a5c', '#ffb877', '#ffd9a0', '#fff0cc', '#fff6dd'],
+      cloud: { hi:'#ffd3b4', body:'#f3b294', mid:'#d3877f', shade:'#a5666e', deep:'#7b4d5c' },
+      sun:   { core:'#ffd9a0', ring:'#ff9d5c', glow:'rgba(255,170,110,.20)' },
+    },
+    ground: { color:'#6b3f55', alpha:0.46 },
+    wash:   { base:'#6b3f55', t:0.32 },
+  },
+  night: {
+    scene: {
+      sky:   ['#0b1428', '#101d3a', '#17284c', '#1f3462', '#2a4076', '#374d84', '#4a5f92'],
+      cloud: { hi:'#8ea0c2', body:'#7b8cb0', mid:'#5f7094', shade:'#465577', deep:'#33405c' },
+      sun:   { core:'#f6f1d8', ring:'#e6dfbe', glow:'rgba(230,224,190,.16)' },
+    },
+    ground: { color:'#101d3a', alpha:0.56 },
+    wash:   { base:'#101d3a', t:0.44 },
+  },
+};
+
+// 여름 해가 길어도 8시면 아침, 20시면 밤으로 친다. 아이가 보는 화면이라
+// 천문학적으로 맞추는 것보다 "아침엔 아침 같다" 가 중요하다.
+function phaseAt(d){
+  // 주소 뒤에 ?phase=night 를 붙이면 그 시간대로 볼 수 있다. 만들 때 네 가지를 확인하려고
+  // 뒀는데, 낮에 "밤엔 이렇게 나와" 하고 아이에게 보여 줄 수도 있어 남겨 뒀다.
+  const forced = new URLSearchParams(location.search).get('phase');
+  if (forced && PHASES.hasOwnProperty(forced)) return forced;
+  const h = (d || new Date()).getHours();
+  if (h < 5)  return 'night';
+  if (h < 8)  return 'dawn';
+  if (h < 17) return 'day';
+  if (h < 20) return 'dusk';
+  return 'night';
+}
+
+function seasonAt(d){
+  const forced = new URLSearchParams(location.search).get('season');   // ?season=winter (위와 같은 이유)
+  if (['spring', 'summer', 'autumn', 'winter'].indexOf(forced) >= 0) return forced;
+  const m = (d || new Date()).getMonth() + 1;
+  if (m === 12 || m <= 2) return 'winter';
+  if (m <= 5) return 'spring';
+  if (m <= 8) return 'summer';
+  return 'autumn';
+}
+
+// 시간대 색을 잠깐 끼운 채로 그린다. day 는 갈아 끼울 게 없어서 그냥 부른다.
+function withPhase(phase, fn){
+  const p = PHASES[phase];
+  return p && p.scene ? withScene(p.scene, fn) : fn();
+}
+
+// 이미 그려 둔 겹 위에 시간대 색을 한 장 덮는다.
+// source-atop 이라 투명한 자리(하늘로 비치는 곳)에는 묻지 않는다.
+function tintLayer(g, W, H, phase){
+  const p = PHASES[phase];
+  if (!p || !p.ground) return;
+  g.save();
+  g.globalCompositeOperation = 'source-atop';
+  g.globalAlpha = p.ground.alpha;
+  g.fillStyle = p.ground.color;
+  g.fillRect(0, 0, W, H);
+  g.restore();
+}
+
+// 움직이는 스프라이트용 — 매 프레임 새로 계산하면 60fps 에서 너무 비싸서 캐시한다.
+const _washCache = new Map();
+function phaseWash(sprite, phase){
+  const p = PHASES[phase];
+  if (!p || !p.wash || !sprite) return undefined;
+  let m = _washCache.get(phase);
+  if (!m) { m = new WeakMap(); _washCache.set(phase, m); }
+  let v = m.get(sprite);
+  if (!v) { v = washPal(sprite, p.wash.t, p.wash.base); m.set(sprite, v); }
+  return v;
+}
+
+// 스프라이트에서 고른 문자만 그리기 위한 팔레트.
+// 나머지를 null 로 눌러 두면 drawSprite 가 색 없는 칸으로 보고 건너뛴다.
+// 밤에 집 창문(v)만 노랗게 다시 얹을 때 쓴다 — 덮개색이 묻지 않게 그 뒤에 그려야 해서.
+function onlyChars(map){
+  const pal = {};
+  Object.keys(PAL).forEach(ch => { pal[ch] = null; });
+  return Object.assign(pal, map);
+}
+
+// 밤하늘의 별. 자리는 씨앗으로 고정하고 밝기만 흔든다 —
+// 자리까지 매번 바뀌면 별이 아니라 노이즈로 보인다.
+function drawStars(ctx, W, H, s, count, phase){
+  for (let i = 0; i < count; i++) {
+    const x = Math.round(prand(i * 1.7) * W / s) * s;
+    const y = Math.round(prand(i * 3.9) * H * 0.5 / s) * s;
+    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(phase * 1.5 + i * 2.1);
+    ctx.fillStyle = i % 7 === 0 ? '#ffe9a8' : '#ffffff';
+    ctx.fillRect(x, y, s, s);
+    if (i % 13 === 0) {                       // 몇 개만 십자로 크게 — 전부 크면 촘촘해서 답답하다
+      ctx.fillRect(x - s, y, s, s); ctx.fillRect(x + s, y, s, s);
+      ctx.fillRect(x, y - s, s, s); ctx.fillRect(x, y + s, s, s);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- 숨은 친구들 ----------
+// 첫 화면 수풀과 나무 뒤에 하루 세 마리씩만 나타난다. 작고, 절반쯤 잘려 있다.
+Object.assign(SPRITES, {
+  // 고양이 — 수풀 위로 머리만 내민 모습 10x7
+  cat: [
+    '..z....z..',
+    '..zz..zz..',
+    '..zzzzzz..',
+    '.zzEzzEzz.',
+    '.zzzzzzzz.',
+    '..zFzzFz..',
+    '...zzzz...',
+  ],
+  // 다람쥐 9x9
+  squirrel: [
+    '......qq.',
+    '.....qqqq',
+    '....qqq.q',
+    '..pp.qqqq',
+    '.pEppqqq.',
+    '.pFpppq..',
+    '.pppppp..',
+    '..pppp...',
+    '..p...p..',
+  ],
+  // 달팽이 10x6
+  snail: [
+    '.....qqq..',
+    '....q...q.',
+    '..q.q.qqq.',
+    '.pq.qqq...',
+    'pwqqq.....',
+    '.wwwwww...',
+  ],
+  // 버섯 7x7
+  mushroom: [
+    '..HHH..',
+    '.HHEHH.',
+    'HEHHHEH',
+    'HHHHHHH',
+    '.EddE..',
+    '..ddd..',
+    '..ddd..',
+  ],
+  // 무당벌레 7x6
+  ladybug: [
+    '..FFF..',
+    '.HFHFH.',
+    'HHFHFHH',
+    'HFHHHFH',
+    '.HHFHH.',
+    '..FFF..',
+  ],
+});

@@ -124,6 +124,55 @@
     .mem-photo img{min-height:0; aspect-ratio:16/10;}
   }
 
+  /* ===== 숨은 친구 표시 =====
+     첫 화면 왼쪽 아래. 캔버스 클릭을 가로채면 안 되므로 눌리지 않게 둔다. */
+  .find-hud{
+    position:absolute; left:14px; bottom:22px; z-index:2; pointer-events:none;
+    padding:5px 10px; font-size:11px; font-weight:800;
+    background:var(--cream); color:var(--ink);
+    border:var(--px) solid var(--ink); box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.45);
+  }
+  .find-hud.done{background:var(--lemon);}
+  @media (max-width:400px){ .find-hud{left:10px; bottom:18px; font-size:10px;} }
+
+  /* ===== 메뉴 카드에 선 캐릭터 =====
+     카드 오른쪽 아래 모서리에 발을 붙여 세운다. 설명 글이 밑으로 지나가지 않게 여백을 준다. */
+  .menu-card .who{
+    position:absolute; right:12px; bottom:12px;
+    image-rendering:pixelated; pointer-events:none;
+  }
+  .menu-card p{padding-right:56px;}
+
+  /* 새로 붙인 세 구간이 연달아 오면 72px + 72px 로 사이가 너무 뜬다.
+     앞 두 개의 아래 여백을 빼서 한 칸(72px) 간격으로 맞춘다. */
+  #draw-cta, #counts{padding-bottom:0;}
+
+  /* ===== 도트 그리기 안내 띠 ===== */
+  .draw-band{display:flex; align-items:center; gap:20px; padding:20px; flex-wrap:wrap;}
+  #drawPeek{
+    flex:none; width:128px; height:128px; image-rendering:pixelated;
+    border:var(--px) solid var(--ink); background:var(--cream);
+  }
+  .draw-say{flex:1; min-width:200px;}
+  /* .eyebrow 는 .section-head 안에서만 칠해진다 — 이 둘은 그 밖에 있어서 여기서 다시 칠한다 */
+  .draw-say .eyebrow, .ask-card .eyebrow{
+    display:inline-block; font-size:11px; padding:4px 10px;
+    background:var(--mint); color:#fff; border:2px solid var(--ink);
+  }
+  .ask-card .eyebrow{background:var(--ink);}
+  .draw-say h2{margin:4px 0 8px; font-size:20px; font-weight:800;}
+  .draw-say p{margin:0 0 14px; font-size:13.5px; line-height:1.7; color:var(--ink-soft);}
+
+  /* ===== 우리가 쌓은 것 ===== */
+  .count-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:14px;}
+  .count{padding:20px 12px; text-align:center;}
+  .count b{display:block; font-size:30px; line-height:1.2; font-variant-numeric:tabular-nums;}
+  .count span{display:block; margin-top:6px; font-size:12.5px; font-weight:700; color:var(--ink-soft);}
+
+  /* ===== 오늘의 질문 ===== */
+  .ask-card{padding:26px 22px; text-align:center; background:var(--lemon);}
+  .ask-card h2{margin:6px 0 18px; font-size:clamp(18px, 4.6vw, 24px); font-weight:800; line-height:1.5;}
+
   /* ===== 픽셀 띠 ===== */
   .strip{background:var(--sky-soft); border-top:var(--px) solid var(--ink); border-bottom:var(--px) solid var(--ink); overflow:hidden;}
   #stripCanvas{width:100%; height:150px; image-rendering:pixelated;}
@@ -147,6 +196,9 @@
         <canvas data-icon="mail" width="24" height="24" aria-hidden="true"></canvas>편지쓰기</a>
     </nav>
   </div>
+  <!-- 오늘 몇 마리를 찾았는지. 이 화면에 찾을 것이 있다는 사실을 알려 주는 유일한 표시라
+       처음부터 보여 준다 — 0/3 이 곧 초대장이다. -->
+  <div class="find-hud pixel" id="findHud">🔍 숨은 친구 0/3</div>
   <div class="scroll-cue pixel">▼ SCROLL</div>
 </section>
 
@@ -180,6 +232,7 @@
 
     <div class="menu-grid">
       <a class="dot-card menu-card reveal" href="./portfolio.html">
+        <canvas class="who" data-char="sua" aria-hidden="true"></canvas>
         <span class="num pixel">01</span>
         <canvas data-icon="frame" width="64" height="64"></canvas>
         <h3>포트폴리오</h3>
@@ -188,6 +241,7 @@
       </a>
 
       <a class="dot-card menu-card reveal" href="./board.html">
+        <canvas class="who" data-char="yona" aria-hidden="true"></canvas>
         <span class="num pixel">02</span>
         <canvas data-icon="bubble" width="64" height="64"></canvas>
         <h3>일기장</h3>
@@ -196,6 +250,7 @@
       </a>
 
       <a class="dot-card menu-card reveal" href="./event/">
+        <canvas class="who" data-char="chick" aria-hidden="true"></canvas>
         <span class="num pixel">03</span>
         <canvas data-icon="tree" width="64" height="64"></canvas>
         <h3>이벤트</h3>
@@ -204,12 +259,58 @@
       </a>
 
       <a class="dot-card menu-card reveal" href="./contact.html">
+        <canvas class="who" data-char="budgieUp" aria-hidden="true"></canvas>
         <span class="num pixel">04</span>
         <canvas data-icon="mail" width="64" height="64"></canvas>
         <h3>편지쓰기</h3>
         <p>궁금한 점이나 응원의 말을 편지처럼 남길 수 있어요.</p>
         <span class="go pixel">보러가기 →</span>
       </a>
+    </div>
+  </div>
+</section>
+
+<!-- 사이트 전체가 도트 그림인데 정작 아이들은 그 도트를 만질 수가 없었다.
+     같은 팔레트로 직접 그려 보는 자리. -->
+<section class="section-pad" id="draw-cta">
+  <div class="wrap">
+    <div class="dot-card draw-band reveal">
+      <canvas id="drawPeek" width="128" height="128" aria-hidden="true"></canvas>
+      <div class="draw-say">
+        <span class="eyebrow pixel">PIXEL</span>
+        <h2>도트로 그려볼까?</h2>
+        <p>이 사이트에 쓰인 색으로 한 칸씩 찍어서 그림을 그려요.<br>다 그리면 그림 파일로 저장할 수 있어요.</p>
+        <a class="dot-btn primary" href="./draw.html">그리러 가기 →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 자기 숫자가 늘어나는 걸 보는 건 생각보다 큰 동기다.
+     그림 한 장 더 올리면 여기 숫자가 하나 오른다. -->
+<section class="section-pad" id="counts">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">NUMBERS</span>
+      <h2>우리가 쌓은 것</h2>
+      <p>수아와 연아가 지금까지 남긴 것들</p>
+    </div>
+    <div class="count-grid">
+      <div class="dot-card count reveal"><b class="pixel" data-count="works">0</b><span>작품</span></div>
+      <div class="dot-card count reveal"><b class="pixel" data-count="posts">0</b><span>일기</span></div>
+      <div class="dot-card count reveal"><b class="pixel" data-count="photos">0</b><span>사진</span></div>
+      <div class="dot-card count reveal"><b class="pixel" data-count="events">0</b><span>나들이</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 하루에 하나. 날짜로 고르므로 자매 둘이 같은 날 같은 질문을 받는다. -->
+<section class="section-pad" id="ask">
+  <div class="wrap">
+    <div class="dot-card ask-card reveal">
+      <span class="eyebrow pixel">TODAY</span>
+      <h2 id="askText">오늘의 질문</h2>
+      <a class="dot-btn primary" id="askGo" href="./board.html">일기장에 답하기 →</a>
     </div>
   </div>
 </section>
@@ -274,11 +375,21 @@ buildChrome('home');
   let W = 0, H = 0, S = 4, t = 0, scrollY = 0;
   let headerH = 0;                 // 헤더가 캔버스 위에 떠 있어서, 이름표가 그 아래로 내려와야 한다
 
+  // 지금이 언제인지는 들어온 순간에 한 번만 정한다.
+  // 보고 있는 도중에 낮이 밤으로 넘어가면 그게 더 이상하다.
+  const PHASE  = phaseAt();
+  const SEASON = seasonAt();
+  const NIGHT  = PHASE === 'night';
+  const wash   = sp => phaseWash(sp, PHASE);        // 밤이면 스프라이트 색을 물 뺀다
+  const DAY_SEED = (() => { const d = new Date();
+    return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); })();
+
   // 캐릭터를 누르면 이름이 잠깐 떴다 사라진다.
   // 소개를 메뉴에서 뺀 대신, 궁금할 때 직접 눌러 보게 하는 자리.
   // hits 는 그릴 때마다 다시 채운다 — 캐릭터가 화면 폭에 따라 자리를 옮기기 때문에
   // 좌표를 미리 박아 둘 수가 없다. 그린 그 자리가 곧 누를 자리다.
   let hits = [];
+  let propHits = [];                                    // 땅 겹에 그린 소품 (한 번만 계산)
   let nameTag = null;                                   // { text, x, y, at }
   const TAG_IN = 140, TAG_HOLD = 1700, TAG_OUT = 340;   // 뜨고 · 머물고 · 사라지고 (ms)
   const TAG_LIFE = TAG_IN + TAG_HOLD + TAG_OUT;
@@ -296,9 +407,38 @@ buildChrome('home');
     '미미':     ['짹?', '짹짹!', '짹짹짹~', '째애애애액~', '....', '멀리 떠나고 싶다~'],
   };
 
+  // 소품이 내는 소리. 사람이 아니니 이름 대신 의성어만 낸다.
+  const PROP_LINES = {
+    house: ['똑똑!', '아무도 없어요?', '우리 집이야'],
+    tree:  ['바스락', '흔들흔들', '나뭇잎이 떨어졌다'],
+    bench: ['삐걱', '여기 앉을래?'],
+    sun:   ['쨍!', '눈부셔!', '오늘도 맑음'],
+    moon:  ['잘 자~', '반짝', '쉿, 다들 자는 중'],
+    cloud: ['뭉게뭉게', '폭신폭신', '어디 가는 길이야?'],
+  };
+
+  // 아무도 안 눌러 주면 먼저 말을 건다.
+  // 이 화면에서 누를 수 있다는 걸 알려 주는 건 마우스 커서뿐이라, 폰에서는
+  // 대사가 있다는 사실조차 알기 어려웠다. 한 번만 스스로 말하면 규칙이 전달된다.
+  const GREET = {
+    dawn:  ['잘 잤어?', '아침이다!', '하암~ 벌써 아침이야?'],
+    day:   ['나 눌러봐!', '안녕!', '오늘 뭐 할까?', '여기 눌러도 돼'],
+    dusk:  ['해가 지네', '노을 예쁘다', '집에 갈 시간인가?'],
+    night: ['별 보인다!', '아직 안 자?', '쉿... 조용히', '밤이야'],
+  };
+  const BACK_LINES = ['오랜만이야!', '어디 갔었어?', '기다렸어!'];
+
   // 누른 횟수와 방금 한 말을 캐릭터마다 따로 센다 —
   // 수아를 두 번 눌렀다고 해서 연아까지 이름을 건너뛰면 안 되니까.
   const said = {};
+
+  function pickLine(lines, memo){
+    if (!lines || !lines.length) return '';
+    let i = Math.floor(Math.random() * lines.length);
+    if (lines.length > 1 && memo && i === memo.last) i = (i + 1) % lines.length;
+    if (memo) memo.last = i;
+    return lines[i];
+  }
 
   function speak(name){
     const lines = LINES[name];
@@ -307,10 +447,7 @@ buildChrome('home');
     if (s.n === 1 || !lines || !lines.length) return name;
     // 방금 한 말은 다시 안 고른다. 예닐곱 마디뿐이라 그냥 뽑으면
     // 같은 말이 연달아 나오는 일이 일곱 번에 한 번씩 생긴다.
-    let i = Math.floor(Math.random() * lines.length);
-    if (lines.length > 1 && i === s.last) i = (i + 1) % lines.length;
-    s.last = i;
-    return lines[i];
+    return pickLine(lines, s);
   }
 
   const clouds = [
@@ -325,6 +462,73 @@ buildChrome('home');
   const birds = [
     { x:0.20, y:0.20, sp:0.05 }, { x:0.26, y:0.24, sp:0.05 }, { x:0.32, y:0.18, sp:0.05 },
   ];
+
+  // 계절마다 하늘에서 떨어지는 것. 배열로 들고 있지 않고 t 의 함수로 그린다 —
+  // 개수가 고정이고 되돌릴 일이 없어서 상태를 둘 이유가 없다.
+  const FALLS = {
+    spring: { n:26, speed:0.55, drift:1.6, colors:['#ffb7d5', '#ff8fc0', '#fff0f6'] },
+    summer: null,
+    autumn: { n:22, speed:0.75, drift:1.2, colors:['#e8912f', '#d4622a', '#f2b544'] },
+    winter: { n:40, speed:0.45, drift:0.9, colors:['#ffffff', '#eaf6ff', '#cfe9fa'] },
+  };
+  const FALL = FALLS[SEASON];
+
+  // 눌렀을 때 톡 튀어나오는 하트와 별
+  let pops = [];
+  function popAt(x, y, sp, n){
+    for (let i = 0; i < (n || 5); i++) pops.push({
+      x, y, sp,
+      vx: (Math.random() - 0.5) * 1.8,
+      vy: -1.1 - Math.random() * 1.3,
+      life: 1,
+    });
+  }
+
+  // ---- 숨은 친구 ----
+  // 하루에 세 마리만, 절반쯤 잘린 채로 수풀에 섞여 있다. 자리는 날짜로 정하므로
+  // 자매 둘이 같은 날 같은 자리에서 같은 친구를 찾는다.
+  const SECRET_KINDS = [
+    { key:'cat',      sp:SPRITES.cat,      label:'고양이',   line:'야옹!' },
+    { key:'squirrel', sp:SPRITES.squirrel, label:'다람쥐',   line:'또르르' },
+    { key:'snail',    sp:SPRITES.snail,    label:'달팽이',   line:'느릿... 느릿...' },
+    { key:'mushroom', sp:SPRITES.mushroom, label:'버섯',     line:'뽕!' },
+    { key:'ladybug',  sp:SPRITES.ladybug,  label:'무당벌레', line:'톡' },
+  ];
+  const SECRET_SPOTS = [
+    { xr:0.07, yr:0.885 }, { xr:0.235, yr:0.905 }, { xr:0.38, yr:0.875 },
+    { xr:0.52, yr:0.915 }, { xr:0.63,  yr:0.870 }, { xr:0.78, yr:0.900 },
+    { xr:0.90, yr:0.880 },
+  ];
+  const FOUND_KEY = 'sy.found.' + DAY_SEED;
+  let found = new Set();
+  try { found = new Set(JSON.parse(localStorage.getItem(FOUND_KEY) || '[]')); } catch (e) {}
+
+  const secrets = (() => {
+    const kinds = SECRET_KINDS.slice(), spots = SECRET_SPOTS.slice(), out = [];
+    for (let i = 0; i < 3; i++) {
+      const k = kinds.splice(Math.floor(prand(DAY_SEED + i * 3.1) * kinds.length), 1)[0];
+      const s = spots.splice(Math.floor(prand(DAY_SEED + i * 7.7) * spots.length), 1)[0];
+      out.push(Object.assign({}, k, s));
+    }
+    return out;
+  })();
+
+  const hud = $('#findHud');
+  function syncHud(){
+    if (!hud) return;
+    const n = secrets.filter(s => found.has(s.key)).length;
+    hud.textContent = n >= 3 ? '🔍 다 찾았다!' : '🔍 숨은 친구 ' + n + '/3';
+    hud.classList.toggle('done', n >= 3);
+  }
+
+  // ---- 심어 둔 꽃 ----
+  // 잔디밭을 누르면 그 자리에 꽃이 핀다. 내 화면에만 피는 게 아니라 남는다 —
+  // 할머니가 심고 간 꽃을 아이가 본다.
+  let planted = [];                       // { xr, yr, k }
+  let plantAt = 0, plantedHere = 0;       // 도배 방지: 간격과 한 번 방문당 개수
+
+  // ---- 이젤에 걸린 그림 ----
+  let easelImg = null, easelHref = null, easelRect = null;
 
   // 배경은 매 프레임 다시 그리기엔 무거워서, 크기가 바뀔 때만 한 번 그려두고 재사용함.
   // sky = 하늘(고정), ground = 언덕부터 앞쪽 수풀까지(스크롤에 따라 조금 밀림)
@@ -352,8 +556,7 @@ buildChrome('home');
       g.imageSmoothingEnabled = false;
       g.clearRect(0, 0, W, H);
     });
-    paintSky();
-    paintGround();
+    withPhase(PHASE, () => { paintSky(); paintGround(); });
   }
 
   function paintSky(){
@@ -364,6 +567,7 @@ buildChrome('home');
       { at:0.70, color:SCENE.sky[4] }, { at:0.86, color:SCENE.sky[5] },
       { at:1.00, color:SCENE.sky[6] },
     ]);
+    if (NIGHT) drawStars(g, W, H, S, Math.round(W / 14), 0);
   }
 
   // 화면 가로 위치에 따른 "가까움" 정도. 0 = 왼쪽 끝(멀다), 1 = 오른쪽 끝(가깝다).
@@ -383,9 +587,18 @@ buildChrome('home');
     return { x, y, sc };
   }
 
+  // 소품을 세우면서 누를 자리도 같이 적어 둔다. 땅 겹은 한 번만 그리므로 여기서만 계산하면 된다.
+  function tapProp(g, sprite, key, xr, baseScale, lift){
+    const r = prop(g, sprite, xr, baseScale, lift);
+    const w = sprite[0].length * r.sc, h = sprite.length * r.sc;
+    propHits.push({ kind:'prop', key, x: r.x + w / 2, y: r.y, w, h });
+    return r;
+  }
+
   function paintGround(){
     const g = groundLayer.getContext('2d');
     g.clearRect(0, 0, W, H);
+    propHits = [];
     const tilt = TILT();
 
     // ---- 원경: 산맥 → 남산(타워) → 건물 → 언덕 순으로 겹쳐 공기원근법을 만듦 ----
@@ -433,13 +646,13 @@ buildChrome('home');
 
     // ---- 중경 소품 — 왼쪽은 멀고 작게, 오른쪽은 가깝고 크게 ----
     const bigS = Math.max(2, Math.round(S * 0.78));
-    prop(g, SPRITES.house, 0.10, bigS, H*0.055);
-    prop(g, SPRITES.tree,  0.03, bigS, H*0.045);
-    prop(g, SPRITES.tree,  0.20, bigS, H*0.050);
-    prop(g, SPRITES.tree,  0.44, bigS, H*0.020);
-    prop(g, SPRITES.bench, 0.31, charS, H*0.010);
-    prop(g, SPRITES.tree,  0.66, bigS, -H*0.010);
-    prop(g, SPRITES.tree,  0.84, bigS, -H*0.045);
+    const houseAt = tapProp(g, SPRITES.house, 'house', 0.10, bigS, H*0.055);
+    tapProp(g, SPRITES.tree,  'tree',  0.03, bigS, H*0.045);
+    tapProp(g, SPRITES.tree,  'tree',  0.20, bigS, H*0.050);
+    tapProp(g, SPRITES.tree,  'tree',  0.44, bigS, H*0.020);
+    tapProp(g, SPRITES.bench, 'bench', 0.31, charS, H*0.010);
+    tapProp(g, SPRITES.tree,  'tree',  0.66, bigS, -H*0.010);
+    tapProp(g, SPRITES.tree,  'tree',  0.84, bigS, -H*0.045);
 
     // 바위 몇 개 — 뒤쪽은 작고 희미하게, 앞쪽은 크게
     [[0.09,0.5],[0.27,0.7],[0.55,1.0],[0.70,1.3],[0.86,1.7]].forEach(([xr, sc], i) => {
@@ -475,6 +688,89 @@ buildChrome('home');
       drawSprite(g, SPRITES.flower, Math.round(fx/S)*S, Math.round(fy/S)*S, sc,
         { J: SCENE.petal[i % SCENE.petal.length] });
     }
+
+    // 시간대 색은 맨 마지막에 한 겹으로 덮는다. 소재마다 색을 다시 잡는 것보다
+    // 훨씬 싸고, source-atop 이라 하늘로 비치는 빈 자리에는 묻지 않는다.
+    tintLayer(g, W, H, PHASE);
+
+    // 덮개 뒤에 켜는 창문. 덮기 전에 그리면 같이 어두워져서 불이 꺼진 것처럼 보인다.
+    if (NIGHT) {
+      drawSprite(g, SPRITES.house, houseAt.x, houseAt.y, houseAt.sc,
+        onlyChars({ v: '#ffd979' }));
+    }
+  }
+
+  // 계절이 뿌리는 것 — 봄 꽃잎, 가을 낙엽, 겨울 눈
+  function drawFalling(){
+    if (!FALL) return;
+    const px = Math.max(2, S - 1);
+    for (let i = 0; i < FALL.n; i++) {
+      const sp = 0.35 + prand(i * 5.1) * 0.5;
+      const y = ((prand(i * 2.3) + t * FALL.speed * sp * 0.06) % 1.15 - 0.08) * H;
+      const x = (prand(i * 3.7) * 1.05 - 0.02) * W
+              + Math.sin(t * (0.6 + prand(i * 9.1)) + i) * W * 0.02 * FALL.drift;
+      ctx.fillStyle = FALL.colors[i % FALL.colors.length];
+      ctx.fillRect(Math.round(x / S) * S, Math.round(y / S) * S, px, px);
+    }
+  }
+
+  // 여름밤에만 나오는 반딧불. 풀밭 높이에서 느리게 떠다니며 깜빡인다.
+  function drawFireflies(){
+    if (SEASON !== 'summer' || !NIGHT) return;
+    for (let i = 0; i < 14; i++) {
+      const x = (prand(i * 4.4) + Math.sin(t * 0.3 + i) * 0.04) * W;
+      const y = H * (0.66 + prand(i * 8.8) * 0.22) + Math.sin(t * 0.7 + i * 1.7) * H * 0.02;
+      const blink = Math.sin(t * 2.3 + i * 2.9);
+      if (blink < 0) continue;
+      ctx.globalAlpha = blink;
+      ctx.fillStyle = '#fff3a0';
+      ctx.fillRect(Math.round(x / S) * S, Math.round(y / S) * S, S, S);
+      ctx.globalAlpha = blink * 0.35;
+      ctx.fillRect(Math.round(x / S) * S - S, Math.round(y / S) * S, S * 3, S);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPops(){
+    if (!pops.length) return;
+    const s = Math.max(2, Math.round(charS * 0.55));
+    for (let i = pops.length - 1; i >= 0; i--) {
+      const p = pops[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life -= 0.018;
+      if (p.life <= 0) { pops.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 1.7));
+      drawSprite(ctx, p.sp, Math.round(p.x / S) * S, Math.round(p.y / S) * S, s);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 심어 둔 꽃 — 땅 겹이 스크롤로 밀리는 만큼 같이 민다
+  function drawPlanted(gy){
+    const base = Math.max(2, Math.round(charS * 0.8));
+    planted.forEach((f, i) => {
+      const x = Math.round(f.xr * W / S) * S;
+      const y = Math.round((f.yr * H + gy) / S) * S;
+      drawSprite(ctx, SPRITES.flower, x, y, base,
+        Object.assign({}, wash(SPRITES.flower), { J: SCENE.petal[f.k % SCENE.petal.length] }));
+    });
+  }
+
+  function drawSecrets(gy){
+    const s = Math.max(2, Math.round(charS * 0.9));
+    secrets.forEach(sec => {
+      const w = sec.sp[0].length * s, h = sec.sp.length * s;
+      const x = Math.round((sec.xr * W - w / 2) / S) * S;
+      const y = Math.round((sec.yr * H - h + gy) / S) * S;
+      const done = found.has(sec.key);
+      // 못 찾은 동안에는 위쪽 절반만 보인다 — 수풀 밖으로 빼꼼 내민 모습.
+      // 찾고 나면 통째로 나와서, 찾았다는 게 눈으로 보인다.
+      ctx.save();
+      if (!done) { ctx.beginPath(); ctx.rect(x, y, w, h * 0.55); ctx.clip(); }
+      drawSprite(ctx, sec.sp, x, y, s, wash(sec.sp));
+      ctx.restore();
+      if (done) drawSprite(ctx, SPRITES.star, x + w, y - s * 3, Math.max(1, s - 1));
+      sec.rect = { x: x + w / 2, y, w, h: done ? h : h * 0.55 };
+    });
   }
 
   function draw(){
@@ -482,27 +778,44 @@ buildChrome('home');
     ctx.clearRect(0, 0, W, H);
     hits = [];                      // 그리는 순서대로 다시 채운다 (뒤에 넣은 것이 위에 있는 것)
 
+    withPhase(PHASE, () => drawScene());
+    drawNameTag();                  // 이름표는 시간대 색을 안 탄다 — 늘 읽혀야 하므로
+  }
+
+  function drawScene(){
     // 1) 하늘
     ctx.drawImage(skyLayer, 0, 0, W, H);
+    if (NIGHT) drawStars(ctx, W, H, S, Math.round(W / 26), t);   // 몇 개만 반짝이게 덧그림
 
-    // 2) 해 (은은하게 맥동)
+    // 2) 해 (밤에는 달)
     const sunR = (26 + Math.sin(t * 0.6) * 1.5) * (W < 640 ? 0.8 : 1);
     const sunX = W * 0.18, sunY = H * 0.15 - scrollY * 0.10;
-    ctx.fillStyle = SCENE.sun.glow; pixelCircle(ctx, sunX, sunY, sunR * 1.8, S);
+    // 무리는 낮에는 넓게 퍼져도 하늘과 대비가 작아 눈에 안 걸리는데, 아침·노을·밤에는 같은 크기가
+    // 딱딱한 원판으로 보인다. 낮이 아닐 때는 해에 바짝 붙인다.
+    ctx.fillStyle = SCENE.sun.glow; pixelCircle(ctx, sunX, sunY, sunR * (PHASE === 'day' ? 1.8 : 1.32), S);
     ctx.fillStyle = SCENE.sun.core; pixelCircle(ctx, sunX, sunY, sunR, S);
+    if (NIGHT) {
+      // 초승달 — 하늘색 원을 옆에 겹쳐 한쪽을 베어 문다
+      ctx.fillStyle = SCENE.sky[1];
+      pixelCircle(ctx, sunX + sunR * 0.62, sunY - sunR * 0.22, sunR * 0.92, S);
+    }
+    hits.push({ kind:'prop', key: NIGHT ? 'moon' : 'sun',
+      x: sunX, y: sunY - sunR, w: sunR * 2, h: sunR * 2 });
 
     // 3) 구름 — 층마다 속도를 달리해 원근감
     clouds.forEach((c, i) => {
       const cx = ((c.x + t * c.sp) % 1.4 - 0.2) * W;
       const cy = c.y * H - scrollY * c.depth * 0.5;
       drawFluffyCloud(ctx, cx, cy, S * 7 * c.sc, S, i * 17 + 3);
+      const cw = S * 7 * c.sc * 2.6, ch = S * 7 * c.sc * 1.5;
+      hits.push({ kind:'prop', key:'cloud', x: cx, y: cy - ch / 2, w: cw, h: ch });
     });
 
     // 4) 새
     birds.forEach((b, i) => {
       const bx = ((b.x + t * b.sp) % 1.25 - 0.12) * W;
       const by = b.y * H + Math.sin(t * 2 + i) * 8 - scrollY * 0.3;
-      drawSprite(ctx, SPRITES.bird, Math.round(bx/S)*S, Math.round(by/S)*S, Math.max(2, S - 2));
+      drawSprite(ctx, SPRITES.bird, Math.round(bx/S)*S, Math.round(by/S)*S, Math.max(2, S - 2), wash(SPRITES.bird));
     });
 
     // 사랑앵무 — 하늘을 천천히 가로지르며 날개를 퍼덕임.
@@ -512,20 +825,25 @@ buildChrome('home');
     const budY = H * 0.13 + Math.sin(t * 0.9) * S * 5 - scrollY * 0.3;
     const budSp = Math.sin(t * 7) > 0 ? SPRITES.budgieUp : SPRITES.budgieDown;
     const budDX = Math.round(budX / S) * S, budDY = Math.round(budY / S) * S;
-    drawSprite(ctx, budSp, budDX, budDY, budS);
+    drawSprite(ctx, budSp, budDX, budDY, budS, wash(budSp));
     // 미미도 누르면 이름이 뜬다. 날개를 폈다 접었다 하느라 스프라이트의 빈 줄이
     // 계속 바뀌므로, 누를 자리는 두 그림에 공통인 바깥 네모로 잡는다.
     const budW = budSp[0].length * budS, budH = budSp.length * budS;
-    hits.push({ name: '미미', x: budDX + budW / 2, y: budDY, w: budW, h: budH });
+    hits.push({ kind:'char', name: '미미', x: budDX + budW / 2, y: budDY, w: budW, h: budH });
 
     // 5) 땅 (스크롤에 따라 살짝 밀림)
     const gy = Math.round(scrollY * 0.06 / S) * S;
     ctx.drawImage(groundLayer, 0, gy, W, H);
+    propHits.forEach(p => hits.push({ kind:p.kind, key:p.key, x:p.x, y:p.y + gy, w:p.w, h:p.h }));
+
+    drawPlanted(gy);
+    drawSecrets(gy);
+    secrets.forEach(sec => sec.rect && hits.push({ kind:'secret', key:sec.key,
+      x:sec.rect.x, y:sec.rect.y, w:sec.rect.w, h:sec.rect.h }));
 
     // 6) 두 아이와 친구들 — 통통 튀는 모션
     const hop1 = Math.abs(Math.sin(t * 1.4)) * 4;
     const hop2 = Math.abs(Math.sin(t * 1.4 + 0.9)) * 4;
-    const hop3 = Math.abs(Math.sin(t * 1.6 + 1.8)) * 3;
     const standY = groundY + gy - H * 0.03;
     // 아이 스프라이트가 커져서 풍경을 압도하므로 등장인물만 따로 줄여 그림
     const castS = Math.max(2, Math.round(charS * 0.7));
@@ -537,7 +855,7 @@ buildChrome('home');
       { sp: SPRITES.chick, s: petS,  bob: 0, roll: true, name: '상그렐라' },  // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다님
       { sp: SPRITES.sua,   s: castS, bob: hop1, name: '수아' },
       { sp: SPRITES.yona,  s: castS, bob: hop2, rider: SPRITES.fox, name: '연아', riderName: '레샤' },
-      { sp: SPRITES.easel, s: castS, bob: 0 },            // 이젤은 사람이 아니라 이름이 없다
+      { sp: SPRITES.easel, s: castS, bob: 0, easel: true },   // 이젤은 사람이 아니라 이름이 없다
     ];
     // 좁은 화면에서는 캐릭터를 통째로 한 단계씩 줄여 가로로 넘치지 않게 함
     while (cast[0].s > 2 && cast.reduce((n, c) => n + c.sp[0].length * c.s, 0) > W * 0.92) {
@@ -547,7 +865,9 @@ buildChrome('home');
     // 넓은 화면에서 화면 폭을 다 쓰면 뿔뿔이 흩어져 보여서 간격에 상한을 둠
     const gap = Math.max(0, Math.min(cast[1].s * 7,
       Math.round((W * 0.94 - castW) / (cast.length - 1))));
-    let cx = Math.round((W - (castW + gap * (cast.length - 1))) / 2 / S) * S;
+    // 스크롤을 내리면 다 같이 오른쪽으로 걸어간다 — 화면을 내리는 일이 곧 이야기를 넘기는 일이 되게
+    const walk = Math.min(1, Math.max(0, scrollY / (H * 0.9))) * W * 0.10;
+    let cx = Math.round((W - (castW + gap * (cast.length - 1))) / 2 / S) * S + walk;
     cast.forEach(c => {
       if (c.roll) {
         // 돌처럼 굴러다님: 좌우로 천천히 오가고, 굴러간 거리만큼 실제로 돌아간다.
@@ -555,22 +875,44 @@ buildChrome('home');
         const w = c.sp[0].length * c.s, h = c.sp.length * c.s;
         const radius = w / 2;
         const amp = Math.min(w * 1.6, W * 0.05);
-        const dx = Math.sin(t * 0.42) * amp;
+        // 끌어다 던질 수 있다. 던진 뒤에는 제자리로 천천히 돌아온다 —
+        // 아주 돌아오지 않으면 다음에 왔을 때 화면 구석에 박혀 있게 된다.
+        if (!chick.held) {
+          chick.ox += chick.vx;
+          chick.vx = chick.vx * 0.94 - chick.ox * 0.006;    // 감쇠 + 제자리로 당기는 힘
+          if (Math.abs(chick.vx) < 0.02 && Math.abs(chick.ox) < 0.5) { chick.vx = 0; chick.ox = 0; }
+        }
+        chick.ox = Math.max(-W * 0.42, Math.min(W * 0.42, chick.ox));
+        const dx = Math.sin(t * 0.42) * amp + chick.ox;
         ctx.save();
         // 회전 중심을 도트 격자에 맞춰 잡아야 돌 때 그림이 떨리지 않음
         ctx.translate(Math.round((cx + w / 2 + dx) / S) * S,
                       Math.round((standY - h / 2) / S) * S);
         ctx.rotate(dx / radius);
-        drawSprite(ctx, c.sp, -Math.round(w / 2), -Math.round(h / 2), c.s);
+        drawSprite(ctx, c.sp, -Math.round(w / 2), -Math.round(h / 2), c.s, wash(c.sp));
         ctx.restore();
         // 돌고 있어도 누를 자리는 네모로 잡는다 — 돌아가는 모양까지 따라가면
         // 손끝이 계속 빗나가서 오히려 누르기 어렵다
-        if (c.name) hits.push({ name: c.name, x: cx + w / 2 + dx, y: standY - h, w: w, h: h });
+        if (c.name) hits.push({ kind:'char', name: c.name, x: cx + w / 2 + dx, y: standY - h, w: w, h: h });
       } else {
         const top = standY - c.sp.length * c.s - c.bob;
-        drawSprite(ctx, c.sp, cx, top, c.s);
+        drawSprite(ctx, c.sp, cx, top, c.s, wash(c.sp));
+        // 이젤에는 최근 작품 한 점이 걸린다. 흰 캔버스 자리(가로 4~19칸, 세로 2~14칸)에 맞춰 얹음.
+        if (c.easel) {
+          const ex = cx + 4 * c.s, ey = top + 2 * c.s, ew = 16 * c.s, eh = 13 * c.s;
+          if (easelImg) {
+            ctx.save();
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(easelImg, ex, ey, ew, eh);
+            if (NIGHT) { ctx.globalAlpha = 0.42; ctx.fillStyle = '#101d3a'; ctx.fillRect(ex, ey, ew, eh); }
+            ctx.restore();
+          }
+          easelRect = { x: cx + c.sp[0].length * c.s / 2, y: top,
+                        w: c.sp[0].length * c.s, h: c.sp.length * c.s };
+          hits.push(Object.assign({ kind:'easel' }, easelRect));
+        }
         const own = c.name
-          ? { name: c.name, x: cx + c.sp[0].length * c.s / 2, y: top,
+          ? { kind:'char', name: c.name, x: cx + c.sp[0].length * c.s / 2, y: top,
               w: c.sp[0].length * c.s, h: c.sp.length * c.s }
           : null;
         if (own) hits.push(own);
@@ -582,28 +924,39 @@ buildChrome('home');
           const rw = c.rider[0].length * rs, rh = c.rider.length * rs;
           const rx = Math.round((cx + (c.sp[0].length * c.s - rw) / 2) / S) * S;
           const rtop = top - rh + rs;
-          drawSprite(ctx, c.rider, rx, rtop, rs);
+          drawSprite(ctx, c.rider, rx, rtop, rs, wash(c.rider));
           // 주인을 눌렀을 때 이름표는 머리 위 친구보다 더 높이 띄운다.
           // 누르는 자리는 몸 그대로 두고 말풍선만 올리는 것 — 안 그러면 이름표가 그 친구를 덮는다.
           if (own) own.tagY = rtop;
           // 머리 위 친구는 주인 위에 겹쳐 있으니 뒤에 넣어 둔다 — 찾을 때 뒤에서부터 보므로
           // 겹친 자리를 누르면 위에 있는 쪽이 잡힌다
-          if (c.riderName) hits.push({ name: c.riderName, x: rx + rw / 2, y: rtop, w: rw, h: rh });
+          if (c.riderName) hits.push({ kind:'char', name: c.riderName, x: rx + rw / 2, y: rtop, w: rw, h: rh });
         }
       }
       cx += c.sp[0].length * c.s + gap;
     });
 
-    // 7) 나비 — 8자를 그리며 떠다님
+    // 7) 나비 — 8자를 그리며 떠다니다가, 손가락이 가까이 오면 그쪽으로 끌려온다
     for (let i = 0; i < 3; i++) {
-      const bx = W * (0.22 + i * 0.26) + Math.sin(t * 0.7 + i * 2) * W * 0.06;
+      let bx = W * (0.22 + i * 0.26) + Math.sin(t * 0.7 + i * 2) * W * 0.06;
       // 아이들 머리 위로 띄움 — 얼굴 높이면 표정을 가림
-      const by = groundY + gy - H * 0.19 + Math.sin(t * 1.5 + i) * S * 5;
-      drawSprite(ctx, SPRITES.butterfly, Math.round(bx/S)*S, Math.round(by/S)*S, Math.max(2, charS - 1));
+      let by = groundY + gy - H * 0.19 + Math.sin(t * 1.5 + i) * S * 5;
+      if (pointer.on) {
+        const d = Math.hypot(pointer.x - bx, pointer.y - by);
+        if (d < W * 0.45) {
+          // 거리에 반비례해 끌린다. 딱 붙지 않고 조금 못 미치게 두면 살아 있는 것처럼 보인다.
+          const k = (1 - d / (W * 0.45)) * 0.75;
+          bx += (pointer.x - bx) * k;
+          by += (pointer.y - by - S * 6) * k;
+        }
+      }
+      drawSprite(ctx, SPRITES.butterfly, Math.round(bx/S)*S, Math.round(by/S)*S,
+        Math.max(2, charS - 1), wash(SPRITES.butterfly));
     }
 
-    // 8) 눌러서 뜬 이름표 — 맨 위에
-    drawNameTag();
+    drawFalling();
+    drawFireflies();
+    drawPops();
   }
 
   // 말풍선도 도트로 그린다 — 사이트의 카드와 같은 굵은 테두리와 4px 어긋난 그림자.
@@ -664,6 +1017,13 @@ buildChrome('home');
     ctx.restore();
   }
 
+  function say(text, h){
+    nameTag = { text, x: h.x, at: performance.now(),
+                y: h.tagY != null ? h.tagY : h.y, bottom: h.y + h.h };
+    idleAt = performance.now();
+    kick();
+  }
+
   // 누른 자리에 있는 캐릭터 — 뒤에서부터 찾아 위에 그려진 쪽을 먼저 잡는다.
   // 손끝은 화살표보다 뭉툭해서 스프라이트 딱 그만큼만 받으면 자꾸 빗나간다. 조금 넉넉히 잡음.
   function hitAt(px, py){
@@ -679,26 +1039,169 @@ buildChrome('home');
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function loop(){ t += 0.016; draw(); requestAnimationFrame(loop); }
 
+  // 움직임을 줄인 설정에서는 화면이 멈춰 있으니, 살아 있는 것이 있는 동안만 따로 돌린다.
+  let ticking = false;
+  function kick(){
+    if (!reduce || ticking) return;
+    ticking = true;
+    (function tick(){
+      draw();
+      if (nameTag || pops.length) requestAnimationFrame(tick);
+      else ticking = false;
+    })();
+  }
+
+  const pointer = { x:0, y:0, on:false };
+  const chick = { ox:0, vx:0, held:false };
+  let drag = null;
+
   const atCanvas = e => {
     const r = canvas.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
-  canvas.addEventListener('click', e => {
+
+  canvas.addEventListener('pointerdown', e => {
     const p = atCanvas(e);
     const hit = hitAt(p.x, p.y);
-    if (!hit) return;
-    nameTag = { text: speak(hit.name), x: hit.x, at: performance.now(),
-                y: hit.tagY != null ? hit.tagY : hit.y, bottom: hit.y + hit.h };
-    // 늘 다시 그리는 화면이면 다음 프레임이 알아서 그려 준다.
-    // 움직임을 줄인 설정에서는 화면이 멈춰 있으니, 이름표가 사는 동안만 따로 돌린다.
-    if (reduce) (function tick(){ draw(); if (nameTag) requestAnimationFrame(tick); })();
+    drag = { x0:p.x, y0:p.y, hit, moved:false, last:p.x, vx:0 };
+    if (hit && hit.kind === 'char' && hit.name === '상그렐라') {
+      chick.held = true; chick.vx = 0;
+      drag.base = chick.ox;
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    }
   });
-  // 누를 수 있다는 걸 알려 주는 건 손모양뿐이다 — 화면에 안내 글씨를 더 얹고 싶지는 않았다
+
   canvas.addEventListener('pointermove', e => {
-    if (e.pointerType !== 'mouse') return;
     const p = atCanvas(e);
-    canvas.style.cursor = hitAt(p.x, p.y) ? 'pointer' : '';
+    pointer.x = p.x; pointer.y = p.y; pointer.on = true;
+    if (drag) {
+      if (Math.abs(p.x - drag.x0) > 6 || Math.abs(p.y - drag.y0) > 6) drag.moved = true;
+      if (chick.held) {
+        chick.ox = drag.base + (p.x - drag.x0);
+        drag.vx = p.x - drag.last;
+        drag.last = p.x;
+        kick();
+      }
+    }
+    if (e.pointerType === 'mouse') canvas.style.cursor = hitAt(p.x, p.y) ? 'pointer' : '';
+    if (reduce && pointer.on) kick();
   });
+
+  function endDrag(e){
+    const d = drag; drag = null;
+    if (chick.held) {
+      chick.held = false;
+      chick.vx = Math.max(-28, Math.min(28, (d && d.vx) || 0));   // 던진 세기
+      kick();
+      if (d && d.moved) return;                                   // 던진 것이면 말은 안 시킨다
+    }
+    if (!d) return;
+    const p = atCanvas(e);
+    if (d.moved) return;
+    const hit = hitAt(p.x, p.y);
+    if (hit) { react(hit); return; }
+    plant(p);
+  }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', () => { chick.held = false; drag = null; });
+  canvas.addEventListener('pointerleave', () => { pointer.on = false; });
+
+  function react(hit){
+    if (hit.kind === 'char') { say(speak(hit.name), hit); popAt(hit.x, hit.y, SPRITES.heart, 3); return; }
+    if (hit.kind === 'easel') {
+      if (easelHref) location.href = easelHref;
+      else say('아직 걸린 그림이 없어', hit);
+      return;
+    }
+    if (hit.kind === 'secret') {
+      const sec = secrets.find(s => s.key === hit.key);
+      if (!sec) return;
+      if (!found.has(sec.key)) {
+        found.add(sec.key);
+        try { localStorage.setItem(FOUND_KEY, JSON.stringify(Array.from(found))); } catch (e) {}
+        syncHud();
+        popAt(hit.x, hit.y, SPRITES.star, 7);
+        say(sec.label + ' 찾았다!', hit);
+      } else {
+        say(sec.line, hit);
+      }
+      return;
+    }
+    // 소품 — 이름이 없으니 소리만 낸다
+    const memo = said['prop:' + hit.key] || (said['prop:' + hit.key] = { last:-1 });
+    say(pickLine(PROP_LINES[hit.key] || ['톡'], memo), hit);
+    popAt(hit.x, hit.y, hit.key === 'sun' || hit.key === 'moon' ? SPRITES.star : SPRITES.heart, 4);
+  }
+
+  // 잔디밭 빈자리를 누르면 꽃이 핀다.
+  // 한 번에 하나씩, 방문당 다섯 송이까지 — 서버에도 같은 제한이 걸려 있지만
+  // 여기서 먼저 막아야 눌러 놓고 거절당하는 일이 없다.
+  const PLANT_MAX = 5;
+  function plant(p){
+    const top = horizon + H * 0.24, bottom = H * 0.87;
+    if (p.y < top || p.y > bottom) return;
+    if (plantedHere >= PLANT_MAX) return;
+    const now = performance.now();
+    if (now - plantAt < 1200) return;
+    plantAt = now; plantedHere++;
+
+    const f = { xr: p.x / W, yr: p.y / H, k: Math.floor(Math.random() * SCENE.petal.length) };
+    planted.push(f);
+    popAt(p.x, p.y, SPRITES.heart, 2);
+    kick();
+    // 남겨 두는 건 덤이다. 표가 없거나 실패해도 이 화면의 꽃은 그대로 핀다.
+    sb.from('garden').insert({
+      xr: Math.round(f.xr * 1000), yr: Math.round(f.yr * 1000), kind: f.k,
+    }).then(() => {}, () => {});
+  }
+
+  // 남이 심어 둔 꽃 불러오기 — 최근 것부터 120송이까지만.
+  // 다 그리면 화면이 꽃밭이 되고, 오래된 것부터 자연스럽게 밀려나는 편이 낫다.
+  sb.from('garden').select('xr, yr, kind').order('id', { ascending: false }).limit(120)
+    .then(({ data }) => {
+      if (!data) return;
+      planted = data.map(r => ({ xr: r.xr / 1000, yr: r.yr / 1000, k: r.kind || 0 })).concat(planted);
+      kick();
+    }, () => {});
+
+  // 이젤에 걸 그림 — 가장 최근 작품 한 점.
+  // 포트폴리오는 작품 하나만 여는 주소가 없어서 전시실 입구로 보낸다.
+  sb.from('works').select('id, title, thumb_url, media_url, media_type')
+    .eq('media_type', 'image').order('created_at', { ascending: false }).limit(1)
+    .then(({ data }) => {
+      const w = data && data[0];
+      if (!w) return;
+      const img = new Image();
+      img.onload = () => { easelImg = img; easelHref = '/portfolio.html'; kick(); };
+      img.src = w.thumb_url || w.media_url;
+    }, () => {});
+
+  // ---- 먼저 말 걸기 ----
+  // 처음 한 번은 조금 빨리(4초), 그 뒤로는 12초마다. 스크롤로 첫 화면을 벗어나면 멈춘다.
+  let idleAt = performance.now(), greeted = false;
+  const LAST_KEY = 'sy.lastVisit';
+  let awayDays = 0;
+  try {
+    const prev = Number(localStorage.getItem(LAST_KEY) || 0);
+    if (prev) awayDays = Math.floor((Date.now() - prev) / 86400000);
+    localStorage.setItem(LAST_KEY, String(Date.now()));
+  } catch (e) {}
+
+  setInterval(() => {
+    if (document.hidden || scrollY > H * 0.5) return;
+    const wait = greeted ? 12000 : 4000;
+    if (performance.now() - idleAt < wait) return;
+    const talkers = hits.filter(h => h.kind === 'char');
+    if (!talkers.length) return;
+    const who = talkers[Math.floor(Math.random() * talkers.length)];
+    // 오랜만에 온 사람에게는 그 말부터. 하루 안에 다시 온 사람에게 "오랜만" 은 어색하다.
+    const lines = (!greeted && awayDays >= 3) ? BACK_LINES : GREET[PHASE];
+    const memo = said['greet'] || (said['greet'] = { last:-1 });
+    greeted = true;
+    say(pickLine(lines, memo), who);
+  }, 1000);
+
+  syncHud();
 
   window.addEventListener('resize', () => { resize(); draw(); });
   window.addEventListener('scroll', () => { scrollY = window.scrollY; if (reduce) draw(); }, {passive:true});
@@ -717,6 +1220,111 @@ $$('canvas[data-icon]').forEach(cv => {
   const s = Math.floor(Math.min(cv.width / w, cv.height / h));
   drawSprite(ctx, sp, Math.floor((cv.width - w*s)/2), Math.floor((cv.height - h*s)/2), s);
 });
+
+// ================= 메뉴 카드에 선 캐릭터 =================
+// 어디로 가는 곳인지 글로만 적혀 있었다. 카드마다 그곳의 친구를 하나씩 세워
+// 첫 화면의 등장인물과 메뉴를 한 식구로 묶는다.
+$$('canvas[data-char]').forEach(cv => {
+  const sp = SPRITES[cv.dataset.char];
+  if (!sp) return;
+  // 스프라이트마다 원래 크기가 제각각이라(수아 42칸, 상그렐라 18칸) 배율을 그때그때 잡아
+  // 화면에서 보이는 크기를 46px 안팎으로 맞춘다. 줄이지는 않는다 — 도트는 줄이면 뭉개진다.
+  const s = Math.max(1, Math.floor(46 / Math.max(sp[0].length, sp.length)));
+  cv.width = sp[0].length * s; cv.height = sp.length * s;
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  drawSprite(g, sp, 0, 0, s);
+});
+
+// ================= 도트 그리기 미리보기 =================
+(function(){
+  const cv = $('#drawPeek'); if (!cv) return;
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const N = 16, C = cv.width / N;                 // 16칸짜리 도트판
+  g.fillStyle = '#fffaf2'; g.fillRect(0, 0, cv.width, cv.height);
+  g.fillStyle = 'rgba(47,42,36,.13)';
+  for (let i = 1; i < N; i++) {
+    g.fillRect(Math.round(i * C), 0, 1, cv.height);
+    g.fillRect(0, Math.round(i * C), cv.width, 1);
+  }
+  drawSprite(g, SPRITES.heart, C * 4, C * 5, C);  // 한 칸이 곧 도트판 한 칸
+})();
+
+// ================= 우리가 쌓은 것 =================
+// 줄을 받아와서 세지 않는다 — head:true 면 개수만 오고 본문은 안 온다.
+(async () => {
+  const one = (table) => sb.from(table).select('*', { count: 'exact', head: true });
+  const [works, posts, photos, events] = await Promise.all([
+    one('works'), one('posts'), one('gallery_media'), one('event_meta'),
+  ]);
+  const nums = {
+    works: works.count || 0, posts: posts.count || 0,
+    photos: photos.count || 0, events: events.count || 0,
+  };
+
+  function countUp(el, target){
+    const dur = 900, t0 = performance.now();
+    requestAnimationFrame(function step(now){
+      const k = Math.min(1, (now - t0) / dur);
+      el.textContent = Math.round(target * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(step);
+    });
+  }
+
+  // 화면에 들어올 때 올라가야 의미가 있다. 스크롤 전에 다 올라가 버리면 아무도 못 본다.
+  const seen = new WeakSet();
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (!en.isIntersecting || seen.has(en.target)) return;
+      seen.add(en.target);
+      countUp(en.target, nums[en.target.dataset.count] || 0);
+    });
+  }, { threshold: 0.4 });
+  $$('[data-count]').forEach(el => io.observe(el));
+})().catch(() => {});
+
+// ================= 오늘의 질문 =================
+// 날짜로 고르므로 자매 둘이 같은 날 같은 질문을 받는다. 무작위면 새로고침마다 바뀌어
+// "오늘의" 질문이 되지 못한다.
+(function(){
+  const QUESTIONS = [
+    '오늘 제일 웃겼던 일은 뭐야?',
+    '내일 제일 하고 싶은 건?',
+    '요즘 제일 좋아하는 색깔은?',
+    '오늘 누구한테 제일 고마웠어?',
+    '지금 배우고 싶은 게 있어?',
+    '가장 웃긴 별명을 지어본다면?',
+    '오늘 먹은 것 중에 제일 맛있었던 건?',
+    '만약 하루 동안 어른이 된다면 뭘 할래?',
+    '요즘 제일 자주 듣는 노래는?',
+    '가장 가보고 싶은 곳은 어디야?',
+    '오늘 조금 속상했던 일이 있었어?',
+    '동생(언니)한테 하고 싶은 말은?',
+    '지금 제일 갖고 싶은 건 뭐야?',
+    '내가 잘하는 것 세 가지를 꼽는다면?',
+    '오늘 새로 알게 된 건 뭐야?',
+    '만약 동물이 된다면 무슨 동물?',
+    '제일 친한 친구의 좋은 점은?',
+    '커서 해보고 싶은 일이 있어?',
+    '오늘 하루를 한 단어로 하면?',
+    '최근에 제일 크게 웃은 건 언제야?',
+    '무서운 게 있다면 뭐야?',
+    '엄마 아빠한테 고마운 점 하나만?',
+    '내 방에서 제일 아끼는 물건은?',
+    '내일 날씨가 어땠으면 좋겠어?',
+    '요즘 제일 재밌게 읽은 책은?',
+    '만약 마법을 하나 쓸 수 있다면?',
+    '오늘 제일 열심히 한 일은?',
+    '주말에 뭐 하고 싶어?',
+  ];
+  const d = new Date();
+  const seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  const q = QUESTIONS[seed % QUESTIONS.length];
+  $('#askText').textContent = q;
+  // 일기장이 이 질문을 제목으로 미리 채워 준다 (board.html 이 ask 를 읽는다)
+  $('#askGo').href = './board.html?ask=' + encodeURIComponent(q);
+})();
 
 // ================= 하단 픽셀 띠 =================
 (function(){

@@ -98,6 +98,7 @@ const MENU = [
   { href: '/board.html',    label: '일기장',    key: 'board' },
   { href: '/event/',        label: '이벤트',    key: 'event' },
   { href: '/contact.html',  label: '편지쓰기',  key: 'contact' },
+  { href: '/draw.html',     label: '그리기',    key: 'draw' },
 ];
 
 // 로그인한 가족에게만 보이는 곳. 메뉴 목록에 섞지 않고 헤더에 아이콘 단추로 따로 둔다 —

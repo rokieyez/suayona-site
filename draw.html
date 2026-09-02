@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 이 사이트는 밝은 색 하나로만 그린다는 선언. 크로미움이 "색 얘기가 없는 페이지"라고
+     보고 알아서 어둡게 칠하는 것은 이걸로 막힌다. 다만 사용자가 「웹 페이지를 다크
+     모드로 표시」처럼 스위치를 직접 켠 경우는 못 막는다 — 웨일에서 확인했다. -->
+<meta name="color-scheme" content="light">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="robots" content="noindex, nofollow">
+<title>도트로 그리기 · 수아랑 연아랑</title>
+<meta name="description" content="사이트에 쓰인 도트 색으로 한 칸씩 찍어 그림을 그리고 저장해요.">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .draw-wrap{max-width:520px; margin:0 auto;}
+
+  /* 도트판. 손가락으로 그릴 때 화면이 같이 스크롤되면 한 칸도 못 칠한다 —
+     touch-action 으로 이 판 위에서만 스크롤을 끈다. */
+  #board{
+    width:100%; max-width:420px; margin:0 auto; display:block;
+    image-rendering:pixelated; touch-action:none; cursor:crosshair;
+    border:var(--px) solid var(--ink); background:var(--cream);
+    box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28);
+  }
+
+  /* 색 고르기 — 고른 색은 테두리를 두껍게 해서 눌린 것이 보이게 */
+  .swatches{
+    display:grid; grid-template-columns:repeat(8, 1fr);
+    gap:6px; margin:18px auto 0; max-width:420px;
+  }
+  .sw{
+    aspect-ratio:1; border:2px solid var(--ink); cursor:pointer; padding:0;
+    position:relative;
+  }
+  .sw.on{box-shadow:0 0 0 3px var(--ink) inset, var(--px) var(--px) 0 var(--ink);}
+  /* 지우개도 "무엇으로 칠하나" 중 하나라, 고른 색과 같은 방식으로 눌린 티를 낸다 */
+  #eraser.on{background:var(--ink); color:var(--cream);}
+
+  .tools{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:16px 0 0;}
+  .tools .dot-btn{flex:0 0 auto;}
+
+  .sizes{display:flex; gap:6px; justify-content:center; margin:14px 0 0;}
+  .sizes button{
+    padding:6px 12px; font-size:12px; font-weight:800; font-family:inherit; cursor:pointer;
+    border:2px solid var(--ink); background:var(--paper); color:var(--ink-soft);
+  }
+  .sizes button.on{background:var(--ink); color:var(--cream);}
+
+  .hint{text-align:center; font-size:12.5px; color:var(--ink-soft); margin:12px 0 0; line-height:1.7;}
+
+  /* 내 그림 — 브라우저에만 남는다는 걸 분명히 적어 둔다 */
+  .mine{margin-top:44px;}
+  .mine h2{font-size:17px; font-weight:800; margin:0 0 4px;}
+  .mine .note{font-size:12.5px; color:var(--ink-soft); margin:0 0 16px; line-height:1.7;}
+  .mine-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:12px;}
+  .mine-item{padding:8px; text-align:center;}
+  .mine-item canvas{width:100%; image-rendering:pixelated; border:2px solid var(--ink); background:var(--cream);}
+  .mine-item .row{display:flex; gap:5px; margin-top:7px;}
+  .mine-item .row button{
+    flex:1; padding:4px 0; font-size:11px; font-weight:800; font-family:inherit; cursor:pointer;
+    border:2px solid var(--ink); background:var(--paper); color:var(--ink);
+  }
+  .mine-item .row button.del{background:var(--coral);}
+  .empty{font-size:13px; color:var(--ink-soft); text-align:center; padding:26px 0;}
+</style>
+</head>
+<body>
+
+<section class="section-pad">
+  <div class="wrap draw-wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">PIXEL</span>
+      <h2>도트로 그리기</h2>
+      <p>이 사이트에 쓰인 색으로 한 칸씩 찍어 그려요</p>
+    </div>
+
+    <canvas id="board" width="480" height="480"></canvas>
+
+    <div class="swatches" id="swatches"></div>
+
+    <div class="sizes" id="sizes">
+      <button data-n="16" class="on">16칸</button>
+      <button data-n="24">24칸</button>
+      <button data-n="32">32칸</button>
+    </div>
+
+    <div class="tools">
+      <button class="dot-btn small" id="eraser">🧽 지우개</button>
+      <button class="dot-btn small" id="undo">↩ 되돌리기</button>
+      <button class="dot-btn small" id="clear">전체 지우기</button>
+      <button class="dot-btn small primary" id="keep">＋ 내 그림에 담기</button>
+      <button class="dot-btn small" id="save">⬇ 그림 파일로 저장</button>
+    </div>
+
+    <p class="hint">칸을 누르거나 손가락으로 죽 그어보세요.<br>
+      칸 수를 바꾸면 그리던 그림은 지워져요.</p>
+
+    <div class="mine">
+      <h2>내 그림</h2>
+      <p class="note">이 기기의 브라우저에만 저장돼요. 다른 사람에게는 보이지 않고,
+        브라우저 기록을 지우면 함께 사라져요. 남기고 싶으면 <b>그림 파일로 저장</b>해서
+        부모님께 보여주세요.</p>
+      <div class="mine-grid" id="mineGrid"></div>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script>
+buildChrome('draw');
+
+// 사이트가 실제로 쓰는 색에서 골랐다. 아무 색이나 다 주면 그린 그림이 이 사이트의
+// 그림처럼 안 보인다 — 칸이 적을수록 색을 좁혀 주는 편이 결과가 낫다.
+const PALETTE = [
+  '#2f2a24', '#6f6558', '#a2988a', '#ffffff',
+  '#ff7f8a', '#ff9aa2', '#ffb7d5', '#c0392b',
+  '#e8912f', '#ffd979', '#fff3a0', '#f7b733',
+  '#6cc7b3', '#8fd9c8', '#6fb567', '#3f7d3c',
+  '#8ec9ee', '#5aa9e6', '#2e3a54', '#b9a3d6',
+  '#c79b6d', '#8a5f3a', '#fbdcc4', '#ffe0c4',
+];
+const EMPTY = -1;
+
+const board = $('#board');
+const bctx = board.getContext('2d');
+bctx.imageSmoothingEnabled = false;
+
+let N = 16;                       // 한 변의 칸 수
+let cells = new Array(N * N).fill(EMPTY);
+let color = 4;                    // 코랄부터 시작
+let history = [];
+
+const CELL = () => board.width / N;
+
+function paintBoard(){
+  const c = CELL();
+  bctx.fillStyle = '#fffaf2';
+  bctx.fillRect(0, 0, board.width, board.height);
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i] === EMPTY) continue;
+    bctx.fillStyle = PALETTE[cells[i]];
+    bctx.fillRect((i % N) * c, Math.floor(i / N) * c, c, c);
+  }
+  // 격자선. 칸이 많아질수록 옅게 — 32칸에서 진하면 그림보다 선이 먼저 보인다.
+  bctx.fillStyle = 'rgba(47,42,36,' + (N <= 16 ? 0.16 : N <= 24 ? 0.12 : 0.09) + ')';
+  for (let i = 1; i < N; i++) {
+    bctx.fillRect(Math.round(i * c), 0, 1, board.height);
+    bctx.fillRect(0, Math.round(i * c), board.width, 1);
+  }
+}
+
+function pushHistory(){
+  history.push(cells.slice());
+  if (history.length > 40) history.shift();   // 40번이면 충분하고, 그 이상은 메모리만 먹는다
+}
+
+function cellAt(e){
+  const r = board.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) / r.width * N);
+  const y = Math.floor((e.clientY - r.top) / r.height * N);
+  if (x < 0 || y < 0 || x >= N || y >= N) return -1;
+  return y * N + x;
+}
+
+let painting = false, lastCell = -1;
+
+function put(i){
+  if (i < 0 || cells[i] === color) return;
+  cells[i] = color;
+  paintBoard();
+}
+
+board.addEventListener('pointerdown', e => {
+  pushHistory();
+  painting = true;
+  // 손가락이 판 밖으로 나가도 계속 그려지게 붙잡아 둔다.
+  // 붙잡기는 실패할 수 있으므로(이미 놓인 포인터 등) 그리기보다 뒤에 둔다 —
+  // 앞에 두면 여기서 걸릴 때 한 칸도 안 칠해진다.
+  try { board.setPointerCapture(e.pointerId); } catch (err) {}
+  lastCell = cellAt(e);
+  put(lastCell);
+});
+board.addEventListener('pointermove', e => {
+  if (!painting) return;
+  const i = cellAt(e);
+  if (i === lastCell) return;      // 같은 칸을 계속 다시 칠하지 않게
+  lastCell = i;
+  put(i);
+});
+const stop = () => { painting = false; lastCell = -1; };
+board.addEventListener('pointerup', stop);
+board.addEventListener('pointercancel', stop);
+
+// ---------- 색 고르기 ----------
+function buildSwatches(){
+  const wrap = $('#swatches');
+  wrap.innerHTML = '';
+  PALETTE.forEach((hex, i) => {
+    const b = document.createElement('button');
+    b.className = 'sw' + (i === color ? ' on' : '');
+    b.style.background = hex;
+    b.setAttribute('aria-label', '색 ' + (i + 1));
+    b.addEventListener('click', () => { color = i; syncSwatches(); });
+    wrap.appendChild(b);
+  });
+}
+function syncSwatches(){
+  $$('#swatches .sw').forEach((b, i) => b.classList.toggle('on', i === color));
+  $('#eraser').classList.toggle('on', color === EMPTY);
+}
+$('#eraser').addEventListener('click', () => { color = EMPTY; syncSwatches(); });
+
+// ---------- 도구 ----------
+$('#undo').addEventListener('click', () => {
+  if (!history.length) return;
+  cells = history.pop();
+  paintBoard();
+});
+$('#clear').addEventListener('click', () => {
+  pushHistory();
+  cells = new Array(N * N).fill(EMPTY);
+  paintBoard();
+});
+$$('#sizes button').forEach(b => {
+  b.addEventListener('click', () => {
+    const n = Number(b.dataset.n);
+    if (n === N) return;
+    // 칸 수가 바뀌면 옮겨 담을 방법이 마땅치 않다. 지워진다고 미리 말해 두고 확인만 받는다.
+    if (cells.some(c => c !== EMPTY) && !confirm('그리던 그림이 지워져요. 칸 수를 바꿀까요?')) return;
+    N = n;
+    cells = new Array(N * N).fill(EMPTY);
+    history = [];
+    $$('#sizes button').forEach(x => x.classList.toggle('on', x === b));
+    paintBoard();
+  });
+});
+
+// ---------- 그림 파일로 저장 ----------
+// 격자선 없이, 한 칸을 24px 로 키워 내보낸다. 16칸이면 384px — 폰 배경으로 쓰기에도 충분하다.
+function toPNG(list, n){
+  const out = document.createElement('canvas');
+  const px = 24;
+  out.width = out.height = n * px;
+  const g = out.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = '#fffaf2';
+  g.fillRect(0, 0, out.width, out.height);
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] === EMPTY) continue;
+    g.fillStyle = PALETTE[list[i]];
+    g.fillRect((i % n) * px, Math.floor(i / n) * px, px, px);
+  }
+  return out;
+}
+
+$('#save').addEventListener('click', () => {
+  const a = document.createElement('a');
+  const d = new Date();
+  const stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') +
+                String(d.getDate()).padStart(2, '0') + '-' +
+                String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+  a.download = '도트그림-' + stamp + '.png';
+  a.href = toPNG(cells, N).toDataURL('image/png');
+  a.click();
+});
+
+// ---------- 내 그림 (이 브라우저에만) ----------
+// 칸 하나를 글자 하나로 적는다. 없는 칸은 '.', 색은 팔레트 번호를 36진수로.
+// 32칸이라도 1024자라 localStorage 에 부담이 없다.
+const MINE_KEY = 'sy.draw.list';
+const MINE_MAX = 12;
+
+const encode = (list) => list.map(c => c === EMPTY ? '.' : c.toString(36)).join('');
+const decode = (str) => Array.from(str).map(ch => ch === '.' ? EMPTY : parseInt(ch, 36));
+
+function readMine(){
+  try { return JSON.parse(localStorage.getItem(MINE_KEY) || '[]'); } catch (e) { return []; }
+}
+function writeMine(list){
+  try { localStorage.setItem(MINE_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+$('#keep').addEventListener('click', () => {
+  if (!cells.some(c => c !== EMPTY)) { alert('아직 아무것도 안 그렸어요.'); return; }
+  const list = readMine();
+  list.unshift({ id: Date.now(), n: N, s: encode(cells) });
+  writeMine(list.slice(0, MINE_MAX));
+  renderMine();
+});
+
+function renderMine(){
+  const grid = $('#mineGrid');
+  const list = readMine();
+  grid.innerHTML = '';
+  if (!list.length) {
+    grid.innerHTML = '<p class="empty">아직 담아둔 그림이 없어요.</p>';
+    return;
+  }
+  list.forEach(item => {
+    const box = document.createElement('div');
+    box.className = 'dot-card mine-item';
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = item.n;
+    const g = cv.getContext('2d');
+    const data = decode(item.s);
+    g.fillStyle = '#fffaf2'; g.fillRect(0, 0, item.n, item.n);
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] === EMPTY) continue;
+      g.fillStyle = PALETTE[data[i]];
+      g.fillRect(i % item.n, Math.floor(i / item.n), 1, 1);
+    }
+    box.appendChild(cv);
+
+    const row = document.createElement('div');
+    row.className = 'row';
+    const open = document.createElement('button');
+    open.textContent = '이어그리기';
+    open.addEventListener('click', () => {
+      N = item.n;
+      cells = decode(item.s);
+      history = [];
+      $$('#sizes button').forEach(x => x.classList.toggle('on', Number(x.dataset.n) === N));
+      paintBoard();
+      board.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '지우기';
+    del.addEventListener('click', () => {
+      if (!confirm('이 그림을 지울까요?')) return;
+      writeMine(readMine().filter(x => x.id !== item.id));
+      renderMine();
+    });
+    row.appendChild(open); row.appendChild(del);
+    box.appendChild(row);
+    grid.appendChild(box);
+  });
+}
+
+buildSwatches();
+paintBoard();
+renderMine();
+initReveal();
+</script>
+</body>
+</html>
