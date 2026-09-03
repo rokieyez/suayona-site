@@ -465,7 +465,7 @@
     <div class="section-head reveal">
       <span class="eyebrow pixel">ONE TAP</span>
       <h2>한 번 눌러 뛰기</h2>
-      <p>화면을 톡 누르면 폴짝. 오래 달릴수록 들판에서 화산까지 배경이 바뀌어요</p>
+      <p>화면을 톡 누르면 폴짝. 30초마다 배경이 바뀌어요 — 들판에서 시작해 천국까지 열 곳</p>
     </div>
     <div class="dot-card run-card reveal">
       <div class="run-stage">
@@ -2549,10 +2549,21 @@ $$('canvas[data-char]').forEach(cv => {
   const HOLD_TIERS = [0.04, 0.09, 0.175, 0.26];
   const HOLD_G     = 0.38;   // 누르는 동안의 중력 배수
 
-  // 속도 7단계. 계속 조금씩 빨라지면 빨라지는 걸 못 느낀다. 계단으로 올리고
-  // 올라갈 때 화면에 알려 준다.
-  const SPEEDS  = [170, 200, 232, 265, 300, 336, 374];
-  const LV_SECS = 18;        // 한 계단에 머무는 시간
+  // 속도 10단계. 계속 조금씩 빨라지면 빨라지는 걸 못 느낀다. 계단으로 올리고
+  // 올라갈 때 화면에 알려 준다. 한 계단이 곧 한 무대다.
+  const SPEEDS  = [160, 185, 210, 236, 262, 290, 318, 346, 375, 405];
+  const LV_SECS = 30;        // 한 계단에 머무는 시간 → 열 무대를 다 보려면 5분
+
+  // 단계마다 얼마나 자주, 얼마나 길게 나오는지.
+  // 처음엔 드문드문 나와서 아이가 조작을 익히고, 뒤로 갈수록 촘촘해진다.
+  //   gap  = 다음 무리까지 비워 두는 시간(초) — 작을수록 자주
+  //   maxN = 한 무리에 이어 붙일 조각 수 상한 → 장애물 길이 5단계
+  //   gem  = 하트가 딸려 나올 확률
+  const PACE = {
+    gap:  [2.6, 2.2, 1.9, 1.65, 1.45, 1.3, 1.15, 1.05, 0.95, 0.88],
+    maxN: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5],
+    gem:  [0.22, 0.28, 0.34, 0.40, 0.46, 0.52, 0.58, 0.63, 0.68, 0.72],
+  };
 
   // 무대마다 다른 장애물. 들판에 게가 나오고 바다에 버섯이 나오면 무대를 바꾼 보람이 없다.
   // hit 은 그림보다 판정을 안쪽으로 줄이는 값 — 도트 그림은 모서리가 비어 있어서
@@ -2575,8 +2586,18 @@ $$('canvas[data-char]').forEach(cv => {
     [ { sp: 'lavaRock', s: 3, hit: [3, 1] }, { sp: 'flame',  s: 3, hit: [1, 1] },
       { sp: 'rockS',  s: 3, hit: [2, 1],
         pal: { S: '#4a3f4a', T: '#372e36', U: '#261f27' } } ],
+    [ { sp: 'agent',  s: 2, hit: [1, 1] }, { sp: 'barrel', s: 3, hit: [1, 1] },
+      { sp: 'crate',  s: 3, hit: [1, 1] } ],
+    [ { sp: 'alien',  s: 2, hit: [1, 1] }, { sp: 'ufo',    s: 3, hit: [2, 1] },
+      { sp: 'rockS',  s: 3, hit: [2, 1],
+        pal: { S: '#c9c2d6', T: '#a29ab5', U: '#7d7593' } } ],
+    [ { sp: 'angel',  s: 2, hit: [2, 1] }, { sp: 'harp',   s: 2, hit: [1, 1] },
+      { sp: 'pillar', s: 2, hit: [1, 1] } ],
   ];
-  const GROUP_MAX_W = 86;    // 조각을 이어 붙여도 이 너비를 넘기지 않는다 — 넘을 수 있어야 한다
+  // 조각을 이어 붙여도 이 너비를 넘기지 않는다. 넘을 수 있어야 하기 때문이다 —
+  // 가장 빠른 405px/s 에서 140px 무리를 지나려면 0.4초가 필요한데,
+  // 제일 약한 1단 점프도 판정 높이(21px) 위에 0.57초 머문다.
+  function groupMaxW(maxN){ return Math.min(140, 30 * maxN + 12); }
 
   // 수풀이 언덕과 같은 연두라 배경에 묻혔다. 장애물만 훨씬 진한 초록으로 바꾸고,
   // 아래에서 검은 테두리를 한 겹 깐다.
@@ -2587,8 +2608,9 @@ $$('canvas[data-char]').forEach(cv => {
     return OUTLINE[key];
   }
 
-  const GEM_LOW  = 64;       // 아무 점프나 하면 닿는다
-  const GEM_HIGH = 116;      // 2단 이상 눌러야 닿는다
+  // 하트 3단계. 땅에서 그냥 달리면 어느 것도 안 닿는다.
+  //   낮은 것 1단, 가운데 1단(딱 맞게), 높은 것 2단 이상.
+  const GEM_H = [58, 90, 118];
 
   let W = 0, H = 0, GY = 0, dpr = 1;
   let state = 'ready';                 // ready | play | over
@@ -2636,7 +2658,7 @@ $$('canvas[data-char]').forEach(cv => {
     py = 0; vy = 0; onGround = true; holdT = 0; holdCap = 0; jumpTier = 1;
     dist = 0; hearts = 0; t = 0; lv = 0; spd = SPEEDS[0]; lvFlash = 0;
     deadAt = 0; runBest = best;
-    obs = []; gems = []; nextAt = 280;
+    obs = []; gems = []; nextAt = SPEEDS[0] * PACE.gap[0];
   }
 
   // ---- 무대 7곳 ----
@@ -2701,6 +2723,30 @@ $$('canvas[data-char]').forEach(cv => {
       ground: ['#2a2228', '#151016', '#3a2f33'],
       deco: { sp: 'volcano', s: 3, gap: 0.8, off: -6, back: true },
       cloud: 0.15, star: 1, glow: '#ff6a2a', ember: 1, inkLight: 1, textLight: 1 },
+
+    { name: '발사기지',
+      sky: ['#2c3d6b', '#4b5f96', '#7c86b4', '#c39ba0', '#f0c39a'],
+      far:  { kind: 'city',  color: '#59657f', edge: '#6f7c96', amp: 26, wave: 26, off: 22, lit: 0.2 },
+      near: { kind: 'hill',  color: '#3b4358', edge: '#4b5468', amp: 6,  wave: 120, off: 8 },
+      ground: ['#8d8f96', '#5f6169', '#787a82'],
+      deco: { sp: 'rocket', s: 2, gap: 0.9, off: -8, back: true },
+      cloud: 0.4, star: 0.35, glow: null, ember: 0, inkLight: 1, textLight: 1 },
+
+    { name: '우주',
+      sky: ['#05060f', '#080b1a', '#0c1128', '#101838', '#161f4a'],
+      far:  { kind: 'peak',  color: '#3a3550', edge: '#4d4668', amp: 34, wave: 120, off: 22 },
+      near: { kind: 'hill',  color: '#5b5570', edge: '#736c8c', amp: 8,  wave: 70,  off: 8 },
+      ground: ['#6b6480', '#474155', '#5a5470'],
+      deco: { sp: 'planet', s: 2, gap: 0.95, off: -46, back: true },
+      cloud: 0, star: 1, glow: null, ember: 0, inkLight: 1, textLight: 1 },
+
+    { name: '천국',
+      sky: ['#fff3d0', '#ffe9b8', '#ffdca0', '#ffeccb', '#fff8e6'],
+      far:  { kind: 'hill',  color: '#ffe7bc', edge: '#fff6e0', amp: 14, wave: 100, off: 30 },
+      near: { kind: 'hill',  color: '#f6dcae', edge: '#fff0cf', amp: 10, wave: 66,  off: 10 },
+      ground: ['#fdf3dc', '#e8d3a8', '#f3e6c6'],
+      deco: { sp: 'cloudL', s: 3, gap: 0.7, off: -34, back: true },
+      cloud: 1, star: 0, glow: null, ember: 0, inkLight: 0, textLight: 0 },
   ];
   const XFADE = 4;           // 무대가 겹쳐 넘어가는 시간(초)
 
@@ -2762,10 +2808,11 @@ $$('canvas[data-char]').forEach(cv => {
         const y = Math.round((GY - L.off - h) / CELL) * CELL;
         ctx.fillStyle = L.color; ctx.fillRect(x, y, bw - CELL, H - y);
         ctx.fillStyle = L.edge;  ctx.fillRect(x, y, bw - CELL, CELL);
-        // 창문 — 몇 개만 켠다
+        // 창문 — 몇 개만 켠다. lit 이 낮으면 드문드문해서 격납고처럼 보인다.
+        const lit = L.lit === undefined ? 0.62 : L.lit;
         for (let r = y + CELL * 2; r < GY - L.off - CELL; r += CELL * 3)
           for (let c = x + CELL; c < x + bw - CELL * 2; c += CELL * 2)
-            if ((Math.abs(Math.sin((idx * 31 + r * 7 + c) * 0.7)) > 0.62)){
+            if ((Math.abs(Math.sin((idx * 31 + r * 7 + c) * 0.7)) > 1 - lit)){
               ctx.fillStyle = '#ffd979'; ctx.fillRect(c, r, CELL, CELL);
             }
       }
@@ -2973,26 +3020,27 @@ $$('canvas[data-char]').forEach(cv => {
   function spawn(){
     // 조각 수를 1~3 으로 이어 붙여 장애물 길이를 세 단계로 만든다.
     // 처음부터 긴 게 나오면 아이가 금방 포기하니 속도 단계에 맞춰 늘린다.
-    const maxN = lv < 2 ? 1 : (lv < 4 ? 2 : 3);
-    const n = 1 + Math.floor(Math.random() * maxN);
+    const pace = { gap: PACE.gap[lv], maxN: PACE.maxN[lv], gem: PACE.gem[lv] };
+    const n = 1 + Math.floor(Math.random() * pace.maxN);
+    const cap = groupMaxW(pace.maxN);
     const pool = STAGE_PIECES[Math.min(STAGE_PIECES.length - 1, lv)];
     const x0 = W + 10;
     let wide = 0;
     for (let i = 0; i < n; i++){
       const p = pool[Math.floor(Math.random() * pool.length)];
       const w = SPRITES[p.sp][0].length * p.s;
-      if (wide + w > GROUP_MAX_W) break;
+      if (wide + w > cap) break;
       obs.push({ sp: p.sp, s: p.s, hit: p.hit, pal: p.pal, x: x0 + wide });
       wide += w + 4 + Math.floor(Math.random() * 5);   // 겹치지 않게 조금 띄운다
     }
     // 하트는 낮은 것과 높은 것. 높은 건 2단 이상 눌러야 닿아서, 먹으려면
     // 「얼마나 세게 누를까」 를 한 번 고르게 된다.
-    if (Math.random() < 0.55){
-      const high = Math.random() < 0.45;
+    if (Math.random() < pace.gem){
+      const h = GEM_H[Math.floor(Math.random() * GEM_H.length)];
       gems.push({ x: x0 + wide + 90 + Math.random() * 90,
-                  y: GY - (high ? GEM_HIGH : GEM_LOW), p: Math.random() * 6 });
+                  y: GY - h, p: Math.random() * 6 });
     }
-    nextAt = wide + spd * (0.85 + Math.random() * 0.7);
+    nextAt = wide + spd * (pace.gap * (0.85 + Math.random() * 0.4));
   }
 
   function step(ts){
@@ -3022,7 +3070,7 @@ $$('canvas[data-char]').forEach(cv => {
       if (nextAt <= 0) spawn();
       obs.forEach(o => { o.x -= move; });
       gems.forEach(gm => { gm.x -= move; });
-      obs = obs.filter(o => o.x > -100);
+      obs = obs.filter(o => o.x > -160);
       gems = gems.filter(gm => gm.x > -40);
 
       const pb = playerBox();
