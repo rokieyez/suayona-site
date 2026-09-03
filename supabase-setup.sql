@@ -976,3 +976,20 @@ language sql stable security invoker set search_path = public as $$
                   order by measured_on desc limit 1)
   );
 $$;
+
+-- 마무리작업(2026-09-03, 모험단 뒤)
+-- 세이브에 말이 되는 값만. 콘솔에서 금화를 백만으로 적는 장난을 서버가 막는다.
+alter table public.quest_saves drop constraint if exists quest_saves_data_sane;
+alter table public.quest_saves add constraint quest_saves_data_sane check (
+      coalesce((data->>'gold')::numeric, 0)    between 0 and 999999
+  and coalesce((data->>'xp')::numeric, 0)      between 0 and 999999
+  and coalesce((data->>'weapon')::numeric, 0)  between 0 and 5
+  and coalesce((data->>'armor')::numeric, 0)   between 0 and 5
+  and coalesce((data->>'potions')::numeric, 0) between 0 and 9
+);
+-- 아이가 처음부터 다시 하고 싶다고 하면 부모가 줄을 지운다.
+drop policy if exists "parent resets quest" on public.quest_saves;
+create policy "parent resets quest" on public.quest_saves for delete
+  using (public.my_role() = 'parent');
+-- 린터가 짚은 것: 이어그리기 원본을 가리키는 열에 인덱스가 없었다.
+create index if not exists doodles_relay_of_idx on public.doodles (relay_of);

@@ -755,6 +755,7 @@ const authOnce   = refreshAuth().catch(() => null);
 // 조사 고르기. common.js 의 josa 를 쓰되, 배포 직후 10분 동안은 옛 common.js 와
 // 짝이 될 수 있어 없으면 예전 표기로 물러선다.
 const J = (w, a, b) => (typeof josa === 'function' ? josa(w, a, b) : a + '(' + b + ')');
+const NM = k => (typeof heroName === 'function' ? heroName(k) : k);
 
 const belowFold = (() => {
   const jobs = [];
@@ -2404,7 +2405,7 @@ belowFold(async () => {
       cell.className = 'duel-cell reveal';
       cell.appendChild(drawingToCanvas({ n: r.n, s: r.cells }));
       const who = document.createElement('span');
-      who.className = 'who pixel'; who.textContent = r.author;
+      who.className = 'who pixel'; who.textContent = NM(r.author);
       cell.appendChild(who);
       grid.appendChild(cell);
       revealNow(cell);
@@ -2422,8 +2423,9 @@ belowFold(async () => {
     note.innerHTML = '';
     if (from) note.appendChild(drawingToCanvas({ n: from.n, s: from.cells }));
     const say = document.createElement('span');
-    say.textContent = '🖍 ' + relay.author + J(relay.author, '이', '가') + ' ' +
-      (from ? from.author + ' 그림을 이어 그렸어요' : '그림을 이어 그렸어요');
+    const a = NM(relay.author);
+    say.textContent = '🖍 ' + a + J(a, '이', '가') + ' ' +
+      (from ? NM(from.author) + ' 그림을 이어 그렸어요' : '그림을 이어 그렸어요');
     note.appendChild(say);
     note.appendChild(drawingToCanvas({ n: relay.n, s: relay.cells }));
     note.hidden = false;
