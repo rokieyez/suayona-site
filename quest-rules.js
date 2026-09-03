@@ -506,6 +506,58 @@ const QUEST = (() => {
     const p = n => String(n).padStart(2, '0');
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
+  function dayKey(d){
+    d = new Date(d == null ? Date.now() : d);
+    const p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  // 이번 주 월요일부터 일요일까지 이레 — 발자국 칸이 읽는다.
+  function weekDays(d){
+    const base = new Date(d == null ? Date.now() : d);
+    base.setDate(base.getDate() - ((base.getDay() + 6) % 7));
+    const out = [];
+    for (let i = 0; i < 7; i++){ const x = new Date(base); x.setDate(base.getDate() + i); out.push(dayKey(x)); }
+    return out;
+  }
+  // 지난 주 성적을 넉 주치만 남기고 밀어 넣는다. 같은 주가 두 번 들어오지 않게 걸러낸다.
+  const WEEK_LOG_MAX = 4;
+  function pushWeekLog(save, entry){
+    if (!Array.isArray(save.weekLog)) save.weekLog = [];
+    save.weekLog = save.weekLog.filter(e => e && e.key !== entry.key);
+    save.weekLog.push(entry);
+    if (save.weekLog.length > WEEK_LOG_MAX) save.weekLog = save.weekLog.slice(-WEEK_LOG_MAX);
+    return save.weekLog;
+  }
+  // 오늘 처음 열었을 때 지난번보다 얼마나 자랐는지 한 번만 재고, 하루 동안 그 값을 보여 준다.
+  // 열 때마다 다시 재면 화살표가 곧바로 사라져 아무도 못 본다.
+  const GROW_KEYS = ['lv', 'str', 'agi', 'hrt', 'maxHp'];
+  function growCheck(save, st, day){
+    const now = { lv: st.lv, str: st.str, agi: st.agi, hrt: st.hrt, maxHp: st.maxHp };
+    const seen = save.seen;
+    if (!seen || !seen.day){                      // 처음 온 날은 견줄 데가 없다
+      save.seen = Object.assign({ day: day }, now);
+      save.grew = { day: day };
+      return save.grew;
+    }
+    if (seen.day === day) return (save.grew && save.grew.day === day) ? save.grew : { day: day };
+    const g = { day: day };
+    GROW_KEYS.forEach(k => { const d = now[k] - (seen[k] || 0); if (d > 0) g[k] = d; });
+    save.grew = g;
+    save.seen = Object.assign({ day: day }, now);
+    return g;
+  }
+  // 오늘 한 모험을 하루치로 모은다 — '오늘의 모험 카드'가 읽는다.
+  function dayLog(save, day){
+    if (!save.day || save.day.d !== day) save.day = { d: day, foes: [], gold: 0, xp: 0, wins: 0, boss: 0 };
+    if (!Array.isArray(save.day.foes)) save.day.foes = [];
+    return save.day;
+  }
+  function markPlayed(save, day){
+    if (!Array.isArray(save.playDays)) save.playDays = [];
+    if (save.playDays.indexOf(day) < 0) save.playDays.push(day);
+    if (save.playDays.length > 21) save.playDays = save.playDays.slice(-21);
+    return save.playDays;
+  }
   function weekIndex(key){
     const [y, m, dd] = key.split('-').map(Number);
     return Math.max(0, Math.round((new Date(y, m - 1, dd) - WEEK0) / (7 * 864e5)));
@@ -554,6 +606,12 @@ const QUEST = (() => {
       chests: 0,                          // 연 상자 수
       streak: 0,                          // 지금 이어지는 연승 — 쓰러지면 0으로
       bestStreak: 0,                      // 가장 길었던 연승 — 칭호 근거
+      weekLog: [],                        // 지난 넉 주 성적 — 작은 막대 넷
+      day: { d: '', foes: [], gold: 0, xp: 0, wins: 0, boss: 0 },  // 오늘의 모험 카드
+      seen: null,                         // 지난번 열었을 때의 스탯 — 자란 만큼의 기준
+      grew: null,                         // 오늘 계산해 둔 성장분 — 하루 동안 그대로 보여 준다
+      friendDay: {},                      // 친구가 된 날 ('무대:번호' → 날짜)
+      playDays: [],                       // 모험한 날 — 이번 주 발자국
     };
   }
   // 옛 세이브에 없는 칸을 채운다. 규칙이 늘어도 예전 줄이 깨지지 않게.
@@ -569,6 +627,11 @@ const QUEST = (() => {
     if (!Array.isArray(s.dexSkies)) s.dexSkies = [];
     if (!s.foeWins || typeof s.foeWins !== 'object') s.foeWins = {};
     if (!s.met || typeof s.met !== 'object') s.met = {};
+    if (!Array.isArray(s.weekLog)) s.weekLog = [];
+    if (!Array.isArray(s.playDays)) s.playDays = [];
+    if (!s.friendDay || typeof s.friendDay !== 'object') s.friendDay = {};
+    s.day = Object.assign(n.day, s.day || {});
+    if (!Array.isArray(s.day.foes)) s.day.foes = [];
     return s;
   }
   // 무대 i 가 열렸나 — 첫 무대는 늘, 그다음은 앞 무대 대장을 이겨야.
@@ -608,7 +671,8 @@ const QUEST = (() => {
     WINS_FOR_BOSS, COMBO_MULT, STREAK_FOR_FANFARE, TAME_WINS, CHEER_HEAL, HIDDEN_DAYS,
     levelOf, xpForLevel, realXp, stats, foeAt, bossAt, bossAct, heroHit, foeHit, judge,
     elemMult, elemSay, skillsOf, friendAct, openChest, titlesOf, titleOf,
-    weekKey, weekIndex, newSave, fixSave, fixTune, areaOpen, hiddenDaysLeft, dexDone, dexCount, friendsOf,
+    weekKey, weekIndex, dayKey, weekDays, pushWeekLog, WEEK_LOG_MAX, growCheck, dayLog, markPlayed,
+    newSave, fixSave, fixTune, areaOpen, hiddenDaysLeft, dexDone, dexCount, friendsOf,
   };
 })();
 if (typeof module !== 'undefined') module.exports = QUEST;

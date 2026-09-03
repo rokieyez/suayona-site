@@ -222,6 +222,50 @@
   .wkeys span{display:flex; align-items:center; gap:4px;}
   .wkeys i.sw{display:block; width:9px; height:9px; border:1px solid var(--ink);}
 
+  /* 자란 만큼 — 어제보다 오른 스탯에만 붙는다 */
+  .srow .up{font-size:10px; font-weight:800; color:#2f7d4f; margin-left:3px;}
+
+  /* 오늘 · 이번 주 */
+  .today{display:flex; gap:10px; align-items:center; flex-wrap:wrap; min-height:36px;}
+  .today canvas{image-rendering:pixelated;}
+  .today .chips{display:flex; gap:5px; flex-wrap:wrap;}
+  .today .chips i{font-style:normal; font-size:11px; font-weight:800; padding:2px 6px;
+    border:2px solid var(--ink); background:var(--cream); white-space:nowrap;}
+  .today .none{font-size:12px; font-weight:700; color:var(--ink-soft);}
+  .wkfoot{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:12px;}
+  .wkfoot span{text-align:center; font-size:10px; font-weight:800; color:var(--ink-soft);
+    border:2px solid var(--ink); background:#fff; padding:3px 0;}
+  .wkfoot span b{display:block; font-size:14px; line-height:1.25; color:var(--ink);}
+  .wkfoot span.on{background:var(--mint);}
+  .wkfoot span.now{border-color:var(--coral); border-width:3px;}
+  .wkfoot span.later{opacity:.45;}
+
+  /* 지난 넉 주 성적 — 작은 막대가 이번 주 옆에 선다 */
+  .wlog{display:flex; gap:5px; align-items:flex-end; margin-top:8px;}
+  .wlog span{position:relative; width:14px; height:32px; border:2px solid var(--ink); background:#fff; flex:none;}
+  .wlog span i{position:absolute; left:0; right:0; bottom:0; background:#b9a3d6;}
+  .wlog span.won i{background:var(--mint);}
+  .wlog span.now{border-color:var(--coral);}
+  .wlog em{font-style:normal; font-size:10px; font-weight:800; color:var(--ink-soft); align-self:flex-end; margin-left:2px;}
+
+  /* 친구 소개 */
+  .friends canvas{cursor:pointer;}
+  .friend-say{margin-top:6px; font-size:11.5px; font-weight:700; color:var(--ink-soft); min-height:15px;}
+  .friend-say b{color:var(--ink);}
+
+  /* 세계 지도 — 자매 둘의 진행을 한 칸에 겹쳐 본다 */
+  .mapkey{display:flex; gap:12px; flex-wrap:wrap; margin:-4px 0 10px; font-size:10.5px; font-weight:800; color:var(--ink-soft);}
+  .mapkey span{display:flex; align-items:center; gap:4px;}
+  .mapkey i{display:block; width:9px; height:9px; border:1px solid var(--ink);}
+
+  /* 부모 조정판 미리보기 — 저장하기 전에 세기를 눈으로 가늠한다 */
+  .tprev{margin-top:12px; padding:9px 10px; border:2px solid var(--ink); background:var(--cream);}
+  .tprev h4{margin:0 0 7px; font-size:11px; letter-spacing:.04em; color:var(--ink-soft);}
+  .tprev .g{display:grid; grid-template-columns:auto 1fr auto; gap:6px 8px; align-items:center; font-size:11.5px; font-weight:800;}
+  .tprev .b{height:9px; border:2px solid var(--ink); background:#fff; position:relative;}
+  .tprev .b i{position:absolute; left:0; top:0; bottom:0; background:var(--coral);}
+  .tprev .n{font-variant-numeric:tabular-nums; color:var(--ink-soft); font-size:11px;}
+
   /* 문 앞 안내 — 현실 한 가지가 어떤 힘이 되는지 그림 넷 */
   .grow{display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin:0 0 16px;}
   .grow div{display:flex; flex-direction:column; align-items:center; gap:3px; width:78px;
@@ -262,6 +306,7 @@
         <label>상대 세기 <span id="tFoeV"></span><input type="range" id="tFoe" min="0.6" max="1.4" step="0.1"></label>
         <label>오늘의 선물 금화 <span id="tGiftV"></span><input type="range" id="tGift" min="10" max="100" step="5"></label>
         <label>응원 한 줄 <span>전투 중 응원 요정이 들고 나와요</span><input type="text" id="tCheer" maxlength="60" placeholder="예: 우리 딸 최고! 천천히 해도 돼"></label>
+        <div class="tprev" id="tunePrev"></div>
         <div class="row"><button type="button" class="dot-btn small primary" id="tSave">저장</button><span class="msg" id="tMsg" style="margin:0;"></span></div>
       </div>
     </div>
@@ -283,6 +328,7 @@
           <div class="skill-list" id="skillList"></div>
           <div class="mission" id="mission"></div>
           <div class="friends" id="friends"></div>
+          <div class="friend-say" id="friendSay"></div>
           <div class="combo" id="combo" hidden></div>
         </div>
         <div class="dot-card q-card reveal">
@@ -292,9 +338,16 @@
         </div>
       </div>
 
+      <div class="dot-card q-card reveal" id="todayCard">
+        <h3 class="pixel">오늘 · 이번 주</h3>
+        <div class="today" id="todayBox"></div>
+        <div class="wkfoot" id="weekFoot"></div>
+      </div>
+
       <div class="dot-card q-card reveal" id="mapCard">
         <h3 class="pixel">세계 지도</h3>
         <div class="worldmap" id="worldMap"></div>
+        <div class="mapkey" id="mapKey"></div>
         <div class="areas" id="areas"></div>
         <div class="area-act" id="areaAct"></div>
       </div>
@@ -362,23 +415,31 @@ function pips(on, all, cls){
 }
 // 스탯 한 줄이 어떤 재료로 만들어졌는지 — 색 조각 띠 하나로.
 const SRC = {
-  base:   { n: '기본',   c: '#d8d2c6' },
-  lv:     { n: '레벨',   c: '#ffd979' },
-  works:  { n: '작품',   c: '#ff9f68' },
-  weapon: { n: '무기',   c: '#b9a3d6' },
-  run:    { n: '달리기', c: '#8ec9ee' },
-  diary:  { n: '일기',   c: '#ff7f8a' },
-  hrt:    { n: '마음',   c: '#f7a8bf' },
-  armor:  { n: '갑옷',   c: '#6cc7b3' },
-  height: { n: '키',     c: '#6fb567' },
+  base:   { n: '기본',   c: '#d8d2c6', p: 'solid' },
+  lv:     { n: '레벨',   c: '#ffd979', p: 'diag' },
+  works:  { n: '작품',   c: '#ff9f68', p: 'vert' },
+  weapon: { n: '무기',   c: '#b9a3d6', p: 'diag' },
+  run:    { n: '달리기', c: '#8ec9ee', p: 'vert' },
+  diary:  { n: '일기',   c: '#ff7f8a', p: 'vert' },
+  hrt:    { n: '마음',   c: '#f7a8bf', p: 'vert' },
+  armor:  { n: '갑옷',   c: '#6cc7b3', p: 'diag' },
+  height: { n: '키',     c: '#6fb567', p: 'solid' },
 };
-function segRow(icon, name, val, parts, tail){
+// 색만으로 나누면 색을 가려내기 어려운 눈에는 한 덩어리로 보인다 — 무늬를 함께 넣는다.
+function fillOf(k){
+  const S = SRC[k];
+  if (S.p === 'diag') return 'repeating-linear-gradient(45deg,' + S.c + ' 0 3px,rgba(255,255,255,.55) 3px 5px)';
+  if (S.p === 'vert') return 'repeating-linear-gradient(90deg,' + S.c + ' 0 3px,rgba(255,255,255,.5) 3px 4px)';
+  return S.c;
+}
+function segRow(icon, name, val, parts, tail, up){
   const keys = Object.keys(parts).filter(k => parts[k] > 0);
   const tot = keys.reduce((a, k) => a + parts[k], 0) || 1;
   const say = keys.map(k => SRC[k].n + ' ' + parts[k]).join(' + ');
   const segs = keys.map(k =>
-    '<i style="width:' + (100 * parts[k] / tot).toFixed(2) + '%;background:' + SRC[k].c + '"></i>').join('');
-  return '<div class="srow"><span class="lb"><em>' + icon + '</em>' + name + ' <i>' + val + '</i></span>' +
+    '<i style="width:' + (100 * parts[k] / tot).toFixed(2) + '%;background:' + fillOf(k) + '"></i>').join('');
+  return '<div class="srow"><span class="lb"><em>' + icon + '</em>' + name + ' <i>' + val + '</i>' +
+    (up ? '<b class="up" title="지난번보다 ' + up + ' 올랐어요">▲' + up + '</b>' : '') + '</span>' +
     '<span class="segbar" title="' + escapeHTML(say) + '" aria-label="' + escapeHTML(say) + '">' + segs + '</span>' +
     (tail ? '<span class="tail">' + tail + '</span>' : '') + '</div>';
 }
@@ -387,7 +448,7 @@ function legendFor(list){
   list.forEach(o => Object.keys(o).forEach(k => { if (o[k] > 0 && seen.indexOf(k) < 0) seen.push(k); }));
   seen.sort((a, b) => order.indexOf(a) - order.indexOf(b));
   return '<div class="legend">' + seen.map(k =>
-    '<span><i style="background:' + SRC[k].c + '"></i>' + SRC[k].n + '</span>').join('') + '</div>';
+    '<span><i style="background:' + fillOf(k) + '"></i>' + SRC[k].n + '</span>').join('') + '</div>';
 }
 const EN = e => (Q.ELEM[e] || Q.ELEM.none).name;
 
@@ -452,6 +513,9 @@ async function bootInner(){
   if (save.hp == null || save.hp > st.maxHp) save.hp = st.maxHp;
   // 오늘 놀았다 — 자매 콤보의 근거. 다른 한 명의 줄에서 오늘 날짜가 보이면 콤보.
   if (save.lastPlay !== today()){ save.lastPlay = today(); persist(); }
+  Q.markPlayed(save, today());                       // 이번 주 발자국
+  Q.dayLog(save, today());                           // 하루치 기록 상자를 오늘 것으로
+  Q.growCheck(save, st, today());                    // 지난번보다 얼마나 자랐는지 — 하루 한 번만 잰다
   const other = saves[hero.other];
   combo = !!(other && other.lastPlay === today());
   $('#game').hidden = false;
@@ -474,7 +538,7 @@ function refreshStats(){
   }
 }
 
-function renderAll(){ renderStatus(); renderReal(); renderMap(); renderShop(); renderWeek(); renderDex(); renderMission(); }
+function renderAll(){ renderStatus(); renderReal(); renderToday(); renderMap(); renderShop(); renderWeek(); renderDex(); renderMission(); }
 function today(){ const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
 
 // ---------- 손님 화면 ----------
@@ -509,7 +573,24 @@ function renderTune(){
     $('#tFoeV').textContent = '×' + Number(f.value).toFixed(1);
     $('#tGiftV').textContent = g.value + '금화';
   };
-  [w, f, g].forEach(el => el.addEventListener('input', show)); show();
+  // 막대를 옮기는 동안 아이 화면이 어떻게 되는지 옆에서 같이 움직인다.
+  const prev = () => {
+    const T = { weekHpMul: Number(w.value), foeMul: Number(f.value), giftGold: Number(g.value) };
+    const wk = Q.WEEK.hp(Q.weekKey(), T), wkMax = Q.WEEK.hp(Q.weekKey(), { weekHpMul: 2 });
+    const f0 = Q.foeAt(0, 0, T), f0Max = Q.foeAt(0, 0, { foeMul: 1.4 });
+    const b0 = Q.bossAt(0, T), b0Max = Q.bossAt(0, { foeMul: 1.4 });
+    const bar = (v, max, c) =>
+      '<div class="b"><i style="width:' + Math.min(100, Math.round(100 * v / (max || 1))) + '%;background:' + c + '"></i></div>';
+    $('#tunePrev').innerHTML =
+      '<h4>이렇게 돼요 — 막대가 꽉 차면 가장 센 설정</h4><div class="g">' +
+      '<span>🐉 이번 주 보스</span>' + bar(wk, wkMax, '#b9a3d6') + '<span class="n">체력 ' + wk + '</span>' +
+      '<span>🌿 첫 무대 상대</span>' + bar(f0.hp, f0Max.hp, 'var(--grass)') + '<span class="n">체력 ' + f0.hp + ' · 공격 ' + f0.atk + '</span>' +
+      '<span>👑 첫 무대 대장</span>' + bar(b0.hp, b0Max.hp, 'var(--coral)') + '<span class="n">체력 ' + b0.hp + ' · 공격 ' + b0.atk + '</span>' +
+      '<span>🎁 오늘의 선물</span>' + bar(Number(g.value), 100, 'var(--lemon)') + '<span class="n">금화 ' + g.value + '</span>' +
+      '</div>';
+  };
+  [w, f, g].forEach(el => el.addEventListener('input', () => { show(); prev(); }));
+  show(); prev();
   $('#tSave').addEventListener('click', async () => {
     const t = Q.fixTune({ weekHpMul: w.value, foeMul: f.value, giftGold: g.value, cheer: ch.value });
     $('#tMsg').textContent = '저장 중…';
@@ -565,7 +646,8 @@ function renderStatus(){
   face.clearRect(0, 0, 42, 40);
   drawSprite(face, SPRITES[hero.sprite], 0, 0, 1);
   $('#heroName').textContent = hero.name + '의 모험단';
-  $('#heroLv').textContent = '레벨 ' + st.lv + ' · ⭐ ' + st.xp + ' / ' + st.next;
+  const grL = (save.grew && save.grew.day === today()) ? (save.grew.lv || 0) : 0;
+  $('#heroLv').textContent = '레벨 ' + st.lv + (grL ? ' ▲' + grL : '') + ' · ⭐ ' + st.xp + ' / ' + st.next;
   const t = Q.titleOf(save, st), tb = $('#titleNow');
   tb.hidden = !t; if (t) tb.textContent = '🏅 ' + t.name;
   const sk = save.streak || 0, skb = $('#streakNow');
@@ -573,11 +655,12 @@ function renderStatus(){
   const span = st.next - st.prev;
   $('#xpFill').style.width = Math.round(100 * (st.xp - st.prev) / span) + '%';
   const p = st.parts;
+  const gr = (save.grew && save.grew.day === today()) ? save.grew : {};
   $('#stat').innerHTML =
-    segRow('❤️', '체력', save.hp + ' / ' + st.maxHp, p.hp) +
-    segRow('💪', '힘', st.str, p.str) +
-    segRow('⚡', '재빠름', st.agi, p.agi, '💨 피하기 ' + Math.round(st.dodge * 100) + '%') +
-    segRow('💗', '마음', st.hrt, p.hrt, '🛡 방어하면 +' + st.guardHeal) +
+    segRow('❤️', '체력', save.hp + ' / ' + st.maxHp, p.hp, '', gr.maxHp) +
+    segRow('💪', '힘', st.str, p.str, '', gr.str) +
+    segRow('⚡', '재빠름', st.agi, p.agi, '💨 피하기 ' + Math.round(st.dodge * 100) + '%', gr.agi) +
+    segRow('💗', '마음', st.hrt, p.hrt, '🛡 방어하면 +' + st.guardHeal, gr.hrt) +
     legendFor([p.hp, p.str, p.agi, p.hrt]);
   // 가방 — 그림과 숫자만. 이름은 눌러 보면(툴팁) 나온다.
   $('#bag').innerHTML = [
@@ -608,14 +691,59 @@ function renderStatus(){
       const sp = SPRITES[f.sp]; if (!sp) return;
       const cv = document.createElement('canvas'); cv.width = sp[0].length * 2; cv.height = sp.length * 2;
       const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
-      cv.title = f.name; drawSprite(g, sp, 0, 0, 2); fbox.appendChild(cv);
+      cv.title = f.name + ' — 눌러 보세요';
+      cv.addEventListener('click', () => showFriend(f));
+      drawSprite(g, sp, 0, 0, 2); fbox.appendChild(cv);
     });
   }
+  const fs = $('#friendSay');
+  if (fs) fs.innerHTML = fr.length ? '동물을 누르면 언제 어디서 친구가 됐는지 나와요.' : '';
   const cb = $('#combo');
   cb.hidden = !combo;
   if (combo) cb.textContent = '💞 오늘 ' + hero.call + '도 모험 중 — 피해 ×' + Q.COMBO_MULT;
 }
 function paintLeft(){ return Math.max(0, (facts.works || 0) - (save.spentPaint || 0)); }
+
+// 친구 소개 — 언제 어디서 친구가 됐는지. 도감과 달리 '우리 사이의 기록'이다.
+function showFriend(f){
+  const A = Q.AREAS[f.area], d = save.friendDay ? save.friendDay[f.key] : '';
+  const wins = (save.foeWins && save.foeWins[f.key]) || Q.TAME_WINS;
+  const when = d ? Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일' : '오래전';
+  $('#friendSay').innerHTML = '🐾 <b>' + escapeHTML(f.name) + '</b> · ' + EI(A.elem) + ' ' + A.name +
+    ' · ' + when + '에 친구가 됐어요 (' + wins + '번 만나고서)';
+  sfx('purr');
+}
+
+// ---------- ① 오늘의 모험 · ⑨ 이번 주 발자국 ----------
+function renderToday(){
+  const box = $('#todayBox'); if (!box) return;
+  const dl = Q.dayLog(save, today());
+  box.innerHTML = '';
+  if (!dl.wins && !dl.foes.length){
+    box.innerHTML = '<span class="none">아직 오늘 모험 전이에요. 아래에서 무대를 골라 봐요.</span>';
+  } else {
+    dl.foes.slice(0, 12).forEach(k => {
+      const bits = k.split(':'), A = Q.AREAS[+bits[0]];
+      if (!A) return;
+      const d = bits[1] === 'boss' ? A.boss : A.foes[+bits[1]];
+      if (!d || !SPRITES[d.sp]) return;
+      box.appendChild(tinyCell(SPRITES[d.sp], true, d.name + (bits[1] === 'boss' ? ' (대장)' : '')));
+    });
+    const chips = document.createElement('div'); chips.className = 'chips';
+    chips.innerHTML = '<i title="오늘 이긴 횟수">⚔ ' + dl.wins + '</i>' +
+      (dl.boss ? '<i title="오늘 쓰러뜨린 대장">👑 ' + dl.boss + '</i>' : '') +
+      '<i title="오늘 번 금화">💰+' + dl.gold + '</i><i title="오늘 얻은 경험치">⭐+' + dl.xp + '</i>';
+    box.appendChild(chips);
+  }
+  const foot = $('#weekFoot'); if (!foot) return;
+  const names = ['월', '화', '수', '목', '금', '토', '일'], days = Q.weekDays(), td = today();
+  foot.innerHTML = days.map((d, i) => {
+    const played = (save.playDays || []).indexOf(d) >= 0;
+    const cls = [played ? 'on' : '', d === td ? 'now' : '', d > td ? 'later' : ''].filter(Boolean).join(' ');
+    return '<span class="' + cls + '" title="' + d + (played ? ' · 모험한 날' : '') + '">' +
+      '<b>' + (played ? '🐾' : '·') + '</b>' + names[i] + '</span>';
+  }).join('');
+}
 
 function renderReal(){
   const f = facts, p = st.parts;
@@ -661,10 +789,20 @@ function renderWorldMap(){
     g.fillStyle = A.ground; g.fillRect(0, skyH, 44, 30 - skyH);
     if (!open) { g.fillStyle = 'rgba(30,26,20,.6)'; g.fillRect(0, 0, 44, 30); }
     else if (!lit) { g.fillStyle = 'rgba(30,26,20,.28)'; g.fillRect(0, 0, 44, 30); }
+    // 자매 둘의 진행을 한 칸에 겹친다 — 왼쪽 아래가 수아, 오른쪽 아래가 연아.
+    ['sua', 'yona'].forEach((who, n) => {
+      const sv = saves[who], x = n === 0 ? 2 : 35, done = !!(sv && sv.boss && sv.boss[i]);
+      g.fillStyle = '#2f2a24'; g.fillRect(x, 21, 7, 7);
+      g.fillStyle = done ? Q.HEROES[who].color : '#fffaf2'; g.fillRect(x + 1, 22, 5, 5);
+    });
     b.appendChild(cv);
     b.addEventListener('click', () => { curArea = i; renderMap(); });
     box.appendChild(b);
   });
+  const mk = $('#mapKey');
+  if (mk) mk.innerHTML = ['sua', 'yona'].map(w =>
+    '<span><i style="background:' + Q.HEROES[w].color + '"></i>' + Q.HEROES[w].name + ' 대장 이김</span>').join('') +
+    '<span><i style="background:#fffaf2"></i>아직</span>';
 }
 
 function renderMap(){
@@ -933,6 +1071,21 @@ function weekFoe(streak){
 function weekTotal(k){
   return Object.keys(saves).reduce((a, w) => a + ((saves[w].week && saves[w].week.key === k) ? saves[w].week.dmg : 0), 0);
 }
+// 지난 넉 주와 이번 주를 나란히 세운다 — 이번 주가 나은 주인지 눈으로 견준다.
+function weekBars(k, total, hp){
+  let log = (save.weekLog || []).slice(-Q.WEEK_LOG_MAX);
+  // 넉 주 기록이 쌓이기 전이라면, 예전 방식으로 적어 둔 지난주 한 줄이라도 쓴다.
+  if (!log.length && save.lastWeek && save.lastWeek.hp)
+    log = [{ key: save.lastWeek.key, total: save.lastWeek.dmg, hp: save.lastWeek.hp }];
+  const cells = log.concat([{ key: k, total: total, hp: hp, now: true }]).map(e => {
+    const p = Math.max(0, Math.min(100, Math.round(100 * (e.total == null ? e.dmg : e.total) / (e.hp || 1))));
+    const cls = [e.now ? 'now' : '', p >= 100 ? 'won' : ''].filter(Boolean).join(' ');
+    return '<span class="' + cls + '" title="' + e.key + ' 주 · ' + p + '%">' +
+      '<i style="height:' + Math.max(2, Math.round(p * 0.28)) + 'px"></i></span>';
+  }).join('');
+  return '<div class="wlog">' + cells +
+    '<em>' + (log.length ? '지난 ' + log.length + '주 → 이번 주' : '이번 주') + '</em></div>';
+}
 function renderWeek(){
   const k = Q.weekKey(), box = $('#week');
   if (save.week.key !== k && save.week.key){
@@ -941,6 +1094,8 @@ function renderWeek(){
     const wasWon = weekTotal(save.week.key) >= (save.week.hp || 0);
     save.weekStreak = wasWon ? (save.weekStreak || 0) + 1 : 0;
     save.lastWeek = { key: save.week.key, dmg: save.week.dmg, hp: save.week.hp || 0, name: Q.WEEK.name(save.week.key) };
+    Q.pushWeekLog(save, { key: save.week.key, dmg: save.week.dmg, hp: save.week.hp || 0,
+      total: weekTotal(save.week.key), won: wasWon });
   }
   const streak = save.weekStreak || 0, foe = weekFoe(streak);
   if (save.week.key !== k) save.week = { key: k, dmg: 0, day: '', swings: 0, claimed: false, hp: foe.hp };
@@ -962,8 +1117,7 @@ function renderWeek(){
       '</span><span>' + Math.min(total, foe.hp) + ' / ' + foe.hp + '</span></div>' +
     '<div class="hpbar" title="자매가 낸 피해를 합쳐요"><i class="mine" style="width:' + wpct(mine) + '%"></i>' +
       '<i class="other" style="left:' + wpct(mine) + '%;width:' + Math.min(100 - wpct(mine), wpct(other)) + '%"></i></div>' +
-    (save.lastWeek ? '<div class="wcmp"><span>지난주 ' + Math.min(save.lastWeek.dmg, save.lastWeek.hp) + ' / ' + save.lastWeek.hp + '</span>' +
-      '<div class="wcmp-bar"><i style="width:' + Math.min(100, Math.round(100 * save.lastWeek.dmg / save.lastWeek.hp)) + '%"></i></div></div>' : '') +
+    weekBars(k, total, foe.hp) +
     '<div class="wkeys">' +
       '<span title="내가 낸 피해"><i class="sw" style="background:#b9a3d6"></i>' + mine + '</span>' +
       '<span title="' + hero.call + J2(hero.call, '이', '가') + ' 낸 피해"><i class="sw" style="background:#8ec9ee"></i>' + hero.call + ' ' + other + '</span>' +
@@ -1000,7 +1154,7 @@ const canvas = $('#qCanvas'), ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 const W = 320, H = 200, GROUND = 172;
 let raf = 0, fx = [], shake = { hero: 0, foe: 0 }, flash = 0, timing = null;
-let heroLunge = 0, foeLunge = 0, fairyAt = 0, friendAt = 0, chestAt = 0;
+let heroLunge = 0, foeLunge = 0, fairyAt = 0, friendAt = 0, chestAt = 0, chestItem = null;
 const now = () => performance.now();
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -1303,6 +1457,15 @@ async function win(){
   const b = battle, foe = b.foe, A = Q.AREAS[foe.area];
   sfx('fanfare');
   save.gold += foe.gold; save.xp += foe.xp; save.fights++;
+  // 오늘의 모험 카드가 읽을 하루치 — 이긴 상대와 벌어들인 것.
+  const dl = Q.dayLog(save, today());
+  dl.gold += foe.gold; dl.xp += foe.xp;
+  if (!foe.week){
+    dl.wins++;
+    if (foe.boss) dl.boss++;
+    const fk = foe.area + ':' + (foe.boss ? 'boss' : foe.idx);
+    if (dl.foes.indexOf(fk) < 0) dl.foes.push(fk);
+  }
   save.streak = (save.streak || 0) + 1;
   save.bestStreak = Math.max(save.bestStreak || 0, save.streak);
   if (!foe.week) missionTick('win', foe.area);
@@ -1320,7 +1483,7 @@ async function win(){
       const k = foe.area + ':' + foe.idx;
       save.foeWins[k] = (save.foeWins[k] || 0) + 1;
       if (save.foeWins[k] >= Q.TAME_WINS && !save.friends.includes(k)){
-        save.friends.push(k); sfx('purr');
+        save.friends.push(k); save.friendDay[k] = today(); sfx('purr');
         extra = ' — <b>' + foe.name + '</b>' + J2(foe.name, '이', '가') + ' 친구가 됐어요! 이제 싸우지 않고 함께 싸워 줘요. 🐾';
       } else if (save.foeWins[k] < Q.TAME_WINS){
         extra = ' (' + (Q.TAME_WINS - save.foeWins[k]) + '번 더 이기면 친구가 돼요)';
@@ -1342,13 +1505,14 @@ async function win(){
     if (c.gold) save.gold += c.gold;
     if (c.potions) save.potions = Math.min(Q.SHOP.potion.max, save.potions + c.potions);
     if (c.xp) save.xp += c.xp;
-    chestAt = now(); sfx('key');
+    dl.gold += c.gold || 0; dl.xp += c.xp || 0;
+    chestAt = now(); chestItem = c; sfx('key');
     addFx(hero.name, '🎁', '#ffd979', true);
     const streakSay = save.streak >= 2 ? ' (🔥 ' + save.streak + '연승 · ×' + mult.toFixed(2) + ')' : '';
     log('🎁 <b>보물 상자!</b> ' + c.say + ' ' +
       (c.gold ? '금화 +' + c.gold : c.potions ? '물약 +' + c.potions : '경험치 +' + c.xp) + streakSay);
     refreshStats(); renderBars();
-    await wait(1500);
+    await wait(2100);
   }
   endBattle();
 }
@@ -1384,6 +1548,67 @@ async function journal(foe){
 // =====================================================================
 function pr(i){ const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
 function px(x, y, w, h, c){ ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
+
+// 속성 고리 — 불▶풀▶물▶불, 빛◀▶어둠. 왜 이번엔 더 아팠는지 그림으로 알려 준다.
+// 지금 상대의 속성 칸에 흰 테두리가 붙고, 그 칸을 이기는 화살표가 환해진다.
+const RING = [
+  { el: 'fire',  x: 20, y: 7  },
+  { el: 'water', x: 8,  y: 24 },
+  { el: 'grass', x: 32, y: 24 },
+];
+const RING_ARROW = {                                   // 때리는 쪽 → 맞는 쪽 사이의 점 세 개
+  fire:  [[27, 15], [29, 18], [31, 21]],               // 불 → 풀
+  grass: [[29, 29], [25, 29], [21, 29]],               // 풀 → 물
+  water: [[12, 21], [14, 18], [16, 15]],               // 물 → 불
+};
+function drawElemRing(foeElem){
+  const x0 = 4, y0 = 4, w = 62, h = 38;
+  ctx.globalAlpha = 0.72; px(x0, y0, w, h, '#171512'); ctx.globalAlpha = 1;
+  px(x0, y0, w, 1, '#6b6357'); px(x0, y0 + h - 1, w, 1, '#6b6357');
+  px(x0, y0, 1, h, '#6b6357'); px(x0 + w - 1, y0, 1, h, '#6b6357');
+  const node = (nx, ny, el) => {
+    if (el === foeElem) px(nx - 2, ny - 2, 12, 12, '#ffffff');
+    px(nx - 1, ny - 1, 10, 10, '#171512');
+    px(nx, ny, 8, 8, (Q.ELEM[el] || Q.ELEM.none).c);
+  };
+  RING.forEach(n => {
+    const beats = Q.STRONG[n.el] === foeElem;          // 이 칸이 지금 상대를 이긴다
+    (RING_ARROW[n.el] || []).forEach((p, i) => {
+      const c = beats ? ['#7e7768', '#c9c2b0', '#ffffff'][i] : '#5a5348';
+      px(p[0], p[1], beats ? 3 : 2, beats ? 3 : 2, c);
+    });
+    node(n.x, n.y, n.el);
+  });
+  node(48, 7, 'light'); node(48, 24, 'dark');
+  const lit = foeElem === 'light' || foeElem === 'dark';
+  px(52, 17, 2, 6, lit ? '#ffffff' : '#5a5348');       // 빛 ↔ 어둠 은 서로 강하다
+  px(51, 16, 4, 1, lit ? '#ffffff' : '#5a5348');
+  px(51, 23, 4, 1, lit ? '#ffffff' : '#5a5348');
+}
+
+// 보물 상자 — 통통 튀어 오르고, 뚜껑이 열리고, 안에 든 것이 떠오른다.
+function drawChest(t){
+  const e = t - chestAt;
+  const cy = GROUND - 20 - Math.min(10, e / 25);
+  px(148, cy, 24, 16, '#c79b6d');                      // 몸통
+  px(148, cy + 7, 24, 2, '#8a5f3a');
+  px(157, cy, 6, 16, '#ffd979');                       // 자물쇠 띠
+  const lift = e < 420 ? 0 : Math.min(10, (e - 420) / 20);
+  px(148, cy - lift, 24, 5, '#8a5f3a');                // 뚜껑
+  px(148, cy - lift, 24, 1, '#a87a4d');
+  if (e > 470){                                        // 빛줄기
+    const k = Math.min(1, (e - 470) / 260), fade = Math.max(0, 1 - Math.max(0, e - 1500) / 700);
+    ctx.globalAlpha = 0.55 * fade;
+    for (let i = -2; i <= 2; i++) px(159 + i * 5, cy - 4 - 15 * k, 2, Math.round(15 * k), '#fff3b0');
+    ctx.globalAlpha = 1;
+  }
+  if (e > 540 && chestItem){                           // 안에 든 것이 떠오른다
+    const iy = cy - 12 - Math.min(18, (e - 540) / 18);
+    if (chestItem.gold){ px(155, iy, 10, 10, '#ffd979'); px(157, iy + 2, 6, 6, '#e0a93b'); px(159, iy + 3, 2, 4, '#ffd979'); }
+    else if (chestItem.potions){ px(157, iy, 6, 3, '#8a5f3a'); px(155, iy + 3, 10, 8, '#6cc7b3'); px(157, iy + 5, 3, 3, '#bff0e4'); }
+    else { drawSprite(ctx, SPRITES.star, 155, iy, 1); }
+  }
+}
 // 스프라이트를 한 가지 색으로만 — 멀리 있는 것은 모양만 보이면 된다.
 function silhOn(g, sprite, x, y, s, c){
   g.fillStyle = c;
@@ -1723,10 +1948,9 @@ function draw(){
   px(fx0 + fw / 2 - 5, fy - 11, 10, 10, '#2f2a24'); px(fx0 + fw / 2 - 3, fy - 9, 6, 6, ec);
 
   // 보물 상자
-  if (chestAt && t - chestAt < 1500){
-    const cy = GROUND - 20 - Math.min(10, (t - chestAt) / 40);
-    px(148, cy, 24, 16, '#c79b6d'); px(148, cy + 6, 24, 3, '#8a5f3a'); px(157, cy, 6, 16, '#ffd979');
-  }
+  if (chestAt && t - chestAt < 2200) drawChest(t);
+  // 속성 고리 — 이번 주 보스는 무대가 따로 없으니 일반 전투에서만
+  if (!battle.week) drawElemRing(battle.foe.elem);
 
   // 실제 계절·겨울엔 눈, 밤엔 화면을 살짝 눌러 어둡게 — 무대 자체는 그대로 두고
   // 얇게 한 겹만 얹는다. 숫자·타이밍 바보다는 먼저 그려서 그 위는 안 눌린다.
