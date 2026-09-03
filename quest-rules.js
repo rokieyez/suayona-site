@@ -70,6 +70,7 @@ const QUEST = (() => {
       foes: [ { sp: 'ladybug',  name: '무당벌레',     s: 5, tame: true },
               { sp: 'snail',    name: '느림보 달팽이', s: 5 },
               { sp: 'mushroom', name: '통통 버섯',    s: 5, elem: 'dark' } ],
+      find: { sp: 'flower', name: '들꽃 한 송이' },
       boss:   { sp: 'fox',      name: '분홍 여우 대장', s: 4, pattern: ['charge'] } },
 
     { name: '산', dark: false, elem: 'grass',
@@ -84,6 +85,7 @@ const QUEST = (() => {
       foes: [ { sp: 'squirrel', name: '도토리 다람쥐', s: 5, tame: true },
               { sp: 'stone',    name: '굴러온 돌',    s: 4, elem: 'none' },
               { sp: 'bird',     name: '산새',        s: 6 } ],
+      find: { sp: 'leaf', name: '물든 잎사귀' },
       boss:   { sp: 'tree',     name: '걷는 나무',    s: 4, pattern: ['charge', 'heal'] } },
 
     { name: '강', dark: false, elem: 'water',
@@ -98,6 +100,7 @@ const QUEST = (() => {
       foes: [ { sp: 'reed',     name: '갈대 요정',    s: 4, elem: 'grass' },
               { sp: 'log',      name: '떠내려온 통나무', s: 4, elem: 'grass' },
               { sp: 'crab',     name: '강게',        s: 4, tame: true } ],
+      find: { sp: 'sprout', name: '물가의 새싹' },
       boss:   { sp: 'umbrella', name: '우산 도깨비',  s: 5, pattern: ['charge', 'guard'] } },
 
     { name: '바다', dark: false, elem: 'water',
@@ -112,6 +115,7 @@ const QUEST = (() => {
       foes: [ { sp: 'starfish',   name: '불가사리',     s: 4, tame: true },
               { sp: 'crab',       name: '집게 게',     s: 4 },
               { sp: 'sandcastle', name: '모래성 지킴이', s: 4, elem: 'none' } ],
+      find: { sp: 'bubble', name: '몽글몽글 물거품' },
       boss:   { sp: 'starfish',   name: '왕불가사리',   s: 7, pattern: ['charge', 'guard', 'heal'] } },
 
     { name: '도시', dark: true, elem: 'dark',
@@ -125,6 +129,7 @@ const QUEST = (() => {
       foes: [ { sp: 'cone', name: '공사장 고깔',  s: 4, elem: 'fire' },
               { sp: 'bin',  name: '쓰레기통 괴물', s: 4 },
               { sp: 'cat',  name: '골목 고양이',  s: 4, tame: true } ],
+      find: { sp: 'mail', name: '떨어진 편지' },
       boss:   { sp: 'tower', name: '타워 로봇',   s: 4, pattern: ['charge', 'guard'] } },
 
     { name: '사막', dark: true, elem: 'fire',
@@ -138,6 +143,7 @@ const QUEST = (() => {
       foes: [ { sp: 'cactus', name: '뾰족 선인장', s: 3, elem: 'grass' },
               { sp: 'tumble', name: '굴러풀',    s: 4, tame: true, elem: 'grass' },
               { sp: 'skull',  name: '사막 해골',  s: 4 } ],
+      find: { sp: 'bud', name: '선인장 꽃봉오리' },
       boss:   { sp: 'skull',  name: '해골 대왕',  s: 7, pattern: ['charge', 'heal'] } },
 
     { name: '화산', dark: true, elem: 'fire',
@@ -152,6 +158,7 @@ const QUEST = (() => {
       foes: [ { sp: 'flame',    name: '춤추는 불꽃', s: 4, tame: true },
               { sp: 'lavaRock', name: '용암 바위',  s: 4, elem: 'none' },
               { sp: 'skull',    name: '검은 해골',  s: 4, elem: 'dark' } ],
+      find: { sp: 'rock', name: '까만 돌멩이' },
       boss:   { sp: 'volcano',  name: '화산 거인',  s: 4, pattern: ['charge', 'charge', 'guard'] } },
 
     { name: '발사기지', dark: true, elem: 'dark',
@@ -165,6 +172,7 @@ const QUEST = (() => {
       foes: [ { sp: 'agent',  name: '선글라스 요원', s: 4, tame: true },
               { sp: 'crate',  name: '수상한 상자',  s: 4, elem: 'none' },
               { sp: 'barrel', name: '드럼통',      s: 4, elem: 'fire' } ],
+      find: { sp: 'bush', name: '발사대 옆 들풀' },
       boss:   { sp: 'rocket', name: '로켓 로봇',    s: 4, pattern: ['charge', 'guard', 'charge'] } },
 
     { name: '우주', dark: true, elem: 'dark',
@@ -179,6 +187,7 @@ const QUEST = (() => {
       foes: [ { sp: 'alien',  name: '초록 외계인', s: 4, tame: true, elem: 'grass' },
               { sp: 'ufo',    name: 'UFO',       s: 4 },
               { sp: 'planet', name: '꼬마 행성',  s: 3, elem: 'none' } ],
+      find: { sp: 'star', name: '별가루' },
       boss:   { sp: 'planet', name: '행성 왕',    s: 5, pattern: ['charge', 'heal', 'guard'] } },
 
     { name: '천국', dark: false, elem: 'light',
@@ -193,6 +202,7 @@ const QUEST = (() => {
       foes: [ { sp: 'angel',  name: '장난꾸러기 천사', s: 4, tame: true },
               { sp: 'harp',   name: '혼자 울리는 하프', s: 4, elem: 'none' },
               { sp: 'pillar', name: '구름 기둥',     s: 4, elem: 'none' } ],
+      find: { sp: 'frame', name: '반짝이는 액자 조각' },
       boss:   { sp: 'star',   name: '별의 수호자',    s: 6, pattern: ['charge', 'guard', 'heal'] } },
 
     // 숨은 무대. 반년 만에 키를 다시 재서 자랐으면 이레 동안 열린다.
@@ -209,6 +219,7 @@ const QUEST = (() => {
       foes: [ { sp: 'butterfly', name: '나비 떼',    s: 6, tame: true },
               { sp: 'balloon',   name: '도망간 풍선', s: 6, elem: 'none' },
               { sp: 'cake',      name: '케이크 도둑', s: 4, elem: 'fire' } ],
+      find: { sp: 'bench', name: '정원 벤치 조각' },
       boss:   { sp: 'house',     name: '걸어 다니는 우리 집', s: 3, pattern: ['charge', 'heal'] } },
   ];
   const HIDDEN_DAYS = 7;
@@ -373,6 +384,46 @@ const QUEST = (() => {
     return { key: who, kind: heal ? 'heal' : 'atk', amount: heal ? FRIEND.heal(st) : FRIEND.atk(st) };
   }
 
+  // ---------- 채집 ----------
+  // 무대마다 다른 것 하나. 늘 나오면 재미가 없어서 반은 빈손으로 돌아온다.
+  // 한 번 찾으면 도감처럼 그걸로 끝 — 다시 안 사라진다.
+  const FIND_CHANCE = 0.4;
+  function tryFind(rnd){
+    const r = typeof rnd === 'function' ? rnd() : (rnd == null ? Math.random() : rnd);
+    return r < FIND_CHANCE;
+  }
+  function findsCount(save){
+    return Object.keys(save.finds || {}).filter(k => save.finds[k]).length;
+  }
+
+  // ---------- 방랑 상인 ----------
+  // 싸우러 가면 가끔 대신 나타난다. 이길 것도 질 것도 없는 자리라, 전투만
+  // 이어지는 리듬에 숨 돌릴 자리를 준다.
+  const MERCHANT = { chance: 0.12 };
+  function merchantDeal(rnd){
+    const r = typeof rnd === 'function' ? rnd() : (rnd == null ? Math.random() : rnd);
+    if (r < 0.3)  return { kind: 'buyPotion',  cost: 15, potions: 2, say: '물약 두 개를 싸게 드릴게요!' };
+    if (r < 0.55) return { kind: 'sellPotion', potions: 1, gold: 22, say: '물약 하나만 파실래요? 후하게 쳐드릴게요.' };
+    if (r < 0.8)  return { kind: 'giftGold',   gold: 25, say: '오늘은 그냥 드릴게요!' };
+    return { kind: 'giftXp', xp: 35, say: '먼 곳 이야기를 들려드릴게요.' };
+  }
+
+  // ---------- 계절·시간 ----------
+  // 무대 자체의 색은 안 바꾼다 — 무대마다 이미 정해 둔 정체성이 있어서, 그 위에
+  // 아주 얇게 한 겹만 얹는다(겨울엔 눈, 밤엔 살짝 어둡게). 날짜 계산은 브라우저의
+  // 지역 시각을 그대로 쓴다 — 서버가 아니라 「지금 이 아이가 보는 시계」가 기준이다.
+  function seasonOf(d){
+    const m = (d || new Date()).getMonth() + 1;
+    if (m === 12 || m <= 2) return 'winter';
+    if (m <= 5) return 'spring';
+    if (m <= 8) return 'summer';
+    return 'autumn';
+  }
+  function isNight(d){
+    const h = (d || new Date()).getHours();
+    return h >= 20 || h < 6;
+  }
+
   // ---------- 연승 ----------
   // 이길 때마다 하나씩 쌓이고, 쓰러지면 0으로 돌아간다(도망은 안 끊는다 —
   // 도망은 진 게 아니라 물러난 것이다). 상자에서 나오는 금화·경험치에
@@ -402,6 +453,7 @@ const QUEST = (() => {
     { id: 'week',   name: '함께 이긴 사람',      ok: (s) => (s.weekWins || 0) >= 1 },
     { id: 'lv10',   name: '베테랑 모험가',      ok: (s, st) => st.lv >= 10 },
     { id: 'streak5', name: '연승 행진',        ok: (s) => (s.bestStreak || 0) >= 5 },
+    { id: 'finds',   name: '무엇이든 찾아내는 사람', ok: (s) => findsCount(s) >= AREAS.length },
     { id: 'all',    name: '세계를 돈 사람',      ok: (s) => s.boss.length >= 10 && s.boss.slice(0, 10).every(Boolean) },
   ];
   function titlesOf(save, st){ return TITLES.filter(t => { try { return t.ok(save, st); } catch (e) { return false; } }); }
@@ -430,11 +482,19 @@ const QUEST = (() => {
     const [y, m, dd] = key.split('-').map(Number);
     return Math.max(0, Math.round((new Date(y, m - 1, dd) - WEEK0) / (7 * 864e5)));
   }
+  // 심화판 — 지난주 보스를 함께 쓰러뜨렸으면, 이번 주는 그만큼 세지고 그만큼 더 준다.
+  // 한 주라도 놓치면 0으로 돌아간다. 5주에서 막아 둔다 — 안 그러면 몇 달 뒤엔
+  // 매주 두 배씩 불어나 둘이 아무리 열심히 해도 못 넘는 벽이 된다.
+  const SEASON_STEP = 0.08, SEASON_CAP = 5;
+  function seasonBoost(streak){ return 1 + SEASON_STEP * Math.min(Math.max(0, streak || 0), SEASON_CAP); }
   const WEEK = {
-    hp: (key, T) => Math.round((2000 + 300 * weekIndex(key)) * ((T && T.weekHpMul) || 1)),
+    hp: (key, T, streak) => Math.round((2000 + 300 * weekIndex(key)) * seasonBoost(streak) * ((T && T.weekHpMul) || 1)),
     swingsPerDay: 5,
     swingMult: 3,
-    reward: { gold: 150, xp: 300 },
+    reward: streak => ({
+      gold: Math.round(150 * seasonBoost(streak)),
+      xp: Math.round(300 * seasonBoost(streak)),
+    }),
     names:   ['하늘 앵무', '왕병아리', '걸어 다니는 집', '이젤 유령', '왕나비'],
     sprites: [{ sp: 'budgieUp', s: 3 }, { sp: 'chick', s: 4 }, { sp: 'house', s: 2 }, { sp: 'easel', s: 2 }, { sp: 'butterfly', s: 8 }],
     elems:   ['light', 'grass', 'none', 'dark', 'water'],
@@ -452,6 +512,9 @@ const QUEST = (() => {
       week: { key: '', dmg: 0, day: '', swings: 0, claimed: false, hp: 0 },
       lastWeek: null,                     // 지난주 보스 기록 — 첫 화면 카드가 읽는다
       weekWins: 0,                        // 이번 주 보스를 함께 쓰러뜨린 횟수 — 칭호
+      weekStreak: 0,                      // 주간 보스를 몇 주 연속으로 이겼는지 — 심화판 배율의 근거
+      finds: {},                          // 무대마다 찾은 채집물 — 도감처럼 한 번 찾으면 안 사라진다
+      findTries: {},                      // 무대마다 오늘 이미 살펴봤는지 — 하루 한 번
       lastPlay: '',                       // 마지막으로 논 날 — 자매 콤보의 근거
       friends: [],                        // 친구가 된 상대 ('무대:번호')
       foeWins: {},                        // 상대마다 이긴 횟수 — 친구 되기용
@@ -510,7 +573,7 @@ const QUEST = (() => {
   }
 
   return {
-    HEROES, AREAS, REAL, SHOP, WEEK, TUNE_DEFAULT, HIT_MULT, ELEM, STRONG, TITLES, CHEST, FRIEND, STREAK, streakMult,
+    HEROES, AREAS, REAL, SHOP, WEEK, TUNE_DEFAULT, HIT_MULT, ELEM, STRONG, TITLES, CHEST, FRIEND, STREAK, streakMult, seasonOf, isNight, seasonBoost, MERCHANT, merchantDeal, FIND_CHANCE, tryFind, findsCount,
     BOSS_SAY, BOSS_SKIP, BOSS_HEAL, BOSS_GUARD_CUT, MAX_ENERGY,
     WINS_FOR_BOSS, COMBO_MULT, STREAK_FOR_FANFARE, TAME_WINS, CHEER_HEAL, HIDDEN_DAYS,
     levelOf, xpForLevel, realXp, stats, foeAt, bossAt, bossAct, heroHit, foeHit, judge,

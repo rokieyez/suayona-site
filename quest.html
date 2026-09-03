@@ -67,8 +67,17 @@
   .areas button.done{background:var(--mint);}
   .areas button.here{background:var(--lemon);}
   .areas button.secret{background:#ffe6f4;}
+  .worldmap{display:flex; gap:4px; flex-wrap:wrap; margin-bottom:10px;}
+  .worldmap button{padding:0; border:2px solid var(--ink); background:none; cursor:pointer; line-height:0;}
+  .worldmap button:disabled{opacity:.4; cursor:not-allowed;}
+  .worldmap button.here{border-color:var(--coral); border-width:3px;}
+  .worldmap canvas{display:block; image-rendering:pixelated; width:44px; height:30px;}
   .area-act{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center;}
   .area-act .note{font-size:12px; color:var(--ink-soft);}
+  .merchant{display:flex; flex-direction:column; gap:8px; width:100%;}
+  .merchant-say{display:flex; align-items:center; gap:8px; font-size:12.5px; line-height:1.5;}
+  .merchant-say canvas{width:40px; height:34px; image-rendering:pixelated; flex-shrink:0;}
+  .merchant-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
 
   .q-battle{padding:0; overflow:hidden;}
   .bars{display:flex; justify-content:space-between; gap:10px; padding:10px 12px; border-bottom:3px solid var(--ink); background:var(--cream); font-size:12px; font-weight:800;}
@@ -124,6 +133,10 @@
   .week canvas{width:66px; height:45px; image-rendering:pixelated;}
   .week .wb{flex:1; min-width:180px;}
   .week .wb .hpbar i{background:#b9a3d6;}
+  .wcmp{margin-top:5px; font-size:10.5px; color:var(--ink-soft);}
+  .wcmp span{display:block; margin-bottom:2px;}
+  .wcmp-bar{height:5px; border:1px solid var(--ink); background:#e7cfe0; position:relative;}
+  .wcmp-bar i{position:absolute; left:0; top:0; bottom:0; background:#b9a3d6;}
   .week .wsay{font-size:12.5px; line-height:1.7; margin-top:6px;}
   .msg{margin-top:8px; font-size:12.5px; color:var(--ink-soft);}
 
@@ -135,6 +148,9 @@
   .dex .nm em{font-style:normal; color:var(--ink-soft); font-weight:700;}
   .dex .cells{display:flex; gap:5px; align-items:flex-end; margin-top:5px; min-height:26px;}
   .dex canvas{image-rendering:pixelated;}
+  #findBox{display:flex; gap:6px; flex-wrap:wrap; align-items:flex-end; margin:8px 0 4px; min-height:26px;
+    border:2px solid var(--ink); background:#fff; padding:7px 8px;}
+  #findBox canvas{image-rendering:pixelated;}
   .titles{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
   .titles span{
     font-size:11px; font-weight:800; padding:3px 8px; border:2px solid var(--ink);
@@ -208,6 +224,7 @@
 
       <div class="dot-card q-card reveal" id="mapCard">
         <h3 class="pixel">세계 지도</h3>
+        <div class="worldmap" id="worldMap"></div>
         <div class="areas" id="areas"></div>
         <div class="area-act" id="areaAct"></div>
       </div>
@@ -246,6 +263,8 @@
       <div class="dot-card q-card reveal">
         <h3 class="pixel">도감 · 칭호 <span id="dexCount" style="font-weight:700;color:var(--ink-soft);"></span></h3>
         <div class="dex" id="dexBox"></div>
+        <h3 class="pixel">채집 <span id="findCount" style="font-weight:700;color:var(--ink-soft);"></span></h3>
+        <div class="cells" id="findBox"></div>
         <div class="titles" id="titleBox"></div>
       </div>
     </div>
@@ -465,7 +484,37 @@ function renderReal(){
 }
 
 // ---------- 지도 ----------
+// 세계 지도 — 무대마다 하늘·땅 색만 얼른 그려서 조그맣게 늘어놓는다.
+// 도감을 다 채운 무대만 환하다 — 지금까지 쌓은 걸 한눈에 보여 주는 자리라,
+// 배틀 배경처럼 다 움직일 필요는 없다.
+function renderWorldMap(){
+  const box = $('#worldMap'); if (!box) return;
+  box.innerHTML = '';
+  Q.AREAS.forEach((A, i) => {
+    const open = Q.areaOpen(save, i, facts);
+    if (A.hidden && !open) return;
+    const lit = Q.dexDone(save, i);
+    const b = document.createElement('button');
+    b.type = 'button'; b.disabled = !open; b.className = i === curArea ? 'here' : '';
+    b.title = A.name + (open ? (lit ? ' · 도감 완성' : '') : ' · 잠김');
+    const cv = document.createElement('canvas'); cv.width = 44; cv.height = 30;
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+    const skyH = 24, n = A.sky.length;
+    for (let si = 0; si < n; si++){
+      const y0 = Math.round(si * skyH / n), y1 = Math.round((si + 1) * skyH / n);
+      g.fillStyle = A.sky[si]; g.fillRect(0, y0, 44, y1 - y0);
+    }
+    g.fillStyle = A.ground; g.fillRect(0, skyH, 44, 30 - skyH);
+    if (!open) { g.fillStyle = 'rgba(30,26,20,.6)'; g.fillRect(0, 0, 44, 30); }
+    else if (!lit) { g.fillStyle = 'rgba(30,26,20,.28)'; g.fillRect(0, 0, 44, 30); }
+    b.appendChild(cv);
+    b.addEventListener('click', () => { curArea = i; renderMap(); });
+    box.appendChild(b);
+  });
+}
+
 function renderMap(){
+  renderWorldMap();
   const box = $('#areas'); box.innerHTML = '';
   Q.AREAS.forEach((A, i) => {
     const open = Q.areaOpen(save, i, facts);
@@ -483,22 +532,86 @@ function renderMap(){
   const A = Q.AREAS[curArea], act = $('#areaAct');
   const need = Math.max(0, Q.WINS_FOR_BOSS - save.wins[curArea]);
   const friendsHere = [0, 1, 2].filter(j => save.friends.includes(curArea + ':' + j)).length;
+  const found = !!save.finds[curArea];
+  const triedToday = save.findTries[curArea] === today();
   act.innerHTML =
     '<button type="button" class="dot-btn small primary" id="goFight">' + A.name + '에서 싸우기</button>' +
     '<button type="button" class="dot-btn small coral" id="goBoss"' + (need ? ' disabled' : '') + '>' +
       '대장 ' + A.boss.name + (save.boss[curArea] ? ' (다시)' : '') + '</button>' +
+    (A.find ? '<button type="button" class="dot-btn small" id="goFind"' + (found || triedToday ? ' disabled' : '') + '>' +
+      (found ? '🔍 ' + A.find.name + ' 찾음' : '🔍 살펴보기') + '</button>' : '') +
     '<span class="note">' +
       EI(A.elem) + ' ' + EN(A.elem) + ' 무대 · ' +
       (need ? '대장을 부르려면 ' + need + '번 더 이겨야 해요' : '대장에게 도전할 수 있어요') +
       (A.hidden ? ' · 자란 기념 무대 — 보상 두 배!' : '') +
       (friendsHere ? ' · 친구가 된 상대는 안 나와요' : '') +
+      (A.find && !found && triedToday ? ' · 오늘은 이미 살펴봤어요. 내일 또!' : '') +
     '</span>';
   $('#goFight').addEventListener('click', () => {
+    if (Math.random() < Q.MERCHANT.chance){ openMerchant(); return; }
     // 친구가 된 상대는 빼고 고른다. 셋 다 친구가 될 수는 없다(무대마다 하나만 tame).
     const pool = [0, 1, 2].filter(j => !save.friends.includes(curArea + ':' + j));
     startBattle(Q.foeAt(curArea, pool[Math.floor(Math.random() * pool.length)], TUNE));
   });
   $('#goBoss').addEventListener('click', () => startBattle(Q.bossAt(curArea, TUNE)));
+  const findBtn = $('#goFind');
+  if (findBtn) findBtn.addEventListener('click', () => {
+    save.findTries[curArea] = today();
+    const got = Q.tryFind();
+    sfx(got ? 'sparkle' : 'prop');
+    if (got){ save.finds[curArea] = true; notice('🔍 <b>' + A.find.name + '</b>' + J2(A.find.name, '을', '를') + ' 찾았어요!'); }
+    else notice('이번엔 못 찾았어요. 내일 또 살펴봐요.');
+    renderMap(); renderDex(); persist(true);
+  });
+}
+
+// ---------- 방랑 상인 ----------
+// 무대 화면 자리를 그대로 빌려 쓴다 — 따로 창을 띄우면 「지금 뭘 보고 있는지」가
+// 헷갈린다. 거래를 하든 지나치든 지도로 돌아간다.
+function openMerchant(){
+  const deal = Q.merchantDeal();
+  const act = $('#areaAct');
+  const cv = document.createElement('canvas'); cv.width = 40; cv.height = 34;
+  const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  drawSprite(g, SPRITES.fox, 1, 2, 2);
+  const box = document.createElement('div'); box.className = 'merchant';
+  const head = document.createElement('div'); head.className = 'merchant-say';
+  head.appendChild(cv);
+  const say = document.createElement('span');
+  say.innerHTML = '<b>방랑 상인</b>「' + escapeHTML(deal.say) + '」';
+  head.appendChild(say);
+  box.appendChild(head);
+
+  const DO = {
+    buyPotion:  { can: save.gold >= deal.cost, label: '💰 ' + deal.cost + '금화 → 🧪 물약 ' + deal.potions + '개',
+      run(){ save.gold -= deal.cost; save.potions = Math.min(Q.SHOP.potion.max, save.potions + deal.potions); return '물약을 받았어요.'; } },
+    sellPotion: { can: save.potions >= deal.potions, label: '🧪 물약 ' + deal.potions + '개 → 💰 금화 ' + deal.gold,
+      run(){ save.potions -= deal.potions; save.gold += deal.gold; return '금화를 받았어요.'; } },
+    giftGold:   { can: true, label: '🎁 금화 ' + deal.gold + ' 받기',
+      run(){ save.gold += deal.gold; return '금화를 받았어요!'; } },
+    giftXp:     { can: true, label: '🎁 경험치 ' + deal.xp + ' 받기',
+      run(){ save.xp += deal.xp; return '경험치를 받았어요!'; } },
+  }[deal.kind];
+
+  const b1 = document.createElement('button'); b1.type = 'button'; b1.className = 'dot-btn small primary';
+  b1.textContent = DO.label; b1.disabled = !DO.can;
+  b1.addEventListener('click', () => {
+    const msg = DO.run();
+    sfx('key'); refreshStats(); renderStatus();
+    act.querySelector('.note').textContent = msg;
+    b1.disabled = true; b2.disabled = true;
+    persist(true);
+  });
+  const b2 = document.createElement('button'); b2.type = 'button'; b2.className = 'dot-btn small';
+  b2.textContent = '괜찮아요';
+  b2.addEventListener('click', () => renderMap());
+
+  const row = document.createElement('div'); row.className = 'merchant-row'; row.appendChild(b1); row.appendChild(b2);
+  box.appendChild(row);
+  const note = document.createElement('span'); note.className = 'note'; note.textContent = '거래를 마치면 지도로 돌아가요.';
+  box.appendChild(note);
+
+  act.innerHTML = ''; act.appendChild(box);
 }
 
 // ---------- 도감 · 칭호 ----------
@@ -528,6 +641,16 @@ function renderDex(){
     row.appendChild(cells);
     box.appendChild(row);
   });
+  // 채집 — 무대마다 하나, 도감 칸과 같은 그림 상자를 재활용한다.
+  const findBox = $('#findBox'); findBox.innerHTML = '';
+  Q.AREAS.forEach((A, i) => {
+    if (!A.find) return;
+    if (A.hidden && !Q.areaOpen(save, i, facts) && !save.finds[i]) return;
+    const sp = SPRITES[A.find.sp]; if (!sp) return;
+    findBox.appendChild(tinyCell(sp, !!save.finds[i], A.find.name));
+  });
+  $('#findCount').textContent = Q.findsCount(save) + ' / ' + Q.AREAS.length;
+
   const ids = Q.titlesOf(save, st).map(t => t.id);
   $('#titleBox').innerHTML = Q.TITLES.map(t =>
     '<span class="' + (ids.includes(t.id) ? 'on' : '') + '">' + (ids.includes(t.id) ? '🏅 ' : '🔒 ') + t.name + '</span>').join('');
@@ -639,10 +762,10 @@ async function openGearPick(){
 }
 
 // ---------- 이번 주 보스 ----------
-function weekFoe(){
+function weekFoe(streak){
   const k = Q.weekKey();
   return Object.assign({
-    name: Q.WEEK.name(k), boss: true, week: true, hp: Q.WEEK.hp(k, TUNE),
+    name: Q.WEEK.name(k), boss: true, week: true, hp: Q.WEEK.hp(k, TUNE, streak),
     atk: 0, xp: 0, gold: 0, area: Q.WEEK.area(k), idx: -1, elem: Q.WEEK.elem(k),
   }, Q.WEEK.sprite(k));
 }
@@ -650,16 +773,20 @@ function weekTotal(k){
   return Object.keys(saves).reduce((a, w) => a + ((saves[w].week && saves[w].week.key === k) ? saves[w].week.dmg : 0), 0);
 }
 function renderWeek(){
-  const k = Q.weekKey(), foe = weekFoe(), box = $('#week');
-  if (save.week.key !== k){
-    // 지난주 것은 첫 화면 카드가 읽는다. 체력도 같이 적어 둬야 「쓰러뜨렸나」를 셀 수 있다.
-    if (save.week.key) save.lastWeek = { key: save.week.key, dmg: save.week.dmg, hp: save.week.hp || 0, name: Q.WEEK.name(save.week.key) };
-    save.week = { key: k, dmg: 0, day: '', swings: 0, claimed: false, hp: foe.hp };
+  const k = Q.weekKey(), box = $('#week');
+  if (save.week.key !== k && save.week.key){
+    // 지난주가 막 끝났다 — 함께 쓰러뜨렸으면 심화판 연속이 하나 는다, 아니면 0으로.
+    // 가족 전체 피해(weekTotal)로 재야 한다 — 내 몫만 보면 동생이 대신 넘긴 주도 「졌다」로 셀 수 있다.
+    const wasWon = weekTotal(save.week.key) >= (save.week.hp || 0);
+    save.weekStreak = wasWon ? (save.weekStreak || 0) + 1 : 0;
+    save.lastWeek = { key: save.week.key, dmg: save.week.dmg, hp: save.week.hp || 0, name: Q.WEEK.name(save.week.key) };
   }
+  const streak = save.weekStreak || 0, foe = weekFoe(streak);
+  if (save.week.key !== k) save.week = { key: k, dmg: 0, day: '', swings: 0, claimed: false, hp: foe.hp };
   save.week.hp = foe.hp;
   if (save.week.day !== today()){ save.week.day = today(); save.week.swings = 0; }
   const total = weekTotal(k), left = Q.WEEK.swingsPerDay - save.week.swings, down = total >= foe.hp;
-  const mine = save.week.dmg, other = total - mine;
+  const mine = save.week.dmg, other = total - mine, reward = Q.WEEK.reward(streak);
   box.innerHTML = '';
   const cv = document.createElement('canvas'); cv.width = 66; cv.height = 45;
   const g = cv.getContext('2d'); const sp = SPRITES[foe.sp];
@@ -668,8 +795,12 @@ function renderWeek(){
   box.appendChild(cv);
   const d = document.createElement('div'); d.className = 'wb';
   d.innerHTML =
-    '<div class="who" style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;"><span>' + EI(foe.elem) + ' ' + foe.name + '</span><span>' + Math.min(total, foe.hp) + ' / ' + foe.hp + '</span></div>' +
+    '<div class="who" style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;"><span>' + EI(foe.elem) + ' ' + foe.name +
+      (streak >= 1 ? ' <span class="badge streak">🔥 ' + streak + '주 연속 심화판</span>' : '') +
+      '</span><span>' + Math.min(total, foe.hp) + ' / ' + foe.hp + '</span></div>' +
     '<div class="hpbar"><i style="width:' + Math.min(100, Math.round(100 * total / foe.hp)) + '%"></i></div>' +
+    (save.lastWeek ? '<div class="wcmp"><span>지난주 ' + Math.min(save.lastWeek.dmg, save.lastWeek.hp) + ' / ' + save.lastWeek.hp + '</span>' +
+      '<div class="wcmp-bar"><i style="width:' + Math.min(100, Math.round(100 * save.lastWeek.dmg / save.lastWeek.hp)) + '%"></i></div></div>' : '') +
     '<div class="wsay">' + (down
       ? '<b>쓰러뜨렸어요!</b> 둘이 합쳐 ' + total + ' 피해.'
       : '자매가 낸 피해를 합쳐요 — 나 ' + mine + ' · 다른 한 명 ' + other + '. 하루 ' + Q.WEEK.swingsPerDay + '번, 오늘 ' + left + '번 남았어요. 월요일마다 새 보스가 와요.') +
@@ -677,9 +808,9 @@ function renderWeek(){
   const act = document.createElement('div'); act.style.marginTop = '8px';
   if (down && !save.week.claimed){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small primary';
-    b.textContent = '보상 받기 (금화 ' + Q.WEEK.reward.gold + ' · 경험치 ' + Q.WEEK.reward.xp + ')';
+    b.textContent = '보상 받기 (금화 ' + reward.gold + ' · 경험치 ' + reward.xp + ')';
     b.addEventListener('click', () => {
-      save.week.claimed = true; save.gold += Q.WEEK.reward.gold; save.xp += Q.WEEK.reward.xp;
+      save.week.claimed = true; save.gold += reward.gold; save.xp += reward.xp;
       save.weekWins = (save.weekWins || 0) + 1;
       sfx('fanfare'); refreshStats(); renderAll(); persist(true);
     });
@@ -1418,6 +1549,11 @@ function draw(){
     const cy = GROUND - 20 - Math.min(10, (t - chestAt) / 40);
     px(148, cy, 24, 16, '#c79b6d'); px(148, cy + 6, 24, 3, '#8a5f3a'); px(157, cy, 6, 16, '#ffd979');
   }
+
+  // 실제 계절·겨울엔 눈, 밤엔 화면을 살짝 눌러 어둡게 — 무대 자체는 그대로 두고
+  // 얇게 한 겹만 얹는다. 숫자·타이밍 바보다는 먼저 그려서 그 위는 안 눌린다.
+  if (Q.seasonOf() === 'winter') motes({ kind: 'snow', n: 16, c: '#ffffff' }, t);
+  if (Q.isNight()){ ctx.globalAlpha = 0.16; ctx.fillStyle = '#0a1030'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
 
   // 떠오르는 숫자
   const keep = [];
