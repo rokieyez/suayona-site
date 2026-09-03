@@ -50,7 +50,14 @@ const QUEST = (() => {
     },
   };
   const MAX_ENERGY = 5;
-  function skillsOf(heroKey, lv){ return HEROES[heroKey].skills.filter(s => lv >= s.lv); }
+  // 언니 동생 합체기 — 같은 날 둘 다 모험하면(콤보) 레벨과 상관없이 쓸 수 있다.
+  // 세기는 별똥별(2.6)보다 조금 아래지만, 둘의 마음을 합친 만큼 체력을 조금 돌려준다.
+  // 동생이 1레벨이어도 언니와 같은 날 놀면 쓸 수 있다는 게 이 기술의 뜻이다.
+  const DUO = { id: 'duo', name: '언니 동생 합체기', elem: 'light', lv: 1, cost: 5, mult: 2.4, heal: 0.15, sfx: 'fanfare', duo: true };
+  function skillsOf(heroKey, lv, combo){
+    const list = HEROES[heroKey].skills.filter(s => lv >= s.lv);
+    return combo ? list.concat([DUO]) : list;
+  }
 
   // ---------- 무대 ----------
   // 열 무대 + 숨은 무대 하나. 달리기 게임의 열 곳을 그대로 세계 지도로 쓴다.
@@ -384,6 +391,27 @@ const QUEST = (() => {
     return { key: who, kind: heal ? 'heal' : 'atk', amount: heal ? FRIEND.heal(st) : FRIEND.atk(st) };
   }
 
+  // ---------- 오늘의 미션 ----------
+  // 날짜에서 숫자를 하나 뽑아 미션을 정한다 — 같은 날엔 새로고침해도, 자매 둘 다 같다.
+  // 「오늘의 선물」은 그냥 받는 것이고, 이건 해내야 받는 것이다.
+  const MISSION = {
+    kinds: [
+      { id: 'win',     need: 2, say: a => a + '에서 2번 이기기' },
+      { id: 'skill',   need: 3, say: () => '기술 3번 쓰기' },
+      { id: 'perfect', need: 3, say: () => '칸 한가운데 3번 맞히기' },
+      { id: 'find',    need: 1, say: () => '아무 무대나 살펴보기' },
+    ],
+    reward: { gold: 30, xp: 60 },
+  };
+  function dailyMission(dateKey, openCount){
+    let h = 0;
+    for (const ch of String(dateKey)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const k = MISSION.kinds[h % MISSION.kinds.length];
+    // 이기기 미션은 열린 무대 안에서만 고른다(숨은 무대는 빼고) — 못 가는 데를 시키면 안 된다.
+    const area = (h >>> 3) % Math.max(1, Math.min(openCount || 1, 10));
+    return { id: k.id, need: k.need, area: k.id === 'win' ? area : -1, say: k.say(AREAS[area].name) };
+  }
+
   // ---------- 채집 ----------
   // 무대마다 다른 것 하나. 늘 나오면 재미가 없어서 반은 빈손으로 돌아온다.
   // 한 번 찾으면 도감처럼 그걸로 끝 — 다시 안 사라진다.
@@ -513,6 +541,7 @@ const QUEST = (() => {
       lastWeek: null,                     // 지난주 보스 기록 — 첫 화면 카드가 읽는다
       weekWins: 0,                        // 이번 주 보스를 함께 쓰러뜨린 횟수 — 칭호
       weekStreak: 0,                      // 주간 보스를 몇 주 연속으로 이겼는지 — 심화판 배율의 근거
+      mission: { day: '', n: 0, claimed: false }, // 오늘의 미션 진행 — 날이 바뀌면 다시 센다
       finds: {},                          // 무대마다 찾은 채집물 — 도감처럼 한 번 찾으면 안 사라진다
       findTries: {},                      // 무대마다 오늘 이미 살펴봤는지 — 하루 한 번
       lastPlay: '',                       // 마지막으로 논 날 — 자매 콤보의 근거
@@ -534,6 +563,7 @@ const QUEST = (() => {
     s.wins = AREAS.map((_, i) => (s.wins && s.wins[i]) || 0);
     s.boss = AREAS.map((_, i) => !!(s.boss && s.boss[i]));
     s.week = Object.assign(n.week, s.week || {});
+    s.mission = Object.assign(n.mission, s.mission || {});
     s.gear = Object.assign(n.gear, s.gear || {});
     if (!Array.isArray(s.friends)) s.friends = [];
     if (!Array.isArray(s.dexSkies)) s.dexSkies = [];
@@ -573,7 +603,7 @@ const QUEST = (() => {
   }
 
   return {
-    HEROES, AREAS, REAL, SHOP, WEEK, TUNE_DEFAULT, HIT_MULT, ELEM, STRONG, TITLES, CHEST, FRIEND, STREAK, streakMult, seasonOf, isNight, seasonBoost, MERCHANT, merchantDeal, FIND_CHANCE, tryFind, findsCount,
+    HEROES, AREAS, REAL, SHOP, WEEK, TUNE_DEFAULT, HIT_MULT, ELEM, STRONG, TITLES, CHEST, FRIEND, STREAK, streakMult, seasonOf, isNight, seasonBoost, MERCHANT, merchantDeal, FIND_CHANCE, tryFind, findsCount, DUO, MISSION, dailyMission,
     BOSS_SAY, BOSS_SKIP, BOSS_HEAL, BOSS_GUARD_CUT, MAX_ENERGY,
     WINS_FOR_BOSS, COMBO_MULT, STREAK_FOR_FANFARE, TAME_WINS, CHEER_HEAL, HIDDEN_DAYS,
     levelOf, xpForLevel, realXp, stats, foeAt, bossAt, bossAct, heroHit, foeHit, judge,

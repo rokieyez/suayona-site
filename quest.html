@@ -38,6 +38,12 @@
     border:2px solid var(--ink); background:var(--lemon); color:var(--ink);
   }
   .badge.streak{background:#ffd9c2; margin-left:4px;}
+  .mission{margin-top:10px; padding:8px 10px; border:2px solid var(--ink); background:#eef7ff; font-size:12.5px; line-height:1.6;}
+  .mission.done{background:var(--mint);}
+  .mission b{display:block;}
+  .mission .mbar{height:6px; border:2px solid var(--ink); background:#fff; margin:4px 0 6px; position:relative;}
+  .mission .mbar i{position:absolute; left:0; top:0; bottom:0; background:#5aa9e6;}
+  .mission button{margin-top:2px;}
   .xp{height:10px; border:2px solid var(--ink); background:#fff; margin:6px 0 10px; position:relative;}
   .xp i{position:absolute; left:0; top:0; bottom:0; background:var(--lemon);}
   .stat{display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:13px; align-items:baseline;}
@@ -212,6 +218,7 @@
           <div class="stat" id="stat"></div>
           <div class="bag" id="bag"></div>
           <div class="skill-list" id="skillList"></div>
+          <div class="mission" id="mission"></div>
           <div class="friends" id="friends"></div>
           <div class="combo" id="combo" hidden></div>
         </div>
@@ -369,7 +376,7 @@ function refreshStats(){
   }
 }
 
-function renderAll(){ renderStatus(); renderReal(); renderMap(); renderShop(); renderWeek(); renderDex(); }
+function renderAll(){ renderStatus(); renderReal(); renderMap(); renderShop(); renderWeek(); renderDex(); renderMission(); }
 function today(){ const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
 
 // ---------- 손님 화면 ----------
@@ -415,6 +422,45 @@ function renderTune(){
 }
 
 // ---------- 상태창 ----------
+// ---------- 오늘의 미션 ----------
+// 날이 바뀌면 진행을 0으로. 미션 자체는 날짜가 정하니 저장할 필요가 없다 — 진행만 적는다.
+function missionNow(){
+  const day = today();
+  if (save.mission.day !== day) save.mission = { day, n: 0, claimed: false };
+  const open = Q.AREAS.filter((a, i) => !a.hidden && Q.areaOpen(save, i, facts)).length;
+  return Q.dailyMission(day, open);
+}
+function missionTick(id, area){
+  const m = missionNow();
+  if (m.id !== id || save.mission.claimed) return;
+  if (id === 'win' && area !== m.area) return;
+  if (save.mission.n >= m.need) return;
+  save.mission.n++;
+  dirty = true;
+  if (save.mission.n >= m.need){ sfx('key'); notice('📌 <b>오늘의 미션</b>을 다 했어요! 보상은 이름표 아래에서 받아요.'); }
+  if (!battle) renderMission();
+}
+function renderMission(){
+  const box = $('#mission'); if (!box) return;
+  const m = missionNow(), n = Math.min(save.mission.n, m.need), done = n >= m.need;
+  box.className = 'mission' + (done ? ' done' : '');
+  box.innerHTML =
+    '<b>📌 오늘의 미션 — ' + escapeHTML(m.say) + '</b>' +
+    '<div class="mbar"><i style="width:' + Math.round(100 * n / m.need) + '%"></i></div>' +
+    (save.mission.claimed
+      ? '오늘 몫은 받았어요. 내일 새 미션이 와요.'
+      : done ? '' : n + ' / ' + m.need + ' · 금화 ' + Q.MISSION.reward.gold + ' · 경험치 ' + Q.MISSION.reward.xp);
+  if (done && !save.mission.claimed){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small primary';
+    b.textContent = '보상 받기 (금화 ' + Q.MISSION.reward.gold + ' · 경험치 ' + Q.MISSION.reward.xp + ')';
+    b.addEventListener('click', () => {
+      save.mission.claimed = true; save.gold += Q.MISSION.reward.gold; save.xp += Q.MISSION.reward.xp;
+      sfx('fanfare'); refreshStats(); renderAll(); persist(true);
+    });
+    box.appendChild(b);
+  }
+}
+
 function renderStatus(){
   const face = $('#heroFace').getContext('2d');
   face.imageSmoothingEnabled = false;
@@ -449,7 +495,9 @@ function renderStatus(){
     st.lv >= s.lv
       ? '<b>' + EI(s.elem) + ' ' + s.name + '</b>(기운 ' + s.cost + ')'
       : '<span style="opacity:.55">🔒 ' + s.name + ' — 레벨 ' + s.lv + '</span>'
-  ).join(' · ');
+  ).join(' · ') +
+  (combo ? ' · <b>💞 ' + Q.DUO.name + '</b>(기운 ' + Q.DUO.cost + ' · 오늘만!)'
+         : ' · <span style="opacity:.55">💞 ' + Q.DUO.name + ' — ' + hero.call + '도 오늘 모험하면</span>');
   // 친구들 — 작게 줄지어 선다. 전투 중 나서서 때리거나 돌봐 준다.
   const fr = Q.friendsOf(save), fbox = $('#friends'); fbox.innerHTML = '';
   if (fr.length){
@@ -557,6 +605,7 @@ function renderMap(){
   const findBtn = $('#goFind');
   if (findBtn) findBtn.addEventListener('click', () => {
     save.findTries[curArea] = today();
+    missionTick('find');
     const got = Q.tryFind();
     sfx(got ? 'sparkle' : 'prop');
     if (got){ save.finds[curArea] = true; notice('🔍 <b>' + A.find.name + '</b>' + J2(A.find.name, '을', '를') + ' 찾았어요!'); }
@@ -922,9 +971,9 @@ function renderMenu(){
   mk('공격', '타이밍!', () => act('attack'));
   // 배운 기술이 하나씩 단추가 된다. 상성이 좋고 나쁨을 단추에서 바로 알려 준다 —
   // 「왜 이번엔 덜 아팠지」를 아이가 스스로 알 수 있어야 고르는 재미가 생긴다.
-  Q.skillsOf(key, st.lv).forEach(s => {
+  Q.skillsOf(key, st.lv, combo).forEach(s => {
     const say = Q.elemSay(s.elem, b.foe.elem);
-    mk(EI(s.elem) + ' ' + s.name,
+    mk((s.duo ? '💞' : EI(s.elem)) + ' ' + s.name,
       '기운 ' + s.cost + (say ? ' · ' + say : ''),
       () => act('skill:' + s.id),
       { off: b.energy < s.cost, cls: 'skill' + (say === '강해요!' ? ' good' : say === '약해요' ? ' bad' : '') });
@@ -1010,12 +1059,22 @@ async function act(kind){
     if (!b.week) b.energy = Math.min(Q.MAX_ENERGY, b.energy + 1);
     await hitFoe(Q.heroHit(st, r, null, combo ? Q.COMBO_MULT : 1), r);
   } else if (kind.indexOf('skill:') === 0){
-    const s = Q.skillsOf(key, st.lv).find(x => x.id === kind.slice(6));
+    const s = Q.skillsOf(key, st.lv, combo).find(x => x.id === kind.slice(6));
     if (!s || b.energy < s.cost){ b.busy = false; renderMenu(); return; }
     b.energy -= s.cost;
     sfx(s.sfx);
     const em = Q.elemMult(s.elem, b.foe.elem);
     await hitFoe(Q.heroHit(st, 'skill', null, s.mult * em * (combo ? Q.COMBO_MULT : 1)), 'skill', s, em);
+    missionTick('skill');
+    // 합체기는 둘의 마음을 합친 만큼 체력도 조금 돌려준다
+    if (s.heal && !b.week){
+      const heal = Math.min(Math.round(st.maxHp * s.heal), st.maxHp - save.hp);
+      if (heal > 0){
+        save.hp += heal; addFx(hero.name, '+' + heal, '#ff9aa2', true);
+        log('💞 <b>' + hero.call + '</b>' + J2(hero.call, '과', '와') + ' 마음을 합쳤어요 — 체력 ' + heal + ' 회복!');
+        renderBars(); await wait(500);
+      }
+    }
   } else if (kind === 'guard'){
     b.guard = true; b.energy = Math.min(Q.MAX_ENERGY, b.energy + 1);
     const heal = Math.min(st.guardHeal, st.maxHp - save.hp);
@@ -1064,6 +1123,7 @@ async function hitFoe(dmg, kind, skill, em){
   shake.foe = now(); flash = (kind === 'perfect' || kind === 'skill') ? now() : 0;
   let streakSay = '';
   if (kind === 'perfect'){
+    missionTick('perfect');
     b.streak++;
     if (b.streak >= Q.STREAK_FOR_FANFARE){
       b.streak = 0;
@@ -1128,6 +1188,7 @@ async function win(){
   save.gold += foe.gold; save.xp += foe.xp; save.fights++;
   save.streak = (save.streak || 0) + 1;
   save.bestStreak = Math.max(save.bestStreak || 0, save.streak);
+  if (!foe.week) missionTick('win', foe.area);
   let extra = '';
   if (foe.boss){
     save.boss[foe.area] = true;
