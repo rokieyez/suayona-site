@@ -533,6 +533,10 @@
 </section>
 
 <!-- 오늘의 대결. 그리기에서 같은 주제로 각자 그린 것을 나란히 건다. -->
+<!-- 아래쪽 구획을 언제 불러올지 재는 표식. 구획들이 hidden 이라 크기가 0 이어서
+     자기 자신으로는 못 잰다. -->
+<div id="belowFold" aria-hidden="true"></div>
+
 <section class="section-pad" id="duel" hidden>
   <div class="wrap">
     <div class="section-head reveal">
@@ -663,6 +667,31 @@ const metaOnce   = (async () => (await sb.from('event_meta').select('event_id, o
 const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] || {})();
 // 로그인 확인은 페이지당 한 번이면 된다. 세 군데가 나눠 쓴다.
 const authOnce   = refreshAuth().catch(() => null);
+
+// 첫 화면 아래쪽 구획은 화면에 들어올 때 불러온다.
+// 열어 보자마자 열한 번을 부르고 있었는데, 스크롤도 안 하고 나가는 사람에게는
+// 그중 여섯 번이 통째로 낭비다. 구획이 hidden 이면 크기가 0 이라 자기 자신을
+// 지켜볼 수가 없어서, 늘 자리를 차지하는 표식(#belowFold)을 대신 본다.
+const belowFold = (() => {
+  const jobs = [];
+  let fired = false;
+  function run(){
+    if (fired) return;
+    fired = true;
+    jobs.splice(0).forEach(fn => { Promise.resolve().then(fn).catch(() => {}); });
+  }
+  function arm(){
+    const el = document.getElementById('belowFold');
+    if (!el || !('IntersectionObserver' in window)) { run(); return; }
+    const io = new IntersectionObserver(es => {
+      if (es[0].isIntersecting){ io.disconnect(); run(); }
+    }, { rootMargin: '400px' });          // 닿기 조금 전에 미리 부른다
+    io.observe(el);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm);
+  else arm();
+  return fn => { if (fired) Promise.resolve().then(fn).catch(() => {}); else jobs.push(fn); };
+})();
 
 // ================= N년 전 오늘 =================
 // 지난 10년의 "오늘" 하루씩을 시각 범위로 물어본다. 촬영 시각은 UTC 로 저장돼
@@ -2200,7 +2229,7 @@ $$('canvas[data-char]').forEach(cv => {
 
 // ================= 오늘의 대결 =================
 // 그리기에서 같은 주제로 각자 그린 것을 나란히 건다.
-(async () => {
+belowFold(async () => {
   const grid = $('#duelGrid'); if (!grid) return;
   const d = new Date(), pad = n => String(n).padStart(2, '0');
   const today = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
@@ -2225,11 +2254,11 @@ $$('canvas[data-char]').forEach(cv => {
     revealNow(cell);
   });
   $('#duel').hidden = false;
-})().catch(() => {});
+});
 
 // ================= 얼마나 컸을까 =================
 // 집 문틀에 해마다 새기던 눈금. 그래프는 손님도 보고, 새 눈금은 로그인한 가족만 새긴다.
-(async () => {
+belowFold(async () => {
   const cv = $('#growthCanvas'); if (!cv) return;
   const COLORS = { '수아': '#ff7f8a', '연아': '#6cc7b3' };
 
@@ -2318,11 +2347,11 @@ $$('canvas[data-char]').forEach(cv => {
     msg.textContent = error ? ('안 됐어요: ' + readableError(error)) : '새겼어요!';
     if (!error) { $('#gCm').value = ''; await draw(); }
   });
-})().catch(() => {});
+});
 
 // ================= 다녀온 곳 =================
 // 일정에 적힌 좌표가 어느 도(道)에 드는지 세어, 다녀온 곳만 색으로 칠한다.
-(async () => {
+belowFold(async () => {
   const cv = $('#koreaCanvas');
   if (!cv || typeof KOREA === 'undefined') return;      // 옛 pixel.js 와 짝이 되면 조용히 접는다
   const { data } = await sb.from('events')
@@ -2361,11 +2390,11 @@ $$('canvas[data-char]').forEach(cv => {
       (gone.map(k => KOREA_NAMES[k]).join(', ') || '아직 없음') + '</span>' +
     '<span><i style="background:#e3ddd2"></i>아직 안 가 본 곳</span>';
   $('#map').hidden = false;
-})().catch(() => {});
+});
 
 // ================= 여긴 어디였을까? =================
 // 사진은 갤러리에서 날짜로 한 장 고르고, 보기는 이벤트 이름 전부(최대 셋). 정답은 그 사진의 이벤트.
-(async () => {
+belowFold(async () => {
   // 사진을 전부 받아 와서 그중 한 장을 고르던 자리였다. 지금은 111장이라 3KB 지만
   // 사진은 해마다 늘기만 한다 — 한 장 고르자고 전부 받아 오는 모양은 언젠가 무거워진다.
   // 그래서 총 장수만 받아서 「오늘의 자리」를 셈하고, 그 자리부터 스무 장만 떠 온다.
@@ -2413,12 +2442,12 @@ $$('canvas[data-char]').forEach(cv => {
   });
   if (solved) done();
   document.getElementById('quiz').hidden = false;
-})().catch(() => {});
+});
 
 // ================= 1년 뒤의 나에게 =================
 // 잠그는 건 서버다 — opens_on 이 오늘 이후인 줄은 읽기 규칙이 아예 안 돌려준다.
 // 그래서 여기서는 열린 것만 그리고, 잠긴 건 개수와 다음 날짜만 함수로 받아 온다.
-(async () => {
+belowFold(async () => {
   const WHO = { sua:'수아', yona:'연아', together:'수아와 연아' };
   const fmt = iso => { const d = new Date(iso); return d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '.'; };
 
@@ -2536,7 +2565,7 @@ $$('canvas[data-char]').forEach(cv => {
   });
 
   await Promise.all([loadOpened(), loadLocked()]);
-})().catch(() => {});
+});
 
 // ================= 한 번 눌러 뛰기 =================
 // 달리는 동안은 서버를 안 쓴다. 끝났을 때만 순위표를 한 번 읽고, 이름을 남기면

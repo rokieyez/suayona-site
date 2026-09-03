@@ -858,3 +858,47 @@ create trigger run_scores_flood_guard
 -- EXECUTE 를 준다」는 기본 권한이 걸려 있다. 그래서 PUBLIC 만 걷으면 proacl 에
 -- anon=X, authenticated=X 가 그대로 남는다 — 역할까지 함께 걷어야 실제로 걷힌다.
 revoke execute on function public.run_scores_flood_guard() from public, anon, authenticated;
+
+-- ===========================================================================
+-- 2026-09-03 · 마무리작업에서 조인 두 곳
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- 자매 우체통 — 받는 사람이 편지 「내용」까지 고쳐 쓸 수 있었다.
+-- 읽음 표시를 켜라고 열어 둔 UPDATE 인데, 규칙(RLS)은 줄 단위라 열을 가리지 못한다.
+-- 열 단위 권한으로 read_at 만 남겨야 실제로 막힌다.
+-- ---------------------------------------------------------------------------
+revoke update on public.sister_notes from anon, authenticated;
+grant  update (read_at) on public.sister_notes to authenticated;
+
+-- 보내는 사람은 my_author_key() 로 묶여 있었지만 받는 사람은 아무 글자나 됐다.
+alter table public.sister_notes drop constraint if exists sister_notes_who_len;
+alter table public.sister_notes add constraint sister_notes_who_len check (
+  char_length(from_who) between 1 and 20 and char_length(to_who) between 1 and 20
+);
+
+-- ---------------------------------------------------------------------------
+-- 키 눈금 — 적는 건 가족 모두, 지우는 건 부모만.
+-- FOR ALL 하나로 열어 두는 바람에 아이도 남의 기록을 지울 수 있었다.
+-- ---------------------------------------------------------------------------
+drop policy if exists "family writes growth" on public.growth;
+drop policy if exists "family adds growth"   on public.growth;
+drop policy if exists "family fixes growth"  on public.growth;
+drop policy if exists "parent erases growth" on public.growth;
+
+create policy "family adds growth" on public.growth for insert
+  with check (public.my_role() is not null);
+create policy "family fixes growth" on public.growth for update
+  using (public.my_role() is not null) with check (public.my_role() is not null);
+create policy "parent erases growth" on public.growth for delete
+  using (public.my_role() = 'parent');
+
+-- ---------------------------------------------------------------------------
+-- 남아 있는 경고 — 알고 두는 것들
+--
+-- · my_role() · my_author_key() · event_is_public() · capsules_locked() 는
+--   SECURITY DEFINER 이고 anon 도 부를 수 있다고 린터가 경고한다.
+--   읽기 규칙(RLS) 안에서 불려야 해서 EXECUTE 를 걷을 수가 없고, 넷 다
+--   「부른 사람 자신의 것」이나 공개 여부 불리언만 돌려준다.
+-- · 유출 비밀번호 차단은 대시보드에서만 켤 수 있다. 아직 꺼져 있다.
+-- ---------------------------------------------------------------------------
