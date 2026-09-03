@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>인터넷이 끊겼어요 · 수아랑 연아랑</title>
+<!-- 오프라인일 때만 보이는 페이지라 바깥 파일을 하나도 부르지 않는다.
+     글꼴도 스크립트도 못 받는 상황이므로 전부 이 안에 담았다. -->
+<style>
+  body{
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:#fffaf2; color:#2f2a24; text-align:center; padding:24px;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  }
+  .box{max-width:380px;}
+  .face{font-size:52px; line-height:1; margin-bottom:18px;}
+  h1{font-size:20px; margin:0 0 10px;}
+  p{font-size:14px; line-height:1.7; color:#6f6558; margin:0 0 20px;}
+  button{
+    font:inherit; font-size:14px; padding:11px 20px; cursor:pointer;
+    background:#ffd979; color:#2f2a24; border:4px solid #2f2a24; box-shadow:3px 3px 0 #2f2a24;
+  }
+  button:active{transform:translate(3px,3px); box-shadow:0 0 0 #2f2a24;}
+</style>
+</head>
+<body>
+  <div class="box">
+    <div class="face">📡</div>
+    <h1>인터넷이 안 닿아요</h1>
+    <p>신호가 돌아오면 다시 열려요.<br>한 번 봤던 쪽은 그대로 볼 수 있어요.</p>
+    <button type="button" onclick="location.reload()">다시 시도</button>
+  </div>
+</body>
+</html>

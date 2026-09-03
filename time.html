@@ -778,10 +778,11 @@ $('#fDel').addEventListener('click', async () => {
   if (!editing) return;
   // 요일만 다른 형제 줄이 있으면 몇 개가 사라지는지 먼저 알려준다
   const ids = editingGroup.length ? editingGroup.map(r => r.id) : [editing.id];
+  const j = typeof josa === 'function' ? josa(editing.title, '을', '를') : '을(를)';
   const what = ids.length > 1
-    ? '"' + editing.title + '" 을(를) ' + editingGroup.map(r => DAYNAME[r.weekday]).join('·') +
+    ? '"' + editing.title + '" ' + j + ' ' + editingGroup.map(r => DAYNAME[r.weekday]).join('·') +
       ' 요일에서 모두 지울까요? (' + ids.length + '개)'
-    : '"' + editing.title + '" 을(를) 지울까요?';
+    : '"' + editing.title + '" ' + j + ' 지울까요?';
   if (!confirm(what)) return;
   const { error } = await sb.from('schedules').delete().in('id', ids);
   if (error) {

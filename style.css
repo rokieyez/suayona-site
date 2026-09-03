@@ -110,6 +110,14 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
   transition:transform .12s steps(2), box-shadow .12s steps(2);
 }
 .hdr-icon[hidden]{display:none;}
+/* 안 읽은 쪽지 수. 아이콘 모서리에 붙여 자리를 더 먹지 않게 했다. */
+.hdr-icon{position:relative;}
+.hdr-new{
+  position:absolute; top:-6px; right:-5px; min-width:16px; height:16px; padding:0 3px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:9px; line-height:1; color:var(--ink); background:var(--coral);
+  border:2px solid var(--ink); border-radius:999px;
+}
 .hdr-icon:hover{background:var(--lemon);}
 .hdr-icon:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--ink);}
 .hdr-icon.active{background:var(--lemon);}

@@ -92,6 +92,17 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 // 연도를 이미 고른 자리에서 넘어가면 저쪽에서 다시 고를 필요도 없다.
 // 소개는 메뉴에서 뺐다 — 첫 화면에서 아이들을 눌러 이름을 보는 쪽이 더 재미있어서.
 // about.html 은 그대로 남아 있으니 주소를 아는 사람은 계속 볼 수 있다.
+// 서비스 워커 등록. 신호가 끊긴 곳에서 한 번 본 쪽을 다시 여는 용도이고,
+// 캐시는 네트워크가 실패했을 때만 쓴다(sw.js 에 이유를 적어 두었다).
+// updateViaCache:'none' — 워커 파일까지 10분 캐시에 걸리면 고쳐도 안 바뀐다.
+// isSecureContext 로 재는 이유: https 와 localhost 둘 다 걸러야 시험해 볼 수 있고,
+// file:// 로 열었을 때는 등록 자체가 예외를 던진다.
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
+  });
+}
+
 const MENU = [
   { href: '/',              label: '홈',        key: 'home' },
   { href: '/portfolio.html',label: '포트폴리오', key: 'portfolio' },
@@ -258,6 +269,27 @@ function syncPrivateMenu(){
     btn.hidden = !(isLoggedIn && (L.who === 'any' || (L.who === 'child' && isChild)));
     btn.classList.toggle('active', L.key === ACTIVE_KEY);
   });
+  markUnreadNotes();
+}
+
+// 우체통 아이콘에 안 읽은 쪽지 수를 붙인다. 열어 봐야 새 쪽지가 있는지 알 수 있어서
+// 답장이 며칠씩 묻히곤 했다. 헤더 개수만 세므로 본문은 가져오지 않는다.
+let unreadAsked = false;
+function markUnreadNotes(){
+  const btn = document.querySelector('[data-private="notes"]');
+  // 우체통 페이지에서는 어차피 바로 읽음이 되므로 세지 않는다.
+  if (!btn || unreadAsked || !isChild || !me || ACTIVE_KEY === 'notes') return;
+  unreadAsked = true;
+  sb.from('sister_notes').select('id', { count: 'exact', head: true })
+    .eq('to_who', me.author_key).is('read_at', null)
+    .then(({ count }) => {
+      if (!count) return;
+      const b = document.createElement('span');
+      b.className = 'hdr-new pixel';
+      b.textContent = count > 9 ? '9+' : String(count);
+      b.setAttribute('aria-label', '안 읽은 쪽지 ' + count + '개');
+      btn.appendChild(b);
+    }, () => {});
 }
 
 // ---------- 헤더의 로그인 단추와 창 ----------
@@ -472,6 +504,20 @@ async function uploadThumbAt(bucket, path, blob){
 }
 
 // 서버가 돌려주는 영어 원문은 무슨 말인지 알 수 없다. 실제로 마주칠 만한 것만 옮긴다.
+// 앞말의 받침을 보고 조사를 고른다. 「발 크기을(를) 잰 적이 없어요」처럼
+// 괄호가 그대로 나오는 문장이 여기저기 있었다. 한글 음절과 숫자만 판단하고,
+// 그 밖의 글자는 알 수 없으니 예전처럼 두 가지를 다 적는다.
+function josa(word, withJong, withoutJong){
+  const s = String(word == null ? '' : word).replace(/[)\]}"'\s]+$/, '');
+  const ch = s.charCodeAt(s.length - 1);
+  let jong;
+  if (ch >= 0xAC00 && ch <= 0xD7A3) jong = (ch - 0xAC00) % 28 !== 0;
+  // 숫자는 읽는 소리로 본다 — 0 영, 1 일, 3 삼, 6 육, 7 칠, 8 팔에 받침이 있다.
+  else if (ch >= 48 && ch <= 57) jong = [1,1,0,1,0,0,1,1,1,0][ch - 48] === 1;
+  else return withJong + '(' + withoutJong + ')';
+  return jong ? withJong : withoutJong;
+}
+
 function readableError(e){
   const m = (e && e.message) || String(e);
   if (/row-level security|permission|not authorized/i.test(m))
@@ -487,7 +533,8 @@ function readableError(e){
     const c = (m.match(/check constraint "([^"]+)"/i) || [])[1] || '';
     const SAY = {
       growth_cm:            '키는 50~200cm 사이로 적어주세요.',
-      growth_cm_ok:         '키는 50~200cm 사이로 적어주세요.',
+      growth_cm_ok:         '적을 수 있는 범위를 벗어났어요. (키 50~200cm, 발 10~35cm, 몸무게 5~120kg)',
+      growth_kind_ok:       '키·발 크기·몸무게 중에서 골라주세요.',
       run_scores_name_len:  '이름은 1~8글자로 적어주세요.',
       run_scores_score_ok:  '점수가 저장할 수 있는 범위를 넘었어요.',
       capsules_body_check:  '편지는 200자까지 쓸 수 있어요.',

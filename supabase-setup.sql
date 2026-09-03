@@ -902,3 +902,33 @@ create policy "parent erases growth" on public.growth for delete
 --   「부른 사람 자신의 것」이나 공개 여부 불리언만 돌려준다.
 -- · 유출 비밀번호 차단은 대시보드에서만 켤 수 있다. 아직 꺼져 있다.
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- 눈금에 키 말고 발 크기·몸무게도 새긴다
+--
+-- 표 이름과 열 이름(cm)은 키만 재던 때 지은 것이라 몸무게에는 어울리지 않지만,
+-- 이름을 바꾸면 이미 쌓인 기록과 화면 코드를 함께 옮겨야 해서 그대로 두었다.
+-- 대신 kind 로 무엇을 잰 것인지 구분하고, 종류마다 받을 수 있는 범위를 따로 둔다.
+-- 범위를 하나로 뭉뚱그리면 몸무게 7kg 이 「키 7cm」와 같은 취급을 받는다.
+--
+-- 같은 날 같은 사람의 같은 항목은 하나만 남긴다 — 화면에서 upsert 로 덮어쓴다.
+-- 예전 키(who, measured_on)를 그대로 두면 키를 적은 날엔 몸무게를 못 적는다.
+-- ---------------------------------------------------------------------------
+alter table public.growth add column if not exists kind text not null default 'height';
+
+alter table public.growth drop constraint if exists growth_kind_ok;
+alter table public.growth add  constraint growth_kind_ok
+  check (kind in ('height', 'foot', 'weight'));
+
+alter table public.growth drop constraint if exists growth_cm;
+alter table public.growth drop constraint if exists growth_cm_ok;
+alter table public.growth add  constraint growth_cm_ok check (
+     (kind = 'height' and cm between 50 and 200)   -- cm
+  or (kind = 'foot'   and cm between 10 and 35)    -- cm
+  or (kind = 'weight' and cm between  5 and 120)   -- kg
+);
+
+alter table public.growth drop constraint if exists growth_who_day_key;
+alter table public.growth drop constraint if exists growth_who_day_kind_key;
+alter table public.growth add  constraint growth_who_day_kind_key
+  unique (who, measured_on, kind);

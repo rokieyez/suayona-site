@@ -398,7 +398,8 @@ function renderAdminArea(){
       // 아이는 자기 이름으로만 쓸 수 있고 공개 여부도 정하지 못한다 (규칙이 서버에서도 막힘).
       // 화면에서 미리 감춰야 눌렀다가 거절당하는 일이 없다.
       (isChild
-        ? '<div class="child-note">' + escapeHTML(me.display) + '이(가) 쓰는 일기예요.<br>' +
+        ? '<div class="child-note">' + escapeHTML(me.display) +
+          (typeof josa === 'function' ? josa(me.display, '이', '가') : '이(가)') + ' 쓰는 일기예요.<br>' +
           '올리면 <b>부모님이 확인한 뒤</b> 다른 사람에게 보여요.</div>' +
           '<input type="hidden" id="pAuthor" value="' + escapeHTML(me.author_key || 'sua') + '">' +
           '<input type="hidden" id="pPublic" value="true">'
