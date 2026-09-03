@@ -1032,3 +1032,15 @@ language sql stable security invoker set search_path = public as $$
                   order by l.measured_on desc limit 1)
   );
 $$;
+
+
+-- ─────────────────────────────────────────────────────────────
+-- growth — 손님에게는 키만 보여 준다 (2026-09-03)
+-- 왜: growth 는 "anyone reads growth ... using (true)" 였다. 즉 공개 키만 있으면
+-- 누구나 두 아이의 이름·잰 날짜·수치를 전부 읽을 수 있었다(익명 요청으로 6줄 확인).
+-- 지금 들어 있는 건 키뿐이지만 화면에는 몸무게·발 크기 탭도 있고, 한 번 적히는 순간
+-- 그것까지 공개된다. 첫 화면의 자란 키 그래프는 손님에게도 보여 주고 싶으니
+-- 키만 열고 나머지는 로그인한 가족에게만 준다.
+drop policy if exists "anyone reads growth" on public.growth;
+create policy "guests read height only" on public.growth for select
+  using (kind = 'height' or public.my_role() is not null);

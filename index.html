@@ -818,14 +818,24 @@ const belowFold = (() => {
 
   // 비공개 이벤트는 서버 정책이 로그인한 가족에게만 돌려준다.
   // 그래서 여기 나온 이벤트 목록이 곧 "이 사람이 봐도 되는 것"의 목록이다.
-  const [photosRes, metaList] = await Promise.all([
-    sb.from('gallery_media')
-      .select('media_url, thumb_url, taken_at, is_best, event_id, media_type')
-      .eq('media_type', 'image').or(orExpr),
-    metaOnce,
-  ]);
+  // 하루에 한 번만 물어본다. 사진이 있는 날이 1년에 며칠뿐이라 대부분은 0줄이 오고,
+  // 그 0줄을 받으려고 700바이트짜리 주소를 매번 보내던 참이었다.
+  const memKey = 'sy.mem.' + now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+  let cached = null;
+  try { const t = sessionStorage.getItem(memKey); if (t) cached = JSON.parse(t); } catch (e) {}
+  if (cached && cached.none) return;
+
+  const [photosRes, metaList] = cached
+    ? [{ data: cached.hits }, await metaOnce]
+    : await Promise.all([
+        sb.from('gallery_media')
+          .select('media_url, thumb_url, taken_at, is_best, event_id, media_type')
+          .eq('media_type', 'image').or(orExpr),
+        metaOnce,
+      ]);
   const metas = new Map(metaList.map(m => [m.event_id, m]));
   const hits = (photosRes.data || []).filter(r => metas.has(r.event_id));
+  try { sessionStorage.setItem(memKey, JSON.stringify(hits.length ? { hits } : { none: 1 })); } catch (e) {}
   if (!hits.length) return;                      // 오늘은 겹치는 날이 없다 — 조용히 지나간다
 
   // 베스트 컷이 있으면 그중에서, 없으면 전체에서 하루 단위로 같은 한 장을 고른다.
@@ -2472,8 +2482,13 @@ belowFold(async () => {
 // 세이브에 같이 적혀 있다.
 belowFold(async () => {
   const cv = $('#questCard'); if (!cv || typeof SPRITES === 'undefined') return;
-  const { data } = await sb.from('quest_saves').select('who, data').in('who', ['sua', 'yona']);
-  const rows = (data || []).filter(r => r.data && r.data.lv);
+  // 카드가 쓰는 칸만 골라 받는다. 세이브 전체는 met·foeWins 가 붙어 3.3KB 인데
+  // 카드에 필요한 건 일곱 칸뿐이라 0.8KB 로 줄었다(재 보고 고쳤다).
+  const PICK = 'who, lv:data->lv, boss:data->boss, friends:data->friends, wins:data->wins,' +
+               ' week:data->week, lastWeek:data->lastWeek, dexSkies:data->dexSkies';
+  const { data } = await sb.from('quest_saves').select(PICK).in('who', ['sua', 'yona']);
+  // 아래 코드는 r.data.* 모양을 그대로 쓰던 것이라, 받은 칸을 다시 그 모양으로 묶는다.
+  const rows = (data || []).filter(r => r.lv).map(r => ({ who: r.who, data: r }));
   if (!rows.length) return;
   const by = {}; rows.forEach(r => { by[r.who] = r.data; });
   const heroes = [['sua', '수아'], ['yona', '연아']].filter(h => by[h[0]]);
