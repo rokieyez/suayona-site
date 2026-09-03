@@ -2906,6 +2906,12 @@ belowFold(async () => {
 
   let W = 0, H = 0, GY = 0, dpr = 1;
   let state = 'ready';                 // ready | play | over
+  // 달리는 동안만 캔버스 위 스크롤을 막는다. 늘 막아 두면 게임 화면에 손이
+  // 닿는 순간 페이지가 붙어서 아래로 못 내려간다. 멈춰 있을 때는 평소대로 밀린다.
+  function setState(v){
+    state = v;
+    canvas.style.touchAction = (v === 'play') ? 'none' : 'manipulation';
+  }
   let who = 'sua';
   try { if (localStorage.getItem('sy.run.who') === 'yona') who = 'yona'; } catch (e) {}
   let best = 0;
@@ -3497,7 +3503,7 @@ belowFold(async () => {
             lives--; gemStreak = 0; invulnUntil = t + INVULN_SECS;
             lifeFlash = 1.4; sfx('thud');
           } else {
-            state = 'over'; deadAt = performance.now(); sfx('thud'); recordBest();
+            setState('over'); deadAt = performance.now(); sfx('thud'); recordBest();
             offerSave();
           }
           break;
@@ -3528,10 +3534,10 @@ belowFold(async () => {
   }
 
   function jump(){
-    if (state === 'ready'){ reset(); state = 'play'; start(); sfx('boing'); return; }
+    if (state === 'ready'){ reset(); setState('play'); start(); sfx('boing'); return; }
     if (state === 'over'){
       if (performance.now() - deadAt < 400) return;   // 죽자마자 눌린 건 재시작으로 안 센다
-      hideSave(); reset(); state = 'play'; start(); sfx('boing'); return;
+      hideSave(); reset(); setState('play'); start(); sfx('boing'); return;
     }
     if (onGround){
       vy = JUMP_V; py = 0.01; onGround = false;
@@ -3544,6 +3550,11 @@ belowFold(async () => {
     e.preventDefault(); canvas.focus({ preventScroll: true });
     holding = true; jump();
   });
+  // touch-action 을 늦게 받아들인 옛 사파리가 있어 한 겹 더 막는다.
+  // passive:false 가 없으면 preventDefault 가 무시된다.
+  canvas.addEventListener('touchmove', e => {
+    if (state === 'play') e.preventDefault();
+  }, { passive: false });
   window.addEventListener('pointerup', release);
   window.addEventListener('pointercancel', release);
   const JUMP_KEYS = [' ', 'Spacebar', 'ArrowUp', 'Enter'];
