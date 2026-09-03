@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>도트 모험단 · 수아랑 연아랑</title>
+<meta name="description" content="수아와 연아가 현실에서 한 일이 경험치가 되는 턴제 도트 RPG. 일기를 쓰면 마음이, 작품을 올리면 힘이 자라요.">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" rel="stylesheet"
+      integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" crossorigin="anonymous">
+<link href="/fonts/dot.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .gate{max-width:560px; margin:0 auto; text-align:center;}
+  .gate .why{font-size:13.5px; line-height:1.85; color:var(--ink-soft); margin-bottom:20px;}
+  .heroes{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px; text-align:left;}
+  .hero-card{padding:14px; display:flex; gap:12px; align-items:center;}
+  .hero-card canvas{width:42px; height:40px; image-rendering:pixelated; flex:none;}
+  .hero-card .nm{font-weight:800; font-size:15px;}
+  .hero-card .lv{font-size:12px; color:var(--ink-soft); line-height:1.7;}
+  @media (max-width:520px){ .heroes{grid-template-columns:1fr;} }
+
+  .q-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;}
+  @media (max-width:720px){ .q-grid{grid-template-columns:1fr;} }
+  .q-card{padding:14px 16px;}
+  .q-card h3{margin:0 0 10px; font-size:13px; letter-spacing:.04em;}
+  .q-head{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .q-head canvas{width:42px; height:40px; image-rendering:pixelated;}
+  .q-head .nm{font-weight:800; font-size:17px;}
+  .q-head .lv{font-size:12px; color:var(--ink-soft);}
+  .xp{height:10px; border:2px solid var(--ink); background:#fff; margin:6px 0 10px; position:relative;}
+  .xp i{position:absolute; left:0; top:0; bottom:0; background:var(--lemon);}
+  .stat{display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:13px; align-items:baseline;}
+  .stat b{font-weight:800;}
+  .stat .why{font-size:11.5px; color:var(--ink-soft);}
+  .bag{display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; font-size:13px; font-weight:800;}
+
+  .real{list-style:none; margin:0; padding:0; font-size:13px; line-height:1.85;}
+  .real li b{font-weight:800;}
+  .real li .to{color:var(--ink-soft); font-size:12px;}
+  .real .tip{margin-top:8px; font-size:12px; color:var(--ink-soft); line-height:1.7;}
+
+  .areas{display:grid; grid-template-columns:repeat(5,1fr); gap:6px;}
+  @media (max-width:520px){ .areas{grid-template-columns:repeat(3,1fr);} }
+  .areas button{
+    font:inherit; font-size:12px; font-weight:800; cursor:pointer; padding:9px 4px;
+    border:2px solid var(--ink); background:var(--cream); color:var(--ink); border-radius:0;
+    box-shadow:2px 2px 0 var(--ink); line-height:1.3;
+  }
+  .areas button small{display:block; font-size:10px; font-weight:700; color:var(--ink-soft);}
+  .areas button:disabled{opacity:.45; cursor:not-allowed; box-shadow:none;}
+  .areas button.done{background:var(--mint);}
+  .areas button.here{background:var(--lemon);}
+  .area-act{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center;}
+  .area-act .note{font-size:12px; color:var(--ink-soft);}
+
+  .q-battle{padding:0; overflow:hidden;}
+  .bars{display:flex; justify-content:space-between; gap:10px; padding:10px 12px; border-bottom:3px solid var(--ink); background:var(--cream); font-size:12px; font-weight:800;}
+  .bars > div{flex:1; min-width:0;}
+  .bars .who{display:flex; justify-content:space-between; margin-bottom:4px;}
+  .bars .who span:last-child{font-variant-numeric:tabular-nums;}
+  .hpbar{height:10px; border:2px solid var(--ink); background:#fff; position:relative;}
+  .hpbar i{position:absolute; left:0; top:0; bottom:0; background:var(--grass); transition:width .25s steps(6);}
+  .hpbar.foe i{background:var(--coral);}
+  .hpbar i.low{background:#ff6b6b;}
+  .energy{display:flex; gap:4px; margin-top:5px;}
+  .energy i{width:10px; height:10px; border:2px solid var(--ink); background:#fff;}
+  .energy i.on{background:var(--lemon);}
+  .stage{position:relative; line-height:0; background:#000;}
+  #qCanvas{
+    display:block; width:100%; aspect-ratio:320/200; image-rendering:pixelated;
+    touch-action:manipulation; cursor:pointer;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  }
+  .menu{display:grid; grid-template-columns:repeat(5,1fr); gap:6px; padding:10px 12px; border-top:3px solid var(--ink); background:var(--cream);}
+  @media (max-width:420px){ .menu{grid-template-columns:repeat(3,1fr);} }
+  .menu button{
+    font:inherit; font-size:13px; font-weight:800; cursor:pointer; padding:11px 4px;
+    border:2px solid var(--ink); background:#fff; color:var(--ink); border-radius:0;
+    box-shadow:2px 2px 0 var(--ink); line-height:1.25;
+  }
+  .menu button small{display:block; font-size:10px; color:var(--ink-soft); font-weight:700;}
+  .menu button:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
+  .menu button.skill{background:var(--lemon);}
+  .menu button.tap{grid-column:1 / -1; background:var(--coral); font-size:16px; padding:14px;}
+  .qlog{padding:10px 12px; font-size:13px; line-height:1.7; min-height:44px; border-top:2px solid rgba(47,42,36,.12); background:#fff6e9;}
+  .qlog b{font-weight:800;}
+
+  .shop{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  @media (max-width:520px){ .shop{grid-template-columns:1fr;} }
+  .shop button{
+    font:inherit; font-size:13px; font-weight:800; cursor:pointer; text-align:left; padding:10px 12px;
+    border:2px solid var(--ink); background:#fff; color:var(--ink); border-radius:0; box-shadow:2px 2px 0 var(--ink);
+  }
+  .shop button small{display:block; font-size:11px; color:var(--ink-soft); font-weight:700; margin-top:2px;}
+  .shop button:disabled{opacity:.45; cursor:not-allowed; box-shadow:none;}
+
+  .week{display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
+  .week canvas{width:66px; height:45px; image-rendering:pixelated;}
+  .week .wb{flex:1; min-width:180px;}
+  .week .wb .hpbar i{background:#b9a3d6;}
+  .week .wsay{font-size:12.5px; line-height:1.7; margin-top:6px;}
+  .msg{margin-top:8px; font-size:12.5px; color:var(--ink-soft);}
+</style>
+</head>
+<body>
+
+<section class="section-pad page-top" id="quest">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">QUEST</span>
+      <h2>도트 모험단</h2>
+      <p id="lead">현실에서 한 일이 경험치가 되는 모험</p>
+    </div>
+
+    <!-- 손님과 부모는 구경만. 아이로 로그인하면 아래 게임이 열린다. -->
+    <div class="gate" id="gate" hidden>
+      <p class="why">
+        <b>일기</b>를 쓰면 마음이, <b>작품</b>을 올리면 힘이, <b>달리기</b>에서 점수를 내면 재빠름이 자라요.<br>
+        키가 크면 체력도 늘어요. 자매가 낸 피해를 합쳐 <b>이번 주 보스</b>도 같이 쓰러뜨려요.<br>
+        <span id="gateWho">수아나 연아로 로그인하면 모험이 시작돼요.</span>
+      </p>
+      <div class="heroes" id="heroes"></div>
+    </div>
+
+    <div id="game" hidden>
+      <div class="q-grid">
+        <div class="dot-card q-card reveal">
+          <div class="q-head">
+            <canvas id="heroFace" width="42" height="40"></canvas>
+            <div><div class="nm" id="heroName"></div><div class="lv" id="heroLv"></div></div>
+          </div>
+          <div class="xp"><i id="xpFill"></i></div>
+          <div class="stat" id="stat"></div>
+          <div class="bag" id="bag"></div>
+        </div>
+        <div class="dot-card q-card reveal">
+          <h3 class="pixel">현실 → 모험</h3>
+          <ul class="real" id="real"></ul>
+          <p class="tip">숫자는 서버가 직접 세요. 일기를 한 편 더 쓰면 다음에 열 때 반영돼요.</p>
+        </div>
+      </div>
+
+      <div class="dot-card q-card reveal" id="mapCard">
+        <h3 class="pixel">세계 지도</h3>
+        <div class="areas" id="areas"></div>
+        <div class="area-act" id="areaAct"></div>
+      </div>
+
+      <div class="dot-card q-battle reveal" id="battleCard" hidden>
+        <div class="bars">
+          <div>
+            <div class="who"><span id="bHeroName"></span><span id="bHeroHp"></span></div>
+            <div class="hpbar"><i id="bHeroFill"></i></div>
+            <div class="energy" id="energy"></div>
+          </div>
+          <div>
+            <div class="who"><span id="bFoeName"></span><span id="bFoeHp"></span></div>
+            <div class="hpbar foe"><i id="bFoeFill"></i></div>
+          </div>
+        </div>
+        <div class="stage"><canvas id="qCanvas" width="640" height="400" aria-label="전투 화면"></canvas></div>
+        <div class="menu" id="menu"></div>
+        <div class="qlog" id="qlog"></div>
+      </div>
+
+      <div class="q-grid" style="margin-top:14px;">
+        <div class="dot-card q-card reveal">
+          <h3 class="pixel">가게</h3>
+          <div class="shop" id="shop"></div>
+          <div class="msg" id="shopMsg"></div>
+        </div>
+        <div class="dot-card q-card reveal">
+          <h3 class="pixel">이번 주 보스</h3>
+          <div class="week" id="week"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
+        crossorigin="anonymous"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script src="./quest-rules.js"></script>
+<script>
+buildChrome('quest');
+
+// 규칙은 quest-rules.js 에 있다. 여기는 화면과 순서만.
+const Q = QUEST;
+const J2 = (w, a, b) => (typeof josa === 'function' ? josa(w, a, b) : a + '(' + b + ')');
+
+let key = null, hero = null, save = null, facts = null, st = null;
+const saves = {};                       // 두 아이의 세이브 — 손님 화면과 이번 주 보스에 쓴다
+let battle = null;                      // 싸우는 중이면 { foe, fhp, energy, charged, guard, turn, busy, week }
+let curArea = 0;
+
+// ---------- 저장 ----------
+// 바뀔 때마다 조금 기다렸다가 한 번만 쓴다. 전투 한 턴마다 쓰면 요청이 너무 잦다.
+let saveTimer = 0, saveChain = Promise.resolve();
+function persist(now){
+  clearTimeout(saveTimer);
+  const go = () => { saveChain = saveChain.then(() => doSave()).catch(() => {}); };
+  if (now) go(); else saveTimer = setTimeout(go, 600);
+}
+async function doSave(){
+  if (!key || !save) return;
+  save.lv = st ? st.lv : save.lv;
+  const { error } = await sb.from('quest_saves').upsert({ who: key, data: save }, { onConflict: 'who' });
+  if (error) log('저장하지 못했어요: ' + readableError(error));
+}
+// 페이지를 닫을 때 남은 것을 바로 쓴다. 기다리는 저장이 있으면 그것부터.
+document.addEventListener('visibilitychange', () => { if (document.hidden && saveTimer) persist(true); });
+
+// ---------- 시작 ----------
+async function boot(){
+  await refreshAuth();
+  key = isChild && me && Q.HEROES[me.author_key] ? me.author_key : null;
+  const { data: rows } = await sb.from('quest_saves').select('who, data');
+  (rows || []).forEach(r => { saves[r.who] = Q.fixSave(r.data); });
+
+  if (!key){
+    $('#gate').hidden = false;
+    if (isLoggedIn) $('#gateWho').textContent = '이 모험은 수아와 연아의 것이에요. 부모는 여기서 구경만 할 수 있어요.';
+    renderHeroes();
+    initReveal();
+    return;
+  }
+  hero = Q.HEROES[key];
+  const fr = await sb.rpc('quest_facts', { p_who: key });
+  facts = fr.data || {};
+  save = saves[key] || Q.newSave();
+  saves[key] = save;
+  refreshStats();
+  if (save.hp == null || save.hp > st.maxHp) save.hp = st.maxHp;
+  $('#game').hidden = false;
+  $('#lead').textContent = hero.name + '의 모험 — 현실에서 한 일이 경험치가 돼요';
+  renderAll();
+  initReveal();
+}
+
+function refreshStats(){
+  const before = st ? st.lv : null;
+  st = Q.stats(save, facts);
+  if (before != null && st.lv > before){
+    // 레벨이 오르면 최대 체력이 늘어난 만큼 채워 준다 — 오르자마자 반피면 기쁘지가 않다.
+    save.hp = Math.min(st.maxHp, (save.hp || 0) + (st.lv - before) * 8);
+    sfx('fanfare');
+    log('<b>레벨 ' + st.lv + '</b>이 됐어요! 힘 ' + st.str + ' · 재빠름 ' + st.agi + ' · 마음 ' + st.hrt);
+  }
+}
+
+function renderAll(){ renderStatus(); renderReal(); renderMap(); renderShop(); renderWeek(); }
+
+// ---------- 손님 화면 ----------
+function renderHeroes(){
+  const box = $('#heroes'); box.innerHTML = '';
+  Object.keys(Q.HEROES).forEach(k => {
+    const h = Q.HEROES[k], s = saves[k];
+    const card = document.createElement('div');
+    card.className = 'dot-card hero-card';
+    const cv = document.createElement('canvas'); cv.width = 42; cv.height = 40;
+    drawSprite(cv.getContext('2d'), SPRITES[h.sprite], 0, 0, 1);
+    card.appendChild(cv);
+    const d = document.createElement('div');
+    const wins = s ? s.wins.reduce((a, b) => a + b, 0) : 0;
+    const bosses = s ? s.boss.filter(Boolean).length : 0;
+    d.innerHTML = '<div class="nm">' + h.name + '</div>' +
+      '<div class="lv">' + (s ? '레벨 ' + (s.lv || 1) + ' · ' + wins + '번 이김 · 대장 ' + bosses + '명' : '아직 모험을 시작하지 않았어요') + '</div>';
+    card.appendChild(d);
+    box.appendChild(card);
+  });
+}
+
+// ---------- 상태창 ----------
+function renderStatus(){
+  const face = $('#heroFace').getContext('2d');
+  face.clearRect(0, 0, 42, 40);
+  drawSprite(face, SPRITES[hero.sprite], 0, 0, 1);
+  $('#heroName').textContent = hero.name + '의 모험단';
+  $('#heroLv').textContent = '레벨 ' + st.lv + ' · 경험치 ' + st.xp + ' / ' + st.next;
+  const span = st.next - st.prev;
+  $('#xpFill').style.width = Math.round(100 * (st.xp - st.prev) / span) + '%';
+  const p = st.parts;
+  const why = o => Object.keys(o).filter(k => o[k]).map(k => ({
+    base: '기본', lv: '레벨', works: '작품', weapon: '무기', run: '달리기', diary: '일기', hrt: '마음', armor: '갑옷', height: '키',
+  }[k] + ' ' + o[k])).join(' + ');
+  $('#stat').innerHTML =
+    '<b>체력 ' + save.hp + ' / ' + st.maxHp + '</b><span class="why">' + why(p.hp) + '</span>' +
+    '<b>힘 ' + st.str + '</b><span class="why">' + why(p.str) + '</span>' +
+    '<b>재빠름 ' + st.agi + '</b><span class="why">' + why(p.agi) + ' → 피하기 ' + Math.round(st.dodge * 100) + '%</span>' +
+    '<b>마음 ' + st.hrt + '</b><span class="why">' + why(p.hrt) + ' → 방어하면 ' + st.guardHeal + ' 회복</span>';
+  $('#bag').innerHTML =
+    '<span>💰 금화 ' + save.gold + '</span>' +
+    '<span>🧪 물약 ' + save.potions + '</span>' +
+    '<span>🎨 물감 ' + paintLeft() + '</span>' +
+    '<span>🗡 무기 +' + save.weapon + '</span>' +
+    '<span>🛡 갑옷 +' + save.armor + '</span>';
+}
+function paintLeft(){ return Math.max(0, (facts.works || 0) - (save.spentPaint || 0)); }
+
+function renderReal(){
+  const f = facts, p = st.parts;
+  const rows = [
+    ['📓 일기 ' + (f.diaries || 0) + '편', '마음 +' + p.hrt.diary + ' · 경험치 +' + (f.diaries || 0) * Q.REAL.diary.xp],
+    ['🎨 작품 ' + (f.works || 0) + '점', '힘 +' + p.str.works + ' · 물감 ' + (f.works || 0) + '개 · 경험치 +' + (f.works || 0) * Q.REAL.work.xp],
+    ['🏃 달리기 최고 ' + (f.run_best || 0) + '점', '재빠름 +' + p.agi.run + ' · 경험치 +' + Math.min(Q.REAL.runCap, Math.floor((f.run_best || 0) / Q.REAL.runDiv))],
+    ['🚗 나들이 ' + (f.outings || 0) + '번', '경험치 +' + (f.outings || 0) * Q.REAL.outing.xp],
+    ['📏 키 ' + (f.height ? f.height + 'cm' : '아직 안 잼'), '체력 +' + p.hp.height],
+  ];
+  $('#real').innerHTML = rows.map(r => '<li><b>' + r[0] + '</b> <span class="to">→ ' + r[1] + '</span></li>').join('');
+}
+
+// ---------- 지도 ----------
+function renderMap(){
+  const box = $('#areas'); box.innerHTML = '';
+  Q.AREAS.forEach((A, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    const open = Q.areaOpen(save, i);
+    b.disabled = !open;
+    b.className = (save.boss[i] ? 'done' : '') + (i === curArea ? ' here' : '');
+    b.innerHTML = A.name + '<small>' + (open ? (save.boss[i] ? '대장 이김' : save.wins[i] + '번 이김') : '잠김') + '</small>';
+    b.addEventListener('click', () => { curArea = i; renderMap(); });
+    box.appendChild(b);
+  });
+  const A = Q.AREAS[curArea], act = $('#areaAct');
+  const need = Math.max(0, Q.WINS_FOR_BOSS - save.wins[curArea]);
+  act.innerHTML =
+    '<button type="button" class="dot-btn small primary" id="goFight">' + A.name + '에서 싸우기</button>' +
+    '<button type="button" class="dot-btn small coral" id="goBoss"' + (need ? ' disabled' : '') + '>' +
+      '대장 ' + A.boss.name + (save.boss[curArea] ? ' (다시)' : '') + '</button>' +
+    '<span class="note">' + (need ? '대장을 부르려면 ' + need + '번 더 이겨야 해요' : '대장에게 도전할 수 있어요') + '</span>';
+  $('#goFight').addEventListener('click', () => startBattle(Q.foeAt(curArea, Math.floor(Math.random() * 3))));
+  $('#goBoss').addEventListener('click', () => startBattle(Q.bossAt(curArea)));
+}
+
+// ---------- 가게 ----------
+function today(){ const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+function renderShop(){
+  const S = Q.SHOP, box = $('#shop');
+  const items = [
+    { id: 'potion', t: '🧪 물약 사기', d: S.potion.price + '금화 · 체력 ' + Math.round(S.potion.heal * 100) + '% 회복',
+      can: save.gold >= S.potion.price && save.potions < S.potion.max,
+      do(){ save.gold -= S.potion.price; save.potions++; return '물약을 샀어요.'; } },
+    { id: 'inn', t: '🛏 여관에서 쉬기', d: S.inn.price + '금화 · 체력 가득',
+      can: save.gold >= S.inn.price && save.hp < st.maxHp,
+      do(){ save.gold -= S.inn.price; save.hp = st.maxHp; return '푹 쉬었어요. 체력이 가득 찼어요.'; } },
+    { id: 'weapon', t: '🗡 무기 강화 +' + (save.weapon + 1), d: upgradeLabel(save.weapon),
+      can: canUpgrade(save.weapon),
+      do(){ const w = save.weapon; save.gold -= S.upgrade.gold(w); save.spentPaint += S.upgrade.paint(w); save.weapon++; return '무기가 +' + save.weapon + '이 됐어요. 힘이 올라요.'; } },
+    { id: 'armor', t: '🛡 갑옷 강화 +' + (save.armor + 1), d: upgradeLabel(save.armor),
+      can: canUpgrade(save.armor),
+      do(){ const w = save.armor; save.gold -= S.upgrade.gold(w); save.spentPaint += S.upgrade.paint(w); save.armor++; return '갑옷이 +' + save.armor + '이 됐어요. 체력이 늘어요.'; } },
+    { id: 'gift', t: '🎁 오늘의 선물', d: save.lastGift === today() ? '오늘 건 받았어요. 내일 또!' : '하루 한 번 · 금화 ' + S.gift.gold + ' · 물약 ' + S.gift.potions + ' · 체력 가득',
+      can: save.lastGift !== today(),
+      do(){ save.lastGift = today(); save.gold += S.gift.gold; save.potions = Math.min(S.potion.max, save.potions + S.gift.potions); save.hp = st.maxHp; return '선물을 받았어요!'; } },
+  ];
+  box.innerHTML = '';
+  items.forEach(it => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.disabled = !it.can || !!battle;
+    b.innerHTML = it.t + '<small>' + it.d + '</small>';
+    b.addEventListener('click', () => {
+      const say = it.do();
+      sfx(it.id === 'gift' ? 'key' : 'pop');
+      refreshStats(); if (save.hp > st.maxHp) save.hp = st.maxHp;
+      $('#shopMsg').textContent = say;
+      renderStatus(); renderShop(); persist();
+    });
+    box.appendChild(b);
+  });
+}
+function upgradeLabel(w){
+  const S = Q.SHOP.upgrade;
+  if (w >= S.max) return '더는 못 올려요 (최대 +' + S.max + ')';
+  return S.gold(w) + '금화 · 물감 ' + S.paint(w) + '개 (작품을 올리면 물감이 생겨요)';
+}
+function canUpgrade(w){
+  const S = Q.SHOP.upgrade;
+  return w < S.max && save.gold >= S.gold(w) && paintLeft() >= S.paint(w);
+}
+
+// ---------- 이번 주 보스 ----------
+const WEEK_SPRITES = [
+  { sp: 'budgieUp', s: 3 }, { sp: 'chick', s: 4 }, { sp: 'house', s: 2 }, { sp: 'easel', s: 2 }, { sp: 'butterfly', s: 8 },
+];
+function weekFoe(){
+  const k = Q.weekKey(), i = Q.weekIndex(k) % WEEK_SPRITES.length;
+  return Object.assign({ name: Q.WEEK.name(k), boss: true, week: true, hp: Q.WEEK.hp(k), atk: 0, xp: 0, gold: 0, area: 9 }, WEEK_SPRITES[i]);
+}
+function weekTotal(k){
+  return Object.keys(saves).reduce((a, w) => a + ((saves[w].week && saves[w].week.key === k) ? saves[w].week.dmg : 0), 0);
+}
+function renderWeek(){
+  const k = Q.weekKey(), foe = weekFoe(), box = $('#week');
+  if (save.week.key !== k){ save.week = { key: k, dmg: 0, day: '', swings: 0, claimed: false }; }
+  if (save.week.day !== today()){ save.week.day = today(); save.week.swings = 0; }
+  const total = weekTotal(k), left = Q.WEEK.swingsPerDay - save.week.swings, down = total >= foe.hp;
+  const mine = save.week.dmg, other = total - mine;
+  box.innerHTML = '';
+  const cv = document.createElement('canvas'); cv.width = 66; cv.height = 45;
+  const g = cv.getContext('2d'); const sp = SPRITES[foe.sp];
+  drawSprite(g, sp, Math.floor((66 - sp[0].length * 2) / 2), Math.max(0, 45 - sp.length * 2), 2);
+  box.appendChild(cv);
+  const d = document.createElement('div'); d.className = 'wb';
+  d.innerHTML =
+    '<div class="who" style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;"><span>' + foe.name + '</span><span>' + Math.min(total, foe.hp) + ' / ' + foe.hp + '</span></div>' +
+    '<div class="hpbar"><i style="width:' + Math.min(100, Math.round(100 * total / foe.hp)) + '%"></i></div>' +
+    '<div class="wsay">' + (down
+      ? '<b>쓰러뜨렸어요!</b> 둘이 합쳐 ' + total + ' 피해.'
+      : '자매가 낸 피해를 합쳐요 — 나 ' + mine + ' · 다른 한 명 ' + other + '. 하루 ' + Q.WEEK.swingsPerDay + '번, 오늘 ' + left + '번 남았어요. 월요일마다 새 보스가 와요.') +
+    '</div>';
+  const act = document.createElement('div'); act.style.marginTop = '8px';
+  if (down && !save.week.claimed){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small primary';
+    b.textContent = '보상 받기 (금화 ' + Q.WEEK.reward.gold + ' · 경험치 ' + Q.WEEK.reward.xp + ')';
+    b.addEventListener('click', () => {
+      save.week.claimed = true; save.gold += Q.WEEK.reward.gold; save.xp += Q.WEEK.reward.xp;
+      sfx('fanfare'); refreshStats(); renderAll(); persist(true);
+    });
+    act.appendChild(b);
+  } else if (!down) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small coral';
+    b.textContent = left > 0 ? '때리러 가기 (' + left + '번)' : '오늘 몫은 다 썼어요';
+    b.disabled = left <= 0 || !!battle;
+    b.addEventListener('click', () => startBattle(foe));
+    act.appendChild(b);
+  } else {
+    act.innerHTML = '<span class="note" style="font-size:12px;color:var(--ink-soft)">보상은 받았어요. 다음 주에 또 만나요.</span>';
+  }
+  d.appendChild(act);
+  box.appendChild(d);
+}
+
+// ---------- 전투 ----------
+const canvas = $('#qCanvas'), ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const W = 320, H = 200, GROUND = 172;
+let raf = 0, fx = [], shake = { hero: 0, foe: 0 }, flash = 0, timing = null, heroLunge = 0, foeLunge = 0;
+const now = () => performance.now();
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+function log(html){ $('#qlog').innerHTML = html; }
+
+function startBattle(foe){
+  if (battle) return;
+  battle = { foe, fhp: foe.hp, energy: 0, charged: false, guard: false, turn: 0, busy: false, week: !!foe.week };
+  if (!foe.week) curArea = foe.area;
+  $('#battleCard').hidden = false;
+  $('#bHeroName').textContent = hero.name;
+  $('#bFoeName').textContent = foe.name + (foe.boss ? ' (대장)' : '');
+  renderBars(); renderMenu(); renderMap(); renderShop(); renderWeek();
+  log(foe.week
+    ? '<b>' + foe.name + '</b>' + J2(foe.name, '이', '가') + ' 버티고 서 있어요. 오늘 몫 ' + (Q.WEEK.swingsPerDay - save.week.swings) + '번을 때려요!'
+    : '<b>' + foe.name + '</b>' + J2(foe.name, '이', '가') + ' 나타났어요!');
+  sfx(foe.boss ? 'thud' : 'pop');
+  $('#battleCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  loopOn();
+}
+
+function endBattle(){
+  battle = null; timing = null; fx = [];
+  $('#battleCard').hidden = true;
+  loopOff();
+  renderAll();
+  persist(true);
+}
+
+function renderBars(){
+  const b = battle;
+  $('#bHeroHp').textContent = save.hp + ' / ' + st.maxHp;
+  const hf = $('#bHeroFill'); hf.style.width = Math.max(0, Math.round(100 * save.hp / st.maxHp)) + '%';
+  hf.classList.toggle('low', save.hp <= st.maxHp * 0.3);
+  if (b.week){
+    const total = weekTotal(save.week.key);
+    $('#bFoeHp').textContent = Math.max(0, b.foe.hp - total) + ' / ' + b.foe.hp;
+    $('#bFoeFill').style.width = Math.max(0, Math.round(100 * (b.foe.hp - total) / b.foe.hp)) + '%';
+  } else {
+    $('#bFoeHp').textContent = Math.max(0, b.fhp) + ' / ' + b.foe.hp;
+    $('#bFoeFill').style.width = Math.max(0, Math.round(100 * b.fhp / b.foe.hp)) + '%';
+  }
+  $('#energy').innerHTML = Array.from({ length: Q.SKILL_COST }, (_, i) => '<i' + (i < b.energy ? ' class="on"' : '') + '></i>').join('');
+}
+
+function renderMenu(){
+  const m = $('#menu'), b = battle; m.innerHTML = '';
+  if (!b) return;
+  if (timing){
+    const t = document.createElement('button'); t.type = 'button'; t.className = 'tap';
+    t.textContent = '지금!'; t.addEventListener('click', tapNow);
+    m.appendChild(t); return;
+  }
+  const mk = (label, sub, fn, opt) => {
+    const el = document.createElement('button'); el.type = 'button';
+    el.innerHTML = label + (sub ? '<small>' + sub + '</small>' : '');
+    el.disabled = b.busy || (opt && opt.off);
+    if (opt && opt.cls) el.className = opt.cls;
+    el.addEventListener('click', fn); m.appendChild(el);
+  };
+  if (b.week){
+    const left = Q.WEEK.swingsPerDay - save.week.swings;
+    mk('공격', left + '번 남음', () => act('attack'), { off: left <= 0 });
+    mk('돌아가기', '', () => act('run'));
+    return;
+  }
+  mk('공격', '타이밍!', () => act('attack'));
+  mk(hero.skill, '기운 ' + b.energy + '/' + Q.SKILL_COST, () => act('skill'), { off: b.energy < Q.SKILL_COST, cls: 'skill' });
+  mk('방어', '+' + st.guardHeal + ' 회복', () => act('guard'));
+  mk('물약', save.potions + '개', () => act('potion'), { off: save.potions <= 0 });
+  mk('도망', '', () => act('run'));
+}
+
+// 타이밍 바 — 왔다 갔다 하는 표시를 칸 안에서 멈추면 강타.
+function startTiming(){
+  return new Promise(resolve => {
+    timing = { t0: now(), center: 30 + Math.random() * 40, zone: st.zone, resolve, done: false };
+    renderMenu();
+    // 4초 안에 안 누르면 빗나간 것으로.
+    setTimeout(() => { if (timing && !timing.done) finishTiming(); }, 4000);
+  });
+}
+function markerPos(t){
+  const p = ((t - timing.t0) % 1200) / 1200;
+  return p < 0.5 ? p * 200 : (1 - p) * 200;
+}
+function finishTiming(){
+  if (!timing || timing.done) return;
+  timing.done = true;
+  const pos = markerPos(now());
+  const r = Q.judge(pos, timing.center, timing.zone);
+  const res = timing.resolve; timing.result = r; timing.pos = pos;
+  // 결과를 잠깐 보여 준 다음 지운다
+  setTimeout(() => { timing = null; renderMenu(); }, 350);
+  res(r);
+}
+function tapNow(){ if (timing && !timing.done) finishTiming(); }
+canvas.addEventListener('pointerdown', e => { e.preventDefault(); tapNow(); });
+document.addEventListener('keydown', e => {
+  if (e.key === ' ' && timing && !timing.done && !$('#battleCard').hidden){ e.preventDefault(); tapNow(); }
+});
+
+const SAY = { perfect: '강타!', good: '명중', miss: '빗나감…', skill: '기술!' };
+
+async function act(kind){
+  const b = battle;
+  if (!b || b.busy) return;
+  b.busy = true; b.guard = false; renderMenu();
+  if (kind === 'run'){
+    if (b.week){ log('오늘은 여기까지. 낸 피해는 남아 있어요.'); }
+    else log('도망쳤어요. 다음에 다시!');
+    await wait(500); endBattle(); return;
+  }
+  if (kind === 'attack'){
+    const r = await startTiming();
+    const dmg = Q.heroHit(st, r);
+    if (!b.week) b.energy = Math.min(Q.SKILL_COST, b.energy + 1);
+    await hitFoe(dmg, r);
+  } else if (kind === 'skill'){
+    b.energy = 0;
+    sfx(hero.skillSfx);
+    await hitFoe(Q.heroHit(st, 'skill'), 'skill');
+  } else if (kind === 'guard'){
+    b.guard = true; b.energy = Math.min(Q.SKILL_COST, b.energy + 1);
+    const heal = Math.min(st.guardHeal, st.maxHp - save.hp);
+    save.hp += heal; sfx('drip');
+    addFx(hero.name, '+' + heal, '#6fb567', true);
+    log('<b>방어</b> 자세! 체력 ' + heal + ' 회복. 이번 턴은 받는 피해가 절반이에요.');
+    renderBars(); await wait(500);
+  } else if (kind === 'potion'){
+    save.potions--; b.energy = Math.min(Q.SKILL_COST, b.energy + 1);
+    const heal = Math.min(Math.round(st.maxHp * Q.SHOP.potion.heal), st.maxHp - save.hp);
+    save.hp += heal; sfx('drip');
+    addFx(hero.name, '+' + heal, '#6fb567', true);
+    log('<b>물약</b>을 마셨어요. 체력 ' + heal + ' 회복.');
+    renderBars(); await wait(500);
+  }
+
+  if (b.week){
+    // 이번 주 보스는 때리기만 한다. 오늘 몫을 다 쓰면 끝.
+    if (weekTotal(save.week.key) >= b.foe.hp){
+      log('<b>' + b.foe.name + '</b>' + J2(b.foe.name, '이', '가') + ' 쓰러졌어요! 보상은 지도 아래에서 받아요.');
+      sfx('fanfare'); await wait(900); endBattle(); return;
+    }
+    if (save.week.swings >= Q.WEEK.swingsPerDay){
+      log('오늘 몫을 다 때렸어요. 내일 또 ' + Q.WEEK.swingsPerDay + '번!');
+      await wait(700); endBattle(); return;
+    }
+    b.busy = false; renderMenu(); persist(); return;
+  }
+
+  if (b.fhp <= 0){ await win(); return; }
+  await foeTurn();
+  if (save.hp <= 0){ await lose(); return; }
+  b.busy = false; renderMenu(); persist();
+}
+
+async function hitFoe(dmg, kind){
+  const b = battle;
+  heroLunge = now();
+  await wait(140);
+  if (b.week){ dmg *= Q.WEEK.swingMult; save.week.dmg += dmg; save.week.swings++; }
+  else b.fhp -= dmg;
+  shake.foe = now(); flash = kind === 'perfect' || kind === 'skill' ? now() : 0;
+  sfx(kind === 'miss' ? 'prop' : kind === 'perfect' ? 'sparkle' : 'boing');
+  addFx(b.foe.name, '-' + dmg, kind === 'perfect' || kind === 'skill' ? '#ffd979' : '#ffffff', false);
+  log('<b>' + SAY[kind] + '</b> ' + b.foe.name + '에게 <b>' + dmg + '</b> 피해' +
+      (kind === 'perfect' ? ' — 칸 한가운데!' : kind === 'miss' ? ' — 칸을 놓쳤어요' : '') + (b.week ? ' (합계 ' + weekTotal(save.week.key) + ')' : ''));
+  renderBars();
+  await wait(520);
+}
+
+async function foeTurn(){
+  const b = battle, foe = b.foe;
+  // 대장은 세 턴마다 힘을 모은다 — 다음 공격이 두 배. 방어하면 반으로 돌아온다.
+  if (foe.boss && !b.charged && (++b.turn) % 3 === 0){
+    b.charged = true; sfx('thud');
+    log('<b>' + foe.name + '</b>' + J2(foe.name, '이', '가') + ' 힘을 모아요! 다음 공격이 세요 — <b>방어</b>하면 좋아요.');
+    await wait(700); return;
+  }
+  if (!foe.boss) b.turn++;
+  foeLunge = now();
+  await wait(160);
+  if (Math.random() < st.dodge){
+    b.charged = false; sfx('pop');
+    addFx(hero.name, '피함!', '#ffffff', true);
+    log(hero.name + J2(hero.name, '이', '가') + ' 재빠르게 <b>피했어요</b>!');
+    await wait(500); return;
+  }
+  const dmg = Q.foeHit(foe, st, b.guard, b.charged);
+  b.charged = false;
+  save.hp = Math.max(0, save.hp - dmg);
+  shake.hero = now(); sfx('thud');
+  addFx(hero.name, '-' + dmg, '#ff6b6b', true);
+  log(foe.name + '의 공격! ' + hero.name + J2(hero.name, '이', '가') + ' <b>' + dmg + '</b> 피해' + (b.guard ? ' (방어로 절반)' : ''));
+  renderBars();
+  await wait(520);
+}
+
+async function win(){
+  const b = battle, foe = b.foe;
+  sfx('fanfare');
+  save.gold += foe.gold; save.xp += foe.xp; save.fights++;
+  if (foe.boss){ save.boss[foe.area] = true; } else save.wins[foe.area]++;
+  log('<b>이겼어요!</b> 경험치 +' + foe.xp + ' · 금화 +' + foe.gold +
+      (foe.boss && foe.area < Q.AREAS.length - 1 ? ' — <b>' + Q.AREAS[foe.area + 1].name + '</b>이 열렸어요!' : '') +
+      (foe.boss && foe.area === Q.AREAS.length - 1 ? ' — 열 무대를 다 돌았어요. 정말 대단해요!' : ''));
+  refreshStats();
+  renderBars();
+  await wait(1300);
+  endBattle();
+}
+async function lose(){
+  const lost = save.gold - Math.floor(save.gold * Q.SHOP.lose.goldKeep);
+  save.gold -= lost; save.hp = 1;
+  sfx('thud');
+  log('<b>쓰러졌어요…</b> 금화 ' + lost + '을 잃었어요. 여관에서 쉬거나 물약을 챙겨 다시 와요.');
+  renderBars();
+  await wait(1500);
+  endBattle();
+}
+
+// ---------- 그리기 ----------
+function addFx(who, txt, color, isHero){
+  fx.push({ txt, color, t0: now(), x: isHero ? 70 : 250, y: 70 });
+}
+function loopOn(){ if (!raf) raf = requestAnimationFrame(frame); }
+function loopOff(){ if (raf) cancelAnimationFrame(raf); raf = 0; }
+function frame(){ draw(); raf = battle ? requestAnimationFrame(frame) : 0; }
+
+function bump(t0, ms, amp){
+  if (!t0) return 0;
+  const d = now() - t0; if (d > ms) return 0;
+  return Math.round(Math.sin(d / ms * Math.PI * 4) * amp * (1 - d / ms));
+}
+function lunge(t0){
+  if (!t0) return 0;
+  const d = now() - t0; if (d > 300) return 0;
+  return Math.round(Math.sin(d / 300 * Math.PI) * 14);
+}
+
+function draw(){
+  if (!battle) return;
+  const A = Q.AREAS[battle.foe.area];
+  ctx.setTransform(2, 0, 0, 2, 0, 0);
+  // 하늘 다섯 띠
+  A.sky.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, i * 26, W, 26); });
+  // 먼 언덕 · 가까운 언덕 — 도트답게 계단으로
+  hill(A.far, 104, 14, 60, 3);
+  hill(A.near, 132, 10, 42, 5);
+  // 땅
+  ctx.fillStyle = A.ground; ctx.fillRect(0, GROUND - 12, W, H);
+  ctx.fillStyle = A.groundDark; ctx.fillRect(0, GROUND - 12, W, 3);
+  for (let x = 0; x < W; x += 24){ ctx.fillRect(x + (x / 24 % 2) * 6, GROUND + 6, 8, 2); }
+
+  // 주인공
+  const hs = SPRITES[hero.sprite];
+  const hx = 34 + lunge(heroLunge) + bump(shake.hero, 320, 4), hy = GROUND - hs.length * 2;
+  shadow(hx + hs[0].length, GROUND + 2, 30);
+  drawSprite(ctx, hs, hx, hy, 2);
+
+  // 상대
+  const foe = battle.foe, fs = SPRITES[foe.sp], fw = fs[0].length * foe.s, fh = fs.length * foe.s;
+  const fx0 = W - 36 - fw - lunge(foeLunge) + bump(shake.foe, 320, 5);
+  const fy = GROUND - fh + (foe.boss ? 0 : Math.round(Math.sin(now() / 260) * 2));
+  shadow(fx0 + fw / 2, GROUND + 2, fw * 0.6);
+  if (flash && now() - flash < 120){ ctx.globalAlpha = 0.5; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+  if (battle.charged){ ctx.fillStyle = 'rgba(255,107,107,.35)'; ctx.fillRect(fx0 - 6, fy - 6, fw + 12, fh + 12); }
+  drawSprite(ctx, fs, fx0, fy, foe.s);
+
+  // 떠오르는 숫자
+  const keep = [];
+  fx.forEach(f => {
+    const d = now() - f.t0; if (d > 900) return; keep.push(f);
+    ctx.globalAlpha = 1 - d / 900;
+    ctx.font = '700 12px "Galmuri11", "Pretendard Variable", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#2f2a24'; ctx.fillText(f.txt, f.x + 1, f.y - d / 22 + 1);
+    ctx.fillStyle = f.color; ctx.fillText(f.txt, f.x, f.y - d / 22);
+    ctx.globalAlpha = 1;
+  });
+  fx = keep;
+
+  // 타이밍 바
+  if (timing){
+    const bx = 60, by = 10, bw = 200, bh = 12;
+    ctx.fillStyle = '#2f2a24'; ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+    ctx.fillStyle = '#fffaf2'; ctx.fillRect(bx, by, bw, bh);
+    const zx = bx + (timing.center - timing.zone / 2) / 100 * bw, zw = timing.zone / 100 * bw;
+    ctx.fillStyle = '#ffd979'; ctx.fillRect(zx, by, zw, bh);
+    ctx.fillStyle = '#ff7f8a'; ctx.fillRect(zx + zw / 4, by, zw / 2, bh);
+    const pos = timing.done ? timing.pos : markerPos(now());
+    ctx.fillStyle = '#2f2a24'; ctx.fillRect(bx + pos / 100 * bw - 2, by - 4, 4, bh + 8);
+    ctx.font = '700 10px "Galmuri11", "Pretendard Variable", sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = A.dark ? '#fff' : '#2f2a24';
+    ctx.fillText(timing.done ? SAY[timing.result] : '칸 안에서 톡!', W / 2, by + bh + 14);
+  }
+}
+function hill(color, top, amp, wave, s){
+  ctx.fillStyle = color;
+  for (let x = 0; x < W; x += s){
+    const y = top + Math.round(Math.sin(x / wave * Math.PI * 2) * amp / s) * s;
+    ctx.fillRect(x, y, s, H - y);
+  }
+}
+function shadow(cx, cy, w){
+  ctx.fillStyle = 'rgba(47,42,36,.22)';
+  ctx.beginPath(); ctx.ellipse(cx, cy, w / 2, 3, 0, 0, Math.PI * 2); ctx.fill();
+}
+
+// 시험용 손잡이. 화면을 안 거치고 규칙대로 도는지 확인할 때 쓴다.
+window.__quest = {
+  get state(){ return { key, save, st, battle, timing: !!timing, facts }; },
+  act, startBattle, endBattle, tapNow,
+  foe: (a, i) => Q.foeAt(a, i), boss: a => Q.bossAt(a), weekFoe,
+};
+
+boot();
+</script>
+</body>
+</html>

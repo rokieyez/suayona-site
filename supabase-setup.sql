@@ -932,3 +932,47 @@ alter table public.growth drop constraint if exists growth_who_day_key;
 alter table public.growth drop constraint if exists growth_who_day_kind_key;
 alter table public.growth add  constraint growth_who_day_kind_key
   unique (who, measured_on, kind);
+
+-- ---------------------------------------------------------------------------
+-- quest_saves — 도트 모험단 세이브 (quest.html)
+--
+-- 아이 한 명당 한 줄. 경험치·금화·장비·무대 진행이 jsonb 하나에 들어간다.
+-- 누구나 읽을 수 있다 — 손님 화면의 「모험가 둘」과 자매가 합쳐 때리는 이번 주
+-- 보스가 서로의 줄을 읽어야 해서다. 쓰는 건 제 줄만.
+--
+-- 현실 연동은 저장하지 않는다. quest_facts 가 일기·작품·달리기·나들이·키를
+-- 그때그때 센다. 화면이 세면 조작할 수 있지만 서버가 세면 못 한다.
+-- security invoker 라 부른 사람이 볼 수 있는 줄만 센다.
+-- ---------------------------------------------------------------------------
+create table if not exists public.quest_saves (
+  who        text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  constraint quest_saves_who_ok  check (who in ('sua', 'yona')),
+  constraint quest_saves_data_sz check (pg_column_size(data) < 8192)
+);
+alter table public.quest_saves enable row level security;
+
+drop policy if exists "anyone reads quest saves" on public.quest_saves;
+create policy "anyone reads quest saves" on public.quest_saves for select using (true);
+drop policy if exists "child starts own quest" on public.quest_saves;
+create policy "child starts own quest" on public.quest_saves for insert
+  with check (public.my_role() = 'child' and who = public.my_author_key());
+drop policy if exists "child keeps own quest" on public.quest_saves;
+create policy "child keeps own quest" on public.quest_saves for update
+  using (who = public.my_author_key()) with check (who = public.my_author_key());
+
+create or replace function public.quest_facts(p_who text)
+returns jsonb
+language sql stable security invoker set search_path = public as $$
+  select jsonb_build_object(
+    'diaries',  (select count(*) from posts where author = p_who and status = 'published'),
+    'works',    (select count(*) from works where author = p_who),
+    'run_best', (select coalesce(max(score), 0) from run_scores where who = p_who),
+    'outings',  (select count(distinct event_id) from events where event_id is not null),
+    'height',   (select cm from growth
+                  where who = case p_who when 'sua' then '수아' when 'yona' then '연아' end
+                    and kind = 'height'
+                  order by measured_on desc limit 1)
+  );
+$$;

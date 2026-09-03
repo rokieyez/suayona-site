@@ -85,7 +85,10 @@
 buildChrome('notes');
 
 // 우체통은 아이 둘의 것이다. 짝이 누구인지는 이름으로 정해진다.
-const PAIR = { '수아': '연아', '연아': '수아' };
+// 열쇠는 프로필의 author_key(sua/yona)다. 한글 이름으로 찾고 있어서 아이로
+// 들어와도 짝이 없다고 문이 닫혔다 — 쪽지가 한 통도 없던 이유가 이것이었다.
+const PAIR = { sua: 'yona', yona: 'sua' };
+const NAME = { sua: '수아', yona: '연아' };
 let myKey = null, youKey = null;
 
 function fmt(iso){
@@ -112,8 +115,8 @@ async function boot(){
   }
   $('#gate').hidden = true;
   $('#box').hidden = false;
-  $('#nTo').textContent = youKey + '에게';
-  $('#lead').textContent = myKey + '와 ' + youKey + '만 주고받는 쪽지예요';
+  $('#nTo').textContent = NAME[youKey] + '에게';
+  $('#lead').textContent = NAME[myKey] + '와 ' + NAME[youKey] + '만 주고받는 쪽지예요';
   await load();
 }
 
@@ -135,7 +138,7 @@ async function load(){
     el.className = 'dot-card note reveal ' + (mine ? 'mine' : 'theirs') + (unread ? ' unread' : '');
     el.innerHTML =
       (unread ? '<span class="new pixel">NEW</span>' : '') +
-      '<div class="head">' + escapeHTML(mine ? '나 ▸ ' + n.to_who : n.from_who + ' ▸ 나') +
+      '<div class="head">' + escapeHTML(mine ? '나 ▸ ' + (NAME[n.to_who] || n.to_who) : (NAME[n.from_who] || n.from_who) + ' ▸ 나') +
         ' · ' + escapeHTML(fmt(n.created_at)) + '</div>' +
       '<p class="body">' + escapeHTML(n.body) + '</p>';
     list.appendChild(el);
