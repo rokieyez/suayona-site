@@ -2300,13 +2300,22 @@ $$('canvas[data-char]').forEach(cv => {
   $('#gWhen').value = today.toISOString().slice(0, 10);
   $('#gSave').addEventListener('click', async () => {
     const msg = $('#gMsg');
-    const cm = Number($('#gCm').value);
-    if (!cm) { msg.textContent = '키를 적어주세요'; return; }
+    const raw = $('#gCm').value.trim();
+    const cm = Number(raw);
+    if (!raw || !isFinite(cm) || cm === 0) { msg.textContent = '키를 적어주세요'; return; }
+    // 서버도 50~200cm 만 받는다. 여기서 먼저 막아야 「무슨 소린지 모를 영어」 대신
+    // 무엇이 잘못됐는지가 보인다 — 미터로 1.3 이라 적으면 늘 걸린다.
+    if (cm < 50 || cm > 200) {
+      msg.textContent = '키는 50~200cm 사이로 적어주세요. (적으신 값: ' + raw + ')';
+      return;
+    }
+    const when = $('#gWhen').value;
+    if (!when) { msg.textContent = '잰 날짜를 골라주세요'; return; }
     msg.textContent = '새기는 중...';
     const { error } = await sb.from('growth').upsert({
-      who: $('#gWho').value, measured_on: $('#gWhen').value, cm,
+      who: $('#gWho').value, measured_on: when, cm: Math.round(cm * 10) / 10,
     }, { onConflict: 'who,measured_on' });
-    msg.textContent = error ? ('안 됐어요: ' + error.message) : '새겼어요!';
+    msg.textContent = error ? ('안 됐어요: ' + readableError(error)) : '새겼어요!';
     if (!error) { $('#gCm').value = ''; await draw(); }
   });
 })().catch(() => {});
@@ -2659,7 +2668,8 @@ $$('canvas[data-char]').forEach(cv => {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
     GY = Math.round(H - 26);
-    if (state !== 'play') draw(0);
+    buildRainbow();
+    if (state !== 'play') draw();
   }
 
   function reset(){
@@ -2675,6 +2685,30 @@ $$('canvas[data-char]').forEach(cv => {
   // 「빨라졌다」 를 숫자가 아니라 풍경으로 알게 된다. 뒤로 갈수록 하늘이
   // 어두워져서 마지막 화산에서는 밤이 된다.
   //   night 0~1 은 그 무대가 얼마나 어두운지 — 글씨색과 장애물 테두리를 여기서 뒤집는다.
+  // 무지개 빛. 매 프레임 칸을 다 칠하면 fillRect 가 3천 번 넘게 든다 —
+  // 크기가 바뀔 때 한 번 그려 두고 재사용한다. 배경은 화면 크기 말고는 변할 게 없다.
+  const RB_COLORS = ['#ff9aa2', '#ffc78a', '#fff3a0', '#b7e8a8', '#a8d8f2', '#b9a3d6', '#f0aee0'];
+  const rbLayer = document.createElement('canvas');
+  function buildRainbow(){
+    rbLayer.width = Math.max(1, Math.floor(W * dpr));
+    rbLayer.height = Math.max(1, Math.floor(H * dpr));
+    const g = rbLayer.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.imageSmoothingEnabled = false;
+    g.clearRect(0, 0, W, H);
+    const ax = W * 0.5, ay = -46;
+    for (let y = 0; y < GY; y += CELL){
+      const k = (y - ay) / (GY - ay);              // 0 꼭대기 → 1 지평선
+      g.globalAlpha = 0.09 + 0.26 * k;             // 아래로 갈수록 진하게
+      for (let x = 0; x < W; x += CELL){
+        const rel = (x + CELL / 2 - ax) / (W * (0.16 + k * 0.92));
+        const i = Math.floor(rel * 3.5) + 70;      // 음수 나머지를 피하려고 크게 더한다
+        g.fillStyle = RB_COLORS[i % RB_COLORS.length];
+        g.fillRect(x, y, CELL, CELL);
+      }
+    }
+  }
+
   const STAGES = [
     { name: '들판',
       sky: ['#bfe4f7', '#a8d8f2', '#9ad0ef', '#cfe9fa', '#eaf3ea'],
@@ -2757,12 +2791,25 @@ $$('canvas[data-char]').forEach(cv => {
       deco: { sp: 'planet', s: 2, gap: 0.95, off: -46, back: true },
       cloud: 0, star: 1, glow: null, ember: 0, inkLight: 1, textLight: 1 },
 
+    // 천국만 다른 규칙으로 그린다. 언덕도 흙길도 없다 —
+    // 무지개 빛이 하늘에서 아래로 퍼지고, 땅은 구름 바다다.
     { name: '천국',
-      sky: ['#fff3d0', '#ffe9b8', '#ffdca0', '#ffeccb', '#fff8e6'],
-      far:  { kind: 'hill',  color: '#ffe7bc', edge: '#fff6e0', amp: 14, wave: 100, off: 30 },
-      near: { kind: 'hill',  color: '#f6dcae', edge: '#fff0cf', amp: 10, wave: 66,  off: 10 },
-      ground: ['#fdf3dc', '#e8d3a8', '#f3e6c6'],
-      deco: { sp: 'cloudL', s: 3, gap: 0.7, off: -34, back: true },
+      sky: ['#efd9ff', '#f9e2fa', '#ffe8f2', '#fff3ea', '#fffaf2'],
+      far:  { kind: 'cloudsea', color: '#ffe6f4', edge: '#ffffff', amp: 16, wave: 96, off: 36 },
+      near: { kind: 'cloudsea', color: '#f7d9ef', edge: '#fff8fd', amp: 11, wave: 60, off: 12 },
+      ground: ['#fdf6ff', '#f2ddf7', '#ffffff'],
+      groundKind: 'cloud',
+      rainbow: true,
+      deco: null,
+      // 아주 먼 곳 둘 — 흰 옷을 길게 늘어뜨린 사람과, 빛나는 황금성.
+      // 서로 다른 속도로 흘러서 깊이가 생긴다.
+      bg2: [
+        { sp: 'walker',   s: 2, gap: 2.4, off: -26, speed: 0.030,
+          pal: { E: '#ffffff', S: '#f0e2f6', O: '#c9a98f', N: '#ffeede', G: '#ffe66d' } },
+        // 구름 위 높은 곳에 띄운다. 지면에 맞추면 구름 바다에 가려 안 보이고,
+        // 크게 키우면 저 멀리가 아니라 눈앞에 있는 것처럼 보인다.
+        { sp: 'goldCity', s: 2, gap: 2.4, off: -76, speed: 0.018 },
+      ],
       cloud: 1, star: 0, glow: null, ember: 0, inkLight: 0, textLight: 0 },
   ];
   const XFADE = 4;           // 무대가 겹쳐 넘어가는 시간(초)
@@ -2814,6 +2861,21 @@ $$('canvas[data-char]').forEach(cv => {
       }
       return;
     }
+    if (L.kind === 'cloudsea'){
+      // 언덕처럼 한 겹으로 칠하되 능선을 세 겹 사인으로 울퉁불퉁하게 만들고,
+      // 꼭대기에 밝은 단을 두 칸 얹어 뭉게뭉게 보이게 한다.
+      for (let x = 0; x < W; x += CELL){
+        const u = x + off;
+        const raw = GY - L.off
+          - Math.sin(u / L.wave) * L.amp
+          - Math.sin(u / (L.wave * 0.33)) * L.amp * 0.5
+          - Math.sin(u / (L.wave * 0.13)) * L.amp * 0.25;
+        const y = Math.round(raw / CELL) * CELL;
+        ctx.fillStyle = L.edge;  ctx.fillRect(x, y, CELL, CELL * 2);
+        ctx.fillStyle = L.color; ctx.fillRect(x, y + CELL * 2, CELL, H - y - CELL * 2);
+      }
+      return;
+    }
     if (L.kind === 'city'){
       // 블록 하나가 건물 하나. 높이는 자리에서 뽑아 늘 같은 스카이라인이 나온다.
       const bw = CELL * 7;
@@ -2853,6 +2915,9 @@ $$('canvas[data-char]').forEach(cv => {
       ctx.fillRect(0, Math.round(GY * i / n), W, Math.ceil(GY / n) + 1);
     }
 
+    // 무지개 빛 — 하늘 꼭대기 한 점에서 아래로 부챗살처럼 퍼진다
+    if (st.rainbow) ctx.drawImage(rbLayer, 0, 0, W, H);
+
     if (st.star > 0){
       ctx.fillStyle = '#fff8e0';
       STARS.forEach((s2, i) => {
@@ -2871,15 +2936,20 @@ $$('canvas[data-char]').forEach(cv => {
       }
     }
 
-    // 아주 먼 곳 — 언덕보다도 뒤에서, 언덕보다도 느리게 지나간다
-    if (st.bg2 && SPRITES[st.bg2.sp]){
-      const b = st.bg2, bsp = SPRITES[b.sp];
-      const bw = bsp[0].length * b.s, bh = bsp.length * b.s;
-      const bgap = Math.max(bw + 120, W * (b.gap || 1.4));
-      for (let i = 0; i < 3; i++){
-        const bx = W - ((dist * (b.speed || 0.05) + i * bgap) % (W + bgap + bw)) + bw;
-        drawSprite(ctx, bsp, Math.round(bx / 2) * 2, GY - bh + (b.off || 0), b.s, b.pal);
-      }
+    // 아주 먼 곳 — 언덕보다도 뒤에서, 언덕보다도 느리게 지나간다.
+    // 하나만 쓰는 무대(발사기지)와 둘을 겹치는 무대(천국)가 있어 배열도 받는다.
+    if (st.bg2){
+      const list = Array.isArray(st.bg2) ? st.bg2 : [st.bg2];
+      list.forEach(b => {
+        const bsp = SPRITES[b.sp];
+        if (!bsp) return;
+        const bw = bsp[0].length * b.s, bh = bsp.length * b.s;
+        const bgap = Math.max(bw + 120, W * (b.gap || 1.4));
+        for (let i = 0; i < 3; i++){
+          const bx = W - ((dist * (b.speed || 0.05) + i * bgap) % (W + bgap + bw)) + bw;
+          drawSprite(ctx, bsp, Math.round(bx / 2) * 2, GY - bh + (b.off || 0), b.s, b.pal);
+        }
+      });
     }
 
     if (st.cloud > 0){
@@ -2924,11 +2994,25 @@ $$('canvas[data-char]').forEach(cv => {
 
     // 땅
     ctx.fillStyle = st.ground[0]; ctx.fillRect(0, GY, W, H - GY);
-    ctx.fillStyle = st.ground[1]; ctx.fillRect(0, GY, W, CELL);
-    ctx.fillStyle = st.ground[2];
-    for (let i = 0; i < 16; i++){
-      const gx = W - ((dist + i * 53) % (W + 40)) + 20;
-      ctx.fillRect(Math.round(gx / CELL) * CELL, GY + 8 + (i % 3) * 5, CELL, CELL);
+    if (st.groundKind === 'cloud'){
+      // 흙길 대신 구름 바닥. 지평선을 울퉁불퉁하게 만들고 빛 알갱이를 흘린다.
+      ctx.fillStyle = st.ground[1];
+      for (let x = 0; x < W; x += CELL){
+        const b = Math.sin((x + dist) / 23) + Math.sin((x + dist) / 9);
+        ctx.fillRect(x, GY - CELL * (b > 0.8 ? 2 : (b > -0.4 ? 1 : 0)), CELL, CELL * 3);
+      }
+      ctx.fillStyle = st.ground[2];
+      for (let i = 0; i < 20; i++){
+        const gx = W - ((dist + i * 41) % (W + 40)) + 20;
+        ctx.fillRect(Math.round(gx / CELL) * CELL, GY + 7 + (i % 4) * 5, CELL, CELL);
+      }
+    } else {
+      ctx.fillStyle = st.ground[1]; ctx.fillRect(0, GY, W, CELL);
+      ctx.fillStyle = st.ground[2];
+      for (let i = 0; i < 16; i++){
+        const gx = W - ((dist + i * 53) % (W + 40)) + 20;
+        ctx.fillRect(Math.round(gx / CELL) * CELL, GY + 8 + (i % 3) * 5, CELL, CELL);
+      }
     }
 
     // 불티 — 화산에서만 떠오른다

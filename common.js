@@ -480,6 +480,21 @@ function readableError(e){
     return '사진을 내려받지 못했어요 (' + m + ')';
   if (/tainted|SecurityError/i.test(m))
     return '브라우저가 사진 읽기를 막았어요. 새로고침한 뒤 다시 눌러주세요.';
+  // 서버가 값의 범위를 막았을 때. 원문은 영어라 아이가 읽을 수 없다.
+  if (/check constraint/i.test(m)){
+    // 따옴표가 두 번 나온다 — 앞은 표 이름, 뒤가 규칙 이름이다.
+    // 그냥 첫 따옴표를 집었더니 늘 표 이름만 잡혀 아무것도 안 걸렸다.
+    const c = (m.match(/check constraint "([^"]+)"/i) || [])[1] || '';
+    const SAY = {
+      growth_cm:            '키는 50~200cm 사이로 적어주세요.',
+      growth_cm_ok:         '키는 50~200cm 사이로 적어주세요.',
+      run_scores_name_len:  '이름은 1~8글자로 적어주세요.',
+      run_scores_score_ok:  '점수가 저장할 수 있는 범위를 넘었어요.',
+      capsules_body_check:  '편지는 200자까지 쓸 수 있어요.',
+      doodles_theme_len:    '주제가 너무 길어요.',
+    };
+    return SAY[c] || ('적어주신 값이 규칙에 안 맞아요 (' + (c || m) + ')');
+  }
   return m;
 }
 
