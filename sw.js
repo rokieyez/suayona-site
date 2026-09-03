@@ -39,10 +39,13 @@ self.addEventListener('fetch', e => {
         caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
       }
       return res;
-    }).catch(() =>
-      caches.match(req).then(hit =>
-        hit || (req.mode === 'navigate' ? caches.match(OFFLINE) : Response.error())
-      )
-    )
+    }).catch(() => caches.match(req).then(hit => {
+      if (hit) return hit;
+      // 주소 뒤에 ?v=… 가 붙어 담긴 것을 그냥 「/」로 들어와도 찾게 한다.
+      // 캐시 무시용 꼬리표 하나 때문에 오프라인 안내로 떨어지곤 했다.
+      return caches.match(req, { ignoreSearch: true }).then(loose =>
+        loose || (req.mode === 'navigate' ? caches.match(OFFLINE) : Response.error())
+      );
+    }))
   );
 });
