@@ -373,6 +373,14 @@ const QUEST = (() => {
     return { key: who, kind: heal ? 'heal' : 'atk', amount: heal ? FRIEND.heal(st) : FRIEND.atk(st) };
   }
 
+  // ---------- 연승 ----------
+  // 이길 때마다 하나씩 쌓이고, 쓰러지면 0으로 돌아간다(도망은 안 끊는다 —
+  // 도망은 진 게 아니라 물러난 것이다). 상자에서 나오는 금화·경험치에
+  // 붙는 배율. 10연승에서 +50% 로 막아 둔다 — 안 그러면 잘하는 아이일수록
+  // 격차가 계속 벌어져 동생이 따라잡을 길이 없어진다.
+  const STREAK = { cap: 10, per: 0.05 };
+  function streakMult(n){ return 1 + Math.min(Math.max(0, n || 0), STREAK.cap) * STREAK.per; }
+
   // ---------- 보물 상자 ----------
   // 이겼을 때 가끔(대장은 늘) 열린다. 무엇이 나올지 몰라야 여는 재미가 있다.
   const CHEST = { chance: boss => (boss ? 1 : 0.22) };
@@ -393,6 +401,7 @@ const QUEST = (() => {
     { id: 'gear',   name: '빛나는 장비',        ok: (s) => (s.weapon || 0) >= 3 && (s.armor || 0) >= 3 },
     { id: 'week',   name: '함께 이긴 사람',      ok: (s) => (s.weekWins || 0) >= 1 },
     { id: 'lv10',   name: '베테랑 모험가',      ok: (s, st) => st.lv >= 10 },
+    { id: 'streak5', name: '연승 행진',        ok: (s) => (s.bestStreak || 0) >= 5 },
     { id: 'all',    name: '세계를 돈 사람',      ok: (s) => s.boss.length >= 10 && s.boss.slice(0, 10).every(Boolean) },
   ];
   function titlesOf(save, st){ return TITLES.filter(t => { try { return t.ok(save, st); } catch (e) { return false; } }); }
@@ -451,6 +460,8 @@ const QUEST = (() => {
       gear: { weapon: null, armor: null }, // 장비에 붙인 그림 ({ n, s })
       journalDay: '',                     // 모험 일지를 남긴 날 — 하루 한 편
       chests: 0,                          // 연 상자 수
+      streak: 0,                          // 지금 이어지는 연승 — 쓰러지면 0으로
+      bestStreak: 0,                      // 가장 길었던 연승 — 칭호 근거
     };
   }
   // 옛 세이브에 없는 칸을 채운다. 규칙이 늘어도 예전 줄이 깨지지 않게.
@@ -499,7 +510,7 @@ const QUEST = (() => {
   }
 
   return {
-    HEROES, AREAS, REAL, SHOP, WEEK, TUNE_DEFAULT, HIT_MULT, ELEM, STRONG, TITLES, CHEST, FRIEND,
+    HEROES, AREAS, REAL, SHOP, WEEK, TUNE_DEFAULT, HIT_MULT, ELEM, STRONG, TITLES, CHEST, FRIEND, STREAK, streakMult,
     BOSS_SAY, BOSS_SKIP, BOSS_HEAL, BOSS_GUARD_CUT, MAX_ENERGY,
     WINS_FOR_BOSS, COMBO_MULT, STREAK_FOR_FANFARE, TAME_WINS, CHEER_HEAL, HIDDEN_DAYS,
     levelOf, xpForLevel, realXp, stats, foeAt, bossAt, bossAct, heroHit, foeHit, judge,

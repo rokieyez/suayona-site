@@ -37,6 +37,7 @@
     display:inline-block; font-size:10.5px; font-weight:800; padding:2px 7px; margin-top:3px;
     border:2px solid var(--ink); background:var(--lemon); color:var(--ink);
   }
+  .badge.streak{background:#ffd9c2; margin-left:4px;}
   .xp{height:10px; border:2px solid var(--ink); background:#fff; margin:6px 0 10px; position:relative;}
   .xp i{position:absolute; left:0; top:0; bottom:0; background:var(--lemon);}
   .stat{display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:13px; align-items:baseline;}
@@ -188,7 +189,7 @@
             <div>
               <div class="nm" id="heroName"></div>
               <div class="lv" id="heroLv"></div>
-              <span class="badge" id="titleNow" hidden></span>
+              <span class="badge" id="titleNow" hidden></span><span class="badge streak" id="streakNow" hidden></span>
             </div>
           </div>
           <div class="xp"><i id="xpFill"></i></div>
@@ -404,6 +405,8 @@ function renderStatus(){
   $('#heroLv').textContent = '레벨 ' + st.lv + ' · 경험치 ' + st.xp + ' / ' + st.next;
   const t = Q.titleOf(save, st), tb = $('#titleNow');
   tb.hidden = !t; if (t) tb.textContent = '🏅 ' + t.name;
+  const sk = save.streak || 0, skb = $('#streakNow');
+  skb.hidden = sk < 2; if (sk >= 2) skb.textContent = '🔥 ' + sk + '연승';
   const span = st.next - st.prev;
   $('#xpFill').style.width = Math.round(100 * (st.xp - st.prev) / span) + '%';
   const p = st.parts;
@@ -992,6 +995,8 @@ async function win(){
   const b = battle, foe = b.foe, A = Q.AREAS[foe.area];
   sfx('fanfare');
   save.gold += foe.gold; save.xp += foe.xp; save.fights++;
+  save.streak = (save.streak || 0) + 1;
+  save.bestStreak = Math.max(save.bestStreak || 0, save.streak);
   let extra = '';
   if (foe.boss){
     save.boss[foe.area] = true;
@@ -1021,14 +1026,18 @@ async function win(){
   // 보물 상자 — 대장은 늘, 일반 상대는 가끔.
   if (Math.random() < Q.CHEST.chance(foe.boss)){
     const c = Q.openChest(foe);
+    const mult = Q.streakMult(save.streak);
+    if (c.gold) c.gold = Math.round(c.gold * mult);
+    if (c.xp) c.xp = Math.round(c.xp * mult);
     save.chests = (save.chests || 0) + 1;
     if (c.gold) save.gold += c.gold;
     if (c.potions) save.potions = Math.min(Q.SHOP.potion.max, save.potions + c.potions);
     if (c.xp) save.xp += c.xp;
     chestAt = now(); sfx('key');
     addFx(hero.name, '🎁', '#ffd979', true);
+    const streakSay = save.streak >= 2 ? ' (🔥 ' + save.streak + '연승 · ×' + mult.toFixed(2) + ')' : '';
     log('🎁 <b>보물 상자!</b> ' + c.say + ' ' +
-      (c.gold ? '금화 +' + c.gold : c.potions ? '물약 +' + c.potions : '경험치 +' + c.xp));
+      (c.gold ? '금화 +' + c.gold : c.potions ? '물약 +' + c.potions : '경험치 +' + c.xp) + streakSay);
     refreshStats(); renderBars();
     await wait(1500);
   }
@@ -1037,6 +1046,7 @@ async function win(){
 async function lose(){
   const lost = save.gold - Math.floor(save.gold * Q.SHOP.lose.goldKeep);
   save.gold -= lost; save.hp = 1;
+  save.streak = 0;
   sfx('thud');
   log('<b>쓰러졌어요…</b> 금화 ' + lost + J2(lost, '을', '를') + ' 잃었어요. 여관에서 쉬거나 물약을 챙겨 다시 와요.');
   renderBars();
