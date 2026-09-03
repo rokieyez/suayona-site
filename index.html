@@ -68,14 +68,17 @@
      배경이 도트 그림인데 단추만 매끈해서 겉돌았으므로, 아래 메뉴 카드에서 쓰는
      같은 도트 아이콘을 단추 안에 넣어 배경과 한 식구로 묶었다. */
   .hero-actions{
-    display:grid; grid-template-columns:1fr 1fr; gap:8px;
-    width:100%; max-width:330px; margin-top:14px;
+    display:grid; grid-template-columns:1fr 1fr; gap:7px;
+    width:100%; max-width:300px; margin-top:14px;
   }
+  /* 단추는 아이들이 누르는 곳이라 작게 만들 수는 없다. 다만 풍경을 가리지 않을
+     만큼은 줄인다 — 아이콘은 그대로 두고 여백과 글씨만 깎았다. 도트 아이콘은
+     크기를 바꾸면 뭉개지기 때문. 높이 50px → 44px. */
   .hero-btn{
-    display:flex; align-items:center; justify-content:center; gap:7px;
-    padding:8px 10px; border:var(--px) solid var(--ink);
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:6px 8px; border:var(--px) solid var(--ink);
     background:var(--cream); color:var(--ink); text-decoration:none;
-    font-weight:800; font-size:13px; letter-spacing:-.01em; white-space:nowrap;
+    font-weight:800; font-size:12px; letter-spacing:-.01em; white-space:nowrap;
     box-shadow:var(--px) var(--px) 0 var(--ink);
     transition:transform .12s steps(2), box-shadow .12s steps(2);
   }
@@ -86,8 +89,8 @@
   /* 흰 글씨를 코랄 위에 얹으면 대비가 2.4:1 뿐이다. 먹빛이면 5.8:1 */
   .hero-btn.primary{background:var(--coral); color:var(--ink);}
   @media (min-width:620px){
-    .hero-actions{grid-template-columns:repeat(4, auto); justify-content:center; max-width:none; gap:9px;}
-    .hero-btn{padding:9px 15px; font-size:13.5px;}
+    .hero-actions{grid-template-columns:repeat(4, auto); justify-content:center; max-width:none; gap:8px;}
+    .hero-btn{padding:6px 12px; font-size:12.5px;}
   }
   .scroll-cue{
     position:absolute; bottom:26px; left:50%; transform:translateX(-50%); z-index:2;
