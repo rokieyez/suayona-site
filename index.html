@@ -465,7 +465,7 @@
     <div class="section-head reveal">
       <span class="eyebrow pixel">ONE TAP</span>
       <h2>한 번 눌러 뛰기</h2>
-      <p>화면을 톡 누르면 폴짝. 30초마다 배경이 바뀌어요 — 들판에서 시작해 천국까지 열 곳</p>
+      <p>화면을 톡 누르면 폴짝. 목숨은 둘, 26초마다 배경이 바뀌어요 — 들판에서 천국까지 열 곳</p>
     </div>
     <div class="dot-card run-card reveal">
       <div class="run-stage">
@@ -479,7 +479,7 @@
         </div>
         <button type="button" class="dot-btn small" id="runReset" hidden
                 title="이 브라우저에 저장된 BEST 만 지웁니다. 명예의 전당은 그대로예요.">최고 기록 지우기</button>
-        <span class="run-hint">스페이스바 또는 화면 누르기 · 누르는 시간에 따라 점프가 4단계</span>
+        <span class="run-hint">스페이스바 또는 화면 누르기 · 누르는 시간에 따라 점프가 4단계 · 하트 10개를 모으면 목숨 한 칸 회복</span>
       </div>
       <div class="run-save" id="runSave" hidden>
         <input id="runName" maxlength="8" placeholder="이름" autocomplete="off">
@@ -2552,7 +2552,7 @@ $$('canvas[data-char]').forEach(cv => {
   // 속도 10단계. 계속 조금씩 빨라지면 빨라지는 걸 못 느낀다. 계단으로 올리고
   // 올라갈 때 화면에 알려 준다. 한 계단이 곧 한 무대다.
   const SPEEDS  = [160, 185, 210, 236, 262, 290, 318, 346, 375, 405];
-  const LV_SECS = 30;        // 한 계단에 머무는 시간 → 열 무대를 다 보려면 5분
+  const LV_SECS = 26;        // 한 계단에 머무는 시간 → 열 무대를 다 보려면 4분 20초
 
   // 단계마다 얼마나 자주, 얼마나 길게 나오는지.
   // 처음엔 드문드문 나와서 아이가 조작을 익히고, 뒤로 갈수록 촘촘해진다.
@@ -2612,6 +2612,13 @@ $$('canvas[data-char]').forEach(cv => {
   //   낮은 것 1단, 가운데 1단(딱 맞게), 높은 것 2단 이상.
   const GEM_H = [58, 90, 118];
 
+  // 목숨. 한 판에서 두 번까지 이어서 달릴 수 있다.
+  // 부딪히면 하나 깎이고 5초 동안 무적 — 그동안 반투명으로 깜빡인다.
+  // 깎인 자리는 하트를 GEMS_PER_LIFE 개 모으면 한 칸 되돌아온다(최대 MAX_LIVES).
+  const MAX_LIVES     = 2;
+  const INVULN_SECS   = 5;
+  const GEMS_PER_LIFE = 10;
+
   let W = 0, H = 0, GY = 0, dpr = 1;
   let state = 'ready';                 // ready | play | over
   let who = 'sua';
@@ -2622,6 +2629,7 @@ $$('canvas[data-char]').forEach(cv => {
   let py = 0, vy = 0, onGround = true, holding = false;
   let holdT = 0, holdCap = 0, jumpTier = 1;
   let dist = 0, hearts = 0, lv = 0, spd = SPEEDS[0], t = 0, nextAt = 0, lvFlash = 0;
+  let lives = MAX_LIVES, gemStreak = 0, invulnUntil = -1, lifeFlash = 0;
   let obs = [], gems = [], raf = 0, last = 0, deadAt = 0, runBest = 0;
 
   function mixHex(a, b, k){
@@ -2657,6 +2665,7 @@ $$('canvas[data-char]').forEach(cv => {
   function reset(){
     py = 0; vy = 0; onGround = true; holdT = 0; holdCap = 0; jumpTier = 1;
     dist = 0; hearts = 0; t = 0; lv = 0; spd = SPEEDS[0]; lvFlash = 0;
+    lives = MAX_LIVES; gemStreak = 0; invulnUntil = -1; lifeFlash = 0;
     deadAt = 0; runBest = best;
     obs = []; gems = []; nextAt = SPEEDS[0] * PACE.gap[0];
   }
@@ -2730,6 +2739,14 @@ $$('canvas[data-char]').forEach(cv => {
       near: { kind: 'hill',  color: '#3b4358', edge: '#4b5468', amp: 6,  wave: 120, off: 8 },
       ground: ['#8d8f96', '#5f6169', '#787a82'],
       deco: { sp: 'rocket', s: 2, gap: 0.9, off: -8, back: true },
+      // 도시와 닮아 보이던 무대라, 아주 먼 곳으로 우주왕복선 발사대를 천천히 흘린다.
+      // 격납고보다 뒤·느리게(0.045배) 지나가서 멀리 있는 것처럼 보인다.
+      // 색은 대기에 씻긴 회청색으로 눌렀다 — 앞쪽 건물보다 진하면 가까워 보인다.
+      // off 를 음수로 둬서 격납고 지붕 위로 솟게 한다. 지면에 맞춰 놓았더니
+      // 건물에 통째로 가려 한 번도 안 보였다.
+      bg2: { sp: 'launchPad', s: 2, gap: 1.4, off: -30, speed: 0.045,
+             pal: { S: '#7f89a2', T: '#727c95', U: '#616b84',
+                    E: '#aeb6c8', o: '#98858e', H: '#8e7681', W: '#9b8791' } },
       cloud: 0.4, star: 0.35, glow: null, ember: 0, inkLight: 1, textLight: 1 },
 
     { name: '우주',
@@ -2854,6 +2871,17 @@ $$('canvas[data-char]').forEach(cv => {
       }
     }
 
+    // 아주 먼 곳 — 언덕보다도 뒤에서, 언덕보다도 느리게 지나간다
+    if (st.bg2 && SPRITES[st.bg2.sp]){
+      const b = st.bg2, bsp = SPRITES[b.sp];
+      const bw = bsp[0].length * b.s, bh = bsp.length * b.s;
+      const bgap = Math.max(bw + 120, W * (b.gap || 1.4));
+      for (let i = 0; i < 3; i++){
+        const bx = W - ((dist * (b.speed || 0.05) + i * bgap) % (W + bgap + bw)) + bw;
+        drawSprite(ctx, bsp, Math.round(bx / 2) * 2, GY - bh + (b.off || 0), b.s, b.pal);
+      }
+    }
+
     if (st.cloud > 0){
       ctx.globalAlpha = alpha * st.cloud;
       const cw = SPRITES.cloudS[0].length * 2;
@@ -2954,7 +2982,12 @@ $$('canvas[data-char]').forEach(cv => {
     ctx.fill();
     // 달릴 때 1px 씩 위아래로 — 도트에서는 이만큼만으로도 뛰는 것처럼 보인다
     const bob = (state === 'play' && onGround && Math.floor(t * 9) % 2) ? 1 : 0;
+    // 무적일 때는 반투명으로 깜빡인다. 색을 바꾸지 않고 투명도만 흔드는 편이
+    // 도트 그림을 덜 망가뜨린다.
+    const inv = state === 'play' && t < invulnUntil;
+    if (inv) ctx.globalAlpha = Math.floor(t * 9) % 2 ? 0.28 : 0.72;
     drawSprite(ctx, sp, x, Math.round(y + bob), 1);
+    if (inv) ctx.globalAlpha = 1;
 
     // 점프 세기 — 머리 위 네 칸. 몇 단으로 뛴 건지 눈으로 보여야 4단계가 의미가 있다.
     if (state === 'play' && !onGround){
@@ -3000,8 +3033,18 @@ $$('canvas[data-char]').forEach(cv => {
       Math.round(gm.y + Math.sin(t * 5 + gm.p) * 3), 3));
     drawPlayer();
 
-    hud(String(score()).padStart(4, '0'), 10, 20, 13);
-    if (best) hud('BEST ' + best, 10, 36, 11);
+    // 목숨 — 점수 왼쪽에 하트 두 칸. 깎인 칸은 투명하게 남겨 둔다.
+    for (let i = 0; i < MAX_LIVES; i++){
+      const on = i < lives;
+      ctx.globalAlpha = on ? (lifeFlash > 0 && Math.floor(t * 10) % 2 ? 0.4 : 1) : 0.22;
+      drawSprite(ctx, SPRITES.heart, 9 + i * 17, 11, 2);
+    }
+    ctx.globalAlpha = 1;
+    const LX = 9 + MAX_LIVES * 17 + 6;
+    hud(String(score()).padStart(4, '0'), LX, 20, 13);
+    if (best) hud('BEST ' + best, LX, 36, 11);
+    // 목숨이 비어 있을 때만 「몇 개 더 모으면 되는지」를 알려 준다
+    if (lives < MAX_LIVES) hud(gemStreak + '/' + GEMS_PER_LIFE, 9, 36, 11);
     hud('LV' + (lv + 1), W - 10, 20, 13, 'end');
     if (hearts){
       drawSprite(ctx, SPRITES.heart, W - 42, 27, 2);
@@ -3010,6 +3053,9 @@ $$('canvas[data-char]').forEach(cv => {
 
     if (lvFlash > 0)
       label(STAGES[lv].name + ' · 속도 ' + (lv + 1) + '단계!', H * 0.24, 15);
+    else if (lifeFlash > 0)
+      label(t < invulnUntil ? '앗! 목숨 ' + lives + '개 남았어요' : '목숨 하나 되찾았어요!',
+        H * 0.24, 15);
     if (state === 'ready') label('눌러서 시작', H * 0.44, 17);
     if (state === 'over'){
       label(score() + '점' + (score() > runBest ? ' · 최고 기록!' : ''), H * 0.36, 17);
@@ -3053,6 +3099,7 @@ $$('canvas[data-char]').forEach(cv => {
       const nl = Math.min(SPEEDS.length - 1, Math.floor(t / LV_SECS));
       if (nl !== lv){ lv = nl; spd = SPEEDS[lv]; lvFlash = 1.4; sfx('pop'); }
       if (lvFlash > 0) lvFlash -= dt;
+      if (lifeFlash > 0) lifeFlash -= dt;
       const move = spd * dt;
       dist += move;
 
@@ -3077,12 +3124,22 @@ $$('canvas[data-char]').forEach(cv => {
       for (const gm of gems){
         if (!gm.got && overlap(pb, { x: gm.x + 3, y: gm.y, w: 15, h: 18 })){
           gm.got = true; gm.x = -99; hearts++; sfx('sparkle');
+          if (lives < MAX_LIVES && ++gemStreak >= GEMS_PER_LIFE){
+            lives++; gemStreak = 0; lifeFlash = 1.6; sfx('fanfare');
+          }
         }
       }
-      for (const o of obs){
-        if (overlap(pb, hitBox(o))){
-          state = 'over'; deadAt = performance.now(); sfx('thud'); recordBest();
-          offerSave();
+      if (t >= invulnUntil){
+        for (const o of obs){
+          if (!overlap(pb, hitBox(o))) continue;
+          if (lives > 0){
+            // 아직 목숨이 남았으면 판이 이어진다. 점수도 무대도 그대로 간다.
+            lives--; gemStreak = 0; invulnUntil = t + INVULN_SECS;
+            lifeFlash = 1.4; sfx('thud');
+          } else {
+            state = 'over'; deadAt = performance.now(); sfx('thud'); recordBest();
+            offerSave();
+          }
           break;
         }
       }
