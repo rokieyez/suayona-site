@@ -148,6 +148,16 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
   .logo-text{display:none;}
 }
 
+/* 손가락으로 캔버스를 누르면 안드로이드 크롬·iOS 사파리가 그 자리에 회색
+   네모를 칠한다. 달리기 게임은 누를 때마다 그게 번쩍여서 그림을 가렸다.
+   단추와 링크에는 그대로 둔다 — 그쪽은 눌린 느낌이 있어야 한다.
+   길게 누를 때 뜨는 선택·복사 메뉴도 게임 중에는 방해만 된다. */
+canvas{-webkit-tap-highlight-color:transparent;}
+#runCanvas, #heroCanvas, #koreaCanvas, #board{
+  -webkit-touch-callout:none;
+  -webkit-user-select:none; user-select:none;
+}
+
 /* ===== 로그인 창 (헤더 단추로 열림) ===== */
 .auth-modal{
   position:fixed; inset:0; z-index:130; padding:18px;
