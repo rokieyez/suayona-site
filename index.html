@@ -3016,6 +3016,12 @@ belowFold(async () => {
   //   낮은 것 1단, 가운데 1단(딱 맞게), 높은 것 2단 이상.
   const GEM_H = [58, 90, 118];
 
+  // 별 — 하트 중 일부가 별로 바뀐다. 늘 제일 높은 자리(GEM_H[2])에만 나와서
+  // 별을 먹으려면 4단 점프를 확실히 눌러야 한다. 먹으면 잠깐 안 다친다 —
+  // 맞았을 때의 무적과 같은 시계를 쓴다(그래서 화면 표현도 그대로 재활용된다).
+  const STAR_CHANCE = 0.12;   // 하트가 나올 자리 중 이 비율이 별로 바뀐다
+  const SHIELD_SECS = 4;      // 별을 먹으면 이만큼 안 다친다
+
   // 목숨. 한 판에서 두 번까지 이어서 달릴 수 있다.
   // 부딪히면 하나 깎이고 5초 동안 무적 — 그동안 반투명으로 깜빡인다.
   // 깎인 자리는 하트를 GEMS_PER_LIFE 개 모으면 한 칸 되돌아온다(최대 MAX_LIVES).
@@ -3039,7 +3045,7 @@ belowFold(async () => {
   let py = 0, vy = 0, onGround = true, holding = false;
   let holdT = 0, holdCap = 0, jumpTier = 1;
   let dist = 0, hearts = 0, lv = 0, spd = SPEEDS[0], t = 0, nextAt = 0, lvFlash = 0;
-  let lives = MAX_LIVES, gemStreak = 0, invulnUntil = -1, lifeFlash = 0;
+  let lives = MAX_LIVES, gemStreak = 0, invulnUntil = -1, lifeFlash = 0, shieldFlash = 0;
   let obs = [], gems = [], raf = 0, last = 0, deadAt = 0, runBest = 0;
 
   function mixHex(a, b, k){
@@ -3076,7 +3082,7 @@ belowFold(async () => {
   function reset(){
     py = 0; vy = 0; onGround = true; holdT = 0; holdCap = 0; jumpTier = 1;
     dist = 0; hearts = 0; t = 0; lv = 0; spd = SPEEDS[0]; lvFlash = 0;
-    lives = MAX_LIVES; gemStreak = 0; invulnUntil = -1; lifeFlash = 0;
+    lives = MAX_LIVES; gemStreak = 0; invulnUntil = -1; lifeFlash = 0; shieldFlash = 0;
     deadAt = 0; runBest = best;
     obs = []; gems = []; nextAt = SPEEDS[0] * PACE.gap[0];
   }
@@ -3514,7 +3520,7 @@ belowFold(async () => {
     drawBg();
     const ink = inkNow();
     obs.forEach(o => drawObs(o, ink));
-    gems.forEach(gm => drawSprite(ctx, SPRITES.heart, Math.round(gm.x),
+    gems.forEach(gm => drawSprite(ctx, gm.star ? SPRITES.star : SPRITES.heart, Math.round(gm.x),
       Math.round(gm.y + Math.sin(t * 5 + gm.p) * 3), 3));
     drawPlayer();
 
@@ -3538,6 +3544,8 @@ belowFold(async () => {
 
     if (lvFlash > 0)
       label(STAGES[lv].name + ' · 속도 ' + (lv + 1) + '단계!', H * 0.24, 15);
+    else if (shieldFlash > 0)
+      label('✨ 방패! ' + SHIELD_SECS + '초 동안 안 다쳐요', H * 0.24, 15);
     else if (lifeFlash > 0)
       label(t < invulnUntil ? '앗! 목숨 ' + lives + '개 남았어요' : '목숨 하나 되찾았어요!',
         H * 0.24, 15);
@@ -3567,9 +3575,10 @@ belowFold(async () => {
     // 하트는 낮은 것과 높은 것. 높은 건 2단 이상 눌러야 닿아서, 먹으려면
     // 「얼마나 세게 누를까」 를 한 번 고르게 된다.
     if (Math.random() < pace.gem){
-      const h = GEM_H[Math.floor(Math.random() * GEM_H.length)];
+      const isStar = Math.random() < STAR_CHANCE;
+      const h = isStar ? GEM_H[2] : GEM_H[Math.floor(Math.random() * GEM_H.length)];
       gems.push({ x: x0 + wide + 90 + Math.random() * 90,
-                  y: GY - h, p: Math.random() * 6 });
+                  y: GY - h, p: Math.random() * 6, star: isStar });
     }
     nextAt = wide + spd * (pace.gap * (0.85 + Math.random() * 0.4));
   }
@@ -3585,6 +3594,7 @@ belowFold(async () => {
       if (nl !== lv){ lv = nl; spd = SPEEDS[lv]; lvFlash = 1.4; sfx('pop'); }
       if (lvFlash > 0) lvFlash -= dt;
       if (lifeFlash > 0) lifeFlash -= dt;
+      if (shieldFlash > 0) shieldFlash -= dt;
       const move = spd * dt;
       dist += move;
 
@@ -3607,10 +3617,17 @@ belowFold(async () => {
 
       const pb = playerBox();
       for (const gm of gems){
-        if (!gm.got && overlap(pb, { x: gm.x + 3, y: gm.y, w: 15, h: 18 })){
-          gm.got = true; gm.x = -99; hearts++; sfx('sparkle');
-          if (lives < MAX_LIVES && ++gemStreak >= GEMS_PER_LIFE){
-            lives++; gemStreak = 0; lifeFlash = 1.6; sfx('fanfare');
+        const gw = gm.star ? 27 : 21;                    // 별(9px×3)이 하트(7px×3)보다 넓다
+        if (!gm.got && overlap(pb, { x: gm.x + (gw - 15) / 2, y: gm.y, w: 15, h: 18 })){
+          gm.got = true; gm.x = -99; hearts++;
+          if (gm.star){
+            invulnUntil = Math.max(invulnUntil, t + SHIELD_SECS);
+            shieldFlash = 1.6; sfx('fanfare');
+          } else {
+            sfx('sparkle');
+            if (lives < MAX_LIVES && ++gemStreak >= GEMS_PER_LIFE){
+              lives++; gemStreak = 0; lifeFlash = 1.6; sfx('fanfare');
+            }
           }
         }
       }
@@ -3847,6 +3864,23 @@ belowFold(async () => {
 
   let rt = 0;
   window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(resize, 120); });
+
+  // 시험용 손잡이. 화면을 안 거치고 규칙대로 도는지 확인할 때 쓴다.
+  window.__run = {
+    get state(){ return { state, t, lives, hearts, gemStreak, invulnUntil, shieldFlash, lifeFlash, score: score(), gems, obs, lv, py }; },
+    playerBox,
+    // y 를 안 주면 지금 캐릭터가 서 있는 자리에 맞춘다 — 점프 높낮이는 이미
+    // GEM_H 로 따로 다뤄지는 값이라, 충돌 자체만 확인할 땐 굳이 안 맞춰도 된다.
+    spawnStar(dx, y){ const pb = playerBox(); gems.push({ x: PLAYER_X + (dx || 20), y: y != null ? y : pb.y, p: 0, star: true }); },
+    spawnHeart(dx, y){ const pb = playerBox(); gems.push({ x: PLAYER_X + (dx || 20), y: y != null ? y : pb.y, p: 0, star: false }); },
+    spawnObstacle(dx){
+      const p = STAGE_PIECES[0][0];
+      obs.push({ sp: p.sp, s: p.s, hit: p.hit, pal: p.pal, x: PLAYER_X + (dx || 20) });
+    },
+    step: () => step(performance.now()),
+    jump, reset, setState, start,
+  };
+
   reset(); resize();
 })();
 
