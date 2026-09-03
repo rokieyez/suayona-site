@@ -753,10 +753,24 @@ async function finishRecording(w){
   renderVoice(w);
 }
 
+// ---------- 도감 ----------
+// 실제로 열어 본 작품을 이 브라우저에 적어 둔다. 첫 화면이 「도감 12/39」 로 읽어 간다.
+// 서버에 안 남긴다 — 누가 무엇을 봤는지는 남길 이유가 없는 기록이다.
+function markSeen(id){
+  if (id == null) return;
+  try {
+    const seen = JSON.parse(localStorage.getItem('sy.dex') || '[]');
+    if (seen.indexOf(id) >= 0) return;
+    seen.push(id);
+    localStorage.setItem('sy.dex', JSON.stringify(seen));
+  } catch (e) {}          // 저장이 막혀 있어도 작품 보기는 그대로 돌아야 한다
+}
+
 function renderWork(){
   stopVoiceWork();          // 앞 작품에서 녹음 중이었다면 접는다
   const w = viewList[viewIdx];
   if (!w) return;
+  markSeen(w.id);
   const ytId = w.media_type === 'youtube' ? youtubeId(w.media_url) : '';
   const media = ytId
     ? '<div class="yt-frame">' + youtubeEmbedHTML(ytId, w.title) + '</div>'

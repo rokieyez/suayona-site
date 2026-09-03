@@ -138,7 +138,35 @@
   .find-hud.bday{bottom:60px; background:var(--coral);}
   .find-hud.throw{left:auto; right:14px; pointer-events:auto; cursor:pointer; font-family:inherit; font-size:11px;}
   .find-hud.throw:active{transform:translate(2px,2px); box-shadow:2px 2px 0 rgba(47,42,36,.45);}
-  @media (max-width:400px){ .find-hud.throw{right:10px;} }
+  .find-hud.sound{left:auto; right:14px; bottom:60px; pointer-events:auto; cursor:pointer; font-family:inherit;}
+  .find-hud.sound:active{transform:translate(2px,2px); box-shadow:2px 2px 0 rgba(47,42,36,.45);}
+  .find-hud.sound.off{opacity:.55;}
+  .word-band{padding:22px 20px; text-align:center;}
+  .word-band h2{margin:8px 0 6px; font-size:clamp(26px,6vw,38px); letter-spacing:1px;}
+  .word-band p{margin:0; color:var(--ink-soft); font-size:14px; line-height:1.6;}
+  .word-band .word-ex{margin-top:8px; color:var(--ink); font-size:13.5px;}
+  .stamp-card{padding:16px;}
+  .stamp-head{font-size:13px; margin-bottom:10px;}
+  .stamp-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;}
+  .stamp-cell{
+    aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+    border:2px solid rgba(47,42,36,.18); font-size:11px; color:var(--ink-soft);
+  }
+  .stamp-cell.on{background:var(--lemon); border-color:var(--ink); color:var(--ink); font-weight:800;}
+  .stamp-cell.today{border-color:var(--coral); border-width:3px;}
+  .stamp-cell.pad{border:none;}
+  .find-hud.sky{bottom:102px; background:var(--mint);}
+  @media (max-width:400px){ .find-hud.sky{bottom:96px;} }
+  .badge-row{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px;}
+  .badge{
+    border:2px solid var(--ink); background:var(--paper); padding:6px 11px;
+    font-size:12px; font-weight:800; box-shadow:3px 3px 0 rgba(47,42,36,.35);
+  }
+  .badge.locked{opacity:.4; box-shadow:none; border-style:dashed;}
+  .dex-line{text-align:center; margin:14px 0 0; font-size:12px; color:var(--ink-soft);}
+  .find-hud.torch{left:auto; right:14px; bottom:102px; pointer-events:auto; cursor:pointer; font-family:inherit;}
+  .find-hud.torch.on{background:var(--lemon);}
+  @media (max-width:400px){ .find-hud.throw, .find-hud.sound, .find-hud.torch{right:10px;} }
   @media (max-width:400px){ .find-hud{left:10px; bottom:18px; font-size:10px;} }
 
   /* ===== 메뉴 카드에 선 캐릭터 =====
@@ -245,8 +273,14 @@
        처음부터 보여 준다 — 0/3 이 곧 초대장이다. -->
   <div class="find-hud pixel" id="findHud">🔍 숨은 친구 0/3</div>
   <div class="find-hud pixel bday" id="bdayHud" hidden></div>
+  <!-- 내일 날씨. 아이가 아침에 챙길 것을 스스로 정하게 하는 자리라 한 줄이면 된다. -->
+  <div class="find-hud pixel sky" id="skyHud" hidden></div>
   <!-- 던지기 기록. 눌러서 누구 기록인지 바꾼다 — 이건 눌려야 하므로 pointer-events 를 켠다 -->
   <button class="find-hud pixel throw" id="throwHud" type="button">🦆</button>
+  <!-- 소리는 기본으로 켜 둔다. 도서관에서 열었을 때를 위해 끄는 자리를 눈에 띄게 남긴다. -->
+  <button class="find-hud pixel sound" id="soundHud" type="button" aria-label="소리 켜고 끄기">🔊</button>
+  <!-- 손전등은 밤에만 나온다. 낮에 켤 수 있으면 밤을 기다릴 이유가 없다. -->
+  <button class="find-hud pixel torch" id="torchHud" type="button" hidden>🔦</button>
   <div class="scroll-cue pixel">▼ SCROLL</div>
 </section>
 
@@ -334,6 +368,35 @@
   </div>
 </section>
 
+<!-- 오늘의 낱말. 날짜로 고르니 자매 둘이 같은 날 같은 낱말을 배운다.
+     서버에 묻지 않는다 — 목록이 이 파일 안에 있어서 오갈 것이 없다. -->
+<section class="section-pad" id="word">
+  <div class="wrap">
+    <div class="dot-card word-band reveal">
+      <span class="eyebrow pixel">오늘의 낱말</span>
+      <h2 class="pixel" id="wordText">—</h2>
+      <p id="wordMean"></p>
+      <p class="word-ex" id="wordEx"></p>
+    </div>
+  </div>
+</section>
+
+<!-- 출석 도장. 서버에 안 남긴다 — 이 브라우저에만 찍힌다.
+     자매가 각자 자기 폰에서 자기 도장을 모으는 편이 맞다. -->
+<section class="section-pad" id="stamp">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">STAMP</span>
+      <h2>출석 도장</h2>
+      <p id="stampSay">들어올 때마다 오늘 칸에 도장이 찍혀요</p>
+    </div>
+    <div class="dot-card stamp-card reveal">
+      <div class="stamp-head pixel" id="stampMonth"></div>
+      <div class="stamp-grid" id="stampGrid"></div>
+    </div>
+  </div>
+</section>
+
 <!-- 자기 숫자가 늘어나는 걸 보는 건 생각보다 큰 동기다.
      그림 한 장 더 올리면 여기 숫자가 하나 오른다. -->
 <section class="section-pad" id="counts">
@@ -349,6 +412,10 @@
       <div class="dot-card count reveal"><b class="pixel" data-count="photos">0</b><span>사진</span></div>
       <div class="dot-card count reveal"><b class="pixel" data-count="events">0</b><span>나들이</span></div>
     </div>
+    <!-- 배지는 숫자가 어떤 고개를 넘을 때만 켜진다. 다음 고개가 보이면 한 장 더 올리게 된다. -->
+    <div class="badge-row" id="badges"></div>
+    <!-- 도감: 전시실에서 실제로 열어 본 작품 수. 숫자가 아니라 "내가 본 것"이라 다르다. -->
+    <p class="dex-line pixel" id="dexLine" hidden></p>
   </div>
 </section>
 
@@ -586,6 +653,74 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
   // 생일이면 색종이, 눈 오면 눈, 비 오면 아무것도(비는 따로 그린다), 아니면 계절 것.
   const fallNow = () => BIRTHDAY ? FALLS.party : weather.snow ? FALLS.winter : raining() ? null : FALL;
 
+  // ---- 소리 ----
+  // 소리 파일을 받지 않는다. 브라우저가 그 자리에서 만들어 내는 소리라 0바이트다.
+  // 파일이었다면 짧은 것 열 개만 해도 100KB 는 됐을 자리.
+  //
+  // 소리 장치는 화면을 한 번 누르기 전에는 못 켠다(브라우저 규칙). 어차피 우리는
+  // 누를 때만 소리를 내므로, 처음 누르는 그 순간에 만든다.
+  let ac = null, muted = false;
+  try { muted = localStorage.getItem('sy.mute') === '1'; } catch (e) {}
+  function tone(freq, dur, type, vol, delay){
+    if (muted) return;
+    try {
+      if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      const t0 = ac.currentTime + (delay || 0);
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type || 'square';
+      o.frequency.setValueAtTime(freq, t0);
+      // 뚝 끊으면 「딱」 하는 잡음이 난다. 끝을 아주 짧게 흘려 보낸다.
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(vol == null ? 0.06 : vol, t0 + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t0); o.stop(t0 + dur + 0.02);
+    } catch (e) {}                                  // 소리는 덤이다 — 안 나도 그만
+  }
+  // 무엇을 눌렀느냐에 따라 소리가 다르다. 눈을 감고도 뭘 눌렀는지 알게.
+  const SOUND = {
+    char:    () => { tone(660, .09, 'square', .05); tone(880, .10, 'square', .05, .07); },
+    secret:  () => { tone(523, .08, 'triangle', .07); tone(784, .08, 'triangle', .07, .06);
+                     tone(1046, .16, 'triangle', .07, .12); },
+    star:    () => tone(1320, .18, 'sine', .05),
+    house:   () => tone(220, .16, 'sawtooth', .04),
+    sun:     () => tone(392, .12, 'triangle', .05),
+    moon:    () => tone(294, .18, 'sine', .05),
+    easel:   () => tone(523, .12, 'triangle', .06),
+    plant:   () => { tone(784, .07, 'sine', .05); tone(1046, .09, 'sine', .05, .05); },
+    key:     () => { tone(523,.09,'square',.06); tone(659,.09,'square',.06,.08);
+                     tone(784,.09,'square',.06,.16); tone(1046,.22,'square',.06,.24); },
+    prop:    () => tone(440, .07, 'square', .045),
+  };
+  const sfx = name => { const f = SOUND[name]; if (f) f(); };
+
+  const soundHud = $('#soundHud');
+  function syncSound(){
+    if (!soundHud) return;
+    soundHud.textContent = muted ? '🔇' : '🔊';
+    soundHud.classList.toggle('off', muted);
+  }
+  // 손전등 단추는 밤에만 나온다.
+  const torchHud = $('#torchHud');
+  if (torchHud && NIGHT) {
+    torchHud.hidden = false;
+    torchHud.addEventListener('click', () => {
+      torch = !torch;
+      torchHud.classList.toggle('on', torch);
+      sfx(torch ? 'star' : 'prop');
+      kick();
+    });
+  }
+
+  if (soundHud) soundHud.addEventListener('click', () => {
+    muted = !muted;
+    try { localStorage.setItem('sy.mute', muted ? '1' : '0'); } catch (e) {}
+    syncSound();
+    if (!muted) sfx('star');                        // 다시 켰다는 걸 귀로 알려 준다
+  });
+  syncSound();
+
   // 눌렀을 때 톡 튀어나오는 하트와 별
   let pops = [];
   function popAt(x, y, sp, n){
@@ -663,6 +798,12 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
   const WEATHER_AT = { lat: 37.5665, lng: 126.9780 };
   const weather = { rain:false, snow:false, fog:false, wind:1 };
   let shower = 0;                                        // 해를 열 번 누르면 오는 소나기가 끝나는 시각
+  // 소나기가 그친 뒤 30초 동안 뜨는 무지개.
+  // ?rainbow=1 을 붙이면 비를 부르지 않고도 볼 수 있다 (?phase= 와 같은 이유).
+  const RAINBOW_MS = 30000;
+  const rainbowPreview = !!new URLSearchParams(location.search).get('rainbow');
+  let rainbowFrom = 0, rainbowUntil = 0;
+  let torch = false;                                     // 밤에 켜는 손전등
   const raining = () => weather.rain || performance.now() < shower;
   let ct = 0;                                            // 구름 전용 시계 — 바람이 세면 빨리 간다
   // ?weather=rain|snow|fog|wind 로 미리 볼 수 있다 (phase·season 과 같은 이유)
@@ -671,17 +812,47 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
   else if (forcedW === 'snow') weather.snow = true;
   else if (forcedW === 'fog') weather.fog = true;
   else if (forcedW === 'wind') weather.wind = 2.2;
+  // 내일 예보는 지금 날씨와 같은 요청에 얹어서 받는다 — 왕복이 늘지 않는다.
   else fetch('https://api.open-meteo.com/v1/forecast?latitude=' + WEATHER_AT.lat + '&longitude=' + WEATHER_AT.lng +
-        '&current=weather_code,wind_speed_10m&timezone=Asia%2FSeoul')
+        '&current=weather_code,wind_speed_10m' +
+        '&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=2' +
+        '&timezone=Asia%2FSeoul')
     .then(r => r.json()).then(j => {
       const c = j.current || {}, code = c.weather_code;
-      if (typeof code !== 'number') return;
-      weather.rain = (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95;
-      weather.snow = (code >= 71 && code <= 77) || code === 85 || code === 86;
-      weather.fog  = code === 45 || code === 48;
-      weather.wind = c.wind_speed_10m > 25 ? 2.2 : c.wind_speed_10m > 12 ? 1.5 : 1;
-      kick();
+      if (typeof code === 'number') {
+        weather.rain = (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95;
+        weather.snow = (code >= 71 && code <= 77) || code === 85 || code === 86;
+        weather.fog  = code === 45 || code === 48;
+        weather.wind = c.wind_speed_10m > 25 ? 2.2 : c.wind_speed_10m > 12 ? 1.5 : 1;
+        kick();
+      }
+      showTomorrow(j.daily);
     }).catch(() => {});
+
+  // ---- 내일 날씨 ----
+  // 예보 코드를 아이가 알아들을 말로 바꾼다. 「강수확률 60%」 가 아니라 「우산 챙겨」 여야 한다.
+  function tomorrowSay(code, hi, lo){
+    const t = (typeof hi === 'number' && typeof lo === 'number')
+      ? ' ' + Math.round(lo) + '~' + Math.round(hi) + '°' : '';
+    if (code >= 95)                    return '⛈ 내일은 천둥번개 — 조심!' + t;
+    if (code >= 80 && code <= 82)      return '🌦 내일은 소나기 — 우산 챙겨!' + t;
+    if (code >= 71 && code <= 77 || code === 85 || code === 86) return '⛄ 내일은 눈! 장갑 챙겨' + t;
+    if (code >= 51 && code <= 67)      return '☔ 내일은 비 — 우산 챙겨!' + t;
+    if (code === 45 || code === 48)    return '🌫 내일은 안개 — 천천히' + t;
+    if (code === 3)                    return '☁ 내일은 흐림' + t;
+    if (code === 1 || code === 2)      return '⛅ 내일은 구름 조금' + t;
+    if (code === 0)                    return '☀ 내일은 맑음!' + t;
+    return '';
+  }
+  function showTomorrow(daily){
+    const hud = $('#skyHud');
+    if (!hud || !daily || !daily.weather_code || daily.weather_code.length < 2) return;
+    const text = tomorrowSay(daily.weather_code[1],
+      (daily.temperature_2m_max || [])[1], (daily.temperature_2m_min || [])[1]);
+    if (!text) return;
+    hud.textContent = text;
+    hud.hidden = false;
+  }
 
   // ---- 생일 ----
   // 'MM-DD'. 비워 두면 그냥 안 켜진다. 주소에 ?birthday=수아 를 붙이면 미리 볼 수 있다.
@@ -732,6 +903,7 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
     keys.add(key);
     try { localStorage.setItem('sy.keys', JSON.stringify(Array.from(keys))); } catch (e) {}
     popAt(hit.x, hit.y, SPRITES.star, fresh ? 9 : 4);
+    if (fresh) sfx('key');
     say(fresh ? '🔑 비밀 발견! ' + text : text, hit);
     syncHud();
   }
@@ -764,6 +936,7 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
   // sky = 하늘(고정), ground = 언덕부터 앞쪽 수풀까지(스크롤에 따라 조금 밀림)
   const skyLayer = document.createElement('canvas');
   const groundLayer = document.createElement('canvas');
+  const torchLayer = document.createElement('canvas');   // 손전등의 어둠을 따로 만드는 판
   let horizon = 0, groundY = 0, charS = 4;
 
   function resize(){
@@ -779,7 +952,7 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
     groundY = H * 0.80;
     charS = Math.max(2, Math.round(S * 0.85));
 
-    [skyLayer, groundLayer].forEach(c => {
+    [skyLayer, groundLayer, torchLayer].forEach(c => {
       c.width = Math.floor(W * dpr); c.height = Math.floor(H * dpr);
       const g = c.getContext('2d');
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -996,9 +1169,124 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
   }
 
   // 여름밤에만 나오는 반딧불. 풀밭 높이에서 느리게 떠다니며 깜빡인다.
+  // ---- 별자리 잇기 ----
+  // 하늘에 박힌 큰 별을 하나씩 누르면 선으로 이어진다. 다 이으면 그날의 별자리가
+  // 완성되고 이름이 붙는다. 오늘 이은 것만 남는다 — 내일은 다시 빈 하늘이다.
+  //
+  // 이을 별을 고르는 규칙이 두 가지를 만족해야 한다.
+  //
+  // 하나, 어느 화면에서나 같은 별이어야 한다. 하늘에 박힌 별의 수는 화면 폭을
+  // 따라가서 폰에서는 여섯, 큰 모니터에서는 열여덟이 된다. 그대로 두면 모니터에서만
+  // 열여덟 번을 눌러야 완성돼 같은 놀이가 화면마다 다른 일이 돼 버린다. 번호 25 까지는
+  // 폰에도 있으므로 거기까지만 쓴다.
+  //
+  // 둘, 하늘에 떠 있는 별이어야 한다. 별자리 선은 산과 언덕보다 먼저 그려지므로,
+  // 지평선 아래에 찍힌 별로 이으면 선이 산에 먹혀 끊긴 것처럼 보인다. 실제로
+  // 20번이 그랬다. 그래서 높이로 한 번 더 거른다 — 그렇게 남는 것이 다섯 개다.
+  let MAP_IDS = [];
+  const isMapStar = idx => idx != null && MAP_IDS.indexOf(idx) >= 0;
+  const MAP_KEY = 'sy.starmap.' + DAY_SEED;
+  let lit = [];                              // 누른 순서대로의 별 번호
+  try { lit = JSON.parse(localStorage.getItem(MAP_KEY) || '[]'); } catch (e) {}
+  let starPts = [];                          // 이번 화면에서의 별 좌표 (그릴 때 채운다)
+  const STAR_NAMES = ['수아자리', '연아자리', '레샤자리', '미미자리', '상그렐라자리', '자매자리'];
+
+  function drawStarMap(){
+    if (!lit.length) return;
+    const pt = i => starPts.find(s => s.i === i);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,243,160,.75)';
+    ctx.lineWidth = Math.max(1, Math.round(S / 2));
+    ctx.beginPath();
+    let started = false;
+    lit.forEach(i => {
+      const q = pt(i); if (!q) return;
+      if (!started) { ctx.moveTo(q.x, q.y); started = true; }
+      else ctx.lineTo(q.x, q.y);
+    });
+    ctx.stroke();
+    // 이은 별은 조금 크게 찍어 준다 — 어디를 눌렀는지 보이게
+    ctx.fillStyle = '#fff3a0';
+    lit.forEach(i => { const q = pt(i); if (q) ctx.fillRect(q.x - S, q.y - S, S * 2, S * 2); });
+    ctx.restore();
+  }
+
+  // 무지개. 스프라이트가 아니라 굵은 띠 일곱 개를 계단처럼 찍어서 도트 느낌을 낸다.
+  const RAINBOW = ['#ff6b6b', '#ff9a4d', '#ffd979', '#7ed37e', '#5aa9e6', '#6a7fd6', '#a87fd6'];
+  function drawRainbow(){
+    // 미리보기(?rainbow=1)일 때는 다 그려진 채로 계속 떠 있다.
+    let grow = 1, fade = 1;
+    if (!rainbowPreview) {
+      const left = rainbowUntil - performance.now();
+      if (left <= 0) return;
+      // 나타날 때 1초에 걸쳐 그려지고, 사라질 때 2초에 걸쳐 옅어진다.
+      grow = Math.min(1, (performance.now() - rainbowFrom) / 1000);
+      fade = Math.min(1, left / 2000);
+    }
+    const cx = W * 0.5, cy = horizon + H * 0.10;      // 중심을 언덕 아래에 두어야 반원이 하늘에 걸린다
+    const r0 = Math.min(W, H) * 0.42;
+    const band = Math.max(S, Math.round(S * 1.5));
+    ctx.globalAlpha = 0.5 * fade;
+    RAINBOW.forEach((col, i) => {
+      ctx.fillStyle = col;
+      const r = r0 + (RAINBOW.length - 1 - i) * band;
+      // 왼쪽 끝에서 오른쪽으로 자라난다
+      for (let a = Math.PI; a >= Math.PI * (1 - grow); a -= 0.012) {
+        const x = Math.round((cx + Math.cos(a) * r) / S) * S;
+        const y = Math.round((cy - Math.sin(a) * r) / S) * S;
+        if (y > horizon + H * 0.10) continue;
+        ctx.fillRect(x, y, band, band);
+      }
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // 손전등. 화면을 덮은 어둠에 구멍을 하나 뚫는다.
+  // destination-out 은 「이미 그린 것을 지우는」 칠이라, 지운 자리로 아래 풍경이 드러난다.
+  function drawTorch(){
+    if (!torch || !NIGHT) return;
+    // 동그라미가 크고 흐리면 「조금 어두워졌네」 로만 보인다. 작고 또렷해야 손전등이다.
+    const r = Math.min(W, H) * 0.17;
+    const x = pointer.on ? pointer.x : W * 0.5;
+    const y = pointer.on ? pointer.y : H * 0.55;
+
+    // 어둠은 반드시 딴 판에서 뚫어야 한다.
+    // 본 화면에 바로 destination-out 을 쓰면 어둠만 지우는 게 아니라 이미 그려 둔
+    // 풍경까지 같이 파낸다 — 처음에 그렇게 했다가 손전등 자리에 흰 구멍이 났다.
+    const g = torchLayer.getContext('2d');
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = 'rgba(5,8,20,.88)';
+    g.fillRect(0, 0, W, H);
+    g.save();
+    g.globalCompositeOperation = 'destination-out';
+    const grad = g.createRadialGradient(x, y, r * 0.55, x, y, r);
+    grad.addColorStop(0, 'rgba(0,0,0,1)');
+    grad.addColorStop(0.75, 'rgba(0,0,0,.96)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    g.restore();
+
+    ctx.drawImage(torchLayer, 0, 0, W, H);
+
+    // 비추는 자리에 아주 옅은 노란빛을 얹는다 — 이래야 「덜 어두운 곳」이 아니라
+    // 「빛이 닿은 곳」으로 보인다.
+    ctx.save();
+    const warm = ctx.createRadialGradient(x, y, 0, x, y, r);
+    warm.addColorStop(0, 'rgba(255,240,190,.16)');
+    warm.addColorStop(1, 'rgba(255,240,190,0)');
+    ctx.fillStyle = warm;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
   function drawFireflies(){
-    if (SEASON !== 'summer' || !NIGHT) return;
-    for (let i = 0; i < 14; i++) {
+    if (!NIGHT) return;
+    // 원래는 여름밤에만 열넷. 손전등을 켜면 계절과 상관없이 서른 마리가 나온다 —
+    // 「불을 꺼야 보이는 것이 있다」 를 손으로 만져 보게 하는 자리.
+    if (SEASON !== 'summer' && !torch) return;
+    const n = torch ? 30 : 14;
+    for (let i = 0; i < n; i++) {
       const x = (prand(i * 4.4) + Math.sin(t * 0.3 + i) * 0.04) * W;
       const y = H * (0.66 + prand(i * 8.8) * 0.22) + Math.sin(t * 0.7 + i * 1.7) * H * 0.02;
       const blink = Math.sin(t * 2.3 + i * 2.9);
@@ -1031,8 +1319,14 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
     planted.forEach((f, i) => {
       const x = Math.round(f.xr * W / S) * S;
       const y = Math.round((f.yr * H + gy) / S) * S;
-      drawSprite(ctx, SPRITES.flower, x, y, base,
-        Object.assign({}, wash(SPRITES.flower), { J: SCENE.petal[f.k % SCENE.petal.length] }));
+      // 심자마자 활짝 피면 「심었다」 는 느낌이 안 난다. 한 시간은 새싹, 하루는 봉오리,
+      // 그다음부터 꽃이다 — 오늘 심은 것을 내일 보러 올 이유가 생긴다.
+      const sp = f.age == null ? SPRITES.flower
+               : f.age < 3600e3   ? (SPRITES.sprout || SPRITES.flower)
+               : f.age < 86400e3  ? (SPRITES.bud || SPRITES.flower)
+               : SPRITES.flower;
+      drawSprite(ctx, sp, x, y, base,
+        Object.assign({}, wash(sp), { J: SCENE.petal[f.k % SCENE.petal.length] }));
     });
   }
 
@@ -1056,10 +1350,16 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
 
   function draw(){
     if (!W || !H) return;
+    // 비 온 뒤에 무지개. 소나기를 부른 아이만 볼 수 있는 상이다 —
+    // 30초를 기다려야 나오니 「비 그만!」 하고 나가 버리면 못 본다.
+    if (shower && performance.now() > shower) {
+      rainbowFrom = performance.now(); rainbowUntil = rainbowFrom + RAINBOW_MS; shower = 0;
+    }
     ctx.clearRect(0, 0, W, H);
     hits = [];                      // 그리는 순서대로 다시 채운다 (뒤에 넣은 것이 위에 있는 것)
 
     paint(() => drawScene());
+    drawTorch();                    // 손전등은 시간대 색을 안 탄다 — 그 자체가 빛이므로
     drawNameTag();                  // 이름표는 시간대 색을 안 탄다 — 늘 읽혀야 하므로
   }
 
@@ -1071,11 +1371,37 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
       drawStars(ctx, W, H, S, n, t);   // 몇 개만 반짝이게 덧그림
       // 십자로 크게 그린 별들은 누를 수 있다 (drawStars 와 같은 자리 계산).
       // 반짝이는 몇 개(n)가 아니라 하늘에 박힌 것 전부(W/14)를 세야 폰에서도 여섯 개쯤 나온다.
+      starPts = [];
       for (let i = 0; i < Math.round(W / 14); i += 5) {
-        hits.push({ kind:'prop', key:'star',
-          x: Math.round(prand(i * 1.7) * W / S) * S, y: Math.round(prand(i * 3.9) * H * 0.5 / S) * S - S * 2,
-          w: S * 6, h: S * 6 });
+        const sx = Math.round(prand(i * 1.7) * W / S) * S;
+        const sy = Math.round(prand(i * 3.9) * H * 0.5 / S) * S - S * 2;
+        starPts.push({ i, x: sx + S * 3, y: sy + S * 3 });
+        hits.push({ kind:'prop', key:'star', idx:i, x: sx, y: sy, w: S * 6, h: S * 6 });
       }
+      // 이을 별 고르기. 세 가지를 거른다.
+      //  · 번호 25 까지 — 폰에도 있는 별만 써야 화면마다 같은 놀이가 된다
+      //  · 지평선 위 — 아래에 찍힌 별로 이으면 선이 산에 먹혀 끊긴 것처럼 보인다
+      //  · 서로 떨어진 것 — 상자가 겹치면 뒤엣것은 영영 못 누른다. 앞엣것이 늘 먼저
+      //    잡히기 때문이다. 실제로 5번과 10번이 8px 차이로 붙어 있어서, 여섯 번을
+      //    눌러도 하나는 끝까지 안 이어졌다.
+      MAP_IDS = [];
+      starPts.forEach(q => {
+        if (q.i > 25 || q.y >= H * 0.38 || MAP_IDS.length >= 5) return;
+        const far = MAP_IDS.every(j => {
+          const o = starPts.find(sp => sp.i === j);
+          return !o || Math.abs(o.x - q.x) >= S * 7 || Math.abs(o.y - q.y) >= S * 7;
+        });
+        if (far) MAP_IDS.push(q.i);
+      });
+      // 두세 개로는 별자리라 하기 어렵다. 그런 날은 그냥 별만 반짝인다.
+      if (MAP_IDS.length < 3) MAP_IDS = [];
+      // 이을 수 있는 별은 한 점 더 찍어 도톰하게 — 어느 별인지 손에 잡히게 한다
+      ctx.fillStyle = 'rgba(255,243,160,.55)';
+      starPts.forEach(q => {
+        if (isMapStar(q.i) && lit.indexOf(q.i) < 0)
+          ctx.fillRect(q.x - S, q.y - S, S * 2, S * 2);
+      });
+      drawStarMap();
     }
     drawMeteor();
 
@@ -1289,6 +1615,7 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
         Math.max(2, charS - 1), wash(SPRITES.butterfly));
     }
 
+    drawRainbow();
     drawFalling();
     drawRain();
     drawBalloons();
@@ -1368,11 +1695,17 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
   // 손끝은 화살표보다 뭉툭해서 스프라이트 딱 그만큼만 받으면 자꾸 빗나간다. 조금 넉넉히 잡음.
   function hitAt(px, py){
     const slack = S * 2;
-    for (let i = hits.length - 1; i >= 0; i--) {
+    const inside = h => px >= h.x - h.w / 2 - slack && px <= h.x + h.w / 2 + slack &&
+                        py >= h.y - slack && py <= h.y + h.h + slack;
+    // 별자리로 이을 별만 먼저 본다.
+    // 뒤에서부터 훑으면 나중에 그린 것이 이긴다. 구름은 별보다 나중에 그려지고 상자도
+    // 넓어서, 구름 아래 놓인 별은 눌러도 구름이 대신 대답한다. 여섯 번 눌러 둘만
+    // 이어지길래 찾은 것이 이것이었다. 별자리에 쓰는 다섯 개만 예외로 둔다.
+    for (let i = 0; i < hits.length; i++) {
       const h = hits[i];
-      if (px >= h.x - h.w / 2 - slack && px <= h.x + h.w / 2 + slack &&
-          py >= h.y - slack && py <= h.y + h.h + slack) return h;
+      if (h.key === 'star' && isMapStar(h.idx) && inside(h)) return h;
     }
+    for (let i = hits.length - 1; i >= 0; i--) if (inside(hits[i])) return hits[i];
     return null;
   }
 
@@ -1463,6 +1796,7 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
         }
       }
       lastTap = { name: hit.name, at: now };
+      sfx('char');
       say(speak(hit.name), hit); popAt(hit.x, hit.y, SPRITES.heart, 3); return;
     }
     if (hit.kind === 'easel') {
@@ -1478,6 +1812,7 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
         }).catch(() => { if (easelHref) location.href = easelHref; });
         return;
       }
+      sfx('easel');
       if (easelHref) location.href = easelHref;
       else say('아직 걸린 그림이 없어', hit);
       return;
@@ -1489,9 +1824,11 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
         found.add(sec.key);
         try { localStorage.setItem(FOUND_KEY, JSON.stringify(Array.from(found))); } catch (e) {}
         syncHud();
+        sfx('secret');
         popAt(hit.x, hit.y, SPRITES.star, 7);
         say(sec.label + ' 찾았다!', hit);
       } else {
+        sfx('prop');
         say(sec.line, hit);
       }
       return;
@@ -1501,6 +1838,18 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
     if (hit.key === 'sun'   && countTap('sun', 10, 15000)) { shower = performance.now() + 30000; unlock('shower', hit, '소나기다!'); return; }
     if (hit.key === 'star') {
       popAt(hit.x, hit.y + S * 3, SPRITES.star, 2);
+      sfx('star');
+      // 별자리 잇기 — 아직 안 이은 별이면 선이 하나 더 늘어난다.
+      if (isMapStar(hit.idx) && lit.indexOf(hit.idx) < 0) {
+        lit.push(hit.idx);
+        try { localStorage.setItem(MAP_KEY, JSON.stringify(lit)); } catch (e) {}
+        if (MAP_IDS.length && lit.length >= MAP_IDS.length) {
+          const name = STAR_NAMES[DAY_SEED % STAR_NAMES.length];
+          unlock('starmap', hit, '별자리 완성! 오늘의 이름은 ' + name);
+        } else if (lit.length === 2) {
+          say('별이 이어졌다', hit);              // 두 개째에 한 번만 귀띔한다
+        }
+      }
       if (countTap('star', 5, 20000)) { meteorAt = performance.now(); unlock('meteor', hit, '유성이다! 소원 빌어'); }
       return;
     }
@@ -1512,6 +1861,7 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
     }
     // 소품 — 이름이 없으니 소리만 낸다
     const memo = said['prop:' + hit.key] || (said['prop:' + hit.key] = { last:-1 });
+    sfx(SOUND[hit.key] ? hit.key : 'prop');
     say(pickLine(PROP_LINES[hit.key] || ['톡'], memo), hit);
     popAt(hit.x, hit.y, hit.key === 'sun' || hit.key === 'moon' ? SPRITES.star : SPRITES.heart, 4);
   }
@@ -1528,9 +1878,10 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
     if (now - plantAt < 1200) return;
     plantAt = now; plantedHere++;
 
-    const f = { xr: p.x / W, yr: p.y / H, k: Math.floor(Math.random() * SCENE.petal.length) };
+    const f = { xr: p.x / W, yr: p.y / H, k: Math.floor(Math.random() * SCENE.petal.length), age: 0 };
     planted.push(f);
     popAt(p.x, p.y, SPRITES.heart, 2);
+    sfx('plant');
     kick();
     // 남겨 두는 건 덤이다. 표가 없거나 실패해도 이 화면의 꽃은 그대로 핀다.
     sb.from('garden').insert({
@@ -1540,10 +1891,15 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
 
   // 남이 심어 둔 꽃 불러오기 — 최근 것부터 120송이까지만.
   // 다 그리면 화면이 꽃밭이 되고, 오래된 것부터 자연스럽게 밀려나는 편이 낫다.
-  sb.from('garden').select('xr, yr, kind').order('id', { ascending: false }).limit(120)
+  // 심은 시각도 같이 받는다 — 갓 심은 것은 새싹으로, 오래된 것은 꽃으로 그리려고.
+  sb.from('garden').select('xr, yr, kind, created_at').order('id', { ascending: false }).limit(120)
     .then(({ data }) => {
       if (!data) return;
-      planted = data.map(r => ({ xr: r.xr / 1000, yr: r.yr / 1000, k: r.kind || 0 })).concat(planted);
+      const now = Date.now();
+      planted = data.map(r => ({
+        xr: r.xr / 1000, yr: r.yr / 1000, k: r.kind || 0,
+        age: r.created_at ? now - new Date(r.created_at).getTime() : null,
+      })).concat(planted);
       kick();
     }, () => {});
 
@@ -1661,6 +2017,42 @@ $$('canvas[data-char]').forEach(cv => {
     photos: c.photos || 0, events: c.events || 0,
   };
 
+  // ---- 배지 ----
+  // 다음 고개를 흐리게라도 보여 준다. 다 받은 것만 늘어놓으면 여기서 끝인 줄 안다.
+  const BADGES = [
+    { n:'작품 10점',  f:'works',  need:10,  icon:'🎨' },
+    { n:'작품 25점',  f:'works',  need:25,  icon:'🖼' },
+    { n:'작품 50점',  f:'works',  need:50,  icon:'🏆' },
+    { n:'일기 10편',  f:'posts',  need:10,  icon:'📓' },
+    { n:'사진 100장', f:'photos', need:100, icon:'📷' },
+    { n:'사진 300장', f:'photos', need:300, icon:'📸' },
+    { n:'나들이 5번', f:'events', need:5,   icon:'🧭' },
+  ];
+  const badgeBox = $('#badges');
+  if (badgeBox) {
+    const got = BADGES.filter(b => nums[b.f] >= b.need);
+    // 아직 못 받은 것 중 가장 가까운 하나만 흐리게 곁들인다
+    const next = BADGES.filter(b => nums[b.f] < b.need)
+      .sort((a, b) => (a.need - nums[a.f]) - (b.need - nums[b.f]))[0];
+    badgeBox.innerHTML =
+      got.map(b => '<span class="badge">' + b.icon + ' ' + b.n + '</span>').join('') +
+      (next ? '<span class="badge locked">' + next.icon + ' ' + next.n +
+              ' (' + (next.need - nums[next.f]) + ' 남음)</span>' : '');
+  }
+
+  // ---- 작품 도감 ----
+  // 전시실에서 실제로 열어 본 작품만 센다. 이 브라우저에만 남는다.
+  const dex = $('#dexLine');
+  if (dex && nums.works) {
+    let seenWorks = [];
+    try { seenWorks = JSON.parse(localStorage.getItem('sy.dex') || '[]'); } catch (e) {}
+    const n = Math.min(seenWorks.length, nums.works);
+    dex.hidden = false;
+    dex.textContent = n >= nums.works
+      ? '📖 도감 완성! 작품 ' + nums.works + '점을 다 봤어요'
+      : '📖 도감 ' + n + '/' + nums.works + ' — 전시실에서 작품을 열면 도감에 담겨요';
+  }
+
   function countUp(el, target){
     const dur = 900, t0 = performance.now();
     requestAnimationFrame(function step(now){
@@ -1681,6 +2073,111 @@ $$('canvas[data-char]').forEach(cv => {
   }, { threshold: 0.4 });
   $$('[data-count]').forEach(el => io.observe(el));
 })().catch(() => {});
+
+// ================= 오늘의 낱말 =================
+// 날짜로 고르니 자매 둘이 같은 날 같은 낱말을 본다. 서버에 묻지 않는다.
+// 아이들이 실제로 쓸 만한 낱말로만 골랐다 — 시험에 나오는 말 말고.
+(function(){
+  const WORDS = [
+    ['가늠하다', '어림잡아 헤아리다', '연아는 상자 무게를 가늠해 보았다.'],
+    ['갸웃하다', '고개를 조금 기울이다', '수아가 고개를 갸웃하며 물었다.'],
+    ['겨를', '어떤 일을 할 짬', '숙제하느라 놀 겨를이 없었다.'],
+    ['골똘히', '한 가지에만 마음을 쏟아', '골똘히 생각하다 이름을 떠올렸다.'],
+    ['그윽하다', '깊고 은은하다', '빵집에서 그윽한 냄새가 났다.'],
+    ['너그럽다', '마음이 넓고 여유롭다', '언니는 동생에게 너그러웠다.'],
+    ['다독이다', '가만가만 두드려 달래다', '엄마가 등을 다독여 주었다.'],
+    ['도란도란', '정답게 이야기하는 모양', '자매가 도란도란 이야기했다.'],
+    ['두런거리다', '낮은 목소리로 이야기하다', '옆방에서 두런거리는 소리가 났다.'],
+    ['들썩이다', '자꾸 들렸다 놓였다 하다', '음악에 어깨가 들썩였다.'],
+    ['마중', '오는 사람을 맞으러 나감', '아빠 마중을 나갔다.'],
+    ['머쓱하다', '무안해서 어색하다', '틀린 답을 말하고 머쓱해졌다.'],
+    ['몽글몽글', '덩이져 부드러운 모양', '구름이 몽글몽글 떠 있었다.'],
+    ['무심코', '아무 생각 없이', '무심코 한 말이 친구를 웃겼다.'],
+    ['방긋', '소리 없이 밝게 웃는 모양', '아기가 방긋 웃었다.'],
+    ['배웅', '떠나는 사람을 보내 줌', '할머니를 배웅하고 돌아왔다.'],
+    ['사뿐사뿐', '가볍게 걷는 모양', '고양이가 사뿐사뿐 걸어왔다.'],
+    ['살포시', '아주 살며시', '살포시 문을 닫았다.'],
+    ['새록새록', '자꾸 새롭게 떠오르는 모양', '옛 생각이 새록새록 났다.'],
+    ['설레다', '마음이 들떠 두근거리다', '소풍 전날이라 설렜다.'],
+    ['소복소복', '수북이 쌓이는 모양', '밤새 눈이 소복소복 쌓였다.'],
+    ['수줍다', '부끄러워 머뭇거리다', '수줍게 손을 들었다.'],
+    ['숙연하다', '고요하고 엄숙하다', '모두 숙연하게 서 있었다.'],
+    ['시나브로', '모르는 사이에 조금씩', '시나브로 키가 자랐다.'],
+    ['아늑하다', '포근하고 편안하다', '이불 속이 아늑했다.'],
+    ['아른거리다', '눈앞에 어렴풋이 어리다', '바다가 눈앞에 아른거렸다.'],
+    ['앙증맞다', '작으면서 깜찍하다', '앙증맞은 인형을 골랐다.'],
+    ['어귀', '드나드는 목의 첫머리', '마을 어귀에 큰 나무가 있다.'],
+    ['오롯이', '고스란히, 온전히', '오롯이 혼자 힘으로 그렸다.'],
+    ['옹기종기', '작은 것들이 모여 있는 모양', '병아리들이 옹기종기 모였다.'],
+    ['움트다', '싹이 나기 시작하다', '봄이 되자 새싹이 움텄다.'],
+    ['이따금', '가끔씩', '이따금 새가 울었다.'],
+    ['자박자박', '가볍게 걸음 소리가 나는 모양', '자박자박 발소리가 다가왔다.'],
+    ['재잘거리다', '쉴 새 없이 말하다', '아이들이 재잘거리며 걸었다.'],
+    ['조곤조곤', '차분하게 말하는 모양', '조곤조곤 이유를 설명했다.'],
+    ['철썩', '물결이 부딪는 소리', '파도가 철썩 부딪쳤다.'],
+    ['초롱초롱', '눈이 맑고 또렷한 모양', '눈이 초롱초롱 빛났다.'],
+    ['토닥토닥', '가볍게 두드리는 모양', '어깨를 토닥토닥 두드렸다.'],
+    ['푸근하다', '넉넉하고 따뜻하다', '할머니 품이 푸근했다.'],
+    ['한결', '전보다 훨씬', '자고 나니 한결 나아졌다.'],
+    ['해맑다', '환하고 깨끗하다', '해맑은 얼굴로 달려왔다.'],
+    ['호젓하다', '조용하고 한적하다', '호젓한 골목을 걸었다.'],
+  ];
+  const el = $('#wordText'); if (!el) return;
+  const d = new Date();
+  const seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  const w = WORDS[seed % WORDS.length];
+  el.textContent = w[0];
+  $('#wordMean').textContent = w[1];
+  $('#wordEx').textContent = '“' + w[2] + '”';
+})();
+
+// ================= 출석 도장 =================
+// 이번 달 달력에 들어온 날마다 도장이 찍힌다. 이 브라우저에만 남는다 —
+// 자매가 각자 자기 것을 모으는 편이 맞고, 남의 출석은 세어 봐야 재미가 없다.
+(function(){
+  const grid = $('#stampGrid'); if (!grid) return;
+  const KEY = 'sy.stamps';
+  let days = [];
+  try { days = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const today = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+  if (days.indexOf(today) < 0) {
+    days.push(today);
+    // 두 달치만 남긴다. 몇 년을 모으면 저장 칸만 차지하고 화면에는 안 나온다.
+    days = days.slice(-70);
+    try { localStorage.setItem(KEY, JSON.stringify(days)); } catch (e) {}
+  }
+  const set = new Set(days);
+
+  const y = now.getFullYear(), m = now.getMonth();
+  const first = new Date(y, m, 1).getDay();          // 0=일
+  const last = new Date(y, m + 1, 0).getDate();
+  $('#stampMonth').textContent = y + '년 ' + (m + 1) + '월';
+
+  let html = '';
+  for (let i = 0; i < first; i++) html += '<div class="stamp-cell pad"></div>';
+  for (let d = 1; d <= last; d++) {
+    const key = y + '-' + pad(m + 1) + '-' + pad(d);
+    const on = set.has(key), isToday = key === today;
+    html += '<div class="stamp-cell' + (on ? ' on' : '') + (isToday ? ' today' : '') + '">' +
+            (on ? '⭐' : d) + '</div>';
+  }
+  grid.innerHTML = html;
+
+  // 오늘부터 거꾸로 며칠이나 이어졌나
+  let streak = 0;
+  for (let i = 0; ; i++) {
+    const dt = new Date(y, m, now.getDate() - i);
+    const key = dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
+    if (!set.has(key)) break;
+    streak++;
+  }
+  $('#stampSay').textContent = streak >= 2
+    ? streak + '일째 이어서 왔어요! 내일도 오면 ' + (streak + 1) + '일'
+    : '들어올 때마다 오늘 칸에 도장이 찍혀요';
+})();
 
 // ================= 여긴 어디였을까? =================
 // 사진은 갤러리에서 날짜로 한 장 고르고, 보기는 이벤트 이름 전부(최대 셋). 정답은 그 사진의 이벤트.
