@@ -190,9 +190,18 @@
     .menu-card .go{padding-right:44px;}
   }
 
-  /* 새로 붙인 세 구간이 연달아 오면 72px + 72px 로 사이가 너무 뜬다.
-     앞 두 개의 아래 여백을 빼서 한 칸(72px) 간격으로 맞춘다. */
-  #draw-cta, #counts, #quiz, #ask{padding-bottom:0;}
+  /* 구간이 연달아 오면 아래 72px + 위 72px 로 사이가 144px 이 된다. 한 화면에
+     제목 하나만 남는 셈이라 스크롤이 끝없이 길어진다. 앞 구간의 아래 여백을 빼서
+     한 칸(72px)으로 맞춘다.
+     ※ 목록을 고칠 때는 마지막(#capsule) 앞까지 전부 들어 있는지 볼 것. 나중에
+        #stamp 를 사이에 끼우면서 이 목록에 안 넣는 바람에, 메뉴↔그리기와
+        도장↔숫자만 144px 로 벌어져 있었다. */
+  #menu, #draw-cta, #stamp, #counts, #quiz, #ask{padding-bottom:0;}
+
+  /* 메뉴 아래로는 구간이 여섯 개가 연달아 온다. 한 칸을 72px 로 두면 화면마다
+     제목 하나씩만 보여서 스크롤이 길다. 이 줄부터는 52px 로 좁힌다 —
+     구간이 나뉘어 보이기에는 충분하고, 다음 것이 화면 끝에 걸쳐 보인다. */
+  #draw-cta, #stamp, #counts, #quiz, #ask, #capsule{padding-top:52px;}
 
   /* ===== 사진 퀴즈 ===== */
   .quiz-card{max-width:560px; margin:0 auto; overflow:hidden;}
