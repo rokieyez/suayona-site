@@ -1,0 +1,36 @@
+/*
+ * 이 사이트의 도트 글씨.
+ *
+ * Galmuri11 (Lee Minseo, quiple@quiple.dev) 을 이 사이트가 쓰는 글자만 남기고
+ * 잘라 낸 것이다. SIL Open Font License 1.1 로 배포되며, 원문은 옆의 OFL.txt 에 있다.
+ *
+ * 이름을 「Suayona Dot」 으로 바꾼 이유:
+ * OFL 3항은 고친 글꼴에 원래의 예약 이름(Reserved Font Name, 여기서는 "Galmuri")을
+ * 쓰지 못하게 한다. 자르는 것도 고치는 것에 들어가므로 이름을 새로 붙였다.
+ * 만든 사람과 라이선스는 위에 그대로 남긴다.
+ *
+ * 왜 잘랐나:
+ * 원본 한 벌에 한자와 가나까지 2만 자가 넘게 들어 있어 두 벌에 656KB 였다.
+ * 우리가 쓰는 것은 한글과 라틴뿐이라, 상용 한글 2350자에 저장소와 데이터베이스에
+ * 실제로 박혀 있는 글자를 더해 2774자만 남겼다. 92KB 가 됐다.
+ *
+ * 여기 없는 글자는 프리텐다드로 나온다. 첫 화면 말풍선에 뜨는 작품 제목이
+ * 유일하게 데이터베이스에서 오는 도트 글씨라, 지금 있는 작품의 글자는 전부 넣어 뒀다.
+ * 아주 드문 글자를 새로 쓰면 그 글자만 모양이 달라진다.
+ *
+ * 다시 만들려면 scratchpad 의 build.py 를 참고할 것.
+ */
+@font-face {
+  font-family: 'Suayona Dot';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Galmuri11.subset.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Suayona Dot';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Galmuri11-Bold.subset.woff2') format('woff2');
+}

@@ -30,8 +30,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" rel="stylesheet"
       integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" crossorigin="anonymous">
-<link href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css" rel="stylesheet"
-      integrity="sha384-55uQGdclWjXwWY0yHikdtcfcat9pPBqMBCVFIeWjRhvPPUYbpJLhIJegzTcFoh/A" crossorigin="anonymous">
+<link href="/fonts/dot.css" rel="stylesheet">
 <link href="./style.css" rel="stylesheet">
 <style>
   /* ===== 히어로 (이 페이지에서만 쓰임) ===== */
@@ -136,15 +135,9 @@
   }
   .find-hud.done{background:var(--lemon);}
   .find-hud.bday{bottom:60px; background:var(--coral);}
-  .find-hud.throw{left:auto; right:14px; pointer-events:auto; cursor:pointer; font-family:inherit; font-size:11px;}
-  .find-hud.throw:active{transform:translate(2px,2px); box-shadow:2px 2px 0 rgba(47,42,36,.45);}
-  .find-hud.sound{left:auto; right:14px; bottom:60px; pointer-events:auto; cursor:pointer; font-family:inherit;}
+  .find-hud.sound{left:auto; right:14px; pointer-events:auto; cursor:pointer; font-family:inherit;}
   .find-hud.sound:active{transform:translate(2px,2px); box-shadow:2px 2px 0 rgba(47,42,36,.45);}
   .find-hud.sound.off{opacity:.55;}
-  .word-band{padding:22px 20px; text-align:center;}
-  .word-band h2{margin:8px 0 6px; font-size:clamp(26px,6vw,38px); letter-spacing:1px;}
-  .word-band p{margin:0; color:var(--ink-soft); font-size:14px; line-height:1.6;}
-  .word-band .word-ex{margin-top:8px; color:var(--ink); font-size:13.5px;}
   .stamp-card{padding:16px;}
   .stamp-head{font-size:13px; margin-bottom:10px;}
   .stamp-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;}
@@ -155,8 +148,6 @@
   .stamp-cell.on{background:var(--lemon); border-color:var(--ink); color:var(--ink); font-weight:800;}
   .stamp-cell.today{border-color:var(--coral); border-width:3px;}
   .stamp-cell.pad{border:none;}
-  .find-hud.sky{bottom:102px; background:var(--mint);}
-  @media (max-width:400px){ .find-hud.sky{bottom:96px;} }
   .badge-row{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px;}
   .badge{
     border:2px solid var(--ink); background:var(--paper); padding:6px 11px;
@@ -164,9 +155,9 @@
   }
   .badge.locked{opacity:.4; box-shadow:none; border-style:dashed;}
   .dex-line{text-align:center; margin:14px 0 0; font-size:12px; color:var(--ink-soft);}
-  .find-hud.torch{left:auto; right:14px; bottom:102px; pointer-events:auto; cursor:pointer; font-family:inherit;}
+  .find-hud.torch{left:auto; right:14px; bottom:60px; pointer-events:auto; cursor:pointer; font-family:inherit;}
   .find-hud.torch.on{background:var(--lemon);}
-  @media (max-width:400px){ .find-hud.throw, .find-hud.sound, .find-hud.torch{right:10px;} }
+  @media (max-width:400px){ .find-hud.sound, .find-hud.torch{right:10px;} }
   @media (max-width:400px){ .find-hud{left:10px; bottom:18px; font-size:10px;} }
 
   /* ===== 메뉴 카드에 선 캐릭터 =====
@@ -273,10 +264,6 @@
        처음부터 보여 준다 — 0/3 이 곧 초대장이다. -->
   <div class="find-hud pixel" id="findHud">🔍 숨은 친구 0/3</div>
   <div class="find-hud pixel bday" id="bdayHud" hidden></div>
-  <!-- 내일 날씨. 아이가 아침에 챙길 것을 스스로 정하게 하는 자리라 한 줄이면 된다. -->
-  <div class="find-hud pixel sky" id="skyHud" hidden></div>
-  <!-- 던지기 기록. 눌러서 누구 기록인지 바꾼다 — 이건 눌려야 하므로 pointer-events 를 켠다 -->
-  <button class="find-hud pixel throw" id="throwHud" type="button">🦆</button>
   <!-- 소리는 기본으로 켜 둔다. 도서관에서 열었을 때를 위해 끄는 자리를 눈에 띄게 남긴다. -->
   <button class="find-hud pixel sound" id="soundHud" type="button" aria-label="소리 켜고 끄기">🔊</button>
   <!-- 손전등은 밤에만 나온다. 낮에 켤 수 있으면 밤을 기다릴 이유가 없다. -->
@@ -364,19 +351,6 @@
         <p>이 사이트에 쓰인 색으로 한 칸씩 찍어서 그림을 그려요.<br>다 그리면 그림 파일로 저장할 수 있어요.</p>
         <a class="dot-btn primary" href="./draw.html">그리러 가기 →</a>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- 오늘의 낱말. 날짜로 고르니 자매 둘이 같은 날 같은 낱말을 배운다.
-     서버에 묻지 않는다 — 목록이 이 파일 안에 있어서 오갈 것이 없다. -->
-<section class="section-pad" id="word">
-  <div class="wrap">
-    <div class="dot-card word-band reveal">
-      <span class="eyebrow pixel">오늘의 낱말</span>
-      <h2 class="pixel" id="wordText">—</h2>
-      <p id="wordMean"></p>
-      <p class="word-ex" id="wordEx"></p>
     </div>
   </div>
 </section>
@@ -812,47 +786,17 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
   else if (forcedW === 'snow') weather.snow = true;
   else if (forcedW === 'fog') weather.fog = true;
   else if (forcedW === 'wind') weather.wind = 2.2;
-  // 내일 예보는 지금 날씨와 같은 요청에 얹어서 받는다 — 왕복이 늘지 않는다.
   else fetch('https://api.open-meteo.com/v1/forecast?latitude=' + WEATHER_AT.lat + '&longitude=' + WEATHER_AT.lng +
-        '&current=weather_code,wind_speed_10m' +
-        '&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=2' +
-        '&timezone=Asia%2FSeoul')
+        '&current=weather_code,wind_speed_10m&timezone=Asia%2FSeoul')
     .then(r => r.json()).then(j => {
       const c = j.current || {}, code = c.weather_code;
-      if (typeof code === 'number') {
-        weather.rain = (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95;
-        weather.snow = (code >= 71 && code <= 77) || code === 85 || code === 86;
-        weather.fog  = code === 45 || code === 48;
-        weather.wind = c.wind_speed_10m > 25 ? 2.2 : c.wind_speed_10m > 12 ? 1.5 : 1;
-        kick();
-      }
-      showTomorrow(j.daily);
+      if (typeof code !== 'number') return;
+      weather.rain = (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95;
+      weather.snow = (code >= 71 && code <= 77) || code === 85 || code === 86;
+      weather.fog  = code === 45 || code === 48;
+      weather.wind = c.wind_speed_10m > 25 ? 2.2 : c.wind_speed_10m > 12 ? 1.5 : 1;
+      kick();
     }).catch(() => {});
-
-  // ---- 내일 날씨 ----
-  // 예보 코드를 아이가 알아들을 말로 바꾼다. 「강수확률 60%」 가 아니라 「우산 챙겨」 여야 한다.
-  function tomorrowSay(code, hi, lo){
-    const t = (typeof hi === 'number' && typeof lo === 'number')
-      ? ' ' + Math.round(lo) + '~' + Math.round(hi) + '°' : '';
-    if (code >= 95)                    return '⛈ 내일은 천둥번개 — 조심!' + t;
-    if (code >= 80 && code <= 82)      return '🌦 내일은 소나기 — 우산 챙겨!' + t;
-    if (code >= 71 && code <= 77 || code === 85 || code === 86) return '⛄ 내일은 눈! 장갑 챙겨' + t;
-    if (code >= 51 && code <= 67)      return '☔ 내일은 비 — 우산 챙겨!' + t;
-    if (code === 45 || code === 48)    return '🌫 내일은 안개 — 천천히' + t;
-    if (code === 3)                    return '☁ 내일은 흐림' + t;
-    if (code === 1 || code === 2)      return '⛅ 내일은 구름 조금' + t;
-    if (code === 0)                    return '☀ 내일은 맑음!' + t;
-    return '';
-  }
-  function showTomorrow(daily){
-    const hud = $('#skyHud');
-    if (!hud || !daily || !daily.weather_code || daily.weather_code.length < 2) return;
-    const text = tomorrowSay(daily.weather_code[1],
-      (daily.temperature_2m_max || [])[1], (daily.temperature_2m_min || [])[1]);
-    if (!text) return;
-    hud.textContent = text;
-    hud.hidden = false;
-  }
 
   // ---- 생일 ----
   // 'MM-DD'. 비워 두면 그냥 안 켜진다. 주소에 ?birthday=수아 를 붙이면 미리 볼 수 있다.
@@ -869,20 +813,8 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
 
   // ---- 던지기 기록 ----
   // 상그렐라를 던진 거리. 화면 폭을 10m 로 친다 — 폰과 모니터에서 같은 던지기가 같은 기록이 되게.
-  const throwHud = $('#throwHud');
-  let thrower = '수아';
-  try { thrower = localStorage.getItem('sy.throwWho') || '수아'; } catch (e) {}
-  const bestOf = who => { try { return Number(localStorage.getItem('sy.throw.' + who) || 0); } catch (e) { return 0; } };
-  function syncThrowHud(){
-    if (!throwHud) return;
-    const b = bestOf(thrower);
-    throwHud.textContent = '🦆 ' + thrower + (b ? ' ' + b.toFixed(1) + 'm' : ' 던져봐!');
-  }
-  if (throwHud) throwHud.addEventListener('click', () => {
-    thrower = thrower === '수아' ? '연아' : '수아';
-    try { localStorage.setItem('sy.throwWho', thrower); } catch (e) {}
-    syncThrowHud();
-  });
+  // 표시할 자리는 따로 두지 않는다. 신기록이 나오면 상그렐라가 직접 말한다.
+  const bestThrow = () => { try { return Number(localStorage.getItem('sy.throw.best') || 0); } catch (e) { return 0; } };
 
   // ---- 열쇠 (순서를 맞춰야 열리는 비밀) ----
   // 안내 없이 숨겨 둔다. 찾은 건 남아서 표시에 🔑 로 붙는다.
@@ -1517,12 +1449,10 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
             chick.thrown = false;
             const m = Math.round(chick.far / W * 100) / 10;      // 화면 폭 = 10m
             if (chick.far > W * 0.05) {
-              const best = bestOf(thrower);
               const h = hits.find(x => x.kind === 'char' && x.name === '상그렐라');
-              if (m > best) {
-                try { localStorage.setItem('sy.throw.' + thrower, String(m)); } catch (e) {}
-                syncThrowHud();
-                if (h) { say('신기록! ' + m.toFixed(1) + 'm', h); popAt(h.x, h.y, SPRITES.star, 8); }
+              if (m > bestThrow()) {
+                try { localStorage.setItem('sy.throw.best', String(m)); } catch (e) {}
+                if (h) { sfx('key'); say('신기록! ' + m.toFixed(1) + 'm', h); popAt(h.x, h.y, SPRITES.star, 8); }
               } else if (h) say(m.toFixed(1) + 'm', h);
             }
           }
@@ -1643,7 +1573,7 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
 
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, fade));
-    ctx.font = '800 ' + fs + 'px Galmuri11, Pretendard Variable, Pretendard, sans-serif';
+    ctx.font = '800 ' + fs + 'px Suayona Dot, Pretendard Variable, Pretendard, sans-serif';
     ctx.textBaseline = 'top';
 
     const bw = Math.ceil(ctx.measureText(nameTag.text).width) + pad * 2;
@@ -1953,7 +1883,6 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
   }, 1000);
 
   syncHud();
-  syncThrowHud();
   if (BIRTHDAY) {
     const b = $('#bdayHud');
     if (b) { b.textContent = '🎂 오늘은 ' + BIRTHDAY + ' 생일!'; b.hidden = false; }
@@ -2073,63 +2002,6 @@ $$('canvas[data-char]').forEach(cv => {
   }, { threshold: 0.4 });
   $$('[data-count]').forEach(el => io.observe(el));
 })().catch(() => {});
-
-// ================= 오늘의 낱말 =================
-// 날짜로 고르니 자매 둘이 같은 날 같은 낱말을 본다. 서버에 묻지 않는다.
-// 아이들이 실제로 쓸 만한 낱말로만 골랐다 — 시험에 나오는 말 말고.
-(function(){
-  const WORDS = [
-    ['가늠하다', '어림잡아 헤아리다', '연아는 상자 무게를 가늠해 보았다.'],
-    ['갸웃하다', '고개를 조금 기울이다', '수아가 고개를 갸웃하며 물었다.'],
-    ['겨를', '어떤 일을 할 짬', '숙제하느라 놀 겨를이 없었다.'],
-    ['골똘히', '한 가지에만 마음을 쏟아', '골똘히 생각하다 이름을 떠올렸다.'],
-    ['그윽하다', '깊고 은은하다', '빵집에서 그윽한 냄새가 났다.'],
-    ['너그럽다', '마음이 넓고 여유롭다', '언니는 동생에게 너그러웠다.'],
-    ['다독이다', '가만가만 두드려 달래다', '엄마가 등을 다독여 주었다.'],
-    ['도란도란', '정답게 이야기하는 모양', '자매가 도란도란 이야기했다.'],
-    ['두런거리다', '낮은 목소리로 이야기하다', '옆방에서 두런거리는 소리가 났다.'],
-    ['들썩이다', '자꾸 들렸다 놓였다 하다', '음악에 어깨가 들썩였다.'],
-    ['마중', '오는 사람을 맞으러 나감', '아빠 마중을 나갔다.'],
-    ['머쓱하다', '무안해서 어색하다', '틀린 답을 말하고 머쓱해졌다.'],
-    ['몽글몽글', '덩이져 부드러운 모양', '구름이 몽글몽글 떠 있었다.'],
-    ['무심코', '아무 생각 없이', '무심코 한 말이 친구를 웃겼다.'],
-    ['방긋', '소리 없이 밝게 웃는 모양', '아기가 방긋 웃었다.'],
-    ['배웅', '떠나는 사람을 보내 줌', '할머니를 배웅하고 돌아왔다.'],
-    ['사뿐사뿐', '가볍게 걷는 모양', '고양이가 사뿐사뿐 걸어왔다.'],
-    ['살포시', '아주 살며시', '살포시 문을 닫았다.'],
-    ['새록새록', '자꾸 새롭게 떠오르는 모양', '옛 생각이 새록새록 났다.'],
-    ['설레다', '마음이 들떠 두근거리다', '소풍 전날이라 설렜다.'],
-    ['소복소복', '수북이 쌓이는 모양', '밤새 눈이 소복소복 쌓였다.'],
-    ['수줍다', '부끄러워 머뭇거리다', '수줍게 손을 들었다.'],
-    ['숙연하다', '고요하고 엄숙하다', '모두 숙연하게 서 있었다.'],
-    ['시나브로', '모르는 사이에 조금씩', '시나브로 키가 자랐다.'],
-    ['아늑하다', '포근하고 편안하다', '이불 속이 아늑했다.'],
-    ['아른거리다', '눈앞에 어렴풋이 어리다', '바다가 눈앞에 아른거렸다.'],
-    ['앙증맞다', '작으면서 깜찍하다', '앙증맞은 인형을 골랐다.'],
-    ['어귀', '드나드는 목의 첫머리', '마을 어귀에 큰 나무가 있다.'],
-    ['오롯이', '고스란히, 온전히', '오롯이 혼자 힘으로 그렸다.'],
-    ['옹기종기', '작은 것들이 모여 있는 모양', '병아리들이 옹기종기 모였다.'],
-    ['움트다', '싹이 나기 시작하다', '봄이 되자 새싹이 움텄다.'],
-    ['이따금', '가끔씩', '이따금 새가 울었다.'],
-    ['자박자박', '가볍게 걸음 소리가 나는 모양', '자박자박 발소리가 다가왔다.'],
-    ['재잘거리다', '쉴 새 없이 말하다', '아이들이 재잘거리며 걸었다.'],
-    ['조곤조곤', '차분하게 말하는 모양', '조곤조곤 이유를 설명했다.'],
-    ['철썩', '물결이 부딪는 소리', '파도가 철썩 부딪쳤다.'],
-    ['초롱초롱', '눈이 맑고 또렷한 모양', '눈이 초롱초롱 빛났다.'],
-    ['토닥토닥', '가볍게 두드리는 모양', '어깨를 토닥토닥 두드렸다.'],
-    ['푸근하다', '넉넉하고 따뜻하다', '할머니 품이 푸근했다.'],
-    ['한결', '전보다 훨씬', '자고 나니 한결 나아졌다.'],
-    ['해맑다', '환하고 깨끗하다', '해맑은 얼굴로 달려왔다.'],
-    ['호젓하다', '조용하고 한적하다', '호젓한 골목을 걸었다.'],
-  ];
-  const el = $('#wordText'); if (!el) return;
-  const d = new Date();
-  const seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-  const w = WORDS[seed % WORDS.length];
-  el.textContent = w[0];
-  $('#wordMean').textContent = w[1];
-  $('#wordEx').textContent = '“' + w[2] + '”';
-})();
 
 // ================= 출석 도장 =================
 // 이번 달 달력에 들어온 날마다 도장이 찍힌다. 이 브라우저에만 남는다 —
