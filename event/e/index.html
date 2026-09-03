@@ -628,7 +628,9 @@ function addCustomTabPanel(row){
   const panel = document.createElement('div');
   panel.className = 'panel';
   panel.id = id;
-  panel.innerHTML = '<div class="day-head">' + row.label + '</div>' + editLink +
+  // 부모가 적는 값이라 남이 넣을 수는 없지만, 제목에 <, & 를 쓰면 화면이 깨진다.
+  // 「<3」 같은 것을 적어 보면 바로 사라진다 — HTML 로 읽혀 버리기 때문이다.
+  panel.innerHTML = '<div class="day-head">' + escapeHTML(row.label) + '</div>' + editLink +
     '<div class="note-content">' + (renderNoteContent(row.content) || '<div class="empty-msg">아직 작성된 내용이 없습니다</div>') + '</div>';
   panelsEl.appendChild(panel);
 }
@@ -938,11 +940,18 @@ $('#logo').addEventListener('click', () => {
 
 // 일정 행을 먼저 읽어옴 — 어떤 날짜에 내용이 있는지 알아야 탭을 만들 수 있어서.
 // 실패하면 null 을 돌려주고, 그 경우엔 날짜 탭을 거르지 않고 모두 보여줌.
+//
+// 여기서 받은 줄을 한 번만 물려준다. 바로 뒤에 도는 loadGallery 가 「사진이 붙은
+// 일정」을 또 물어보고 있었는데, 그건 방금 받은 것의 부분집합이라 첫 그림에
+// 왕복이 하나 더 붙던 자리였다. 한 번 쓰고 버리는 이유는 사진을 올리면 일정이
+// 새로 생길 수 있어서다 — 두 번째부터는 늘 새로 받는다.
+let scheduleRowsOnce = null;
 async function fetchScheduleRows(){
   const { data, error } = await sb.from('events').select('*')
     .eq('event_id', CONFIG.eventSlug)
     .order('panel', {ascending:true}).order('sort_order', {ascending:true});
   if (error) { console.error('일정 로딩 오류:', error); return null; }
+  scheduleRowsOnce = data || [];
   const byPanel = {};
   (data || []).forEach(r => (byPanel[r.panel] = byPanel[r.panel] || []).push(r));
   return byPanel;
@@ -1057,9 +1066,14 @@ async function loadGallery(){
   if (!grid) return;
   grid.innerHTML = '';
 
+  // 일정 줄은 방금 fetchScheduleRows 가 받아 둔 것이 있으면 그걸 쓴다(첫 그림 한 번).
+  const handMeDown = scheduleRowsOnce;
+  scheduleRowsOnce = null;
   const [galleryRes, eventsRes] = await Promise.all([
     sb.from('gallery_media').select('*').eq('event_id', CONFIG.eventSlug),
-    sb.from('events').select('*').eq('event_id', CONFIG.eventSlug).not('image_url', 'is', null),
+    handMeDown
+      ? Promise.resolve({ data: handMeDown.filter(r => r.image_url) })
+      : sb.from('events').select('*').eq('event_id', CONFIG.eventSlug).not('image_url', 'is', null),
   ]);
   if (galleryRes.error) console.error('갤러리 로딩 오류:', galleryRes.error);
   if (eventsRes.error) console.error('일정 사진 로딩 오류:', eventsRes.error);
@@ -1116,9 +1130,9 @@ function renderGalleryThumb(r, index){
   const thumb = document.createElement('div');
   thumb.className = 'gallery-thumb' + (isVideo ? ' is-video' : '');
   thumb.innerHTML = isVideo
-    ? '<video src="' + r.media_url + '" preload="metadata" muted></video>'
+    ? '<video src="' + escapeHTML(r.media_url) + '" preload="metadata" muted></video>'
     // 손톱만 한 칸이다. 사본이 있으면 원본을 받지 않는다.
-    : '<img src="' + (r.thumb_url || r.media_url) + '" loading="lazy" alt="">';
+    : '<img src="' + escapeHTML(r.thumb_url || r.media_url) + '" loading="lazy" alt="">';
   thumb.addEventListener('click', () => openLightbox(index));
 
   // 베스트 컷 — 표시는 모두에게 보이고, 고르는 것은 부모만.

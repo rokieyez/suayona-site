@@ -625,3 +625,37 @@ grant execute on function public.home_counts() to anon, authenticated;
 -- 그 사이 크기의 영상은 다 올린 다음에야 거부당했다.
 update storage.buckets set file_size_limit = 104857600
  where id in ('event-images', 'gallery-uploads');
+
+-- ---------------------------------------------------------------------------
+-- 실행 권한은 PUBLIC 에서 걷어야 걷힌다 (2026-09-03 재점검에서 고침)
+--
+-- 앞에서 `revoke execute ... from anon, authenticated` 로 트리거 함수를 막았다고
+-- 적었는데, 절반만 걷혀 있었다. 함수는 만들 때 PUBLIC 에 실행 권한이 기본으로
+-- 붙는다(ACL 맨 앞의 `=X`). 역할에 준 것만 걷으면 그 기본 권한이 남아서
+-- has_function_privilege('anon', ...) 는 계속 true 다.
+--
+-- REST 로 부르면 404 가 나길래 막힌 줄 알았던 것은, PostgREST 가 「그 역할에
+-- 권한이 없다」 고 보고 목록에서 뺀 것이지 권한이 사라져서가 아니었다.
+-- ---------------------------------------------------------------------------
+revoke execute on function public.garden_flood_guard()   from public;
+revoke execute on function public.capsules_flood_guard() from public;
+revoke execute on function public.messages_flood_guard() from public;
+
+-- 밖에서 불려야 하는 것들도 PUBLIC 대신 역할을 짚어서 준다.
+revoke execute on function public.my_role()               from public;
+revoke execute on function public.my_author_key()         from public;
+revoke execute on function public.event_is_public(text)   from public;
+revoke execute on function public.capsules_locked()       from public;
+revoke execute on function public.home_counts()           from public;
+
+grant execute on function public.my_role()             to anon, authenticated;
+grant execute on function public.my_author_key()       to anon, authenticated;
+grant execute on function public.event_is_public(text) to anon, authenticated;
+grant execute on function public.capsules_locked()     to anon, authenticated;
+grant execute on function public.home_counts()         to anon, authenticated;
+
+-- 버킷이 아무 형식이나 받고 있었다. 올릴 수 있는 건 부모뿐이지만 버킷이 공개라,
+-- 실수로 .html 이나 .svg 가 들어가면 supabase.co 주소에서 스크립트가 도는 문서가 된다.
+update storage.buckets
+   set allowed_mime_types = array['image/*', 'video/*', 'audio/*']
+ where id in ('event-images', 'gallery-uploads');

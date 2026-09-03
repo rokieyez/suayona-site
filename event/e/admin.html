@@ -682,7 +682,7 @@ function renderCustomTabCard(row){
   card.className = 'item-card';
   card.dataset.ctId = row.id;
   card.innerHTML =
-    '<div class="item-title">' + row.label + '</div>' +
+    '<div class="item-title">' + escapeHTML(row.label) + '</div>' +
     '<div class="item-actions">' +
       '<button class="btn ghost ctEditBtn">수정</button>' +
       '<button class="btn danger ctDelBtn">삭제</button>' +
@@ -865,7 +865,7 @@ function renderCard(r){
     (r.place_name ? '<div class="item-detail">' +
         (Number.isFinite(r.place_lat) ? '📍 ' : '🔎 ') + escapeHTML(r.place_name) + '</div>' : '') +
     (r.detail ? '<div class="item-detail">' + escapeHTML(r.detail) + '</div>' : '') +
-    (r.image_url ? '<img class="item-img" src="' + (r.thumb_url || r.image_url) + '" alt="">' : '') +
+    (r.image_url ? '<img class="item-img" loading="lazy" decoding="async" src="' + (r.thumb_url || r.image_url) + '" alt="">' : '') +
     '<div class="item-actions">' +
       '<button class="btn ghost editBtn">수정</button>' +
       '<button class="btn danger delBtn">삭제</button>' +
@@ -934,7 +934,7 @@ function renderEditForm(r){
     // 이미 올라간 사진들을 한 줄씩 보여주고, 장마다 삭제 체크박스를 붙임
     existing.map((sh, i) =>
       '<div class="ePhoto" data-idx="' + i + '" style="margin-bottom:8px;">' +
-        '<img class="item-img" alt="첨부한 사진" src="' + escapeHTML(sh.url) + '">' +
+        '<img class="item-img" loading="lazy" decoding="async" alt="첨부한 사진" src="' + escapeHTML(sh.url) + '">' +
         '<label style="display:flex; align-items:center; gap:6px; font-weight:400; margin-top:4px;">' +
           '<input type="checkbox" class="eDrop" style="width:auto;">이 사진 삭제</label>' +
       '</div>').join('') +
