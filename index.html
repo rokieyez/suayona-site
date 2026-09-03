@@ -101,16 +101,29 @@
   @media (prefers-reduced-motion: reduce){ .scroll-cue{animation:none;} }
 
   /* ===== 메뉴 카드 ===== */
-  .menu-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:18px;}
+  /* 220px 이 하한이면 본문 폭(920px)에 넷이 안 들어가서 3+1 로 접혔다 — 마지막 하나가
+     늘 혼자 남았다. 200px 으로 낮추니 넷이 한 줄에 들어간다(200*4 + 14*3 = 842). */
+  .menu-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:14px;}
   .menu-card{
-    display:flex; flex-direction:column; gap:10px; padding:22px 20px 20px;
+    display:flex; flex-direction:column; gap:8px; padding:18px 16px 16px;
     text-decoration:none; color:inherit; position:relative;
   }
-  .menu-card canvas{width:64px; height:64px; image-rendering:pixelated;}
-  .menu-card h3{margin:0; font-size:17px; font-weight:800;}
-  .menu-card p{margin:0; font-size:13px; color:var(--ink-soft); line-height:1.65;}
-  .menu-card .go{margin-top:auto; padding-top:10px; font-size:12px; color:var(--coral); font-weight:800;}
-  .menu-card .num{position:absolute; top:10px; right:12px; font-size:11px; color:var(--ink-soft); opacity:.5;}
+  /* data-icon 만 크기를 지정한다. 그냥 canvas 로 잡으면 오른쪽 아래 캐릭터까지 걸려서
+     42x40 짜리 수아가 64x64 로 늘어난다 — 카드마다 다른 비율로 찌그러져 있었다. */
+  .menu-card canvas[data-icon]{width:48px; height:48px; image-rendering:pixelated;}
+  .menu-card h3{margin:0; font-size:16px; font-weight:800;}
+  .menu-card p{margin:0; font-size:12.5px; color:var(--ink-soft); line-height:1.6;}
+  .menu-card .go{margin-top:auto; padding-top:8px; font-size:11.5px; color:var(--coral); font-weight:800;}
+  .menu-card .num{position:absolute; top:8px; right:10px; font-size:10px; color:var(--ink-soft); opacity:.5;}
+
+  /* 좁은 화면에서는 두 개씩 두 줄. 한 줄에 하나씩이면 네 칸을 지나는 데 스크롤이 너무 길다. */
+  @media (max-width:560px){
+    .menu-grid{grid-template-columns:1fr 1fr; gap:10px;}
+    .menu-card{padding:14px 12px 12px; gap:6px;}
+    .menu-card h3{font-size:14px;}
+    .menu-card p{font-size:11.5px; line-height:1.55;}
+    .menu-card .go{font-size:11px; padding-top:6px;}
+  }
 
   /* ===== N년 전 오늘 ===== */
   #memory{padding-bottom:0;}          /* 아래 메뉴 구간이 이미 위 여백을 가진다 */
@@ -169,7 +182,13 @@
     position:absolute; right:12px; bottom:12px;
     image-rendering:pixelated; pointer-events:none;
   }
-  .menu-card p{padding-right:56px;}
+  .menu-card p{padding-right:48px;}
+  /* 좁은 화면에서는 카드가 160px 남짓이라 오른쪽을 48px 비우면 글이 설 자리가 없다.
+     캐릭터는 카드 맨 아래에만 서 있으므로, 설명 대신 「보러가기」 줄만 비켜 준다. */
+  @media (max-width:560px){
+    .menu-card p{padding-right:0;}
+    .menu-card .go{padding-right:44px;}
+  }
 
   /* 새로 붙인 세 구간이 연달아 오면 72px + 72px 로 사이가 너무 뜬다.
      앞 두 개의 아래 여백을 빼서 한 칸(72px) 간격으로 맞춘다. */
@@ -306,7 +325,7 @@
       <a class="dot-card menu-card reveal" href="./portfolio.html">
         <canvas class="who" data-char="sua" aria-hidden="true"></canvas>
         <span class="num pixel">01</span>
-        <canvas data-icon="frame" width="64" height="64"></canvas>
+        <canvas data-icon="frame" width="48" height="48"></canvas>
         <h3>포트폴리오</h3>
         <p>그림, 만들기, 사진. 두 사람이 만든 작품을 모아둔 전시실이에요.</p>
         <span class="go pixel">보러가기 →</span>
@@ -315,7 +334,7 @@
       <a class="dot-card menu-card reveal" href="./board.html">
         <canvas class="who" data-char="yona" aria-hidden="true"></canvas>
         <span class="num pixel">02</span>
-        <canvas data-icon="bubble" width="64" height="64"></canvas>
+        <canvas data-icon="bubble" width="48" height="48"></canvas>
         <h3>일기장</h3>
         <p>오늘 있었던 일, 하고 싶은 말을 자유롭게 적어두는 공간이에요.</p>
         <span class="go pixel">보러가기 →</span>
@@ -324,7 +343,7 @@
       <a class="dot-card menu-card reveal" href="./event/">
         <canvas class="who" data-char="chick" aria-hidden="true"></canvas>
         <span class="num pixel">03</span>
-        <canvas data-icon="tree" width="64" height="64"></canvas>
+        <canvas data-icon="tree" width="48" height="48"></canvas>
         <h3>이벤트</h3>
         <p>수련회, 여행, 행사를 날짜별로 확인하고 사진도 올릴 수 있어요.</p>
         <span class="go pixel">보러가기 →</span>
@@ -333,7 +352,7 @@
       <a class="dot-card menu-card reveal" href="./contact.html">
         <canvas class="who" data-char="budgieUp" aria-hidden="true"></canvas>
         <span class="num pixel">04</span>
-        <canvas data-icon="mail" width="64" height="64"></canvas>
+        <canvas data-icon="mail" width="48" height="48"></canvas>
         <h3>편지쓰기</h3>
         <p>궁금한 점이나 응원의 말을 편지처럼 남길 수 있어요.</p>
         <span class="go pixel">보러가기 →</span>
