@@ -170,6 +170,64 @@
   .tune input[type=range]{width:100%;}
   .tune input[type=text]{width:100%; font:inherit; font-size:13px; padding:8px 10px; border:2px solid var(--ink); background:var(--cream); box-sizing:border-box;}
   .tune .row{display:flex; gap:8px; align-items:center; margin-top:12px;}
+
+  /* ---- 글자 대신 그림으로 읽는 정보판 ---- */
+  /* 스탯 — "기본 28 + 마음 45 + 갑옷 8" 대신 색 조각 띠 하나로 보여 준다 */
+  .stat{display:block; margin-top:2px;}
+  .srow{display:grid; grid-template-columns:auto 1fr; gap:3px 8px; align-items:center; margin-bottom:7px;}
+  .srow .lb{font-size:12.5px; font-weight:800; white-space:nowrap;}
+  .srow .lb em{font-style:normal; margin-right:3px;}
+  .srow .lb i{font-style:normal; font-variant-numeric:tabular-nums;}
+  .segbar{display:flex; height:9px; border:2px solid var(--ink); background:#fff; overflow:hidden;}
+  .segbar i{display:block; height:100%;}
+  .srow .tail{grid-column:2; font-size:10.5px; font-weight:800; color:var(--ink-soft);}
+  .legend{display:flex; flex-wrap:wrap; gap:3px 9px; font-size:10px; font-weight:700; color:var(--ink-soft); margin-top:1px;}
+  .legend span{display:flex; align-items:center; gap:3px;}
+  .legend i{display:block; width:8px; height:8px; border:1px solid var(--ink);}
+
+  /* 가방 — 아이콘과 숫자만 */
+  .bag{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; font-size:12.5px; font-weight:800;}
+  .bag span{display:inline-flex; align-items:center; gap:4px; padding:3px 7px;
+    border:2px solid var(--ink); background:#fff; font-variant-numeric:tabular-nums;}
+  .bag em{font-style:normal; font-size:13px;}
+
+  /* 기술 — 이름과 기운 칸(점)만 */
+  .skill-list{display:flex; flex-wrap:wrap; gap:5px; margin-top:10px;}
+  .skill-list .sk{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:800;
+    padding:3px 7px; border:2px solid var(--ink); background:#fff6e9; color:var(--ink);}
+  .skill-list .sk.off{background:#fff; color:var(--ink-soft);}
+  .skill-list .sk.duo{background:#ffe6f4;}
+  .skill-list em{font-style:normal;}
+
+  /* 점 표시 — 남은 횟수, 이긴 횟수, 기운 칸 */
+  .pips{display:inline-flex; gap:3px; vertical-align:middle;}
+  .pips i{display:block; width:8px; height:8px; border:2px solid var(--ink); background:#fff;}
+  .pips i.on{background:var(--coral);}
+  .pips.sm i{width:5px; height:5px; border-width:1px; background:#fff;}
+  .pips.sm i.on{background:var(--lemon);}
+
+  /* 현실 → 모험 — 그림 하나, 숫자 하나, 늘어난 것 칩 */
+  .real li{display:grid; grid-template-columns:24px auto 1fr; gap:8px; align-items:center; padding:3px 0;}
+  .real li .ic{font-style:normal; font-size:17px; text-align:center; line-height:1.2;}
+  .real li .n{font-weight:800; font-size:13px; white-space:nowrap; font-variant-numeric:tabular-nums;}
+  .real li .gain{display:flex; gap:4px; flex-wrap:wrap;}
+  .real li .gain i, .mission i{font-style:normal; font-size:10.5px; font-weight:800; padding:2px 5px;
+    border:2px solid var(--ink); background:var(--cream); white-space:nowrap;}
+  .real li .gain i.dim{opacity:.55;}
+
+  /* 이번 주 보스 — 두 색이 이어 붙는 막대가 "합쳐요"를 대신한다 */
+  .week .hpbar i.mine{background:#b9a3d6;}
+  .week .hpbar i.other{background:#8ec9ee;}
+  .wkeys{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:6px; font-size:11px; font-weight:800;}
+  .wkeys span{display:flex; align-items:center; gap:4px;}
+  .wkeys i.sw{display:block; width:9px; height:9px; border:1px solid var(--ink);}
+
+  /* 문 앞 안내 — 현실 한 가지가 어떤 힘이 되는지 그림 넷 */
+  .grow{display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin:0 0 16px;}
+  .grow div{display:flex; flex-direction:column; align-items:center; gap:3px; width:78px;
+    padding:8px 4px; border:2px solid var(--ink); background:var(--cream); box-shadow:2px 2px 0 var(--ink);}
+  .grow .p{font-size:15px; letter-spacing:1px;}
+  .grow .c{font-size:10.5px; font-weight:800; color:var(--ink-soft);}
 </style>
 </head>
 <body>
@@ -185,9 +243,14 @@
 
     <!-- 손님과 부모는 구경만. 아이로 로그인하면 아래 게임이 열린다. 부모에게는 조정판이 붙는다. -->
     <div class="gate" id="gate" hidden>
+      <div class="grow" aria-label="현실에서 한 일이 어떤 힘이 되는지">
+        <div><span class="p">📓→💗</span><span class="c">일기 · 마음</span></div>
+        <div><span class="p">🎨→💪</span><span class="c">작품 · 힘</span></div>
+        <div><span class="p">🏃→⚡</span><span class="c">달리기 · 재빠름</span></div>
+        <div><span class="p">📏→❤️</span><span class="c">키 · 체력</span></div>
+      </div>
       <p class="why">
-        <b>일기</b>를 쓰면 마음이, <b>작품</b>을 올리면 힘이, <b>달리기</b>에서 점수를 내면 재빠름이 자라요.<br>
-        키가 크면 체력도 늘어요. 자매가 낸 피해를 합쳐 <b>이번 주 보스</b>도 같이 쓰러뜨려요.<br>
+        자매가 낸 피해를 합쳐 <b>이번 주 보스</b>도 같이 쓰러뜨려요.<br>
         <span id="gateWho">수아나 연아로 로그인하면 모험이 시작돼요.</span>
       </p>
       <div class="heroes" id="heroes"></div>
@@ -225,7 +288,7 @@
         <div class="dot-card q-card reveal">
           <h3 class="pixel">현실 → 모험</h3>
           <ul class="real" id="real"></ul>
-          <p class="tip">숫자는 서버가 직접 세요. 일기를 한 편 더 쓰면 다음에 열 때 반영돼요.</p>
+          <p class="tip">숫자는 서버가 직접 세요. 🌳는 키가 더 자라면 열리는 숨은 무대예요.</p>
         </div>
       </div>
 
@@ -291,6 +354,41 @@ buildChrome('quest');
 const Q = QUEST;
 const J2 = (w, a, b) => (typeof josa === 'function' ? josa(w, a, b) : a + '(' + b + ')');
 const EI = e => (Q.ELEM[e] || Q.ELEM.none).icon;
+// 점 표시 — 남은 횟수·이긴 횟수를 숫자 대신 칸으로 보여 준다.
+function pips(on, all, cls){
+  let h = '';
+  for (let i = 0; i < all; i++) h += '<i' + (i < on ? ' class="on"' : '') + '></i>';
+  return '<span class="pips' + (cls ? ' ' + cls : '') + '">' + h + '</span>';
+}
+// 스탯 한 줄이 어떤 재료로 만들어졌는지 — 색 조각 띠 하나로.
+const SRC = {
+  base:   { n: '기본',   c: '#d8d2c6' },
+  lv:     { n: '레벨',   c: '#ffd979' },
+  works:  { n: '작품',   c: '#ff9f68' },
+  weapon: { n: '무기',   c: '#b9a3d6' },
+  run:    { n: '달리기', c: '#8ec9ee' },
+  diary:  { n: '일기',   c: '#ff7f8a' },
+  hrt:    { n: '마음',   c: '#f7a8bf' },
+  armor:  { n: '갑옷',   c: '#6cc7b3' },
+  height: { n: '키',     c: '#6fb567' },
+};
+function segRow(icon, name, val, parts, tail){
+  const keys = Object.keys(parts).filter(k => parts[k] > 0);
+  const tot = keys.reduce((a, k) => a + parts[k], 0) || 1;
+  const say = keys.map(k => SRC[k].n + ' ' + parts[k]).join(' + ');
+  const segs = keys.map(k =>
+    '<i style="width:' + (100 * parts[k] / tot).toFixed(2) + '%;background:' + SRC[k].c + '"></i>').join('');
+  return '<div class="srow"><span class="lb"><em>' + icon + '</em>' + name + ' <i>' + val + '</i></span>' +
+    '<span class="segbar" title="' + escapeHTML(say) + '" aria-label="' + escapeHTML(say) + '">' + segs + '</span>' +
+    (tail ? '<span class="tail">' + tail + '</span>' : '') + '</div>';
+}
+function legendFor(list){
+  const seen = [], order = Object.keys(SRC);
+  list.forEach(o => Object.keys(o).forEach(k => { if (o[k] > 0 && seen.indexOf(k) < 0) seen.push(k); }));
+  seen.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  return '<div class="legend">' + seen.map(k =>
+    '<span><i style="background:' + SRC[k].c + '"></i>' + SRC[k].n + '</span>').join('') + '</div>';
+}
 const EN = e => (Q.ELEM[e] || Q.ELEM.none).name;
 
 let key = null, hero = null, save = null, facts = null, st = null;
@@ -449,10 +547,10 @@ function renderMission(){
     '<div class="mbar"><i style="width:' + Math.round(100 * n / m.need) + '%"></i></div>' +
     (save.mission.claimed
       ? '오늘 몫은 받았어요. 내일 새 미션이 와요.'
-      : done ? '' : n + ' / ' + m.need + ' · 금화 ' + Q.MISSION.reward.gold + ' · 경험치 ' + Q.MISSION.reward.xp);
+      : done ? '' : pips(n, m.need) + ' <i>💰' + Q.MISSION.reward.gold + '</i> <i>⭐' + Q.MISSION.reward.xp + '</i>');
   if (done && !save.mission.claimed){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small primary';
-    b.textContent = '보상 받기 (금화 ' + Q.MISSION.reward.gold + ' · 경험치 ' + Q.MISSION.reward.xp + ')';
+    b.textContent = '🎁 보상 받기 💰' + Q.MISSION.reward.gold + ' ⭐' + Q.MISSION.reward.xp;
     b.addEventListener('click', () => {
       save.mission.claimed = true; save.gold += Q.MISSION.reward.gold; save.xp += Q.MISSION.reward.xp;
       sfx('fanfare'); refreshStats(); renderAll(); persist(true);
@@ -467,7 +565,7 @@ function renderStatus(){
   face.clearRect(0, 0, 42, 40);
   drawSprite(face, SPRITES[hero.sprite], 0, 0, 1);
   $('#heroName').textContent = hero.name + '의 모험단';
-  $('#heroLv').textContent = '레벨 ' + st.lv + ' · 경험치 ' + st.xp + ' / ' + st.next;
+  $('#heroLv').textContent = '레벨 ' + st.lv + ' · ⭐ ' + st.xp + ' / ' + st.next;
   const t = Q.titleOf(save, st), tb = $('#titleNow');
   tb.hidden = !t; if (t) tb.textContent = '🏅 ' + t.name;
   const sk = save.streak || 0, skb = $('#streakNow');
@@ -475,34 +573,36 @@ function renderStatus(){
   const span = st.next - st.prev;
   $('#xpFill').style.width = Math.round(100 * (st.xp - st.prev) / span) + '%';
   const p = st.parts;
-  const why = o => Object.keys(o).filter(k => o[k]).map(k => ({
-    base: '기본', lv: '레벨', works: '작품', weapon: '무기', run: '달리기', diary: '일기', hrt: '마음', armor: '갑옷', height: '키',
-  }[k] + ' ' + o[k])).join(' + ');
   $('#stat').innerHTML =
-    '<b>체력 ' + save.hp + ' / ' + st.maxHp + '</b><span class="why">' + why(p.hp) + '</span>' +
-    '<b>힘 ' + st.str + '</b><span class="why">' + why(p.str) + '</span>' +
-    '<b>재빠름 ' + st.agi + '</b><span class="why">' + why(p.agi) + ' → 피하기 ' + Math.round(st.dodge * 100) + '%</span>' +
-    '<b>마음 ' + st.hrt + '</b><span class="why">' + why(p.hrt) + ' → 방어하면 ' + st.guardHeal + ' 회복</span>';
-  $('#bag').innerHTML =
-    '<span>💰 금화 ' + save.gold + '</span>' +
-    '<span>🧪 물약 ' + save.potions + '</span>' +
-    '<span>🎨 물감 ' + paintLeft() + '</span>' +
-    '<span>🗡 무기 +' + save.weapon + '</span>' +
-    '<span>🛡 갑옷 +' + save.armor + '</span>' +
-    '<span>🎁 상자 ' + (save.chests || 0) + '</span>';
+    segRow('❤️', '체력', save.hp + ' / ' + st.maxHp, p.hp) +
+    segRow('💪', '힘', st.str, p.str) +
+    segRow('⚡', '재빠름', st.agi, p.agi, '💨 피하기 ' + Math.round(st.dodge * 100) + '%') +
+    segRow('💗', '마음', st.hrt, p.hrt, '🛡 방어하면 +' + st.guardHeal) +
+    legendFor([p.hp, p.str, p.agi, p.hrt]);
+  // 가방 — 그림과 숫자만. 이름은 눌러 보면(툴팁) 나온다.
+  $('#bag').innerHTML = [
+    ['💰', save.gold, '금화'], ['🧪', save.potions, '물약'], ['🎨', paintLeft(), '물감'],
+    ['🗡', '+' + save.weapon, '무기'], ['🛡', '+' + save.armor, '갑옷'], ['🎁', (save.chests || 0), '상자'],
+  ].map(b => '<span title="' + b[2] + '" aria-label="' + b[2] + ' ' + b[1] + '"><em>' + b[0] + '</em>' + b[1] + '</span>').join('');
   // 배운 기술과 아직 못 배운 기술 — 레벨이 오를 이유가 눈에 보여야 한다.
-  $('#skillList').innerHTML = '기술 ' + Q.HEROES[key].skills.map(s =>
+  // 기술 — 이름 옆 작은 칸이 드는 기운이다. 잠긴 기술은 열쇠와 레벨만.
+  const skChip = (ic, nm, cost, cls, tip) =>
+    '<span class="sk' + (cls ? ' ' + cls : '') + '" title="' + escapeHTML(tip) + '"><em>' + ic + '</em>' + nm +
+    (cost ? pips(cost, cost, 'sm') : '') + '</span>';
+  $('#skillList').innerHTML = Q.HEROES[key].skills.map(s =>
     st.lv >= s.lv
-      ? '<b>' + EI(s.elem) + ' ' + s.name + '</b>(기운 ' + s.cost + ')'
-      : '<span style="opacity:.55">🔒 ' + s.name + ' — 레벨 ' + s.lv + '</span>'
-  ).join(' · ') +
-  (combo ? ' · <b>💞 ' + Q.DUO.name + '</b>(기운 ' + Q.DUO.cost + ' · 오늘만!)'
-         : ' · <span style="opacity:.55">💞 ' + Q.DUO.name + ' — ' + hero.call + '도 오늘 모험하면</span>');
+      ? skChip(EI(s.elem), s.name, s.cost, '', s.name + ' · 기운 ' + s.cost + '칸')
+      : skChip('🔒', s.name, 0, 'off', s.name + ' · 레벨 ' + s.lv + '에 배워요') + ''
+  ).join('') +
+  (combo ? skChip('💞', Q.DUO.name, Q.DUO.cost, 'duo', Q.DUO.name + ' · 오늘만 · 기운 ' + Q.DUO.cost + '칸')
+         : skChip('💞', Q.DUO.name, 0, 'off duo', hero.call + '도 오늘 모험하면 쓸 수 있어요'));
   // 친구들 — 작게 줄지어 선다. 전투 중 나서서 때리거나 돌봐 준다.
   const fr = Q.friendsOf(save), fbox = $('#friends'); fbox.innerHTML = '';
   if (fr.length){
     const lab = document.createElement('span'); lab.style.cssText = 'font-size:12px;font-weight:800;margin-right:4px;';
-    lab.textContent = '🐾 친구 ' + fr.length + ' (' + Math.round(Q.FRIEND.chance(fr.length) * 100) + '% 확률로 도와줘요)';
+    const pc = Math.round(Q.FRIEND.chance(fr.length) * 100);
+    lab.textContent = '🐾 ' + fr.length + ' · ' + pc + '%';
+    lab.title = '친구 ' + fr.length + '마리 — 전투에서 ' + pc + '% 확률로 도와줘요';
     fbox.appendChild(lab);
     fr.forEach(f => {
       const sp = SPRITES[f.sp]; if (!sp) return;
@@ -513,22 +613,28 @@ function renderStatus(){
   }
   const cb = $('#combo');
   cb.hidden = !combo;
-  if (combo) cb.textContent = '💞 오늘 ' + hero.call + '도 모험 중 — 언니 동생 콤보! 오늘은 피해가 ' + Q.COMBO_MULT + '배예요.';
+  if (combo) cb.textContent = '💞 오늘 ' + hero.call + '도 모험 중 — 피해 ×' + Q.COMBO_MULT;
 }
 function paintLeft(){ return Math.max(0, (facts.works || 0) - (save.spentPaint || 0)); }
 
 function renderReal(){
   const f = facts, p = st.parts;
   const left = Q.hiddenDaysLeft(f);
+  const g = (t, dim) => '<i' + (dim ? ' class="dim"' : '') + '>' + t + '</i>';
+  const sfxName = f.sfx ? ((typeof WORK_SFX !== 'undefined' && WORK_SFX[f.sfx]) ? WORK_SFX[f.sfx].label : f.sfx) : '';
+  // 그림 하나 · 지금까지 한 수 · 그래서 늘어난 것. 문장은 툴팁으로 내렸다.
   const rows = [
-    ['📓 일기 ' + (f.diaries || 0) + '편', '마음 +' + p.hrt.diary + ' · 경험치 +' + (f.diaries || 0) * Q.REAL.diary.xp],
-    ['🎨 작품 ' + (f.works || 0) + '점', '힘 +' + p.str.works + ' · 물감 ' + (f.works || 0) + '개 · 경험치 +' + (f.works || 0) * Q.REAL.work.xp],
-    ['🏃 달리기 최고 ' + (f.run_best || 0) + '점', '재빠름 +' + p.agi.run + ' · 경험치 +' + Math.min(Q.REAL.runCap, Math.floor((f.run_best || 0) / Q.REAL.runDiv))],
-    ['🚗 나들이 ' + (f.outings || 0) + '번', '경험치 +' + (f.outings || 0) * Q.REAL.outing.xp],
-    ['📏 키 ' + (f.height ? f.height + 'cm' : '아직 안 잼'), '체력 +' + p.hp.height + (left ? ' · 자란 기념 <b>뒷마당</b> ' + left + '일 남음' : ' · 반년 뒤 더 자라 있으면 숨은 무대가 열려요')],
-    ['🎵 작품 소리', f.sfx ? '연속 강타 때 「' + ((typeof WORK_SFX !== 'undefined' && WORK_SFX[f.sfx]) ? WORK_SFX[f.sfx].label : f.sfx) + '」' : '작품에 소리를 붙이면 연속 강타 팡파르가 그 소리가 돼요'],
+    ['📓', '일기', (f.diaries || 0) + '편', [g('💗+' + p.hrt.diary), g('⭐+' + (f.diaries || 0) * Q.REAL.diary.xp)]],
+    ['🎨', '작품', (f.works || 0) + '점', [g('💪+' + p.str.works), g('🎨+' + (f.works || 0)), g('⭐+' + (f.works || 0) * Q.REAL.work.xp)]],
+    ['🏃', '달리기 최고 점수', (f.run_best || 0) + '점', [g('⚡+' + p.agi.run), g('⭐+' + Math.min(Q.REAL.runCap, Math.floor((f.run_best || 0) / Q.REAL.runDiv)))]],
+    ['🚗', '나들이', (f.outings || 0) + '번', [g('⭐+' + (f.outings || 0) * Q.REAL.outing.xp)]],
+    ['📏', '키', f.height ? f.height + 'cm' : '—', [g('❤️+' + p.hp.height)].concat(
+      left ? [g('🌳 ' + left + '일')] : [g('🌳', true)])],
+    ['🎵', '작품 소리', sfxName ? '「' + sfxName + '」' : '—', [g(sfxName ? '💥 연속 강타' : '작품에 소리 붙이기', !sfxName)]],
   ];
-  $('#real').innerHTML = rows.map(r => '<li><b>' + r[0] + '</b> <span class="to">→ ' + r[1] + '</span></li>').join('');
+  $('#real').innerHTML = rows.map(r =>
+    '<li title="' + escapeHTML(r[1]) + '"><em class="ic">' + r[0] + '</em><span class="n">' + r[2] + '</span>' +
+    '<span class="gain">' + r[3].join('') + '</span></li>').join('');
 }
 
 // ---------- 지도 ----------
@@ -571,8 +677,12 @@ function renderMap(){
     b.type = 'button';
     b.disabled = !open;
     b.className = (save.boss[i] ? 'done' : '') + (i === curArea ? ' here' : '') + (A.hidden ? ' secret' : '');
+    // 몇 번 이겼는지 — 숫자 대신 칸. 다 차면 대장을 부를 수 있다.
+    b.title = A.name + (open ? (save.boss[i] ? ' · 대장을 이겼어요' : ' · ' + save.wins[i] + '번 이김') : ' · 아직 잠겨 있어요');
     b.innerHTML = EI(A.elem) + ' ' + A.name + (Q.dexDone(save, i) ? ' 📖' : '') +
-      '<small>' + (open ? (save.boss[i] ? '대장 이김' : save.wins[i] + '번 이김') : '잠김') + '</small>';
+      '<small>' + (open
+        ? (save.boss[i] ? '👑' : pips(Math.min(save.wins[i], Q.WINS_FOR_BOSS), Q.WINS_FOR_BOSS))
+        : '🔒') + '</small>';
     b.addEventListener('click', () => { curArea = i; renderMap(); });
     box.appendChild(b);
   });
@@ -588,12 +698,14 @@ function renderMap(){
       '대장 ' + A.boss.name + (save.boss[curArea] ? ' (다시)' : '') + '</button>' +
     (A.find ? '<button type="button" class="dot-btn small" id="goFind"' + (found || triedToday ? ' disabled' : '') + '>' +
       (found ? '🔍 ' + A.find.name + ' 찾음' : '🔍 살펴보기') + '</button>' : '') +
-    '<span class="note">' +
-      EI(A.elem) + ' ' + EN(A.elem) + ' 무대 · ' +
+    '<span class="note" title="' + EN(A.elem) + ' 무대 · ' +
       (need ? '대장을 부르려면 ' + need + '번 더 이겨야 해요' : '대장에게 도전할 수 있어요') +
-      (A.hidden ? ' · 자란 기념 무대 — 보상 두 배!' : '') +
-      (friendsHere ? ' · 친구가 된 상대는 안 나와요' : '') +
-      (A.find && !found && triedToday ? ' · 오늘은 이미 살펴봤어요. 내일 또!' : '') +
+      (friendsHere ? ' · 친구가 된 상대는 안 나와요' : '') + '">' +
+      EI(A.elem) + ' ' + pips(Math.min(save.wins[curArea], Q.WINS_FOR_BOSS), Q.WINS_FOR_BOSS) +
+      ' <span style="opacity:' + (need ? '.45' : '1') + '">👑</span>' +
+      (A.hidden ? ' · 🌳 ×2' : '') +
+      (friendsHere ? ' · 🐾' + friendsHere : '') +
+      (A.find && !found && triedToday ? ' · 🔍 내일 또' : '') +
     '</span>';
   $('#goFight').addEventListener('click', () => {
     if (Math.random() < Q.MERCHANT.chance){ openMerchant(); return; }
@@ -710,10 +822,10 @@ function renderShop(){
   const S = Q.SHOP, box = $('#shop');
   const gift = S.gift.gold(TUNE);
   const items = [
-    { id: 'potion', t: '🧪 물약 사기', d: S.potion.price + '금화 · 체력 ' + Math.round(S.potion.heal * 100) + '% 회복',
+    { id: 'potion', t: '🧪 물약 사기', d: '💰' + S.potion.price + ' · ❤️ +' + Math.round(S.potion.heal * 100) + '%',
       can: save.gold >= S.potion.price && save.potions < S.potion.max,
       do(){ save.gold -= S.potion.price; save.potions++; return '물약을 샀어요.'; } },
-    { id: 'inn', t: '🛏 여관에서 쉬기', d: S.inn.price + '금화 · 체력 가득',
+    { id: 'inn', t: '🛏 여관에서 쉬기', d: '💰' + S.inn.price + ' · ❤️ 가득',
       can: save.gold >= S.inn.price && save.hp < st.maxHp,
       do(){ save.gold -= S.inn.price; save.hp = st.maxHp; return '푹 쉬었어요. 체력이 가득 찼어요.'; } },
     { id: 'weapon', t: '🗡 무기 강화 +' + (save.weapon + 1), d: upgradeLabel(save.weapon),
@@ -722,7 +834,7 @@ function renderShop(){
     { id: 'armor', t: '🛡 갑옷 강화 +' + (save.armor + 1), d: upgradeLabel(save.armor),
       can: canUpgrade(save.armor),
       do(){ const w = save.armor; save.gold -= S.upgrade.gold(w); save.spentPaint += S.upgrade.paint(w); save.armor++; return '갑옷이 +' + save.armor + J2(save.armor, '이', '가') + ' 됐어요. 체력이 늘어요.'; } },
-    { id: 'gift', t: '🎁 오늘의 선물', d: save.lastGift === today() ? '오늘 건 받았어요. 내일 또!' : '하루 한 번 · 금화 ' + gift + ' · 물약 ' + S.gift.potions + ' · 체력 가득',
+    { id: 'gift', t: '🎁 오늘의 선물', d: save.lastGift === today() ? '오늘 건 받았어요. 내일 또!' : '하루 한 번 · 💰' + gift + ' · 🧪' + S.gift.potions + ' · ❤️ 가득',
       can: save.lastGift !== today(),
       do(){ save.lastGift = today(); save.gold += gift; save.potions = Math.min(S.potion.max, save.potions + S.gift.potions); save.hp = st.maxHp; return '선물을 받았어요!'; } },
     { id: 'gear', t: '🎨 장비에 그림 넣기', d: (save.weapon || save.armor) ? '그리기에서 그린 도트를 무기·갑옷에 붙여요' : '무기나 갑옷을 먼저 강화해요',
@@ -749,7 +861,7 @@ function renderShop(){
 function upgradeLabel(w){
   const S = Q.SHOP.upgrade;
   if (w >= S.max) return '더는 못 올려요 (최대 +' + S.max + ')';
-  return S.gold(w) + '금화 · 물감 ' + S.paint(w) + '개 (작품을 올리면 물감이 생겨요)';
+  return '💰' + S.gold(w) + ' · 🎨' + S.paint(w) + ' (작품을 올리면 물감이 생겨요)';
 }
 function canUpgrade(w){
   const S = Q.SHOP.upgrade;
@@ -836,6 +948,7 @@ function renderWeek(){
   if (save.week.day !== today()){ save.week.day = today(); save.week.swings = 0; }
   const total = weekTotal(k), left = Q.WEEK.swingsPerDay - save.week.swings, down = total >= foe.hp;
   const mine = save.week.dmg, other = total - mine, reward = Q.WEEK.reward(streak);
+  const wpct = v => Math.min(100, Math.round(100 * v / foe.hp));
   box.innerHTML = '';
   const cv = document.createElement('canvas'); cv.width = 66; cv.height = 45;
   const g = cv.getContext('2d'); const sp = SPRITES[foe.sp];
@@ -847,17 +960,20 @@ function renderWeek(){
     '<div class="who" style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;"><span>' + EI(foe.elem) + ' ' + foe.name +
       (streak >= 1 ? ' <span class="badge streak">🔥 ' + streak + '주 연속 심화판</span>' : '') +
       '</span><span>' + Math.min(total, foe.hp) + ' / ' + foe.hp + '</span></div>' +
-    '<div class="hpbar"><i style="width:' + Math.min(100, Math.round(100 * total / foe.hp)) + '%"></i></div>' +
+    '<div class="hpbar" title="자매가 낸 피해를 합쳐요"><i class="mine" style="width:' + wpct(mine) + '%"></i>' +
+      '<i class="other" style="left:' + wpct(mine) + '%;width:' + Math.min(100 - wpct(mine), wpct(other)) + '%"></i></div>' +
     (save.lastWeek ? '<div class="wcmp"><span>지난주 ' + Math.min(save.lastWeek.dmg, save.lastWeek.hp) + ' / ' + save.lastWeek.hp + '</span>' +
       '<div class="wcmp-bar"><i style="width:' + Math.min(100, Math.round(100 * save.lastWeek.dmg / save.lastWeek.hp)) + '%"></i></div></div>' : '') +
-    '<div class="wsay">' + (down
-      ? '<b>쓰러뜨렸어요!</b> 둘이 합쳐 ' + total + ' 피해.'
-      : '자매가 낸 피해를 합쳐요 — 나 ' + mine + ' · 다른 한 명 ' + other + '. 하루 ' + Q.WEEK.swingsPerDay + '번, 오늘 ' + left + '번 남았어요. 월요일마다 새 보스가 와요.') +
+    '<div class="wkeys">' +
+      '<span title="내가 낸 피해"><i class="sw" style="background:#b9a3d6"></i>' + mine + '</span>' +
+      '<span title="' + hero.call + J2(hero.call, '이', '가') + ' 낸 피해"><i class="sw" style="background:#8ec9ee"></i>' + hero.call + ' ' + other + '</span>' +
+      (down ? '<span>👑 쓰러뜨렸어요!</span>'
+            : '<span title="하루 ' + Q.WEEK.swingsPerDay + '번 · 오늘 ' + left + '번 남음">⚔ ' + pips(left, Q.WEEK.swingsPerDay) + '</span>') +
     '</div>';
   const act = document.createElement('div'); act.style.marginTop = '8px';
   if (down && !save.week.claimed){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small primary';
-    b.textContent = '보상 받기 (금화 ' + reward.gold + ' · 경험치 ' + reward.xp + ')';
+    b.textContent = '🎁 보상 받기 💰' + reward.gold + ' ⭐' + reward.xp;
     b.addEventListener('click', () => {
       save.week.claimed = true; save.gold += reward.gold; save.xp += reward.xp;
       save.weekWins = (save.weekWins || 0) + 1;
@@ -866,7 +982,7 @@ function renderWeek(){
     act.appendChild(b);
   } else if (!down) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small coral';
-    b.textContent = left > 0 ? '때리러 가기 (' + left + '번)' : '오늘 몫은 다 썼어요';
+    b.textContent = left > 0 ? '⚔ 때리러 가기' : '오늘 몫은 다 썼어요';
     b.disabled = left <= 0 || !!battle;
     b.addEventListener('click', () => startBattle(foe));
     act.appendChild(b);
@@ -964,7 +1080,7 @@ function renderMenu(){
   };
   if (b.week){
     const left = Q.WEEK.swingsPerDay - save.week.swings;
-    mk('공격', left + '번 남음', () => act('attack'), { off: left <= 0 });
+    mk('공격', pips(left, Q.WEEK.swingsPerDay), () => act('attack'), { off: left <= 0 });
     mk('돌아가기', '', () => act('run'));
     return;
   }
@@ -973,13 +1089,14 @@ function renderMenu(){
   // 「왜 이번엔 덜 아팠지」를 아이가 스스로 알 수 있어야 고르는 재미가 생긴다.
   Q.skillsOf(key, st.lv, combo).forEach(s => {
     const say = Q.elemSay(s.elem, b.foe.elem);
+    // 드는 기운은 칸으로 — 지금 모인 기운만큼 칸이 차 있어 얼마나 남았는지 눈에 보인다.
     mk((s.duo ? '💞' : EI(s.elem)) + ' ' + s.name,
-      '기운 ' + s.cost + (say ? ' · ' + say : ''),
+      pips(Math.min(b.energy, s.cost), s.cost, 'sm') + (say ? ' ' + say : ''),
       () => act('skill:' + s.id),
       { off: b.energy < s.cost, cls: 'skill' + (say === '강해요!' ? ' good' : say === '약해요' ? ' bad' : '') });
   });
-  mk('방어', '+' + st.guardHeal + ' 회복', () => act('guard'));
-  mk('물약', save.potions + '개', () => act('potion'), { off: save.potions <= 0 });
+  mk('방어', '❤️ +' + st.guardHeal, () => act('guard'));
+  mk('물약', '🧪 ' + save.potions, () => act('potion'), { off: save.potions <= 0 });
   mk('도망', '', () => act('run'));
 }
 
