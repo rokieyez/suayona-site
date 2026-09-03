@@ -205,6 +205,10 @@
   }
   .relay-note span{font-size:12.5px; font-weight:800;}
 
+  .quest-card{padding:16px; text-align:center;}
+  .quest-card canvas{width:100%; max-width:480px; height:auto; image-rendering:pixelated; display:block; margin:0 auto 10px; border:2px solid var(--ink);}
+  .quest-say{font-size:13px; line-height:1.7; color:var(--ink-soft); margin:0 0 10px;}
+
   /* 원버튼 달리기 */
   .run-card{padding:0; overflow:hidden;}
   .run-stage{position:relative; display:block; width:100%; line-height:0;}
@@ -493,7 +497,7 @@
         <canvas class="who" data-char="fox" aria-hidden="true"></canvas>
         <span class="num pixel">05</span>
         <canvas data-icon="star" width="48" height="48"></canvas>
-        <h3>도트 모험단</h3>
+        <h3>수아연아 모험단</h3>
         <p>일기를 쓰고 작품을 올리면 캐릭터가 자라는 턴제 모험. 자매가 함께 이번 주 보스를 쓰러뜨려요.</p>
         <span class="go pixel">모험 떠나기 →</span>
       </a>
@@ -596,7 +600,10 @@
     <p class="dex-line pixel" id="dexLine" hidden></p>
     <div class="dex-bar" id="dexBar" hidden></div>
     <!-- 올해 숫자를 도트 카드 한 장으로 묶어 저장한다. 연말에 인쇄하기 좋다. -->
-    <div class="year-row"><button type="button" class="dot-btn small lemon" id="yearBtn">🗓 올해의 우리 카드 만들기</button></div>
+    <div class="year-row"><button type="button" class="dot-btn small lemon" id="yearBtn">🗓 올해의 우리 카드 만들기</button>
+      <select id="yearSky" hidden aria-label="카드 배경" style="font:inherit;font-size:12px;font-weight:800;padding:6px 8px;border:2px solid var(--ink);background:var(--cream);">
+        <option value="">기본 배경</option>
+      </select></div>
     <canvas id="yearCard" class="year-card" width="320" height="230" hidden></canvas>
     <div class="year-row"><a class="dot-btn small" id="yearSave" hidden download="suayona-올해의우리.png">카드 저장하기</a></div>
   </div>
@@ -606,6 +613,23 @@
 <!-- 아래쪽 구획을 언제 불러올지 재는 표식. 구획들이 hidden 이라 크기가 0 이어서
      자기 자신으로는 못 잰다. -->
 <div id="belowFold" aria-hidden="true"></div>
+
+<!-- 수아연아 모험단 — 두 아이의 세이브(누구나 읽음)로 지난주 보스 이야기를 카드 한 장으로.
+     아래쪽이라 보일 때 한 번만 읽고, 그림은 여기서 그리니 서버를 더 부르지 않는다. -->
+<section class="section-pad" id="questWeek" hidden>
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">QUEST</span>
+      <h2>우리 모험단</h2>
+      <p id="questWeekLead">자매가 함께 쓰러뜨린 이번 주 보스</p>
+    </div>
+    <div class="dot-card quest-card reveal">
+      <canvas id="questCard" width="320" height="180" aria-label="모험단 카드"></canvas>
+      <p class="quest-say" id="questSay"></p>
+      <a class="dot-btn small" href="./quest.html">모험 떠나기 →</a>
+    </div>
+  </div>
+</section>
 
 <section class="section-pad" id="duel" hidden>
   <div class="wrap">
@@ -2272,6 +2296,14 @@ $$('canvas[data-char]').forEach(cv => {
     const g = yCard.getContext('2d');
     g.imageSmoothingEnabled = false;
     g.fillStyle = '#fff6e9'; g.fillRect(0, 0, yCard.width, yCard.height);
+    // 모험단 도감을 채운 무대의 하늘을 배경으로. 글자가 읽히게 반투명으로 깐다.
+    const skySel = $('#yearSky');
+    const sky = skySel && skySel.value ? (window.__questSkies || {})[skySel.value] : null;
+    if (sky){
+      g.globalAlpha = 0.55;
+      sky.forEach((c, i) => { g.fillStyle = c; g.fillRect(0, i * (yCard.height / 5), yCard.width, yCard.height / 5 + 1); });
+      g.globalAlpha = 1;
+    }
     g.fillStyle = '#3a3226';
     g.fillRect(0, 0, yCard.width, 4); g.fillRect(0, yCard.height - 4, yCard.width, 4);
     g.fillRect(0, 0, 4, yCard.height); g.fillRect(yCard.width - 4, 0, 4, yCard.height);
@@ -2432,6 +2464,67 @@ belowFold(async () => {
   }
 
   if (duels.length || relay) $('#duel').hidden = false;
+});
+
+// ================= 우리 모험단 =================
+// 두 세이브를 한 번 읽어 카드 한 장을 그린다. 지난주 보스를 같이 쓰러뜨렸는지,
+// 이번 주는 어디까지 왔는지. 규칙 파일은 안 부른다 — 필요한 숫자(보스 체력·이름)는
+// 세이브에 같이 적혀 있다.
+belowFold(async () => {
+  const cv = $('#questCard'); if (!cv || typeof SPRITES === 'undefined') return;
+  const { data } = await sb.from('quest_saves').select('who, data').in('who', ['sua', 'yona']);
+  const rows = (data || []).filter(r => r.data && r.data.lv);
+  if (!rows.length) return;
+  const by = {}; rows.forEach(r => { by[r.who] = r.data; });
+  const heroes = [['sua', '수아'], ['yona', '연아']].filter(h => by[h[0]]);
+
+  // 지난주 — 둘 중 누구든 적어 둔 것이 있으면 그것. 없으면 이번 주 진행을 보여 준다.
+  const last = rows.map(r => r.data.lastWeek).filter(Boolean)[0];
+  const wkKey = rows.map(r => r.data.week && r.data.week.key).filter(Boolean).sort().pop();
+  const thisDmg = rows.reduce((a, r) => a + ((r.data.week && r.data.week.key === wkKey) ? (r.data.week.dmg || 0) : 0), 0);
+  const thisHp = rows.map(r => r.data.week && r.data.week.key === wkKey ? r.data.week.hp : 0).filter(Boolean)[0] || 0;
+  const lastDmg = rows.reduce((a, r) => a + ((r.data.lastWeek && last && r.data.lastWeek.key === last.key) ? (r.data.lastWeek.dmg || 0) : 0), 0);
+
+  const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.fillStyle = '#fff6e9'; g.fillRect(0, 0, 320, 180);
+  g.fillStyle = '#3a3226'; g.fillRect(0, 0, 320, 3); g.fillRect(0, 177, 320, 3);
+  g.textAlign = 'center'; g.fillStyle = '#3a3226';
+  g.font = '800 16px Suayona Dot, Pretendard Variable, sans-serif';
+  g.fillText(last ? '지난주 우리 모험단' : '우리 모험단', 160, 28);
+  heroes.forEach((h, i) => {
+    const d = by[h[0]], x = 28 + i * 152;
+    drawSprite(g, SPRITES[h[0]], x, 46, 1);
+    g.font = '800 12px Suayona Dot, Pretendard Variable, sans-serif'; g.textAlign = 'left';
+    g.fillStyle = '#3a3226'; g.fillText(h[1] + ' 레벨 ' + d.lv, x + 52, 60);
+    g.fillStyle = '#6b5f4e'; g.font = '800 10px Suayona Dot, Pretendard Variable, sans-serif';
+    g.fillText('대장 ' + d.boss.filter(Boolean).length + '명 · 친구 ' + (d.friends || []).length, x + 52, 78);
+    g.fillText((d.wins || []).reduce((a, b) => a + b, 0) + '번 이김', x + 52, 94);
+  });
+  g.textAlign = 'center'; g.fillStyle = '#3a3226';
+  g.font = '800 12px Suayona Dot, Pretendard Variable, sans-serif';
+  if (last){
+    const beat = last.hp && lastDmg >= last.hp;
+    g.fillText(last.name + ' — 둘이 합쳐 ' + lastDmg + ' 피해 ' + (beat ? '· 쓰러뜨렸어요!' : '· 다음 주엔 꼭'), 160, 148);
+  } else if (thisHp){
+    g.fillText('이번 주 보스 ' + Math.min(thisDmg, thisHp) + ' / ' + thisHp, 160, 148);
+  }
+  g.fillStyle = '#6b5f4e'; g.font = '800 10px Suayona Dot, Pretendard Variable, sans-serif';
+  g.fillText('www.suayona.com/quest', 160, 166);
+  $('#questWeekLead').textContent = last ? '지난주 보스는 어땠을까' : '자매가 함께 쓰러뜨리는 이번 주 보스';
+  $('#questSay').textContent = thisHp
+    ? '이번 주 보스는 ' + Math.min(thisDmg, thisHp) + ' / ' + thisHp + ' — 월요일마다 새 보스가 와요.'
+    : '모험을 시작하면 여기 카드가 채워져요.';
+  $('#questWeek').hidden = false;
+
+  // 올해의 카드 배경 — 도감을 채운 무대의 하늘
+  const skies = {};
+  rows.forEach(r => (r.data.dexSkies || []).forEach(s => { if (s && s.name && Array.isArray(s.sky)) skies[s.name] = s.sky; }));
+  const sel = $('#yearSky');
+  if (sel && Object.keys(skies).length){
+    window.__questSkies = skies;
+    Object.keys(skies).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n + ' 하늘'; sel.appendChild(o); });
+    sel.hidden = false;
+  }
 });
 
 // ================= 얼마나 컸을까 =================

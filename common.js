@@ -109,8 +109,9 @@ const MENU = [
   { href: '/board.html',    label: '일기장',    key: 'board' },
   { href: '/event/',        label: '이벤트',    key: 'event' },
   { href: '/contact.html',  label: '편지쓰기',  key: 'contact' },
-  { href: '/draw.html',     label: '그리기',    key: 'draw' },
-  { href: '/quest.html',    label: '모험',      key: 'quest' },
+  // 그리기는 메뉴에 두지 않는다 — 첫 화면의 「그리러 가기」로 충분하고, 항목이
+  // 일곱이면 좁은 화면에서 한 줄이 넘친다.
+  { href: '/quest.html',    label: '수아연아 모험단', key: 'quest' },
 ];
 
 // 로그인한 가족에게만 보이는 곳. 메뉴 목록에 섞지 않고 헤더에 아이콘 단추로 따로 둔다 —

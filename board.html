@@ -453,11 +453,22 @@ function renderAdminArea(){
           ph.taken_at ? new Date(ph.taken_at).toLocaleDateString('ko-KR') : '',
           ph.location_name || '',
         ].filter(Boolean).join(' · ') || '이날은 언제였을까?') + '</p>' +
-        '<p class="ask">이 사진을 보고 그날 이야기를 적어 볼까요?</p>';
+        '<p class="ask">이 사진을 보고 그날 이야기를 적어 볼까요?</p>' +
+        '<button type="button" class="dot-btn small" id="pBackOff">사진 빼기</button>';
 
       // 날짜와 장소는 사진에 있는 것을 채워 준다. 이미 적어 둔 것은 건드리지 않는다.
-      if (ph.taken_at && !$('#pWhen').value) $('#pWhen').value = ph.taken_at.slice(0, 10);
-      if (ph.location_name && !$('#pPlace').value) $('#pPlace').value = ph.location_name;
+      // 무엇을 우리가 채웠는지 적어 둬야, 사진을 뺄 때 그것만 되돌릴 수 있다.
+      const filled = { when: false, place: false };
+      if (ph.taken_at && !$('#pWhen').value) { $('#pWhen').value = ph.taken_at.slice(0, 10); filled.when = true; }
+      if (ph.location_name && !$('#pPlace').value) { $('#pPlace').value = ph.location_name; filled.place = true; }
+      // 뽑힌 사진이 마음에 안 들면 뺀다. 사진이 채워 준 날짜·장소도 같이 비운다 —
+      // 아이가 직접 적은 것은 그대로 둔다.
+      $('#pBackOff').addEventListener('click', () => {
+        backBox.hidden = true; backBox.innerHTML = '';
+        if (filled.when)  $('#pWhen').value = '';
+        if (filled.place) $('#pPlace').value = '';
+        sfx('prop');
+      });
       sfx('pop');
       backBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } finally { backBtn.disabled = false; }

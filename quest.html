@@ -7,7 +7,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>도트 모험단 · 수아랑 연아랑</title>
+<title>수아연아 모험단 · 수아랑 연아랑</title>
 <meta name="description" content="수아와 연아가 현실에서 한 일이 경험치가 되는 턴제 도트 RPG. 일기를 쓰면 마음이, 작품을 올리면 힘이 자라요.">
 
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -39,6 +39,9 @@
   .stat b{font-weight:800;}
   .stat .why{font-size:11.5px; color:var(--ink-soft);}
   .bag{display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; font-size:13px; font-weight:800;}
+  .combo{margin-top:10px; padding:8px 10px; background:var(--lemon); border:2px solid var(--ink); font-size:12.5px; font-weight:800;}
+  .friends{display:flex; gap:6px; align-items:flex-end; margin-top:8px; min-height:22px;}
+  .friends canvas{image-rendering:pixelated;}
 
   .real{list-style:none; margin:0; padding:0; font-size:13px; line-height:1.85;}
   .real li b{font-weight:800;}
@@ -56,6 +59,7 @@
   .areas button:disabled{opacity:.45; cursor:not-allowed; box-shadow:none;}
   .areas button.done{background:var(--mint);}
   .areas button.here{background:var(--lemon);}
+  .areas button.secret{background:#ffe6f4;}
   .area-act{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center;}
   .area-act .note{font-size:12px; color:var(--ink-soft);}
 
@@ -99,6 +103,12 @@
   }
   .shop button small{display:block; font-size:11px; color:var(--ink-soft); font-weight:700; margin-top:2px;}
   .shop button:disabled{opacity:.45; cursor:not-allowed; box-shadow:none;}
+  .gear-pick{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+  .gear-pick .pick{display:flex; flex-direction:column; align-items:center; gap:4px;}
+  .gear-pick canvas{width:48px; height:48px; border:2px solid var(--ink); image-rendering:pixelated; background:#fffaf2;}
+  .gear-pick button{font:inherit; font-size:10px; font-weight:800; padding:3px 6px; border:2px solid var(--ink); background:#fff; cursor:pointer;}
+  .gear-now{display:flex; gap:10px; margin-top:8px; font-size:12px; align-items:center;}
+  .gear-now canvas{width:28px; height:28px; border:2px solid var(--ink); image-rendering:pixelated; background:#fffaf2;}
 
   .week{display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
   .week canvas{width:66px; height:45px; image-rendering:pixelated;}
@@ -106,6 +116,13 @@
   .week .wb .hpbar i{background:#b9a3d6;}
   .week .wsay{font-size:12.5px; line-height:1.7; margin-top:6px;}
   .msg{margin-top:8px; font-size:12.5px; color:var(--ink-soft);}
+
+  .tune{max-width:520px; margin:18px auto 0; text-align:left; padding:14px 16px;}
+  .tune label{display:block; font-size:12.5px; font-weight:800; margin-top:10px;}
+  .tune label span{font-weight:700; color:var(--ink-soft); float:right;}
+  .tune input[type=range]{width:100%;}
+  .tune input[type=text]{width:100%; font:inherit; font-size:13px; padding:8px 10px; border:2px solid var(--ink); background:var(--cream); box-sizing:border-box;}
+  .tune .row{display:flex; gap:8px; align-items:center; margin-top:12px;}
 </style>
 </head>
 <body>
@@ -114,12 +131,12 @@
   <div class="wrap">
     <div class="section-head reveal">
       <span class="eyebrow pixel">QUEST</span>
-      <h2>도트 모험단</h2>
+      <h2>수아연아 모험단</h2>
       <p id="lead">현실에서 한 일이 경험치가 되는 모험</p>
       <p class="msg" id="notice" hidden style="text-align:center;font-weight:800;color:var(--ink);"></p>
     </div>
 
-    <!-- 손님과 부모는 구경만. 아이로 로그인하면 아래 게임이 열린다. -->
+    <!-- 손님과 부모는 구경만. 아이로 로그인하면 아래 게임이 열린다. 부모에게는 조정판이 붙는다. -->
     <div class="gate" id="gate" hidden>
       <p class="why">
         <b>일기</b>를 쓰면 마음이, <b>작품</b>을 올리면 힘이, <b>달리기</b>에서 점수를 내면 재빠름이 자라요.<br>
@@ -127,6 +144,16 @@
         <span id="gateWho">수아나 연아로 로그인하면 모험이 시작돼요.</span>
       </p>
       <div class="heroes" id="heroes"></div>
+
+      <div class="dot-card tune" id="tuneCard" hidden>
+        <h3 class="pixel" style="margin:0 0 4px;font-size:13px;">부모 조정판</h3>
+        <p class="msg" style="margin:0;">규칙 파일을 고치지 않고 표 한 줄로 맞춰요. 아이 화면에 바로 반영돼요.</p>
+        <label>이번 주 보스 체력 <span id="tWeekV"></span><input type="range" id="tWeek" min="0.5" max="2" step="0.1"></label>
+        <label>상대 세기 <span id="tFoeV"></span><input type="range" id="tFoe" min="0.6" max="1.4" step="0.1"></label>
+        <label>오늘의 선물 금화 <span id="tGiftV"></span><input type="range" id="tGift" min="10" max="100" step="5"></label>
+        <label>응원 한 줄 <span>전투 중 응원 요정이 들고 나와요</span><input type="text" id="tCheer" maxlength="60" placeholder="예: 우리 딸 최고! 천천히 해도 돼"></label>
+        <div class="row"><button type="button" class="dot-btn small primary" id="tSave">저장</button><span class="msg" id="tMsg" style="margin:0;"></span></div>
+      </div>
     </div>
 
     <div id="game" hidden>
@@ -139,6 +166,8 @@
           <div class="xp"><i id="xpFill"></i></div>
           <div class="stat" id="stat"></div>
           <div class="bag" id="bag"></div>
+          <div class="friends" id="friends"></div>
+          <div class="combo" id="combo" hidden></div>
         </div>
         <div class="dot-card q-card reveal">
           <h3 class="pixel">현실 → 모험</h3>
@@ -175,6 +204,8 @@
           <h3 class="pixel">가게</h3>
           <div class="shop" id="shop"></div>
           <div class="msg" id="shopMsg"></div>
+          <div class="gear-now" id="gearNow"></div>
+          <div class="gear-pick" id="gearPick" hidden></div>
         </div>
         <div class="dot-card q-card reveal">
           <h3 class="pixel">이번 주 보스</h3>
@@ -200,7 +231,9 @@ const J2 = (w, a, b) => (typeof josa === 'function' ? josa(w, a, b) : a + '(' + 
 
 let key = null, hero = null, save = null, facts = null, st = null;
 const saves = {};                       // 두 아이의 세이브 — 손님 화면과 이번 주 보스에 쓴다
-let battle = null;                      // 싸우는 중이면 { foe, fhp, energy, charged, guard, turn, busy, week }
+let TUNE = Q.fixTune(null);             // 부모 조정판 — 같은 표의 'tuning' 줄
+let combo = false;                      // 오늘 자매 둘 다 모험 중이면 참
+let battle = null;                      // 싸우는 중이면 { foe, fhp, energy, charged, guard, turn, busy, week, streak, cheered }
 let curArea = 0;
 
 // ---------- 저장 ----------
@@ -233,13 +266,18 @@ async function boot(){
 async function bootInner(){
   await refreshAuth();
   key = isChild && me && Q.HEROES[me.author_key] ? me.author_key : null;
-  const { data: rows } = await sb.from('quest_saves').select('who, data');
-  (rows || []).forEach(r => { saves[r.who] = Q.fixSave(r.data); });
+  const { data: rows, error } = await sb.from('quest_saves').select('who, data');
+  if (error) throw error;
+  (rows || []).forEach(r => {
+    if (r.who === 'tuning') TUNE = Q.fixTune(r.data);
+    else saves[r.who] = Q.fixSave(r.data);
+  });
 
   if (!key){
     $('#gate').hidden = false;
-    if (isLoggedIn) $('#gateWho').textContent = '이 모험은 수아와 연아의 것이에요. 부모는 여기서 구경만 할 수 있어요.';
+    if (isLoggedIn) $('#gateWho').textContent = '이 모험은 수아와 연아의 것이에요. 부모는 여기서 구경하고, 아래에서 난이도를 맞출 수 있어요.';
     renderHeroes();
+    if (isAdmin) renderTune();
     initReveal();
     return;
   }
@@ -250,6 +288,10 @@ async function bootInner(){
   saves[key] = save;
   refreshStats();
   if (save.hp == null || save.hp > st.maxHp) save.hp = st.maxHp;
+  // 오늘 놀았다 — 자매 콤보의 근거. 다른 한 명의 줄에서 오늘 날짜가 보이면 콤보.
+  if (save.lastPlay !== today()){ save.lastPlay = today(); persist(); }
+  const other = saves[hero.other];
+  combo = !!(other && other.lastPlay === today());
   $('#game').hidden = false;
   $('#lead').textContent = hero.name + '의 모험 — 현실에서 한 일이 경험치가 돼요';
   renderAll();
@@ -268,6 +310,7 @@ function refreshStats(){
 }
 
 function renderAll(){ renderStatus(); renderReal(); renderMap(); renderShop(); renderWeek(); }
+function today(){ const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
 
 // ---------- 손님 화면 ----------
 function renderHeroes(){
@@ -283,9 +326,29 @@ function renderHeroes(){
     const wins = s ? s.wins.reduce((a, b) => a + b, 0) : 0;
     const bosses = s ? s.boss.filter(Boolean).length : 0;
     d.innerHTML = '<div class="nm">' + h.name + '</div>' +
-      '<div class="lv">' + (s ? '레벨 ' + (s.lv || 1) + ' · ' + wins + '번 이김 · 대장 ' + bosses + '명' : '아직 모험을 시작하지 않았어요') + '</div>';
+      '<div class="lv">' + (s ? '레벨 ' + (s.lv || 1) + ' · ' + wins + '번 이김 · 대장 ' + bosses + '명 · 친구 ' + (s.friends || []).length : '아직 모험을 시작하지 않았어요') + '</div>';
     card.appendChild(d);
     box.appendChild(card);
+  });
+}
+
+// ---------- 부모 조정판 ----------
+function renderTune(){
+  const c = $('#tuneCard'); c.hidden = false;
+  const w = $('#tWeek'), f = $('#tFoe'), g = $('#tGift'), ch = $('#tCheer');
+  w.value = TUNE.weekHpMul; f.value = TUNE.foeMul; g.value = TUNE.giftGold; ch.value = TUNE.cheer;
+  const show = () => {
+    $('#tWeekV').textContent = '×' + Number(w.value).toFixed(1) + ' (' + Q.WEEK.hp(Q.weekKey(), { weekHpMul: Number(w.value) }) + ')';
+    $('#tFoeV').textContent = '×' + Number(f.value).toFixed(1);
+    $('#tGiftV').textContent = g.value + '금화';
+  };
+  [w, f, g].forEach(el => el.addEventListener('input', show)); show();
+  $('#tSave').addEventListener('click', async () => {
+    const t = Q.fixTune({ weekHpMul: w.value, foeMul: f.value, giftGold: g.value, cheer: ch.value });
+    $('#tMsg').textContent = '저장 중…';
+    const { error } = await sb.from('quest_saves').upsert({ who: 'tuning', data: t }, { onConflict: 'who' });
+    $('#tMsg').textContent = error ? '안 됐어요: ' + readableError(error) : '저장했어요. 아이가 다음에 열 때부터예요.';
+    if (!error){ TUNE = t; sfx('pop'); }
   });
 }
 
@@ -313,17 +376,34 @@ function renderStatus(){
     '<span>🎨 물감 ' + paintLeft() + '</span>' +
     '<span>🗡 무기 +' + save.weapon + '</span>' +
     '<span>🛡 갑옷 +' + save.armor + '</span>';
+  // 친구들 — 작게 줄지어 선다. 턴마다 체력을 조금씩 준다.
+  const fr = Q.friendsOf(save), fbox = $('#friends'); fbox.innerHTML = '';
+  if (fr.length){
+    const lab = document.createElement('span'); lab.style.cssText = 'font-size:12px;font-weight:800;margin-right:4px;';
+    lab.textContent = '🐾 친구 ' + fr.length + ' (턴마다 체력 +' + Math.min(Q.FRIEND_HEAL_MAX, fr.length) + ')';
+    fbox.appendChild(lab);
+    fr.forEach(f => {
+      const sp = SPRITES[f.sp]; if (!sp) return;
+      const cv = document.createElement('canvas'); cv.width = sp[0].length * 2; cv.height = sp.length * 2;
+      cv.title = f.name; drawSprite(cv.getContext('2d'), sp, 0, 0, 2); fbox.appendChild(cv);
+    });
+  }
+  const cb = $('#combo');
+  cb.hidden = !combo;
+  if (combo) cb.textContent = '💞 오늘 ' + hero.call + '도 모험 중 — 언니 동생 콤보! 오늘은 피해가 ' + Q.COMBO_MULT + '배예요.';
 }
 function paintLeft(){ return Math.max(0, (facts.works || 0) - (save.spentPaint || 0)); }
 
 function renderReal(){
   const f = facts, p = st.parts;
+  const left = Q.hiddenDaysLeft(f);
   const rows = [
     ['📓 일기 ' + (f.diaries || 0) + '편', '마음 +' + p.hrt.diary + ' · 경험치 +' + (f.diaries || 0) * Q.REAL.diary.xp],
     ['🎨 작품 ' + (f.works || 0) + '점', '힘 +' + p.str.works + ' · 물감 ' + (f.works || 0) + '개 · 경험치 +' + (f.works || 0) * Q.REAL.work.xp],
     ['🏃 달리기 최고 ' + (f.run_best || 0) + '점', '재빠름 +' + p.agi.run + ' · 경험치 +' + Math.min(Q.REAL.runCap, Math.floor((f.run_best || 0) / Q.REAL.runDiv))],
     ['🚗 나들이 ' + (f.outings || 0) + '번', '경험치 +' + (f.outings || 0) * Q.REAL.outing.xp],
-    ['📏 키 ' + (f.height ? f.height + 'cm' : '아직 안 잼'), '체력 +' + p.hp.height],
+    ['📏 키 ' + (f.height ? f.height + 'cm' : '아직 안 잼'), '체력 +' + p.hp.height + (left ? ' · 자란 기념 <b>뒷마당</b> ' + left + '일 남음' : ' · 반년 뒤 더 자라 있으면 숨은 무대가 열려요')],
+    ['🎵 작품 소리', f.sfx ? '연속 강타 때 「' + ((typeof WORK_SFX !== 'undefined' && WORK_SFX[f.sfx]) ? WORK_SFX[f.sfx].label : f.sfx) + '」' : '작품에 소리를 붙이면 연속 강타 팡파르가 그 소리가 돼요'],
   ];
   $('#real').innerHTML = rows.map(r => '<li><b>' + r[0] + '</b> <span class="to">→ ' + r[1] + '</span></li>').join('');
 }
@@ -332,30 +412,43 @@ function renderReal(){
 function renderMap(){
   const box = $('#areas'); box.innerHTML = '';
   Q.AREAS.forEach((A, i) => {
+    const open = Q.areaOpen(save, i, facts);
+    if (A.hidden && !open) return;                   // 숨은 무대는 열렸을 때만 보인다
     const b = document.createElement('button');
     b.type = 'button';
-    const open = Q.areaOpen(save, i);
     b.disabled = !open;
-    b.className = (save.boss[i] ? 'done' : '') + (i === curArea ? ' here' : '');
-    b.innerHTML = A.name + '<small>' + (open ? (save.boss[i] ? '대장 이김' : save.wins[i] + '번 이김') : '잠김') + '</small>';
+    b.className = (save.boss[i] ? 'done' : '') + (i === curArea ? ' here' : '') + (A.hidden ? ' secret' : '');
+    const dex = Q.dexDone(save, i) ? ' 📖' : '';
+    b.innerHTML = A.name + dex + '<small>' + (open ? (save.boss[i] ? '대장 이김' : save.wins[i] + '번 이김') : '잠김') + '</small>';
     b.addEventListener('click', () => { curArea = i; renderMap(); });
     box.appendChild(b);
   });
+  if (!Q.areaOpen(save, curArea, facts)) curArea = 0;
   const A = Q.AREAS[curArea], act = $('#areaAct');
   const need = Math.max(0, Q.WINS_FOR_BOSS - save.wins[curArea]);
+  const friendsHere = [0, 1, 2].filter(j => save.friends.includes(curArea + ':' + j)).length;
   act.innerHTML =
     '<button type="button" class="dot-btn small primary" id="goFight">' + A.name + '에서 싸우기</button>' +
     '<button type="button" class="dot-btn small coral" id="goBoss"' + (need ? ' disabled' : '') + '>' +
       '대장 ' + A.boss.name + (save.boss[curArea] ? ' (다시)' : '') + '</button>' +
-    '<span class="note">' + (need ? '대장을 부르려면 ' + need + '번 더 이겨야 해요' : '대장에게 도전할 수 있어요') + '</span>';
-  $('#goFight').addEventListener('click', () => startBattle(Q.foeAt(curArea, Math.floor(Math.random() * 3))));
-  $('#goBoss').addEventListener('click', () => startBattle(Q.bossAt(curArea)));
+    '<span class="note">' +
+      (need ? '대장을 부르려면 ' + need + '번 더 이겨야 해요' : '대장에게 도전할 수 있어요') +
+      (A.hidden ? ' · 자란 기념 무대 — 보상 두 배!' : '') +
+      (friendsHere ? ' · 친구가 된 상대는 안 나와요' : '') +
+      (Q.dexDone(save, curArea) ? ' · 도감 완성 📖' : '') +
+    '</span>';
+  $('#goFight').addEventListener('click', () => {
+    // 친구가 된 상대는 빼고 고른다. 셋 다 친구가 될 수는 없다(무대마다 하나만 tame).
+    const pool = [0, 1, 2].filter(j => !save.friends.includes(curArea + ':' + j));
+    startBattle(Q.foeAt(curArea, pool[Math.floor(Math.random() * pool.length)], TUNE));
+  });
+  $('#goBoss').addEventListener('click', () => startBattle(Q.bossAt(curArea, TUNE)));
 }
 
 // ---------- 가게 ----------
-function today(){ const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
 function renderShop(){
   const S = Q.SHOP, box = $('#shop');
+  const gift = S.gift.gold(TUNE);
   const items = [
     { id: 'potion', t: '🧪 물약 사기', d: S.potion.price + '금화 · 체력 ' + Math.round(S.potion.heal * 100) + '% 회복',
       can: save.gold >= S.potion.price && save.potions < S.potion.max,
@@ -369,9 +462,12 @@ function renderShop(){
     { id: 'armor', t: '🛡 갑옷 강화 +' + (save.armor + 1), d: upgradeLabel(save.armor),
       can: canUpgrade(save.armor),
       do(){ const w = save.armor; save.gold -= S.upgrade.gold(w); save.spentPaint += S.upgrade.paint(w); save.armor++; return '갑옷이 +' + save.armor + J2(save.armor, '이', '가') + ' 됐어요. 체력이 늘어요.'; } },
-    { id: 'gift', t: '🎁 오늘의 선물', d: save.lastGift === today() ? '오늘 건 받았어요. 내일 또!' : '하루 한 번 · 금화 ' + S.gift.gold + ' · 물약 ' + S.gift.potions + ' · 체력 가득',
+    { id: 'gift', t: '🎁 오늘의 선물', d: save.lastGift === today() ? '오늘 건 받았어요. 내일 또!' : '하루 한 번 · 금화 ' + gift + ' · 물약 ' + S.gift.potions + ' · 체력 가득',
       can: save.lastGift !== today(),
-      do(){ save.lastGift = today(); save.gold += S.gift.gold; save.potions = Math.min(S.potion.max, save.potions + S.gift.potions); save.hp = st.maxHp; return '선물을 받았어요!'; } },
+      do(){ save.lastGift = today(); save.gold += gift; save.potions = Math.min(S.potion.max, save.potions + S.gift.potions); save.hp = st.maxHp; return '선물을 받았어요!'; } },
+    { id: 'gear', t: '🎨 장비에 그림 넣기', d: (save.weapon || save.armor) ? '그리기에서 그린 도트를 무기·갑옷에 붙여요' : '무기나 갑옷을 먼저 강화해요',
+      can: !!(save.weapon || save.armor),
+      do(){ openGearPick(); return ''; } },
   ];
   box.innerHTML = '';
   items.forEach(it => {
@@ -380,6 +476,7 @@ function renderShop(){
     b.innerHTML = it.t + '<small>' + it.d + '</small>';
     b.addEventListener('click', () => {
       const say = it.do();
+      if (it.id === 'gear') return;
       sfx(it.id === 'gift' ? 'key' : 'pop');
       refreshStats(); if (save.hp > st.maxHp) save.hp = st.maxHp;
       $('#shopMsg').textContent = say;
@@ -387,6 +484,7 @@ function renderShop(){
     });
     box.appendChild(b);
   });
+  renderGearNow();
 }
 function upgradeLabel(w){
   const S = Q.SHOP.upgrade;
@@ -398,20 +496,76 @@ function canUpgrade(w){
   return w < S.max && save.gold >= S.gold(w) && paintLeft() >= S.paint(w);
 }
 
+// ---------- 장비에 그림 넣기 ----------
+// 그리기 페이지에서 그린 자기 도트(doodles)를 무기·갑옷에 붙인다. 전투 화면에서
+// 방패와 깃발로 보인다. 누르기 전엔 서버를 안 부르고, 그림은 세이브에 통째로 담는다
+// (32칸이면 1KB — 세이브 상한 8KB 안).
+const gearCache = {};
+function gearCanvas(slot){
+  const g = save.gear[slot]; if (!g || !g.s) return null;
+  const k = slot + ':' + g.n + ':' + g.s.length + ':' + g.s.slice(0, 40);
+  if (!gearCache[k]) gearCache[k] = drawingToCanvas({ n: g.n, s: g.s });
+  return gearCache[k];
+}
+function renderGearNow(){
+  const box = $('#gearNow'); box.innerHTML = '';
+  ['weapon', 'armor'].forEach(slot => {
+    const cv = gearCanvas(slot); if (!cv) return;
+    const lab = document.createElement('span'); lab.textContent = slot === 'weapon' ? '🗡 깃발' : '🛡 방패';
+    const c2 = document.createElement('canvas'); c2.width = cv.width; c2.height = cv.height;
+    c2.getContext('2d').drawImage(cv, 0, 0);
+    const x = document.createElement('button'); x.type = 'button'; x.textContent = '빼기';
+    x.style.cssText = 'font:inherit;font-size:10px;font-weight:800;padding:2px 6px;border:2px solid var(--ink);background:#fff;cursor:pointer;';
+    x.addEventListener('click', () => { save.gear[slot] = null; renderGearNow(); persist(); });
+    box.appendChild(lab); box.appendChild(c2); box.appendChild(x);
+  });
+}
+async function openGearPick(){
+  const box = $('#gearPick'); box.hidden = false;
+  box.innerHTML = '<span class="msg" style="margin:0">그림을 찾는 중…</span>';
+  const { data, error } = await sb.from('doodles').select('id, n, cells, created_at')
+    .eq('author', key).order('created_at', { ascending: false }).limit(12);
+  if (error || !data || !data.length){
+    box.innerHTML = '<span class="msg" style="margin:0">' + (error ? '불러오지 못했어요' : '아직 그린 그림이 없어요. <a href="./draw.html">그리기</a>에서 하나 그려 와요.') + '</span>';
+    return;
+  }
+  box.innerHTML = '';
+  data.forEach(r => {
+    const p = document.createElement('div'); p.className = 'pick';
+    const cv = drawingToCanvas({ n: r.n, s: r.cells }); p.appendChild(cv);
+    const row = document.createElement('div'); row.style.display = 'flex'; row.style.gap = '4px';
+    [['weapon', '깃발'], ['armor', '방패']].forEach(([slot, lab]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = lab;
+      b.disabled = !(slot === 'weapon' ? save.weapon : save.armor);
+      b.addEventListener('click', () => {
+        save.gear[slot] = { n: r.n, s: r.cells };
+        sfx('pop'); $('#shopMsg').textContent = (slot === 'weapon' ? '깃발' : '방패') + '에 그림을 붙였어요. 전투에서 보여요.';
+        renderGearNow(); persist();
+      });
+      row.appendChild(b);
+    });
+    p.appendChild(row); box.appendChild(p);
+  });
+  const close = document.createElement('button'); close.type = 'button'; close.textContent = '닫기';
+  close.addEventListener('click', () => { box.hidden = true; }); box.appendChild(close);
+}
+
 // ---------- 이번 주 보스 ----------
-const WEEK_SPRITES = [
-  { sp: 'budgieUp', s: 3 }, { sp: 'chick', s: 4 }, { sp: 'house', s: 2 }, { sp: 'easel', s: 2 }, { sp: 'butterfly', s: 8 },
-];
 function weekFoe(){
-  const k = Q.weekKey(), i = Q.weekIndex(k) % WEEK_SPRITES.length;
-  return Object.assign({ name: Q.WEEK.name(k), boss: true, week: true, hp: Q.WEEK.hp(k), atk: 0, xp: 0, gold: 0, area: 9 }, WEEK_SPRITES[i]);
+  const k = Q.weekKey();
+  return Object.assign({ name: Q.WEEK.name(k), boss: true, week: true, hp: Q.WEEK.hp(k, TUNE), atk: 0, xp: 0, gold: 0, area: 9, idx: -1 }, Q.WEEK.sprite(k));
 }
 function weekTotal(k){
   return Object.keys(saves).reduce((a, w) => a + ((saves[w].week && saves[w].week.key === k) ? saves[w].week.dmg : 0), 0);
 }
 function renderWeek(){
   const k = Q.weekKey(), foe = weekFoe(), box = $('#week');
-  if (save.week.key !== k){ save.week = { key: k, dmg: 0, day: '', swings: 0, claimed: false }; }
+  if (save.week.key !== k){
+    // 지난주 것은 첫 화면 카드가 읽는다. 체력도 같이 적어 둬야 「쓰러뜨렸나」를 셀 수 있다.
+    if (save.week.key) save.lastWeek = { key: save.week.key, dmg: save.week.dmg, hp: save.week.hp || 0, name: Q.WEEK.name(save.week.key) };
+    save.week = { key: k, dmg: 0, day: '', swings: 0, claimed: false, hp: foe.hp };
+  }
+  save.week.hp = foe.hp;
   if (save.week.day !== today()){ save.week.day = today(); save.week.swings = 0; }
   const total = weekTotal(k), left = Q.WEEK.swingsPerDay - save.week.swings, down = total >= foe.hp;
   const mine = save.week.dmg, other = total - mine;
@@ -454,7 +608,7 @@ function renderWeek(){
 const canvas = $('#qCanvas'), ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 const W = 320, H = 200, GROUND = 172;
-let raf = 0, fx = [], shake = { hero: 0, foe: 0 }, flash = 0, timing = null, heroLunge = 0, foeLunge = 0;
+let raf = 0, fx = [], shake = { hero: 0, foe: 0 }, flash = 0, timing = null, heroLunge = 0, foeLunge = 0, fairyAt = 0;
 const now = () => performance.now();
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -468,22 +622,30 @@ function notice(html){
 
 function startBattle(foe){
   if (battle) return;
-  battle = { foe, fhp: foe.hp, energy: 0, charged: false, guard: false, turn: 0, busy: false, week: !!foe.week };
-  if (!foe.week) curArea = foe.area;
+  battle = { foe, fhp: foe.hp, energy: 0, charged: false, guard: false, turn: 0, busy: false, week: !!foe.week, streak: 0, cheered: false, acts: 0 };
+  if (!foe.week){
+    curArea = foe.area;
+    // 도감 — 만난 상대를 적는다. 셋과 대장을 다 만나면 그 무대의 하늘을 올해의 카드에 쓸 수 있다.
+    save.met[foe.boss ? foe.area + ':boss' : foe.area + ':' + foe.idx] = true;
+    if (Q.dexDone(save, foe.area) && !save.dexSkies.some(s => s.name === Q.AREAS[foe.area].name)){
+      save.dexSkies.push({ name: Q.AREAS[foe.area].name, sky: Q.AREAS[foe.area].sky });
+      notice('📖 <b>' + Q.AREAS[foe.area].name + '</b> 도감을 다 채웠어요! 첫 화면의 올해의 카드 배경으로 쓸 수 있어요.');
+    }
+  }
   $('#battleCard').hidden = false;
   $('#bHeroName').textContent = hero.name;
   $('#bFoeName').textContent = foe.name + (foe.boss ? ' (대장)' : '');
   renderBars(); renderMenu(); renderMap(); renderShop(); renderWeek();
   log(foe.week
     ? '<b>' + foe.name + '</b>' + J2(foe.name, '이', '가') + ' 버티고 서 있어요. 오늘 몫 ' + (Q.WEEK.swingsPerDay - save.week.swings) + '번을 때려요!'
-    : '<b>' + foe.name + '</b>' + J2(foe.name, '이', '가') + ' 나타났어요!');
+    : '<b>' + foe.name + '</b>' + J2(foe.name, '이', '가') + ' 나타났어요!' + (combo ? ' 💞 콤보 중!' : ''));
   sfx(foe.boss ? 'thud' : 'pop');
   $('#battleCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
   loopOn();
 }
 
 function endBattle(){
-  battle = null; timing = null; fx = [];
+  battle = null; timing = null; fx = []; fairyAt = 0;
   $('#battleCard').hidden = true;
   loopOff();
   renderAll();
@@ -574,15 +736,31 @@ async function act(kind){
     else log('도망쳤어요. 다음에 다시!');
     await wait(500); endBattle(); return;
   }
+  b.acts++;
+  // 친구들이 턴마다 체력을 조금씩 준다. 응원 요정은 둘째 턴에 힘들어 보이면 한 번.
+  if (!b.week){
+    const fr = Math.min(Q.FRIEND_HEAL_MAX, save.friends.length);
+    if (fr && save.hp < st.maxHp){
+      const heal = Math.min(fr, st.maxHp - save.hp); save.hp += heal;
+      addFx(hero.name, '+' + heal, '#6fb567', true); renderBars();
+    }
+    if (TUNE.cheer && !b.cheered && b.acts >= 2 && save.hp < st.maxHp * 0.7){
+      b.cheered = true; fairyAt = now(); sfx('sparkle');
+      const heal = Math.min(Math.round(st.maxHp * Q.CHEER_HEAL), st.maxHp - save.hp); save.hp += heal;
+      addFx(hero.name, '+' + heal, '#ffd979', true);
+      log('💌 응원 요정: 「' + escapeHTML(TUNE.cheer) + '」 — 체력 ' + heal + ' 회복!');
+      renderBars(); await wait(900);
+    }
+  }
   if (kind === 'attack'){
     const r = await startTiming();
-    const dmg = Q.heroHit(st, r);
+    const dmg = Q.heroHit(st, r, null, combo ? Q.COMBO_MULT : 1);
     if (!b.week) b.energy = Math.min(Q.SKILL_COST, b.energy + 1);
     await hitFoe(dmg, r);
   } else if (kind === 'skill'){
     b.energy = 0;
     sfx(hero.skillSfx);
-    await hitFoe(Q.heroHit(st, 'skill'), 'skill');
+    await hitFoe(Q.heroHit(st, 'skill', null, combo ? Q.COMBO_MULT : 1), 'skill');
   } else if (kind === 'guard'){
     b.guard = true; b.energy = Math.min(Q.SKILL_COST, b.energy + 1);
     const heal = Math.min(st.guardHeal, st.maxHp - save.hp);
@@ -627,10 +805,21 @@ async function hitFoe(dmg, kind){
   if (b.week){ dmg *= Q.WEEK.swingMult; save.week.dmg += dmg; save.week.swings++; }
   else b.fhp -= dmg;
   shake.foe = now(); flash = kind === 'perfect' || kind === 'skill' ? now() : 0;
-  sfx(kind === 'miss' ? 'prop' : kind === 'perfect' ? 'sparkle' : 'boing');
+  // 완벽 타이밍 연속 셋 — 작품에 붙인 소리로 팡파르. 소리를 아직 안 붙였으면 기본 소리.
+  let streakSay = '';
+  if (kind === 'perfect'){
+    b.streak++;
+    if (b.streak >= Q.STREAK_FOR_FANFARE){
+      b.streak = 0;
+      sfx(facts.sfx || hero.streakSfx);
+      addFx(hero.name, Q.STREAK_FOR_FANFARE + '연속!', '#ffd979', true);
+      streakSay = ' 🎵 <b>' + Q.STREAK_FOR_FANFARE + '연속 강타!</b>';
+    } else sfx('sparkle');
+  } else { b.streak = 0; sfx(kind === 'miss' ? 'prop' : 'boing'); }
   addFx(b.foe.name, '-' + dmg, kind === 'perfect' || kind === 'skill' ? '#ffd979' : '#ffffff', false);
   log('<b>' + SAY[kind] + '</b> ' + b.foe.name + '에게 <b>' + dmg + '</b> 피해' +
-      (kind === 'perfect' ? ' — 칸 한가운데!' : kind === 'miss' ? ' — 칸을 놓쳤어요' : '') + (b.week ? ' (합계 ' + weekTotal(save.week.key) + ')' : ''));
+      (kind === 'perfect' ? ' — 칸 한가운데!' : kind === 'miss' ? ' — 칸을 놓쳤어요' : '') +
+      (b.week ? ' (합계 ' + weekTotal(save.week.key) + ')' : '') + streakSay);
   renderBars();
   await wait(520);
 }
@@ -663,13 +852,31 @@ async function foeTurn(){
 }
 
 async function win(){
-  const b = battle, foe = b.foe;
+  const b = battle, foe = b.foe, A = Q.AREAS[foe.area];
   sfx('fanfare');
   save.gold += foe.gold; save.xp += foe.xp; save.fights++;
-  if (foe.boss){ save.boss[foe.area] = true; } else save.wins[foe.area]++;
-  log('<b>이겼어요!</b> 경험치 +' + foe.xp + ' · 금화 +' + foe.gold +
-      (foe.boss && foe.area < Q.AREAS.length - 1 ? ' — <b>' + Q.AREAS[foe.area + 1].name + '</b>' + J2(Q.AREAS[foe.area + 1].name, '이', '가') + ' 열렸어요!' : '') +
-      (foe.boss && foe.area === Q.AREAS.length - 1 ? ' — 열 무대를 다 돌았어요. 정말 대단해요!' : ''));
+  let extra = '';
+  if (foe.boss){
+    save.boss[foe.area] = true;
+    const next = Q.AREAS[foe.area + 1];
+    if (next && !next.hidden) extra = ' — <b>' + next.name + '</b>' + J2(next.name, '이', '가') + ' 열렸어요!';
+    if (foe.area === 9) extra = ' — 열 무대를 다 돌았어요. 정말 대단해요!';
+    journal(foe);
+  } else {
+    save.wins[foe.area]++;
+    // 친구 되기 — 같은 상대를 세 번 이기면 싸우지 않고 따라다닌다.
+    if (foe.tame){
+      const k = foe.area + ':' + foe.idx;
+      save.foeWins[k] = (save.foeWins[k] || 0) + 1;
+      if (save.foeWins[k] >= Q.TAME_WINS && !save.friends.includes(k)){
+        save.friends.push(k); sfx('purr');
+        extra = ' — <b>' + foe.name + '</b>' + J2(foe.name, '이', '가') + ' 친구가 됐어요! 이제 싸우지 않고 뒤를 따라와요. 🐾';
+      } else if (save.foeWins[k] < Q.TAME_WINS){
+        extra = ' (' + (Q.TAME_WINS - save.foeWins[k]) + '번 더 이기면 친구가 돼요)';
+      }
+    }
+  }
+  log('<b>이겼어요!</b> 경험치 +' + foe.xp + ' · 금화 +' + foe.gold + (A.hidden ? ' (두 배!)' : '') + extra);
   refreshStats();
   renderBars();
   await wait(1300);
@@ -683,6 +890,20 @@ async function lose(){
   renderBars();
   await wait(1500);
   endBattle();
+}
+
+// 모험 일지 — 대장을 이기면 일기장에 초안 한 편. 하루 한 편만, 부모가 확인하면 일기가
+// 되어 경험치로 돌아온다. 아이 글은 원래 확인 전(pending)이라 그 규칙을 그대로 탄다.
+async function journal(foe){
+  if (save.journalDay === today() || !me || !me.user_id) return;
+  save.journalDay = today();
+  const d = new Date(), A = Q.AREAS[foe.area];
+  const body = (d.getMonth() + 1) + '월 ' + d.getDate() + '일, ' + hero.name + J2(hero.name, '이', '가') + ' ' +
+    A.name + '에서 ' + foe.name + J2(foe.name, '을', '를') + ' 쓰러뜨렸다. 레벨 ' + st.lv + ', 친구 ' + save.friends.length + '.';
+  const { error } = await sb.from('posts').insert({
+    author: key, title: '모험 일지', body, status: 'pending', written_by: me.user_id, happened_on: today(), is_public: true,
+  });
+  if (!error) notice('📓 일기장에 <b>모험 일지</b> 초안을 남겼어요 — 이어 써도 되고, 부모님이 확인하면 경험치가 돼요.');
 }
 
 // ---------- 그리기 ----------
@@ -723,6 +944,24 @@ function draw(){
   const hx = 34 + lunge(heroLunge) + bump(shake.hero, 320, 4), hy = GROUND - hs.length * 2;
   shadow(hx + hs[0].length, GROUND + 2, 30);
   drawSprite(ctx, hs, hx, hy, 2);
+  // 장비에 붙인 그림 — 왼손엔 방패, 오른쪽 위엔 깃발
+  const sh = gearCanvas('armor'), fl = gearCanvas('weapon');
+  if (sh){ ctx.fillStyle = '#2f2a24'; ctx.fillRect(hx - 12, hy + 32, 26, 26); ctx.drawImage(sh, hx - 10, hy + 34, 22, 22); }
+  if (fl){ ctx.fillStyle = '#2f2a24'; ctx.fillRect(hx + 78, hy + 8, 2, 60); ctx.fillRect(hx + 80, hy + 8, 24, 24); ctx.drawImage(fl, hx + 81, hy + 9, 22, 22); }
+  // 친구들 — 주인공 뒤(오른쪽)에 줄지어 서서 살짝 뛴다
+  Q.friendsOf(save).slice(0, Q.FRIEND_HEAL_MAX).forEach((f, i) => {
+    const sp = SPRITES[f.sp]; if (!sp) return;
+    const bobY = Math.round(Math.sin(now() / 220 + i) * 2);
+    drawSprite(ctx, sp, 124 + i * 24, GROUND - sp.length * 2 + bobY, 2);
+  });
+  // 응원 요정 — 부모의 한 줄을 들고 잠깐 날아온다
+  if (fairyAt && now() - fairyAt < 1600){
+    const d = now() - fairyAt, fy = 60 - Math.sin(d / 300) * 6;
+    drawSprite(ctx, SPRITES.butterfly, hx + 30, fy, 3);
+    ctx.font = '700 9px "Galmuri11", "Pretendard Variable", sans-serif'; ctx.textAlign = 'left';
+    ctx.fillStyle = A.dark ? '#fff' : '#2f2a24';
+    ctx.fillText('💌 ' + TUNE.cheer.slice(0, 18), hx + 54, fy + 12);
+  }
 
   // 상대
   const foe = battle.foe, fs = SPRITES[foe.sp], fw = fs[0].length * foe.s, fh = fs.length * foe.s;
@@ -775,9 +1014,9 @@ function shadow(cx, cy, w){
 
 // 시험용 손잡이. 화면을 안 거치고 규칙대로 도는지 확인할 때 쓴다.
 window.__quest = {
-  get state(){ return { key, save, st, battle, timing: !!timing, facts }; },
+  get state(){ return { key, save, st, battle, timing: !!timing, facts, tune: TUNE, combo }; },
   act, startBattle, endBattle, tapNow,
-  foe: (a, i) => Q.foeAt(a, i), boss: a => Q.bossAt(a), weekFoe,
+  foe: (a, i) => Q.foeAt(a, i, TUNE), boss: a => Q.bossAt(a, TUNE), weekFoe,
 };
 
 boot();

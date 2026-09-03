@@ -934,7 +934,7 @@ alter table public.growth add  constraint growth_who_day_kind_key
   unique (who, measured_on, kind);
 
 -- ---------------------------------------------------------------------------
--- quest_saves — 도트 모험단 세이브 (quest.html)
+-- quest_saves — 수아연아 모험단 세이브 (quest.html)
 --
 -- 아이 한 명당 한 줄. 경험치·금화·장비·무대 진행이 jsonb 하나에 들어간다.
 -- 누구나 읽을 수 있다 — 손님 화면의 「모험가 둘」과 자매가 합쳐 때리는 이번 주
@@ -993,3 +993,42 @@ create policy "parent resets quest" on public.quest_saves for delete
   using (public.my_role() = 'parent');
 -- 린터가 짚은 것: 이어그리기 원본을 가리키는 열에 인덱스가 없었다.
 create index if not exists doodles_relay_of_idx on public.doodles (relay_of);
+
+-- ---------------------------------------------------------------------------
+-- 모험단 둘째 묶음 — 부모 조정판 줄, 현실 연동 둘 더
+--
+-- 조정판은 같은 표의 'tuning' 줄 하나다. 표를 더 만들지 않아 화면 요청이 늘지 않고,
+-- 누구나 읽는 정책을 그대로 탄다(이번 주 보스 체력 배율은 아이 화면도 알아야 한다).
+-- ---------------------------------------------------------------------------
+alter table public.quest_saves drop constraint if exists quest_saves_who_ok;
+alter table public.quest_saves add constraint quest_saves_who_ok check (who in ('sua', 'yona', 'tuning'));
+drop policy if exists "parent tunes quest" on public.quest_saves;
+create policy "parent tunes quest" on public.quest_saves for insert
+  with check (public.my_role() = 'parent' and who = 'tuning');
+drop policy if exists "parent retunes quest" on public.quest_saves;
+create policy "parent retunes quest" on public.quest_saves for update
+  using (public.my_role() = 'parent' and who = 'tuning')
+  with check (public.my_role() = 'parent' and who = 'tuning');
+
+-- sfx: 작품에 붙인 소리 — 연속 강타 팡파르. grow_on: 반년 전보다 큰 키를 잰 날 — 숨은 무대.
+create or replace function public.quest_facts(p_who text)
+returns jsonb
+language sql stable security invoker set search_path = public as $$
+  with nm as (select case p_who when 'sua' then '수아' when 'yona' then '연아' end as who)
+  select jsonb_build_object(
+    'diaries',  (select count(*) from posts where author = p_who and status = 'published'),
+    'works',    (select count(*) from works where author = p_who),
+    'run_best', (select coalesce(max(score), 0) from run_scores where who = p_who),
+    'outings',  (select count(distinct event_id) from events where event_id is not null),
+    'height',   (select cm from growth where who = (select who from nm) and kind = 'height'
+                  order by measured_on desc limit 1),
+    'sfx',      (select sfx from works where author = p_who and sfx is not null
+                  order by created_at desc limit 1),
+    'grow_on',  (select l.measured_on from growth l
+                  where l.who = (select who from nm) and l.kind = 'height'
+                    and exists (select 1 from growth e
+                                 where e.who = l.who and e.kind = 'height'
+                                   and e.measured_on <= l.measured_on - 180 and e.cm < l.cm)
+                  order by l.measured_on desc limit 1)
+  );
+$$;
