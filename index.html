@@ -164,6 +164,56 @@
   .stamp-cell.on{background:var(--lemon); border-color:var(--ink); color:var(--ink); font-weight:800;}
   .stamp-cell.today{border-color:var(--coral); border-width:3px;}
   .stamp-cell.pad{border:none;}
+  /* 원버튼 달리기 */
+  .run-card{padding:0; overflow:hidden;}
+  .run-stage{position:relative; display:block; width:100%; line-height:0;}
+  #runCanvas{
+    display:block; width:100%; height:170px; touch-action:manipulation;
+    cursor:pointer; background:#a8d8f2; image-rendering:pixelated;
+  }
+  #runCanvas:focus-visible{outline:3px solid var(--ink); outline-offset:-3px;}
+  .run-bar{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:10px 12px; border-top:3px solid var(--ink); background:var(--cream);
+  }
+  .run-bar .run-hint{font-size:12px; font-weight:800; color:var(--ink-soft); margin-left:auto;}
+  .run-who{display:flex; gap:6px;}
+  .run-who button{
+    font:inherit; font-size:12px; font-weight:800; cursor:pointer;
+    padding:5px 10px; border:2px solid var(--ink); border-radius:0;
+    background:var(--cream); color:var(--ink);
+  }
+  .run-who button.on{background:var(--ink); color:var(--cream);}
+  @media (max-width:560px){
+    .run-bar .run-hint{width:100%; margin-left:0;}
+  }
+  .cap-video{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0 4px;}
+  .cap-video video{width:100%; max-width:240px; border:2px solid var(--ink); display:block;}
+  .cap-vstate{font-size:12px; font-weight:800; color:var(--ink-soft);}
+  .cap-open-video{width:100%; margin-top:10px; border:2px solid var(--ink); display:block;}
+  .duel-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:14px; max-width:520px; margin:0 auto;}
+  .duel-cell{
+    border:var(--px) solid var(--ink); background:var(--paper); padding:10px; text-align:center;
+    box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.35);
+  }
+  .duel-cell canvas{width:100%; height:auto; image-rendering:pixelated; display:block;}
+  .duel-cell .who{display:block; margin-top:8px; font-size:12px; font-weight:800;}
+  .growth-card, .map-card{padding:16px; text-align:center;}
+  .growth-card canvas, .map-card canvas{width:100%; height:auto; image-rendering:pixelated; display:block;}
+  .growth-legend, .map-legend{
+    display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:12px;
+    font-size:12px; font-weight:800; color:var(--ink-soft);
+  }
+  .growth-legend i, .map-legend i{
+    display:inline-block; width:11px; height:11px; border:2px solid var(--ink);
+    margin-right:5px; vertical-align:-1px;
+  }
+  .growth-add{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:14px; align-items:center;}
+  .growth-add select, .growth-add input{
+    padding:8px 10px; border:2px solid var(--ink); background:var(--cream);
+    font-family:inherit; font-size:13px;
+  }
+  .growth-add input[type="number"]{width:110px;}
   .badge-row{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px;}
   .badge{
     border:2px solid var(--ink); background:var(--paper); padding:6px 11px;
@@ -196,12 +246,12 @@
      ※ 목록을 고칠 때는 마지막(#capsule) 앞까지 전부 들어 있는지 볼 것. 나중에
         #stamp 를 사이에 끼우면서 이 목록에 안 넣는 바람에, 메뉴↔그리기와
         도장↔숫자만 144px 로 벌어져 있었다. */
-  #menu, #draw-cta, #stamp, #counts, #quiz, #ask{padding-bottom:0;}
+  #menu, #draw-cta, #run, #stamp, #counts, #duel, #growth, #map, #quiz, #ask{padding-bottom:0;}
 
   /* 메뉴 아래로는 구간이 여섯 개가 연달아 온다. 한 칸을 72px 로 두면 화면마다
      제목 하나씩만 보여서 스크롤이 길다. 이 줄부터는 52px 로 좁힌다 —
      구간이 나뉘어 보이기에는 충분하고, 다음 것이 화면 끝에 걸쳐 보인다. */
-  #draw-cta, #stamp, #counts, #quiz, #ask, #capsule{padding-top:52px;}
+  #draw-cta, #run, #stamp, #counts, #duel, #growth, #map, #quiz, #ask, #capsule{padding-top:52px;}
 
   /* ===== 사진 퀴즈 ===== */
   .quiz-card{max-width:560px; margin:0 auto; overflow:hidden;}
@@ -386,6 +436,32 @@
   </div>
 </section>
 
+<!-- 원버튼 달리기. 서버를 전혀 쓰지 않는다 — 최고 점수도 이 브라우저에만 남는다.
+     화면 밖으로 나가거나 탭이 가려지면 스스로 멈춘다(배터리). -->
+<section class="section-pad" id="run">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">ONE TAP</span>
+      <h2>한 번 눌러 뛰기</h2>
+      <p>화면을 톡 누르면 폴짝. 풀숲을 넘고 하트를 먹어요</p>
+    </div>
+    <div class="dot-card run-card reveal">
+      <div class="run-stage">
+        <canvas id="runCanvas" tabindex="0" role="application"
+                aria-label="한 번 눌러 뛰기 게임. 스페이스바나 화면을 누르면 점프합니다."></canvas>
+      </div>
+      <div class="run-bar">
+        <div class="run-who" id="runWho">
+          <button type="button" data-who="sua" class="on">수아로</button>
+          <button type="button" data-who="yona">연아로</button>
+        </div>
+        <button type="button" class="dot-btn small" id="runReset">최고 기록 지우기</button>
+        <span class="run-hint">스페이스바 또는 화면 누르기 · 길게 누르면 더 높이</span>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- 출석 도장. 서버에 안 남긴다 — 이 브라우저에만 찍힌다.
      자매가 각자 자기 폰에서 자기 도장을 모으는 편이 맞다. -->
 <section class="section-pad" id="stamp">
@@ -421,6 +497,56 @@
     <div class="badge-row" id="badges"></div>
     <!-- 도감: 전시실에서 실제로 열어 본 작품 수. 숫자가 아니라 "내가 본 것"이라 다르다. -->
     <p class="dex-line pixel" id="dexLine" hidden></p>
+  </div>
+</section>
+
+<!-- 오늘의 대결. 그리기에서 같은 주제로 각자 그린 것을 나란히 건다. -->
+<section class="section-pad" id="duel" hidden>
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">DUEL</span>
+      <h2>오늘의 대결</h2>
+      <p id="duelTheme"></p>
+    </div>
+    <div class="duel-grid" id="duelGrid"></div>
+  </div>
+</section>
+
+<!-- 키 눈금. 집 문틀에 해마다 새기던 그 눈금을 도트로 옮겼다. -->
+<section class="section-pad" id="growth" hidden>
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">GROWTH</span>
+      <h2>얼마나 컸을까</h2>
+      <p>문틀에 새긴 눈금이에요</p>
+    </div>
+    <div class="dot-card growth-card reveal">
+      <canvas id="growthCanvas" width="560" height="320"></canvas>
+      <div class="growth-legend" id="growthLegend"></div>
+    </div>
+    <!-- 부모로 로그인했을 때만 나온다 -->
+    <div class="growth-add" id="growthAdd" hidden>
+      <select id="gWho"><option value="수아">수아</option><option value="연아">연아</option></select>
+      <input type="date" id="gWhen">
+      <input type="number" id="gCm" placeholder="키(cm)" step="0.1" min="50" max="200">
+      <button class="dot-btn small primary" id="gSave">눈금 새기기</button>
+      <span class="msg" id="gMsg"></span>
+    </div>
+  </div>
+</section>
+
+<!-- 다녀온 곳이 한 칸씩 밝아지는 지도. -->
+<section class="section-pad" id="map" hidden>
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">MAP</span>
+      <h2>다녀온 곳</h2>
+      <p id="mapCount"></p>
+    </div>
+    <div class="dot-card map-card reveal">
+      <canvas id="koreaCanvas" width="440" height="500"></canvas>
+      <div class="map-legend" id="mapLegend"></div>
+    </div>
   </div>
 </section>
 
@@ -468,6 +594,13 @@
         <button type="button" data-who="together">같이</button>
       </div>
       <textarea id="capBody" maxlength="200" rows="3" placeholder="1년 뒤의 나에게 하고 싶은 말"></textarea>
+      <!-- 영상은 로그인한 가족만. 손님에게 열면 로그인 없이 저장소를 채울 길이 생긴다. -->
+      <div class="cap-video" id="capVideoRow" hidden>
+        <button type="button" class="dot-btn small mint" id="capRec">🎬 영상으로 남기기</button>
+        <span class="cap-vstate" id="capVState"></span>
+        <video id="capVPlay" playsinline controls hidden></video>
+        <button type="button" class="dot-btn small" id="capVDrop" hidden>지우기</button>
+      </div>
       <div class="cap-row">
         <span id="capCount">0/200</span>
         <button class="dot-btn small primary" id="capSend" type="button">🔒 1년 뒤에 열기</button>
@@ -659,53 +792,10 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
   const fallNow = () => BIRTHDAY ? FALLS.party : weather.snow ? FALLS.winter : raining() ? null : FALL;
 
   // ---- 소리 ----
-  // 소리 파일을 받지 않는다. 브라우저가 그 자리에서 만들어 내는 소리라 0바이트다.
-  // 파일이었다면 짧은 것 열 개만 해도 100KB 는 됐을 자리.
-  //
-  // 소리 장치는 화면을 한 번 누르기 전에는 못 켠다(브라우저 규칙). 어차피 우리는
-  // 누를 때만 소리를 내므로, 처음 누르는 그 순간에 만든다.
-  let ac = null, muted = false;
-  try { muted = localStorage.getItem('sy.mute') === '1'; } catch (e) {}
-  function tone(freq, dur, type, vol, delay){
-    if (muted) return;
-    try {
-      if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
-      if (ac.state === 'suspended') ac.resume();
-      const t0 = ac.currentTime + (delay || 0);
-      const o = ac.createOscillator(), g = ac.createGain();
-      o.type = type || 'square';
-      o.frequency.setValueAtTime(freq, t0);
-      // 뚝 끊으면 「딱」 하는 잡음이 난다. 끝을 아주 짧게 흘려 보낸다.
-      g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(vol == null ? 0.06 : vol, t0 + 0.008);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      o.connect(g); g.connect(ac.destination);
-      o.start(t0); o.stop(t0 + dur + 0.02);
-    } catch (e) {}                                  // 소리는 덤이다 — 안 나도 그만
-  }
-  // 무엇을 눌렀느냐에 따라 소리가 다르다. 눈을 감고도 뭘 눌렀는지 알게.
-  const SOUND = {
-    char:    () => { tone(660, .09, 'square', .05); tone(880, .10, 'square', .05, .07); },
-    secret:  () => { tone(523, .08, 'triangle', .07); tone(784, .08, 'triangle', .07, .06);
-                     tone(1046, .16, 'triangle', .07, .12); },
-    star:    () => tone(1320, .18, 'sine', .05),
-    house:   () => tone(220, .16, 'sawtooth', .04),
-    sun:     () => tone(392, .12, 'triangle', .05),
-    moon:    () => tone(294, .18, 'sine', .05),
-    easel:   () => tone(523, .12, 'triangle', .06),
-    plant:   () => { tone(784, .07, 'sine', .05); tone(1046, .09, 'sine', .05, .05); },
-    key:     () => { tone(523,.09,'square',.06); tone(659,.09,'square',.06,.08);
-                     tone(784,.09,'square',.06,.16); tone(1046,.22,'square',.06,.24); },
-    prop:    () => tone(440, .07, 'square', .045),
-  };
-  const sfx = name => { const f = SOUND[name]; if (f) f(); };
+  // 소리통은 common.js 로 옮겼다 — 전시실·그리기도 같은 것을 쓰고,
+  // 껐다 켠 것(sy.mute)도 한 곳에서 기억한다. 여기서는 부르기만 한다.
 
-  const soundHud = $('#soundHud');
-  function syncSound(){
-    if (!soundHud) return;
-    soundHud.textContent = muted ? '🔇' : '🔊';
-    soundHud.classList.toggle('off', muted);
-  }
+  wireSoundButton($('#soundHud'));
   // 손전등 단추는 밤에만 나온다.
   const torchHud = $('#torchHud');
   if (torchHud && NIGHT) {
@@ -717,14 +807,6 @@ const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] ||
       kick();
     });
   }
-
-  if (soundHud) soundHud.addEventListener('click', () => {
-    muted = !muted;
-    try { localStorage.setItem('sy.mute', muted ? '1' : '0'); } catch (e) {}
-    syncSound();
-    if (!muted) sfx('star');                        // 다시 켰다는 걸 귀로 알려 준다
-  });
-  syncSound();
 
   // 눌렀을 때 톡 튀어나오는 하트와 별
   let pops = [];
@@ -2082,6 +2164,162 @@ $$('canvas[data-char]').forEach(cv => {
     : '들어올 때마다 오늘 칸에 도장이 찍혀요';
 })();
 
+// ================= 오늘의 대결 =================
+// 그리기에서 같은 주제로 각자 그린 것을 나란히 건다.
+(async () => {
+  const grid = $('#duelGrid'); if (!grid) return;
+  const d = new Date(), pad = n => String(n).padStart(2, '0');
+  const today = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const { data } = await sb.from('doodles')
+    .select('author, n, cells, theme, created_at')
+    .eq('kind', 'duel').eq('made_on', today)
+    .order('created_at', { ascending: true });
+  if (!data || !data.length) return;
+
+  // 한 사람이 여러 번 냈으면 마지막 것만
+  const last = new Map();
+  data.forEach(r => last.set(r.author, r));
+  $('#duelTheme').textContent = '주제 — ' + (data[0].theme || '오늘의 미션');
+  [...last.values()].forEach(r => {
+    const cell = document.createElement('div');
+    cell.className = 'duel-cell reveal';
+    cell.appendChild(drawingToCanvas({ n: r.n, s: r.cells }));
+    const who = document.createElement('span');
+    who.className = 'who pixel'; who.textContent = r.author;
+    cell.appendChild(who);
+    grid.appendChild(cell);
+    revealNow(cell);
+  });
+  $('#duel').hidden = false;
+})().catch(() => {});
+
+// ================= 얼마나 컸을까 =================
+// 집 문틀에 해마다 새기던 눈금. 부모가 재서 적으면 여기 한 줄이 늘어난다.
+(async () => {
+  const cv = $('#growthCanvas'); if (!cv) return;
+  const COLORS = { '수아': '#ff7f8a', '연아': '#6cc7b3' };
+
+  async function draw(){
+    const { data } = await sb.from('growth')
+      .select('who, measured_on, cm').order('measured_on', { ascending: true });
+    if (!data || !data.length) { $('#growth').hidden = true; return; }
+    $('#growth').hidden = false;
+
+    const g = cv.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    const W = cv.width, H = cv.height, S = 4;
+    g.clearRect(0, 0, W, H);
+
+    // 문틀 — 도트로 굵게
+    g.fillStyle = '#c79b6d';
+    g.fillRect(0, 0, S * 4, H); g.fillRect(W - S * 4, 0, S * 4, H);
+    g.fillStyle = '#a97b4f';
+    g.fillRect(S * 3, 0, S, H); g.fillRect(W - S * 4, 0, S, H);
+    g.fillStyle = '#fff6e9';
+    g.fillRect(S * 4, 0, W - S * 8, H);
+
+    const lo = Math.floor(Math.min(...data.map(r => Number(r.cm))) / 10) * 10 - 5;
+    const hi = Math.ceil(Math.max(...data.map(r => Number(r.cm))) / 10) * 10 + 5;
+    const y = cm => Math.round((H - S * 6) * (hi - cm) / (hi - lo) / S) * S + S * 3;
+
+    // 10cm 마다 가로줄
+    g.fillStyle = 'rgba(47,42,36,.18)';
+    for (let c = Math.ceil(lo / 10) * 10; c <= hi; c += 10) {
+      g.fillRect(S * 5, y(c), W - S * 10, 1);
+      g.fillStyle = 'rgba(47,42,36,.45)';
+      g.font = '600 11px Pretendard Variable, Pretendard, sans-serif';
+      g.fillText(c + 'cm', S * 6, y(c) - 3);
+      g.fillStyle = 'rgba(47,42,36,.18)';
+    }
+
+    // 사람마다 눈금 — 도트 네모 하나와 날짜
+    const byWho = {};
+    data.forEach(r => (byWho[r.who] = byWho[r.who] || []).push(r));
+    Object.keys(byWho).forEach((who, wi) => {
+      const col = COLORS[who] || '#ffd979';
+      const rows = byWho[who];
+      const x0 = S * 8 + wi * S * 3;
+      rows.forEach((r, i) => {
+        const yy = y(Number(r.cm));
+        g.fillStyle = col;
+        g.fillRect(x0, yy - S, W - S * 10 - wi * S * 3 - S * 8, S * 2);
+        g.fillStyle = '#2f2a24';
+        g.font = '800 11px Pretendard Variable, Pretendard, sans-serif';
+        g.fillText(who + ' ' + r.cm + ' (' + String(r.measured_on).slice(2, 7).replace('-', '.') + ')',
+          x0 + 4, yy - S * 2);
+      });
+    });
+
+    $('#growthLegend').innerHTML = Object.keys(byWho).map(who =>
+      '<span><i style="background:' + (COLORS[who] || '#ffd979') + '"></i>' + escapeHTML(who) +
+      ' · ' + byWho[who].length + '번 쟀어요</span>').join('');
+  }
+
+  await draw();
+
+  // 부모로 로그인했으면 새 눈금을 새길 수 있다
+  await refreshAuth();
+  if (!isAdmin) return;
+  $('#growth').hidden = false;
+  $('#growthAdd').hidden = false;
+  const today = new Date();
+  $('#gWhen').value = today.toISOString().slice(0, 10);
+  $('#gSave').addEventListener('click', async () => {
+    const msg = $('#gMsg');
+    const cm = Number($('#gCm').value);
+    if (!cm) { msg.textContent = '키를 적어주세요'; return; }
+    msg.textContent = '새기는 중...';
+    const { error } = await sb.from('growth').upsert({
+      who: $('#gWho').value, measured_on: $('#gWhen').value, cm,
+    }, { onConflict: 'who,measured_on' });
+    msg.textContent = error ? ('안 됐어요: ' + error.message) : '새겼어요!';
+    if (!error) { $('#gCm').value = ''; await draw(); }
+  });
+})().catch(() => {});
+
+// ================= 다녀온 곳 =================
+// 일정에 적힌 좌표가 어느 도(道)에 드는지 세어, 다녀온 곳만 색으로 칠한다.
+(async () => {
+  const cv = $('#koreaCanvas');
+  if (!cv || typeof KOREA === 'undefined') return;      // 옛 pixel.js 와 짝이 되면 조용히 접는다
+  const { data } = await sb.from('events')
+    .select('event_id, place_lat, place_lng')
+    .not('place_lat', 'is', null);
+  const been = new Map();                               // 지역 → 다녀온 이벤트 수
+  (data || []).forEach(r => {
+    const k = koreaRegionAt(Number(r.place_lat), Number(r.place_lng));
+    if (k) been.set(k, (been.get(k) || 0) + 1);
+  });
+
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const cols = KOREA[0].length, rows = KOREA.length;
+  const s = Math.floor(Math.min(cv.width / cols, cv.height / rows));
+  const ox = Math.floor((cv.width - cols * s) / 2);
+  const oy = Math.floor((cv.height - rows * s) / 2);
+  g.clearRect(0, 0, cv.width, cv.height);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const ch = KOREA[r][c];
+      if (ch === '.') continue;
+      const on = been.has(ch);
+      g.fillStyle = on ? '#6cc7b3' : '#e3ddd2';
+      g.fillRect(ox + c * s, oy + r * s, s - 1, s - 1);
+    }
+  }
+
+  const names = Object.keys(KOREA_NAMES);
+  const gone = names.filter(k => been.has(k));
+  $('#mapCount').textContent = gone.length
+    ? '여덟 군데 중 ' + gone.length + '곳에 다녀왔어요'
+    : '아직 지도가 비어 있어요';
+  $('#mapLegend').innerHTML =
+    '<span><i style="background:#6cc7b3"></i>다녀온 곳 — ' +
+      (gone.map(k => KOREA_NAMES[k]).join(', ') || '아직 없음') + '</span>' +
+    '<span><i style="background:#e3ddd2"></i>아직 안 가 본 곳</span>';
+  $('#map').hidden = false;
+})().catch(() => {});
+
 // ================= 여긴 어디였을까? =================
 // 사진은 갤러리에서 날짜로 한 장 고르고, 보기는 이벤트 이름 전부(최대 셋). 정답은 그 사진의 이벤트.
 (async () => {
@@ -2142,7 +2380,7 @@ $$('canvas[data-char]').forEach(cv => {
   const fmt = iso => { const d = new Date(iso); return d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '.'; };
 
   async function loadOpened(){
-    const { data } = await sb.from('capsules').select('author, body, opens_on, created_at')
+    const { data } = await sb.from('capsules').select('author, body, opens_on, created_at, video_url')
       .order('opens_on', { ascending: false }).limit(20);
     const wrap = $('#capsuleOpened');
     wrap.innerHTML = '';
@@ -2151,7 +2389,11 @@ $$('canvas[data-char]').forEach(cv => {
       el.className = 'dot-card cap-open reveal';
       el.innerHTML = '<div class="from">🔓 ' + escapeHTML(WHO[c.author] || c.author) + ' · ' +
         escapeHTML(fmt(c.created_at)) + '에 써서 ' + escapeHTML(fmt(c.opens_on)) + '에 열림</div>' +
-        '<p class="body">' + escapeHTML(c.body) + '</p>';
+        '<p class="body">' + escapeHTML(c.body) + '</p>' +
+        (c.video_url
+          ? '<video class="cap-open-video" controls playsinline preload="none" src="' +
+            escapeHTML(c.video_url) + '"></video>'
+          : '');
       wrap.appendChild(el);
       revealNow(el);
     });
@@ -2172,23 +2414,377 @@ $$('canvas[data-char]').forEach(cv => {
   const body = $('#capBody'), cnt = $('#capCount'), msg = $('#capMsg'), btn = $('#capSend');
   body.addEventListener('input', () => { cnt.textContent = body.value.length + '/200'; });
 
+  // ---- 영상 남기기 ----
+  // 가족만 보이게 한다. 손님에게 열면 로그인 없이 저장소를 채울 길이 생긴다.
+  let capRecorder = null, capVideoBlob = null, capVideoExt = 'webm';
+  const vRow = $('#capVideoRow'), vBtn = $('#capRec'), vState = $('#capVState'),
+        vPlay = $('#capVPlay'), vDrop = $('#capVDrop');
+
+  await refreshAuth();
+  if (isLoggedIn && canRecordVideo()) vRow.hidden = false;
+
+  function capVideoReset(){
+    capVideoBlob = null;
+    if (vPlay.src) { URL.revokeObjectURL(vPlay.src); vPlay.removeAttribute('src'); }
+    vPlay.hidden = true; vDrop.hidden = true; vState.textContent = '';
+    vBtn.textContent = '🎬 영상으로 남기기';
+  }
+
+  vDrop.addEventListener('click', capVideoReset);
+
+  vBtn.addEventListener('click', async () => {
+    if (capRecorder) {                       // 찍는 중이면 멈춘다
+      const rec = capRecorder; capRecorder = null;
+      vBtn.disabled = true;
+      const { blob, secs } = await rec.stop();
+      vBtn.disabled = false;
+      capVideoBlob = blob; capVideoExt = rec.ext;
+      vPlay.srcObject = null;
+      vPlay.src = URL.createObjectURL(blob);
+      vPlay.hidden = false; vPlay.muted = false; vDrop.hidden = false;
+      vBtn.textContent = '🎬 다시 찍기';
+      vState.textContent = secsLabel(secs) + ' · ' + Math.max(1, Math.round(blob.size / 102400) / 10) + 'MB';
+      return;
+    }
+    capVideoReset();
+    try {
+      capRecorder = await startVideoRecorder(vPlay, s => {
+        vState.textContent = '● 녹화 중 ' + secsLabel(s) + ' / ' + secsLabel(CAPSULE_MAX_SECS);
+        if (s >= CAPSULE_MAX_SECS) vBtn.click();   // 1분에서 스스로 멈춘다
+      });
+      vPlay.hidden = false;
+      vBtn.textContent = '⏹ 그만 찍기';
+      vState.textContent = '● 녹화 중 0초';
+    } catch (e) {
+      capRecorder = null;
+      vState.textContent = '카메라를 못 켰어요. 브라우저에서 허용해 주세요.';
+    }
+  });
+
   btn.addEventListener('click', async () => {
     const text = body.value.trim();
     msg.className = 'cap-msg'; msg.textContent = '';
     if (!text) { msg.className = 'cap-msg err'; msg.textContent = '한 줄이라도 적어주세요.'; return; }
+    if (capRecorder) { msg.className = 'cap-msg err'; msg.textContent = '녹화를 먼저 멈춰주세요.'; return; }
     btn.disabled = true;
     const d = new Date(); d.setFullYear(d.getFullYear() + 1);
     const opens = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    const { error } = await sb.from('capsules').insert({ author: who, body: text, opens_on: opens });
+    const row = { author: who, body: text, opens_on: opens };
+    // 영상은 글보다 먼저 올린다. 올리다 실패하면 편지를 넣지 않는 편이 낫다 —
+    // 넣고 나면 잠겨서 1년 동안 고칠 수가 없다.
+    if (capVideoBlob) {
+      msg.className = 'cap-msg'; msg.textContent = '영상 올리는 중…';
+      try { row.video_url = await uploadCapsuleVideo(capVideoBlob, capVideoExt); }
+      catch (e) {
+        btn.disabled = false;
+        msg.className = 'cap-msg err'; msg.textContent = e.message;
+        return;
+      }
+    }
+    const { error } = await sb.from('capsules').insert(row);
     btn.disabled = false;
     if (error) { msg.className = 'cap-msg err'; msg.textContent = '못 넣었어요: ' + readableError(error); return; }
-    body.value = ''; cnt.textContent = '0/200';
+    body.value = ''; cnt.textContent = '0/200'; capVideoReset();
     msg.textContent = '🔒 잠갔어요. ' + fmt(opens) + '에 여기서 열려요.';
     loadLocked();
   });
 
   await Promise.all([loadOpened(), loadLocked()]);
 })().catch(() => {});
+
+// ================= 한 번 눌러 뛰기 =================
+// 서버를 안 쓴다. 최고 점수도 localStorage 뿐 — 자매가 각자 자기 폰에서 자기 기록을
+// 깬다. 화면 밖이거나 탭이 가려지면 rAF 를 아예 멈춰서 안 볼 때 배터리를 안 먹는다.
+(function(){
+  const canvas = document.getElementById('runCanvas');
+  if (!canvas || typeof SPRITES === 'undefined') return;
+  const ctx = canvas.getContext('2d');
+
+  const GRAV      = 900;    // px/s^2
+  const JUMP_V    = -300;   // 처음 뛰어오르는 속도
+  const HOLD_MS   = 180;    // 길게 누르면 이만큼 중력을 덜 받는다 = 더 높이
+  const SPD0      = 175;    // 시작 속도 px/s
+  const SPD_MAX   = 380;
+  const SPD_UP    = 7;      // 1초마다 이만큼 빨라진다
+  const PLAYER_X  = 46;
+
+  // 장애물. hit 은 그림보다 판정을 안쪽으로 줄이는 값 — 도트 그림은 모서리가 비어 있어서
+  // 그림 크기 그대로 맞으면 "안 닿았는데 죽었다"가 된다.
+  const OBS = [
+    { sp: 'bush',     s: 3, hit: [3, 2] },
+    { sp: 'mushroom', s: 3, hit: [2, 1] },
+    { sp: 'snail',    s: 3, hit: [2, 1] },
+    { sp: 'ladybug',  s: 3, hit: [2, 1] },
+  ];
+
+  let W = 0, H = 0, GY = 0, dpr = 1;
+  let state = 'ready';                 // ready | play | over
+  let who = 'sua';
+  try { if (localStorage.getItem('sy.run.who') === 'yona') who = 'yona'; } catch (e) {}
+  let best = 0;
+  try { best = Math.max(0, parseInt(localStorage.getItem('sy.run.best') || '0', 10) || 0); } catch (e) {}
+
+  let py = 0, vy = 0, onGround = true, holdT = 0, holding = false;
+  let dist = 0, hearts = 0, spd = SPD0, t = 0, nextAt = 0;
+  let obs = [], gems = [], raf = 0, last = 0, deadAt = 0, runBest = 0;
+
+  function recordBest(){
+    if (score() <= best) return;
+    best = score();
+    try { localStorage.setItem('sy.run.best', String(best)); } catch (e) {}
+  }
+
+  const spriteOf = () => SPRITES[who];
+  const spriteH  = () => spriteOf().length;
+  const spriteW  = () => spriteOf()[0].length;
+  const score    = () => Math.floor(dist / 12) + hearts * 5;
+
+  function resize(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = canvas.clientWidth || 320;
+    H = canvas.clientHeight || 170;
+    canvas.width = Math.floor(W * dpr); canvas.height = Math.floor(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    GY = Math.round(H - 26);
+    if (state !== 'play') draw(0);
+  }
+
+  function reset(){
+    py = 0; vy = 0; onGround = true; holdT = 0;
+    dist = 0; hearts = 0; spd = SPD0; t = 0; deadAt = 0; runBest = best;
+    obs = []; gems = []; nextAt = 260;
+  }
+
+  // ---- 배경 ----
+  // 곡선을 그대로 칠하면 가장자리가 부드러워져 도트 화면 속에서 혼자 겉돈다.
+  // 그래서 4px 격자에 맞춰 기둥으로 세워 칠한다 — 첫 화면의 언덕과 같은 결.
+  const CELL = 4;
+  function hill(off, amp, baseY, color, edge, wave){
+    for (let x = 0; x < W; x += CELL){
+      const u = x + off;
+      const raw = baseY - Math.sin(u / wave) * amp - Math.sin(u / (wave * 0.41)) * amp * 0.35;
+      const y = Math.round(raw / CELL) * CELL;
+      ctx.fillStyle = edge; ctx.fillRect(x, y, CELL, CELL);
+      ctx.fillStyle = color; ctx.fillRect(x, y + CELL, CELL, H - y - CELL);
+    }
+  }
+
+  function drawBg(){
+    // 하늘은 띠로 나눈다. 매끈한 그러데이션은 도트와 안 어울린다.
+    const bands = SCENE.sky.length - 2;
+    for (let i = 0; i < bands; i++){
+      ctx.fillStyle = SCENE.sky[i + 1];
+      ctx.fillRect(0, Math.round(GY * i / bands), W, Math.ceil(GY / bands) + 1);
+    }
+
+    // 구름 — 아주 느리게
+    const cw = SPRITES.cloudS[0].length * 2;
+    const gap = Math.max(140, W / 2);
+    for (let i = 0; i < 4; i++){
+      const cx = W - ((dist * 0.06 + i * gap) % (W + cw * 2)) + cw;
+      drawSprite(ctx, SPRITES.cloudS, Math.round(cx / 2) * 2, 10 + (i % 2) * 16, 2);
+    }
+    hill(dist * 0.12, 12, GY - 26, SCENE.hills[1], SCENE.hills[0], 90);
+    hill(dist * 0.26,  8, GY - 10, SCENE.hills[3], SCENE.hills[2], 62);
+
+    // 언덕 위를 지나가는 나무 — 뒤쪽이 흐르는 게 보여야 달리는 느낌이 난다
+    const tw = SPRITES.tree[0].length * 2;
+    for (let i = 0; i < 3; i++){
+      const tx = W - ((dist * 0.34 + i * (W / 2 + 90)) % (W + tw * 2)) + tw;
+      drawSprite(ctx, SPRITES.tree, Math.round(tx / 2) * 2, GY - SPRITES.tree.length * 2 - 6, 2);
+    }
+
+    ctx.fillStyle = SCENE.path[1]; ctx.fillRect(0, GY, W, H - GY);
+    ctx.fillStyle = SCENE.path[3]; ctx.fillRect(0, GY, W, CELL);
+    // 땅 위를 지나가는 자갈 — 속도가 눈에 보이게 하는 유일한 단서다
+    ctx.fillStyle = SCENE.path[2];
+    for (let i = 0; i < 16; i++){
+      const gx = W - ((dist + i * 53) % (W + 40)) + 20;
+      ctx.fillRect(Math.round(gx / CELL) * CELL, GY + 8 + (i % 3) * 5, CELL, CELL);
+    }
+  }
+
+  function playerBox(){
+    const s = spriteOf(), h = s.length * 1, w = s[0].length * 1;
+    return { x: PLAYER_X + 11, y: GY - h - py + 3, w: w - 22, h: h - 3 };
+  }
+  function hitBox(o){
+    const sp = SPRITES[o.sp], w = sp[0].length * o.s, h = sp.length * o.s;
+    return { x: o.x + o.hit[0] * o.s, y: GY - h + o.hit[1] * o.s,
+             w: w - o.hit[0] * o.s * 2, h: h - o.hit[1] * o.s };
+  }
+  const overlap = (a, b) =>
+    a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+  function drawPlayer(){
+    const sp = spriteOf(), h = sp.length, w = sp[0].length;
+    const x = PLAYER_X, y = GY - h - py;
+    // 그림자 — 발이 땅에서 떨어진 걸 알려준다
+    const sh = Math.max(0.25, 1 - py / 70);
+    ctx.fillStyle = 'rgba(63,50,38,' + (0.22 * sh).toFixed(3) + ')';
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, GY + 3, (w / 2.6) * sh, 3.2 * sh, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 달릴 때 1px 씩 위아래로 — 도트에서는 이만큼만으로도 뛰는 것처럼 보인다
+    const bob = (state === 'play' && onGround && Math.floor(t * 9) % 2) ? 1 : 0;
+    drawSprite(ctx, sp, x, Math.round(y + bob), 1);
+  }
+
+  function label(text, y, size, color){
+    ctx.font = '800 ' + size + 'px Suayona Dot, Pretendard Variable, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.85)';
+    ctx.strokeText(text, W / 2, y);
+    ctx.fillStyle = color; ctx.fillText(text, W / 2, y);
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  }
+
+  function draw(dt){
+    drawBg();
+    obs.forEach(o => drawSprite(ctx, SPRITES[o.sp], Math.round(o.x), GY - SPRITES[o.sp].length * o.s, o.s));
+    gems.forEach(gm => drawSprite(ctx, SPRITES.heart, Math.round(gm.x), Math.round(gm.y + Math.sin(t * 5 + gm.p) * 3), 3));
+    drawPlayer();
+
+    // 점수 — 왼쪽 위, 배경과 겹쳐도 읽히게 흰 테두리를 두른다
+    ctx.font = '800 13px Suayona Dot, Pretendard Variable, sans-serif';
+    const line = String(score()).padStart(4, '0') + (best ? '   BEST ' + best : '');
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.strokeText(line, 10, 20);
+    ctx.fillStyle = '#3a3226'; ctx.fillText(line, 10, 20);
+    if (hearts) {
+      drawSprite(ctx, SPRITES.heart, W - 34, 11, 2);
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.85)';
+      ctx.strokeText('x' + hearts, W - 18, 20);
+      ctx.fillStyle = '#3a3226'; ctx.fillText('x' + hearts, W - 18, 20);
+    }
+
+    if (state === 'ready') label('눌러서 시작', H * 0.42, 17, '#3a3226');
+    if (state === 'over'){
+      label(score() + '점' + (score() > runBest ? ' · 최고 기록!' : ''), H * 0.34, 17, '#3a3226');
+      label('한 번 더 누르기', H * 0.34 + 22, 13, '#6b5f4e');
+    }
+  }
+
+  function spawn(){
+    const hard = Math.min(1, t / 45);
+    const pick = OBS[Math.floor(Math.random() * OBS.length)];
+    obs.push({ sp: pick.sp, s: pick.s, hit: pick.hit, x: W + 10 });
+    // 두 개 붙은 구간은 뒤로 갈수록만 나온다. 처음부터 나오면 아이가 금방 포기한다.
+    if (Math.random() < hard * 0.35)
+      obs.push({ sp: 'bush', s: 3, hit: [3, 2], x: W + 10 + 34 + Math.random() * 12 });
+    if (Math.random() < 0.45)
+      gems.push({ x: W + 10 + 120 + Math.random() * 90, y: GY - 62, p: Math.random() * 6 });
+    // 다음 장애물까지의 거리 — 빨라질수록 넉넉히 벌려야 넘을 수 있다
+    nextAt = spd * (0.95 + Math.random() * 0.75);
+  }
+
+  function step(ts){
+    raf = requestAnimationFrame(step);
+    const dt = Math.max(0, Math.min(0.05, (ts - last) / 1000 || 0));   // 시계가 뒤로 가면 0
+    last = ts;
+
+    if (state === 'play'){
+      t += dt;
+      spd = Math.min(SPD_MAX, SPD0 + t * SPD_UP);
+      const move = spd * dt;
+      dist += move;
+
+      // 길게 누르는 동안엔 중력을 덜 받는다 = 톡 누르면 낮게, 꾹 누르면 높게
+      const g = (holding && holdT < HOLD_MS / 1000 && vy < 0) ? GRAV * 0.38 : GRAV;
+      if (holding) holdT += dt;
+      vy += g * dt;
+      py -= vy * dt;
+      const ceil = GY - spriteH() - 22;      // 점수 글씨 아래까지만
+      if (py > ceil){ py = ceil; vy = 0; }
+      if (py <= 0){ py = 0; vy = 0; onGround = true; } else onGround = false;
+
+      nextAt -= move;
+      if (nextAt <= 0) spawn();
+      obs.forEach(o => { o.x -= move; });
+      gems.forEach(gm => { gm.x -= move; });
+      obs = obs.filter(o => o.x > -60);
+      gems = gems.filter(gm => gm.x > -40);
+
+      const pb = playerBox();
+      for (const gm of gems){
+        if (!gm.got && overlap(pb, { x: gm.x + 3, y: gm.y, w: 15, h: 18 })){
+          gm.got = true; gm.x = -99; hearts++; sfx('sparkle');
+        }
+      }
+      for (const o of obs){
+        if (overlap(pb, hitBox(o))){
+          state = 'over'; deadAt = performance.now(); sfx('thud'); recordBest();
+          break;
+        }
+      }
+    }
+
+    draw(dt);
+    if (state === 'over') stop();     // 죽은 화면은 한 장이면 된다
+  }
+
+  function start(){ last = performance.now(); if (!raf) raf = requestAnimationFrame(step); }
+  function stop(){
+    if (state === 'play') recordBest();   // 멈춘 김에 여기까지의 기록은 남긴다
+    if (raf) cancelAnimationFrame(raf); raf = 0;
+  }
+
+  function jump(){
+    if (state === 'ready'){ reset(); state = 'play'; start(); sfx('boing'); return; }
+    if (state === 'over'){
+      if (performance.now() - deadAt < 400) return;   // 죽자마자 눌린 건 재시작으로 안 센다
+      reset(); state = 'play'; start(); sfx('boing'); return;
+    }
+    if (onGround){ vy = JUMP_V; py = 0.01; onGround = false; holdT = 0; sfx('boing'); }
+  }
+
+  canvas.addEventListener('pointerdown', e => {
+    e.preventDefault(); canvas.focus({ preventScroll: true });
+    holding = true; jump();
+  });
+  window.addEventListener('pointerup', () => { holding = false; });
+  window.addEventListener('pointercancel', () => { holding = false; });
+  canvas.addEventListener('keydown', e => {
+    if (e.key !== ' ' && e.key !== 'Spacebar' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!e.repeat){ holding = true; jump(); }
+  });
+  canvas.addEventListener('keyup', e => {
+    if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'ArrowUp' || e.key === 'Enter') holding = false;
+  });
+  canvas.addEventListener('blur', () => { holding = false; });
+
+  document.querySelectorAll('#runWho button').forEach(b => {
+    b.classList.toggle('on', b.dataset.who === who);
+    b.addEventListener('click', () => {
+      who = b.dataset.who;
+      try { localStorage.setItem('sy.run.who', who); } catch (e) {}
+      document.querySelectorAll('#runWho button').forEach(x => x.classList.toggle('on', x === b));
+      if (state !== 'play') draw(0);
+    });
+  });
+  document.getElementById('runReset').addEventListener('click', () => {
+    best = 0;
+    try { localStorage.removeItem('sy.run.best'); } catch (e) {}
+    if (state !== 'play') draw(0);
+  });
+
+  // 안 보이면 멈춘다. 게임이 화면 밖에서 계속 돌면 스크롤이 버벅이고 배터리만 먹는다.
+  let visible = false;
+  function sync(){
+    if (visible && !document.hidden && state === 'play') start();
+    else { stop(); holding = false; }
+  }
+  if ('IntersectionObserver' in window){
+    new IntersectionObserver(es => { visible = es[0].isIntersecting; sync(); },
+      { threshold: 0.25 }).observe(canvas);
+  } else visible = true;
+  document.addEventListener('visibilitychange', sync);
+
+  let rt = 0;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(resize, 120); });
+  reset(); resize();
+})();
 
 // ================= 오늘의 질문 =================
 // 날짜로 고르므로 자매 둘이 같은 날 같은 질문을 받는다. 무작위면 새로고침마다 바뀌어

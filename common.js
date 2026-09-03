@@ -103,7 +103,12 @@ const MENU = [
 
 // 로그인한 가족에게만 보이는 곳. 메뉴 목록에 섞지 않고 헤더에 아이콘 단추로 따로 둔다 —
 // 공개 메뉴와 성격이 다르고, 자주 여는 곳이라 햄버거 안에 숨기면 매번 두 번 눌러야 한다.
-const PRIVATE_LINK = { href: '/time.html', icon: '🗓️', label: '시간표', key: 'time' };
+// 하나였다가 둘이 됐다(시간표, 자매 우체통). 목록으로 바꿔 두면 세 번째가 생겨도
+// 여기 한 줄만 늘리면 된다.
+const PRIVATE_LINKS = [
+  { href: '/time.html',  icon: '🗓️', label: '시간표',     key: 'time',  who: 'any'   },
+  { href: '/notes.html', icon: '💌',  label: '자매 우체통', key: 'notes', who: 'child' },
+];
 
 let ACTIVE_KEY = null;
 
@@ -128,10 +133,11 @@ function buildChrome(activeKey){
         ).join('') +
       '</nav>' +
       '<button class="hdr-auth" id="hdrAuth" aria-label="로그인">로그인</button>' +
-      '<a class="hdr-icon' + (PRIVATE_LINK.key === activeKey ? ' active' : '') + '"' +
-        ' id="hdrTime" href="' + PRIVATE_LINK.href + '" hidden' +
-        ' title="' + PRIVATE_LINK.label + '" aria-label="' + PRIVATE_LINK.label + '">' +
-        PRIVATE_LINK.icon + '</a>' +
+      PRIVATE_LINKS.map(L =>
+        '<a class="hdr-icon' + (L.key === activeKey ? ' active' : '') + '"' +
+        ' data-private="' + L.key + '" href="' + L.href + '" hidden' +
+        ' title="' + L.label + '" aria-label="' + L.label + '">' +
+        L.icon + '</a>').join('') +
       '<button class="menu-toggle pixel" id="menuToggle" aria-label="메뉴 열기">☰</button>' +
     '</div>';
   document.body.prepend(header);
@@ -245,10 +251,13 @@ async function refreshAuth(){
 // 로그인/로그아웃에 맞춰 시간표 단추를 보이고 감춘다.
 // 헤더는 로그인 확인보다 먼저 그려지므로, 여기서 뒤늦게 켜는 편이 깜빡임이 없다.
 function syncPrivateMenu(){
-  const btn = document.getElementById('hdrTime');
-  if (!btn) return;
-  btn.hidden = !isLoggedIn;
-  btn.classList.toggle('active', PRIVATE_LINK.key === ACTIVE_KEY);
+  PRIVATE_LINKS.forEach(L => {
+    const btn = document.querySelector('[data-private="' + L.key + '"]');
+    if (!btn) return;
+    // 우체통은 아이들 것이다. 부모에게는 보이지 않게 둔다 — 정책도 못 읽게 막아 두었다.
+    btn.hidden = !(isLoggedIn && (L.who === 'any' || (L.who === 'child' && isChild)));
+    btn.classList.toggle('active', L.key === ACTIVE_KEY);
+  });
 }
 
 // ---------- 헤더의 로그인 단추와 창 ----------
@@ -825,6 +834,96 @@ async function backfillThumbs(bucket, rows, save, onStep){
   return { made, skipped, failed, why };
 }
 
+// ---------------------------------------------------------------------------
+// 소리
+//
+// 소리 파일을 하나도 받지 않는다. 브라우저가 그 자리에서 만들어 내는 소리라 0바이트다.
+// 파일이었다면 짧은 것 열 개만 해도 100KB 는 됐을 자리.
+//
+// 소리 장치는 화면을 한 번 누르기 전에는 못 켠다(브라우저 규칙). 어차피 누를 때만
+// 소리를 내므로, 처음 누르는 그 순간에 만든다.
+//
+// 첫 화면에만 있던 것을 여기로 옮겼다 — 전시실의 작품 효과음, 그리기의 붓 소리도
+// 같은 소리통을 쓰고, 끄고 켠 것(sy.mute)도 한 곳에서 기억한다.
+// ---------------------------------------------------------------------------
+let _ac = null;
+let SFX_MUTED = false;
+try { SFX_MUTED = localStorage.getItem('sy.mute') === '1'; } catch (e) {}
+
+function sfxMuted(){ return SFX_MUTED; }
+function sfxSetMuted(v){
+  SFX_MUTED = !!v;
+  try { localStorage.setItem('sy.mute', SFX_MUTED ? '1' : '0'); } catch (e) {}
+}
+
+function tone(freq, dur, type, vol, delay){
+  if (SFX_MUTED) return;
+  try {
+    if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (_ac.state === 'suspended') _ac.resume();
+    const t0 = _ac.currentTime + (delay || 0);
+    const o = _ac.createOscillator(), g = _ac.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(freq, t0);
+    // 뚝 끊으면 「딱」 하는 잡음이 난다. 끝을 아주 짧게 흘려 보낸다.
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(vol == null ? 0.06 : vol, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(_ac.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  } catch (e) {}                                  // 소리는 덤이다 — 안 나도 그만
+}
+
+// 첫 화면에서 무엇을 눌렀느냐에 따라 다른 소리
+const SOUND = {
+  char:    () => { tone(660, .09, 'square', .05); tone(880, .10, 'square', .05, .07); },
+  secret:  () => { tone(523, .08, 'triangle', .07); tone(784, .08, 'triangle', .07, .06);
+                   tone(1046, .16, 'triangle', .07, .12); },
+  star:    () => tone(1320, .18, 'sine', .05),
+  house:   () => tone(220, .16, 'sawtooth', .04),
+  sun:     () => tone(392, .12, 'triangle', .05),
+  moon:    () => tone(294, .18, 'sine', .05),
+  easel:   () => tone(523, .12, 'triangle', .06),
+  plant:   () => { tone(784, .07, 'sine', .05); tone(1046, .09, 'sine', .05, .05); },
+  key:     () => { tone(523,.09,'square',.06); tone(659,.09,'square',.06,.08);
+                   tone(784,.09,'square',.06,.16); tone(1046,.22,'square',.06,.24); },
+  prop:    () => tone(440, .07, 'square', .045),
+  brush:   () => tone(1200 + Math.random() * 400, .03, 'square', .025),
+};
+
+// 작품에 붙이는 소리. 아이가 그림마다 하나씩 고른다 (works.sfx).
+// 이름은 데이터베이스의 check 제약과 같아야 한다.
+const WORK_SFX = {
+  chirp:   { label:'짹짹',   play: () => { tone(1400,.06,'square',.05); tone(1800,.06,'square',.05,.07); tone(1600,.08,'square',.05,.14); } },
+  boing:   { label:'통통',   play: () => { tone(300,.10,'sine',.07); tone(500,.10,'sine',.06,.09); tone(760,.14,'sine',.05,.18); } },
+  sparkle: { label:'반짝',   play: () => { tone(1046,.05,'triangle',.05); tone(1318,.05,'triangle',.05,.05); tone(1568,.05,'triangle',.05,.10); tone(2093,.14,'triangle',.05,.15); } },
+  drip:    { label:'또옥',   play: () => { tone(900,.05,'sine',.06); tone(420,.16,'sine',.05,.05); } },
+  thud:    { label:'쿵',     play: () => tone(90,.20,'sawtooth',.07) },
+  fanfare: { label:'짜잔',   play: () => { tone(523,.10,'square',.055); tone(659,.10,'square',.055,.10); tone(784,.10,'square',.055,.20); tone(1046,.26,'square',.06,.30); } },
+  purr:    { label:'그르릉', play: () => { for (let i = 0; i < 6; i++) tone(120 + i % 2 * 18, .07, 'sawtooth', .045, i * .07); } },
+  pop:     { label:'뽕',     play: () => { tone(700,.04,'square',.06); tone(1100,.07,'square',.05,.04); } },
+};
+
+function sfx(name){
+  const f = (SOUND[name] || (WORK_SFX[name] && WORK_SFX[name].play));
+  if (f) f();
+}
+
+// 오른쪽 아래 소리 끄기 단추. 첫 화면 말고 다른 쪽에서도 쓸 수 있게 여기 둔다.
+function wireSoundButton(btn){
+  if (!btn) return;
+  const sync = () => {
+    btn.textContent = sfxMuted() ? '🔇' : '🔊';
+    btn.classList.toggle('off', sfxMuted());
+  };
+  btn.addEventListener('click', () => {
+    sfxSetMuted(!sfxMuted());
+    sync();
+    if (!sfxMuted()) sfx('star');       // 다시 켰다는 걸 귀로 알려 준다
+  });
+  sync();
+}
+
 // ---------- 목소리 녹음 ----------
 // 브라우저마다 받아 주는 소리 형식이 다르다. 사파리는 webm 을 못 만들고 mp4 로 준다.
 // 그래서 물어보고 되는 것을 쓴다. 확장자도 거기 맞춰야 나중에 재생이 된다.
@@ -882,6 +981,79 @@ async function startVoiceRecorder(onTick){
     },
     cancel: () => { stop(); },
   };
+}
+
+// ---------- 영상 녹화 (타임캡슐) ----------
+// 목소리와 같은 방식인데 카메라가 붙는다. 길이를 60초로 자르는 이유는 화질보다
+// 용량이다 — 무료 저장공간이 1GB 뿐이라 긴 영상 몇 개면 금방 찬다.
+const VIDEO_TYPES = [
+  { mime: 'video/webm;codecs=vp8,opus', ext: 'webm' },
+  { mime: 'video/webm',                 ext: 'webm' },
+  { mime: 'video/mp4',                  ext: 'mp4'  },
+];
+const CAPSULE_MAX_SECS = 60;
+const CAPSULE_MAX_BYTES = 20 * 1024 * 1024;   // 20MB — 60초면 대개 5MB 안쪽이다
+
+function canRecordVideo(){
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) &&
+         typeof MediaRecorder !== 'undefined';
+}
+
+// preview 에 <video> 를 주면 찍는 동안 제 얼굴이 보인다.
+async function startVideoRecorder(preview, onTick){
+  let type = { mime: '', ext: 'webm' };
+  for (const t of VIDEO_TYPES) {
+    try { if (MediaRecorder.isTypeSupported(t.mime)) { type = t; break; } } catch (e) {}
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+    audio: true,
+  });
+  if (preview) {
+    preview.srcObject = stream; preview.muted = true; preview.hidden = false;
+    preview.play().catch(() => {});
+  }
+  const rec = new MediaRecorder(stream, Object.assign(
+    type.mime ? { mimeType: type.mime } : {}, { videoBitsPerSecond: 700000 }));
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+
+  let secs = 0;
+  const timer = setInterval(() => {
+    secs++;
+    if (onTick) onTick(secs);
+    if (secs >= CAPSULE_MAX_SECS) stop();
+  }, 1000);
+
+  const done = new Promise(res => { rec.onstop = () => res(); });
+  function stop(){
+    if (rec.state !== 'inactive') rec.stop();
+    clearInterval(timer);
+    stream.getTracks().forEach(t => t.stop());     // 카메라·마이크 끄기
+    if (preview) { preview.srcObject = null; preview.muted = false; }
+  }
+
+  rec.start();
+  return {
+    ext: type.ext,
+    stop: async () => {
+      stop();
+      await done;
+      return { blob: new Blob(chunks, { type: chunks[0] ? chunks[0].type : type.mime }), secs };
+    },
+    cancel: () => { stop(); },
+  };
+}
+
+async function uploadCapsuleVideo(blob, ext){
+  if (blob.size > CAPSULE_MAX_BYTES)
+    throw new Error('영상이 너무 커요 (' + Math.round(blob.size / 1048576) + 'MB). 더 짧게 찍어 주세요.');
+  const path = 'suayona/capsule/' + Date.now() + '-' +
+    Math.random().toString(36).slice(2, 8) + '.' + ext;
+  const file = new File([blob], path.split('/').pop(), { type: blob.type || 'video/webm' });
+  const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, file);
+  if (error) throw new Error('영상 올리기 실패: ' + error.message);
+  return sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 async function uploadVoice(blob, ext){

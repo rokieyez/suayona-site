@@ -42,6 +42,14 @@
   .post .meta .written{font-size:11.5px; opacity:.7; margin-left:6px;}
   .post .body{margin-bottom:12px;}
   .post .post-img + .post-img{margin-top:10px;}
+  /* 거꾸로 일기 — 옛날 사진을 먼저 보여 주는 칸 */
+  .back-photo{
+    border:var(--px) solid var(--ink); background:var(--paper); padding:10px;
+    margin-bottom:14px; box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.35);
+  }
+  .back-photo img{width:100%; height:auto; display:block; border:2px solid var(--ink);}
+  .back-photo p{margin:8px 0 0; font-size:12.5px; color:var(--ink-soft); text-align:center;}
+  .back-photo .ask{font-weight:800; color:var(--ink); margin-top:4px;}
   .tag.pending{background:var(--lemon); color:var(--ink);}
   .child-note{border:var(--px) solid var(--ink); background:var(--sky-soft); color:var(--ink);
     padding:11px 13px; font-size:13px; line-height:1.7; margin-bottom:6px;}
@@ -401,6 +409,10 @@ function renderAdminArea(){
             '<option value="true">🌏 공개 — 누구나 볼 수 있어요</option>' +
             '<option value="false">🔒 비공개 — 로그인해야 볼 수 있어요</option>' +
           '</select>') +
+      // 「거꾸로 일기」 — 무엇을 쓸지 막막할 때, 옛날 사진을 먼저 한 장 뽑아 주고
+      // 그날 이야기를 적게 한다. 날짜와 장소는 사진에 박혀 있는 것을 그대로 채워 준다.
+      '<button type="button" class="dot-btn small lemon" id="pBack" style="margin-bottom:14px;">🎲 옛날 사진으로 시작하기</button>' +
+      '<div class="back-photo" id="pBackBox" hidden></div>' +
       '<label class="field">제목</label><input type="text" id="pTitle" placeholder="예: 오늘 학교에서">' +
       '<div class="row2">' +
         '<div><label class="field">있었던 날 (비우면 사진에서)</label><input type="date" id="pWhen"></div>' +
@@ -415,6 +427,40 @@ function renderAdminArea(){
 
   // 글쓰기 칸에 서식 도구막대 (일정표 커스텀 탭과 같은 것)
   buildFormatBar($('#pBody'), { fileInput: $('#pImage') });
+
+  // ---------- 거꾸로 일기 ----------
+  // 사진을 먼저 보여 주고 그날 이야기를 끌어낸다. 한 장을 고르자고 목록을
+  // 전부 받아 오지 않는다 — 총 장수만 받아서 그 안에서 자리를 하나 뽑는다.
+  const backBtn = $('#pBack'), backBox = $('#pBackBox');
+  if (backBtn) backBtn.addEventListener('click', async () => {
+    backBtn.disabled = true;
+    try {
+      const { data: c } = await sb.rpc('home_counts');
+      const total = (Array.isArray(c) ? c[0] : c || {}).gallery_images || 0;
+      if (!total) { alert('아직 사진이 없어요.'); return; }
+      const at = Math.floor(Math.random() * total);
+      const { data } = await sb.from('gallery_media')
+        .select('media_url, thumb_url, taken_at, location_name, event_id')
+        .eq('media_type', 'image').order('id').range(at, at);
+      const ph = data && data[0];
+      if (!ph) { alert('사진을 못 찾았어요. 다시 눌러 보세요.'); return; }
+
+      backBox.hidden = false;
+      backBox.innerHTML =
+        '<img src="' + escapeHTML(ph.thumb_url || ph.media_url) + '" loading="lazy" decoding="async" alt="옛날 사진">' +
+        '<p>' + escapeHTML([
+          ph.taken_at ? new Date(ph.taken_at).toLocaleDateString('ko-KR') : '',
+          ph.location_name || '',
+        ].filter(Boolean).join(' · ') || '이날은 언제였을까?') + '</p>' +
+        '<p class="ask">이 사진을 보고 그날 이야기를 적어 볼까요?</p>';
+
+      // 날짜와 장소는 사진에 있는 것을 채워 준다. 이미 적어 둔 것은 건드리지 않는다.
+      if (ph.taken_at && !$('#pWhen').value) $('#pWhen').value = ph.taken_at.slice(0, 10);
+      if (ph.location_name && !$('#pPlace').value) $('#pPlace').value = ph.location_name;
+      sfx('pop');
+      backBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } finally { backBtn.disabled = false; }
+  });
 
   if (ask) {
     $('#pTitle').value = ask;

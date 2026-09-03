@@ -59,6 +59,26 @@
   .hint{text-align:center; font-size:12.5px; color:var(--ink-soft); margin:12px 0 0; line-height:1.7;}
 
   /* 내 그림 — 브라우저에만 남는다는 걸 분명히 적어 둔다 */
+  .mission{padding:14px 16px; margin:0 auto 16px; max-width:480px; text-align:center; position:relative;}
+  .mission p{margin:6px 0 0; font-size:14.5px; font-weight:800; line-height:1.5;}
+  .mission-done{
+    display:inline-block; margin-top:8px; font-size:11.5px; font-weight:800;
+    background:var(--lemon); border:2px solid var(--ink); padding:3px 9px;
+  }
+  .tools.share{margin-top:10px;}
+  .share-who{font-size:11px; color:var(--ink-soft); align-self:center;}
+  .duel{margin-top:40px;}
+  .duel h2{margin:0 0 6px; font-size:19px; font-weight:800;}
+  .duel .note{margin:0 0 14px; font-size:12.5px; color:var(--ink-soft); line-height:1.7;}
+  .duel-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:12px;}
+  .duel-cell{
+    border:var(--px) solid var(--ink); background:var(--paper); padding:8px;
+    box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.35); text-align:center;
+  }
+  .duel-cell canvas{width:100%; height:auto; image-rendering:pixelated; display:block;}
+  .duel-cell .who{display:block; margin-top:6px; font-size:11.5px; font-weight:800;}
+  .duel-cell.pick{cursor:pointer;}
+  .duel-cell.pick:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--ink);}
   .mine{margin-top:44px;}
   .mine h2{font-size:17px; font-weight:800; margin:0 0 4px;}
   .mine .note{font-size:12.5px; color:var(--ink-soft); margin:0 0 16px; line-height:1.7;}
@@ -82,6 +102,13 @@
       <span class="eyebrow pixel">PIXEL</span>
       <h2>도트로 그리기</h2>
       <p>이 사이트에 쓰인 색으로 한 칸씩 찍어 그려요</p>
+    </div>
+
+    <!-- 빈 판 앞에서 「뭘 그리지」 로 끝나는 일이 많다. 하루에 하나씩 과제를 준다. -->
+    <div class="dot-card mission reveal" id="mission">
+      <span class="eyebrow pixel">오늘의 미션</span>
+      <p id="missionText">—</p>
+      <span class="mission-done" id="missionDone" hidden>✓ 오늘 해냈어요</span>
     </div>
 
     <canvas id="board" width="480" height="480"></canvas>
@@ -110,6 +137,14 @@
       <button class="dot-btn small primary" id="keep">＋ 내 그림에 담기</button>
       <button class="dot-btn small" id="save">⬇ 그림 파일로 저장</button>
     </div>
+    <!-- 여기서부터는 로그인해야 쓸 수 있다. 서버에 남는 그림이라 누가 그렸는지가 있어야 한다. -->
+    <div class="tools share" id="shareTools" hidden>
+      <button class="dot-btn small coral" id="toDuel">🥊 대결에 내기</button>
+      <button class="dot-btn small mint" id="toRelay">🤝 이어 그리기로 내놓기</button>
+      <span class="share-who pixel" id="shareWho"></span>
+    </div>
+    <p class="hint" id="shareHint">대결과 이어 그리기는 <b>로그인</b>하면 쓸 수 있어요.</p>
+
     <!-- 첫 화면 잔디밭의 액자 두 개. 이 브라우저에서 첫 화면을 열면 거기 걸려 있다. -->
     <div class="tools hang">
       <button class="dot-btn small mint" data-hang="1">🖼 첫 화면 왼쪽 액자에 걸기</button>
@@ -118,6 +153,20 @@
 
     <p class="hint">칸을 누르거나 손가락으로 죽 그어보세요.<br>
       칸 수를 바꾸면 그리던 그림은 지워져요. 액자에 건 그림은 <b>이 기기의 첫 화면</b>에만 보여요.</p>
+
+    <!-- 오늘의 대결. 같은 주제로 각자 그려서 나란히 건다. -->
+    <div class="duel" id="duelBox" hidden>
+      <h2>오늘의 대결</h2>
+      <p class="note" id="duelTheme"></p>
+      <div class="duel-grid" id="duelGrid"></div>
+    </div>
+
+    <!-- 이어 그리기. 언니가 반쯤 그려 두면 동생이 이어서 그린다. -->
+    <div class="duel" id="relayBox" hidden>
+      <h2>이어 그릴 그림</h2>
+      <p class="note">누르면 그 그림을 판에 올려요. 이어 그린 뒤 다시 내놓으면 됩니다.</p>
+      <div class="duel-grid" id="relayGrid"></div>
+    </div>
 
     <div class="mine">
       <h2>내 그림</h2>
@@ -390,6 +439,183 @@ buildSwatches();
 paintBoard();
 renderMine();
 initReveal();
+
+/* =========================================================================
+   오늘의 미션 · 대결 · 이어 그리기
+   ========================================================================= */
+
+// ---------- 오늘의 미션 ----------
+// 빈 판 앞에서 「뭘 그리지」 로 끝나는 일이 많다. 날짜로 하나 골라 준다 —
+// 자매 둘이 같은 날 같은 과제를 받아야 대결이 성립한다.
+const MISSIONS = [
+  '색 세 가지만 써서 그리기',
+  '동그라미를 쓰지 않고 그리기',
+  '오늘 먹은 것 그리기',
+  '창밖에 보이는 것 그리기',
+  '가장 좋아하는 동물 그리기',
+  '내 방에 있는 것 하나 그리기',
+  '노란색을 꼭 넣어서 그리기',
+  '얼굴만 크게 그리기',
+  '밤에 보이는 것 그리기',
+  '물속에 사는 것 그리기',
+  '내 신발 그리기',
+  '하늘을 나는 것 그리기',
+  '가족 중 한 명 그리기',
+  '가장 무서운 것 그리기',
+  '이름이 세 글자인 것 그리기',
+  '바퀴가 달린 것 그리기',
+  '달콤한 것 그리기',
+  '내일 하고 싶은 일 그리기',
+  '초록색만 써서 그리기',
+  '움직이는 것 그리기',
+  '아주 작은 것을 크게 그리기',
+  '소리가 나는 것 그리기',
+  '겨울에 어울리는 것 그리기',
+  '내가 키우고 싶은 동물 그리기',
+  '학교에 있는 것 그리기',
+  '동생(언니)에게 주고 싶은 선물 그리기',
+  '반만 그리고 반은 상상하게 두기',
+  '글자를 하나 그려 넣기',
+  '눈이 세 개인 무언가 그리기',
+  '내가 만든 새로운 과일 그리기',
+];
+const TODAY = (() => { const d = new Date(); const p = n => String(n).padStart(2,'0');
+  return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()); })();
+const DAY_SEED = Number(TODAY.replace(/-/g, ''));
+const MISSION = MISSIONS[DAY_SEED % MISSIONS.length];
+$('#missionText').textContent = MISSION;
+
+// 오늘 미션을 해냈는지는 이 기기에 적어 둔다. 출석 도장과 같은 방식.
+const MISSION_KEY = 'sy.mission.' + TODAY;
+function markMissionDone(){
+  try { localStorage.setItem(MISSION_KEY, '1'); } catch (e) {}
+  $('#missionDone').hidden = false;
+}
+try { if (localStorage.getItem(MISSION_KEY) === '1') $('#missionDone').hidden = false; } catch (e) {}
+
+// ---------- 서버에 남기는 그림 ----------
+// 여기서부터는 로그인해야 한다. 남는 그림이라 누가 그렸는지가 있어야 하고,
+// 정책도 author 를 제 이름으로만 적게 막아 두었다.
+let myKey = null;                    // '수아' | '연아' | '부모'
+
+async function syncShareTools(){
+  await refreshAuth();
+  myKey = me && me.author_key ? me.author_key : null;
+  const on = !!myKey;
+  $('#shareTools').hidden = !on;
+  $('#shareHint').hidden = on;
+  if (on) $('#shareWho').textContent = myKey + ' 이름으로 올라가요';
+  loadDuel();
+  loadRelays();
+}
+
+function drawnSomething(){ return cells.some(c => c !== EMPTY); }
+
+async function putDoodle(kind, relayOf){
+  if (!myKey) { alert('로그인하면 쓸 수 있어요.'); return false; }
+  if (!drawnSomething()) { alert('아직 아무것도 안 그렸어요.'); return false; }
+  const row = { author: myKey, kind, n: N, cells: encode(cells), theme: MISSION };
+  if (relayOf) row.relay_of = relayOf;
+  const { error } = await sb.from('doodles').insert(row);
+  if (error) { alert('올리지 못했어요: ' + error.message); return false; }
+  sfx('fanfare');
+  markMissionDone();
+  return true;
+}
+
+// 이어받아 그리는 중이면 어느 그림에서 왔는지 기억해 둔다
+let continuing = null;
+
+$('#toDuel').addEventListener('click', async () => {
+  if (await putDoodle('duel', null)) { alert('대결에 냈어요!'); loadDuel(); }
+});
+$('#toRelay').addEventListener('click', async () => {
+  const from = continuing;
+  if (await putDoodle('relay', from)) {
+    continuing = null;
+    alert(from ? '이어 그린 그림을 올렸어요!' : '이어 그릴 그림으로 내놓았어요!');
+    loadRelays();
+  }
+});
+
+// ---------- 작은 그림 그리기 ----------
+function doodleCanvas(row, px){
+  const cv = document.createElement('canvas');
+  const n = row.n;
+  cv.width = cv.height = n * (px || 6);
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = '#fffaf2'; g.fillRect(0, 0, cv.width, cv.height);
+  const list = decode(row.cells), s = (px || 6);
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] === EMPTY) continue;
+    g.fillStyle = PALETTE[list[i]];
+    g.fillRect((i % n) * s, Math.floor(i / n) * s, s, s);
+  }
+  return cv;
+}
+
+// ---------- 오늘의 대결 ----------
+async function loadDuel(){
+  const { data } = await sb.from('doodles')
+    .select('id, author, n, cells, theme, created_at')
+    .eq('kind', 'duel').eq('made_on', TODAY)
+    .order('created_at', { ascending: true });
+  const box = $('#duelBox'), grid = $('#duelGrid');
+  if (!data || !data.length) { box.hidden = true; return; }
+  box.hidden = false;
+  $('#duelTheme').textContent = '주제 — ' + (data[0].theme || MISSION);
+  grid.innerHTML = '';
+  // 한 사람이 여러 번 냈으면 마지막 것만 건다
+  const last = new Map();
+  data.forEach(r => last.set(r.author, r));
+  [...last.values()].forEach(r => {
+    const cell = document.createElement('div');
+    cell.className = 'duel-cell';
+    cell.appendChild(doodleCanvas(r, 6));
+    const who = document.createElement('span');
+    who.className = 'who pixel'; who.textContent = r.author;
+    cell.appendChild(who);
+    grid.appendChild(cell);
+  });
+}
+
+// ---------- 이어 그리기 ----------
+async function loadRelays(){
+  // 내가 내놓은 것 말고, 아직 내가 이어 그리지 않은 것만 보여 준다.
+  const { data } = await sb.from('doodles')
+    .select('id, author, n, cells, relay_of, created_at')
+    .eq('kind', 'relay')
+    .order('created_at', { ascending: false }).limit(12);
+  const box = $('#relayBox'), grid = $('#relayGrid');
+  if (!data || !data.length) { box.hidden = true; return; }
+  // 이미 누가 이어 그린 그림은 목록에서 뺀다 — 이어 그린 쪽이 새 줄이 되므로
+  const continued = new Set(data.map(r => r.relay_of).filter(Boolean));
+  const open = data.filter(r => !continued.has(r.id) && r.author !== myKey);
+  if (!open.length) { box.hidden = true; return; }
+  box.hidden = false;
+  grid.innerHTML = '';
+  open.forEach(r => {
+    const cell = document.createElement('div');
+    cell.className = 'duel-cell pick';
+    cell.appendChild(doodleCanvas(r, 6));
+    const who = document.createElement('span');
+    who.className = 'who pixel'; who.textContent = r.author + ' ▸ 이어 그리기';
+    cell.appendChild(who);
+    cell.addEventListener('click', () => {
+      if (drawnSomething() && !confirm('그리던 그림이 지워져요. 이어 그릴까요?')) return;
+      setN(r.n);
+      cells = decode(r.cells);
+      continuing = r.id;
+      paintBoard();
+      sfx('pop');
+      board.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    grid.appendChild(cell);
+  });
+}
+
+syncShareTools();
 </script>
 </body>
 </html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>자매 우체통 · 수아랑 연아랑</title>
+<!-- 자매끼리 주고받는 쪽지다. 공개할 것이 아니므로 검색에 올리지 않는다. -->
+<meta name="robots" content="noindex, nofollow">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" rel="stylesheet"
+      integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" crossorigin="anonymous">
+<link href="/fonts/dot.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .gate{max-width:420px; margin:0 auto; text-align:center;}
+  .gate .why{font-size:13.5px; line-height:1.85; color:var(--ink-soft); margin-bottom:20px;}
+
+  .mailbox{max-width:560px; margin:0 auto;}
+  .write-note{padding:16px;}
+  .write-note textarea{
+    width:100%; min-height:96px; padding:11px 13px; font-size:14px; font-family:inherit;
+    border:2px solid var(--ink); background:var(--cream); resize:vertical;
+  }
+  .write-row{display:flex; gap:8px; align-items:center; margin-top:12px; flex-wrap:wrap;}
+  .write-row .to{font-size:12.5px; font-weight:800; color:var(--ink-soft);}
+  .write-row .dot-btn{margin-left:auto;}
+
+  .note-list{margin-top:28px; display:flex; flex-direction:column; gap:12px;}
+  .note{padding:14px 16px; position:relative;}
+  .note .head{font-size:11.5px; font-weight:800; color:var(--ink-soft); margin-bottom:7px;}
+  .note .body{margin:0; font-size:14.5px; line-height:1.75; white-space:pre-wrap; word-break:break-word;}
+  .note.mine{background:var(--paper);}
+  .note.theirs{background:#fff;}
+  .note.unread{border-color:var(--coral); box-shadow:var(--px) var(--px) 0 var(--coral);}
+  .note .new{
+    position:absolute; top:-9px; right:10px; background:var(--coral); color:#fff;
+    font-size:10px; font-weight:800; padding:2px 7px; border:2px solid var(--ink);
+  }
+  .empty-msg{text-align:center; color:var(--ink-soft); font-size:13px; padding:24px 0;}
+</style>
+</head>
+<body>
+
+<section class="section-pad page-top">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">💌 우체통</span>
+      <h2>자매 우체통</h2>
+      <p id="lead">언니와 동생만 주고받는 쪽지예요</p>
+    </div>
+
+    <!-- 아이로 로그인해야 열린다 -->
+    <div class="gate" id="gate">
+      <p class="why">이곳은 <b>수아와 연아</b>만 열 수 있어요.<br>
+        오른쪽 위 <b>로그인</b>을 눌러 들어와 주세요.</p>
+    </div>
+
+    <div class="mailbox" id="box" hidden>
+      <div class="dot-card write-note reveal">
+        <textarea id="nBody" maxlength="500" placeholder="하고 싶은 말을 적어보세요"></textarea>
+        <div class="write-row">
+          <span class="to" id="nTo"></span>
+          <span class="to" id="nCount">0 / 500자</span>
+          <button class="dot-btn small primary" id="nSend">보내기</button>
+        </div>
+        <div class="msg" id="nMsg"></div>
+      </div>
+
+      <div class="note-list" id="list"></div>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
+        crossorigin="anonymous"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script>
+buildChrome('notes');
+
+// 우체통은 아이 둘의 것이다. 짝이 누구인지는 이름으로 정해진다.
+const PAIR = { '수아': '연아', '연아': '수아' };
+let myKey = null, youKey = null;
+
+function fmt(iso){
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const p = n => String(n).padStart(2, '0');
+  return sameDay
+    ? '오늘 ' + p(d.getHours()) + ':' + p(d.getMinutes())
+    : (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+async function boot(){
+  await refreshAuth();
+  myKey = me && me.author_key;
+  youKey = PAIR[myKey];
+  // 부모로 들어와도 열리지 않는다. 정책도 같은 규칙이라, 화면만 열어 봐야 빈 목록이 온다.
+  if (!isChild || !youKey) {
+    $('#gate').hidden = false;
+    $('#box').hidden = true;
+    if (isLoggedIn && !isChild) $('#lead').textContent = '이곳은 수아와 연아만 열 수 있어요';
+    return;
+  }
+  $('#gate').hidden = true;
+  $('#box').hidden = false;
+  $('#nTo').textContent = youKey + '에게';
+  $('#lead').textContent = myKey + '와 ' + youKey + '만 주고받는 쪽지예요';
+  await load();
+}
+
+async function load(){
+  const list = $('#list');
+  const { data, error } = await sb.from('sister_notes')
+    .select('id, from_who, to_who, body, read_at, created_at')
+    .order('created_at', { ascending: false }).limit(60);
+  if (error) { list.innerHTML = '<div class="empty-msg">불러오지 못했어요</div>'; return; }
+  if (!data.length) { list.innerHTML = '<div class="empty-msg">아직 쪽지가 없어요. 먼저 보내볼까요?</div>'; return; }
+
+  list.innerHTML = '';
+  const toRead = [];
+  data.forEach(n => {
+    const mine = n.from_who === myKey;
+    const unread = !mine && !n.read_at;
+    if (unread) toRead.push(n.id);
+    const el = document.createElement('div');
+    el.className = 'dot-card note reveal ' + (mine ? 'mine' : 'theirs') + (unread ? ' unread' : '');
+    el.innerHTML =
+      (unread ? '<span class="new pixel">NEW</span>' : '') +
+      '<div class="head">' + escapeHTML(mine ? '나 ▸ ' + n.to_who : n.from_who + ' ▸ 나') +
+        ' · ' + escapeHTML(fmt(n.created_at)) + '</div>' +
+      '<p class="body">' + escapeHTML(n.body) + '</p>';
+    list.appendChild(el);
+    revealNow(el);
+  });
+
+  // 열어 본 것은 읽음으로 표시한다. 실패해도 그만이라 조용히 넘어간다.
+  if (toRead.length) {
+    sb.from('sister_notes').update({ read_at: new Date().toISOString() })
+      .in('id', toRead).then(() => {}, () => {});
+  }
+}
+
+$('#nBody').addEventListener('input', () => {
+  $('#nCount').textContent = $('#nBody').value.length + ' / 500자';
+});
+
+$('#nSend').addEventListener('click', async () => {
+  const btn = $('#nSend'), msg = $('#nMsg'), body = $('#nBody').value.trim();
+  msg.className = 'msg';
+  if (!body) { msg.className = 'msg err'; msg.textContent = '하고 싶은 말을 적어주세요.'; return; }
+  btn.disabled = true; msg.textContent = '보내는 중...';
+  const { error } = await sb.from('sister_notes')
+    .insert({ from_who: myKey, to_who: youKey, body });
+  btn.disabled = false;
+  if (error) { msg.className = 'msg err'; msg.textContent = '보내지 못했어요: ' + error.message; return; }
+  msg.className = 'msg ok'; msg.textContent = '보냈어요!';
+  $('#nBody').value = ''; $('#nCount').textContent = '0 / 500자';
+  sfx('pop');
+  await load();
+});
+
+// 헤더의 로그인 상자는 성공하면 페이지를 새로 그린다(common.js) — 따로 붙일 것이 없다.
+boot();
+initReveal();
+</script>
+</body>
+</html>

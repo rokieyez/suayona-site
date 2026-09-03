@@ -153,6 +153,12 @@
   .work-box .go-event{display:inline-block; font-size:13px; font-weight:800;
     border:2px solid var(--ink); background:var(--lemon); color:var(--ink);
     padding:7px 12px; text-decoration:none;}
+  .work-sfx{
+    border:2px solid var(--ink); background:var(--lemon); color:var(--ink);
+    font-family:inherit; font-size:11.5px; font-weight:800; padding:2px 8px;
+    cursor:pointer; margin-left:6px;
+  }
+  .work-sfx:active{transform:translate(1px,1px);}
   .work-nav{display:flex; justify-content:space-between; gap:10px; margin-top:18px;}
   .work-close{position:fixed; top:14px; right:16px; z-index:121;
     border:var(--px) solid var(--ink); background:var(--cream); color:var(--ink);
@@ -340,6 +346,17 @@ function openEditModal(w){
         '<div><label class="field">만든 날 (선택)</label>' +
           '<input type="date" class="eDate" value="' + escapeHTML(w.made_on || '') + '"></div>' +
       '</div>' +
+      // 작품마다 소리를 하나씩. 전시실에서 그림을 열면 그 소리가 난다 —
+      // 아이가 「이 그림은 이런 소리야」 를 정하는 자리다.
+      '<label class="field">이 작품의 소리 (선택)</label>' +
+      '<div class="row2">' +
+        '<select class="eSfx">' +
+          '<option value="">소리 없음</option>' +
+          Object.keys(WORK_SFX).map(k =>
+            '<option value="' + k + '"' + sel(k, w.sfx) + '>' + WORK_SFX[k].label + '</option>').join('') +
+        '</select>' +
+        '<button type="button" class="dot-btn eSfxTry">▶ 들어보기</button>' +
+      '</div>' +
       '<label class="field">그날 일정과 잇기 (선택)</label>' +
       '<select class="eEvent"><option value="">연결 안 함</option></select>' +
       '<label class="field">사진/영상 바꾸기 (선택)</label>' +
@@ -357,6 +374,10 @@ function openEditModal(w){
 
   const close = () => { overlay.remove(); document.body.style.overflow = ''; };
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.querySelector('.eSfxTry').addEventListener('click', () => {
+    const k = overlay.querySelector('.eSfx').value;
+    if (k) sfx(k); else alert('먼저 소리를 골라 주세요.');
+  });
   overlay.querySelector('.eCancel').addEventListener('click', close);
   const onKey = e => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
@@ -375,6 +396,7 @@ function openEditModal(w){
       made_on: overlay.querySelector('.eDate').value || null,
       quote: overlay.querySelector('.eQuote').value.trim() || null,
       event_id: overlay.querySelector('.eEvent').value || null,
+      sfx: overlay.querySelector('.eSfx').value || null,
     };
     // 영상 주소를 고쳤으면 그것부터 확인한다. 없는 영상으로 바꿔 두면
     // 목록에 빈 칸만 남고 왜 그런지 알 길이 없다.
@@ -770,6 +792,8 @@ function renderWork(){
   const w = viewList[viewIdx];
   if (!w) return;
   markSeen(w.id);
+  // 작품을 여는 것 자체가 누름이라, 이때는 소리 장치를 켤 수 있다.
+  if (w.sfx) setTimeout(() => sfx(w.sfx), 120);
   const ytId = w.media_type === 'youtube' ? youtubeId(w.media_url) : '';
   const media = ytId
     ? '<div class="yt-frame">' + youtubeEmbedHTML(ytId, w.title) + '</div>'
@@ -784,8 +808,13 @@ function renderWork(){
     '<div class="body">' +
       '<h3>' + escapeHTML(w.title) + '</h3>' +
       '<div class="meta">' +
-        '<span class="tag ' + escapeHTML(w.author) + '">' + (AUTHORS[w.author] || '같이') + '</span>' +
+        '<span class="tag ' + escapeHTML(w.author) + '">' + escapeHTML(AUTHORS[w.author] || '같이') + '</span>' +
         (w.made_on ? escapeHTML(formatDate(w.made_on)) : '') +
+        // 아이가 이 작품에 붙여 둔 소리. 열 때 한 번 나고, 눌러서 다시 들을 수 있다.
+        (w.sfx && WORK_SFX[w.sfx]
+          ? ' <button type="button" class="work-sfx" id="wSfx" title="이 작품의 소리">🔈 ' +
+            escapeHTML(WORK_SFX[w.sfx].label) + '</button>'
+          : '') +
       '</div>' +
       (w.quote ? '<p class="quote">\u201C' + escapeHTML(w.quote) + '\u201D</p>' : '') +
       (w.description ? '<p class="note">' + escapeHTML(w.description) + '</p>' : '') +
@@ -805,6 +834,8 @@ function renderWork(){
   renderAddNote(w);
   $('#wPrev').disabled = viewIdx <= 0;
   $('#wNext').disabled = viewIdx >= viewList.length - 1;
+    const sfxBtn = $('#wSfx');
+  if (sfxBtn) sfxBtn.addEventListener('click', () => sfx(w.sfx));
   $('#wPrev').addEventListener('click', () => { if (viewIdx > 0) { viewIdx--; renderWork(); } });
   $('#wNext').addEventListener('click', () => { if (viewIdx < viewList.length - 1) { viewIdx++; renderWork(); } });
   $('#workView').scrollTop = 0;

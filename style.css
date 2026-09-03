@@ -50,6 +50,9 @@ a.dot-card:hover, .dot-card.hoverable:hover{
 .dot-btn:disabled{opacity:.55; cursor:default; transform:none; box-shadow:var(--px) var(--px) 0 var(--ink);}
 .dot-btn.primary{background:var(--coral); color:#fff;}
 .dot-btn.mint{background:var(--mint); color:#fff;}
+/* 노랑은 먹빛 글씨라야 읽힌다 — 흰 글씨는 레몬색 위에서 대비가 1.4:1 밖에 안 된다 */
+.dot-btn.lemon{background:var(--lemon); color:var(--ink);}
+.dot-btn.coral{background:var(--coral); color:var(--ink);}
 .dot-btn.small{padding:7px 14px; font-size:12.5px; box-shadow:2px 2px 0 var(--ink);}
 .dot-btn.danger{background:#fff; color:#c0392b; border-color:#c0392b; box-shadow:var(--px) var(--px) 0 #c0392b;}
 

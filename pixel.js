@@ -838,6 +838,74 @@ function groundOut(ctx, W, H, y0, s, fromColor, toColor){
 }
 
 // ---------------------------------------------------------------------------
+// 대한민국 도트 지도
+//
+// 손으로 그리면 「대충 그린 한반도」 가 되기 쉬워서, 도(道)마다 대략적인 경계를
+// 위경도 다각형으로 적어 격자에 찍어 만들었다. 블록져 보이지만 실제 위치와 맞는다.
+// 격자 22x30, 위도 33.0~38.7 / 경도 125.8~129.7. 바다는 '.'
+//
+// 글자 하나가 시도 한 묶음이다:
+//   G 경기·서울·인천   W 강원   C 충청·대전·세종   B 전북
+//   J 전남·광주        N 경북·대구   S 경남·부산·울산   E 제주
+// ---------------------------------------------------------------------------
+const KOREA = [
+  '.............WWW......',
+  '......GGGG..WWWW......',
+  '.....GGGGGGGWWWWW.....',
+  '....GGGGGGGGWWWWWW....',
+  '....GGGGGGGGWWWWWWW...',
+  '...GGGGGGGGGWWWWWWWW..',
+  '...GGGGGGGGGWWWWWWWW..',
+  '...GGGGGGGGGWWWWWWW...',
+  '...CCCCCCCCCCNNNNNNN..',
+  '...CCCCCCCCCCNNNNNNN..',
+  '...CCCCCCCCCCCNNNNNN..',
+  '...CCCCCCCCCCCNNNNNN..',
+  '..CCCCCCCCCCCCNNNNNN..',
+  '..BBBBBBBBBBNNNNNNNN..',
+  '...BBBBBBBBBNNNNNNSS..',
+  '...BBBBBBBBBSSSSSSSS..',
+  '...BBBBBBB..SSSSSSSS..',
+  '...JJJJJJJJSSSSSSSSS..',
+  '..JJJJJJJJJSSSSSSSSS..',
+  '..JJJJJJJJJJSSS.......',
+  '..JJJJJJJJJJ..........',
+  '..JJJJJJJ.............',
+  '......................',
+  '..EEEE................',
+  '..EEEE................',
+];
+
+const KOREA_NAMES = {
+  G: '경기·서울', W: '강원', C: '충청', B: '전북',
+  J: '전남', N: '경북', S: '경남·부산', E: '제주',
+};
+
+// 위경도 한 점이 어느 묶음에 드는지. 지도를 만든 격자와 같은 자를 쓴다.
+function koreaRegionAt(lat, lng){
+  const LAT1 = 38.7, LAT0 = 33.0, LNG0 = 125.8, LNG1 = 129.7;
+  const ROWS = 30, COLS = 22, SKIP = 1;          // 위쪽 빈 줄 하나를 덜어 냈다
+  if (!(lat >= LAT0 && lat <= LAT1 && lng >= LNG0 && lng <= LNG1)) return null;
+  const r = Math.floor((LAT1 - lat) / (LAT1 - LAT0) * ROWS) - SKIP;
+  const c = Math.floor((lng - LNG0) / (LNG1 - LNG0) * COLS);
+  const line = KOREA[r];
+  if (!line) return null;
+  const ch = line[c];
+  // 바다 칸에 찍혔으면 가까운 육지를 찾는다 — 해안가 좌표가 그렇게 되기 쉽다
+  if (!ch || ch === '.') {
+    for (let d = 1; d <= 2; d++)
+      for (let dr = -d; dr <= d; dr++)
+        for (let dc = -d; dc <= d; dc++) {
+          const l2 = KOREA[r + dr];
+          const c2 = l2 && l2[c + dc];
+          if (c2 && c2 !== '.') return c2;
+        }
+    return null;
+  }
+  return ch;
+}
+
+// ---------------------------------------------------------------------------
 // 시간대와 계절
 //
 // 첫 화면 풍경이 실제 시각을 따라간다. 아침에 들어온 아이와 밤에 들어온 아이가

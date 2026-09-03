@@ -37,6 +37,10 @@
   .letter .body{font-size:14px; line-height:1.8; white-space:pre-line;}
   .letter .actions{margin-top:12px;}
   /* 몇 자까지 쓸 수 있는지 미리 보여 준다 — 다 쓰고 나서 막히면 억울하다 */
+  .voice-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px;}
+  .voice-row audio{height:34px; flex:1 1 180px; min-width:0;}
+  .voice-state{font-size:12px; font-weight:800; color:var(--ink-soft);}
+
   .count{
     display:block; text-align:right; margin-top:5px;
     font-size:11.5px; color:var(--ink-soft); font-variant-numeric:tabular-nums;
@@ -65,6 +69,17 @@
         <label class="field">하고 싶은 말</label>
         <textarea id="cBody" placeholder="여기에 적어주세요" maxlength="2000"></textarea>
         <span class="count" id="cCount">0 / 2000자</span>
+
+        <!-- 목소리는 로그인한 가족만 붙일 수 있다.
+             손님에게도 열면 로그인 없이 저장소에 파일을 올릴 수 있게 되고,
+             무료 1GB 를 남이 채워 버릴 길이 생긴다. -->
+        <div class="voice-row" id="cVoiceRow" hidden>
+          <button type="button" class="dot-btn small mint" id="cRec">🎙 목소리 넣기</button>
+          <span class="voice-state" id="cVoiceState"></span>
+          <audio id="cVoicePlay" controls hidden></audio>
+          <button type="button" class="dot-btn small" id="cVoiceDrop" hidden>지우기</button>
+        </div>
+
         <button class="dot-btn primary" id="cSend" style="width:100%; margin-top:18px;">보내기</button>
         <div class="msg" id="cMsg"></div>
       </div>
@@ -147,6 +162,52 @@ function whyRefused(error){
   return '보내지 못했어요: ' + m;
 }
 
+// ---------- 목소리 붙이기 ----------
+// 녹음기와 올리는 길은 common.js 에 이미 있다(작품 목소리에 쓰던 것).
+// 저장소 정책도 suayona/voice/ 아래로만 가족이 올릴 수 있게 열어 두었다.
+let voiceRec = null, voiceBlob = null, voiceExt = 'webm';
+
+(async () => {
+  await refreshAuth();
+  if (!me || !canRecordVoice()) return;      // 로그인 안 했거나 녹음이 안 되는 브라우저
+  $('#cVoiceRow').hidden = false;
+})();
+
+function resetVoice(){
+  voiceBlob = null;
+  $('#cVoicePlay').hidden = true;
+  $('#cVoicePlay').removeAttribute('src');
+  $('#cVoiceDrop').hidden = true;
+  $('#cVoiceState').textContent = '';
+  $('#cRec').textContent = '🎙 목소리 넣기';
+  $('#cRec').classList.remove('coral');
+}
+
+$('#cRec') && $('#cRec').addEventListener('click', async () => {
+  const btn = $('#cRec'), state = $('#cVoiceState');
+  if (voiceRec) {                                   // 녹음 중 → 멈춤
+    const { blob, secs } = await voiceRec.stop();
+    voiceRec = null;
+    voiceBlob = blob;
+    btn.textContent = '🎙 다시 녹음'; btn.classList.remove('coral');
+    state.textContent = secsLabel(secs) + ' 녹음됨';
+    const el = $('#cVoicePlay');
+    el.src = URL.createObjectURL(blob); el.hidden = false;
+    $('#cVoiceDrop').hidden = false;
+    return;
+  }
+  try {
+    voiceRec = await startVoiceRecorder(n => { state.textContent = '● 녹음 중 ' + secsLabel(n); });
+    voiceExt = voiceRec.ext;
+    btn.textContent = '■ 멈추기'; btn.classList.add('coral');
+    state.textContent = '● 녹음 중 0:00';
+  } catch (e) {
+    state.textContent = '마이크를 쓸 수 없어요';
+  }
+});
+
+$('#cVoiceDrop') && $('#cVoiceDrop').addEventListener('click', resetVoice);
+
 // ---------- 메시지 보내기 ----------
 $('#cSend').addEventListener('click', async () => {
   const msg = $('#cMsg'), btn = $('#cSend');
@@ -164,8 +225,17 @@ $('#cSend').addEventListener('click', async () => {
 
   btn.disabled = true; msg.textContent = '보내는 중...';
 
+  // 목소리를 넣었으면 먼저 올린다. 실패하면 글만이라도 보낸다 —
+  // 목소리 때문에 편지 자체가 안 가면 곤란하다.
+  let voice_url = null;
+  if (voiceBlob) {
+    msg.textContent = '목소리 올리는 중...';
+    try { voice_url = await uploadVoice(voiceBlob, voiceExt); }
+    catch (e) { voice_url = null; }
+  }
+
   // 저장이 우선 — 메일 중계가 실패해도 메시지는 남아 있음
-  const { error } = await sb.from('messages').insert({ name, contact, body });
+  const { error } = await sb.from('messages').insert({ name, contact, body, voice_url });
   if (error) {
     btn.disabled = false;
     msg.className = 'msg err'; msg.textContent = whyRefused(error);
@@ -176,6 +246,7 @@ $('#cSend').addEventListener('click', async () => {
   btn.disabled = false;
   msg.className = 'msg ok'; msg.textContent = '보냈어요! 고마워요 :)';
   $('#cName').value = ''; $('#cContact').value = ''; $('#cBody').value = '';
+  resetVoice();
   showCount();
 });
 
@@ -198,6 +269,7 @@ async function loadInbox(){
         (m.contact ? ' · ' + escapeHTML(m.contact) : '') +
         ' · ' + escapeHTML(formatDate(m.created_at)) +
       '</div>' +
+      (m.voice_url ? '<audio controls preload="none" src="' + escapeHTML(m.voice_url) + '" style="width:100%; margin:8px 0;"></audio>' : '') +
       '<div class="body">' + escapeHTML(m.body) + '</div>';
     const actions = document.createElement('div');
     actions.className = 'actions';
