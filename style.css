@@ -162,6 +162,13 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
 
 /* ===== 페이지 공통 레이아웃 ===== */
 .wrap{max-width:960px; margin:0 auto; padding:0 20px;}
+/* 브라우저 기본 [hidden]{display:none} 은 작성자 규칙에 진다. .dot-btn 의
+   inline-flex, .cap-video 의 flex, .growth-add 의 flex 처럼 display 를 정한
+   요소는 el.hidden = true 를 걸어도 그대로 보였다 — 캡슐 영상 「지우기」가
+   눌러도 아무 일 없어 보이던 것도, 손님에게 「눈금 새기기」 입력칸이 보이던 것도
+   전부 이 한 줄이 없어서였다. */
+[hidden]{display:none !important;}
+
 .section-pad{padding:72px 0;}
 .page-top{padding-top:calc(var(--header-h) + 40px);}
 .section-head{text-align:center; margin-bottom:38px;}

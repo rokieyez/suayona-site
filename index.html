@@ -168,7 +168,7 @@
   .run-card{padding:0; overflow:hidden;}
   .run-stage{position:relative; display:block; width:100%; line-height:0;}
   #runCanvas{
-    display:block; width:100%; height:170px; touch-action:manipulation;
+    display:block; width:100%; height:190px; touch-action:manipulation;
     cursor:pointer; background:#a8d8f2; image-rendering:pixelated;
   }
   #runCanvas:focus-visible{outline:3px solid var(--ink); outline-offset:-3px;}
@@ -184,6 +184,28 @@
     background:var(--cream); color:var(--ink);
   }
   .run-who button.on{background:var(--ink); color:var(--cream);}
+  .run-save{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:10px 12px; border-top:3px solid var(--ink); background:#fff6e9;
+  }
+  .run-save input{
+    font:inherit; font-size:13px; font-weight:800; width:104px;
+    padding:6px 8px; border:2px solid var(--ink); background:#fff; color:var(--ink);
+  }
+  .run-save .run-msg{font-size:12px; font-weight:800; color:var(--ink-soft);}
+  .run-save .run-msg.err{color:#c0392b;}
+  .run-top{padding:12px; border-top:3px solid var(--ink); background:var(--cream);}
+  .run-top-head{font-size:12px; font-weight:800; margin-bottom:8px; color:var(--ink-soft);}
+  .run-top ol{margin:0; padding:0; list-style:none; display:grid; gap:3px;}
+  .run-top li{
+    display:flex; align-items:baseline; gap:8px;
+    font-size:13px; font-weight:800; padding:3px 6px;
+  }
+  .run-top li:nth-child(odd){background:#fff6e9;}
+  .run-top li .rk{width:26px; color:var(--ink-soft); font-variant-numeric:tabular-nums;}
+  .run-top li .nm{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .run-top li .sc{font-variant-numeric:tabular-nums;}
+  .run-top li.me{background:var(--lemon);}
   @media (max-width:560px){
     .run-bar .run-hint{width:100%; margin-left:0;}
   }
@@ -456,7 +478,16 @@
           <button type="button" data-who="yona">연아로</button>
         </div>
         <button type="button" class="dot-btn small" id="runReset">최고 기록 지우기</button>
-        <span class="run-hint">스페이스바 또는 화면 누르기 · 길게 누르면 더 높이</span>
+        <span class="run-hint">스페이스바 또는 화면 누르기 · 누르는 시간에 따라 점프가 4단계</span>
+      </div>
+      <div class="run-save" id="runSave" hidden>
+        <input id="runName" maxlength="8" placeholder="이름" autocomplete="off">
+        <button type="button" class="dot-btn small primary" id="runSend">기록 남기기</button>
+        <span class="run-msg" id="runMsg"></span>
+      </div>
+      <div class="run-top" id="runTop" hidden>
+        <div class="run-top-head pixel">명예의 전당 · 10위까지</div>
+        <ol id="runTopList"></ol>
       </div>
     </div>
   </div>
@@ -2194,7 +2225,7 @@ $$('canvas[data-char]').forEach(cv => {
 })().catch(() => {});
 
 // ================= 얼마나 컸을까 =================
-// 집 문틀에 해마다 새기던 눈금. 부모가 재서 적으면 여기 한 줄이 늘어난다.
+// 집 문틀에 해마다 새기던 눈금. 그래프는 손님도 보고, 새 눈금은 로그인한 가족만 새긴다.
 (async () => {
   const cv = $('#growthCanvas'); if (!cv) return;
   const COLORS = { '수아': '#ff7f8a', '연아': '#6cc7b3' };
@@ -2257,10 +2288,10 @@ $$('canvas[data-char]').forEach(cv => {
 
   await draw();
 
-  // 부모로 로그인했으면 새 눈금을 새길 수 있다
+  // 그래프는 누구나 본다(위 draw 가 이미 펼쳤다). 눈금을 새기는 건 로그인한 가족만 —
+  // 재는 건 부모지만 아이가 자기 키를 적어 보는 것도 이 집에서는 놀이다.
   await refreshAuth();
-  if (!isAdmin) return;
-  $('#growth').hidden = false;
+  if (!isLoggedIn) return;
   $('#growthAdd').hidden = false;
   const today = new Date();
   $('#gWhen').value = today.toISOString().slice(0, 10);
@@ -2426,6 +2457,9 @@ $$('canvas[data-char]').forEach(cv => {
   function capVideoReset(){
     capVideoBlob = null;
     if (vPlay.src) { URL.revokeObjectURL(vPlay.src); vPlay.removeAttribute('src'); }
+    vPlay.srcObject = null;
+    vPlay.pause();
+    vPlay.load();                 // 지운 뒤에도 마지막 장면이 남아 있지 않게
     vPlay.hidden = true; vDrop.hidden = true; vState.textContent = '';
     vBtn.textContent = '🎬 영상으로 남기기';
   }
@@ -2493,29 +2527,51 @@ $$('canvas[data-char]').forEach(cv => {
 })().catch(() => {});
 
 // ================= 한 번 눌러 뛰기 =================
-// 서버를 안 쓴다. 최고 점수도 localStorage 뿐 — 자매가 각자 자기 폰에서 자기 기록을
-// 깬다. 화면 밖이거나 탭이 가려지면 rAF 를 아예 멈춰서 안 볼 때 배터리를 안 먹는다.
+// 달리는 동안은 서버를 안 쓴다. 끝났을 때만 순위표를 한 번 읽고, 이름을 남기면
+// 한 번 쓴다. 화면 밖이거나 탭이 가려지면 rAF 를 멈춰서 안 볼 때 배터리를 안 먹는다.
 (function(){
   const canvas = document.getElementById('runCanvas');
   if (!canvas || typeof SPRITES === 'undefined') return;
   const ctx = canvas.getContext('2d');
 
-  const GRAV      = 900;    // px/s^2
-  const JUMP_V    = -300;   // 처음 뛰어오르는 속도
-  const HOLD_MS   = 180;    // 길게 누르면 이만큼 중력을 덜 받는다 = 더 높이
-  const SPD0      = 175;    // 시작 속도 px/s
-  const SPD_MAX   = 380;
-  const SPD_UP    = 7;      // 1초마다 이만큼 빨라진다
-  const PLAYER_X  = 46;
+  const GRAV     = 900;    // px/s^2
+  const JUMP_V   = -300;   // 뛰어오르는 속도
+  const PLAYER_X = 46;
 
-  // 장애물. hit 은 그림보다 판정을 안쪽으로 줄이는 값 — 도트 그림은 모서리가 비어 있어서
-  // 그림 크기 그대로 맞으면 "안 닿았는데 죽었다"가 된다.
-  const OBS = [
+  // 점프 4단계. 누른 시간을 그대로 쓰면 높이가 연속으로 변해서 「지금 몇 칸 뛴 건지」
+  // 를 아이가 못 읽는다. 손을 뗀 시간을 네 칸 중 하나로 올려 맞춰, 같은 세기로 누르면
+  // 늘 같은 높이가 나오게 했다. 실측 높이는 53 / 62 / 75 / 84px.
+  // 첫 칸을 0 이 아니라 0.04 로 둔 건, 손을 떼는 순간이 아니라 「칸」 이 높이를
+  // 정하게 하기 위해서다. 0 이면 1단계만 뗀 시점에 따라 48~53px 로 흔들렸다.
+  const HOLD_TIERS = [0.04, 0.09, 0.175, 0.26];
+  const HOLD_G     = 0.38;   // 누르는 동안의 중력 배수
+
+  // 속도 7단계. 계속 조금씩 빨라지면 빨라지는 걸 못 느낀다. 계단으로 올리고
+  // 올라갈 때 화면에 알려 준다.
+  const SPEEDS  = [170, 200, 232, 265, 300, 336, 374];
+  const LV_SECS = 18;        // 한 계단에 머무는 시간
+
+  // 장애물 조각. hit 은 그림보다 판정을 안쪽으로 줄이는 값 — 도트 그림은 모서리가
+  // 비어 있어서 그림 크기 그대로 맞으면 "안 닿았는데 죽었다"가 된다.
+  const PIECES = [
     { sp: 'bush',     s: 3, hit: [3, 2] },
     { sp: 'mushroom', s: 3, hit: [2, 1] },
     { sp: 'snail',    s: 3, hit: [2, 1] },
     { sp: 'ladybug',  s: 3, hit: [2, 1] },
   ];
+  const GROUP_MAX_W = 86;    // 조각을 이어 붙여도 이 너비를 넘기지 않는다 — 넘을 수 있어야 한다
+
+  // 수풀이 언덕과 같은 연두라 배경에 묻혔다. 장애물만 훨씬 진한 초록으로 바꾸고,
+  // 아래에서 검은 테두리를 한 겹 깐다.
+  const OBS_PAL = { j: '#3f7d3c', k: '#2f6b34', l: '#24522b' };
+  const OUTLINE = {};
+  function outlineCells(key){
+    if (!OUTLINE[key]) OUTLINE[key] = outlineOf(SPRITES[key]);
+    return OUTLINE[key];
+  }
+
+  const GEM_LOW  = 64;       // 아무 점프나 하면 닿는다
+  const GEM_HIGH = 116;      // 2단 이상 눌러야 닿는다
 
   let W = 0, H = 0, GY = 0, dpr = 1;
   let state = 'ready';                 // ready | play | over
@@ -2524,9 +2580,15 @@ $$('canvas[data-char]').forEach(cv => {
   let best = 0;
   try { best = Math.max(0, parseInt(localStorage.getItem('sy.run.best') || '0', 10) || 0); } catch (e) {}
 
-  let py = 0, vy = 0, onGround = true, holdT = 0, holding = false;
-  let dist = 0, hearts = 0, spd = SPD0, t = 0, nextAt = 0;
+  let py = 0, vy = 0, onGround = true, holding = false;
+  let holdT = 0, holdCap = 0, jumpTier = 1;
+  let dist = 0, hearts = 0, lv = 0, spd = SPEEDS[0], t = 0, nextAt = 0, lvFlash = 0;
   let obs = [], gems = [], raf = 0, last = 0, deadAt = 0, runBest = 0;
+
+  const spriteOf = () => SPRITES[who];
+  const spriteH  = () => spriteOf().length;
+  const score    = () => Math.floor(dist / 12) + hearts * 5;
+  const ceilOf   = () => GY - spriteH() - 20;
 
   function recordBest(){
     if (score() <= best) return;
@@ -2534,15 +2596,10 @@ $$('canvas[data-char]').forEach(cv => {
     try { localStorage.setItem('sy.run.best', String(best)); } catch (e) {}
   }
 
-  const spriteOf = () => SPRITES[who];
-  const spriteH  = () => spriteOf().length;
-  const spriteW  = () => spriteOf()[0].length;
-  const score    = () => Math.floor(dist / 12) + hearts * 5;
-
   function resize(){
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     W = canvas.clientWidth || 320;
-    H = canvas.clientHeight || 170;
+    H = canvas.clientHeight || 190;
     canvas.width = Math.floor(W * dpr); canvas.height = Math.floor(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
@@ -2551,9 +2608,10 @@ $$('canvas[data-char]').forEach(cv => {
   }
 
   function reset(){
-    py = 0; vy = 0; onGround = true; holdT = 0;
-    dist = 0; hearts = 0; spd = SPD0; t = 0; deadAt = 0; runBest = best;
-    obs = []; gems = []; nextAt = 260;
+    py = 0; vy = 0; onGround = true; holdT = 0; holdCap = 0; jumpTier = 1;
+    dist = 0; hearts = 0; t = 0; lv = 0; spd = SPEEDS[0]; lvFlash = 0;
+    deadAt = 0; runBest = best;
+    obs = []; gems = []; nextAt = 280;
   }
 
   // ---- 배경 ----
@@ -2578,7 +2636,6 @@ $$('canvas[data-char]').forEach(cv => {
       ctx.fillRect(0, Math.round(GY * i / bands), W, Math.ceil(GY / bands) + 1);
     }
 
-    // 구름 — 아주 느리게
     const cw = SPRITES.cloudS[0].length * 2;
     const gap = Math.max(140, W / 2);
     for (let i = 0; i < 4; i++){
@@ -2606,8 +2663,8 @@ $$('canvas[data-char]').forEach(cv => {
   }
 
   function playerBox(){
-    const s = spriteOf(), h = s.length * 1, w = s[0].length * 1;
-    return { x: PLAYER_X + 11, y: GY - h - py + 3, w: w - 22, h: h - 3 };
+    const sp = spriteOf();
+    return { x: PLAYER_X + 11, y: GY - sp.length - py + 3, w: sp[0].length - 22, h: sp.length - 3 };
   }
   function hitBox(o){
     const sp = SPRITES[o.sp], w = sp[0].length * o.s, h = sp.length * o.s;
@@ -2616,6 +2673,14 @@ $$('canvas[data-char]').forEach(cv => {
   }
   const overlap = (a, b) =>
     a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+  function drawObs(o){
+    const sp = SPRITES[o.sp], x = Math.round(o.x), y = GY - sp.length * o.s;
+    ctx.fillStyle = '#241f16';
+    outlineCells(o.sp).forEach(c =>
+      ctx.fillRect(x + c[0] * o.s - 2, y + c[1] * o.s - 2, o.s + 4, o.s + 4));
+    drawSprite(ctx, sp, x, y, o.s, OBS_PAL);
+  }
 
   function drawPlayer(){
     const sp = spriteOf(), h = sp.length, w = sp[0].length;
@@ -2629,6 +2694,14 @@ $$('canvas[data-char]').forEach(cv => {
     // 달릴 때 1px 씩 위아래로 — 도트에서는 이만큼만으로도 뛰는 것처럼 보인다
     const bob = (state === 'play' && onGround && Math.floor(t * 9) % 2) ? 1 : 0;
     drawSprite(ctx, sp, x, Math.round(y + bob), 1);
+
+    // 점프 세기 — 머리 위 네 칸. 몇 단으로 뛴 건지 눈으로 보여야 4단계가 의미가 있다.
+    if (state === 'play' && !onGround){
+      for (let i = 0; i < 4; i++){
+        ctx.fillStyle = i < jumpTier ? '#ff6b6b' : 'rgba(255,255,255,.6)';
+        ctx.fillRect(x + 5 + i * 9, Math.round(y) - 11, 7, 7);
+      }
+    }
   }
 
   function label(text, y, size, color){
@@ -2639,43 +2712,60 @@ $$('canvas[data-char]').forEach(cv => {
     ctx.fillStyle = color; ctx.fillText(text, W / 2, y);
     ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
   }
+  // 배경과 겹쳐도 읽히게 흰 테두리를 두르고 찍는다
+  function hud(text, x, y, size, align){
+    ctx.font = '800 ' + size + 'px Suayona Dot, Pretendard Variable, sans-serif';
+    ctx.textAlign = align || 'start';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.strokeText(text, x, y);
+    ctx.fillStyle = '#3a3226'; ctx.fillText(text, x, y);
+    ctx.textAlign = 'start';
+  }
 
-  function draw(dt){
+  function draw(){
     drawBg();
-    obs.forEach(o => drawSprite(ctx, SPRITES[o.sp], Math.round(o.x), GY - SPRITES[o.sp].length * o.s, o.s));
-    gems.forEach(gm => drawSprite(ctx, SPRITES.heart, Math.round(gm.x), Math.round(gm.y + Math.sin(t * 5 + gm.p) * 3), 3));
+    obs.forEach(drawObs);
+    gems.forEach(gm => drawSprite(ctx, SPRITES.heart, Math.round(gm.x),
+      Math.round(gm.y + Math.sin(t * 5 + gm.p) * 3), 3));
     drawPlayer();
 
-    // 점수 — 왼쪽 위, 배경과 겹쳐도 읽히게 흰 테두리를 두른다
-    ctx.font = '800 13px Suayona Dot, Pretendard Variable, sans-serif';
-    const line = String(score()).padStart(4, '0') + (best ? '   BEST ' + best : '');
-    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.strokeText(line, 10, 20);
-    ctx.fillStyle = '#3a3226'; ctx.fillText(line, 10, 20);
-    if (hearts) {
-      drawSprite(ctx, SPRITES.heart, W - 34, 11, 2);
-      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.85)';
-      ctx.strokeText('x' + hearts, W - 18, 20);
-      ctx.fillStyle = '#3a3226'; ctx.fillText('x' + hearts, W - 18, 20);
+    hud(String(score()).padStart(4, '0'), 10, 20, 13);
+    if (best) hud('BEST ' + best, 10, 36, 11);
+    hud('LV' + (lv + 1), W - 10, 20, 13, 'end');
+    if (hearts){
+      drawSprite(ctx, SPRITES.heart, W - 42, 27, 2);
+      hud('x' + hearts, W - 10, 36, 11, 'end');
     }
 
-    if (state === 'ready') label('눌러서 시작', H * 0.42, 17, '#3a3226');
+    if (lvFlash > 0) label('속도 ' + (lv + 1) + ' 단계!', H * 0.24, 15, '#c0392b');
+    if (state === 'ready') label('눌러서 시작', H * 0.44, 17, '#3a3226');
     if (state === 'over'){
-      label(score() + '점' + (score() > runBest ? ' · 최고 기록!' : ''), H * 0.34, 17, '#3a3226');
-      label('한 번 더 누르기', H * 0.34 + 22, 13, '#6b5f4e');
+      label(score() + '점' + (score() > runBest ? ' · 최고 기록!' : ''), H * 0.36, 17, '#3a3226');
+      label('한 번 더 누르기', H * 0.36 + 22, 13, '#6b5f4e');
     }
   }
 
   function spawn(){
-    const hard = Math.min(1, t / 45);
-    const pick = OBS[Math.floor(Math.random() * OBS.length)];
-    obs.push({ sp: pick.sp, s: pick.s, hit: pick.hit, x: W + 10 });
-    // 두 개 붙은 구간은 뒤로 갈수록만 나온다. 처음부터 나오면 아이가 금방 포기한다.
-    if (Math.random() < hard * 0.35)
-      obs.push({ sp: 'bush', s: 3, hit: [3, 2], x: W + 10 + 34 + Math.random() * 12 });
-    if (Math.random() < 0.45)
-      gems.push({ x: W + 10 + 120 + Math.random() * 90, y: GY - 62, p: Math.random() * 6 });
-    // 다음 장애물까지의 거리 — 빨라질수록 넉넉히 벌려야 넘을 수 있다
-    nextAt = spd * (0.95 + Math.random() * 0.75);
+    // 조각 수를 1~3 으로 이어 붙여 장애물 길이를 세 단계로 만든다.
+    // 처음부터 긴 게 나오면 아이가 금방 포기하니 속도 단계에 맞춰 늘린다.
+    const maxN = lv < 2 ? 1 : (lv < 4 ? 2 : 3);
+    const n = 1 + Math.floor(Math.random() * maxN);
+    const x0 = W + 10;
+    let wide = 0;
+    for (let i = 0; i < n; i++){
+      const p = PIECES[Math.floor(Math.random() * PIECES.length)];
+      const w = SPRITES[p.sp][0].length * p.s;
+      if (wide + w > GROUP_MAX_W) break;
+      obs.push({ sp: p.sp, s: p.s, hit: p.hit, x: x0 + wide });
+      wide += w + 4 + Math.floor(Math.random() * 5);   // 겹치지 않게 조금 띄운다
+    }
+    // 하트는 낮은 것과 높은 것. 높은 건 2단 이상 눌러야 닿아서, 먹으려면
+    // 「얼마나 세게 누를까」 를 한 번 고르게 된다.
+    if (Math.random() < 0.55){
+      const high = Math.random() < 0.45;
+      gems.push({ x: x0 + wide + 90 + Math.random() * 90,
+                  y: GY - (high ? GEM_HIGH : GEM_LOW), p: Math.random() * 6 });
+    }
+    nextAt = wide + spd * (0.85 + Math.random() * 0.7);
   }
 
   function step(ts){
@@ -2685,16 +2775,19 @@ $$('canvas[data-char]').forEach(cv => {
 
     if (state === 'play'){
       t += dt;
-      spd = Math.min(SPD_MAX, SPD0 + t * SPD_UP);
+      const nl = Math.min(SPEEDS.length - 1, Math.floor(t / LV_SECS));
+      if (nl !== lv){ lv = nl; spd = SPEEDS[lv]; lvFlash = 1.4; sfx('pop'); }
+      if (lvFlash > 0) lvFlash -= dt;
       const move = spd * dt;
       dist += move;
 
-      // 길게 누르는 동안엔 중력을 덜 받는다 = 톡 누르면 낮게, 꾹 누르면 높게
-      const g = (holding && holdT < HOLD_MS / 1000 && vy < 0) ? GRAV * 0.38 : GRAV;
-      if (holding) holdT += dt;
+      // 누르고 있는 동안엔 중력을 덜 받는다. holdCap 은 손을 뗄 때 네 칸 중
+      // 하나로 올려 맞춘 값이라, 같은 세기로 누르면 늘 같은 높이가 나온다.
+      if (!onGround) holdT += dt;
+      const g = (vy < 0 && holdT < holdCap) ? GRAV * HOLD_G : GRAV;
       vy += g * dt;
       py -= vy * dt;
-      const ceil = GY - spriteH() - 22;      // 점수 글씨 아래까지만
+      const ceil = ceilOf();
       if (py > ceil){ py = ceil; vy = 0; }
       if (py <= 0){ py = 0; vy = 0; onGround = true; } else onGround = false;
 
@@ -2702,7 +2795,7 @@ $$('canvas[data-char]').forEach(cv => {
       if (nextAt <= 0) spawn();
       obs.forEach(o => { o.x -= move; });
       gems.forEach(gm => { gm.x -= move; });
-      obs = obs.filter(o => o.x > -60);
+      obs = obs.filter(o => o.x > -100);
       gems = gems.filter(gm => gm.x > -40);
 
       const pb = playerBox();
@@ -2714,12 +2807,13 @@ $$('canvas[data-char]').forEach(cv => {
       for (const o of obs){
         if (overlap(pb, hitBox(o))){
           state = 'over'; deadAt = performance.now(); sfx('thud'); recordBest();
+          offerSave();
           break;
         }
       }
     }
 
-    draw(dt);
+    draw();
     if (state === 'over') stop();     // 죽은 화면은 한 장이면 된다
   }
 
@@ -2729,30 +2823,45 @@ $$('canvas[data-char]').forEach(cv => {
     if (raf) cancelAnimationFrame(raf); raf = 0;
   }
 
+  function tierOf(h){
+    for (let i = 0; i < HOLD_TIERS.length; i++) if (h <= HOLD_TIERS[i]) return i;
+    return HOLD_TIERS.length - 1;
+  }
+  function release(){
+    holding = false;
+    if (!onGround && vy < 0){
+      holdCap = HOLD_TIERS[tierOf(holdT)];
+      jumpTier = tierOf(holdT) + 1;
+    }
+  }
+
   function jump(){
     if (state === 'ready'){ reset(); state = 'play'; start(); sfx('boing'); return; }
     if (state === 'over'){
       if (performance.now() - deadAt < 400) return;   // 죽자마자 눌린 건 재시작으로 안 센다
-      reset(); state = 'play'; start(); sfx('boing'); return;
+      hideSave(); reset(); state = 'play'; start(); sfx('boing'); return;
     }
-    if (onGround){ vy = JUMP_V; py = 0.01; onGround = false; holdT = 0; sfx('boing'); }
+    if (onGround){
+      vy = JUMP_V; py = 0.01; onGround = false;
+      holdT = 0; holdCap = HOLD_TIERS[HOLD_TIERS.length - 1]; jumpTier = 4;
+      sfx('boing');
+    }
   }
 
   canvas.addEventListener('pointerdown', e => {
     e.preventDefault(); canvas.focus({ preventScroll: true });
     holding = true; jump();
   });
-  window.addEventListener('pointerup', () => { holding = false; });
-  window.addEventListener('pointercancel', () => { holding = false; });
+  window.addEventListener('pointerup', release);
+  window.addEventListener('pointercancel', release);
+  const JUMP_KEYS = [' ', 'Spacebar', 'ArrowUp', 'Enter'];
   canvas.addEventListener('keydown', e => {
-    if (e.key !== ' ' && e.key !== 'Spacebar' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
+    if (JUMP_KEYS.indexOf(e.key) < 0) return;
     e.preventDefault();
     if (!e.repeat){ holding = true; jump(); }
   });
-  canvas.addEventListener('keyup', e => {
-    if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'ArrowUp' || e.key === 'Enter') holding = false;
-  });
-  canvas.addEventListener('blur', () => { holding = false; });
+  canvas.addEventListener('keyup', e => { if (JUMP_KEYS.indexOf(e.key) >= 0) release(); });
+  canvas.addEventListener('blur', release);
 
   document.querySelectorAll('#runWho button').forEach(b => {
     b.classList.toggle('on', b.dataset.who === who);
@@ -2760,13 +2869,82 @@ $$('canvas[data-char]').forEach(cv => {
       who = b.dataset.who;
       try { localStorage.setItem('sy.run.who', who); } catch (e) {}
       document.querySelectorAll('#runWho button').forEach(x => x.classList.toggle('on', x === b));
-      if (state !== 'play') draw(0);
+      if (state !== 'play') draw();
     });
   });
   document.getElementById('runReset').addEventListener('click', () => {
     best = 0;
     try { localStorage.removeItem('sy.run.best'); } catch (e) {}
-    if (state !== 'play') draw(0);
+    if (state !== 'play') draw();
+  });
+
+  // ---- 명예의 전당 ----
+  // 달리는 동안엔 서버를 안 부른다. 처음 화면에 들어올 때 한 번 읽고,
+  // 이름을 남길 때 한 번 쓰고 다시 읽는다.
+  const saveBox  = document.getElementById('runSave');
+  const topBox   = document.getElementById('runTop');
+  const topList  = document.getElementById('runTopList');
+  const nameIn   = document.getElementById('runName');
+  const sendBtn  = document.getElementById('runSend');
+  const saveMsg  = document.getElementById('runMsg');
+  let topRows = null, savedId = null, loadingTop = null;
+  try { nameIn.value = localStorage.getItem('sy.run.name') || ''; } catch (e) {}
+
+  function renderTop(){
+    if (!topRows || !topRows.length){ topBox.hidden = true; return; }
+    topList.innerHTML = topRows.map((r, i) =>
+      '<li' + (r.id === savedId ? ' class="me"' : '') + '>' +
+        '<span class="rk">' + (i + 1) + '위</span>' +
+        '<span class="nm">' + escapeHTML(r.name) + '</span>' +
+        '<span class="sc">' + Number(r.score) + '</span>' +
+      '</li>').join('');
+    topBox.hidden = false;
+  }
+
+  function loadTop(){
+    if (loadingTop) return loadingTop;
+    loadingTop = sb.from('run_scores').select('id, name, score')
+      .order('score', { ascending: false }).order('created_at', { ascending: true })
+      .limit(10)
+      .then(({ data }) => { topRows = data || []; renderTop(); })
+      .catch(() => {});
+    return loadingTop;
+  }
+
+  function hideSave(){ saveBox.hidden = true; saveMsg.textContent = ''; }
+
+  function offerSave(){
+    if (score() <= 0) return;
+    // 10위 안에 못 들 점수면 굳이 이름을 묻지 않는다 — 표만 지저분해진다.
+    const tenth = topRows && topRows.length >= 10 ? Number(topRows[9].score) : 0;
+    if (topRows && score() <= tenth) return;
+    savedId = null;
+    sendBtn.disabled = false;
+    saveMsg.className = 'run-msg';
+    saveMsg.textContent = '10위 안에 들었어요!';
+    saveBox.hidden = false;
+  }
+
+  sendBtn.addEventListener('click', async () => {
+    const nm = nameIn.value.trim();
+    if (!nm){ saveMsg.className = 'run-msg err'; saveMsg.textContent = '이름을 적어주세요.'; return; }
+    const pt = score();
+    if (pt <= 0) return;
+    sendBtn.disabled = true;
+    saveMsg.className = 'run-msg'; saveMsg.textContent = '남기는 중…';
+    try { localStorage.setItem('sy.run.name', nm); } catch (e) {}
+    const { data, error } = await sb.from('run_scores')
+      .insert({ name: nm, score: pt, who }).select('id').single();
+    if (error){
+      sendBtn.disabled = false;
+      saveMsg.className = 'run-msg err'; saveMsg.textContent = '못 남겼어요: ' + readableError(error);
+      return;
+    }
+    savedId = data && data.id;
+    saveMsg.textContent = '남겼어요!';
+    loadingTop = null;
+    await loadTop();
+    saveBox.hidden = true;
   });
 
   // 안 보이면 멈춘다. 게임이 화면 밖에서 계속 돌면 스크롤이 버벅이고 배터리만 먹는다.
@@ -2776,9 +2954,12 @@ $$('canvas[data-char]').forEach(cv => {
     else { stop(); holding = false; }
   }
   if ('IntersectionObserver' in window){
-    new IntersectionObserver(es => { visible = es[0].isIntersecting; sync(); },
-      { threshold: 0.25 }).observe(canvas);
-  } else visible = true;
+    new IntersectionObserver(es => {
+      visible = es[0].isIntersecting;
+      if (visible) loadTop();        // 순위표는 화면에 들어올 때 딱 한 번
+      sync();
+    }, { threshold: 0.25 }).observe(canvas);
+  } else { visible = true; loadTop(); }
   document.addEventListener('visibilitychange', sync);
 
   let rt = 0;
