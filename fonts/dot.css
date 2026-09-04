@@ -33,6 +33,10 @@
   font-weight: 700;
   font-display: swap;
   src: url('/fonts/Galmuri11-Bold.subset.woff2') format('woff2');
+  /* 로고에 드는 넉 자와 사이띄개만 빼 둔다. 이 자리를 비워 두면(=범위를 안 적으면)
+     이 벌이 모든 글자를 맡는 것이 되어, 로고밖에 없는 쪽에서도 브라우저가 이것부터
+     받아 버린다 — 실제로 두 벌을 28ms 에 나란히 받고 있었다. */
+  unicode-range: U+0-1F, U+21-B790, U+B792-C217, U+C219-C543, U+C545-C5EF, U+C5F1-10FFFF;
 }
 /*
  * 굵은 도트를 두 벌로 나눈다.
