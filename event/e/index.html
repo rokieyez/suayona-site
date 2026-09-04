@@ -147,6 +147,16 @@
     .tab.active{transform:translate(2px, 2px);}
   }
 
+  /* 이 여행길 가까이 적어 둔 「가볼 곳」 — 지도 탭 아래에만 나온다 */
+  .near-wish{border:2px solid var(--ink); background:var(--lemon); padding:10px 12px;
+    margin-top:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+  .near-wish[hidden]{display:none;}
+  .near-wish b{font-size:12.5px;}
+  .near-wish a{border:2px solid var(--ink); background:var(--paper); padding:3px 8px;
+    font-size:11.5px; font-weight:800; text-decoration:none; color:var(--ink);
+    display:inline-flex; align-items:baseline; gap:5px;}
+  .near-wish a span{font-size:10.5px; font-weight:700; color:var(--ink-soft);}
+
   .panel{display:none;}
   .panel.active{display:block;}
   .day-head{

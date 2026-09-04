@@ -1964,10 +1964,19 @@ belowFold(async () => {
 belowFold(async () => {
   const cv = $('#koreaCanvas');
   if (!cv || typeof KOREA === 'undefined') return;      // 옛 pixel.js 와 짝이 되면 조용히 접는다
-  const { data } = await sb.from('events')
-    .select('event_id, place_lat, place_lng')
-    .not('place_lat', 'is', null)
-    .limit(2000);                                      // 좌표 있는 일정만 — 지금 28개, 난간일 뿐
+  // 다녀온 곳은 일정의 좌표에서, 가볼 곳은 places 에서 온다. 둘을 한 지도에 얹으면
+  // 「어디를 갔고 어디가 남았나」에 더해 「다음에 어디로 갈 참인가」까지 보인다.
+  const [{ data }, { data: wish }] = await Promise.all([
+    sb.from('events')
+      .select('event_id, place_lat, place_lng')
+      .not('place_lat', 'is', null)
+      .limit(2000),                                    // 좌표 있는 일정만 — 지금 28개, 난간일 뿐
+    sb.from('places')
+      .select('lat, lng')
+      .eq('status', 'want')
+      .not('lat', 'is', null)
+      .limit(2000),
+  ]);
   const been = new Map();                               // 지역 → 다녀온 이벤트 수
   const evOf = new Map();                               // 지역 → 그곳 이벤트 아이디들
   (data || []).forEach(r => {
@@ -1977,6 +1986,14 @@ belowFold(async () => {
     if (!evOf.has(k)) evOf.set(k, []);
     if (evOf.get(k).indexOf(r.event_id) < 0) evOf.get(k).push(r.event_id);
   });
+
+  const willGo = new Map();                             // 지역 → 적어 둔 가볼 곳 수
+  (wish || []).forEach(r => {
+    const k = koreaRegionAt(Number(r.lat), Number(r.lng));
+    if (!k) return;
+    willGo.set(k, (willGo.get(k) || 0) + 1);
+  });
+  const 가볼곳수 = (wish || []).length;
 
   const g = cv.getContext('2d');
   g.imageSmoothingEnabled = false;
@@ -1989,20 +2006,29 @@ belowFold(async () => {
     for (let c = 0; c < cols; c++) {
       const ch = KOREA[r][c];
       if (ch === '.') continue;
-      const on = been.has(ch);
-      g.fillStyle = on ? '#6cc7b3' : '#e3ddd2';
+      // 다녀온 곳이 먼저다. 가 본 지역에 가볼 곳이 더 있어도 색은 민트로 둔다 —
+      // 이 지도가 답하는 첫 물음은 「어디를 다녀왔나」이기 때문이다.
+      g.fillStyle = been.has(ch) ? '#6cc7b3'
+                  : willGo.has(ch) ? '#ffd979'
+                  : '#e3ddd2';
       g.fillRect(ox + c * s, oy + r * s, s - 1, s - 1);
     }
   }
 
   const names = Object.keys(KOREA_NAMES);
   const gone = names.filter(k => been.has(k));
-  $('#mapCount').textContent = gone.length
-    ? '여덟 군데 중 ' + gone.length + '곳에 다녀왔어요'
-    : '아직 지도가 비어 있어요';
+  const 갈곳지역 = names.filter(k => !been.has(k) && willGo.has(k));
+  $('#mapCount').textContent = (gone.length
+      ? '여덟 군데 중 ' + gone.length + '곳에 다녀왔어요'
+      : '아직 지도가 비어 있어요') +
+    (가볼곳수 ? ' · 가볼 곳 ' + 가볼곳수 + '군데를 적어 뒀어요' : '');
   $('#mapLegend').innerHTML =
     '<span><i style="background:#6cc7b3"></i>다녀온 곳 — ' +
       (gone.map(k => KOREA_NAMES[k]).join(', ') || '아직 없음') + '</span>' +
+    (갈곳지역.length
+      ? '<span><i style="background:#ffd979"></i>가볼 곳을 적어 둔 데 — ' +
+        갈곳지역.map(k => KOREA_NAMES[k]).join(', ') + '</span>'
+      : '') +
     '<span><i style="background:#e3ddd2"></i>아직 안 가 본 곳</span>';
   // 색칠된 곳을 누르면 그때 사진을 한 장만 떠 온다. 누르기 전엔 서버를 안 부른다.
   const shot = $('#mapShot');

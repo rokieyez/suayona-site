@@ -1428,6 +1428,16 @@ function formatDate(iso){
 // 맥에서 친 글은 한글이 자모로 쪼개진 NFD 로 저장돼 있는 경우가 있다.
 // 눈으로는 같지만 글자 수도 다르고 비교도 안 붙으므로, 화면에 내기 전에 NFC 로 모은다.
 // 행사 세 쪽(목록·상세·관리)이 똑같이 갖고 있던 날짜 열쇠 함수. 한 곳으로 모았다.
+// 두 자리 사이의 거리(m). 하버사인을 쓸 만큼 멀지 않아 평면으로 셈해도 된다 —
+// 우리가 볼 거리는 길어야 몇 km 이고, 위도 1도를 111km 로 두면 그 안에서는 오차가
+// 몇 m 밖에 안 난다. 경도는 위도에 따라 좁아지므로 cos 을 곱한다.
+// 두 곳(가볼 곳, 이벤트 지도)이 각자 갖고 있던 것을 여기로 모았다.
+function metersBetween(a, b){
+  const dLat = (a.lat - b.lat) * 111000;
+  const dLng = (a.lng - b.lng) * 111000 * Math.cos((a.lat + b.lat) / 2 * Math.PI / 180);
+  return Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
+}
+
 function isoToDateKey(iso){
   const [y,m,d] = iso.split('-').map(Number);
   return [y, m-1, d];

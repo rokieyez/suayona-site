@@ -137,7 +137,8 @@ function buildTabsAndPanels(){
             '<span id="tripText"></span>' +
             '<button type="button" id="tripGo" hidden>일정 보기 →</button>' +
           '</div>' +
-        '</div>'
+        '</div>' +
+        '<div class="near-wish" id="nearWish" hidden></div>'
       : '<div class="timeline"></div>';
     panel.innerHTML = '<div class="day-head"><span>' + label + '</span>' +
       '<span class="day-count"></span></div>' + body;
@@ -311,6 +312,41 @@ async function drawTripMap(){
     pins.forEach(p => p.node.classList.remove('on'));
     document.getElementById('tripGo').hidden = true;
   });
+
+  showNearbyWishes();
+}
+
+/* 이 여행길 가까이에 적어 둔 「가볼 곳」이 있으면 알려 준다.
+   ------------------------------------------------------------------
+   부산에 가면서 부산에 적어 둔 데를 잊는 일이 실제로 생긴다. 다녀온 뒤에 보면
+   「거기 바로 옆이었네」가 된다. 그래서 이 쪽을 열 때 한 번만 물어보고, 길에서
+   5km 안에 있는 것만 보여 준다 — 그보다 멀면 「근처」라고 하기 어렵다. */
+// 거리 재기(metersBetween)는 common.js 에 있다 — 가볼 곳 쪽도 같은 것을 쓴다.
+const NEAR_WISH_M = 5000;
+
+async function showNearbyWishes(){
+  const box = document.getElementById('nearWish');
+  if (!box || !TRIP_STOPS.length) return;
+  const { data, error } = await sb.from('places')
+    .select('id, name, category, lat, lng')
+    .eq('status', 'want')
+    .not('lat', 'is', null);
+  if (error) { console.warn('가볼 곳을 못 읽었습니다:', error.message); return; }
+
+  const near = [];
+  (data || []).forEach(w => {
+    let 가장가까움 = Infinity;
+    TRIP_STOPS.forEach(s => { 가장가까움 = Math.min(가장가까움, metersBetween(w, s)); });
+    if (가장가까움 <= NEAR_WISH_M) near.push({ ...w, m: 가장가까움 });
+  });
+  if (!near.length) return;
+
+  near.sort((a, b) => a.m - b.m);
+  box.hidden = false;
+  box.innerHTML = '<b>📌 이 근처에 적어 둔 가볼 곳 ' + near.length + '군데</b>' +
+    near.slice(0, 6).map(w =>
+      '<a href="/wish/">' + escapeHTML(w.name) +
+      '<span>' + (w.m < 1000 ? w.m + 'm' : (w.m / 1000).toFixed(1) + 'km') + '</span></a>').join('');
 }
 
 function reveal(panel){
