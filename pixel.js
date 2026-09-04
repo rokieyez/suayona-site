@@ -485,7 +485,7 @@ const SPRITES = {
 
 // ---------- 그리기 ----------
 // 캔버스에 스프라이트를 (x, y) 위치에 배율 s 로 그림
-function drawSprite(ctx, sprite, x, y, s, paletteOverride) {
+function drawSpriteRaw(ctx, sprite, x, y, s, paletteOverride) {
   const pal = paletteOverride ? Object.assign({}, PAL, paletteOverride) : PAL;
   for (let row = 0; row < sprite.length; row++) {
     const line = sprite[row];
@@ -498,6 +498,71 @@ function drawSprite(ctx, sprite, x, y, s, paletteOverride) {
       ctx.fillRect(x + col * s, y + row * s, s, s);
     }
   }
+}
+
+// ---------- 그려 둔 스프라이트 담아 두기 ----------
+// 도트 한 개가 네모 한 번이라, 캐릭터 한 명에 네모가 삼사백 번씩 든다.
+// 같은 그림을 같은 배율·같은 색으로 다시 그릴 일이 대부분이므로,
+// 한 번 그려 작은 캔버스에 담아 두고 그 뒤로는 갖다 붙이기만 한다.
+const _bmp = new Map();
+const _bmpId = new WeakMap();
+let _bmpN = 0;
+const BMP_MAX = 400;                       // 담아 둘 수 있는 그림 수
+const BMP_MAX_BYTES = 8 << 20;             // 담아 둔 그림이 8MB 를 넘으면 통째로 비운다
+let _bmpBytes = 0;
+function _idOf(o){
+  let id = _bmpId.get(o);
+  if (!id){ id = ++_bmpN; _bmpId.set(o, id); }
+  return id;
+}
+// 색표 열쇠 — 작은 덮개는 값으로 센다.
+// 큰 색표(phaseWash 가 만들어 둔 것)는 그 자체로 세되, 처음 본 것은 담지 않는다.
+// 매번 새로 만들어 넘기는 색표(Object.assign 으로 즉석에서 섞는 곳)가 있는데,
+// 그런 것까지 담으면 캐시가 한없이 불어나기만 하고 다시 쓰이지는 않는다.
+// 두 번째로 본 색표만 담으면 「돌려 쓰는 것」만 골라서 담게 된다.
+function _palKey(o){
+  if (!o) return '0';
+  const ks = Object.keys(o);
+  if (ks.length <= 8){
+    let k = 'v';
+    for (let i = 0; i < ks.length; i++) k += ks[i] + ':' + o[ks[i]] + ';';
+    return k;
+  }
+  const id = _bmpId.get(o);
+  if (!id){ _idOf(o); return null; }        // 처음 보는 큰 색표 — 이번 장은 그냥 찍는다
+  return 'o' + id;
+}
+// 세로 소수점 자리를 1/16 칸으로 나눠 담는다.
+// 떠다니는 것들은 세로 자리가 매 장 달라지는데, 그 소수만큼 미리 어긋나게 구워 두면
+// 담아 둔 그림을 그대로 얹어도 원래처럼 부드럽게 뜬다.
+const SUBY = 16;
+
+function spriteBitmap(sprite, s, paletteOverride, palKey, subY){
+  const sy = subY || 0;
+  const key = _idOf(sprite) + '|' + s + '|' + (palKey == null ? _palKey(paletteOverride) : palKey) + (sy ? '|y' + sy : '');
+  let cv = _bmp.get(key);
+  if (cv) return cv;
+  const w = sprite[0].length * s, h = sprite.length * s + (sy ? 1 : 0);
+  cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  drawSpriteRaw(g, sprite, 0, sy / SUBY, s, paletteOverride);
+  if (_bmp.size >= BMP_MAX || _bmpBytes >= BMP_MAX_BYTES){ _bmp.clear(); _bmpBytes = 0; }
+  _bmp.set(key, cv);
+  _bmpBytes += w * h * 4;
+  return cv;
+}
+function drawSprite(ctx, sprite, x, y, s, paletteOverride) {
+  // 배율이나 가로자리가 정수가 아니거나 그림이 없으면 예전처럼 한 도트씩 찍는다
+  if (!sprite || !sprite.length || !(s > 0) || s !== Math.round(s) ||
+      x !== Math.round(x) || typeof document === 'undefined')
+    return drawSpriteRaw(ctx, sprite, x, y, s, paletteOverride);
+  const pk = _palKey(paletteOverride);
+  if (pk === null) return drawSpriteRaw(ctx, sprite, x, y, s, paletteOverride);
+  let top = Math.floor(y), sy = Math.round((y - top) * SUBY);
+  if (sy >= SUBY) { top++; sy = 0; }
+  ctx.drawImage(spriteBitmap(sprite, s, paletteOverride, pk, sy), x, top);
 }
 
 // 계단식(픽셀) 언덕. waves 는 [{freq, amp, phase}] 형태의 사인파 목록
