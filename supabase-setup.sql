@@ -1285,3 +1285,24 @@ as $$
 $$;
 revoke all on function public.farm_cards() from public;
 grant execute on function public.farm_cards() to anon, authenticated;
+
+-- 손님 그림 — 로그인 전에도 지금 농장과 두 방을 보여 준다.
+-- 그리는 데 필요한 것만 나간다: 우편(선물 쪽지)·일지·주문·본 것은 빼고 보낸다.
+create or replace function public.farm_peek()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select (w.data - 'mail' - 'log' - 'seen' - 'orders' - 'festival')
+         || jsonb_build_object('seasonLen', coalesce(
+              (select case when t.data->>'seasonLen' ~ '^[0-9]+$' then (t.data->>'seasonLen')::int end
+                 from public.farm_saves t where t.who = 'tune'),
+              case when w.data->>'seasonLen' ~ '^[0-9]+$' then (w.data->>'seasonLen')::int end,
+              7))
+  from public.farm_saves w
+  where w.who = 'farm';
+$$;
+revoke all on function public.farm_peek() from public;
+grant execute on function public.farm_peek() to anon, authenticated;

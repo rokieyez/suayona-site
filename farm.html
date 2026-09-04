@@ -30,6 +30,18 @@
   .hero-card .nm{font-weight:800; font-size:15px;}
   .hero-card .lv{font-size:12px; color:var(--ink-soft); line-height:1.7;}
   @media (max-width:520px){ .heroes{grid-template-columns:1fr;} }
+  .peekart{margin-top:22px; text-align:left;}
+  .peekart h3{margin:0 0 2px; font-size:13px;}
+  .peekart .cap{margin:0 0 10px; font-size:12px; color:var(--ink-soft);}
+  .peekart .rooms2{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;}
+  .peekart figure{margin:0;}
+  .peekart figcaption{font-size:12px; font-weight:800; margin-bottom:5px;}
+  .peekart .house-stage{max-width:none;}
+  .peekart figure.wide{grid-column:1/-1;}
+  .peekart figure.wide .house-stage{max-width:480px;}
+  /* 손님 그림은 누르는 곳이 아니다 */
+  .look canvas{cursor:default; touch-action:auto;}
+  @media (max-width:520px){ .peekart .rooms2{grid-template-columns:1fr;} }
   .tune{margin-top:18px; padding:14px 16px; text-align:left;}
   .tune label{display:block; font-size:12.5px; font-weight:800; margin:10px 0 4px;}
   .tune label span{font-weight:700; color:var(--ink-soft); margin-left:6px;}
@@ -168,6 +180,17 @@
       </p>
       <div class="peek" id="peek"></div>
       <div class="heroes" id="heroes"></div>
+
+      <div class="peekart" id="peekArt" hidden>
+        <h3 class="pixel">지금 농장</h3>
+        <p class="cap">방금 그린 그림이에요. 계절도 날씨도 지금 그대로예요.</p>
+        <div class="stage look"><canvas id="peekFarm" width="768" height="528" aria-label="지금의 농장 그림"></canvas></div>
+        <div class="rooms2">
+          <figure class="wide"><figcaption>거실</figcaption><div class="house-stage look"><canvas id="peekLiving" aria-label="거실"></canvas></div></figure>
+          <figure><figcaption>수아 방</figcaption><div class="house-stage look"><canvas id="peekSua" aria-label="수아 방"></canvas></div></figure>
+          <figure><figcaption>연아 방</figcaption><div class="house-stage look"><canvas id="peekYona" aria-label="연아 방"></canvas></div></figure>
+        </div>
+      </div>
 
       <div class="dot-card tune" id="tuneCard" hidden>
         <h3 class="pixel" style="margin:0 0 4px;font-size:13px;">부모 조정판</h3>
@@ -361,6 +384,7 @@ async function bootInner(){
     // 손님·부모 — 요약만 주는 함수를 부른다. 가족이면 표를 직접 읽어 조금 더 보여 준다.
     const { data } = await sb.rpc('farm_cards');
     renderGate(data || {});
+    await renderPeekArt();
     if (isAdmin) await renderTune();
     $('#gate').hidden = false;
     initReveal();
@@ -424,6 +448,21 @@ function renderGate(c){
     card.appendChild(d); box.appendChild(card);
   });
   if (isLoggedIn) $('#gateWho').textContent = '이 농장은 수아와 연아의 것이에요. 부모는 여기서 구경하고, 아래에서 계절 길이를 맞추거나 선물을 보낼 수 있어요.';
+}
+// 손님에게 보여 줄 그림 — 농장 한 장과 집 안 세 칸. 우편·일지는 빼고 받는다.
+async function renderPeekArt(){
+  const { data, error } = await sb.rpc('farm_peek');
+  if (error || !data) return;                    // 아직 농장이 없으면 그림도 없다
+  W = R.fixWorld(data, now());
+  M = R.fixMine(null, 'sua');                    // 나무·바위 차례는 아이마다 달라서, 손님에겐 그냥 서 있는 모습으로
+  tickAll();
+  $('#peekArt').hidden = false;
+  drawFarm($('#peekFarm'));
+  [['living', '#peekLiving'], ['sua', '#peekSua'], ['yona', '#peekYona']].forEach(([r, sel]) => {
+    const cv = $(sel), Rm = R.ROOMS[r];
+    cv.width = Rm.w * T * HS; cv.height = (Rm.h * T + 20) * HS;
+    drawRoom(cv, r);
+  });
 }
 async function renderTune(){
   const card = $('#tuneCard'); card.hidden = false;
@@ -552,8 +591,8 @@ function plotAtTile(tx, ty){
 }
 function nodeAt(tx, ty){ return Object.keys(R.NODES).find(n => R.NODES[n].x === tx && R.NODES[n].y === ty) || null; }
 function built(id){ return !!(W.buildings[id] && W.buildings[id].done); }
-function drawFarm(){
-  const cv = $('#farmCanvas'); ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+function drawFarm(cvIn){
+  const cv = cvIn || $('#farmCanvas'); ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
   const cal = R.calendar(W, now()), season = cal.season, wk = R.weatherOf(R.dayKey(now()), season);
   const h = new Date().getHours(), night = h >= 19 || h < 6;
   const grass = { spring: ['#a8dba0', '#98d090'], summer: ['#8ccb84', '#7fc077'], autumn: ['#cdbf7a', '#bfae6b'], winter: ['#eef3f4', '#e2e9ec'] }[season];
@@ -692,6 +731,12 @@ function drawAnimalAt(g, kind, X, Y, s){
   else if (kind === 'sheep'){ P(2, 4, 11, 7, '#f7f3ee'); P(1, 3, 3, 3, '#f7f3ee'); P(11, 5, 4, 4, '#3a3226'); P(12, 6, 1, 1, '#fff'); P(4, 11, 2, 3, '#3a3226'); P(9, 11, 2, 3, '#3a3226'); }
 }
 function drawKids(){
+  // 손님 화면(로그인 전)에는 「내」가 없으니 둘 다 문 앞에 세워 둔다.
+  if (!key){
+    drawSprite(ctx, SPRITES.sua, 4 * T * S - 8 * S, 2 * T * S + 2 * S, 1);
+    drawSprite(ctx, SPRITES.yona, 5 * T * S + 6 * S, 2 * T * S + 2 * S, 1);
+    return;
+  }
   // 문 앞에 나. 자매는 오늘 왔으면 옆에, 아니면 흐리게.
   drawSprite(ctx, SPRITES[key], 4 * T * S - 8 * S, 2 * T * S + 2 * S, 1);
   const o = R.OTHER[key], today = other && other.lastPlay === R.dayKey(now());
