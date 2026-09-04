@@ -208,7 +208,7 @@
         <label>한 계절의 길이 <span id="tLenV"></span><input type="range" id="tLen" min="3" max="30" step="1"></label>
         <label>선물 보내기 <span>동전 봉투가 아이 우편함에 들어가요. 같은 봉투는 한 번만 받아요.</span></label>
         <div class="row">
-          <select id="tGiftWho" style="font:inherit;padding:7px;border:2px solid var(--ink);background:#fff;"><option value="sua">수아</option><option value="yona">연아</option></select>
+          <select id="tGiftWho" aria-label="누구에게 보낼지" style="font:inherit;padding:7px;border:2px solid var(--ink);background:#fff;"><option value="sua">수아</option><option value="yona">연아</option></select>
           <input type="number" id="tGiftCoins" min="10" max="1000" step="10" placeholder="동전" style="width:110px;">
           <input type="text" id="tGiftNote" maxlength="30" placeholder="한 마디 (선택)" style="flex:1;min-width:140px;">
         </div>
@@ -2480,7 +2480,7 @@ function renderBag(){
 function giftDialog(id, have){
   const inner = $('#modalInner');
   inner.innerHTML = '<h3 class="pixel">' + NAME[R.OTHER[key]] + '에게 보내기</h3><p class="msg" style="margin:0;">' + escapeHTML(R.itemName(id)) + ' — ' + have + '개 있어요</p>' +
-    '<input type="number" id="gN" min="1" max="' + have + '" value="1"><input type="text" id="gNote" maxlength="40" placeholder="한 마디 (선택)">' +
+    '<input type="number" id="gN" aria-label="보낼 개수" min="1" max="' + have + '" value="1"><input type="text" id="gNote" maxlength="40" placeholder="한 마디 (선택)">' +
     '<div class="modal-actions"><button type="button" class="dot-btn small" id="gCancel">취소</button><button type="button" class="dot-btn small primary" id="gGo">보내기</button></div>';
   $('#modal').hidden = false;
   $('#gCancel').addEventListener('click', closeModal);

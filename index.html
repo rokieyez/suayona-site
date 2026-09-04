@@ -722,8 +722,8 @@
     </div>
     <!-- 부모로 로그인했을 때만 나온다 -->
     <div class="growth-add" id="growthAdd" hidden>
-      <select id="gWho"><option value="수아">수아</option><option value="연아">연아</option></select>
-      <input type="date" id="gWhen">
+      <select id="gWho" aria-label="누구 키인지"><option value="수아">수아</option><option value="연아">연아</option></select>
+      <input type="date" id="gWhen" aria-label="잰 날짜">
       <input type="number" id="gCm" placeholder="키(cm)" step="0.1" min="50" max="200">
       <button class="dot-btn small primary" id="gSave">눈금 새기기</button>
       <span class="msg" id="gMsg"></span>

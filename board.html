@@ -337,13 +337,13 @@ function renderEditForm(p){
   const sel = (v, cur) => v === cur ? ' selected' : '';
   form.innerHTML =
     '<label class="field">누가 쓰나요</label>' +
-    '<select class="eAuthor">' +
+    '<select class="eAuthor" aria-label="누가 쓰나요">' +
       '<option value="sua"' + sel('sua', p.author) + '>수아</option>' +
       '<option value="yona"' + sel('yona', p.author) + '>연아</option>' +
       '<option value="together"' + sel('together', p.author) + '>같이</option>' +
     '</select>' +
     '<label class="field">공개 설정</label>' +
-    '<select class="ePublic">' +
+    '<select class="ePublic" aria-label="공개 설정">' +
       '<option value="true"' + (p.is_public !== false ? ' selected' : '') + '>🌏 공개 — 누구나 볼 수 있어요</option>' +
       '<option value="false"' + (p.is_public === false ? ' selected' : '') + '>🔒 비공개 — 로그인해야 볼 수 있어요</option>' +
     '</select>' +
@@ -512,9 +512,9 @@ function renderAdminArea(){
           '<input type="hidden" id="pAuthor" value="' + escapeHTML(me.author_key || 'sua') + '">' +
           '<input type="hidden" id="pPublic" value="true">'
         : '<label class="field">누가 쓰나요</label>' +
-          '<select id="pAuthor"><option value="sua">수아</option><option value="yona">연아</option><option value="together">같이</option></select>' +
+          '<select id="pAuthor" aria-label="누가 쓰나요"><option value="sua">수아</option><option value="yona">연아</option><option value="together">같이</option></select>' +
           '<label class="field">공개 설정</label>' +
-          '<select id="pPublic">' +
+          '<select id="pPublic" aria-label="공개 설정">' +
             '<option value="true">🌏 공개 — 누구나 볼 수 있어요</option>' +
             '<option value="false">🔒 비공개 — 로그인해야 볼 수 있어요</option>' +
           '</select>') +

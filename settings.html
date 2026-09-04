@@ -155,7 +155,7 @@ let born = {};
 function renderBorn(){
   $('#bornRows').innerHTML = KID_LIST.map(x =>
     '<div class="born-row"><b>' + x.n + '</b>' +
-    '<input type="date" id="b-' + x.k + '" value="' + escapeHTML(born[x.k] || '') + '">' +
+    '<input type="date" id="b-' + x.k + '" aria-label="' + x.n + ' 생일" value="' + escapeHTML(born[x.k] || '') + '">' +
     '<span class="age" id="ba-' + x.k + '">' + escapeHTML(born[x.k] ? '지금 ' + ageLabel(born[x.k]) : '') + '</span>' +
     '</div>').join('');
   KID_LIST.forEach(x => {

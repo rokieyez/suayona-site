@@ -393,29 +393,29 @@ function openEditModal(w){
       // 주소를 잘못 붙여넣었을 때 지웠다 다시 넣지 않아도 되게. 영상일 때만 나온다.
       (w.media_type === 'youtube'
         ? '<label class="field">유튜브 주소</label>' +
-          '<input type="text" class="eYoutube" value="' + escapeHTML(w.media_url) + '">'
+          '<input type="text" class="eYoutube" aria-label="유튜브 주소" value="' + escapeHTML(w.media_url) + '">'
         : '') +
       '<label class="field">제목</label>' +
-      '<input type="text" class="eTitle" value="' + escapeHTML(w.title) + '">' +
+      '<input type="text" class="eTitle" aria-label="제목" value="' + escapeHTML(w.title) + '">' +
       '<label class="field">아이가 한 말 (선택)</label>' +
-      '<textarea class="eQuote" style="min-height:60px;">' + escapeHTML(w.quote || '') + '</textarea>' +
+      '<textarea class="eQuote" aria-label="아이가 한 말" style="min-height:60px;">' + escapeHTML(w.quote || '') + '</textarea>' +
       '<label class="field">메모 (선택)</label>' +
-      '<textarea class="eDesc" style="min-height:60px;">' + escapeHTML(w.description || '') + '</textarea>' +
+      '<textarea class="eDesc" aria-label="메모" style="min-height:60px;">' + escapeHTML(w.description || '') + '</textarea>' +
       '<div class="row2">' +
         '<div><label class="field">누구 작품</label>' +
-          '<select class="eAuthor">' +
+          '<select class="eAuthor" aria-label="누구 작품">' +
             '<option value="sua"' + sel('sua', w.author) + '>수아</option>' +
             '<option value="yona"' + sel('yona', w.author) + '>연아</option>' +
             '<option value="together"' + sel('together', w.author) + '>같이</option>' +
           '</select></div>' +
         '<div><label class="field">만든 날 (선택)</label>' +
-          '<input type="date" class="eDate" value="' + escapeHTML(w.made_on || '') + '"></div>' +
+          '<input type="date" class="eDate" aria-label="만든 날" value="' + escapeHTML(w.made_on || '') + '"></div>' +
       '</div>' +
       // 작품마다 소리를 하나씩. 전시실에서 그림을 열면 그 소리가 난다 —
       // 아이가 「이 그림은 이런 소리야」 를 정하는 자리다.
       '<label class="field">이 작품의 소리 (선택)</label>' +
       '<div class="row2">' +
-        '<select class="eSfx">' +
+        '<select class="eSfx" aria-label="이 작품의 소리">' +
           '<option value="">소리 없음</option>' +
           Object.keys(WORK_SFX).map(k =>
             '<option value="' + k + '"' + sel(k, w.sfx) + '>' + WORK_SFX[k].label + '</option>').join('') +
@@ -423,7 +423,7 @@ function openEditModal(w){
         '<button type="button" class="dot-btn eSfxTry">▶ 들어보기</button>' +
       '</div>' +
       '<label class="field">그날 일정과 잇기 (선택)</label>' +
-      '<select class="eEvent"><option value="">연결 안 함</option></select>' +
+      '<select class="eEvent" aria-label="그날 일정과 잇기"><option value="">연결 안 함</option></select>' +
       '<label class="field">사진/영상 바꾸기 (선택)</label>' +
       '<input type="file" class="eFile" accept="image/*,video/*">' +
       '<div class="modal-actions">' +
@@ -1414,12 +1414,12 @@ function renderAdminArea(){
       '<textarea id="wDesc" style="min-height:60px;" placeholder="언제 · 어디서 · 무슨 일이 있던 날인지"></textarea>' +
       '<div class="row2">' +
         '<div><label class="field">누구 작품</label>' +
-          '<select id="wAuthor"><option value="sua">수아</option><option value="yona">연아</option><option value="together">같이</option></select>' +
+          '<select id="wAuthor" aria-label="누구 작품인지"><option value="sua">수아</option><option value="yona">연아</option><option value="together">같이</option></select>' +
         '</div>' +
         '<div><label class="field">만든 날 (비우면 사진에서)</label><input type="date" id="wDate"></div>' +
       '</div>' +
       '<label class="field">그날 일정과 잇기 (선택)</label>' +
-      '<select id="wEvent"><option value="">연결 안 함</option></select>' +
+      '<select id="wEvent" aria-label="어느 행사의 작품인지"><option value="">연결 안 함</option></select>' +
       '<label class="field">사진 / 영상 (여러 개 선택 가능)</label>' +
       '<div style="font-size:11.5px; color:var(--ink-soft); margin:-2px 0 6px; line-height:1.6;">' +
         '사진은 10MB를 넘을 때만 자동으로 줄여서 올라가요 · 영상은 100MB까지</div>' +

@@ -242,9 +242,9 @@
 
   <div id="login-box">
     <label>이메일</label>
-    <input type="email" id="loginEmail" autocomplete="username">
+    <input type="email" id="loginEmail" aria-label="메일 주소" autocomplete="username">
     <label>비밀번호</label>
-    <input type="password" id="loginPw" autocomplete="current-password">
+    <input type="password" id="loginPw" aria-label="비밀번호" autocomplete="current-password">
     <div class="btn-row"><button class="btn" id="loginBtn">로그인</button></div>
     <div id="login-msg"></div>
   </div>
@@ -277,7 +277,7 @@
     <div id="add-box">
       <h2>+ 새 일정 추가</h2>
       <label>날짜/탭</label>
-      <select id="addPanel"></select>
+      <select id="addPanel" aria-label="어느 판에 넣을지"></select>
       <label>시간 (예: 09:00-10:00)</label>
       <input type="text" id="addTime" placeholder="09:00-10:00">
       <label>제목</label>
