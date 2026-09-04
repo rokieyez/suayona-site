@@ -110,8 +110,10 @@
   .rate-row{display:flex; align-items:center; gap:8px; padding:8px 10px;}
   .rate-who{font-size:12px; font-weight:800; flex:0 0 auto;}
   .rate-stars{display:flex; gap:2px;}
-  .rate-stars button{border:none; background:none; padding:0 1px; cursor:pointer;
-    font-size:19px; line-height:1; color:#d8cfc2; font-family:inherit;}
+  /* 손전화에서 누를 자리라 별 하나가 20px 이면 빗나간다. 여백으로 30px 을 만든다 */
+  .rate-stars button{border:none; background:none; padding:5px 4px; cursor:pointer;
+    font-size:20px; line-height:1; color:#d8cfc2; font-family:inherit;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent;}
   .rate-stars button.on{color:var(--accent);}
   .rate-note{font-size:11px; color:var(--ink-soft); font-weight:700; margin-left:auto;}
 
