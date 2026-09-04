@@ -1088,3 +1088,91 @@ drop policy if exists "anyone reads quest saves" on public.quest_saves;
 drop policy if exists "family reads quest saves" on public.quest_saves;
 create policy "family reads quest saves" on public.quest_saves for select
   using (public.my_role() is not null);
+
+
+-- =====================================================================
+-- 2026-09-04 — 생일 · 목소리 일기 · 작품 공개 여부 · 되돌리기 · 방명록 도장
+-- =====================================================================
+
+-- 아이 생일. 작품에 「그때 몇 살」을 붙이는 데만 쓴다.
+-- 손님에게 열면 아이의 생년월일이 그대로 공개되는 것이라 가족만 읽는다.
+create table if not exists public.kids (
+  author_key text primary key check (author_key in ('sua','yona')),
+  born_on    date not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.kids enable row level security;
+drop policy if exists "family reads kids" on public.kids;
+create policy "family reads kids" on public.kids
+  for select using (public.my_role() is not null);
+drop policy if exists "parent writes kids" on public.kids;
+create policy "parent writes kids" on public.kids
+  for all using (public.my_role() = 'parent') with check (public.my_role() = 'parent');
+
+-- 목소리 일기 — 글씨보다 빨라서, 안 쓰던 날에도 하루가 남는다.
+-- 파일은 작품 목소리와 같은 자리(suayona/voice/)에 올라가므로 저장소 정책은 그대로다.
+alter table public.posts add column if not exists audio_url  text;
+alter table public.posts add column if not exists audio_secs smallint;
+
+-- 작품에도 공개 여부를 둔다. 여태 작품은 전부 공개였으므로 기본값은 참.
+-- 거르는 일은 정책이 한다 — 화면 어딘가에서 조건 하나를 빠뜨려도 새지 않도록.
+alter table public.works add column if not exists is_public boolean not null default true;
+drop policy if exists "public can read works" on public.works;
+drop policy if exists "read works" on public.works;
+create policy "read works" on public.works
+  for select using (is_public or public.my_role() is not null);
+
+-- 모험단 되돌리기. 그날 첫 저장 때 「그날 아침의 세이브」를 한 벌만 담아 둔다.
+alter table public.quest_saves add column if not exists prev     jsonb;
+alter table public.quest_saves add column if not exists prev_day date;
+
+-- 아이 줄은 부모가 고칠 수 없다(정책이 who = my_author_key 뿐이라 부모는 걸리지 않는다).
+-- 되돌리기 하나만 열어 주는 통로를 따로 판다.
+create or replace function public.quest_restore(target text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare n int;
+begin
+  if public.my_role() is distinct from 'parent' then
+    raise exception '부모만 되돌릴 수 있어요';
+  end if;
+  update quest_saves set data = prev, updated_at = now()
+   where who = target and prev is not null;
+  get diagnostics n = row_count;
+  return n > 0;
+end $$;
+revoke all on function public.quest_restore(text) from public;
+grant execute on function public.quest_restore(text) to authenticated;
+
+-- 방명록 도장. 손님이 이름을 안 남기고도 다녀간 흔적을 남긴다.
+-- 개인정보를 하나도 안 받는 게 요점이라, 정해진 도장 번호와 찍은 때만 담는다.
+create table if not exists public.stamps (
+  id         bigint generated always as identity primary key,
+  kind       smallint not null check (kind between 0 and 11),
+  created_at timestamptz not null default now()
+);
+alter table public.stamps enable row level security;
+drop policy if exists "anyone reads stamps" on public.stamps;
+create policy "anyone reads stamps" on public.stamps for select using (true);
+drop policy if exists "anyone stamps" on public.stamps;
+create policy "anyone stamps" on public.stamps for insert with check (true);
+drop policy if exists "parent clears stamps" on public.stamps;
+create policy "parent clears stamps" on public.stamps
+  for delete using (public.my_role() = 'parent');
+
+-- 누구나 찍을 수 있는 칸이라 스크립트가 들이부으면 표가 순식간에 불어난다.
+-- 1분에 스무 개까지만 받는다.
+create or replace function public.stamps_rate_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from stamps where created_at > now() - interval '1 minute') >= 20 then
+    raise exception '도장이 너무 빨리 찍히고 있어요. 잠시 뒤에 다시 해 주세요.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists stamps_rate on public.stamps;
+create trigger stamps_rate before insert on public.stamps
+  for each row execute function public.stamps_rate_guard();

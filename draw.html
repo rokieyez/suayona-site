@@ -65,6 +65,10 @@
     display:inline-block; margin-top:8px; font-size:11.5px; font-weight:800;
     background:var(--lemon); border:2px solid var(--ink); padding:3px 9px;
   }
+  .pend{max-width:520px; margin:10px auto 0; padding:10px 12px;
+    border:var(--px) solid var(--ink); background:var(--lemon);
+    font-size:12.5px; font-weight:800; line-height:1.6;
+    display:flex; gap:9px; align-items:center; justify-content:center; flex-wrap:wrap;}
   .tools.share{margin-top:10px;}
   .share-who{font-size:11px; color:var(--ink-soft); align-self:center;}
   .duel{margin-top:40px;}
@@ -144,6 +148,8 @@
       <span class="share-who pixel" id="shareWho"></span>
     </div>
     <p class="hint" id="shareHint">대결과 이어 그리기는 <b>로그인</b>하면 쓸 수 있어요.</p>
+    <!-- 인터넷이 끊긴 채로 낸 그림이 여기 쌓인다. 돌아오면 저절로 올라간다. -->
+    <div class="pend" id="drawPend" hidden></div>
 
     <!-- 첫 화면 잔디밭의 액자 두 개. 이 브라우저에서 첫 화면을 열면 거기 걸려 있다. -->
     <div class="tools hang">
@@ -509,9 +515,74 @@ async function syncShareTools(){
   if (on) $('#shareWho').textContent = myKey + ' 이름으로 올라가요';
   loadDuel();
   loadRelays();
+  renderPend();
+  flushQueue(false);          // 지난번에 담아 둔 것이 있으면 지금 올린다
 }
 
 function drawnSomething(){ return cells.some(c => c !== EMPTY); }
+
+// ---------- 끊겨도 되는 그리기 ----------
+// 그림 한 장은 글자 몇백 자다. 인터넷이 없으면 이 기기에 담아 두었다가
+// 신호가 돌아올 때 올린다. 다 그려 놓고 「올리지 못했어요」로 끝나지 않게.
+const DRAW_QUEUE_KEY = 'sy.drawQueue';
+
+function queued(){
+  try { return JSON.parse(localStorage.getItem(DRAW_QUEUE_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function setQueued(list){
+  try { localStorage.setItem(DRAW_QUEUE_KEY, JSON.stringify(list)); } catch (e) {}
+  renderPend();
+}
+function renderPend(){
+  const box = $('#drawPend'), n = queued().length;
+  if (!box) return;
+  box.hidden = !n;
+  if (!n) return;
+  box.innerHTML = '📦 아직 못 올린 그림 ' + n + '장 — 인터넷이 돌아오면 저절로 올라가요 ' +
+    '<button type="button" class="dot-btn small" id="pendGo">지금 올리기</button>';
+  $('#pendGo').addEventListener('click', () => flushQueue(true));
+}
+
+// 못 닿아서 실패한 것인지, 규칙에 걸려 거절당한 것인지 가른다.
+// 거절당한 것을 담아 두면 영영 안 올라가는 짐이 된다.
+function looksOffline(error){
+  if (!navigator.onLine) return true;
+  const m = ((error && error.message) || '') + '';
+  return !!(error && error.offline) || /fetch|network|failed to fetch|load failed/i.test(m);
+}
+
+let flushing = false;
+async function flushQueue(loud){
+  const list = queued();
+  if (flushing || !list.length) return;
+  if (!myKey) return;                       // 로그인해야 올라간다 — 정책이 이름을 본다
+  flushing = true;
+  let sent = 0;
+  try {
+    while (list.length) {
+      const { error } = await sb.from('doodles').insert(list[0]);
+      if (error) {
+        if (looksOffline(error)) break;     // 아직 안 닿는다 — 담아 둔 채로 둔다
+        list.shift();                       // 거절당한 것은 버린다
+        continue;
+      }
+      list.shift(); sent++;
+    }
+  } finally {
+    flushing = false;
+    setQueued(list);
+  }
+  if (sent) {
+    sfx('fanfare');
+    loadDuel(); loadRelays();
+    if (loud) alert('담아 뒀던 그림 ' + sent + '장을 올렸어요!');
+  } else if (loud) {
+    alert('아직 인터넷에 닿지 않아요. 그림은 그대로 담겨 있어요.');
+  }
+}
+
+window.addEventListener('online', () => flushQueue(false));
 
 async function putDoodle(kind, relayOf){
   if (!myKey) { alert('로그인하면 쓸 수 있어요.'); return false; }
@@ -519,7 +590,13 @@ async function putDoodle(kind, relayOf){
   const row = { author: myKey, kind, n: N, cells: encode(cells), theme: MISSION };
   if (relayOf) row.relay_of = relayOf;
   const { error } = await sb.from('doodles').insert(row);
-  if (error) { alert('올리지 못했어요: ' + error.message); return false; }
+  if (error) {
+    if (!looksOffline(error)) { alert('올리지 못했어요: ' + error.message); return false; }
+    setQueued(queued().concat([row]));
+    markMissionDone();
+    alert('인터넷이 없어서 이 그림을 기기에 담아 뒀어요. 연결되면 저절로 올라가요.');
+    return false;                            // 아직 서버에 없으니 목록은 안 건드린다
+  }
   sfx('fanfare');
   markMissionDone();
   return true;

@@ -13,7 +13,42 @@ if (/[#&]type=recovery/.test(INITIAL_HASH) && !/\/reset\.html$/.test(location.pa
 
 const SB_URL = 'https://ifiemaypzjwdrljmmkgb.supabase.co';
 const SB_KEY = 'sb_publishable_uhn46d4RFI5DeIUjtz3IRA_U9X8iPZj';
-const sb = supabase.createClient(SB_URL, SB_KEY);
+// 인터넷이 없으면 supabase-js(CDN) 자체가 안 내려온다. 예전에는 여기서 곧바로
+// 오류가 나면서 common.js 가 통째로 멈췄고, 그러면 헤더도 소리도 그리기도 다 죽었다.
+// 대신 「무엇을 물어봐도 못 닿았다고 답하는」 껍데기를 세운다 — 화면은 그대로 돌고,
+// 서버가 필요한 일만 평소의 실패 경로로 흘러간다.
+function offlineSb(){
+  const error = { message: '지금은 인터넷에 닿지 않아요', offline: true };
+  const res = { data: null, error, count: null };
+  const chain = new Proxy(function(){}, {
+    get(t, prop){
+      if (prop === 'then') return (ok, no) => Promise.resolve(res).then(ok, no);
+      if (prop === 'catch') return () => chain;
+      if (prop === 'finally') return fn => { try { fn(); } catch (e) {} return chain; };
+      return () => chain;
+    },
+    apply(){ return chain; },
+  });
+  return {
+    offline: true,
+    from: () => chain,
+    rpc: () => chain,
+    storage: { from: () => chain },
+    auth: {
+      getSession: async () => ({ data: { session: null }, error: null }),
+      getUser: async () => ({ data: { user: null }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe(){} } } }),
+      signInWithPassword: async () => ({ data: null, error }),
+      signOut: async () => ({ error: null }),
+      resetPasswordForEmail: async () => ({ data: null, error }),
+      updateUser: async () => ({ data: null, error }),
+    },
+  };
+}
+
+const sb = (typeof supabase !== 'undefined' && supabase && supabase.createClient)
+  ? supabase.createClient(SB_URL, SB_KEY)
+  : offlineSb();
 
 // 사진은 이 버킷에 올라감 (부모로 로그인했을 때만 쓸 수 있도록 정책이 걸려 있음)
 const MEDIA_BUCKET = 'event-images';        // 작품·일기·일정 사진, 목소리
@@ -121,6 +156,7 @@ const MENU = [
 const PRIVATE_LINKS = [
   { href: '/time.html',  icon: '🗓️', label: '시간표',     key: 'time',  who: 'any'   },
   { href: '/notes.html', icon: '💌',  label: '자매 우체통', key: 'notes', who: 'child' },
+  { href: '/settings.html', icon: '🔒', label: '공개 설정', key: 'settings', who: 'parent' },
 ];
 
 let ACTIVE_KEY = null;
@@ -233,6 +269,43 @@ function initReveal(){
 function revealNow(el){ requestAnimationFrame(() => el.classList.add('in')); }
 
 // ---------- 로그인 ----------
+// ---------- 그때 몇 살 ----------
+// 생일은 kids 표에 있고 가족만 읽는다. 손님 화면에서는 나이가 아예 계산되지 않는다.
+const KO_NUM = ['영','한','두','세','네','다섯','여섯','일곱','여덟','아홉','열',
+  '열한','열두','열세','열네','열다섯','열여섯','열일곱','열여덟','열아홉','스무'];
+
+function koNum(n){ return KO_NUM[n] || String(n); }
+
+// 태어난 날과 어떤 날 사이를 「여덟 살 네 달」처럼 적는다. 만 나이다.
+function ageLabel(born, on){
+  if (!born) return '';
+  const b = new Date(born), d = new Date(on || Date.now());
+  if (isNaN(b.getTime()) || isNaN(d.getTime())) return '';
+  let m = (d.getFullYear() - b.getFullYear()) * 12 + (d.getMonth() - b.getMonth());
+  if (d.getDate() < b.getDate()) m--;          // 생일이 아직 안 지난 달은 빼 준다
+  if (m < 0) return '';                        // 태어나기 전 날짜면 아무것도 안 적는다
+  const y = Math.floor(m / 12), mm = m % 12;
+  if (y === 0) return mm === 0 ? '갓 태어난' : koNum(mm) + ' 달';
+  return koNum(y) + ' 살' + (mm ? ' ' + koNum(mm) + ' 달' : '');
+}
+
+// 생일은 한 번 받아서 들고 있는다. 로그인 안 했으면 부르지도 않는다.
+let kidsBorn = null;
+async function loadKids(){
+  if (kidsBorn) return kidsBorn;
+  if (!isLoggedIn) return (kidsBorn = {});
+  const { data } = await sb.from('kids').select('author_key, born_on');
+  kidsBorn = {};
+  (data || []).forEach(k => { kidsBorn[k.author_key] = k.born_on; });
+  return kidsBorn;
+}
+
+// 로그인한 상태에서 「누가 · 언제」를 주면 그때 나이를 돌려준다. 없으면 빈 문자열.
+function ageAt(authorKey, on){
+  if (!kidsBorn || !on) return '';
+  return ageLabel(kidsBorn[authorKey], on);
+}
+
 // 로그인한 사람이 부모인지 아이인지. 예전에는 "로그인했으면 관리자"였는데,
 // 아이 계정이 생기면서 둘을 갈라야 했다. isAdmin 은 이제 "부모"라는 뜻이다.
 let isAdmin = false;     // 부모 (작품·모든 글을 다룰 수 있음)
@@ -268,7 +341,8 @@ function syncPrivateMenu(){
     const btn = document.querySelector('[data-private="' + L.key + '"]');
     if (!btn) return;
     // 우체통은 아이들 것이다. 부모에게는 보이지 않게 둔다 — 정책도 못 읽게 막아 두었다.
-    btn.hidden = !(isLoggedIn && (L.who === 'any' || (L.who === 'child' && isChild)));
+    btn.hidden = !(isLoggedIn && (L.who === 'any' ||
+      (L.who === 'child' && isChild) || (L.who === 'parent' && isAdmin)));
     btn.classList.toggle('active', L.key === ACTIVE_KEY);
   });
   markUnreadNotes();

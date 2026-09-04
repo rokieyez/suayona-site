@@ -171,6 +171,12 @@
   .tune input[type=range]{width:100%;}
   .tune input[type=text]{width:100%; font:inherit; font-size:13px; padding:8px 10px; border:2px solid var(--ink); background:var(--cream); box-sizing:border-box;}
   .tune .row{display:flex; gap:8px; align-items:center; margin-top:12px;}
+  .tune .undo{margin-top:14px; padding-top:12px; border-top:2px dashed rgba(47,42,36,.18);}
+  .tune .undo h4{margin:0 0 4px; font-size:12.5px; font-weight:900;}
+  .tune .undo p{margin:0 0 8px; font-size:12px; color:var(--ink-soft); line-height:1.6;}
+  .tune .undo .u-row{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;}
+  .tune .undo .u-row b{font-size:12.5px; min-width:34px;}
+  .tune .undo .u-when{font-size:11.5px; color:var(--ink-soft);}
 
   /* ---- 글자 대신 그림으로 읽는 정보판 ---- */
   /* 스탯 — "기본 28 + 마음 45 + 갑옷 8" 대신 색 조각 띠 하나로 보여 준다 */
@@ -309,6 +315,7 @@
         <label>응원 한 줄 <span>전투 중 응원 요정이 들고 나와요</span><input type="text" id="tCheer" maxlength="60" placeholder="예: 우리 딸 최고! 천천히 해도 돼"></label>
         <div class="tprev" id="tunePrev"></div>
         <div class="row"><button type="button" class="dot-btn small primary" id="tSave">저장</button><span class="msg" id="tMsg" style="margin:0;"></span></div>
+        <div class="undo" id="tUndo"></div>
       </div>
     </div>
 
@@ -463,6 +470,10 @@ let key = null, hero = null, save = null, facts = null, st = null;
 const saves = {};                       // 두 아이의 세이브 — 손님 화면과 이번 주 보스에 쓴다
 let TUNE = Q.fixTune(null);             // 부모 조정판 — 같은 표의 'tuning' 줄
 let combo = false;                      // 오늘 자매 둘 다 모험 중이면 참
+// 되돌리기 — 그날 첫 저장 때 「오늘 시작할 때의 모습」을 서버에 한 벌 담아 둔다.
+// 실수로 진 날을 아침 상태로 돌릴 수 있게 하려는 것이고, 하루에 한 벌만 남는다.
+const backups = {};                    // { sua: { has, day } } — 조정판이 읽는다
+let dayStart = null;                   // 오늘 열었을 때의 세이브 사본
 let battle = null;
 let curArea = 0;
 
@@ -477,8 +488,19 @@ function persist(now){
 async function doSave(){
   if (!key || !save) return;
   save.lv = st ? st.lv : save.lv;
-  const { error } = await sb.from('quest_saves').upsert({ who: key, data: save }, { onConflict: 'who' });
-  if (error) log('저장하지 못했어요: ' + readableError(error));
+  const row = { who: key, data: save };
+  // 오늘 것이 아직 없으면 이번 저장에 딸려 보낸다. 하루에 한 번뿐이라 요청이 늘지 않는다.
+  const bk = backups[key];
+  if (dayStart && (!bk || bk.day !== today())) {
+    row.prev = dayStart;
+    row.prev_day = today();
+    backups[key] = { has: true, day: today() };
+  }
+  const { error } = await sb.from('quest_saves').upsert(row, { onConflict: 'who' });
+  if (error) {
+    log('저장하지 못했어요: ' + readableError(error));
+    if (row.prev) backups[key] = bk || null;      // 안 올라갔으면 다음에 다시 시도
+  }
 }
 // 페이지를 닫을 때 남은 것을 바로 쓴다. 기다리는 저장이 있으면 그것부터.
 document.addEventListener('visibilitychange', () => { if (document.hidden && (saveTimer || dirty)) persist(true); });
@@ -498,14 +520,16 @@ async function bootInner(){
   key = isChild && me && Q.HEROES[me.author_key] ? me.author_key : null;
   // 손님에게는 세이브 표를 안 연다 — 그 안에는 아이가 어느 날 왔는지(playDays·lastPlay
   // ·journalDay)가 들어 있다. 문 앞 카드에 필요한 요약만 주는 함수를 따로 부른다.
-  let got = isLoggedIn ? await sb.from('quest_saves').select('who, data') : { data: null, error: null };
+  let got = isLoggedIn ? await sb.from('quest_saves').select('who, data, prev, prev_day') : { data: null, error: null };
   // 로그인은 했지만 가족 프로필이 없는 계정이면 표가 비어 온다 — 그때도 카드는 보여야 한다.
   if (!got.error && !(got.data && got.data.length)) got = await sb.rpc('quest_cards');
   const rows = got.data, error = got.error;
   if (error) throw error;
   (rows || []).forEach(r => {
-    if (r.who === 'tuning') TUNE = Q.fixTune(r.data);
-    else saves[r.who] = Q.fixSave(r.data);
+    if (r.who === 'tuning') { TUNE = Q.fixTune(r.data); return; }
+    saves[r.who] = Q.fixSave(r.data);
+    // 되돌릴 자리가 있는지, 있으면 언제 것인지 — 부모 조정판이 읽는다
+    backups[r.who] = { has: !!r.prev, day: r.prev_day || null };
   });
 
   if (!key){
@@ -521,6 +545,8 @@ async function bootInner(){
   facts = fr.data || {};
   save = saves[key] || Q.newSave();
   saves[key] = save;
+  // 아직 손대기 전이다. 지금 모습을 떠 둔다 — 오늘 첫 저장 때 서버로 같이 올라간다.
+  try { dayStart = JSON.parse(JSON.stringify(save)); } catch (e) { dayStart = null; }
   refreshStats();
   if (save.hp == null || save.hp > st.maxHp) save.hp = st.maxHp;
   // 오늘 놀았다 — 자매 콤보의 근거. 다른 한 명의 줄에서 오늘 날짜가 보이면 콤보.
@@ -603,12 +629,51 @@ function renderTune(){
   };
   [w, f, g].forEach(el => el.addEventListener('input', () => { show(); prev(); }));
   show(); prev();
+  renderUndo();
   $('#tSave').addEventListener('click', async () => {
     const t = Q.fixTune({ weekHpMul: w.value, foeMul: f.value, giftGold: g.value, cheer: ch.value });
     $('#tMsg').textContent = '저장 중…';
     const { error } = await sb.from('quest_saves').upsert({ who: 'tuning', data: t }, { onConflict: 'who' });
     $('#tMsg').textContent = error ? '안 됐어요: ' + readableError(error) : '저장했어요. 아이가 다음에 열 때부터예요.';
     if (!error){ TUNE = t; sfx('pop'); }
+  });
+}
+
+// 오늘 실수로 진 날을 아침으로 돌린다. 아이 줄은 부모가 직접 못 고치게 막혀 있어서,
+// 되돌리기만 열어 둔 함수(quest_restore)를 부른다.
+function renderUndo(){
+  const box = $('#tUndo');
+  if (!box) return;
+  const kids = Object.keys(Q.HEROES).filter(k => saves[k]);
+  if (!kids.length) { box.innerHTML = ''; return; }
+
+  box.innerHTML = '<h4>↩️ 그날 아침으로 되돌리기</h4>' +
+    '<p>그날 처음 열었을 때의 모습으로 한 번 돌립니다. 그 뒤에 얻은 것도 같이 사라져요.</p>' +
+    kids.map(k => {
+      const bk = backups[k];
+      const ok = bk && bk.has;
+      return '<div class="u-row"><b>' + escapeHTML(Q.HEROES[k].name) + '</b>' +
+        '<button type="button" class="dot-btn small" data-undo="' + k + '"' +
+        (ok ? '' : ' disabled') + '>되돌리기</button>' +
+        '<span class="u-when">' + (ok
+          ? escapeHTML(bk.day || '') + ' 아침 것이 있어요'
+          : '되돌릴 것이 아직 없어요') + '</span></div>';
+    }).join('') +
+    '<span class="msg" id="uMsg"></span>';
+
+  box.querySelectorAll('[data-undo]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const k = btn.dataset.undo;
+      if (!confirm(Q.HEROES[k].name + '의 모험을 그날 아침으로 되돌릴까요? 그 뒤에 얻은 것은 사라져요.')) return;
+      btn.disabled = true;
+      const msg = $('#uMsg'); msg.textContent = '되돌리는 중…';
+      const { data, error } = await sb.rpc('quest_restore', { target: k });
+      if (error) { btn.disabled = false; msg.textContent = '안 됐어요: ' + readableError(error); return; }
+      msg.textContent = data
+        ? '되돌렸어요. 아이가 다시 열면 그날 아침 상태예요.'
+        : '되돌릴 것이 없었어요.';
+      sfx('pop');
+    });
   });
 }
 

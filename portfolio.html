@@ -68,6 +68,25 @@
   }
   .work-box .media{background:#000; border-bottom:var(--px) solid var(--ink);}
   .work-box .media img, .work-box .media video{display:block; width:100%; height:auto;}
+  /* 작품 뒷면 — 종이 뒤에 적어 둔 이야기처럼 뒤집힌다 */
+  .work-box .media.can-flip{position:relative; perspective:1200px; cursor:pointer; min-height:220px;}
+  .work-box .flipper{position:relative; transform-style:preserve-3d;
+    transition:transform .55s cubic-bezier(.2,.7,.3,1);}
+  .work-box .media.flipped .flipper{transform:rotateY(180deg);}
+  .work-box .face{backface-visibility:hidden; -webkit-backface-visibility:hidden;}
+  .work-box .face.back{position:absolute; inset:0; transform:rotateY(180deg);
+    background:#fff6e9; color:var(--ink); padding:20px 22px; overflow:auto;
+    display:flex; flex-direction:column; gap:10px;}
+  .work-box .face.back .bk-eye{font-size:11px; font-weight:900; letter-spacing:.08em;
+    color:var(--ink-soft);}
+  .work-box .face.back .bk-quote{font-size:17px; font-weight:900; line-height:1.6;}
+  .work-box .face.back .bk-note{font-size:14px; line-height:1.85; color:var(--ink-soft);
+    white-space:pre-wrap;}
+  .work-box .face.back .bk-when{font-size:12px; font-weight:800; color:var(--ink-soft);
+    margin-top:auto;}
+  .work-box .flip-btn{font-size:12px; font-weight:800; border:var(--px) solid var(--ink);
+    background:#fff; color:var(--ink); padding:3px 9px; cursor:pointer;}
+  @media (prefers-reduced-motion: reduce){ .work-box .flipper{transition:none;} }
   .work-box .body{padding:20px 22px 24px;}
   .work-box h3{margin:0 0 6px; font-size:20px; font-weight:900;}
   .work-box .meta{display:flex; align-items:center; gap:8px; flex-wrap:wrap;
@@ -148,6 +167,10 @@
   .filters .dot-btn[data-filter="youtube"].on{background:#d0342a; color:#fff;}
 
   .gal-thumb .has-voice{position:absolute; left:8px; bottom:8px; z-index:2;
+    background:var(--cream); border:2px solid var(--ink); font-size:12px;
+    padding:2px 6px; line-height:1.4;}
+  /* 비공개 작품 표시 — 부모에게만 보인다 */
+  .gal-thumb .gal-lock{position:absolute; left:8px; top:8px; z-index:2;
     background:var(--cream); border:2px solid var(--ink); font-size:12px;
     padding:2px 6px; line-height:1.4;}
 
@@ -273,6 +296,7 @@ function render(){
     card.innerHTML =
       '<div class="gal-thumb">' + media +
         (w.audio_url ? '<span class="has-voice" title="목소리가 담겨 있어요">🔊</span>' : '') +
+        (w.is_public === false ? '<span class="gal-lock" title="비공개 — 가족만 볼 수 있어요">🔒</span>' : '') +
       '</div>' +
       '<div class="gal-cap">' + escapeHTML(w.title) + '</div>' +
       story +
@@ -804,21 +828,44 @@ function renderWork(){
   const ev = w.event_id
     ? '<a class="go-event" href="/event/e/?slug=' + encodeURIComponent(w.event_id) + '">📅 이날 무슨 일이 있었는지 보기</a>'
     : '';
+  // 뒤에 적을 이야기가 있는 그림만 뒤집는다. 영상·유튜브는 누르면 재생이라 그대로 둔다.
+  const flat = w.media_type !== 'youtube' && w.media_type !== 'video';
+  const canFlip = flat && !!(w.quote || w.description || isAdmin);
+  const when = w.made_on ? formatDate(w.made_on) : '';
+  const age = ageAt(w.author, w.made_on);      // 로그인한 가족에게만 나온다
+  const back =
+    '<div class="face back">' +
+      '<div class="bk-eye">뒷면</div>' +
+      (w.quote ? '<div class="bk-quote">\u201C' + escapeHTML(w.quote) + '\u201D</div>' : '') +
+      (w.description ? '<div class="bk-note">' + escapeHTML(w.description) + '</div>' : '') +
+      (!w.quote && !w.description
+        ? '<div class="bk-note">이 그림을 그릴 때 무슨 생각이었는지 여기에 적어 두면, 뒤집었을 때 나와요.</div>'
+        : '') +
+      '<div class="bk-when">' + escapeHTML([when, age].filter(Boolean).join(' · ')) + '</div>' +
+    '</div>';
   $('#workBox').innerHTML =
-    '<div class="media">' + media + '</div>' +
+    '<div class="media' + (canFlip ? ' can-flip' : '') + '" id="wMedia">' +
+      (canFlip
+        ? '<div class="flipper"><div class="face front">' + media + '</div>' + back + '</div>'
+        : media) +
+    '</div>' +
     '<div class="body">' +
       '<h3>' + escapeHTML(w.title) + '</h3>' +
       '<div class="meta">' +
         '<span class="tag ' + escapeHTML(w.author) + '">' + escapeHTML(AUTHORS[w.author] || '같이') + '</span>' +
-        (w.made_on ? escapeHTML(formatDate(w.made_on)) : '') +
+        (when ? escapeHTML(when) : '') +
+        (age ? ' <span class="tag">' + escapeHTML(age) + '</span>' : '') +
+        (canFlip ? ' <button type="button" class="flip-btn" id="wFlip">🔄 뒷면</button>' : '') +
         // 아이가 이 작품에 붙여 둔 소리. 열 때 한 번 나고, 눌러서 다시 들을 수 있다.
         (w.sfx && WORK_SFX[w.sfx]
           ? ' <button type="button" class="work-sfx" id="wSfx" title="이 작품의 소리">🔈 ' +
             escapeHTML(WORK_SFX[w.sfx].label) + '</button>'
           : '') +
       '</div>' +
-      (w.quote ? '<p class="quote">\u201C' + escapeHTML(w.quote) + '\u201D</p>' : '') +
-      (w.description ? '<p class="note">' + escapeHTML(w.description) + '</p>' : '') +
+      // 뒤집히는 작품은 이야기를 뒷면에만 둔다 — 앞면에 또 적으면 뒤집을 까닭이 없다
+      (canFlip ? '' :
+        (w.quote ? '<p class="quote">\u201C' + escapeHTML(w.quote) + '\u201D</p>' : '') +
+        (w.description ? '<p class="note">' + escapeHTML(w.description) + '</p>' : '')) +
       ev +
       '<div id="noteBox"></div>' +
       '<div id="qrBox"></div>' +
@@ -837,6 +884,12 @@ function renderWork(){
   $('#wNext').disabled = viewIdx >= viewList.length - 1;
     const sfxBtn = $('#wSfx');
   if (sfxBtn) sfxBtn.addEventListener('click', () => sfx(w.sfx));
+  if (canFlip) {
+    const mediaBox = $('#wMedia'), flipBtn = $('#wFlip');
+    const flip = () => { mediaBox.classList.toggle('flipped'); sfx('prop'); };
+    mediaBox.addEventListener('click', flip);
+    if (flipBtn) flipBtn.addEventListener('click', (e) => { e.stopPropagation(); flip(); });
+  }
   $('#wPrev').addEventListener('click', () => { if (viewIdx > 0) { viewIdx--; renderWork(); } });
   $('#wNext').addEventListener('click', () => { if (viewIdx < viewList.length - 1) { viewIdx++; renderWork(); } });
   $('#workView').scrollTop = 0;
@@ -1295,6 +1348,7 @@ function renderAdminArea(){
 // ---------- 시작 ----------
 (async () => {
   await refreshAuth();
+  await loadKids();            // 가족일 때만 값이 담긴다 — 「그때 몇 살」에 쓴다
   await loadWorks();
   renderAdminArea();
   initReveal();

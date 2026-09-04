@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>공개 설정 · 수아랑 연아랑</title>
+<!-- 부모만 여는 쪽이다. 무엇이 공개인지가 한눈에 적혀 있으므로 검색엔진에 올리지 않는다. -->
+<meta name="robots" content="noindex, nofollow">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" rel="stylesheet"
+      integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" crossorigin="anonymous">
+<link href="/fonts/dot.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .gate{max-width:420px; margin:0 auto;}
+  .gate .why{font-size:13.5px; line-height:1.85; color:var(--ink-soft);
+    text-align:center; margin-bottom:20px;}
+
+  .set-wrap{max-width:660px; margin:0 auto;}
+  .set-card{padding:20px 22px; margin-bottom:22px;}
+  .set-card h3{margin:0 0 4px; font-size:15px; font-weight:900;}
+  .set-card .lead{margin:0 0 14px; font-size:12.5px; line-height:1.75;
+    color:var(--ink-soft);}
+
+  /* 생일 */
+  .born-row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    margin-bottom:9px;}
+  .born-row b{min-width:38px; font-size:13.5px;}
+  .born-row input{font:inherit; font-size:13px; padding:7px 9px;
+    border:2px solid var(--ink); background:var(--cream);}
+  .born-row .age{font-size:12.5px; font-weight:800; color:var(--ink-soft);}
+
+  /* 공개 여부 */
+  .sum{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;
+    justify-content:center;}
+  .sum span{font-size:12.5px; font-weight:800; padding:4px 10px;
+    border:2px solid var(--ink); background:#fff;}
+  .sum span.pub{background:var(--mint);}
+  .sum span.pri{background:var(--lemon);}
+
+  .vis-group{margin-bottom:6px;}
+  .vis-group > h4{margin:0 0 8px; font-size:13.5px; font-weight:900;
+    border-bottom:2px dashed rgba(47,42,36,.2); padding-bottom:6px;}
+  .vis-row{display:flex; gap:10px; align-items:center; padding:8px 0;
+    border-bottom:2px dashed rgba(47,42,36,.12);}
+  .vis-main{flex:1; min-width:0;}
+  .vis-main .t{font-size:13.5px; font-weight:800; display:block;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .vis-main .d{font-size:11.5px; color:var(--ink-soft);}
+  .vis-btn{flex:0 0 auto; font:inherit; font-size:12px; font-weight:800;
+    min-height:32px; padding:5px 11px; cursor:pointer;
+    border:2px solid var(--ink); color:var(--ink); background:#fff;}
+  .vis-btn.pub{background:var(--mint);}
+  .vis-btn.pri{background:var(--lemon);}
+  .vis-btn:disabled{cursor:default; opacity:1;}
+  .vis-more{margin:10px 0 0; font-size:12px; color:var(--ink-soft);}
+  .set-msg{margin:12px 0 0; font-size:12.5px; font-weight:800; min-height:1.2em;
+    color:#2a8a4a;}
+  .set-msg.err{color:#c0392b;}
+</style>
+</head>
+<body>
+
+<main class="page-top section-pad">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">SETTINGS</span>
+      <h2>공개 설정</h2>
+      <p>누가 무엇을 볼 수 있는지 한 화면에서 보고 바꿔요.</p>
+    </div>
+
+    <div id="gate" class="gate reveal"></div>
+
+    <div class="set-wrap" id="app" hidden>
+      <div class="dot-card set-card reveal">
+        <h3>🎂 아이 생일</h3>
+        <p class="lead">한 번 적어 두면 작품마다 「그때 몇 살이었는지」가 붙어요.
+          날짜보다 그게 더 와닿습니다.<br>
+          생일은 <b>가족만</b> 볼 수 있어요 — 손님 화면에서는 나이가 아예 나오지 않습니다.</p>
+        <div id="bornRows"></div>
+        <button type="button" class="dot-btn small primary" id="bornSave">저장</button>
+        <p class="set-msg" id="bornMsg"></p>
+      </div>
+
+      <div class="dot-card set-card reveal">
+        <h3>🌏 누가 볼 수 있나</h3>
+        <p class="lead">🌏 공개는 누구나, 🔒 비공개는 로그인한 가족만 볼 수 있어요.
+          누르면 바로 바뀝니다.</p>
+        <div class="sum" id="visSum"></div>
+        <div id="visList"></div>
+        <p class="set-msg" id="visMsg"></p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
+        crossorigin="anonymous"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script>
+buildChrome('settings');
+
+const KID_LIST = [{ k:'sua', n:'수아' }, { k:'yona', n:'연아' }];
+const LIMIT = 100;                    // 묶음마다 최근 100개까지만 그린다
+
+// ---------- 문 ----------
+function showGate(){
+  const gate = $('#gate');
+  gate.innerHTML = '';
+  if (isAdmin) { $('#app').hidden = false; return true; }
+  $('#app').hidden = true;
+  if (isLoggedIn) {
+    gate.innerHTML = '<p class="why">이 쪽은 부모만 열 수 있어요.</p>';
+    revealNow(gate);
+    return false;
+  }
+  gate.innerHTML = '<p class="why">무엇이 공개인지 한눈에 보이는 쪽이라<br>' +
+    '부모만 볼 수 있게 잠가 두었습니다.</p>';
+  mountLoginBox(gate, reboot);
+  revealNow(gate);
+  return false;
+}
+
+async function reboot(){
+  await refreshAuth();
+  if (showGate()) await load();
+}
+
+// ---------- 생일 ----------
+let born = {};
+
+function renderBorn(){
+  $('#bornRows').innerHTML = KID_LIST.map(x =>
+    '<div class="born-row"><b>' + x.n + '</b>' +
+    '<input type="date" id="b-' + x.k + '" value="' + escapeHTML(born[x.k] || '') + '">' +
+    '<span class="age" id="ba-' + x.k + '">' + escapeHTML(born[x.k] ? '지금 ' + ageLabel(born[x.k]) : '') + '</span>' +
+    '</div>').join('');
+  KID_LIST.forEach(x => {
+    $('#b-' + x.k).addEventListener('input', (e) => {
+      const v = e.target.value;
+      $('#ba-' + x.k).textContent = v ? '지금 ' + ageLabel(v) : '';
+    });
+  });
+}
+
+async function saveBorn(){
+  const msg = $('#bornMsg'), btn = $('#bornSave');
+  msg.className = 'set-msg'; msg.textContent = '저장 중…';
+  btn.disabled = true;
+  const rows = KID_LIST
+    .map(x => ({ author_key: x.k, born_on: $('#b-' + x.k).value || null, updated_at: new Date().toISOString() }))
+    .filter(r => r.born_on);
+  if (!rows.length) {
+    btn.disabled = false;
+    msg.className = 'set-msg err'; msg.textContent = '생일을 하나는 적어 주세요.';
+    return;
+  }
+  const { error } = await sb.from('kids').upsert(rows, { onConflict: 'author_key' });
+  btn.disabled = false;
+  if (error) { msg.className = 'set-msg err'; msg.textContent = '안 됐어요: ' + error.message; return; }
+  rows.forEach(r => { born[r.author_key] = r.born_on; });
+  msg.textContent = '저장했어요. 이제 작품에 그때 나이가 붙어요.';
+}
+
+// ---------- 공개 여부 ----------
+// 세 곳에 흩어져 있던 것을 한 줄씩 같은 모양으로 늘어놓는다.
+// 표마다 열쇠 칸 이름이 달라서(id / event_id) 무엇으로 찾을지도 같이 들고 다닌다.
+let groups = [];
+
+function isPub(v){ return v !== false; }      // 비어 있으면 공개로 친다(서버 규칙과 같음)
+
+function renderVis(){
+  let pub = 0, pri = 0;
+  groups.forEach(g => g.rows.forEach(r => { isPub(r.is_public) ? pub++ : pri++; }));
+  $('#visSum').innerHTML =
+    '<span class="pub">🌏 공개 ' + pub + '</span>' +
+    '<span class="pri">🔒 비공개 ' + pri + '</span>';
+
+  $('#visList').innerHTML = groups.map(g =>
+    '<div class="vis-group"><h4>' + escapeHTML(g.title) + ' (' + g.rows.length + ')</h4>' +
+    (g.rows.length
+      ? g.rows.map(r => {
+          const on = isPub(r.is_public);
+          return '<div class="vis-row">' +
+            '<span class="vis-main"><span class="t">' + escapeHTML(g.label(r)) + '</span>' +
+            '<span class="d">' + escapeHTML(g.sub(r)) + '</span></span>' +
+            '<button type="button" class="vis-btn ' + (on ? 'pub' : 'pri') + '"' +
+            ' data-g="' + escapeHTML(g.key) + '" data-id="' + escapeHTML(String(r[g.pk])) + '">' +
+            (on ? '🌏 공개' : '🔒 비공개') + '</button></div>';
+        }).join('')
+      : '<p class="vis-more">아직 없어요.</p>') +
+    (g.more ? '<p class="vis-more">최근 ' + LIMIT + '개만 보여요.</p>' : '') +
+    '</div>').join('');
+
+  $('#visList').querySelectorAll('.vis-btn').forEach(b => b.addEventListener('click', flip));
+}
+
+async function flip(e){
+  const btn = e.currentTarget;
+  const g = groups.find(x => x.key === btn.dataset.g);
+  if (!g) return;
+  const row = g.rows.find(r => String(r[g.pk]) === btn.dataset.id);
+  if (!row) return;
+  const next = !isPub(row.is_public);
+  btn.disabled = true;
+  const msg = $('#visMsg'); msg.className = 'set-msg'; msg.textContent = '바꾸는 중…';
+  const { error } = await sb.from(g.table).update({ is_public: next }).eq(g.pk, row[g.pk]);
+  btn.disabled = false;
+  if (error) { msg.className = 'set-msg err'; msg.textContent = '안 됐어요: ' + error.message; return; }
+  row.is_public = next;
+  msg.textContent = (next ? '공개로 바꿨어요.' : '비공개로 바꿨어요.');
+  renderVis();
+  sfx('pop');
+}
+
+async function load(){
+  // 네 곳을 한꺼번에 물어본다 — 차례로 기다리면 문 열고 네 번을 왕복한다.
+  const [k, p, ev, w] = await Promise.all([
+    sb.from('kids').select('author_key, born_on'),
+    sb.from('posts').select('id, title, author, happened_on, created_at, is_public, status')
+      .order('created_at', { ascending: false }).limit(LIMIT + 1),
+    sb.from('event_meta').select('event_id, event_name, org_name, start_date, is_public')
+      .order('start_date', { ascending: false, nullsFirst: false }).limit(LIMIT + 1),
+    sb.from('works').select('id, title, author, made_on, is_public')
+      .order('made_on', { ascending: false, nullsFirst: false }).limit(LIMIT + 1),
+  ]);
+
+  born = {};
+  (k.data || []).forEach(r => { born[r.author_key] = r.born_on; });
+  renderBorn();
+
+  const cut = list => ({ rows: (list || []).slice(0, LIMIT), more: (list || []).length > LIMIT });
+  const P = cut(p.data), E = cut(ev.data), W = cut(w.data);
+  const who = { sua:'수아', yona:'연아', together:'같이' };
+
+  groups = [
+    { key:'posts', table:'posts', pk:'id', title:'📓 일기', rows:P.rows, more:P.more,
+      label: r => r.title || '(제목 없음)',
+      sub: r => [who[r.author] || '', formatDate(r.happened_on || r.created_at),
+                 r.status === 'pending' ? '확인 기다림' : ''].filter(Boolean).join(' · ') },
+    { key:'events', table:'event_meta', pk:'event_id', title:'📅 이벤트', rows:E.rows, more:E.more,
+      label: r => r.event_name || r.event_id,
+      sub: r => [r.org_name || '', r.start_date ? formatDate(r.start_date) : ''].filter(Boolean).join(' · ') },
+    { key:'works', table:'works', pk:'id', title:'🎨 작품', rows:W.rows, more:W.more,
+      label: r => r.title || '(제목 없음)',
+      sub: r => [who[r.author] || '', r.made_on ? formatDate(r.made_on) : '',
+                 ageAt(r.author, r.made_on)].filter(Boolean).join(' · ') },
+  ];
+  kidsBorn = born;                 // 「그때 몇 살」이 이 값을 읽는다
+  renderVis();
+  initReveal();
+}
+
+$('#bornSave').addEventListener('click', saveBorn);
+
+(async () => {
+  await refreshAuth();
+  if (showGate()) await load();
+  initReveal();
+})();
+</script>
+</body>
+</html>
