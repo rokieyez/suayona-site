@@ -525,6 +525,7 @@ function drawnSomething(){ return cells.some(c => c !== EMPTY); }
 // 그림 한 장은 글자 몇백 자다. 인터넷이 없으면 이 기기에 담아 두었다가
 // 신호가 돌아올 때 올린다. 다 그려 놓고 「올리지 못했어요」로 끝나지 않게.
 const DRAW_QUEUE_KEY = 'sy.drawQueue';
+const DRAW_QUEUE_MAX = 20;
 
 function queued(){
   try { return JSON.parse(localStorage.getItem(DRAW_QUEUE_KEY) || '[]'); }
@@ -592,7 +593,14 @@ async function putDoodle(kind, relayOf){
   const { error } = await sb.from('doodles').insert(row);
   if (error) {
     if (!looksOffline(error)) { alert('올리지 못했어요: ' + error.message); return false; }
-    setQueued(queued().concat([row]));
+    // 오래 끊겨 있으면 한없이 쌓인다. localStorage 는 한도가 있어서 어느 순간
+    // 통째로 저장이 실패한다. 스무 장까지만 담고 그 뒤로는 솔직히 말한다.
+    const q = queued();
+    if (q.length >= DRAW_QUEUE_MAX) {
+      alert('담아 둘 자리가 다 찼어요(' + DRAW_QUEUE_MAX + '장). 인터넷이 돌아온 뒤에 다시 내 주세요.');
+      return false;
+    }
+    setQueued(q.concat([row]));
     markMissionDone();
     alert('인터넷이 없어서 이 그림을 기기에 담아 뒀어요. 연결되면 저절로 올라가요.');
     return false;                            // 아직 서버에 없으니 목록은 안 건드린다

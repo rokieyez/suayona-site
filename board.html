@@ -225,7 +225,8 @@ function render(){
       del.textContent = '삭제';
       del.addEventListener('click', async () => {
         if (!confirm('"' + p.title + '" 일기를 삭제할까요?')) return;
-        const files = photosOf(p).flatMap(ph => [ph.url, ph.thumb]);
+        // 목소리도 같이 치운다 — 줄만 지우면 녹음 파일이 저장소에 그대로 남는다
+        const files = photosOf(p).flatMap(ph => [ph.url, ph.thumb]).concat([p.audio_url]);
         const { error } = await sb.from('posts').delete().eq('id', p.id);
         if (error) { alert('삭제 실패: ' + error.message); return; }
         await removeStored(MEDIA_BUCKET, files);     // 줄만 지우면 사진은 저장소에 계속 남는다

@@ -658,7 +658,7 @@ function renderUndo(){
         '<button type="button" class="dot-btn small" data-undo="' + k + '"' +
         (ok ? '' : ' disabled') + '>되돌리기</button>' +
         '<span class="u-when">' + (ok
-          ? escapeHTML(bk.day || '') + ' 아침 것이 있어요'
+          ? escapeHTML(formatDate(bk.day)) + ' 아침 것이 있어요'
           : '되돌릴 것이 아직 없어요') + '</span></div>';
     }).join('') +
     '<span class="msg" id="uMsg"></span>';
