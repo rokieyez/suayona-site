@@ -94,12 +94,27 @@
      겨울에 여름 장소만 눈에 띄면 목록이 소용없다. 지금 계절과 맞는, 아직 안 간 곳만
      맨 위에 따로 모은다. 「아무때나」는 넣지 않는다 — 그것까지 넣으면 추천이 아니라
      그냥 목록이 된다. */
-  .season-tip{border:2px solid var(--ink); background:var(--lemon); padding:10px 12px;
+  .season-tip, .again-tip{border:2px solid var(--ink); background:var(--lemon); padding:10px 12px;
     margin-bottom:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
-  .season-tip[hidden]{display:none;}
-  .season-tip b{font-size:12.5px;}
-  .season-tip button{border:2px solid var(--ink); background:var(--paper); font-family:inherit;
-    font-size:11.5px; font-weight:800; padding:3px 8px; cursor:pointer; color:var(--ink);}
+  .season-tip[hidden], .again-tip[hidden]{display:none;}
+  .season-tip b, .again-tip b{font-size:12.5px;}
+  .season-tip button, .again-tip button{border:2px solid var(--ink); background:var(--paper);
+    font-family:inherit; font-size:11.5px; font-weight:800; padding:3px 8px; cursor:pointer;
+    color:var(--ink);}
+  /* 오래된 곳은 색을 달리해 계절 알림과 헷갈리지 않게 한다 */
+  .again-tip{background:var(--mint);}
+
+  /* ===== 지도 도구 ===== */
+  .map-tools{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:10px 0 12px;}
+  .map-tools .hint{font-size:11px; color:var(--ink-soft); font-weight:700;}
+  .course-box{border:2px solid var(--ink); background:var(--paper-card); padding:12px;
+    margin-bottom:14px;}
+  .course-box[hidden]{display:none;}
+  .course-box h3{margin:0 0 8px; font-size:13px;}
+  .course-box ol{margin:0; padding-left:20px;}
+  .course-box li{font-size:12.5px; line-height:1.9; font-weight:700;}
+  .course-box li .km{color:var(--ink-soft); font-weight:700; margin-left:5px; font-size:11px;}
+  .course-box .foot{margin-top:8px; font-size:11.5px; color:var(--ink-soft); font-weight:700;}
 
   /* ===== 거르개 ===== */
   .filters{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; align-items:center;}
@@ -230,6 +245,12 @@
   .best ol{margin:0; padding-left:20px;}
   .best li{font-size:13px; line-height:1.9; font-weight:700;}
   .best li .s{color:var(--accent); font-weight:800; margin-left:4px;}
+  .best .cat-tab{width:100%; border-collapse:collapse; margin-top:14px; font-size:12.5px;}
+  .best .cat-tab th, .best .cat-tab td{border:2px solid var(--ink); padding:5px 8px;
+    text-align:left; font-weight:700;}
+  .best .cat-tab th{background:var(--lemon); font-weight:800;}
+  .best .cat-tab td.n{text-align:right; font-variant-numeric:tabular-nums;}
+  .best h3{margin:16px 0 6px; font-size:13px;}
 
   /* ===== 넣기 폼 ===== */
   .add-box{border:2px solid var(--ink); background:var(--paper-card); padding:14px;
@@ -285,7 +306,16 @@
     </div>
   </div>
 
+  <div class="map-tools" id="mapTools" hidden>
+    <button class="chip" type="button" id="inViewBtn">지도에 보이는 곳만</button>
+    <button class="chip" type="button" id="courseBtn">나들이 코스 짜기</button>
+    <span class="hint" id="mapToolsHint"></span>
+  </div>
+
+  <div class="course-box" id="courseBox" hidden></div>
+
   <div class="season-tip" id="seasonTip" hidden></div>
+  <div class="again-tip" id="againTip" hidden></div>
 
   <div class="filters" id="filters"></div>
   <div class="filters" id="sorts"></div>
@@ -376,6 +406,8 @@
        한 번 눌러 두면 다시 나오지 않는다. -->
   <div class="tool-box" id="toolBox" hidden>
     <button class="act" type="button" id="reThumbBtn">사진 사본 다시 만들기</button>
+    <button class="act" type="button" id="fillPicBtn">사진 없는 곳 채우기</button>
+    <span class="hint" id="fillPicMsg">이벤트가 이어진 곳에 그 이벤트 사진을 넣습니다.</span>
     <span class="hint" id="reThumbMsg">카드에 쓰는 작은 사본을 160px 로 다시 만듭니다.
       원본과 이벤트 쪽 사진은 그대로 둡니다.</span>
   </div>

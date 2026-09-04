@@ -47,12 +47,17 @@ function photosOf(p){
       .map(x => ({ url: x.url, thumb: x.thumb || null })));
 }
 
+/* 일기 카드는 사진까지 달려 크다. 포트폴리오와 같은 방식으로, 받아 둔 것 중
+   앞에서부터 스무 개만 그리고 나머지는 「더보기」나 스크롤로 이어 붙인다. */
+const PAGE = 20;
+let shownCount = PAGE;
+
 function render(){
   const list = $('#posts');
   list.innerHTML = '';
   $('#empty').style.display = posts.length ? 'none' : 'block';
 
-  posts.forEach(p => {
+  posts.slice(0, shownCount).forEach(p => {
     const el = document.createElement('article');
     el.className = 'post dot-card reveal';
     el.id = 'post-' + p.id;      // 작품에서 "그날의 일기"로 바로 건너올 수 있도록
@@ -152,7 +157,34 @@ function render(){
     list.appendChild(el);
     revealNow(el);
   });
+
+  syncMore();
 }
+
+// ---------- 더보기 ----------
+function syncMore(){
+  const box = $('#moreBox');
+  if (!box) return;
+  const 남음 = posts.length - shownCount;
+  box.hidden = 남음 <= 0;
+  if (남음 > 0) $('#moreBtn').textContent = '더보기 (' + 남음 + '개 남음)';
+}
+
+function showMore(){
+  if (posts.length <= shownCount) return;
+  shownCount += PAGE;
+  render();
+}
+
+// 아래로 내려가면 저절로 이어 붙인다. 단추는 관찰자가 안 도는 자리를 위한 대비다.
+if ('IntersectionObserver' in window) {
+  const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) showMore(); },
+    { rootMargin: '600px 0px' });
+  const box = document.getElementById('moreBox');
+  if (box) io.observe(box);
+}
+const moreBtn = document.getElementById('moreBtn');
+if (moreBtn) moreBtn.addEventListener('click', showMore);
 
 // ---------- 목소리 일기 ----------
 // 글씨를 쓰기 싫은 날에도 하루가 남게 하려는 것이다. 올리기를 누를 때까지는
@@ -546,6 +578,11 @@ function renderAdminArea(){
 // 글은 나중에 그려지므로 브라우저가 알아서 못 찾는다 — 다 그린 뒤에 직접 옮긴다.
 function jumpToHash(){
   const id = (location.hash || '').match(/^#post-(\d+)$/);
+  // 페이지를 나눠 그리므로 찾는 글이 아직 안 그려졌을 수 있다. 그 글이 나올 때까지 늘린다.
+  if (id) {
+    const at = posts.findIndex(p => String(p.id) === id[1]);
+    if (at >= shownCount) { shownCount = at + 1; render(); }
+  }
   const el = id && document.getElementById('post-' + id[1]);
   if (!el) return;
   el.classList.add('jumped');

@@ -11,13 +11,18 @@ buildBackdrop('event');
 
 const CATS = ['전체', '먹거리', '자연', '체험', '숙소'];
 const STATES = [['전체','all'], ['가보고 싶은 곳','want'], ['가본 곳','done']];
-const SORTS = [['최근 순','recent'], ['별 높은 순','stars'], ['이름 순','name']];
+const SORTS = [['최근 순','recent'], ['별 높은 순','stars'], ['이름 순','name'],
+               ['이번 철 먼저','season']];
 const SEASONS = ['아무때나', '봄', '여름', '가을', '겨울'];
 const CAT_ICON = { 먹거리:'🍜', 자연:'🌳', 체험:'🎨', 숙소:'🏨' };
 
 let PLACES = [];
 let EVENT_LIST = [];          // 다녀옴으로 바꿀 때 고를 이벤트 목록
 let fCat = '전체', fState = 'all', fSort = 'recent';
+// 지도에 보이는 자리만 남길지. 지도를 옮기면 그때마다 다시 추린다.
+let fInView = false;
+// 또 가고 싶다고 해 놓고 오래 안 간 곳으로 치는 기준
+const AGAIN_MONTHS = 6;
 let openId = null, editId = null;
 
 // 한 번에 서른 장까지만 그린다. 스물여덟 곳인 지금은 한 화면이지만, 곳이 쌓이면
@@ -133,14 +138,92 @@ async function rebuildThumbs(){
   syncToolBox();
 }
 
+/* ---------- 사진 없는 곳 채우기 ----------
+   이벤트에서 옮겨 온 곳은 좌표와 이름만 있고 사진칸이 빈 카드가 많다. 그 이벤트가
+   가진 사진 가운데 같은 장소에서 찍은 것을 먼저 찾아 넣는다. 원본은 그대로 두고
+   카드에 쓸 작은 사본만 새로 만든다. */
+function needsPhoto(p){
+  return !p.photo_url && !p.thumb_url && !!p.event_id;
+}
+
+async function fillMissingPhotos(){
+  const btn = $('#fillPicBtn'), msg = $('#fillPicMsg');
+  const 대상 = PLACES.filter(needsPhoto);
+  if (!대상.length) { msg.textContent = '사진을 채울 곳이 없습니다.'; return; }
+  btn.disabled = true;
+  msg.textContent = '이벤트 사진을 찾는 중…';
+
+  const ids = [...new Set(대상.map(p => p.event_id))];
+  // 이벤트마다 따로 묻지 않고 한 번에 받아 온다
+  const [{ data: evRows }, { data: galRows }] = await Promise.all([
+    sb.from('events').select('event_id, place_name, image_url, thumb_url').in('event_id', ids),
+    sb.from('gallery_media').select('event_id, media_url, thumb_url, media_type, location_name')
+      .in('event_id', ids),
+  ]);
+
+  const 고르기 = (p) => {
+    const ev = (evRows || []).filter(r => r.event_id === p.event_id && r.image_url);
+    // 같은 장소에서 찍은 것이 있으면 그것부터
+    const 같은곳 = ev.find(r => r.place_name && r.place_name === p.name);
+    if (같은곳) return 같은곳.image_url;
+    const gal = (galRows || []).filter(r => r.event_id === p.event_id &&
+      (r.media_type || 'image') === 'image' && r.media_url);
+    const 갤같은곳 = gal.find(r => r.location_name && r.location_name === p.name);
+    if (갤같은곳) return 갤같은곳.media_url;
+    if (ev.length) return ev[0].image_url;
+    return gal.length ? gal[0].media_url : null;
+  };
+
+  let 됨 = 0, 안됨 = 0;
+  for (let i = 0; i < 대상.length; i++) {
+    const p = 대상[i];
+    msg.textContent = (i + 1) + '/' + 대상.length + ' — ' + p.name;
+    const src = 고르기(p);
+    if (!src) { 안됨++; continue; }
+    try {
+      const patch = { photo_url: src };
+      // 작은 사본을 만들 수 있으면 만들고, 안 되면 원본만 걸어 둔다
+      try {
+        const blob = await shrinkToBlob(await loadCrossOrigin(src));
+        if (blob) {
+          const path = 'suayona/places/thumb-' + p.id + '-' +
+            Math.random().toString(36).slice(2, 8) + '.jpg';
+          const file = new File([blob], path.split('/').pop(), { type: 'image/jpeg' });
+          const { error: upErr } = await sb.storage.from(MEDIA_BUCKET).upload(path, file);
+          if (upErr) throw upErr;
+          patch.thumb_url = sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+        }
+      } catch (e) { console.warn('작은 사본 실패:', p.name, e.message); }
+
+      const { data, error } = await sb.from('places').update(patch).eq('id', p.id).select();
+      if (error || !data || !data.length) throw (error || new Error('저장되지 않았습니다'));
+      Object.assign(p, patch);
+      됨++;
+    } catch (e) {
+      console.warn('사진 채우기 실패:', p.name, e.message);
+      안됨++;
+    }
+  }
+  btn.disabled = false;
+  msg.textContent = '채운 곳 ' + 됨 + '군데' + (안됨 ? ' · 못 찾은 곳 ' + 안됨 + '군데' : '');
+  render();
+  redrawPins();
+}
+
 function syncToolBox(){
   const box = $('#toolBox');
   if (!box) return;
   const n = PLACES.filter(needsSmallThumb).length;
-  box.hidden = !isAdmin || !n;
-  if (n) $('#reThumbBtn').textContent = '사진 사본 다시 만들기 (' + n + '곳)';
+  const m = PLACES.filter(needsPhoto).length;
+  box.hidden = !isAdmin || (!n && !m);
+  const th = $('#reThumbBtn'), fp = $('#fillPicBtn');
+  th.hidden = !n;
+  if (n) th.textContent = '사진 사본 다시 만들기 (' + n + '곳)';
+  fp.hidden = !m;
+  if (m) fp.textContent = '사진 없는 곳 채우기 (' + m + '곳)';
 }
 $('#reThumbBtn').addEventListener('click', rebuildThumbs);
+$('#fillPicBtn').addEventListener('click', fillMissingPhotos);
 
 // 사진 한 장을 올린다. 원본은 눌러서 크게 볼 때를 위해 그대로 두고, 카드에는 작은 사본만.
 async function uploadPlacePhoto(file){
@@ -208,8 +291,15 @@ async function loadEventList(){
 function shown(){
   let list = PLACES.filter(p =>
     (fCat === '전체' || p.category === fCat) &&
-    (fState === 'all' || p.status === fState));
-  if (fSort === 'stars') {
+    (fState === 'all' || p.status === fState) &&
+    (!fInView || inViewNow(p)));
+  if (fSort === 'season') {
+    // 이번 철에 맞는 곳을 위로, 그중에서도 아직 안 가 본 곳을 먼저.
+    const 철 = nowSeason();
+    const 점 = p => (p.season === 철 ? 2 : 0) + (p.status !== 'done' ? 1 : 0);
+    list = list.slice().sort((a, b) => 점(b) - 점(a) ||
+      String(a.name).localeCompare(String(b.name), 'ko'));
+  } else if (fSort === 'stars') {
     list = list.slice().sort((a, b) => (score(b) || -1) - (score(a) || -1));
   } else if (fSort === 'name') {
     list = list.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko'));
@@ -414,16 +504,82 @@ function drawSeasonTip(){
   });
 }
 
+/* ---------- 또 가고 싶다 해 놓고 오래 안 간 곳 ----------
+   다녀온 곳은 한 번 적고 나면 목록 아래로 밀려 다시 안 보게 된다.
+   「또 가고 싶다」에 표시해 둔 곳 가운데 반년이 지난 것을 위로 끌어올린다. */
+function monthsSince(d){
+  if (!d) return null;
+  const t = new Date(d + 'T00:00:00');
+  if (isNaN(t)) return null;
+  const now = new Date();
+  return (now.getFullYear() - t.getFullYear()) * 12 + (now.getMonth() - t.getMonth());
+}
+
+function drawAgainTip(){
+  const box = $('#againTip');
+  const list = PLACES
+    .filter(p => p.again && p.status === 'done')
+    .map(p => ({ p, m: monthsSince(p.visited_on) }))
+    .filter(x => x.m !== null && x.m >= AGAIN_MONTHS)
+    .sort((a, b) => b.m - a.m);
+  if (!list.length) { box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = '<b>🔁 또 가고 싶다 해 놓고 오래된 곳 ' + list.length + '군데</b>';
+  list.slice(0, 6).forEach(({ p, m }) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = iconOf(p) + ' ' + p.name + ' · ' +
+      (m >= 12 ? Math.floor(m / 12) + '년' : m + '달') + ' 전';
+    b.addEventListener('click', () => {
+      fCat = '전체'; fState = 'all'; openId = p.id; editId = null;
+      shownCount = PAGE;
+      render();
+      const card = document.querySelector('[data-card="' + p.id + '"]');
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (Number.isFinite(p.lat)) { focusPin(p); focusOnMap(p); }
+    });
+    box.appendChild(b);
+  });
+}
+
 function drawBest(){
   const done = PLACES.filter(p => p.status === 'done' && score(p));
   const top = done.slice().sort((a, b) => score(b) - score(a)).slice(0, 5);
   const box = $('#best');
   if (top.length < 2){ box.hidden = true; return; }
   box.hidden = false;
+
+  // 분류별로 몇 군데를 갔고 별이 몇 점이었는지. 「어디를 좋아했나」가 한눈에 보인다.
+  const 묶음 = {};
+  done.forEach(p => {
+    const c = p.category || '그 밖';
+    (묶음[c] = 묶음[c] || []).push(score(p));
+  });
+  const 줄 = Object.entries(묶음)
+    .map(([c, arr]) => ({
+      c, n: arr.length,
+      avg: arr.reduce((a, b) => a + b, 0) / arr.length,
+    }))
+    .sort((a, b) => b.avg - a.avg || b.n - a.n);
+
+  const 또 = PLACES.filter(p => p.again && p.status === 'done');
+
   box.innerHTML = '<h2>🏆 별이 높았던 곳</h2>' +
     '<p class="sub">별을 매긴 차례입니다 · 다녀온 곳 ' + done.length + '군데</p>' +
     '<ol>' + top.map(p => '<li>' + escapeHTML(p.name) +
-      '<span class="s">' + score(p) + '점</span></li>').join('') + '</ol>';
+      '<span class="s">' + score(p) + '점</span></li>').join('') + '</ol>' +
+    '<h3>분류별</h3>' +
+    '<table class="cat-tab"><thead><tr><th>분류</th><th>다녀온 곳</th><th>별 평균</th></tr></thead><tbody>' +
+    줄.map(r => '<tr><td>' + (CAT_ICON[r.c] || '📍') + ' ' + escapeHTML(r.c) + '</td>' +
+      '<td class="n">' + r.n + '군데</td>' +
+      '<td class="n">' + r.avg.toFixed(1) + '점</td></tr>').join('') +
+    '</tbody></table>' +
+    (또.length
+      ? '<h3>또 가고 싶은 곳 ' + 또.length + '군데</h3>' +
+        '<ol>' + 또.slice(0, 5).map(p => '<li>' + escapeHTML(p.name) +
+          (p.visited_on ? '<span class="s">' + dateText(p.visited_on) + '</span>' : '') +
+          '</li>').join('') + '</ol>'
+      : '');
 }
 
 // ---------- 지도 ----------
@@ -555,6 +711,89 @@ function mapFit(){
   }
 }
 
+/* ---------- 지도에 보이는 곳만 ----------
+   네모를 손으로 그리게 하려면 카카오 drawing 라이브러리를 더 받아야 한다. 지도를
+   옮기고 당기는 것만으로 같은 일이 되므로, 지금 보이는 자리를 그대로 범위로 쓴다. */
+function inViewNow(p){
+  if (!map) return true;
+  if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return false;
+  return map.getBounds().contain(new kakao.maps.LatLng(p.lat, p.lng));
+}
+
+function syncMapTools(){
+  const box = $('#mapTools');
+  if (!box) return;
+  box.hidden = !map;
+  const btn = $('#inViewBtn');
+  btn.classList.toggle('on', fInView);
+  $('#mapToolsHint').textContent = fInView
+    ? '지도를 옮기면 목록도 따라 바뀝니다'
+    : '';
+}
+
+/* ---------- 나들이 코스 ----------
+   지도 한가운데에서 가장 가까운 곳을 첫 자리로 잡고, 거기서 다시 가장 가까운 곳으로
+   이어 간다(최근접 이웃). 가장 짧은 길을 찾아 주는 것은 아니지만, 네댓 군데를 도는
+   하루 나들이에서는 눈으로 봐도 납득이 가는 차례가 나온다. */
+const COURSE_MAX = 5;
+let coursePath = null;
+
+function clearCourse(){
+  if (coursePath) { coursePath.setMap(null); coursePath = null; }
+  const box = $('#courseBox');
+  if (box) { box.hidden = true; box.innerHTML = ''; }
+}
+
+function buildCourse(){
+  if (!map) return;
+  clearCourse();
+  // 아직 안 가 본 곳 가운데, 지금 지도에 보이는 것만 후보로 둔다.
+  const pool = PLACES.filter(p => p.status !== 'done' &&
+    Number.isFinite(p.lat) && Number.isFinite(p.lng) && inViewNow(p));
+  const box = $('#courseBox');
+  box.hidden = false;
+  if (pool.length < 2) {
+    box.innerHTML = '<h3>🧭 나들이 코스</h3>' +
+      '<div class="foot">지도에 보이는 안 가 본 곳이 ' + pool.length +
+      '군데뿐입니다. 지도를 넓혀 보세요.</div>';
+    return;
+  }
+  const c = map.getCenter();
+  let 남은 = pool.slice();
+  let 여기 = { lat: c.getLat(), lng: c.getLng() };
+  const 길 = [];
+  while (남은.length && 길.length < COURSE_MAX) {
+    let 가까운 = 0, 최소 = Infinity;
+    남은.forEach((p, i) => {
+      const d = metersBetween(여기, p);
+      if (d < 최소) { 최소 = d; 가까운 = i; }
+    });
+    const p = 남은.splice(가까운, 1)[0];
+    길.push({ p, m: 최소 });
+    여기 = p;
+  }
+  const 총 = 길.reduce((a, x) => a + x.m, 0);
+  box.innerHTML = '<h3>🧭 나들이 코스 — ' + 길.length + '군데</h3><ol>' +
+    길.map((x, i) => '<li>' + iconOf(x.p) + ' ' + escapeHTML(x.p.name) +
+      '<span class="km">' + (i === 0 ? '지도 한가운데에서 ' : '') +
+      kmText(x.m) + '</span></li>').join('') + '</ol>' +
+    '<div class="foot">이어 간 거리 ' + kmText(총) +
+    ' · 곧은 거리로 잰 것이라 실제 길과는 다릅니다</div>';
+
+  // 지도에 선으로 잇는다
+  const pts = 길.map(x => new kakao.maps.LatLng(x.p.lat, x.p.lng));
+  coursePath = new kakao.maps.Polyline({
+    path: pts, strokeWeight: 4, strokeColor: '#c03a4b',
+    strokeOpacity: 0.9, strokeStyle: 'shortdash',
+  });
+  coursePath.setMap(map);
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function kmText(m){
+  return m >= 1000 ? (m / 1000).toFixed(1) + 'km' : Math.round(m) + 'm';
+}
+
 async function drawMap(){
   if (mapDrawn) return;
   const spots = withCoords();
@@ -584,12 +823,24 @@ async function drawMap(){
   kakao.maps.event.addListener(map, 'click', summary);
   zbox.hidden = false; sync();
   summary();
+
+  // 지도를 옮기면, 「보이는 곳만」이 켜져 있을 때 목록도 따라 바뀐다
+  kakao.maps.event.addListener(map, 'idle', () => { if (fInView) render(); });
+  syncMapTools();
 }
+
+$('#inViewBtn').addEventListener('click', () => {
+  fInView = !fInView;
+  shownCount = PAGE;
+  syncMapTools();
+  render();
+});
+$('#courseBtn').addEventListener('click', buildCourse);
 
 // 핀은 여기서 다시 그리지 않는다. 카드를 펴고 접을 때마다 오버레이를 통째로 새로
 // 만들던 것을 재 보니 한 번 누를 때 다섯 개(펼쳐 놓으면 스물일곱 개)를 버리고 다시
 // 만들고 있었다. 핀이 달라지는 때 — 별점을 매길 때와 지울 때 — 만 redrawPins() 를 부른다.
-function render(){ drawSeasonTip(); drawFilters(); drawCards(); drawBest(); }
+function render(){ drawSeasonTip(); drawAgainTip(); drawFilters(); drawCards(); drawBest(); }
 
 $('#moreBtn').addEventListener('click', () => {
   shownCount += PAGE;
