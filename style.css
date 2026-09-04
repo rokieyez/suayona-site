@@ -270,8 +270,8 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
 .modal-actions .dot-btn{flex:1;}
 .tag{
   display:inline-block; font-size:10.5px; padding:3px 8px; margin-right:4px;
-  border:2px solid var(--ink); background:var(--lemon);
-}
+  border:2px solid var(--ink); background:var(--lemon); color:var(--ink);
+}   /* 글씨색을 안 정해 두면 부모의 흐린 글씨색을 물려받아 레몬 위에서 4.2:1 이 된다 */
 .tag.sua{background:var(--coral); color:var(--ink);}
 .tag.yona{background:var(--mint); color:var(--ink);}
 .tag.private{background:var(--ink); color:#fff;}
