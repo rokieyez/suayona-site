@@ -105,15 +105,13 @@
   .review{border-left:var(--px) solid var(--mint); padding:2px 0 2px 10px; margin:0 0 12px;
     font-size:13px; font-weight:700; line-height:1.6;}
 
-  /* 사람마다 별을 매긴다. 눌러서 바꾼다 */
+  /* 별은 눌러서 매긴다. 같은 별을 다시 누르면 지워진다 */
   .rate-list{border:2px solid var(--ink); background:var(--paper); margin:0 0 12px;}
-  .rate-row{display:flex; align-items:center; gap:8px; padding:7px 10px;
-    border-bottom:2px solid rgba(47,42,36,.14);}
-  .rate-row:last-child{border-bottom:none;}
-  .rate-who{font-size:12px; font-weight:800; width:56px; flex:0 0 56px;}
+  .rate-row{display:flex; align-items:center; gap:8px; padding:8px 10px;}
+  .rate-who{font-size:12px; font-weight:800; flex:0 0 auto;}
   .rate-stars{display:flex; gap:2px;}
   .rate-stars button{border:none; background:none; padding:0 1px; cursor:pointer;
-    font-size:17px; line-height:1; color:#d8cfc2; font-family:inherit;}
+    font-size:19px; line-height:1; color:#d8cfc2; font-family:inherit;}
   .rate-stars button.on{color:var(--accent);}
   .rate-note{font-size:11px; color:var(--ink-soft); font-weight:700; margin-left:auto;}
 
@@ -215,10 +213,6 @@
         <label for="season">언제쯤</label>
         <select id="season"><option>아무때나</option><option>봄</option><option>여름</option><option>가을</option><option>겨울</option></select>
       </div>
-      <div>
-        <label for="who">누구랑</label>
-        <select id="who"><option>온 가족</option><option>수아</option><option>연아</option></select>
-      </div>
     </div>
 
     <label for="memo">메모</label>
@@ -243,24 +237,22 @@
      지금은 다녀온 곳만 이벤트에 쌓이고, 가고 싶은 곳은 어디에도 남지 않습니다.
      그 앞자리와 뒷자리를 같은 표에 두는 것이 이 기능입니다.</p>
 
-  <h3>별은 사람마다 따로 매깁니다</h3>
-  <p>가족이 한 점수로 뭉뚱그려지면 재미가 없습니다. 수아·연아·엄마아빠가 각자 별을 주고,
-     카드에는 평균과 사람 수가 함께 나옵니다. 아이들이 커 가면서 같은 곳에 다른 점수를
-     주는 것 자체가 기록이 됩니다. 별은 다녀온 곳에만 뜹니다 —
-     가기 전에는 「얼마나 가고 싶은지」를 작은 회색 별로 따로 씁니다.</p>
+  <h3>별은 하나만 씁니다</h3>
+  <p>이 쪽은 혼자 관리하는 자리입니다. 별은 다섯 점 하나로 매기고, 다녀온 곳에만 뜹니다.
+     가기 전에는 「얼마나 가고 싶은지」를 작은 회색 별로 따로 씁니다 — 기대와 평가는
+     다른 것이라, 다녀온 뒤에 둘을 견주어 보는 재미가 있습니다.</p>
 
   <h3>화면은 넷이면 충분합니다</h3>
   <table>
     <tr><th>화면</th><th>하는 일</th></tr>
     <tr><td>지도 띠</td><td>안 간 곳은 점선 핀에 번호, 다녀온 곳은 채운 핀에 별점. 지도만 봐도 갈린다</td></tr>
     <tr><td>카드 목록</td><td>누르면 펼쳐져 메모·링크·별점이 보인다. 별은 그 자리에서 바로 누른다</td></tr>
-    <tr><td>한 해 돌아보기</td><td>별점이 높은 차례로 다섯 곳. 연말에 그대로 이야깃거리가 된다</td></tr>
+    <tr><td>돌아보기</td><td>별이 높은 차례로 다섯 곳. 어디가 좋았는지 한눈에 남는다</td></tr>
     <tr><td>넣기 폼</td><td>장소를 찾아 고르면 좌표·주소가 자동으로 채워진다. 관리자로 들어왔을 때만 보인다</td></tr>
   </table>
 
-  <h3>표는 둘입니다</h3>
-  <pre>-- 곳 자체
-create table places (
+  <h3>표 하나면 됩니다</h3>
+  <pre>create table places (
   id          bigserial primary key,
   name        text not null,
   category    text,                   -- 놀이 / 먹거리 / 자연 / 체험 / 숙소
@@ -271,37 +263,20 @@ create table places (
   links       text[],
   photo_url   text, thumb_url text,
   season      text,                   -- 봄 / 여름 / 가을 / 겨울 / 아무때나
-  who         text,                   -- family / sua / yona
   hope        int  default 0,         -- 가기 전 기대 (0~3)
   status      text default 'want',    -- want / planned / done
   visited_on  date,                   -- 다녀온 날
   event_id    text,                   -- 그때 만든 이벤트 slug
+  stars       int check (stars between 1 and 5),   -- 다녀온 뒤 별
   review      text,                   -- 다녀온 뒤 한마디
   again       boolean,                -- 또 갈까
   created_at  timestamptz default now()
 );
 
--- 사람마다의 별 (한 곳에 한 사람 한 줄)
-create table place_ratings (
-  place_id  bigint references places(id) on delete cascade,
-  who       text not null,            -- sua / yona / parents
-  stars     int  not null check (stars between 1 and 5),
-  rated_at  timestamptz default now(),
-  primary key (place_id, who)
-);
-
--- 평균은 물어볼 때 계산한다. 열로 들고 있으면 별을 고칠 때마다 어긋난다.
-create view place_scores as
-  select place_id, round(avg(stars)::numeric, 1) as avg_stars, count(*) as cnt
-  from place_ratings group by place_id;
-
+-- 손님은 보기만, 쓰기는 관리자만 (다른 표와 같은 규칙)
 alter table places enable row level security;
-alter table place_ratings enable row level security;
-create policy "누구나 읽기"  on places        for select using (true);
-create policy "누구나 읽기"  on place_ratings for select using (true);
-create policy "관리자만 쓰기" on places        for all
-  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "관리자만 쓰기" on place_ratings for all
+create policy "누구나 읽기"  on places for select using (true);
+create policy "관리자만 쓰기" on places for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');</pre>
 
   <h3>이어지는 자리</h3>
@@ -316,10 +291,10 @@ create policy "관리자만 쓰기" on place_ratings for all
 
   <h3>일부러 안 넣은 것</h3>
   <ul>
-    <li><b>별을 손님도 매기기</b> — 가족의 기록이라 관리자만 매깁니다. 손님이 매기면 뜻이 흐려집니다.</li>
+    <li><b>여러 사람이 매기는 별</b> — 혼자 관리하는 쪽이라 별은 하나면 됩니다. 사람을 나누면
+        표가 하나 더 늘고 화면도 복잡해지는데, 얻는 것이 없습니다.</li>
     <li><b>링크 미리보기 자동 만들기</b> — 서버가 없어 남의 쪽 제목·사진을 대신 받아올 자리가 없습니다.
         엣지 함수를 하나 두면 되지만, 그만한 값어치인지 먼저 써 보고 정하는 편이 낫습니다.</li>
-    <li><b>평균을 열로 들고 있기</b> — 별을 고칠 때마다 어긋납니다. 보기(view)로 그때그때 셉니다.</li>
     <li><b>지도에서 바로 찍어 넣기</b> — 손전화에서 정확한 자리를 짚기 어렵습니다. 이름으로 찾는 쪽이 빠릅니다.</li>
   </ul>
 </section>
@@ -331,50 +306,48 @@ create policy "관리자만 쓰기" on place_ratings for all
 <script src="/common.js"></script>
 <script>
 /* 가볼 곳·가본 곳 시안 — 더미 값으로만 돕니다. 데이터베이스를 건드리지 않습니다.
-   실제로 만들 때는 이 배열 자리에 places + place_scores 조회가 들어갑니다. */
-const RATERS = [['sua','수아'], ['yona','연아'], ['parents','엄마아빠']];
-
+   실제로 만들 때는 이 배열 자리에 places 조회가 들어갑니다. */
 const PLACES = [
   { id:1, name:'국립과천과학관', cat:'체험', lat:37.4342, lng:126.9962, hope:3, state:'want',
-    season:'아무때나', who:'온 가족', icon:'🔭',
+    season:'아무때나', icon:'🔭',
     memo:'천체관측실이 주말 저녁에만 열린다.\n연아가 요즘 별자리에 빠져 있어서 딱 좋을 듯.',
-    links:['공식 홈페이지', '관측실 예약 안내'], stars:{} },
+    links:['공식 홈페이지', '관측실 예약 안내'], stars:0 },
   { id:2, name:'서울숲', cat:'자연', lat:37.5444, lng:127.0374, hope:2, state:'planned',
-    season:'봄', who:'온 가족', icon:'🌳',
+    season:'봄', icon:'🌳',
     memo:'꽃 필 때 돗자리 펴고 반나절. 사슴 있는 쪽은 아침이 한산하다.',
-    links:['가는 길'], stars:{} },
+    links:['가는 길'], stars:0 },
   { id:3, name:'강릉 안목해변', cat:'먹거리', lat:37.7735, lng:128.9476, hope:2, state:'want',
-    season:'여름', who:'온 가족', icon:'🌊',
+    season:'여름', icon:'🌊',
     memo:'커피거리 끝쪽 가게가 조용하다. 수아가 모래 만지는 걸 좋아해서 반나절은 그냥 간다.',
-    links:[], stars:{} },
+    links:[], stars:0 },
   { id:4, name:'에버랜드', cat:'놀이', lat:37.2941, lng:127.2022, hope:3, state:'want',
-    season:'가을', who:'온 가족', icon:'🎡',
+    season:'가을', icon:'🎡',
     memo:'키 제한 있는 것이 많아 수아가 탈 수 있는 것부터 확인해야 한다.\n연간권이 두 번이면 본전.',
-    links:['키 제한 표'], stars:{} },
+    links:['키 제한 표'], stars:0 },
   { id:5, name:'전주 한옥마을', cat:'체험', lat:35.8150, lng:127.1530, hope:1, state:'want',
-    season:'가을', who:'연아', icon:'🏯',
-    memo:'한복 빌려 입고 한 바퀴. 평일 오전이 사람이 적다.', links:[], stars:{} },
+    season:'가을', icon:'🏯',
+    memo:'한복 빌려 입고 한 바퀴. 평일 오전이 사람이 적다.', links:[], stars:0 },
 
   { id:6, name:'흰여울문화마을', cat:'체험', lat:35.0784, lng:129.0186, hope:2, state:'done',
-    season:'여름', who:'온 가족', icon:'🏘️', event:'2026-08-busan', visited:'2026. 8. 6.',
+    season:'여름', icon:'🏘️', event:'2026-08-busan', visited:'2026. 8. 6.',
     memo:'계단이 가팔라 유모차는 두고 가는 편이 낫다.',
     review:'바다가 골목마다 보인다. 사진이 어디서 찍어도 예쁘게 나왔다.',
-    again:true, links:[], stars:{ sua:5, yona:4, parents:5 } },
+    again:true, links:[], stars:5 },
   { id:7, name:'감천문화마을', cat:'체험', lat:35.0975, lng:129.0107, hope:2, state:'done',
-    season:'여름', who:'온 가족', icon:'🎨', event:'2026-08-busan', visited:'2026. 8. 5.',
+    season:'여름', icon:'🎨', event:'2026-08-busan', visited:'2026. 8. 5.',
     memo:'오르막이 길다. 위쪽까지 마을버스로 올라가 걸어 내려오는 쪽이 편하다.',
     review:'색깔이 정말 많았다. 다만 한여름 한낮은 너무 더웠다.',
-    again:false, links:[], stars:{ sua:4, yona:3, parents:3 } },
+    again:false, links:[], stars:3 },
   { id:8, name:'제주 함덕해수욕장', cat:'자연', lat:33.5434, lng:126.6697, hope:3, state:'done',
-    season:'겨울', who:'온 가족', icon:'🏖️', event:'2025-01-07', visited:'2025. 1. 9.',
+    season:'겨울', icon:'🏖️', event:'2025-01-07', visited:'2025. 1. 9.',
     memo:'겨울인데도 물빛이 좋았다. 바람이 세서 겉옷은 두껍게.',
     review:'수아가 처음으로 바다에 발을 담근 곳. 한참을 안 나오려 했다.',
-    again:true, links:[], stars:{ sua:5, yona:5, parents:5 } },
+    again:true, links:[], stars:5 },
   { id:9, name:'홍천 은행나무숲', cat:'자연', lat:37.7684, lng:127.9124, hope:2, state:'done',
-    season:'가을', who:'온 가족', icon:'🍂', event:'2024-10-hongchun', visited:'2024. 10. 4.',
+    season:'가을', icon:'🍂', event:'2024-10-hongchun', visited:'2024. 10. 4.',
     memo:'해마다 시월 한 달만 연다. 길이 좁아 이른 아침이 낫다.',
     review:'노란 잎이 바닥까지 덮여 있었다. 사람이 많았지만 그만한 값은 했다.',
-    again:true, links:[], stars:{ sua:4, yona:5, parents:4 } },
+    again:true, links:[], stars:4 },
 ];
 
 const CATS = ['전체', '놀이', '먹거리', '자연', '체험', '숙소'];
@@ -383,11 +356,8 @@ const SORTS = [['최근 순','recent'], ['별 높은 순','stars'], ['이름 순
 let fCat = '전체', fState = 'all', fSort = 'recent', openId = null;
 let map = null; const pinEls = {};
 
-function avg(p){
-  const v = Object.values(p.stars || {});
-  if (!v.length) return null;
-  return { avg: v.reduce((a,b) => a+b, 0) / v.length, cnt: v.length };
-}
+// 별은 하나뿐이라 평균을 낼 것이 없다. 0 이면 「아직 안 매김」이다.
+function score(p){ return p.stars > 0 ? p.stars : null; }
 function starText(n, max){
   const full = Math.round(n);
   return '★'.repeat(full) + '☆'.repeat(max - full);
@@ -397,7 +367,7 @@ function stateLabel(s){ return s === 'want' ? '가보고 싶은 곳' : s === 'pl
 function shown(){
   let list = PLACES.filter(p => (fCat === '전체' || p.cat === fCat) && (fState === 'all' || p.state === fState));
   if (fSort === 'stars') {
-    list = list.slice().sort((a,b) => ((avg(b) || {avg:-1}).avg) - ((avg(a) || {avg:-1}).avg));
+    list = list.slice().sort((a,b) => (score(b) || -1) - (score(a) || -1));
   } else if (fSort === 'name') {
     list = list.slice().sort((a,b) => a.name.localeCompare(b.name, 'ko'));
   } else {
@@ -438,14 +408,14 @@ function drawFilters(){
 }
 
 function rateRows(p){
-  return '<div class="rate-list">' + RATERS.map(([key, label]) => {
-    const cur = (p.stars || {})[key] || 0;
-    const stars = [1,2,3,4,5].map(n =>
-      '<button type="button" class="' + (n <= cur ? 'on' : '') + '" data-rate="' + p.id + ':' + key + ':' + n + '" aria-label="' + label + ' 별 ' + n + '점">★</button>').join('');
-    return '<div class="rate-row"><span class="rate-who">' + label + '</span>' +
-      '<span class="rate-stars">' + stars + '</span>' +
-      '<span class="rate-note">' + (cur ? cur + '점' : '아직') + '</span></div>';
-  }).join('') + '</div>';
+  const cur = p.stars || 0;
+  const stars = [1,2,3,4,5].map(n =>
+    '<button type="button" class="' + (n <= cur ? 'on' : '') + '" data-rate="' + p.id + ':' + n +
+    '" aria-label="별 ' + n + '점">★</button>').join('');
+  return '<div class="rate-list"><div class="rate-row">' +
+    '<span class="rate-who">별점</span>' +
+    '<span class="rate-stars">' + stars + '</span>' +
+    '<span class="rate-note">' + (cur ? cur + '점' : '아직 안 매김') + '</span></div></div>';
 }
 
 function drawCards(){
@@ -457,7 +427,7 @@ function drawCards(){
     return;
   }
   list.forEach(p => {
-    const sc = avg(p);
+    const sc = score(p);
     const card = document.createElement('div');
     card.className = 'wcard' + (p.state === 'done' ? ' done' : '') + (p.id === openId ? ' open' : '');
     const links = (p.links || []).map(t => '<a href="#" onclick="return false;">🔗 ' + escapeHTML(t) + '</a>').join('');
@@ -473,12 +443,11 @@ function drawCards(){
             (p.again === true ? '<span class="again">또 가고 싶다</span>' : '') +
           '</div>' +
           (sc
-            ? '<div class="score"><span class="stars">' + starText(sc.avg, 5) + '</span>' +
-              '<span class="num">' + sc.avg.toFixed(1) + '</span>' +
-              '<span class="cnt">· ' + sc.cnt + '명</span></div>'
+            ? '<div class="score"><span class="stars">' + starText(sc, 5) + '</span>' +
+              '<span class="num">' + sc + '점</span></div>'
             : '') +
           '<div class="wcard-meta" style="margin-top:4px;">' +
-            (p.visited ? p.visited + ' 다녀옴' : p.season + ' · ' + p.who) + '</div>' +
+            (p.visited ? p.visited + ' 다녀옴' : p.season) + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="wcard-more">' +
@@ -504,12 +473,10 @@ function drawCards(){
     card.querySelectorAll('[data-rate]').forEach(b => {
       b.addEventListener('click', (e) => {
         e.stopPropagation();
-        const [id, key, n] = b.dataset.rate.split(':');
+        const [id, n] = b.dataset.rate.split(':');
         const target = PLACES.find(x => String(x.id) === id);
-        target.stars = target.stars || {};
         // 같은 별을 다시 누르면 지운다 — 잘못 누른 것을 되돌릴 길이 있어야 한다
-        target.stars[key] = (target.stars[key] === +n) ? 0 : +n;
-        if (!target.stars[key]) delete target.stars[key];
+        target.stars = (target.stars === +n) ? 0 : +n;
         render();
       });
     });
@@ -518,31 +485,31 @@ function drawCards(){
 }
 
 function drawBest(){
-  const done = PLACES.filter(p => p.state === 'done' && avg(p));
-  const top = done.slice().sort((a,b) => avg(b).avg - avg(a).avg).slice(0, 5);
+  const done = PLACES.filter(p => p.state === 'done' && score(p));
+  const top = done.slice().sort((a,b) => score(b) - score(a)).slice(0, 5);
   const box = $('#best');
   if (!top.length){ box.innerHTML = ''; return; }
   box.innerHTML = '<h2>🏆 별이 높았던 곳</h2>' +
-    '<p class="sub">가족이 매긴 별의 평균 차례입니다 · 다녀온 곳 ' + done.length + '군데</p>' +
+    '<p class="sub">별을 매긴 차례입니다 · 다녀온 곳 ' + done.length + '군데</p>' +
     '<ol>' + top.map(p => '<li>' + escapeHTML(p.name) +
-      '<span class="s">' + avg(p).avg.toFixed(1) + '</span></li>').join('') + '</ol>';
+      '<span class="s">' + score(p) + '점</span></li>').join('') + '</ol>';
 }
 
 function focusPin(p){
   if (!map || !p.lat) return;
   Object.values(pinEls).forEach(el => el.classList.remove('on'));
   if (pinEls[p.id]) pinEls[p.id].classList.add('on');
-  const sc = avg(p);
+  const sc = score(p);
   $('#stripText').innerHTML = escapeHTML(p.name) +
     '<span class="sub">' + p.cat + ' · ' + stateLabel(p.state) +
-    (sc ? ' · 별 ' + sc.avg.toFixed(1) : ' · ' + p.season) + '</span>';
+    (sc ? ' · 별 ' + sc + '점' : ' · ' + p.season) + '</span>';
 }
 
 function summary(){
   const want = PLACES.filter(p => p.state !== 'done').length;
   const done = PLACES.filter(p => p.state === 'done');
-  const scored = done.map(avg).filter(Boolean);
-  const 전체평균 = scored.length ? (scored.reduce((a,b) => a + b.avg, 0) / scored.length).toFixed(1) : '-';
+  const scored = done.map(score).filter(Boolean);
+  const 전체평균 = scored.length ? (scored.reduce((a,b) => a + b, 0) / scored.length).toFixed(1) : '-';
   $('#stripText').innerHTML = '📌 우리 가족 지도<span class="sub">가고 싶은 곳 ' + want +
     '군데 · 가본 곳 ' + done.length + '군데 · 별 평균 ' + 전체평균 + ' · 핀을 눌러보세요</span>';
   Object.values(pinEls).forEach(el => el.classList.remove('on'));
@@ -552,9 +519,9 @@ function paintPins(){
   PLACES.forEach((p, i) => {
     const el = pinEls[p.id];
     if (!el) return;
-    const sc = avg(p);
+    const sc = score(p);
     el.className = 'wish-pin' + (p.state === 'done' ? ' done' : '');
-    el.textContent = p.state === 'done' ? (sc ? '★' + sc.avg.toFixed(1) : '✓') : String(i + 1);
+    el.textContent = p.state === 'done' ? (sc ? '★' + sc : '✓') : String(i + 1);
   });
 }
 
@@ -627,9 +594,9 @@ $('#addBtn').addEventListener('click', () => {
   if (!picked) { alert('먼저 장소를 찾아 고르세요.'); return; }
   PLACES.unshift({
     id: Date.now(), name: picked.name, cat: $('#cat').value, lat: picked.lat, lng: picked.lng,
-    hope: 2, state: 'want', season: $('#season').value, who: $('#who').value, icon: '📍',
+    hope: 2, state: 'want', season: $('#season').value, icon: '📍',
     memo: $('#memo').value || '(메모 없음)',
-    links: $('#link').value.trim() ? [$('#link').value.trim()] : [], stars: {},
+    links: $('#link').value.trim() ? [$('#link').value.trim()] : [], stars: 0,
   });
   picked = null; $('#q').value = ''; $('#memo').value = ''; $('#link').value = '';
   render();
