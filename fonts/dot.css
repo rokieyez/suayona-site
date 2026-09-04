@@ -34,3 +34,33 @@
   font-display: swap;
   src: url('/fonts/Galmuri11-Bold.subset.woff2') format('woff2');
 }
+
+/*
+ * 이 사이트의 본문 글씨.
+ *
+ * Pretendard (Kil Hyung-jin, https://github.com/orioncactus/pretendard) 의 가변체를
+ * 이 사이트가 쓰는 글자만 남기고 자른 것이다. SIL Open Font License 1.1 로 배포되며,
+ * 원문은 옆의 OFL-Pretendard.txt 에 있다.
+ *
+ * 이름을 「Suayona Sans」 로 바꾼 이유:
+ * Pretendard 의 OFL 은 "Pretendard" 를 예약 이름(Reserved Font Name)으로 걸어 두었다.
+ * 자르는 것도 고치는 것이라, 원래 이름을 그대로 쓸 수 없다. 갈무리 때와 같은 이유다.
+ *
+ * 왜 잘랐나:
+ * CDN 의 「동적 서브셋」은 유니코드 구간마다 조각을 나눠 두고 화면에 나온 글자가 든
+ * 조각만 받는다. 첫 화면 한 장에 조각 열여섯 개가 붙어 330KB 였다. 우리가 쓰는 글자는
+ * 정해져 있어서 한 벌(158KB)로 자르면 왕복도 한 번이다.
+ *
+ * 여기 없는 글자는 style.css 의 다음 순서인 'Pretendard Variable'(CDN 조각)로 간다.
+ * 같은 글꼴이라 섞여도 티가 나지 않는다 — 갈무리를 자를 때와 다른 점이 이것이라,
+ * 상용 2350자를 다 넣지 않고 실제로 쓰는 1447자만 넣었다.
+ *
+ * 다시 만들려면 옆의 build-pretendard-subset.py 를 볼 것.
+ */
+@font-face {
+  font-family: 'Suayona Sans';
+  font-style: normal;
+  font-weight: 400 930;
+  font-display: swap;
+  src: url('/fonts/PretendardVariable.subset.woff2') format('woff2-variations');
+}

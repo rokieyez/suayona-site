@@ -35,7 +35,9 @@
   .who-pick .dot-btn{background:var(--cream);}
   .who-pick .dot-btn.on{background:var(--coral); color:var(--ink);}
 
-  .print-btn{display:block; margin:0 auto 30px;}
+  .print-btn{margin:0;}
+  .year-tools{display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; margin-bottom:30px;}
+  .year-tools .msg{margin:0; min-width:0;}
 
   /* 한 해 요약 숫자 */
   .sum{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin-bottom:34px;}
@@ -101,7 +103,7 @@
     @page{margin:14mm;}
     /* 종이에는 아래의 print-title(「2026년 · 전체」)이 제목 노릇을 한다 —
        화면용 제목 묶음(.section-head)은 통째로 뺀다. 안 그러면 큰 제목이 둘이 된다. */
-    header.site, footer.site, .bg-deck, .print-btn,
+    header.site, footer.site, .bg-deck, .year-tools,
     .year-pick, .who-pick, .section-head, .scroll-cue{display:none !important;}
     body{background:#fff !important; color:#000;}
     body.has-backdrop{min-height:0; display:block;}
@@ -139,7 +141,11 @@
       <button class="dot-btn small" data-who="together">같이</button>
     </div>
 
-    <button class="dot-btn primary print-btn" id="printBtn">🖨 이대로 인쇄하기</button>
+    <div class="year-tools">
+      <button class="dot-btn primary print-btn" id="printBtn">🖨 이대로 인쇄하기</button>
+      <button class="dot-btn small" id="shareBtn">🔗 이 화면 링크</button>
+      <span class="msg" id="shareMsg"></span>
+    </div>
 
     <!-- 종이에만 나오는 표지 줄 -->
     <div class="print-title" id="printTitle"></div>
@@ -228,7 +234,33 @@ function syncQuery(){
   u.searchParams.set('year', year);
   u.searchParams.set('who', who);
   history.replaceState(null, '', u);
+  // 탭 이름도 지금 보는 것으로 — 링크를 여러 개 열어 두면 이게 유일한 표지다
+  document.title = year + '년 · ' + (AUTHORS[who] || '전체') + ' · 한 해 모아보기';
 }
+
+// 지금 보고 있는 그대로의 주소. 해와 사람이 붙어 있으니 받은 쪽도 같은 화면을 연다.
+// 인쇄용 주소는 늘 진짜 도메인을 가리켜야 한다 — 미리보기에서 눌러도 마찬가지.
+function shareUrl(){
+  const u = new URL('https://www.suayona.com/year.html');
+  u.searchParams.set('year', year);
+  u.searchParams.set('who', who);
+  return u.toString();
+}
+$('#shareBtn').addEventListener('click', async () => {
+  const url = shareUrl();
+  const msg = $('#shareMsg');
+  const 제목 = year + '년 · ' + (AUTHORS[who] || '전체') + ' — 수아랑 연아랑';
+  // 손전화에서는 공유판을 띄우고, 안 되면 클립보드로, 그것도 막히면 주소를 보여 준다.
+  try {
+    if (navigator.share) { await navigator.share({ title: 제목, url }); return; }
+    await navigator.clipboard.writeText(url);
+    msg.className = 'msg ok'; msg.textContent = '링크를 복사했어요';
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;      // 공유판을 그냥 닫은 것
+    msg.className = 'msg'; msg.textContent = url;
+  }
+  setTimeout(() => { msg.textContent = ''; }, 4000);
+});
 
 function pick(){
   const okWho = a => who === 'all' || a === who;
@@ -261,7 +293,7 @@ function render(){
   html += works.length ? '<div class="yr-works">' + works.map(w =>
     '<div class="yr-work">' +
       (w.media_type === 'youtube'
-        ? youtubeThumbHTML(youtubeId(w.media_url), w.title) + '<span class="yr-play"></span>'
+        ? youtubeThumbHTML(youtubeId(w.media_url), w.title, '', '(max-width:560px) 46vw, 200px') + '<span class="yr-play"></span>'
         : w.media_type === 'video'
         ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
         : '<img src="' + escapeHTML(w.thumb_url || w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">') +

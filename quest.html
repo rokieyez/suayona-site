@@ -2020,7 +2020,7 @@ function draw(){
   if (fairyAt && t - fairyAt < 1600){
     const fy = 60 - Math.sin((t - fairyAt) / 300) * 6;
     drawSprite(ctx, SPRITES.butterfly, hx + 30, fy, 3);
-    ctx.font = '700 9px "Galmuri11", "Pretendard Variable", sans-serif'; ctx.textAlign = 'left';
+    ctx.font = '700 9px "Galmuri11", "Suayona Sans", "Pretendard Variable", sans-serif'; ctx.textAlign = 'left';
     ctx.fillStyle = A.dark ? '#fff' : '#2f2a24';
     ctx.fillText('💌 ' + TUNE.cheer.slice(0, 18), hx + 54, fy + 12);
   }
@@ -2053,7 +2053,7 @@ function draw(){
   fx.forEach(f => {
     const d = t - f.t0; if (d > 900) return; keep.push(f);
     ctx.globalAlpha = 1 - d / 900;
-    ctx.font = '700 12px "Galmuri11", "Pretendard Variable", sans-serif';
+    ctx.font = '700 12px "Galmuri11", "Suayona Sans", "Pretendard Variable", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#2f2a24'; ctx.fillText(f.txt, f.x + 1, f.y - d / 22 + 1);
     ctx.fillStyle = f.color; ctx.fillText(f.txt, f.x, f.y - d / 22);
@@ -2074,7 +2074,7 @@ function draw(){
     ctx.fillStyle = '#ff7f8a'; ctx.fillRect(zx + zw / 4, by, zw / 2, bh);
     const pos = timing.done ? timing.pos : markerPos(t);
     px(bx + pos / 100 * bw - 2, by - 4, 4, bh + 8, '#2f2a24');
-    ctx.font = '700 10px "Galmuri11", "Pretendard Variable", sans-serif'; ctx.textAlign = 'center';
+    ctx.font = '700 10px "Galmuri11", "Suayona Sans", "Pretendard Variable", sans-serif'; ctx.textAlign = 'center';
     ctx.fillStyle = A.dark ? '#fff' : '#2f2a24';
     ctx.fillText(timing.done ? SAY[timing.result] : '칸 안에서 톡!', W / 2, by + bh + 14);
   }

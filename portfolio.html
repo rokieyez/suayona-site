@@ -118,13 +118,49 @@
   .qr-label .m{font-size:8.5pt; color:#555; margin-top:1.5mm;}
   .qr-label .s{font-size:7.5pt; color:#888; margin-top:2.5mm; letter-spacing:.04em;}
 
+  /* 작품집 — 한 해치를 묶어 종이 책으로 뽑는다. 한 장에 두 작품씩, 그림 아래에
+     제목·날짜·아이가 한 말·QR. 몇 해 뒤 서랍에서 꺼냈을 때 QR 로 원래 화면이 열린다. */
+  #bookSheet{display:none;}
+  .bk-cover{text-align:center; padding:40mm 10mm 0; break-after:page;}
+  .bk-cover h1{font-size:30pt; font-weight:900; margin:0 0 6mm; letter-spacing:-.02em;}
+  .bk-cover .sub{font-size:12pt; color:#444; margin:0 0 3mm;}
+  .bk-cover .n{font-size:10pt; color:#777; margin:0;}
+  .bk-cover .mark{font-size:9pt; color:#999; margin-top:22mm; letter-spacing:.06em;}
+  .bk-item{break-inside:avoid; padding:0 0 8mm; margin-bottom:8mm; border-bottom:1px dashed #ccc;}
+  .bk-item:nth-child(2n){border-bottom:none; break-after:page;}
+  .bk-pic{width:100%; height:78mm; object-fit:contain; background:#f4f2ee; display:block; margin-bottom:4mm;}
+  .bk-row{display:flex; gap:5mm; align-items:flex-start;}
+  .bk-row svg{width:22mm; height:22mm; flex:0 0 22mm;}
+  .bk-txt{flex:1; min-width:0;}
+  .bk-txt .t{font-size:14pt; font-weight:800; line-height:1.3; word-break:keep-all; margin:0 0 1.5mm;}
+  .bk-txt .m{font-size:9pt; color:#555; margin:0 0 2mm;}
+  .bk-txt .q{font-size:10.5pt; line-height:1.6; color:#222; word-break:keep-all; margin:0;}
+  .bk-txt .q::before{content:'\201C';}
+  .bk-txt .q::after{content:'\201D';}
+
   @media print{
     @page{margin:10mm;}
-    body.qr-printing > *{display:none !important;}
+    body.qr-printing > *, body.book-printing > *{display:none !important;}
     body.qr-printing #qrSheet{display:grid !important;
       grid-template-columns:repeat(3, 1fr); gap:4mm;}
-    body.qr-printing{background:#fff !important;}
+    body.book-printing #bookSheet{display:block !important;}
+    body.qr-printing, body.book-printing{background:#fff !important;}
   }
+
+  /* 아이가 낸 그림 — 부모가 올리기 전까지 여기에만 보인다 */
+  .pending-works{max-width:560px; margin:0 auto 26px;}
+  .pending-works .inner{padding:20px 22px;}
+  .pending-works h3{margin:0 0 4px; font-size:15px; font-weight:900;}
+  .pw-hint{margin:0 0 12px; font-size:12.5px; color:var(--ink-soft);}
+  .pw-row{display:flex; gap:12px; align-items:flex-start; padding:12px 0;
+    border-top:2px dashed rgba(47,42,36,.16);}
+  .pw-row img{width:72px; height:72px; object-fit:contain; background:#fff;
+    border:2px solid var(--ink); flex:0 0 auto; image-rendering:pixelated;}
+  .pw-main{flex:1; display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .pw-main b{font-size:14px;}
+  .pw-meta{font-size:11.5px; color:var(--ink-soft);}
+  .pw-q{font-size:12.5px; color:var(--ink-soft); line-height:1.6;}
+  .pw-acts{display:flex; flex-direction:column; gap:6px; flex:0 0 auto;}
 
   /* 그날 있었던 일 — 날짜가 같은 일기와 이벤트를 스스로 찾아 붙인다 */
   .thatday{margin:16px 0 0; padding-top:14px; border-top:2px dashed rgba(47,42,36,.3);}
@@ -220,6 +256,7 @@
 
 <!-- 라벨 인쇄판. 평소엔 비어 있고, 인쇄 직전에만 채운다. -->
 <div id="qrSheet" aria-hidden="true"></div>
+<div id="bookSheet" aria-hidden="true"></div>
 
 <div class="work-view" id="workView" role="dialog" aria-modal="true" aria-label="작품 자세히 보기">
   <button class="work-close" id="workClose" aria-label="닫기">✕</button>
@@ -269,7 +306,9 @@ async function loadWorks(){
 function visible(){
   // 「영상」만 작가가 아니라 종류로 거른다 — 누구 작품인지와는 다른 축이라
   // 같은 줄에 섞여 있어도 서로 부딪히지 않는다(하나만 켜지므로).
+  // 아이가 낸 뒤 아직 안 올린 것(pending)은 전시실에 섞지 않는다 — 아래 승인 칸에만 나온다.
   return works.filter(w =>
+    w.status !== 'pending' &&
     (filter === 'all' ||
      (filter === 'youtube' ? w.media_type === 'youtube' : w.author === filter)) &&
     (yearFilter === 'all' || (w.made_on && w.made_on.slice(0,4) === yearFilter)));
@@ -286,7 +325,7 @@ function render(){
     card.className = 'gal-item dot-card hoverable reveal';
     const ytId = w.media_type === 'youtube' ? youtubeId(w.media_url) : '';
     const media = ytId
-      ? youtubeThumbHTML(ytId, w.title) + '<span class="yt-mark">▶ 영상</span><span class="yt-play sm"></span>'
+      ? youtubeThumbHTML(ytId, w.title, '', '(max-width:560px) 46vw, 220px') + '<span class="yt-mark">▶ 영상</span><span class="yt-play sm"></span>'
       : w.media_type === 'video'
       ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
       // 격자 칸은 264px 인데 원본은 1800px 이 넘는다. 사본이 있으면 그것만 받는다.
@@ -348,7 +387,7 @@ function openEditModal(w){
     '<div class="modal-box dot-card"><div class="inner">' +
       '<h3>✎ 작품 수정</h3>' +
       (w.media_type === 'youtube'
-        ? '<div class="preview yt-prev">' + youtubeThumbHTML(youtubeId(w.media_url), w.title) + '</div>'
+        ? '<div class="preview yt-prev">' + youtubeThumbHTML(youtubeId(w.media_url), w.title, '', '(max-width:520px) 92vw, 420px') + '</div>'
         : w.media_type === 'video'
         ? '<video class="preview" src="' + escapeHTML(w.media_url) + '" controls playsinline></video>'
         : '<img class="preview" src="' + escapeHTML(w.media_url) + '" alt="">') +
@@ -612,6 +651,66 @@ async function printQrLabels(list){
   window.print();
   // 인쇄 대화상자를 취소했을 때 afterprint 가 안 오는 브라우저가 있어 대비해 둔다
   setTimeout(() => { if (document.body.classList.contains('qr-printing')) done(); }, 3000);
+}
+
+// ---------- 작품집 ----------
+// 라벨은 작품 뒤에 붙이는 것이고, 이건 한 해를 통째로 묶는 것이다.
+// 표지 한 장 + 한 장에 두 작품. 그림은 원본을 쓴다 — 종이에서는 썸네일이 뭉개진다.
+async function printBook(list){
+  if (!list.length) return;
+  await loadQrcode();
+  const btn = $('#bookBtn');
+  const 그림 = list.filter(w => w.media_type !== 'youtube');
+  const 해 = yearFilter === 'all' ? '' : yearFilter + '년 · ';
+  const 누구 = filter === 'all' ? '수아랑 연아랑'
+             : filter === 'youtube' ? '영상' : (AUTHORS[filter] || '수아랑 연아랑');
+
+  $('#bookSheet').innerHTML =
+    '<div class="bk-cover">' +
+      '<h1>' + escapeHTML(해 + 누구 + ' 작품집') + '</h1>' +
+      '<p class="sub">그리고, 만들고, 찍은 것들</p>' +
+      '<p class="n">' + 그림.length + '점' +
+        (그림.length !== list.length ? ' (영상 ' + (list.length - 그림.length) + '개는 빠졌어요)' : '') +
+      '</p>' +
+      '<p class="mark">suayona.com</p>' +
+    '</div>' +
+    그림.map(w =>
+      '<div class="bk-item">' +
+        '<img class="bk-pic" src="' + escapeHTML(w.media_url) + '" alt="' + escapeHTML(w.title) + '">' +
+        '<div class="bk-row">' +
+          qrSvg(workUrl(w), 3) +
+          '<div class="bk-txt">' +
+            '<p class="t">' + escapeHTML(w.title) + '</p>' +
+            '<p class="m">' + (AUTHORS[w.author] || '같이') +
+              (w.made_on ? ' · ' + escapeHTML(formatDate(w.made_on)) : '') + '</p>' +
+            (w.quote ? '<p class="q">' + escapeHTML(w.quote) + '</p>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>').join('');
+
+  // 종이에는 게으른 그림이 빈칸으로 나온다 — 다 올 때까지 기다린다.
+  const imgs = $$('#bookSheet img');
+  const 남은 = imgs.filter(im => { im.loading = 'eager'; return !im.complete; });
+  if (남은.length){
+    btn.disabled = true;
+    btn.textContent = '그림 불러오는 중… (' + 남은.length + '장)';
+    await Promise.all(남은.map(im => new Promise(r => {
+      im.addEventListener('load', r, { once:true });
+      im.addEventListener('error', r, { once:true });
+    })));
+    btn.disabled = false;
+    btn.textContent = '📖 작품집 인쇄';
+  }
+
+  document.body.classList.add('book-printing');
+  const done = () => {
+    document.body.classList.remove('book-printing');
+    $('#bookSheet').innerHTML = '';
+    window.removeEventListener('afterprint', done);
+  };
+  window.addEventListener('afterprint', done);
+  window.print();
+  setTimeout(() => { if (document.body.classList.contains('book-printing')) done(); }, 3000);
 }
 
 // ---------- 그날 있었던 일 ----------
@@ -1182,13 +1281,75 @@ async function showCleanupTool(box){
   });
 }
 
+// ---------- 아이가 낸 그림 ----------
+// 도트 그림판에서 아이가 「작품으로 내기」를 누르면 status='pending' 으로 들어온다.
+// 일기와 같은 결로 — 부모가 보고 올려야 전시실에 걸린다.
+function renderPendingWorks(){
+  const area = $('#adminArea');
+  const waiting = works.filter(w => w.status === 'pending');
+  if (!waiting.length) return;
+
+  const box = document.createElement('div');
+  box.className = 'pending-works dot-card';
+  box.innerHTML = '<div class="inner"><h3>⏳ 아이가 낸 그림 ' + waiting.length + '점이 기다려요</h3>' +
+    '<p class="pw-hint">' + (isAdmin
+      ? '올리기를 누르기 전에는 다른 사람에게 보이지 않아요.'
+      : '부모님이 보고 올려 주면 전시실에 걸려요.') + '</p></div>';
+  const inner = box.querySelector('.inner');
+
+  waiting.forEach(w => {
+    const row = document.createElement('div');
+    row.className = 'pw-row';
+    row.innerHTML =
+      '<img src="' + escapeHTML(w.media_url) + '" alt="' + escapeHTML(w.title) + '">' +
+      '<div class="pw-main">' +
+        '<b>' + escapeHTML(w.title) + '</b>' +
+        '<span class="pw-meta">' + (AUTHORS[w.author] || '같이') +
+          (w.made_on ? ' · ' + escapeHTML(formatDate(w.made_on)) : '') + '</span>' +
+        (w.quote ? '<span class="pw-q">\u201C' + escapeHTML(w.quote) + '\u201D</span>' : '') +
+      '</div>' +
+      '<div class="pw-acts"></div>';
+    const acts = row.querySelector('.pw-acts');
+
+    if (isAdmin){
+      const ok = document.createElement('button');
+      ok.className = 'dot-btn small primary';
+      ok.textContent = '전시실에 올리기';
+      ok.addEventListener('click', async () => {
+        ok.disabled = true;
+        const { error } = await sb.from('works').update({ status: 'published' }).eq('id', w.id);
+        if (error){ ok.disabled = false; alert('올리지 못했어요: ' + readableError(error)); return; }
+        await loadWorks();
+        renderAdminArea();          // 기다리는 줄에서도 빠져야 한다
+      });
+      acts.appendChild(ok);
+    }
+    // 낸 아이도, 부모도 물릴 수 있다
+    const no = document.createElement('button');
+    no.className = 'dot-btn small danger';
+    no.textContent = isAdmin ? '지우기' : '물리기';
+    no.addEventListener('click', async () => {
+      if (!confirm('「' + w.title + '」을 지울까요?')) return;
+      no.disabled = true;
+      const { error } = await sb.from('works').delete().eq('id', w.id);
+      if (error){ no.disabled = false; alert('지우지 못했어요: ' + readableError(error)); return; }
+      await loadWorks();
+      renderAdminArea();
+    });
+    acts.appendChild(no);
+    inner.appendChild(row);
+  });
+  area.appendChild(box);
+}
+
 // ---------- 관리자 영역 ----------
 function renderAdminArea(){
   const area = $('#adminArea');
   area.innerHTML = '';
+  renderPendingWorks();
   // 방문자에게는 아무것도 두지 않는다. 작품을 올리는 사람은 한 명뿐이고,
   // 그 사람은 헤더 로그인으로 들어온다.
-  if (!isAdmin) { render(); return; }
+  if (!isAdmin) { render(); return; }   // 아이는 위의 「낸 그림」 칸까지만 본다
 
   // 사본이 없는 작품이 남아 있으면 한 번에 만들 수 있게 단추를 띄운다
   const tools = document.createElement('div');
@@ -1223,6 +1384,21 @@ function renderAdminArea(){
     printQrLabels(shown);
   });
   tools.appendChild(qrBtn);
+
+  // 한 해치를 묶어 종이 책으로. 라벨과 달리 그림이 통째로 들어간다.
+  const bookBtn = document.createElement('button');
+  bookBtn.className = 'dot-btn small';
+  bookBtn.id = 'bookBtn';
+  bookBtn.textContent = '📖 작품집 인쇄';
+  bookBtn.addEventListener('click', () => {
+    const shown = visible();
+    const 그림 = shown.filter(w => w.media_type !== 'youtube');
+    if (!그림.length) { alert('인쇄할 그림이 없어요. (영상은 종이에 담을 수 없어요)'); return; }
+    if (!confirm('지금 보이는 그림 ' + 그림.length + '점으로 작품집을 만들까요?\n한 장에 두 점씩, 표지까지 ' +
+                 (1 + Math.ceil(그림.length / 2)) + '장쯤 나와요.')) return;
+    printBook(shown);
+  });
+  tools.appendChild(bookBtn);
 
   loadEventList().then(() => fillEventSelect($('#wEvent'), ''));
 

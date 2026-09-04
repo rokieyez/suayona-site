@@ -347,6 +347,27 @@ function syncPrivateMenu(){
     btn.classList.toggle('active', L.key === ACTIVE_KEY);
   });
   markUnreadNotes();
+  markParentWaiting();
+}
+
+// 자물쇠(공개 설정) 아이콘에 「부모가 볼 것」 개수를 붙인다.
+// 아이가 낸 일기·그림과 새로 온 편지가 여기서 묻히곤 했다.
+// 자매 우체통은 세지 않는다 — 그건 아이들끼리의 것이라 부모에게 열지 않기로 한 자리다.
+let waitingAsked = false;
+function markParentWaiting(){
+  const btn = document.querySelector('[data-private="settings"]');
+  if (!btn || waitingAsked || !isAdmin || ACTIVE_KEY === 'settings') return;
+  waitingAsked = true;
+  sb.rpc('parent_digest').then(({ data }) => {
+    if (!data) return;
+    const n = (data.posts || 0) + (data.works || 0) + (data.capsules || 0);
+    if (!n) return;
+    const b = document.createElement('span');
+    b.className = 'hdr-new pixel';
+    b.textContent = n > 9 ? '9+' : String(n);
+    b.setAttribute('aria-label', '확인할 것 ' + n + '개');
+    btn.appendChild(b);
+  }, () => {});
 }
 
 // 우체통 아이콘에 안 읽은 쪽지 수를 붙인다. 열어 봐야 새 쪽지가 있는지 알 수 있어서
@@ -824,11 +845,22 @@ function youtubeUrl(id){ return 'https://www.youtube.com/watch?v=' + id; }
 //
 // 같은 그림을 webp 로도 준다(i.ytimg.com/vi_webp/…). 크기가 같고 잘린 자리도 같은데
 // 바이트만 절반이다 — 재어 보니 222KB→100KB, 140KB→54KB 였다. 그래서 webp 로 받는다.
-function youtubeThumbHTML(id, alt, cls){
-  const small = 'https://i.ytimg.com/vi_webp/' + id + '/mqdefault.webp';
-  const swap = "this.onload=null; this.onerror=null; this.src='" + small + "';";
+//
+// 16:9 로 주는 크기는 두 가지뿐이다 — 320x180(mq) 과 1280x720(maxres).
+// hq/sd 는 4:3 이라 위아래에 검은 띠가 들어 있어서 네모로 자르면 그 띠가 보인다.
+// 그래서 그 둘만 srcset 에 얹고, 칸이 실제로 얼마나 넓은지(sizes)를 불러 주는 쪽에서 알려 준다.
+// 108px 짜리 작은 칸은 브라우저가 320px 짜리를 골라 100KB 대신 15KB 만 받는다.
+function youtubeThumbHTML(id, alt, cls, sizes){
+  const base = 'https://i.ytimg.com/vi_webp/' + id + '/';
+  const small = base + 'mqdefault.webp';
+  // 큰 그림이 없으면 유튜브는 404 대신 120x90 회색 판을 준다 — 크기를 보고 갈아 끼운다.
+  // srcset 이 걸려 있으면 src 만 바꿔도 안 먹으므로 srcset 을 먼저 떼어 낸다.
+  const swap = "this.onload=null; this.onerror=null; this.removeAttribute('srcset'); this.src='" + small + "';";
   return '<img' + (cls ? ' class="' + cls + '"' : '') +
-    ' src="https://i.ytimg.com/vi_webp/' + id + '/maxresdefault.webp" loading="lazy" decoding="async"' +
+    ' src="' + base + 'maxresdefault.webp"' +
+    ' srcset="' + small + ' 320w, ' + base + 'maxresdefault.webp 1280w"' +
+    ' sizes="' + (sizes || '100vw') + '"' +
+    ' loading="lazy" decoding="async"' +
     ' onload="if(this.naturalWidth<200){' + swap + '}"' +
     ' onerror="' + swap + '"' +
     ' alt="' + escapeHTML(alt || '') + '">';
@@ -863,7 +895,7 @@ function pullYoutubeLines(text){
 // 하루에 영상이 여럿 붙는 날도 있어서, 미리 다 얹어 두면 그 날짜 탭이 눈에 띄게 무겁다.
 function youtubeCardHTML(id, label){
   return '<button type="button" class="yt-card" data-yt="' + escapeHTML(id) + '" aria-label="영상 재생">' +
-    youtubeThumbHTML(id, label || '영상') +
+    youtubeThumbHTML(id, label || '영상', '', '(max-width:640px) 92vw, 600px') +
     '<span class="yt-play"></span><span class="yt-mark">▶ 영상</span>' +
     '</button>';
 }
@@ -1660,6 +1692,17 @@ const BG_K = { far:0.03, mid:0.09, near:0.18 };
 // 이동 상한(px). 겹을 미리 이만큼 아래에 앉혀 두므로 아무리 스크롤해도 빈틈이 안 생긴다.
 const BG_RISE = { desktop:{far:48, mid:56, near:64}, mobile:{far:32, mid:40, near:44} };
 
+// 계절빛. 여름을 기준으로 두고 나머지 셋만 살짝 물들인다 —
+// 진하게 넣으면 도트 색이 죽어서, 「아, 그때구나」 하고 알아볼 만큼만 얹는다.
+const SEASON_CAST = {
+  spring: 'rgba(255,186,201,0.10)',   // 옅은 분홍
+  summer: null,                        // 기준 — 그대로 둔다
+  autumn: 'rgba(226,140,60,0.13)',     // 감빛
+  winter: 'rgba(150,180,215,0.15)',    // 시린 파랑
+};
+// 배경 겹을 깐 페이지에서만 진짜 함수가 된다. 안 깐 페이지에서 불러도 아무 일 없다.
+let repaintBackdrop = function(){};
+
 function buildBackdrop(pageKey){
   const recipe = BACKDROP[pageKey];
   if (!recipe || typeof SPRITES === 'undefined') return;   // 이벤트 페이지 안전장치
@@ -1715,8 +1758,13 @@ function buildBackdrop(pageKey){
     deck.style.setProperty('--bg-mid-top', top + 'px');
   }
 
+  // 지금 배경이 어느 날을 그리고 있는지. null 이면 오늘.
+  let asOf = null;
   function paint(){
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const d = asOf;
+    const phase = d ? phaseAt(d) : phaseAt();
+    const cast = d ? SEASON_CAST[seasonAt(d)] : null;
     layers.forEach(L => {
       const h = slot[L.name];
       L.cv.width = Math.floor(W * dpr); L.cv.height = Math.floor(h * dpr);
@@ -1724,9 +1772,29 @@ function buildBackdrop(pageKey){
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.imageSmoothingEnabled = false;
       g.clearRect(0, 0, W, h);
-      recipe[L.name](g, W, h, S, u);
+      withPhase(phase, () => recipe[L.name](g, W, h, S, u));
+      // 계절빛은 칠한 자리에만 얹는다(source-atop) — 빈 곳까지 물들면 겹 경계가 드러난다
+      if (cast){
+        g.save();
+        g.globalCompositeOperation = 'source-atop';
+        g.fillStyle = cast;
+        g.fillRect(0, 0, W, h);
+        g.restore();
+      }
     });
   }
+
+  // 작품이나 일기를 펴면 그날의 계절·시각으로 배경을 갈아 끼운다.
+  // 날짜를 안 주면 오늘로 되돌린다.
+  repaintBackdrop = function(date){
+    const d = date ? new Date(date) : null;
+    const next = (d && !isNaN(d)) ? d : null;
+    const same = (asOf && next) ? (phaseAt(asOf) === phaseAt(next) && seasonAt(asOf) === seasonAt(next))
+               : (asOf === next);
+    if (same) return;                     // 같은 그림이면 다시 그리지 않는다
+    asOf = next;
+    paint();
+  };
 
   // 이동값을 도트 칸으로 끊고 상한을 건다. 상한이 없으면 긴 페이지에서 풀 띠가 허공에 뜬다.
   const q = v => Math.round(v / S) * S;

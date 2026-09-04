@@ -162,6 +162,7 @@ function render(){
     const el = document.createElement('article');
     el.className = 'post dot-card reveal';
     el.id = 'post-' + p.id;      // 작품에서 "그날의 일기"로 바로 건너올 수 있도록
+    el.dataset.when = p.happened_on || p.created_at;   // 배경을 그날 계절로 갈아 끼우는 데 쓴다
     el.innerHTML =
       '<h2>' + escapeHTML(p.title) + '</h2>' +
       '<div class="meta">' +
@@ -657,12 +658,41 @@ function jumpToHash(){
   requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }));
 }
 
+// 배경을 「지금 읽고 있는 일기의 그 계절, 그 시각」으로 갈아 끼운다.
+// 화면 한가운데에 가장 가까운 글을 지금 읽는 글로 본다 — 스크롤하면 언덕 색이 따라 바뀐다.
+// 배경 겹이 없거나(구형) 움직임을 줄여 달라고 한 사람에게는 그냥 안 건다.
+function followSeason(){
+  if (typeof repaintBackdrop !== 'function') return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const 글들 = () => Array.from(document.querySelectorAll('.post[data-when]'));
+  let 대기 = false;
+  const 고르기 = () => {
+    대기 = false;
+    const mid = innerHeight / 2;
+    let 가까운 = null, 거리 = Infinity;
+    for (const el of 글들()){
+      const r = el.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > innerHeight) continue;      // 화면 밖은 안 본다
+      const d = Math.abs((r.top + r.bottom) / 2 - mid);
+      if (d < 거리) { 거리 = d; 가까운 = el; }
+    }
+    repaintBackdrop(가까운 ? 가까운.dataset.when : null);
+  };
+  addEventListener('scroll', () => {
+    if (대기) return;
+    대기 = true;
+    requestAnimationFrame(고르기);
+  }, { passive: true });
+  고르기();
+}
+
 (async () => {
   await refreshAuth();
   await loadPosts();
   renderAdminArea();
   initReveal();
   jumpToHash();
+  followSeason();
 })();
 window.addEventListener('hashchange', jumpToHash);
 </script>

@@ -145,6 +145,7 @@
     <div class="tools share" id="shareTools" hidden>
       <button class="dot-btn small coral" id="toDuel">🥊 대결에 내기</button>
       <button class="dot-btn small mint" id="toRelay">🤝 이어 그리기로 내놓기</button>
+      <button class="dot-btn small lemon" id="toWork">🖼 작품으로 내기</button>
       <span class="share-who pixel" id="shareWho"></span>
     </div>
     <p class="hint" id="shareHint">대결과 이어 그리기는 <b>로그인</b>하면 쓸 수 있어요.</p>
@@ -616,6 +617,47 @@ let continuing = null;
 $('#toDuel').addEventListener('click', async () => {
   if (await putDoodle('duel', null)) { alert('대결에 냈어요!'); loadDuel(); }
 });
+// 그린 것을 포트폴리오에 낸다. 일기와 같은 결로 — 아이는 「기다리는 중」으로 내고
+// 부모가 전시실에 올린다. 그림은 PNG 로 구워 저장소의 doodle 칸에 넣는다.
+$('#toWork').addEventListener('click', async () => {
+  if (!myKey){ alert('로그인하면 낼 수 있어요.'); return; }
+  if (!drawnSomething()){ alert('아직 아무것도 안 그렸어요.'); return; }
+  const 제목 = (prompt('작품 이름을 지어 주세요', '도트 그림') || '').trim();
+  if (!제목) return;
+  const 한마디 = (prompt('한 마디 남길래요? (안 써도 돼요)', '') || '').trim();
+
+  const btn = $('#toWork');
+  btn.disabled = true; btn.textContent = '내는 중…';
+  try {
+    const blob = await new Promise(r => toPNG(cells, N).toBlob(r, 'image/png'));
+    if (!blob) throw new Error('그림을 만들지 못했어요');
+    const 이름 = 'suayona/doodle/' + Date.now() + '-' +
+                Math.random().toString(36).slice(2, 8) + '.png';
+    const up = await sb.storage.from('event-images')
+      .upload(이름, blob, { contentType: 'image/png', upsert: false });
+    if (up.error) throw up.error;
+    const { data: pub } = sb.storage.from('event-images').getPublicUrl(이름);
+
+    const { data: { user } } = await sb.auth.getUser();
+    const { error } = await sb.from('works').insert({
+      title: 제목,
+      quote: 한마디 || null,
+      author: myKey,
+      media_type: 'image',
+      media_url: pub.publicUrl,
+      made_on: new Date().toISOString().slice(0, 10),
+      status: 'pending',
+      written_by: user.id,
+    });
+    if (error) throw error;
+    alert('냈어요! 부모님이 보고 전시실에 올려 주면 포트폴리오에 걸려요.');
+  } catch (e) {
+    alert('내지 못했어요: ' + (typeof readableError === 'function' ? readableError(e) : (e.message || e)));
+  } finally {
+    btn.disabled = false; btn.textContent = '🖼 작품으로 내기';
+  }
+});
+
 $('#toRelay').addEventListener('click', async () => {
   const from = continuing;
   if (await putDoodle('relay', from)) {

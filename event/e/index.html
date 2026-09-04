@@ -48,7 +48,7 @@
   }
   *, *::before, *::after{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   body{
-    font-family:'Pretendard Variable', 'Pretendard', sans-serif; color:var(--ink);
+    font-family:'Suayona Sans', 'Pretendard Variable', 'Pretendard', sans-serif; color:var(--ink);
     margin:0; padding:18px 14px 40px; min-height:100vh;
     background-color:var(--paper);
   }
@@ -1053,7 +1053,7 @@ async function loadLinkedWorks(){
     '<div class="lw-strip">' + data.map(w =>
       '<a class="lw-item" href="/portfolio.html" title="' + escapeHTML(w.title) + '">' +
         (w.media_type === 'youtube'
-          ? youtubeThumbHTML(youtubeId(w.media_url), w.title) + '<span class="lw-play"></span>'
+          ? youtubeThumbHTML(youtubeId(w.media_url), w.title, '', '108px') + '<span class="lw-play"></span>'
           : w.media_type === 'video'
           ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
           : '<img src="' + escapeHTML(w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">') +
