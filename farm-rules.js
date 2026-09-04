@@ -92,6 +92,21 @@ const FARM = (() => {
     winterradish:{ name: '겨울무',  season: ['winter'],          hours: 30,  seed: 18,  sell: 55,  yield: 1, half: 'sua',  lv: 1, leaf: '#9fd0a8', fruit: '#e8f4ee', shape: 'root' },
     snowflower: { name: '눈꽃',     season: ['winter'],          hours: 48,  seed: 35,  sell: 90,  yield: 1, half: 'yona', lv: 2, leaf: '#b9dde6', fruit: '#eef8ff', shape: 'flower', flower: true },
 
+    // 봄 — 늦게 들어온 것들
+    lettuce:    { name: '상추',     season: ['spring'],          hours: 8,   seed: 8,   sell: 16,  yield: 2, half: 'yona', lv: 1, leaf: '#9ad48a', fruit: '#b7e59b', shape: 'head',   regrow: 10 },
+    onion:      { name: '양파',     season: ['spring'],          hours: 20,  seed: 16,  sell: 34,  yield: 1, half: 'sua',  lv: 2, leaf: '#7ec46f', fruit: '#e8d5b0', shape: 'root' },
+    daffodil:   { name: '수선화',   season: ['spring'],          hours: 26,  seed: 20,  sell: 44,  yield: 1, half: 'yona', lv: 2, leaf: '#74bd66', fruit: '#ffe98a', shape: 'flower', flower: true },
+    // 여름
+    cucumber:   { name: '오이',     season: ['summer'],          hours: 30,  seed: 20,  sell: 24,  yield: 2, half: 'sua',  lv: 1, leaf: '#63b455', fruit: '#6fbf4a', shape: 'vine',   regrow: 16 },
+    melon:      { name: '참외',     season: ['summer'],          hours: 66,  seed: 45,  sell: 130, yield: 1, half: 'yona', lv: 3, leaf: '#5aa54f', fruit: '#ffd84d', shape: 'melon' },
+    lily:       { name: '백합',     season: ['summer'],          hours: 34,  seed: 26,  sell: 58,  yield: 1, half: 'sua',  lv: 2, leaf: '#6fb763', fruit: '#fff2f6', shape: 'flower', flower: true },
+    // 가을
+    eggplant:   { name: '가지',     season: ['autumn'],          hours: 44,  seed: 30,  sell: 40,  yield: 2, half: 'sua',  lv: 2, leaf: '#66ab5a', fruit: '#7d4fa8', shape: 'bush',   regrow: 22 },
+    chrys:      { name: '국화',     season: ['autumn'],          hours: 28,  seed: 18,  sell: 42,  yield: 1, half: 'yona', lv: 1, leaf: '#82c06e', fruit: '#ffcf5c', shape: 'flower', flower: true },
+    // 겨울
+    kale:       { name: '케일',     season: ['winter'],          hours: 26,  seed: 16,  sell: 46,  yield: 1, half: 'sua',  lv: 1, leaf: '#4f9a58', fruit: '#6fb26a', shape: 'head' },
+    camellia:   { name: '동백꽃',   season: ['winter'],          hours: 54,  seed: 38,  sell: 100, yield: 1, half: 'yona', lv: 2, leaf: '#2f7a48', fruit: '#e8324a', shape: 'flower', flower: true },
+
     // 축제에서만 얻는 씨앗. 어느 계절이든 자라고, 온실이 없어도 겨울을 난다.
     star:       { name: '별열매',   season: SEASONS.slice(),     hours: 120, seed: 0,   sell: 400, yield: 1, half: null,   lv: 1, leaf: '#8fd8ff', fruit: '#ffe680', shape: 'flower', hardy: true, rare: true },
   };
@@ -192,6 +207,11 @@ const FARM = (() => {
     milk:    { name: '우유',     sell: 60 },
     goldmilk:{ name: '금빛 우유', sell: 140 },
     wool:    { name: '양털',     sell: 110 },
+    duckegg: { name: '오리알',   sell: 40 },
+    downfeather:{ name: '오리 솜털', sell: 110 },
+    truffle: { name: '송로버섯', sell: 170 },
+    angora:  { name: '앙고라 털', sell: 85 },
+    gem:     { name: '반짝돌',   sell: 300 },
     honey:   { name: '꿀',       sell: 90 },
     berry:   { name: '산딸기',   sell: 12, food: 3 },
     wood:    { name: '나무',     sell: 4 },
@@ -239,7 +259,7 @@ const FARM = (() => {
   }
 
   // ---------- 기운 ----------
-  const ENERGY_BASE = 20;
+  const ENERGY_BASE = 40;
   const COST = { till: 1, water: 1, harvest: 1, chop: 2, mine: 2, plant: 0, fert: 0, feed: 1, pet: 0, cook: 1, forage: 1 };
   function maxEnergy(world, mine){
     let e = ENERGY_BASE;
@@ -278,6 +298,8 @@ const FARM = (() => {
     scarecrow:  { name: '허수아비', icon: '🎃', each: { wood: 15 },                        lv: 2, desc: '가을 까마귀가 작물을 못 쪼아요.' },
     greenhouse: { name: '온실',    icon: '🏡', each: { coins: 600, wood: 40, stone: 20 },  lv: 4, desc: '안에서는 어느 계절 씨앗이든 자라고 물도 안 줘도 돼요.' },
     barn:       { name: '외양간',  icon: '🐄', each: { coins: 800, wood: 30, stone: 25 },  lv: 5, desc: '소와 양을 키울 수 있어요.' },
+    pasture:    { name: '목장',    icon: '🐖', each: { coins: 250, wood: 25 },             lv: 3, desc: '울타리 친 풀밭이에요. 돼지와 토끼가 살고, 다른 가축도 낮에 나와서 놀아요.' },
+    pethouse:   { name: '반려동물 집', icon: '🐕', each: { coins: 200, wood: 10 },          lv: 3, desc: '강아지와 고양이가 살아요. 밥을 주면 무언가 물어 와요.' },
     kitchen:    { name: '부엌',    icon: '🍳', each: { coins: 250, wood: 12 },            lv: 3, desc: '집 안에서 요리를 할 수 있어요.' },
   };
   function canPay(mine, each){
@@ -301,15 +323,91 @@ const FARM = (() => {
     statue:   { name: '별 동상',  icon: '🌟', cost: 8000, lv: 9, desc: '농장의 자랑' },
   };
 
+  // ---------- 농장 배치 ----------
+  // 지도는 20×12 칸. 밭은 늘 가운데(6..15, 2..7)에 있고, 나머지는 아이들이 옮길 수 있다.
+  // 자리는 world.layout 에만 적는다 — 표(PLACE)의 x,y 는 아무도 옮기지 않았을 때의 처음 자리다.
+  const GRID = { w: 20, h: 12 };
+  // kind: 'always' 늘 있는 것 · 'build' 지어야 생기는 것 · 'decor' 사야 생기는 것.
+  const PLACE = {
+    house:      { name: '집',       w: 4, h: 3, x: 0,  y: 0,  kind: 'always', move: false },
+    stall:      { name: '가게',     w: 3, h: 2, x: 16, y: 0,  kind: 'always', move: false },
+    mail:       { name: '우편함',   w: 1, h: 1, x: 4,  y: 1,  kind: 'always', move: true },
+    board:      { name: '게시판',   w: 1, h: 1, x: 5,  y: 0,  kind: 'always', move: true },
+    coop:       { name: '닭장',     w: 2, h: 2, x: 0,  y: 3,  kind: 'build',  move: true },
+    pethouse:   { name: '반려동물 집', w: 1, h: 1, x: 3, y: 3, kind: 'build', move: true },
+    well:       { name: '우물',     w: 1, h: 1, x: 5,  y: 3,  kind: 'build',  move: true },
+    hive:       { name: '벌통',     w: 1, h: 1, x: 4,  y: 4,  kind: 'build',  move: true },
+    greenhouse: { name: '온실',     w: 4, h: 3, x: 0,  y: 6,  kind: 'build',  move: true },
+    scarecrow:  { name: '허수아비', w: 1, h: 1, x: 6,  y: 8,  kind: 'build',  move: true },
+    pasture:    { name: '목장',     w: 4, h: 6, x: 16, y: 3,  kind: 'build',  move: true },
+    barn:       { name: '외양간',   w: 3, h: 3, x: 16, y: 9,  kind: 'build',  move: true },
+    fountain:   { name: '분수',     w: 2, h: 2, x: 8,  y: 0,  kind: 'decor',  move: true },
+    statue:     { name: '별 동상',  w: 1, h: 2, x: 11, y: 0,  kind: 'decor',  move: true },
+    pond:       { name: '연못',     w: 2, h: 2, x: 12, y: 10, kind: 'decor',  move: true },
+    path:       { name: '꽃길',     w: 8, h: 1, x: 8,  y: 8,  kind: 'decor',  move: true },
+  };
+  const PLACE_IDS = Object.keys(PLACE);
+  function spotOf(world, id){
+    const P = PLACE[id]; if (!P) return null;
+    const L = (world && world.layout && world.layout[id]) || null;
+    return { id, x: L ? L.x : P.x, y: L ? L.y : P.y, w: P.w, h: P.h, move: P.move, name: P.name };
+  }
+  // 지금 농장에 실제로 있는 것들만. 안 지은 건물 자리는 비어 있는 것으로 친다.
+  function thingHere(world, id){
+    const P = PLACE[id];
+    if (!P) return false;
+    if (P.kind === 'always') return true;
+    if (P.kind === 'build') return !!(world.buildings && world.buildings[id] && world.buildings[id].done);
+    return !!(world.decor && world.decor[id]);
+  }
+  function thingsOn(world){ return PLACE_IDS.filter(id => thingHere(world, id)).map(id => spotOf(world, id)); }
+  function boxHit(a, b){ return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
+  // 밭은 늘 자리를 비워 둔다 — 지금 열린 만큼이 아니라 끝까지 넓혔을 때만큼.
+  const FIELD_BOX = { x: FIELD.x0, y: FIELD.y0, w: FIELD.w, h: FIELD.h };
+  // 왜 못 놓는지 한 마디로 돌려준다. 놓을 수 있으면 빈 문자열.
+  function placeBlocked(world, id, x, y){
+    const P = PLACE[id]; if (!P) return '없는 자리예요';
+    if (!P.move) return P.name + '은 옮길 수 없어요';
+    if (!thingHere(world, id)) return '아직 농장에 없어요';
+    const me = { x, y, w: P.w, h: P.h };
+    if (x < 0 || y < 0 || x + P.w > GRID.w || y + P.h > GRID.h) return '농장 밖이에요';
+    if (boxHit(me, FIELD_BOX)) return '밭 자리에는 놓을 수 없어요';
+    for (const other of PLACE_IDS){
+      if (other === id || !thingHere(world, other)) continue;
+      if (boxHit(me, spotOf(world, other))) return PLACE[other].name + '과 겹쳐요';
+    }
+    for (const n in NODES){
+      const N = NODES[n];
+      if (boxHit(me, { x: N.x, y: N.y, w: 1, h: 1 })) return '나무나 바위가 있어요';
+    }
+    return '';
+  }
+  function moveThing(world, mine, id, x, y){
+    x = Math.round(Number(x)); y = Math.round(Number(y));
+    const why = placeBlocked(world, id, x, y);
+    if (why) return fail(why);
+    world.layout = world.layout || {};
+    const P = PLACE[id];
+    if (x === P.x && y === P.y) delete world.layout[id]; else world.layout[id] = { x, y };
+    return okay(eul(P.name) + ' 옮겼어요');
+  }
+  function resetLayout(world){ world.layout = {}; return okay('배치를 처음으로 되돌렸어요'); }
+
   // ---------- 동물 ----------
   // 밥은 하루 한 번이면 되지만, 쓰다듬기는 둘 다 해야 마음이 자란다.
   // 마음이 5 를 넘으면 큰 달걀·금빛 우유가 나온다.
+  // find 가 있는 아이(강아지·고양이)는 낳는 대신 무언가를 물어 온다.
   const ANIMALS = {
-    chicken: { name: '닭',  cost: 150, need: 'coop', product: 'egg',  best: 'bigegg',   every: 1, icon: '🐔' },
-    cow:     { name: '소',  cost: 500, need: 'barn', product: 'milk', best: 'goldmilk', every: 1, icon: '🐄' },
-    sheep:   { name: '양',  cost: 400, need: 'barn', product: 'wool', best: null,       every: 3, icon: '🐑' },
+    chicken: { name: '닭',    cost: 150, need: 'coop',    product: 'egg',     best: 'bigegg',      every: 1, icon: '🐔' },
+    duck:    { name: '오리',  cost: 220, need: 'coop',    product: 'duckegg', best: 'downfeather', every: 1, icon: '🦆' },
+    cow:     { name: '소',    cost: 500, need: 'barn',    product: 'milk',    best: 'goldmilk',    every: 1, icon: '🐄' },
+    sheep:   { name: '양',    cost: 400, need: 'barn',    product: 'wool',    best: null,          every: 3, icon: '🐑' },
+    pig:     { name: '돼지',  cost: 600, need: 'pasture', product: 'truffle', best: null,          every: 2, icon: '🐖' },
+    rabbit:  { name: '토끼',  cost: 250, need: 'pasture', product: 'angora',  best: null,          every: 2, icon: '🐇' },
+    dog:     { name: '강아지', cost: 700, need: 'pethouse', product: null,    best: 'gem',         every: 1, icon: '🐕', find: ['wood', 'stone', 'berry'] },
+    cat:     { name: '고양이', cost: 700, need: 'pethouse', product: null,    best: 'gem',         every: 1, icon: '🐈', find: ['berry', 'fert', 'wood'] },
   };
-  const ANIMAL_MAX = { coop: 4, barn: 4 };
+  const ANIMAL_MAX = { coop: 6, barn: 6, pasture: 4, pethouse: 2 };
   const LOVE_FOR_BEST = 5;
   function animalDay(world, now){
     // 하루가 바뀌면 어제 밥을 먹은 동물이 알을 낳는다. 그리고 밥그릇을 비운다.
@@ -322,7 +420,13 @@ const FARM = (() => {
         if (a.since >= A.every){
           a.since = 0;
           const good = A.best && (a.love || 0) >= LOVE_FOR_BEST;
-          a.ready = good ? A.best : A.product;
+          if (A.find){
+            // 강아지와 고양이는 낳는 대신 물어 온다. 마음이 크면 가끔 반짝돌.
+            a.ready = good && prand('g' + a.id + key) < 0.25 ? A.best
+                    : A.find[Math.floor(prand('f' + a.id + key) * A.find.length)];
+          } else {
+            a.ready = good ? A.best : A.product;
+          }
           made.push(a);
         }
         a.lastMade = a.fedDay;
@@ -335,13 +439,13 @@ const FARM = (() => {
   // ---------- 채집 ----------
   // 나무 셋·바위 둘·산딸기 덤불 하나가 날마다 돌아온다. 건물 재료는 여기서 난다.
   const NODES = {
-    tree1: { kind: 'tree', x: 7,  y: 9,  give: { wood: 3 },  cost: 'chop',   days: 1 },
-    tree2: { kind: 'tree', x: 9,  y: 9,  give: { wood: 3 },  cost: 'chop',   days: 1 },
-    tree3: { kind: 'tree', x: 11, y: 9,  give: { wood: 4 },  cost: 'chop',   days: 2 },
-    rock1: { kind: 'rock', x: 13, y: 9,  give: { stone: 2 }, cost: 'mine',   days: 1 },
-    rock2: { kind: 'rock', x: 14, y: 10, give: { stone: 3 }, cost: 'mine',   days: 1 },
-    bush:  { kind: 'bush', x: 5,  y: 10, give: { berry: 2 }, cost: 'forage', days: 1, season: ['spring', 'summer', 'autumn'] },
-    snow:  { kind: 'snow', x: 13, y: 10, give: { snowball: 1 }, cost: 'forage', days: 1, season: ['winter'] },
+    tree1: { kind: 'tree', x: 0,  y: 10, give: { wood: 3 },  cost: 'chop',   days: 1 },
+    tree2: { kind: 'tree', x: 2,  y: 10, give: { wood: 3 },  cost: 'chop',   days: 1 },
+    tree3: { kind: 'tree', x: 4,  y: 10, give: { wood: 4 },  cost: 'chop',   days: 2 },
+    rock1: { kind: 'rock', x: 9,  y: 10, give: { stone: 2 }, cost: 'mine',   days: 1 },
+    rock2: { kind: 'rock', x: 11, y: 10, give: { stone: 3 }, cost: 'mine',   days: 1 },
+    bush:  { kind: 'bush', x: 6,  y: 11, give: { berry: 2 }, cost: 'forage', days: 1, season: ['spring', 'summer', 'autumn'] },
+    snow:  { kind: 'snow', x: 8,  y: 11, give: { snowball: 1 }, cost: 'forage', days: 1, season: ['winter'] },
   };
   // 자리는 하나지만 몫은 각자다 — 먼저 온 사람이 다 가져가면 둘째는 늘 빈손이라서.
   function nodeReady(world, mine, id, now){
@@ -424,6 +528,9 @@ const FARM = (() => {
     cookie:  { name: '꿀 쿠키',       need: { 'honey': 1, 'egg': 2 },                   sell: 230, food: 8,  lv: 2 },
     juice:   { name: '포도 주스',     need: { 'crop:grape': 3 },                        sell: 190, food: 7,  lv: 2 },
     kimchi:  { name: '김치',          need: { 'crop:napa': 1, 'crop:pepper': 2, 'crop:radish': 1 }, sell: 480, food: 12, lv: 3 },
+    omelet:  { name: '오리알 오믈렛', need: { 'duckegg': 2, 'milk': 1 },              sell: 330, food: 11, lv: 2 },
+    risotto: { name: '송로 리조또',  need: { 'truffle': 1, 'milk': 1, 'crop:onion': 1 }, sell: 760, food: 16, lv: 3 },
+    pickle:  { name: '오이지',       need: { 'crop:cucumber': 3, 'crop:pepper': 1 },   sell: 210, food: 7,  lv: 1 },
     starpie: { name: '별열매 파이',   need: { 'crop:star': 1, 'egg': 1, 'milk': 1 },    sell: 1200, food: 20, lv: 4 },
   };
   function canCook(mine, d){
@@ -503,7 +610,7 @@ const FARM = (() => {
   function newWorld(now){
     return {
       v: 1, started: dayKey(now), seasonLen: SEASON_LEN_DEFAULT, seasonIndex: 0,
-      expand: 0, plots: {}, buildings: {}, animals: [],
+      expand: 0, plots: {}, buildings: {}, animals: [], layout: {}, decor: {},
       house: { living: {}, sua: { '0,0': { f: 'bed1' } }, yona: { '0,0': { f: 'bed1' } } },
       orders: {}, festival: {}, mail: { sua: [], yona: [] }, log: [], seen: {},
     };
@@ -521,7 +628,14 @@ const FARM = (() => {
     const base = newWorld(now);
     if (!w || typeof w !== 'object') return base;
     const o = Object.assign(base, w);
-    ['plots', 'buildings', 'orders', 'festival', 'seen', 'decor'].forEach(k => { if (!o[k] || typeof o[k] !== 'object') o[k] = {}; });
+    ['plots', 'buildings', 'orders', 'festival', 'seen', 'decor', 'layout'].forEach(k => { if (!o[k] || typeof o[k] !== 'object') o[k] = {}; });
+    // 옮긴 자리는 늘 지도 안에 있어야 한다 — 지도가 바뀌어도 물건이 밖으로 나가지 않게.
+    Object.keys(o.layout).forEach(id => {
+      const P = PLACE[id], L = o.layout[id];
+      if (!P || !L || typeof L.x !== 'number' || typeof L.y !== 'number'){ delete o.layout[id]; return; }
+      L.x = Math.max(0, Math.min(GRID.w - P.w, Math.round(L.x)));
+      L.y = Math.max(0, Math.min(GRID.h - P.h, Math.round(L.y)));
+    });
     if (!Array.isArray(o.animals)) o.animals = [];
     if (!Array.isArray(o.log)) o.log = [];
     if (!o.house) o.house = base.house;
@@ -979,7 +1093,8 @@ const FARM = (() => {
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
-    GIANT_MULT, WATER_HOURS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS,
+    GIANT_MULT, WATER_HOURS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX,
+    spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand,
     seedsFor, plotIds, plotOpen, parseId, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep,
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
