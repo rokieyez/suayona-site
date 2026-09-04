@@ -736,6 +736,9 @@ function syncMapTools(){
    이어 간다(최근접 이웃). 가장 짧은 길을 찾아 주는 것은 아니지만, 네댓 군데를 도는
    하루 나들이에서는 눈으로 봐도 납득이 가는 차례가 나온다. */
 const COURSE_MAX = 5;
+// 다음 자리가 이만큼보다 멀면 거기서 끊는다. 안 그러면 부산 다음에 제주가 붙어
+// 「하루 나들이」가 아니게 된다(재 보니 282km 를 건너뛰었다).
+const COURSE_MAX_HOP = 60000;
 let coursePath = null;
 
 function clearCourse(){
@@ -762,15 +765,23 @@ function buildCourse(){
   let 남은 = pool.slice();
   let 여기 = { lat: c.getLat(), lng: c.getLng() };
   const 길 = [];
+  let 끊김 = false;
   while (남은.length && 길.length < COURSE_MAX) {
     let 가까운 = 0, 최소 = Infinity;
     남은.forEach((p, i) => {
       const d = metersBetween(여기, p);
       if (d < 최소) { 최소 = d; 가까운 = i; }
     });
+    // 첫 자리는 지도 한가운데에서 재는 것이라 멀어도 받아 준다. 그 뒤부터 끊는다.
+    if (길.length && 최소 > COURSE_MAX_HOP) { 끊김 = true; break; }
     const p = 남은.splice(가까운, 1)[0];
     길.push({ p, m: 최소 });
     여기 = p;
+  }
+  if (길.length < 2) {
+    box.innerHTML = '<h3>🧭 나들이 코스</h3>' +
+      '<div class="foot">가까이 묶이는 곳이 없습니다. 지도를 한 지역으로 좁혀 보세요.</div>';
+    return;
   }
   const 총 = 길.reduce((a, x) => a + x.m, 0);
   box.innerHTML = '<h3>🧭 나들이 코스 — ' + 길.length + '군데</h3><ol>' +
@@ -778,7 +789,9 @@ function buildCourse(){
       '<span class="km">' + (i === 0 ? '지도 한가운데에서 ' : '') +
       kmText(x.m) + '</span></li>').join('') + '</ol>' +
     '<div class="foot">이어 간 거리 ' + kmText(총) +
-    ' · 곧은 거리로 잰 것이라 실제 길과는 다릅니다</div>';
+    ' · 곧은 거리로 잰 것이라 실제 길과는 다릅니다' +
+    (끊김 ? ' · 다음 자리가 ' + kmText(COURSE_MAX_HOP) + ' 넘게 떨어져 여기서 끊었어요' : '') +
+    '</div>';
 
   // 지도에 선으로 잇는다
   const pts = 길.map(x => new kakao.maps.LatLng(x.p.lat, x.p.lng));
