@@ -39,6 +39,9 @@
 
   /* 한 해 요약 숫자 */
   .sum{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin-bottom:34px;}
+  /* 숫자 상자는 셋뿐이다. 손전화에서 120px 이 세 칸 안 나와 두 칸으로 떨어지면
+     세 번째가 혼자 다음 줄에 남아 구멍이 생겼다 — 좁은 화면에선 셋을 못박는다. */
+  @media (max-width:560px){ .sum{grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px;} }
   .sum .box{border:var(--px) solid var(--ink); background:var(--paper);
     box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28); padding:14px 14px 12px;}
   .sum .n{font-size:29px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums;}
@@ -50,7 +53,7 @@
   .yr-shot{display:block; border:var(--px) solid var(--ink); background:#1b1714; overflow:hidden;}
   .yr-shot img{width:100%; aspect-ratio:1; object-fit:cover; display:block;}
   @media (max-width:560px){ .yr-shots{grid-template-columns:repeat(2, 1fr); gap:8px;} }
-  .yr-section > h3{
+  .yr-section > h2{
     margin:0 0 14px; font-size:17px; font-weight:900;
     border-bottom:var(--px) solid var(--ink); padding-bottom:8px;
   }
@@ -78,7 +81,7 @@
   /* 일기 */
   .yr-post{border:var(--px) solid var(--ink); background:var(--paper); padding:16px 18px;
     margin-bottom:14px; break-inside:avoid;}
-  .yr-post h4{margin:0 0 4px; font-size:15px; font-weight:900;}
+  .yr-post h3{margin:0 0 4px; font-size:15px; font-weight:900;}
   .yr-post .m{font-size:11.5px; color:var(--ink-soft); margin-bottom:9px;}
   .yr-post .b{font-size:13.5px; line-height:1.8; white-space:pre-line;}
   .yr-post img{display:block; width:100%; margin-top:10px; border:2px solid var(--ink);}
@@ -96,8 +99,10 @@
      카드 그림자도 잉크만 먹으므로 뺀다. */
   @media print{
     @page{margin:14mm;}
+    /* 종이에는 아래의 print-title(「2026년 · 전체」)이 제목 노릇을 한다 —
+       화면용 제목 묶음(.section-head)은 통째로 뺀다. 안 그러면 큰 제목이 둘이 된다. */
     header.site, footer.site, .bg-deck, .print-btn,
-    .year-pick, .who-pick, .section-head p, .scroll-cue{display:none !important;}
+    .year-pick, .who-pick, .section-head, .scroll-cue{display:none !important;}
     body{background:#fff !important; color:#000;}
     body.has-backdrop{min-height:0; display:block;}
     .page-top{padding-top:0 !important;}
@@ -107,7 +112,7 @@
     .yr-works{grid-template-columns:repeat(3,1fr); gap:10px;}
     .yr-shots{grid-template-columns:repeat(3,1fr); gap:8px;}
     .yr-section{break-inside:auto;}
-    .yr-section > h3{break-after:avoid;}
+    .yr-section > h2{break-after:avoid;}
     a{text-decoration:none; color:#000;}
     .print-title{display:block !important;}
   }
@@ -122,7 +127,7 @@
   <div class="wrap">
     <div class="section-head reveal">
       <span class="eyebrow pixel">YEAR</span>
-      <h2>한 해 모아보기</h2>
+      <h1>한 해 모아보기</h1>
       <p>그 해에 만든 것과 있었던 일을 한자리에 모았어요. 그대로 인쇄할 수도 있어요.</p>
     </div>
 
@@ -252,7 +257,7 @@ function render(){
     '</div>';
 
   // 작품
-  html += '<div class="yr-section"><h3>🎨 만든 것</h3>';
+  html += '<div class="yr-section"><h2>🎨 만든 것</h2>';
   html += works.length ? '<div class="yr-works">' + works.map(w =>
     '<div class="yr-work">' +
       (w.media_type === 'youtube'
@@ -271,10 +276,10 @@ function render(){
   html += '</div>';
 
   // 일기
-  html += '<div class="yr-section"><h3>📖 있었던 일</h3>';
+  html += '<div class="yr-section"><h2>📖 있었던 일</h2>';
   html += posts.length ? posts.map(p =>
     '<div class="yr-post">' +
-      '<h4>' + escapeHTML(p.title) + '</h4>' +
+      '<h3>' + escapeHTML(p.title) + '</h3>' +
       '<div class="m">' + escapeHTML(AUTHORS[p.author] || '') + ' · ' +
         escapeHTML(formatDate(p.happened_on || p.created_at)) +
         (p.place ? ' · ' + escapeHTML(p.place) : '') + '</div>' +
@@ -288,7 +293,7 @@ function render(){
   if (best.length) {
     const names = new Map(allEvents.map(e =>
       [e.event_id, [e.org_name, e.event_name].filter(Boolean).join(' · ') || e.event_id]));
-    html += '<div class="yr-section"><h3>📷 베스트 컷</h3><div class="yr-shots">' +
+    html += '<div class="yr-section"><h2>📷 베스트 컷</h2><div class="yr-shots">' +
       best.map(s2 =>
         '<a class="yr-shot" href="/event/e/?slug=' + encodeURIComponent(s2.event_id) + '&tab=gallery"' +
           ' title="' + escapeHTML(names.get(s2.event_id) || '') + '">' +
@@ -297,7 +302,7 @@ function render(){
   }
 
   // 일정
-  html += '<div class="yr-section"><h3>📅 함께한 날</h3>';
+  html += '<div class="yr-section"><h2>📅 함께한 날</h2>';
   html += events.length ? '<div class="yr-events">' + events.map(e =>
     '<a class="yr-event" href="/event/e/?slug=' + encodeURIComponent(e.event_id) + '">' +
       '<b>' + escapeHTML([e.org_name, e.event_name].filter(Boolean).join(' · ') || e.event_id) + '</b>' +

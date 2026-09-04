@@ -92,7 +92,7 @@
   <div class="wrap">
     <div class="section-head reveal">
       <span class="eyebrow pixel">DIARY</span>
-      <h2>일기장</h2>
+      <h1>일기장</h1>
       <p>오늘 있었던 일, 하고 싶은 말을 적어두는 공간이에요.</p>
     </div>
 
@@ -163,7 +163,7 @@ function render(){
     el.className = 'post dot-card reveal';
     el.id = 'post-' + p.id;      // 작품에서 "그날의 일기"로 바로 건너올 수 있도록
     el.innerHTML =
-      '<h3>' + escapeHTML(p.title) + '</h3>' +
+      '<h2>' + escapeHTML(p.title) + '</h2>' +
       '<div class="meta">' +
         '<span class="tag ' + escapeHTML(p.author) + '">' + (AUTHORS[p.author] || '같이') + '</span> ' +
         (p.status === 'pending' ? '<span class="tag pending">⏳ 확인 기다림</span> ' : '') +

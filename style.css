@@ -23,7 +23,17 @@ body{
   font-family:'Pretendard Variable', 'Pretendard', sans-serif;
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
+  /* 한글은 어절 단위로 끊어 읽는다. 기본값(break-all 비슷하게 아무 데서나 끊김)으로 두면
+     「씨앗을 심고 거두 / 어 파는」 처럼 낱말 한가운데가 갈라진다 — 손전화 첫 화면에서
+     여러 줄짜리 글 열 개가 전부 그랬다. keep-all 은 띄어쓰기에서만 줄을 바꾼다.
+     대신 띄어쓰기 없는 긴 주소·영어 낱말은 상자를 뚫고 나가므로 break-word 를 함께 둔다. */
+  word-break:keep-all;
+  overflow-wrap:break-word;
 }
+/* 제목은 줄을 고르게 나눠 마지막 줄에 한 낱말만 남는 것을 막는다.
+   본문은 pretty 로 외톨이 줄만 손본다. 둘 다 모르는 브라우저는 그냥 무시한다. */
+h1, h2, h3, h4, .section-head h1, .section-head h2{text-wrap:balance;}
+p, li, dd, figcaption{text-wrap:pretty;}
 img, canvas{display:block;}
 .pixel{font-family:'Suayona Dot', 'Pretendard Variable', 'Pretendard', sans-serif; letter-spacing:.5px;}
 
@@ -63,7 +73,32 @@ input, textarea, select{
   color:var(--ink); background:#fff;
   border:var(--px) solid var(--ink); border-radius:0;
 }
+/* 어디에 초점이 가 있는지 — 키보드로 다니는 사람에게는 이게 커서다.
+   레몬빛 안쪽 선만 두었더니 흰 바탕과 1.35:1 이라 사실상 안 보였다(기준 3:1).
+   먹빛 테를 두르고 레몬은 안쪽 강조로만 남긴다 — 흰 바탕 위 먹빛은 14.2:1 이다.
+   마우스로 눌렀을 때는 안쪽 강조만, 키보드로 왔을 때는 테까지 두른다.
+   두 규칙은 셈이 같으므로 focus-visible 이 뒤에 와야 이긴다. */
 input:focus, textarea:focus, select:focus{outline:none; box-shadow:inset 0 0 0 2px var(--lemon);}
+input:focus-visible, textarea:focus-visible, select:focus-visible{
+  outline:3px solid var(--ink); outline-offset:1px;
+  box-shadow:inset 0 0 0 2px var(--lemon);
+}
+/* 눌러서 무언가 일어나는 것에는 모두 같은 모양의 초점 테를 준다.
+   테두리가 네모난 도트 사이트라 브라우저 기본값(둥근 테)보다 이쪽이 어울린다. */
+.dot-btn:focus-visible,
+a.dot-card:focus-visible,
+.gal-item:focus-visible,
+.foot-link:focus-visible,
+header.site nav a:focus-visible,
+.logo:focus-visible,
+.menu-toggle:focus-visible,
+.auth-x:focus-visible{
+  outline:3px solid var(--ink); outline-offset:2px;
+}
+/* 어두운 바닥(푸터·라이트박스) 위에서는 먹빛 테가 안 보인다 */
+footer.site a:focus-visible, .lightbox button:focus-visible, .lightbox a:focus-visible{
+  outline:3px solid var(--lemon); outline-offset:2px;
+}
 textarea{resize:vertical; min-height:120px; line-height:1.7;}
 label.field{display:block; font-size:12px; font-weight:800; color:var(--ink-soft); margin:14px 0 6px;}
 label.field:first-of-type{margin-top:0;}
@@ -197,8 +232,10 @@ canvas{-webkit-tap-highlight-color:transparent;}
   display:inline-block; font-size:11px; padding:5px 12px; margin-bottom:12px;
   background:var(--mint); color:var(--ink); border:var(--px) solid var(--ink);
 }
-.section-head h2{margin:0 0 8px; font-size:clamp(24px,5.5vw,34px); font-weight:800;}
-.section-head p{margin:0; color:var(--ink-soft); font-size:14.5px; line-height:1.7;}
+.section-head h1, .section-head h2{margin:0 0 8px; font-size:clamp(24px,5.5vw,34px); font-weight:800;}
+/* 넓은 화면에서 이 소개글이 상자 폭(920px)을 다 쓰면 한 줄에 아흔 자가 넘어간다.
+   눈이 다음 줄 첫머리를 못 찾는 길이다 — 서른몇 자에서 끊는다. 1em 이 한글 한 자다. */
+.section-head p{margin:0 auto; max-width:38em; color:var(--ink-soft); font-size:14.5px; line-height:1.7;}
 
 /* 스크롤 등장 */
 .reveal{opacity:0; transform:translateY(26px); transition:opacity .5s ease, transform .5s cubic-bezier(.2,.7,.3,1);}
@@ -342,7 +379,9 @@ body.lb-open header.site{opacity:0; pointer-events:none;}
 
 /* ===== 게시판 ===== */
 .post{padding:20px 22px; margin-bottom:14px;}
-.post h3{margin:0 0 6px; font-size:17px; font-weight:800;}
+/* 글 하나하나가 쪽 제목(h1) 바로 아래 층이라 h2 다. 크기는 그대로 둔다 —
+   브라우저 기본 h2 는 훨씬 커서 그대로 두면 글자만 커진다. */
+.post h2, .post h3{margin:0 0 6px; font-size:17px; font-weight:800;}
 .post .meta{font-size:11.5px; color:var(--ink-soft); margin-bottom:10px;}
 .post .body{font-size:14px; line-height:1.8; white-space:pre-line; color:var(--ink);}
 .post .post-img{

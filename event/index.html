@@ -32,22 +32,22 @@
     --accent:#ff7f8a; --accent-rgb:255,127,138;   /* 코랄 — 사이트 강조색 */
     --mint:#6cc7b3; --lemon:#ffd979;
     --paper:#fffaf2; --paper-card:#fff6e9; --ink:#2f2a24; --ink-soft:#6f6558;
-    --px:3px;
+    /* 다른 쪽들과 같은 4px 이어야 테두리와 그림자 두께가 한 사이트로 보인다 */
+    --px:4px;
   }
   *, *::before, *::after{box-sizing:border-box;}
   body{
     font-family:'Pretendard Variable', 'Pretendard', sans-serif; color:var(--ink);
-    margin:0; padding:40px 16px 60px; min-height:100vh;
+    margin:0; padding:40px 16px 60px;
+    /* 배경 그림은 buildBackdrop 이 깐 .bg-deck 이 맡는다. 예전에 무늬를 깔던
+       background-size/repeat/attachment 세 줄은 그림이 빠진 뒤로 아무 일도 안 하고 있었다. */
     background-color:var(--paper);
-    background-size:140px 140px, cover, cover;
-    background-repeat:repeat, no-repeat, no-repeat;
-    background-attachment:fixed, fixed, fixed;
   }
   .wrap{max-width:640px; margin:0 auto;}
 
 
-  h1{text-align:center; font-size:28px; font-weight:800; margin:0 0 5px; color:var(--ink); letter-spacing:-.02em;}
-  .lead{text-align:center; color:var(--ink-soft); font-size:14px; margin:0 0 30px;}
+  /* 제목 묶음은 style.css 의 .section-head 를 그대로 쓴다 — 베껴 두면 언젠가 어긋난다.
+     배경 겹 위에 맨살로 앉는 소개글 색(--ink-bg-safe)까지 거기서 함께 온다. */
 
   h2{font-size:13px; font-weight:800; color:var(--ink-soft); margin:26px 0 12px; letter-spacing:.04em;
     padding-bottom:8px; border-bottom:var(--px) solid var(--ink);}
@@ -83,12 +83,20 @@
   .pin-photo img{width:100%; height:100%; object-fit:cover; display:block;}
   .pin-photo.on{outline:var(--px) solid var(--lemon);}
 
-  .card{position:relative; padding:15px 16px; margin-bottom:12px; border-radius:0; background:var(--paper-card);
-    border:2px solid var(--ink);
-    transition:transform .1s steps(2), box-shadow .1s steps(2);}
-  .card:hover{transform:translate(1px,1px); box-shadow:2px 2px 0 var(--ink);}
+  /* 다른 쪽의 .dot-card 와 같은 무게로 맞춘다 — 얇은 2px 테에 그림자도 없어서
+     이 쪽만 다른 사이트처럼 보였다. 평소에 그림자를 깔고, 누를 수 있다는 표시로
+     올라오게 한다(사이트 공통 규칙과 같은 방향). */
+  .card{position:relative; padding:15px 16px; margin-bottom:14px; border-radius:0; background:var(--paper-card);
+    border:var(--px) solid var(--ink);
+    box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28);
+    transition:transform .18s steps(3), box-shadow .18s steps(3);}
+  .card:hover{transform:translate(calc(var(--px) * -1), calc(var(--px) * -1));
+    box-shadow:calc(var(--px) * 2) calc(var(--px) * 2) 0 rgba(47,42,36,.28);}
   .card-link{display:block; text-decoration:none; color:inherit;}
-  .card-top{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:4px; padding-right:56px;}
+  /* 이름이 두 줄이 되면 가운데 맞춤이던 「종료」 표가 두 줄 사이에 붕 떠 보였다.
+     첫 줄에 맞춰 붙인다. */
+  .card-top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:4px; padding-right:56px;}
+  .card-top .badge-group, .card-top .badge{margin-top:2px;}
   .card-name{font-size:17px; font-weight:800; color:var(--ink);}
   .badge{font-size:10.5px; font-weight:800; padding:3px 8px; border-radius:0; flex-shrink:0;
     border:2px solid var(--ink); color:var(--ink);}
@@ -197,9 +205,15 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>🗓️ 이벤트 목록</h1>
-  <p class="lead">지금까지 열린 이벤트를 확인해보세요</p>
+<!-- 배경 겹을 깔면 body 가 세로 flex 가 된다(style.css 의 .has-backdrop).
+     늘어나는 칸이 없으면 내용이 짧을 때 푸터가 화면 한가운데 떠 버리므로,
+     다른 쪽들처럼 본문을 main 으로 감싼다 — 길잡이(landmark)도 함께 생긴다. -->
+<main class="wrap">
+  <div class="section-head">
+    <span class="eyebrow pixel">🗓️ EVENT</span>
+    <h1>이벤트 목록</h1>
+    <p>지금까지 열린 이벤트를 확인해보세요</p>
+  </div>
 
   <div class="band" id="mapBand" hidden>
     <div class="map" id="eventMap"></div>
@@ -258,7 +272,7 @@
       <div id="past-list"></div>
     </div>
   </div>
-</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
         integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
@@ -269,6 +283,7 @@
 <script src="/common.js"></script>
 <script>
 buildChrome('event');
+buildBackdrop('event');   // 배경 픽셀 겹 (common.js) — 다른 쪽들과 같은 풍경을 깐다
 
 /* =========================================================================
    레거시 이벤트(전용 폴더+파일로 만들어진 것) — 새 이벤트는 여기 추가할 필요 없음.
@@ -744,7 +759,7 @@ async function refreshAuthUI(){
 
   $('#content').style.display = 'block';            // 목록은 항상 보임
   $('#new-event-box').style.display = isAdmin ? 'block' : 'none';
-  $('.lead').textContent = isAdmin
+  $('.section-head p').textContent = isAdmin
     ? '지금까지 열린 이벤트를 확인하고 새로 만들 수 있어요'
     : '지금까지 열린 이벤트를 확인해보세요';
 

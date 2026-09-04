@@ -77,7 +77,10 @@
      배경이 도트 그림인데 단추만 매끈해서 겉돌았으므로, 아래 메뉴 카드에서 쓰는
      같은 도트 아이콘을 단추 안에 넣어 배경과 한 식구로 묶었다. */
   .hero-actions{
-    display:grid; grid-template-columns:1fr 1fr; gap:7px;
+    /* 단추마다 오른쪽·아래로 4px 그림자가 깔린다. 줄 사이를 7px 만 띄우면
+       윗줄 그림자와 아랫줄 테두리 사이가 3px 밖에 안 남아 붙어 보였다.
+       가로는 그림자가 없는 쪽이라 8px 이면 넉넉하다. */
+    display:grid; grid-template-columns:1fr 1fr; column-gap:8px; row-gap:14px;
     width:100%; max-width:300px; margin-top:14px;
   }
   /* 단추는 아이들이 누르는 곳이라 작게 만들 수는 없다. 다만 풍경을 가리지 않을
@@ -98,7 +101,7 @@
   /* 흰 글씨를 코랄 위에 얹으면 대비가 2.4:1 뿐이다. 먹빛이면 5.8:1 */
   .hero-btn.primary{background:var(--coral); color:var(--ink);}
   @media (min-width:620px){
-    .hero-actions{grid-template-columns:repeat(4, auto); justify-content:center; max-width:none; gap:8px;}
+    .hero-actions{grid-template-columns:repeat(4, auto); justify-content:center; max-width:none; gap:12px;}
     .hero-btn{padding:6px 12px; font-size:12.5px;}
   }
   .scroll-cue{

@@ -1888,6 +1888,30 @@ const BACKDROP = {
     },
   },
 
+  // 이벤트 — 다녀온 곳들의 목록. 소개 페이지에서 보이던 그 능선과 마을을 다시 쓴다.
+  // 「저 너머에 다녀온 곳들이 있다」가 읽히도록, 앉는 자리(벤치) 대신 길가의 나무를 둔다.
+  event: {
+    nearH: [120, 84],
+    far(g, W, H, S, u){ return BACKDROP.about.far(g, W, H, S, u); },
+    mid(g, W, H, S, u){
+      const mob = W < 640;
+      const put = (sp, xr, h) => {
+        const s = u.fitS(sp, H * h);
+        drawSprite(g, sp, Math.round(W * xr / S) * S,
+          Math.round((H - sp.length * s) / S) * S, s, u.washPal(sp, .78, u.CREAM));
+      };
+      put(SPRITES.tree, 0.06, 0.50);
+      if (mob) return;
+      put(SPRITES.tree, 0.93, 0.38);
+      put(SPRITES.cloudS, 0.50, 0.20);
+    },
+    near(g, W, H, S, u){
+      const sh = NEAR_SHADES(u);
+      drawBushMass(g, -S*4, W + S*4, H * 0.30, H, S, 5.5, sh);
+      drawTallGrass(g, -S*2, W + S*2, H * 0.34, S, 3.7, sh, 3);
+    },
+  },
+
   // 모아보기 — 한 해를 훑는 페이지. 일기장과 같은 조용한 톤으로.
   year: {
     nearH: [104, 72],
