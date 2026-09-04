@@ -314,7 +314,7 @@ buildChrome('farm');
 // 규칙은 farm-rules.js 에 있다. 여기는 그림과 순서만.
 const R = FARM;
 let S = 3;                                     // 지도 한 픽셀 = 화면 몇 픽셀 — fitPixelCanvas 가 정한다
-const T = 16;                                  // 한 칸 = 16픽셀
+const T = 32;                                  // 한 칸 = 32도트. 예전에는 16이었다 — 자리가 두 배가 되어 결을 넣을 수 있다.
 const COLS = R.GRID.w, ROWS = R.GRID.h;   // 지도 크기는 규칙이 정한다
 const NAME = R.NAME;
 
@@ -582,7 +582,13 @@ function inBox(b, tx, ty){ return b && tx >= b.x && tx < b.x + b.w && ty >= b.y 
 
 // ---------- 그리기 바탕 ----------
 let ctx = null;
-function pxMap(x, y, w, h, c){ ctx.fillStyle = c; ctx.fillRect(Math.round(x * S), Math.round(y * S), Math.max(1, Math.round(w * S)), Math.max(1, Math.round(h * S))); }
+function pxMap(x, y, w, h, c){
+  // 자리와 크기를 따로 반올림하면 이웃한 네모 사이에 틈이 생기거나 겹친다.
+  // 양쪽 가장자리를 각각 반올림해 두면 배수가 1.5배 같은 값이어도 딱 맞물린다.
+  const x0 = Math.round(x * S), y0 = Math.round(y * S);
+  ctx.fillStyle = c;
+  ctx.fillRect(x0, y0, Math.max(1, Math.round((x + w) * S) - x0), Math.max(1, Math.round((y + h) * S) - y0));
+}
 const px = (x, y, w, h, c) => pxMap(x, y, w, h, c);
 function shade(hex, d){
   const n = parseInt(hex.slice(1), 16), r = Math.max(0, Math.min(255, (n >> 16) + d)), g = Math.max(0, Math.min(255, ((n >> 8) & 255) + d)), b = Math.max(0, Math.min(255, (n & 255) + d));
@@ -603,8 +609,10 @@ function drawArt(g, artRows, X, Y, s, pal, flip){
     for (let c = 0; c < line.length; c++){
       const ch = line[c]; if (ch === '.') continue;
       const col = pal[ch]; if (!col) continue;
+      const cc = flip ? w - 1 - c : c;
+      const x0 = Math.round(X + cc * s), y0 = Math.round(Y + r * s);
       g.fillStyle = col;
-      g.fillRect(Math.round(X + (flip ? w - 1 - c : c) * s), Math.round(Y + r * s), Math.ceil(s), Math.ceil(s));
+      g.fillRect(x0, y0, Math.max(1, Math.round(X + (cc + 1) * s) - x0), Math.max(1, Math.round(Y + (r + 1) * s) - y0));
     }
   }
 }
@@ -613,8 +621,8 @@ function art(rows, mx, my, pal, flip){ drawArt(ctx, rows, mx * S, my * S, S, pal
 // 캔버스가 그림 크기의 몇 배인지. 아직 화면에 안 붙어 크기가 엉뚱하면 기본 배수로 맞춘다.
 function pixScale(cv, artW, artH, fallback){
   const k = cv.width / artW;
-  if (k >= 1 && k <= 8 && k === Math.round(k) && cv.height === artH * k) return k;
-  cv.width = artW * fallback; cv.height = artH * fallback;
+  if (k >= 0.6 && k <= 8 && Math.abs(cv.height / artH - k) < 0.02) return k;
+  cv.width = Math.round(artW * fallback); cv.height = Math.round(artH * fallback);
   return fallback;
 }
 
@@ -652,9 +660,9 @@ function artOut(id, rows, mx, my, pal, flip){
 }
 // 발밑 그림자 — 한 단이 아니라 가운데가 진한 세 단이면 바닥에 붙어 보인다
 function footShade(cx, y, w){
-  px(cx - w / 2 + 1, y - 1, w - 2, 1, '#00000016');
-  px(cx - w / 2, y, w, 1, '#00000024');
-  px(cx - w / 2 + 2, y + 1, w - 4, 1, '#00000014');
+  px(cx - w / 2 + 2, y - 2, w - 4, 2, '#00000016');
+  px(cx - w / 2, y, w, 2, '#00000024');
+  px(cx - w / 2 + 4, y + 2, w - 8, 2, '#00000014');
 }
 
 // ---------- 도트 크기 맞추기 ----------
@@ -674,8 +682,14 @@ function fitPixelCanvas(cv, artW, artH, maxK){
   }
   if (!(avail > 0)) return false;                      // 아직 화면에 붙지 않았다
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
-  const k = Math.max(1, Math.min(maxK || 6, Math.floor(avail * dpr / artW)));
-  const w = artW * k, h = artH * k;
+  let want = avail * dpr;
+  if (want > 1600) want = 1600;                        // 너무 크면 겹을 담아 두는 값이 든다
+  let k = Math.floor(want / artW);
+  // 도트 하나가 화면에서 네 픽셀보다 크면 배수가 어중간할 때 자글거림이 눈에 띈다 — 정수로 못 박는다.
+  // 그보다 작으면 어중간해도 안 보이므로 폭을 꽉 채우는 쪽이 낫다.
+  if (k >= 4) k = Math.min(maxK || 8, k);
+  else k = Math.max(0.75, want / artW);
+  const w = Math.round(artW * k), h = Math.round(artH * k);
   const cw = w / dpr;
   cv.style.width = cw + 'px';
   cv.style.height = (h / dpr) + 'px';
@@ -736,108 +750,157 @@ const STONE = { hi: '#d5cec5', mid: '#c2bab0', low: '#a49c92', dark: '#857d75', 
 // 아이들 — 앞·옆·뒤 세 방향, 걸음 두 장. 머리 모양은 둘이 다르고, 색표만 갈아 끼우면 옷이 바뀐다.
 // 걸음 두 번째 장은 손으로 또 적지 않고 첫 장을 한 도트 내려앉혀 만든다.
 function walkFrame(rows, legA, legB){
-  const out = ['.'.repeat(rows[0].length)].concat(rows.slice(0, rows.length - 1));
-  out[out.length - 2] = legA; out[out.length - 1] = legB;
+  // 걸음 두 번째 장 — 몸을 두 도트 내려앉히고 다리 네 줄만 갈아 끼운다
+  const pad = '.'.repeat(rows[0].length);
+  const out = [pad, pad].concat(rows.slice(0, rows.length - 2));
+  out[out.length - 4] = legA; out[out.length - 3] = legA;
+  out[out.length - 2] = legB; out[out.length - 1] = legB.replace(/b/g, 'k');
   return out;
 }
 // 짧은 머리 — 연아
 const KID_SHORT = {
   down: [
-    '....hhhh....', '..hhHHHHhh..', '.hhHHHHHHhh.', '.hhffffffhh.',
-    '.hffffffffh.', '.hfeffffefh.', '.hffffffffh.', '..fffmmfff..',
-    '...ffffff...', '..CCCCCCCC..', '.fCCCCCCCCf.', '.fCccccccCf.',
-    '..cccccccc..', '..cccccccc..', '...ss..ss...', '..bbb..bbb..',
+    '.........hhhhhh.........', '........hhhhhhhh........', '.....hhhHHHHHHHHhhh.....', '....hhHHHHHHHHHHHHhh....',
+    '...hhhHHHHHHHHHHHHhhh...', '..hhHHHHHHHHHHHHHHHHhh..', '..hhhhffffffffffffhhhh..', '..hhhhffffffffffffhhhh..',
+    '..hhffffffffffffffffhh..', '..hhffffffffffffffffhh..', '..hhffeeffffffffeeffhh..', '..hhffeeffffffffeeffhh..',
+    '..hhffffffffffffffffhh..', '..hhppffffffffffffpphh..', '....ffffffmmmmffffff....', '....ffffffmmmmffffff....',
+    '......ffffffffffff......', '......ffffffffffff......', '.....CCCCCCCCCCCCCC.....', '....CCCCCCCCCCCCCCCC....',
+    '...fCCCCCCCCCCCCCCCCf...', '..ffCCCCCCCCCCCCCCCCff..', '..ffCCccccccccccccCCff..', '..FFCCccccccccccccCCFF..',
+    '....cccccccccccccccc....', '....cccccccccccccccc....', '....cccccccccccccccc....', '....nnnnnnnnnnnnnnnn....',
+    '......ssss....ssss......', '......ssss....ssss......', '.....bbbbb....bbbbb.....', '....kkkkkk....kkkkkk....',
   ],
   side: [
-    '...hhhhh....', '..hhHHHHh...', '.hhHHHHHHh..', '.hhffffffh..',
-    '.hfffffffF..', '.hffefffff..', '.hfffffffm..', '..hffffff...',
-    '...fffff....', '..CCCCCC....', '..CCCCCCf...', '..cccccc....',
-    '..cccccc....', '...ss.ss....', '...ss.ss....', '..bbb.bbb...',
+    '.......hhhhhhhh.........', '......hhhhhhhhhh........', '.....hhhHHHHHHHHh.......', '....hhhhHHHHHHHHhh......',
+    '...hhhHHHHHHHHHHHHh.....', '..hhhhHHHHHHHHHHHHhh....', '..hhhhffffffffffffhh....', '..hhhhffffffffffffhh....',
+    '..hhffffffffffffffFF....', '..hhffffffffffffffFF....', '..hhffffeeffffffffff....', '..hhffffeeffffffffff....',
+    '..hhffffffffffffffmm....', '..hhppffffffffffppmm....', '....hhffffffffffff......', '....hhffffffffffff......',
+    '......ffffffffff........', '......ffffffffff........', '.....CCCCCCCCCCC........', '....CCCCCCCCCCCC........',
+    '....CCCCCCCCCCCCf.......', '....CCCCCCCCCCCCFF......', '....cccccccccccc........', '....cccccccccccc........',
+    '....cccccccccccc........', '....nnnnnnnnnnnn........', '......ssss..ssss........', '......ssss..ssss........',
+    '......ssss..ssss........', '......ssss..ssss........', '.....bbbbb..bbbbb.......', '....kkkkkk..kkkkkk......',
   ],
   up: [
-    '....hhhh....', '..hhhhhhhh..', '.hhhhhhhhhh.', '.hhhhhhhhhh.',
-    '.hhHHHHHHhh.', '.hhhhhhhhhh.', '.hhhhhhhhhh.', '..hhhhhhhh..',
-    '...hhhhhh...', '..CCCCCCCC..', '.fCCCCCCCCf.', '.fCccccccCf.',
-    '..cccccccc..', '..cccccccc..', '...ss..ss...', '..bbb..bbb..',
+    '.........hhhhhh.........', '........hhhhhhhh........', '.....hhHHHHHHHHHHhh.....', '....hhHHHHHHHHHHHHhh....',
+    '...hhHHHHHHHHHHHHHHhh...', '..hhHHHHHHHHHHHHHHHHhh..', '..hhhhhhhhhhhhhhhhhhhh..', '..hhhhhhhhhhhhhhhhhhhh..',
+    '..hhhhHHHHHHHHHHHHhhhh..', '..hhhhHHHHHHHHHHHHhhhh..', '..hhhhhhhhhhhhhhhhhhhh..', '..hhhhhhhhhhhhhhhhhhhh..',
+    '..hhhhhhhhhhhhhhhhhhhh..', '..hhhhhhhhhhhhhhhhhhhh..', '....hhhhhhhhhhhhhhhh....', '....hhhhhhhhhhhhhhhh....',
+    '......hhhhhhhhhhhh......', '......hhhhhhhhhhhh......', '.....CCCCCCCCCCCCCC.....', '....CCCCCCCCCCCCCCCC....',
+    '...fCCCCCCCCCCCCCCCCf...', '..ffCCCCCCCCCCCCCCCCff..', '..ffCCccccccccccccCCff..', '..FFCCccccccccccccCCFF..',
+    '....cccccccccccccccc....', '....cccccccccccccccc....', '....cccccccccccccccc....', '....nnnnnnnnnnnnnnnn....',
+    '......ssss....ssss......', '......ssss....ssss......', '.....bbbbb....bbbbb.....', '....kkkkkk....kkkkkk....',
   ],
 };
-// 긴 머리 — 수아. 머리카락이 어깨를 지나 허리까지 내려온다.
 const KID_LONG = {
   down: [
-    '....hhhh....', '..hhHHHHhh..', '.hhHHHHHHhh.', '.hhffffffhh.',
-    'hhffffffffhh', 'hhfeffffefhh', 'hhffffffffhh', 'hhfffmmfffhh',
-    'hh.ffffff.hh', 'hhCCCCCCCChh', 'hfCCCCCCCCfh', 'hfCccccccCfh',
-    'hhcccccccchh', '.hcccccccch.', '...ss..ss...', '..bbb..bbb..',
+    '.........hhhhhh.........', '........hhhhhhhh........', '.....hhhHHHHHHHHhhh.....', '....hhHHHHHHHHHHHHhh....',
+    '...hhhHHHHHHHHHHHHhhh...', '..hhHHHHHHHHHHHHHHHHhh..', '..hhhhffffffffffffhhhh..', '..hhhhffffffffffffhhhh..',
+    '.hhhffffffffffffffffhhh.', 'hhhhffffffffffffffffhhhh', 'hhhhffeeffffffffeeffhhhh', 'hhhhffeeffffffffeeffhhhh',
+    'hhhhffffffffffffffffhhhh', 'hhhhppffffffffffffpphhhh', 'hhhhffffffmmmmffffffhhhh', 'hhhhffffffmmmmffffffhhhh',
+    'hhhh..ffffffffffff..hhhh', 'hhhh..ffffffffffff..hhhh', 'hhhhCCCCCCCCCCCCCCCChhhh', 'hhhhCCCCCCCCCCCCCCCChhhh',
+    'hhffCCCCCCCCCCCCCCCCffhh', 'hhffCCCCCCCCCCCCCCCCffhh', 'hhffCCccccccccccccCCffhh', 'hhFFCCccccccccccccCCFFhh',
+    'hhhhcccccccccccccccchhhh', 'hhhhcccccccccccccccchhhh', '..hhcccccccccccccccchh..', '..hhnnnnnnnnnnnnnnnnhh..',
+    '......ssss....ssss......', '......ssss....ssss......', '.....bbbbb....bbbbb.....', '....kkkkkk....kkkkkk....',
   ],
   side: [
-    '...hhhhh....', '..hhHHHHh...', '.hhHHHHHHh..', '.hhffffffh..',
-    'hhhfffffffF.', 'hhhffefffff.', 'hhhfffffffm.', 'hhhffffff...',
-    'hhh.fffff...', 'hhCCCCCC....', 'hhCCCCCCf...', 'hhcccccc....',
-    'hhcccccc....', '.hhss.ss....', '..hss.ss....', '..bbb.bbb...',
+    '.......hhhhhhhh.........', '......hhhhhhhhhh........', '.....hhhHHHHHHHHh.......', '....hhhhHHHHHHHHhh......',
+    '...hhhHHHHHHHHHHHHh.....', '..hhhhHHHHHHHHHHHHhh....', '..hhhhffffffffffffhh....', '..hhhhffffffffffffhh....',
+    '.hhhhhffffffffffffffF...', 'hhhhhhffffffffffffffFF..', 'hhhhhhffffeeffffffffff..', 'hhhhhhffffeeffffffffff..',
+    'hhhhhhffffffffffffffmm..', 'hhhhhhppffffffffffppmm..', 'hhhhhhffffffffffff......', 'hhhhhhffffffffffff......',
+    'hhhhhh..ffffffffff......', 'hhhhhh..ffffffffff......', 'hhhhCCCCCCCCCCCC........', 'hhhhCCCCCCCCCCCC........',
+    'hhhhCCCCCCCCCCCCf.......', 'hhhhCCCCCCCCCCCCFF......', 'hhhhcccccccccccc........', 'hhhhcccccccccccc........',
+    'hhhhcccccccccccc........', 'hhhhnnnnnnnnnnnn........', '..hhhhssss..ssss........', '..hhhhssss..ssss........',
+    '....hhssss..ssss........', '....hhssss..ssss........', '....bbbbbb..bbbbb.......', '....kkkkkk..kkkkkk......',
   ],
   up: [
-    '....hhhh....', '..hhhhhhhh..', '.hhhhhhhhhh.', '.hhhhhhhhhh.',
-    '.hhHHHHHHhh.', 'hhhhhhhhhhhh', 'hhhhhhhhhhhh', 'hhhhhhhhhhhh',
-    'hhhhhhhhhhhh', 'hhCCCCCCCChh', 'hfCCCCCCCCfh', 'hhcccccccchh',
-    'hhcccccccchh', '.hcccccccch.', '...ss..ss...', '..bbb..bbb..',
+    '.........hhhhhh.........', '........hhhhhhhh........', '.....hhHHHHHHHHHHhh.....', '....hhHHHHHHHHHHHHhh....',
+    '...hhHHHHHHHHHHHHHHhh...', '..hhHHHHHHHHHHHHHHHHhh..', '..hhhhhhhhhhhhhhhhhhhh..', '..hhhhhhhhhhhhhhhhhhhh..',
+    '..hhhhHHHHHHHHHHHHhhhh..', '..hhhhHHHHHHHHHHHHhhhh..', '.hhhhhhhhhhhhhhhhhhhhhh.', 'hhhhhhhhhhhhhhhhhhhhhhhh',
+    'hhhhhhhhhhhhhhhhhhhhhhhh', 'hhhhhhhhhhhhhhhhhhhhhhhh', 'hhhhhhhhhhhhhhhhhhhhhhhh', 'hhhhhhhhhhhhhhhhhhhhhhhh',
+    'hhhhhhhhhhhhhhhhhhhhhhhh', 'hhhhhhhhhhhhhhhhhhhhhhhh', 'hhhhCCCCCCCCCCCCCCCChhhh', 'hhhhCCCCCCCCCCCCCCCChhhh',
+    'hhffCCCCCCCCCCCCCCCCffhh', 'hhFFCCCCCCCCCCCCCCCCFFhh', 'hhhhcccccccccccccccchhhh', 'hhhhcccccccccccccccchhhh',
+    'hhhhcccccccccccccccchhhh', 'hhhhcccccccccccccccchhhh', '..hhcccccccccccccccchh..', '..hhnnnnnnnnnnnnnnnnhh..',
+    '......ssss....ssss......', '......ssss....ssss......', '.....bbbbb....bbbbb.....', '....kkkkkk....kkkkkk....',
   ],
 };
+
 function kidSet(base){
   return {
-    down: [base.down, walkFrame(base.down, '..ss....ss..', '.bbb....bbb.')],
-    side: [base.side, walkFrame(base.side, '....ssss....', '...bbbbb....')],
-    up:   [base.up,   walkFrame(base.up,   '..ss....ss..', '.bbb....bbb.')],
+    down: [base.down, walkFrame(base.down, '....ssss........ssss....', '..bbbbbb........bbbbbb..')],
+    side: [base.side, walkFrame(base.side, '........ssssssss........', '......bbbbbbbbbb........')],
+    up:   [base.up,   walkFrame(base.up,   '....ssss........ssss....', '..bbbbbb........bbbbbb..')],
   };
 }
 const KIDART = { sua: kidSet(KID_LONG), yona: kidSet(KID_SHORT) };
 const KID = KIDART.yona;                       // 방 그림 등에서 기본으로 쓰는 것
 const KIDPAL = {
   // 수아 — 긴 갈색 머리에 산호색 원피스
-  sua:  { h: '#4a3327', H: '#63452f', f: '#ffe3c9', F: '#f0c6a4', e: '#3a2a20', m: '#c9646b', c: '#f2707d', C: '#ff9aa2', s: '#f0c6a4', b: '#8a5f3a' },
+  sua:  { h: '#4a3327', H: '#63452f', f: '#ffe3c9', F: '#f0c6a4', e: '#3a2a20', w: '#ffffff', m: '#c9646b', p: '#ffb0b8', c: '#f2707d', C: '#ff9aa2', n: '#d2545f', s: '#f0c6a4', b: '#8a5f3a', k: '#6b452a' },
   // 연아 — 짧은 적갈색 머리에 노란 윗도리
-  yona: { h: '#a0562c', H: '#bd6c3a', f: '#ffe3c9', F: '#f0c6a4', e: '#3a2a20', m: '#c9646b', c: '#e8b83a', C: '#ffd85c', s: '#f0c6a4', b: '#8a5f3a' },
+  yona: { h: '#a0562c', H: '#bd6c3a', f: '#ffe3c9', F: '#f0c6a4', e: '#3a2a20', w: '#ffffff', m: '#c9646b', p: '#ffb0b8', c: '#e8b83a', C: '#ffd85c', n: '#c99a26', s: '#f0c6a4', b: '#8a5f3a', k: '#6b452a' },
 };
 // 동물 — 종마다 그림 한 장과 색표 하나.
 const BEAST = {
-  chicken: { w: 12, art: [
-    '........rr..', '.......rrr..', '......bbbbb.', '.tt..bbbbbek',
-    'tbbbbbbbbbkk', 'tbbbbbbbbbb.', '.BbbbbbbbbB.', '..BBBBBBBB..',
-    '...l...l....', '..lll.lll...',
+  chicken: { w: 24, art: [
+    '.................rr.....', '................rrrr....', '...............rrrrr....', '..............rrrrrr....',
+    '.............bbbbbbbb...', '............bbbbbbbbbb..', '...tt......bbbbbbbbbeek.', '..tttt....bbbbbbbbbbeekk',
+    '.tbbbbbbbbbbbbbbbbbbkkkk', 'ttbbbbbbbbbbbbbbbbbbkkk.', 'ttbbbbbbbbbbbbbbbbbbbb..', '.tbbbbbbbbbbbbbbbbbbbb..',
+    '..BBbbbbbbbbbbbbbbbbBB..', '...BbbbbbbbbbbbbbbbbB...', '....BBBBBBBBBBBBBBBB....', '.....BBBBBBBBBBBBBB.....',
+    '......ll......ll........', '......ll......ll........', '.....llll....llll.......', '.....llll....llll.......',
   ], pal: { b: '#fffaf2', B: '#e3d9c8', r: '#ff5a4a', k: '#ff9f2e', e: '#3a3226', l: '#ffb43d', t: '#efe8db' } },
-  duck: { w: 12, art: [
-    '.......hhh..', '......hhhhh.', '......hhhhek', '.tt...hhhhkk',
-    'tbbbbbbbbh..', 'tbbbbbbbbb..', '.BbbbbbbbB..', '..BBBBBBB...',
-    '...l..l.....', '..lll.lll...',
+  duck: { w: 24, art: [
+    '...............hhhh.....', '..............hhhhhh....', '.............hhhhhhhh...', '............hhhhhhhhhh..',
+    '............hhhhhhhheek.', '............hhhhhhhheekk', '...tt.......hhhhhhhhkkkk', '..tttt......hhhhhhhhkkk.',
+    '.tbbbbbbbbbbbbbbbbhh....', 'ttbbbbbbbbbbbbbbbbhh....', 'ttbbbbbbbbbbbbbbbbbb....', '.tbbbbbbbbbbbbbbbbbb....',
+    '..BBbbbbbbbbbbbbbbBB....', '...BbbbbbbbbbbbbbbB.....', '....BBBBBBBBBBBBBB......', '.....BBBBBBBBBBBB.......',
+    '......ll....ll..........', '......ll....ll..........', '.....llll...lllll.......', '.....llll....llll.......',
   ], pal: { b: '#fffdf6', B: '#ded7c6', h: '#2f7d5e', k: '#ffb43d', e: '#26241f', l: '#ff9f2e', t: '#f3ece0' } },
-  cow: { w: 16, art: [
-    '..............k.', '...........hhhk.', '..sss.....hhhhh.', '.bbbbbbbbbhhehh.',
-    'bbbbbbbbbbhhhhh.', 'bbbsssbbbbnnnn..', 'bbbsssbbbbnnnn..', 'BbbbbbbbbB......',
-    '.BBBBBBBB.......', '..u.u...........', '..l...l.........', '.lll.lll........',
+  cow: { w: 32, art: [
+    '................................', '............................kk..', '.......................hhhhhkk..', '......................hhhhhhkk..',
+    '.....ssss............hhhhhhhhh..', '....ssssss..........hhhhhhhhhh..', '...bbbbbbbbbbbbbbbbbhhhheehhhh..', '..bbbbbbbbbbbbbbbbbbhhhheehhhh..',
+    '.bbbbbbbbbbbbbbbbbbbhhhhhhhhhh..', 'bbbbbbbbbbbbbbbbbbbbhhhhhhhhh...', 'bbbbbbssssssbbbbbbbbnnnnnnnn....', 'bbbbbbssssssbbbbbbbbnnnnnnnn....',
+    'bbbbbbssssssbbbbbbbbnnnnnnnn....', 'bbbbbbssssssbbbbbbbbnnnnnnn.....', 'BBbbbbbbbbbbbbbbbbBB............', '.BbbbbbbbbbbbbbbbbB.............',
+    '..BBBBBBBBBBBBBBBB..............', '...BBBBBBBBBBBBBB...............', '....uu..uu......................', '....uu..........................',
+    '....ll..........................', '....ll......ll..................', '...llll....llll.................', '...llll....llll.................',
   ], pal: { b: '#fffaf2', B: '#ded5c6', s: '#3a3226', h: '#fffaf2', k: '#c79b6d', e: '#3a3226', n: '#ffb3a7', u: '#ffc4c4', l: '#3a3226' } },
-  sheep: { w: 14, art: [
-    '..wwwwwww.....', '.wwwwwwwww....', 'wwwwwwwwwwhhh.', 'wwwwwwwwwwhehh',
-    'wwwwwwwwwwhhhh', 'wwwwwwwwww.hh.', '.WWWWWWWW.....', '..WWWWWW......',
-    '..l...l.......', '..l...l.......', '.lll.lll......', '..............',
+  sheep: { w: 28, art: [
+    '.....wwwwwwwwwwww...........', '....wwwwwwwwwwwwww..........', '...wwwwwwwwwwwwwwww.........', '..wwwwwwwwwwwwwwwwww........',
+    '.wwwwwwwwwwwwwwwwwwwhhhhh...', 'wwwwwwwwwwwwwwwwwwwwhhhhhh..', 'wwwwwwwwwwwwwwwwwwwwhheehhh.', 'wwwwwwwwwwwwwwwwwwwwhheehhhh',
+    'wwwwwwwwwwwwwwwwwwwwhhhhhhhh', 'wwwwwwwwwwwwwwwwwwwwhhhhhhh.', 'wwwwwwwwwwwwwwwwwwww..hhhh..', '.wwwwwwwwwwwwwwwwww....hh...',
+    '..WWWWWWWWWWWWWWWW..........', '...WWWWWWWWWWWWWW...........', '....WWWWWWWWWWWW............', '....WWWWWWWWWWW.............',
+    '....ll......ll..............', '....ll......ll..............', '....ll......ll..............', '....ll......ll..............',
+    '...llll....llll.............', '...llll....llll.............', '............................', '............................',
   ], pal: { w: '#fbf7f1', W: '#e0d9cf', h: '#4a4038', e: '#fff6e9', l: '#4a4038' } },
-  pig: { w: 14, art: [
-    '..............', '.....ppppp.hh.', '..pppppppppppp', '.ppppppppppppn',
-    'pppppppppppepn', 'pppppppppppppn', 'PppppppppppppP', '.PPPPPPPPPPPP.',
-    '..l...l..l....', '..l...l..l....', '.lll.lll.lll..',
+  pig: { w: 28, art: [
+    '............................', '............................', '...........pppppppp....hh...', '..........pppppppppp..hhhh..',
+    '.....pppppppppppppppppppppp.', '....pppppppppppppppppppppppp', '...pppppppppppppppppppppppnn', '..ppppppppppppppppppppppppnn',
+    '.pppppppppppppppppppppeeppnn', 'ppppppppppppppppppppppeeppnn', 'ppppppppppppppppppppppppppnn', 'ppppppppppppppppppppppppppnn',
+    'PPppppppppppppppppppppppppPP', '.PppppppppppppppppppppppppP.', '..PPPPPPPPPPPPPPPPPPPPPPPP..', '...PPPPPPPPPPPPPPPPPPPPPP...',
+    '....ll......ll....ll........', '....ll......ll....ll........', '....ll......ll....ll........', '....ll......ll....ll........',
+    '...llll....llll...lllll.....', '...llll....llll....llll.....',
   ], pal: { p: '#f7b0c0', P: '#e090a4', n: '#d4718c', e: '#3a3226', h: '#eda0b2', l: '#e090a4' } },
-  rabbit: { w: 10, art: [
-    '..a....a..', '..a....a..', '..aa..aa..', '..bbbbbb..',
-    '.bbbbbbbb.', '.bbebbebb.', '.bbbnnbbb.', 'bbbbbbbbbb',
-    'bbbbbbbbbb', '.BbbbbbbB.', '..BBBBBB..', '..l....l..',
+  rabbit: { w: 20, art: [
+    '....................', '....aa........aa....', '....aa........aa....', '....aa........aa....',
+    '....aaa......aaa....', '....aaaa....aaaa....', '....bbbbbbbbbbbb....', '....bbbbbbbbbbbb....',
+    '...bbbbbbbbbbbbbb...', '..bbbbbbbbbbbbbbbb..', '..bbbbeebbbbeebbbb..', '..bbbbeebbbbeebbbb..',
+    '..bbbbbbnnnnbbbbbb..', '..bbbbbbnnnnbbbbbb..', '.bbbbbbbbbbbbbbbbbb.', 'bbbbbbbbbbbbbbbbbbbb',
+    'bbbbbbbbbbbbbbbbbbbb', '.bbbbbbbbbbbbbbbbbb.', '..BBbbbbbbbbbbbbBB..', '...BbbbbbbbbbbbbB...',
+    '....BBBBBBBBBBBB....', '....BBBBBBBBBBBB....', '....ll........ll....', '....................',
   ], pal: { a: '#f6efe6', b: '#fdf8f1', B: '#ded5c8', e: '#c96a86', n: '#ffb3c4', l: '#e0d7c9' } },
-  dog: { w: 13, art: [
-    '.........aa..', '.t.......aaa.', 'ttt..ddddddd.', '.dddddddddden',
-    'ddddddddddddn', 'dddddddddddd.', 'DdddddddddD..', '.DDDDDDDDD...',
-    '..l..l..l....', '..l..l..l....', '.lll.ll.lll..',
+  dog: { w: 26, art: [
+    '...................aa.....', '..................aaaa....', '..................aaaaa...', '..tt..............aaaaaa..',
+    '.tttt......ddddddddddddd..', '.ttttt....dddddddddddddd..', '..ddddddddddddddddddddeen.', '..ddddddddddddddddddddeenn',
+    '.dddddddddddddddddddddddnn', 'ddddddddddddddddddddddddn.', 'dddddddddddddddddddddddd..', 'ddddddddddddddddddddddd...',
+    'DDddddddddddddddddddDD....', '.DddddddddddddddddddD.....', '..DDDDDDDDDDDDDDDDDD......', '...DDDDDDDDDDDDDDDD.......',
+    '....ll....ll....ll........', '....ll....ll....ll........', '....ll....ll....ll........', '....ll....ll....ll........',
+    '...llll...lll...lllll.....', '...llll....ll....llll.....',
   ], pal: { d: '#e0b076', D: '#c4915a', a: '#a97b4f', t: '#e0b076', e: '#3a3226', n: '#4a3a30', l: '#c4915a' } },
-  cat: { w: 12, art: [
-    '..a.....a...', '.aa.....aa..', '.ccccccccc..', '.ceccceccc.t',
-    '.cccnccccc.t', 'ccccccccccct', 'ccccccccccc.', 'CcccccccccC.',
-    '.CCCCCCCCC..', '..l..l..l...', '.ll..ll.ll..',
+  cat: { w: 24, art: [
+    '........................', '....aa..........aa......', '...aaa..........aaa.....', '..aaaa..........aaaa....',
+    '..cccccccccccccccccc....', '..cccccccccccccccccc....', '..cceecccccceecccccc....', '..cceecccccceecccccc..tt',
+    '..ccccccnncccccccccc..tt', '..ccccccnncccccccccc..tt', '.ccccccccccccccccccccctt', 'cccccccccccccccccccccct.',
+    'cccccccccccccccccccccc..', 'cccccccccccccccccccccc..', 'CCccccccccccccccccccCC..', '.CccccccccccccccccccC...',
+    '..CCCCCCCCCCCCCCCCCC....', '...CCCCCCCCCCCCCCCC.....', '....ll....ll....ll......', '....ll....ll....ll......',
+    '...lll....lll...lll.....', '...ll......ll....ll.....',
   ], pal: { c: '#8b8f9c', C: '#6f7382', a: '#6f7382', e: '#ffd166', n: '#ffb3c4', t: '#8b8f9c', l: '#6f7382' } },
 };
 function beastW(kind){ return (BEAST[kind] || BEAST.chicken).w; }
@@ -857,14 +920,14 @@ function drawGround(season){
   const P = GROUND[season], Wp = COLS * T, Hp = ROWS * T;
   // 1) 큰 얼룩 — 칸 경계를 넘어 이어지게. 이게 없으면 열여섯 칸짜리 바둑판이 눈에 띈다.
   px(0, 0, Wp, Hp, P.g[1]);
-  for (let y = 0; y < Hp; y += 4) for (let x = 0; x < Wp; x += 4){
-    const v = noise2(x, y, 27, 'a') * 0.55 + noise2(x, y, 11, 'b') * 0.3 + noise2(x, y, 5, 'c') * 0.15;
-    px(x, y, 4, 4, P.g[Math.min(3, Math.floor(v * 4))]);
+  for (let y = 0; y < Hp; y += 8) for (let x = 0; x < Wp; x += 8){
+    const v = noise2(x, y, 54, 'a') * 0.55 + noise2(x, y, 22, 'b') * 0.3 + noise2(x, y, 10, 'c') * 0.15;
+    px(x, y, 8, 8, P.g[Math.min(3, Math.floor(v * 4))]);
   }
   // 2) 잔 알갱이 — 한 도트짜리. 가까이 보면 결이 산다.
-  for (let y = 0; y < Hp; y += 2) for (let x = 0; x < Wp; x += 2){
+  for (let y = 0; y < Hp; y += 4) for (let x = 0; x < Wp; x += 4){
     const r = R.prand('k' + x + '_' + y);
-    if (r > 0.86) px(x, y, 1, 1, P.g[r > 0.94 ? 0 : 3]);
+    if (r > 0.86) px(x, y, 2, 2, P.g[r > 0.94 ? 0 : 3]);
   }
   // 3) 칸마다 풀포기·조약돌·꽃
   for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++){
@@ -872,26 +935,26 @@ function drawGround(season){
     const n = r0 < 0.5 ? 3 : r0 < 0.85 ? 2 : 1;
     for (let i = 0; i < n; i++){
       const rr = R.prand('t' + tx + '_' + ty + '_' + i);
-      const gx = X + 1 + Math.floor(rr * (T - 4)), gy = Y + 2 + Math.floor(R.prand('u' + tx + '_' + ty + '_' + i) * (T - 6));
+      const gx = X + 2 + Math.floor(rr * (T - 8)), gy = Y + 4 + Math.floor(R.prand('u' + tx + '_' + ty + '_' + i) * (T - 12));
       const c = P.tuft[i % 2];
-      px(gx, gy + 1, 1, 3, c); px(gx + 1, gy, 1, 4, shade(c, 14)); px(gx + 2, gy + 2, 1, 2, shade(c, -10));
+      px(gx, gy + 2, 2, 6, c); px(gx + 2, gy, 2, 8, shade(c, 14)); px(gx + 4, gy + 4, 2, 4, shade(c, -10));
     }
-    if (r0 > 0.93){ px(X + 6, Y + 9, 4, 2, P.rock); px(X + 6, Y + 9, 3, 1, shade(P.rock, 20)); px(X + 6, Y + 11, 4, 1, shade(P.rock, -22)); }
+    if (r0 > 0.93){ px(X + 12, Y + 18, 8, 4, P.rock); px(X + 12, Y + 18, 6, 2, shade(P.rock, 20)); px(X + 12, Y + 22, 8, 2, shade(P.rock, -22)); }
     const bloomP = season === 'spring' ? 0.2 : season === 'summer' ? 0.14 : season === 'autumn' ? 0.07 : 0;
     if (R.prand('f' + tx + '_' + ty) < bloomP){
       const c = P.bloom[Math.floor(R.prand('fc' + tx + '_' + ty) * P.bloom.length)];
-      const fx = X + 4 + Math.floor(R.prand('fx' + tx + '_' + ty) * 7), fy = Y + 5 + Math.floor(R.prand('fy' + tx + '_' + ty) * 6);
-      px(fx, fy + 2, 1, 3, P.tuft[1]);
-      px(fx, fy, 1, 1, c); px(fx - 1, fy + 1, 3, 1, c); px(fx, fy + 2, 1, 1, c);
-      px(fx, fy + 1, 1, 1, '#fff6c0');
+      const fx = X + 8 + Math.floor(R.prand('fx' + tx + '_' + ty) * 14), fy = Y + 10 + Math.floor(R.prand('fy' + tx + '_' + ty) * 12);
+      px(fx, fy + 4, 2, 6, P.tuft[1]);
+      px(fx, fy, 2, 2, c); px(fx - 2, fy + 2, 6, 2, c); px(fx, fy + 4, 2, 2, c);
+      px(fx, fy + 2, 2, 2, '#fff6c0');
     }
     if (season === 'autumn' && R.prand('l' + tx + '_' + ty) < 0.16){
-      const lx = X + 3 + Math.floor(R.prand('lx' + tx + '_' + ty) * 9), ly = Y + 3 + Math.floor(R.prand('ly' + tx + '_' + ty) * 9);
+      const lx = X + 6 + Math.floor(R.prand('lx' + tx + '_' + ty) * 18), ly = Y + 6 + Math.floor(R.prand('ly' + tx + '_' + ty) * 18);
       const c = ['#d9603c', '#e8874a', '#c9a227'][Math.floor(R.prand('lc' + tx + '_' + ty) * 3)];
-      px(lx, ly, 2, 1, c); px(lx + 1, ly + 1, 1, 1, shade(c, -26));
+      px(lx, ly, 4, 2, c); px(lx + 2, ly + 2, 2, 2, shade(c, -26));
     }
     if (season === 'winter' && R.prand('w' + tx + '_' + ty) < 0.25){
-      px(X + 2 + Math.floor(R.prand('wx' + tx + '_' + ty) * 9), Y + 4 + Math.floor(R.prand('wy' + tx + '_' + ty) * 8), 3, 2, '#ffffff');
+      px(X + 4 + Math.floor(R.prand('wx' + tx + '_' + ty) * 18), Y + 8 + Math.floor(R.prand('wy' + tx + '_' + ty) * 16), 6, 4, '#ffffff');
     }
   }
 }
@@ -903,10 +966,10 @@ function drawPath(season){
     let x = x0, y = y0, guard = 0;
     while (guard++ < 200){
       const X = x * T, Y = y * T;
-      px(X, Y + 4, T, 8, c[0]);
-      for (let i = 0; i < 6; i++){
+      px(X, Y + 8, T, 16, c[0]);
+      for (let i = 0; i < 12; i++){
         const rr = R.prand('p' + x + '_' + y + '_' + i);
-        px(X + Math.floor(rr * (T - 2)), Y + 4 + Math.floor(R.prand('q' + x + '_' + y + '_' + i) * 7), 2, 1, c[rr > 0.5 ? 1 : 2]);
+        px(X + Math.floor(rr * (T - 8)), Y + 8 + Math.floor(R.prand('q' + x + '_' + y + '_' + i) * 14), 4, 2, c[rr > 0.5 ? 1 : 2]);
       }
       if (x === x1 && y === y1) break;
       if (x !== x1) x += dx; else y += dy;
@@ -928,16 +991,16 @@ function drawFieldFrame(){
   if (nextE) for (let y = 0; y < nextE.h; y++) for (let x = 0; x < nextE.w; x++){
     if (x < E.w && y < E.h) continue;
     const X = (R.FIELD.x0 + x) * T, Y = (R.FIELD.y0 + y) * T;
-    for (let i = 0; i < T; i += 4){ px(X + i, Y, 2, 1, '#00000022'); px(X, Y + i, 1, 2, '#00000022'); }
+    for (let i = 0; i < T; i += 8){ px(X + i, Y, 4, 2, '#00000022'); px(X, Y + i, 2, 4, '#00000022'); }
   }
   // 울타리 — 기둥과 가로대 두 줄
-  const post = (X, Y) => { px(X, Y - 6, 2, 8, WOOD.dark); px(X, Y - 6, 1, 8, WOOD.mid); px(X, Y - 7, 2, 1, WOOD.hi); };
-  px(fx - 1, fy - 4, fw + 2, 1, WOOD.mid); px(fx - 1, fy - 1, fw + 2, 1, WOOD.low);
-  px(fx - 1, fy + fh + 1, fw + 2, 1, WOOD.mid); px(fx - 1, fy + fh + 4, fw + 2, 1, WOOD.low);
-  px(fx - 4, fy - 1, 1, fh + 2, WOOD.mid); px(fx - 1, fy - 1, 1, fh + 2, WOOD.low);
-  px(fx + fw + 1, fy - 1, 1, fh + 2, WOOD.mid); px(fx + fw + 4, fy - 1, 1, fh + 2, WOOD.low);
-  for (let i = 0; i <= fw; i += T){ post(fx + i - 1, fy); post(fx + i - 1, fy + fh + 6); }
-  for (let i = 0; i <= fh; i += T){ post(fx - 3, fy + i + 6); post(fx + fw + 2, fy + i + 6); }
+  const post = (X, Y) => { px(X, Y - 12, 4, 16, WOOD.dark); px(X, Y - 12, 2, 16, WOOD.mid); px(X, Y - 14, 4, 2, WOOD.hi); };
+  px(fx - 2, fy - 8, fw + 4, 2, WOOD.mid); px(fx - 2, fy - 2, fw + 4, 2, WOOD.low);
+  px(fx - 2, fy + fh + 2, fw + 4, 2, WOOD.mid); px(fx - 2, fy + fh + 8, fw + 4, 2, WOOD.low);
+  px(fx - 8, fy - 2, 2, fh + 4, WOOD.mid); px(fx - 2, fy - 2, 2, fh + 4, WOOD.low);
+  px(fx + fw + 2, fy - 2, 2, fh + 4, WOOD.mid); px(fx + fw + 8, fy - 2, 2, fh + 4, WOOD.low);
+  for (let i = 0; i <= fw; i += T){ post(fx + i - 2, fy); post(fx + i - 2, fy + fh + 12); }
+  for (let i = 0; i <= fh; i += T){ post(fx - 6, fy + i + 12); post(fx + fw + 4, fy + i + 12); }
 }
 function drawPlot(id, p, gh){
   const { x, y } = R.parseId(id);
@@ -947,28 +1010,28 @@ function drawPlot(id, p, gh){
   px(X, Y, T, T, S3[0]);
   // 흙 얼룩 — 칸 경계를 넘어 이어지는 큰 무늬라 밭 전체가 한 장의 흙처럼 보인다.
   // 좌표로 난수를 만들므로 칸 크기가 바뀌어도 무늬는 그대로 이어진다.
-  for (let dy = 0; dy < T; dy += 2) for (let dx = 0; dx < T; dx += 2){
-    const v = noise2b(X + dx, Y + dy, 7, 3, 'so');
-    if (v > 0.64) px(X + dx, Y + dy, 2, 2, shade(S3[0], 13));
-    else if (v < 0.3) px(X + dx, Y + dy, 2, 2, shade(S3[0], -13));
+  for (let dy = 0; dy < T; dy += 4) for (let dx = 0; dx < T; dx += 4){
+    const v = noise2b(X + dx, Y + dy, 14, 6, 'so');
+    if (v > 0.64) px(X + dx, Y + dy, 4, 4, shade(S3[0], 13));
+    else if (v < 0.3) px(X + dx, Y + dy, 4, 4, shade(S3[0], -13));
   }
   // 칸 위쪽 밝은 선은 통으로 그으면 칸마다 밝은 줄이 생겨 바둑판이 된다 — 흩뿌린다
   ditherRow(X, Y, T, shade(S3[0], 15), 0.6, Y);
   // 고랑 — 갈아 놓은 결. 골 밑에 그늘을 흩뿌리면 파인 자국처럼 읽힌다
-  for (let i = 2; i < T - 1; i += 3){
-    px(X + 1, Y + i, T - 2, 1, S3[2]);
-    px(X + 1, Y + i + 1, T - 2, 1, S3[1]);
-    ditherRow(X + 1, Y + i + 2, T - 2, shade(S3[0], -13), 0.42, Y + i);
+  for (let i = 4; i < T - 2; i += 6){
+    px(X + 2, Y + i, T - 4, 2, S3[2]);
+    px(X + 2, Y + i + 2, T - 4, 2, S3[1]);
+    ditherRow(X + 2, Y + i + 4, T - 4, shade(S3[0], -13), 0.42, Y + i);
   }
   // 흙 알갱이와 잔돌
   for (let i = 0; i < 7; i++){
     const rr = R.prand('s' + id + i), r2 = R.prand('z' + id + i);
-    const gx = X + 1 + Math.floor(rr * (T - 3)), gy = Y + 1 + Math.floor(r2 * (T - 3));
-    if (i < 2){ px(gx, gy, 2, 1, shade(S3[0], -22)); px(gx, gy - 1, 1, 1, shade(S3[0], 20)); }
-    else px(gx, gy, 1, 1, shade(S3[0], rr > .5 ? 18 : -16));
+    const gx = X + 2 + Math.floor(rr * (T - 6)), gy = Y + 2 + Math.floor(r2 * (T - 6));
+    if (i < 2){ px(gx, gy, 4, 2, shade(S3[0], -22)); px(gx, gy - 2, 2, 2, shade(S3[0], 20)); }
+    else px(gx, gy, 2, 2, shade(S3[0], rr > .5 ? 18 : -16));
   }
-  if (wet){ px(X + 3, Y + 4, 2, 1, '#7fbfe066'); px(X + T - 6, Y + T - 5, 2, 1, '#7fbfe066'); }
-  if (p.fert){ px(X + 2, Y + T - 3, 2, 1, '#e8dcae'); px(X + T - 5, Y + 3, 2, 1, '#e8dcae'); px(X + 7, Y + T - 6, 1, 1, '#e8dcae'); }
+  if (wet){ px(X + 6, Y + 8, 4, 2, '#7fbfe066'); px(X + T - 12, Y + T - 10, 4, 2, '#7fbfe066'); }
+  if (p.fert){ px(X + 4, Y + T - 6, 4, 2, '#e8dcae'); px(X + T - 10, Y + 6, 4, 2, '#e8dcae'); px(X + 14, Y + T - 12, 2, 2, '#e8dcae'); }
 }
 // ---------- 작물 ----------
 // 잎은 세 단계(밝은 쪽·본색·그늘), 열매도 세 단계로 찍는다. sway 는 바람에 흔들리는 정도.
@@ -979,83 +1042,83 @@ function drawCrop(X, Y, crop, stage, wilted, P, sway){
   const hi = wilted ? '#b9a271' : shade(leaf, 26), dk = wilted ? '#7a6a44' : shade(leaf, -32), stem = wilted ? '#7a6a44' : shade(leaf, -46);
   const fruit = C.fruit, fhi = shade(fruit, 30), fdk = shade(fruit, -34);
   const s = sway || 0;
-  const cx = X + 8, base = Y + 14;
-  if (wilted){ px(cx - 1, base - 5, 1, 5, stem); px(cx - 3, base - 3, 3, 1, leaf); px(cx + 1, base - 2, 3, 1, dk); px(cx - 4, base - 1, 8, 1, '#00000018'); return; }
-  px(cx - 4, base, 9, 1, '#00000016');                       // 그림자
-  if (stage === 0){ px(cx - 1, base - 2, 2, 2, leaf); px(cx - 1, base - 2, 1, 1, hi); px(cx - 2, base - 3, 1, 1, leaf); px(cx + 1, base - 3, 1, 1, dk); return; }
-  if (stage === 1){ px(cx, base - 5, 1, 5, stem); px(cx - 2, base - 4, 2, 1, leaf); px(cx - 2, base - 5, 1, 1, hi); px(cx + 1, base - 5, 2, 1, leaf); px(cx + 2, base - 4, 1, 1, dk); return; }
+  const cx = X + 16, base = Y + 28;
+  if (wilted){ px(cx - 2, base - 10, 2, 10, stem); px(cx - 6, base - 6, 6, 2, leaf); px(cx + 2, base - 4, 6, 2, dk); px(cx - 8, base - 2, 16, 2, '#00000018'); return; }
+  px(cx - 8, base, 18, 2, '#00000016');                       // 그림자
+  if (stage === 0){ px(cx - 2, base - 4, 4, 4, leaf); px(cx - 2, base - 4, 2, 2, hi); px(cx - 4, base - 6, 2, 2, leaf); px(cx + 2, base - 6, 2, 2, dk); return; }
+  if (stage === 1){ px(cx, base - 10, 2, 10, stem); px(cx - 4, base - 8, 4, 2, leaf); px(cx - 4, base - 10, 2, 2, hi); px(cx + 2, base - 10, 4, 2, leaf); px(cx + 4, base - 8, 2, 2, dk); return; }
   if (stage === 2){
-    px(cx, base - 7, 1, 7, stem);
-    px(cx - 3 + s, base - 5, 3, 1, leaf); px(cx - 3 + s, base - 6, 2, 1, hi); px(cx + 1 + s, base - 6, 3, 1, leaf); px(cx + 3 + s, base - 5, 1, 1, dk);
-    px(cx - 2, base - 3, 2, 1, leaf); px(cx + 1, base - 4, 2, 1, dk);
+    px(cx, base - 14, 2, 14, stem);
+    px(cx - 6 + s, base - 10, 6, 2, leaf); px(cx - 6 + s, base - 12, 4, 2, hi); px(cx + 2 + s, base - 12, 6, 2, leaf); px(cx + 6 + s, base - 10, 2, 2, dk);
+    px(cx - 4, base - 6, 4, 2, leaf); px(cx + 2, base - 8, 4, 2, dk);
     return;
   }
   const sh = C.shape;
   if (sh === 'root'){
     // 잎은 부챗살처럼 펼친다 — 네모난 덩어리로 보이지 않게
-    px(cx - 1, base - 7, 2, 7, stem);
-    [[-7, -4], [-4, -8], [-1, -10], [3, -8], [5, -4]].forEach((q, i) => {
+    px(cx - 2, base - 14, 4, 14, stem);
+    [[-14, -8], [-8, -16], [-2, -20], [6, -16], [10, -8]].forEach((q, i) => {
       const c = i % 2 ? leaf : hi;
-      px(cx + q[0] + s, base + q[1], 3, 5, c);
-      px(cx + q[0] + s, base + q[1], 2, 2, hi);
-      px(cx + q[0] + s + 1, base + q[1] + 3, 2, 2, dk);
+      px(cx + q[0] + s, base + q[1], 6, 10, c);
+      px(cx + q[0] + s, base + q[1], 4, 4, hi);
+      px(cx + q[0] + s + 2, base + q[1] + 6, 4, 4, dk);
     });
     if (stage === 4){
-      px(cx - 3, base - 2, 7, 4, fruit); px(cx - 2, base + 2, 5, 1, fruit);
-      px(cx - 3, base - 2, 3, 2, fhi); px(cx + 1, base, 3, 2, fdk);
-      px(cx - 1, base + 3, 2, 1, shade(fruit, -50));
+      px(cx - 6, base - 4, 14, 8, fruit); px(cx - 4, base + 4, 10, 2, fruit);
+      px(cx - 6, base - 4, 6, 4, fhi); px(cx + 2, base, 6, 4, fdk);
+      px(cx - 2, base + 6, 4, 2, shade(fruit, -50));
     }
   } else if (sh === 'head'){
     // 배추·양배추 — 겉잎이 감싸고 속이 차오른다
-    blob(cx + s, base - 9, 12, 9, leaf, hi, dk, 'h' + crop, px);
-    px(cx - 6 + s, base - 4, 3, 3, dk); px(cx + 4 + s, base - 5, 3, 3, dk);
+    blob(cx + s, base - 18, 24, 18, leaf, hi, dk, 'h' + crop, px);
+    px(cx - 12 + s, base - 8, 6, 6, dk); px(cx + 8 + s, base - 10, 6, 6, dk);
     if (stage === 4){
-      blob(cx + s, base - 12, 13, 12, fruit, fhi, fdk, 'i' + crop, px);
-      px(cx - 1 + s, base - 11, 1, 9, shade(fruit, -18)); px(cx + 2 + s, base - 10, 1, 7, shade(fruit, -18));
-      px(cx - 6 + s, base - 3, 4, 3, leaf); px(cx + 3 + s, base - 4, 4, 3, dk);
+      blob(cx + s, base - 24, 26, 24, fruit, fhi, fdk, 'i' + crop, px);
+      px(cx - 2 + s, base - 22, 2, 18, shade(fruit, -18)); px(cx + 4 + s, base - 20, 2, 14, shade(fruit, -18));
+      px(cx - 12 + s, base - 6, 8, 6, leaf); px(cx + 6 + s, base - 8, 8, 6, dk);
     }
   } else if (sh === 'bush'){
-    px(cx - 5 + s, base - 7, 11, 7, leaf); px(cx - 4 + s, base - 9, 9, 2, leaf);
-    px(cx - 4 + s, base - 9, 4, 1, hi); px(cx - 5 + s, base - 6, 2, 2, hi);
-    px(cx + 3 + s, base - 8, 2, 6, dk); px(cx - 5 + s, base - 2, 3, 1, dk); px(cx + 2 + s, base - 1, 3, 1, dk);
+    px(cx - 10 + s, base - 14, 22, 14, leaf); px(cx - 8 + s, base - 18, 18, 4, leaf);
+    px(cx - 8 + s, base - 18, 8, 2, hi); px(cx - 10 + s, base - 12, 4, 4, hi);
+    px(cx + 6 + s, base - 16, 4, 12, dk); px(cx - 10 + s, base - 4, 6, 2, dk); px(cx + 4 + s, base - 2, 6, 2, dk);
     if (stage === 4){
-      const spots = [[-3, -6], [1, -8], [0, -3], [3, -5], [-4, -3]];
-      spots.forEach(([a, b], i) => { px(cx + a + s, base + b, 2, 2, fruit); px(cx + a + s, base + b, 1, 1, fhi); px(cx + a + 1 + s, base + b + 1, 1, 1, fdk); });
+      const spots = [[-6, -12], [2, -16], [0, -6], [6, -10], [-8, -6]];
+      spots.forEach(([a, b], i) => { px(cx + a + s, base + b, 4, 4, fruit); px(cx + a + s, base + b, 2, 2, fhi); px(cx + a + 2 + s, base + b + 2, 2, 2, fdk); });
     }
   } else if (sh === 'tall'){
-    px(cx, base - 13, 1, 13, stem); px(cx + 1, base - 13, 1, 13, shade(stem, -14));
-    [[-5, -10], [1, -8], [-4, -5], [1, -4], [-4, -12]].forEach(([a, b], i) => {
+    px(cx, base - 26, 2, 26, stem); px(cx + 2, base - 26, 2, 26, shade(stem, -14));
+    [[-10, -20], [2, -16], [-8, -10], [2, -8], [-8, -24]].forEach(([a, b], i) => {
       const q = i % 2 ? s : -s;
-      px(cx + a + q, base + b, 5, 1, i % 2 ? leaf : hi); px(cx + a + q, base + b + 1, 4, 1, dk);
+      px(cx + a + q, base + b, 10, 2, i % 2 ? leaf : hi); px(cx + a + q, base + b + 2, 8, 2, dk);
     });
-    px(cx - 1 + s, base - 15, 4, 2, leaf); px(cx - 1 + s, base - 15, 2, 1, hi);
-    if (stage === 4){ px(cx + 1, base - 11, 3, 6, fruit); px(cx + 1, base - 12, 3, 1, fhi); px(cx + 1, base - 11, 1, 5, fhi); px(cx + 3, base - 9, 1, 4, fdk); px(cx + 2, base - 12, 1, 1, hi); }
+    px(cx - 2 + s, base - 30, 8, 4, leaf); px(cx - 2 + s, base - 30, 4, 2, hi);
+    if (stage === 4){ px(cx + 2, base - 22, 6, 12, fruit); px(cx + 2, base - 24, 6, 2, fhi); px(cx + 2, base - 22, 2, 10, fhi); px(cx + 6, base - 18, 2, 8, fdk); px(cx + 4, base - 24, 2, 2, hi); }
   } else if (sh === 'vine'){
-    px(cx - 1, base - 13, 1, 13, '#8a5f3a'); px(cx, base - 13, 1, 13, '#6f4a2c');
-    [[-5, -11], [1, -9], [-5, -6], [1, -4], [-3, -13]].forEach(([a, b], i) => {
+    px(cx - 2, base - 26, 2, 26, '#8a5f3a'); px(cx, base - 26, 2, 26, '#6f4a2c');
+    [[-10, -22], [2, -18], [-10, -12], [2, -8], [-6, -26]].forEach(([a, b], i) => {
       const q = i % 2 ? s : -s;
-      px(cx + a + q, base + b, 4, 1, leaf); px(cx + a + q, base + b - 1, 2, 1, hi); px(cx + a + q + 1, base + b + 1, 2, 1, dk);
+      px(cx + a + q, base + b, 8, 2, leaf); px(cx + a + q, base + b - 2, 4, 2, hi); px(cx + a + q + 2, base + b + 2, 4, 2, dk);
     });
     if (stage === 4){
-      [[-5, -9], [2, -7], [-4, -4], [1, -12]].forEach(([a, b]) => { px(cx + a, base + b, 3, 3, fruit); px(cx + a, base + b, 1, 1, fhi); px(cx + a + 2, base + b + 2, 1, 1, fdk); });
+      [[-10, -18], [4, -14], [-8, -8], [2, -24]].forEach(([a, b]) => { px(cx + a, base + b, 6, 6, fruit); px(cx + a, base + b, 2, 2, fhi); px(cx + a + 4, base + b + 4, 2, 2, fdk); });
     }
   } else if (sh === 'flower'){
-    px(cx + Math.round(s / 2), base - 10, 1, 10, stem);
-    px(cx - 3 + s, base - 6, 3, 1, leaf); px(cx - 3 + s, base - 7, 2, 1, hi); px(cx + 1 + s, base - 5, 3, 1, leaf); px(cx + 3 + s, base - 4, 1, 1, dk);
+    px(cx + Math.round(s / 2), base - 20, 2, 20, stem);
+    px(cx - 6 + s, base - 12, 6, 2, leaf); px(cx - 6 + s, base - 14, 4, 2, hi); px(cx + 2 + s, base - 10, 6, 2, leaf); px(cx + 6 + s, base - 8, 2, 2, dk);
     if (stage === 4){
       const fx = cx + s, fy = base - 14;
-      px(fx - 3, fy + 2, 7, 4, fruit); px(fx - 2, fy + 1, 5, 1, fruit); px(fx - 2, fy + 6, 5, 1, fruit);
-      px(fx - 3, fy + 2, 3, 2, fhi); px(fx + 1, fy + 4, 3, 2, fdk);
-      px(fx - 1, fy + 3, 2, 2, '#ffe06e'); px(fx - 1, fy + 3, 1, 1, '#fff3c0');
-    } else { px(cx + s, base - 12, 2, 3, leaf); px(cx + s, base - 12, 1, 1, hi); }
+      px(fx - 6, fy + 4, 14, 8, fruit); px(fx - 4, fy + 2, 10, 2, fruit); px(fx - 4, fy + 12, 10, 2, fruit);
+      px(fx - 6, fy + 4, 6, 4, fhi); px(fx + 2, fy + 8, 6, 4, fdk);
+      px(fx - 2, fy + 6, 4, 4, '#ffe06e'); px(fx - 2, fy + 6, 2, 2, '#fff3c0');
+    } else { px(cx + s, base - 24, 4, 6, leaf); px(cx + s, base - 24, 2, 2, hi); }
   } else if (sh === 'melon'){
-    px(cx - 7 + s, base - 3, 14, 2, leaf); px(cx - 7 + s, base - 3, 5, 1, hi);
-    px(cx - 6 + s, base - 6, 4, 3, leaf); px(cx + 2 + s, base - 7, 4, 3, leaf); px(cx + 2 + s, base - 7, 2, 1, hi);
-    px(cx - 1, base - 4, 2, 1, dk);
+    px(cx - 14 + s, base - 6, 28, 4, leaf); px(cx - 14 + s, base - 6, 10, 2, hi);
+    px(cx - 12 + s, base - 12, 8, 6, leaf); px(cx + 4 + s, base - 14, 8, 6, leaf); px(cx + 4 + s, base - 14, 4, 2, hi);
+    px(cx - 2, base - 8, 4, 2, dk);
     if (stage === 4){
-      px(cx - 4, base - 8, 9, 8, fruit); px(cx - 3, base - 9, 7, 1, fruit); px(cx - 3, base + 0, 7, 1, fruit);
-      px(cx - 3, base - 8, 3, 3, fhi); px(cx + 2, base - 4, 2, 4, fdk);
-      px(cx - 1, base - 9, 1, 2, '#6f4a2c'); px(cx - 1, base - 8, 1, 8, shade(fruit, -14)); px(cx + 1, base - 7, 1, 6, shade(fruit, -14));
+      px(cx - 8, base - 16, 18, 16, fruit); px(cx - 6, base - 18, 14, 2, fruit); px(cx - 6, base + 0, 14, 2, fruit);
+      px(cx - 6, base - 16, 6, 6, fhi); px(cx + 4, base - 8, 4, 8, fdk);
+      px(cx - 2, base - 18, 2, 4, '#6f4a2c'); px(cx - 2, base - 16, 2, 16, shade(fruit, -14)); px(cx + 2, base - 14, 2, 12, shade(fruit, -14));
     }
   }
 }
@@ -1067,18 +1130,18 @@ function drawGiant(id, p, sway){
   const leaf = C.leaf, hi = shade(leaf, 24), dk = shade(leaf, -30);
   const fruit = C.fruit, fhi = shade(fruit, 30), fdk = shade(fruit, -34);
   const cx = X + w / 2, base = Y + hgt - 2;
-  px(X + 2, base - 1, w - 4, 1, '#00000020');
-  px(X + 3 + s, base - 4, w - 6, 2, leaf); px(X + 3 + s, base - 4, 6, 1, hi);
-  px(X + 5 + s, base - 8, 6, 4, leaf); px(X + w - 11 + s, base - 9, 6, 4, leaf); px(X + w - 11 + s, base - 9, 3, 1, hi);
+  px(X + 4, base - 2, w - 8, 2, '#00000020');
+  px(X + 6 + s, base - 8, w - 12, 4, leaf); px(X + 6 + s, base - 8, 12, 2, hi);
+  px(X + 10 + s, base - 16, 12, 8, leaf); px(X + w - 22 + s, base - 18, 12, 8, leaf); px(X + w - 22 + s, base - 18, 6, 2, hi);
   if (st >= 4){
-    const r = Math.min(w, hgt) / 2 - 1;
+    const r = Math.min(w, hgt) / 2 - 2;
     px(cx - r, base - r * 1.7, r * 2, r * 1.7, fruit);
-    px(cx - r + 2, base - r * 1.7 - 2, r * 2 - 4, 2, fruit);
-    px(cx - r + 2, base - r * 1.6, 4, r * 0.9, fhi);
-    px(cx + r - 6, base - r * 1.3, 3, r, fdk);
-    px(cx - 1, base - r * 1.7 - 5, 2, 4, '#6f4a2c'); px(cx - 3, base - r * 1.7 - 4, 3, 1, dk);
-  } else if (st >= 2){ px(cx - 5, base - 10, 10, 8, shade(leaf, -12)); px(cx - 5, base - 10, 4, 2, leaf); }
-  if (p.pulls && p.pulls.length) p.pulls.forEach((who, i) => { const c = who === 'sua' ? '#ff7f8a' : '#6cc7b3'; px(X + 3 + i * 10, Y + 3, 6, 6, c); px(X + 3 + i * 10, Y + 3, 3, 2, shade(c, 26)); });
+    px(cx - r + 4, base - r * 1.7 - 4, r * 2 - 8, 4, fruit);
+    px(cx - r + 4, base - r * 1.6, 8, r * 0.9, fhi);
+    px(cx + r - 12, base - r * 1.3, 6, r, fdk);
+    px(cx - 2, base - r * 1.7 - 10, 4, 8, '#6f4a2c'); px(cx - 6, base - r * 1.7 - 8, 6, 2, dk);
+  } else if (st >= 2){ px(cx - 10, base - 20, 20, 16, shade(leaf, -12)); px(cx - 10, base - 20, 8, 4, leaf); }
+  if (p.pulls && p.pulls.length) p.pulls.forEach((who, i) => { const c = who === 'sua' ? '#ff7f8a' : '#6cc7b3'; px(X + 6 + i * 20, Y + 6, 12, 12, c); px(X + 6 + i * 20, Y + 6, 6, 4, shade(c, 26)); });
 }
 
 // ---------- 흩뿌려 섞기 ----------
@@ -1111,8 +1174,8 @@ function planks(X, Y, w, h, base){
     const t = h > 1 ? y / (h - 1) : 0;
     if (t > 0.3) ditherRow(X, Y + y, w, shade(base, -12), (t - 0.3) * 1.1, Y + y);
   }
-  for (let i = 0; i < h; i += 4){ px(X, Y + i, w, 1, shade(base, 12)); px(X, Y + i + 3, w, 1, shade(base, -16)); }
-  for (let i = 6; i < w; i += 11) px(X + i, Y, 1, h, shade(base, -22));
+  for (let i = 0; i < h; i += 8){ px(X, Y + i, w, 2, shade(base, 12)); px(X, Y + i + 6, w, 2, shade(base, -16)); }
+  for (let i = 12; i < w; i += 22) px(X + i, Y, 2, h, shade(base, -22));
 }
 // 지붕 — 기와를 한 줄씩 어긋나게
 function roof(X, Y, w, h, base){
@@ -1123,165 +1186,165 @@ function roof(X, Y, w, h, base){
     const t = h > 1 ? i / (h - 1) : 0;
     const lv = t * 4, k = Math.min(3, Math.floor(lv)), f = lv - k;
     const rowX = X - i, rowW = w + i * 2;
-    px(rowX, Y + i, rowW, 1, tone(k));
+    px(rowX, Y + i, rowW, 2, tone(k));
     if (f > 0.04) ditherRow(rowX, Y + i, rowW, tone(k + 1), f, i);
-    if (i % 2) ditherRow(rowX, Y + i, rowW, shade(base, -22), 0.4, i + 2);      // 기와 결
-    for (let j = (i % 2) * 4; j < rowW; j += 8) px(rowX + j, Y + i, 1, 1, shade(base, -32));
+    if (i % 2) ditherRow(rowX, Y + i, rowW, shade(base, -22), 0.4, i + 4);      // 기와 결
+    for (let j = (i % 2) * 8; j < rowW; j += 16) px(rowX + j, Y + i, 2, 2, shade(base, -32));
   }
-  px(X - h + 1, Y + h, w + h * 2 - 2, 2, shade(base, -36));
-  px(X, Y, w, 1, shade(base, 30));
+  px(X - h + 2, Y + h, w + h * 2 - 4, 4, shade(base, -36));
+  px(X, Y, w, 2, shade(base, 30));
 }
 function window4(X, Y, w, h, on){
-  px(X - 1, Y - 1, w + 2, h + 2, WOOD.dark);
+  px(X - 2, Y - 2, w + 4, h + 4, WOOD.dark);
   px(X, Y, w, h, on ? '#ffd98a' : '#8fc7e0');
-  px(X, Y, w, Math.max(1, h / 3), on ? '#ffeec0' : '#bfe4f7');
-  px(X + w / 2 - 0.5, Y, 1, h, WOOD.dark); px(X, Y + h / 2 - 0.5, w, 1, WOOD.dark);
-  if (on) lamp(X + w / 2, Y + h / 2, 12);
+  px(X, Y, w, Math.max(2, h / 3), on ? '#ffeec0' : '#bfe4f7');
+  px(X + w / 2 - 1, Y, 2, h, WOOD.dark); px(X, Y + h / 2 - 1, w, 2, WOOD.dark);
+  if (on) lamp(X + w / 2, Y + h / 2, 24);
 }
 function drawHouse(night){
   const b = spot('house'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
-  px(X + 3, Y + h - 3, w - 6, 3, '#00000018');
+  px(X + 6, Y + h - 6, w - 12, 6, '#00000018');
   // 돌 기단
-  px(X + 4, Y + h - 12, w - 8, 10, STONE.mid);
-  for (let i = 0; i < w - 8; i += 7){ px(X + 4 + i, Y + h - 12, 1, 10, STONE.low); px(X + 4 + i + 2, Y + h - 8, 4, 1, STONE.hi); }
+  px(X + 8, Y + h - 24, w - 16, 20, STONE.mid);
+  for (let i = 0; i < w - 16; i += 14){ px(X + 8 + i, Y + h - 24, 2, 20, STONE.low); px(X + 8 + i + 4, Y + h - 16, 8, 2, STONE.hi); }
   // 벽
-  planks(X + 5, Y + 16, w - 10, h - 26, '#f6ddc9');
-  px(X + 5, Y + 16, w - 10, 1, '#fff1e2');
-  px(X + 5, Y + h - 12, w - 10, 1, WOOD.line);
+  planks(X + 10, Y + 32, w - 20, h - 52, '#f6ddc9');
+  px(X + 10, Y + 32, w - 20, 2, '#fff1e2');
+  px(X + 10, Y + h - 24, w - 20, 2, WOOD.line);
   // 지붕
-  roof(X + 8, Y + 4, w - 16, 13, '#e0736e');
-  px(X + 8, Y + 2, w - 16, 3, '#c95a58');
+  roof(X + 16, Y + 8, w - 32, 26, '#e0736e');
+  px(X + 16, Y + 4, w - 32, 6, '#c95a58');
   // 굴뚝
-  px(X + w - 20, Y - 2, 7, 10, STONE.low); px(X + w - 20, Y - 2, 7, 2, STONE.hi); px(X + w - 19, Y + 1, 5, 1, STONE.dark);
+  px(X + w - 40, Y - 4, 14, 20, STONE.low); px(X + w - 40, Y - 4, 14, 4, STONE.hi); px(X + w - 38, Y + 2, 10, 2, STONE.dark);
   // 문
-  const dx = X + w / 2 - 5;
-  px(dx - 1, Y + h - 25, 12, 25, WOOD.line);
-  px(dx, Y + h - 24, 10, 24, WOOD.mid);
-  for (let i = 0; i < 24; i += 5) px(dx, Y + h - 24 + i, 10, 1, WOOD.low);
-  px(dx + 7, Y + h - 14, 2, 2, '#ffd166');
-  px(dx, Y + h - 24, 1, 24, WOOD.hi);
+  const dx = X + w / 2 - 10;
+  px(dx - 2, Y + h - 50, 24, 50, WOOD.line);
+  px(dx, Y + h - 48, 20, 48, WOOD.mid);
+  for (let i = 0; i < 48; i += 10) px(dx, Y + h - 48 + i, 20, 2, WOOD.low);
+  px(dx + 14, Y + h - 28, 4, 4, '#ffd166');
+  px(dx, Y + h - 48, 2, 48, WOOD.hi);
   // 창문 둘
-  window4(X + 12, Y + 22, 10, 9, night);
-  window4(X + w - 22, Y + 22, 10, 9, night);
+  window4(X + 24, Y + 44, 20, 18, night);
+  window4(X + w - 44, Y + 44, 20, 18, night);
   // 화분
-  px(X + 6, Y + h - 8, 5, 6, '#c97a5a'); px(X + 6, Y + h - 9, 5, 1, '#e09a76'); px(X + 7, Y + h - 13, 3, 4, '#6fb567'); px(X + 8, Y + h - 15, 2, 2, '#ff9ec4');
+  px(X + 12, Y + h - 16, 10, 12, '#c97a5a'); px(X + 12, Y + h - 18, 10, 2, '#e09a76'); px(X + 14, Y + h - 26, 6, 8, '#6fb567'); px(X + 16, Y + h - 30, 4, 4, '#ff9ec4');
 }
 function drawMail(){
   const b = spot('mail'), X = b.x * T, Y = b.y * T;
-  px(X + 7, Y + 14, 2, 2, '#00000020');
-  px(X + 7, Y + 6, 2, 9, WOOD.dark);
-  px(X + 3, Y + 2, 10, 7, '#e0736e'); px(X + 3, Y + 2, 10, 1, '#f28f88'); px(X + 3, Y + 8, 10, 1, '#a94b4a');
-  px(X + 4, Y + 4, 8, 3, '#fff1e2');
-  px(X + 12, Y + 3, 2, 4, '#ffd166');
-  if (key && (W.mail[key] || []).length){ px(X + 12, Y + 1, 2, 6, '#ff5a4a'); px(X + 12, Y + 1, 2, 2, '#ff8f80'); }
+  px(X + 14, Y + 28, 4, 4, '#00000020');
+  px(X + 14, Y + 12, 4, 18, WOOD.dark);
+  px(X + 6, Y + 4, 20, 14, '#e0736e'); px(X + 6, Y + 4, 20, 2, '#f28f88'); px(X + 6, Y + 16, 20, 2, '#a94b4a');
+  px(X + 8, Y + 8, 16, 6, '#fff1e2');
+  px(X + 24, Y + 6, 4, 8, '#ffd166');
+  if (key && (W.mail[key] || []).length){ px(X + 24, Y + 2, 4, 12, '#ff5a4a'); px(X + 24, Y + 2, 4, 4, '#ff8f80'); }
 }
 function drawBoard(){
   const b = spot('board'), X = b.x * T, Y = b.y * T;
-  px(X + 4, Y + 15, 8, 1, '#00000020');
-  px(X + 4, Y + 9, 2, 7, WOOD.dark); px(X + 10, Y + 9, 2, 7, WOOD.dark);
-  px(X + 2, Y + 1, 12, 10, WOOD.low); px(X + 2, Y + 1, 12, 1, WOOD.hi);
-  px(X + 3, Y + 2, 10, 8, '#fff6e9');
-  px(X + 4, Y + 3, 7, 1, '#8a7a63'); px(X + 4, Y + 5, 5, 1, '#8a7a63'); px(X + 4, Y + 7, 6, 1, '#8a7a63');
-  px(X + 11, Y + 6, 2, 3, '#ff9ec4');
+  px(X + 8, Y + 30, 16, 2, '#00000020');
+  px(X + 8, Y + 18, 4, 14, WOOD.dark); px(X + 20, Y + 18, 4, 14, WOOD.dark);
+  px(X + 4, Y + 2, 24, 20, WOOD.low); px(X + 4, Y + 2, 24, 2, WOOD.hi);
+  px(X + 6, Y + 4, 20, 16, '#fff6e9');
+  px(X + 8, Y + 6, 14, 2, '#8a7a63'); px(X + 8, Y + 10, 10, 2, '#8a7a63'); px(X + 8, Y + 14, 12, 2, '#8a7a63');
+  px(X + 22, Y + 12, 4, 6, '#ff9ec4');
 }
 function drawStall(cal){
   const b = spot('stall'), X = b.x * T, Y = b.y * T, w = b.w * T;
-  px(X + 3, Y + b.h * T - 3, w - 6, 3, '#00000018');
+  px(X + 6, Y + b.h * T - 6, w - 12, 6, '#00000018');
   // 차양
-  for (let i = 0; i < w - 4; i += 8){ px(X + 2 + i, Y + 3, 4, 6, '#f2857a'); px(X + 6 + i, Y + 3, 4, 6, '#fff6e9'); }
-  px(X + 2, Y + 2, w - 4, 2, '#c95a58');
-  for (let i = 0; i < w - 4; i += 4) px(X + 2 + i, Y + 9, 2, 1, '#c95a58');
+  for (let i = 0; i < w - 8; i += 16){ px(X + 4 + i, Y + 6, 8, 12, '#f2857a'); px(X + 12 + i, Y + 6, 8, 12, '#fff6e9'); }
+  px(X + 4, Y + 4, w - 8, 4, '#c95a58');
+  for (let i = 0; i < w - 8; i += 8) px(X + 4 + i, Y + 18, 4, 2, '#c95a58');
   // 좌판
-  planks(X + 4, Y + 10, w - 8, 8, WOOD.mid);
-  px(X + 3, Y + 18, w - 6, 3, WOOD.dark); px(X + 3, Y + 18, w - 6, 1, WOOD.hi);
-  px(X + 6, Y + 21, 2, 10, WOOD.dark); px(X + w - 8, Y + 21, 2, 10, WOOD.dark);
+  planks(X + 8, Y + 20, w - 16, 16, WOOD.mid);
+  px(X + 6, Y + 36, w - 12, 6, WOOD.dark); px(X + 6, Y + 36, w - 12, 2, WOOD.hi);
+  px(X + 12, Y + 42, 4, 20, WOOD.dark); px(X + w - 16, Y + 42, 4, 20, WOOD.dark);
   // 좌판 위 물건 — 계절 색으로
   const goods = { spring: ['#ff5c6b', '#ffe066', '#8fd66c'], summer: ['#3f9a4b', '#ff5a4a', '#ffcf3d'], autumn: ['#ff9a2e', '#8a5cc7', '#e8f2c0'], winter: ['#eef8ff', '#4fa653', '#e8f4ee'] }[cal.season];
-  goods.forEach((c, i) => { const gx = X + 8 + i * 11; px(gx, Y + 11, 6, 5, c); px(gx, Y + 11, 6, 1, shade(c, 26)); px(gx + 4, Y + 14, 2, 2, shade(c, -28)); });
+  goods.forEach((c, i) => { const gx = X + 16 + i * 22; px(gx, Y + 22, 12, 10, c); px(gx, Y + 22, 12, 2, shade(c, 26)); px(gx + 8, Y + 28, 4, 4, shade(c, -28)); });
   // 상인
-  px(X + w - 20, Y + 12, 9, 9, '#ffe0c4'); px(X + w - 20, Y + 10, 9, 3, '#5b3ba2'); px(X + w - 18, Y + 15, 1, 1, '#3a3226'); px(X + w - 15, Y + 15, 1, 1, '#3a3226'); px(X + w - 18, Y + 18, 4, 1, '#c9646b');
+  px(X + w - 40, Y + 24, 18, 18, '#ffe0c4'); px(X + w - 40, Y + 20, 18, 6, '#5b3ba2'); px(X + w - 36, Y + 30, 2, 2, '#3a3226'); px(X + w - 30, Y + 30, 2, 2, '#3a3226'); px(X + w - 36, Y + 36, 8, 2, '#c9646b');
 }
 function drawWell(night){
   const b = spot('well'), X = b.x * T, Y = b.y * T;
   if (!here('well')){ ghost(X, Y, T, T); return; }
-  px(X + 2, Y + 14, 12, 2, '#00000018');
-  px(X + 2, Y + 7, 12, 8, STONE.mid);
-  for (let i = 0; i < 12; i += 4){ px(X + 2 + i, Y + 7, 1, 8, STONE.low); }
-  px(X + 2, Y + 7, 12, 1, STONE.hi);
-  px(X + 4, Y + 8, 8, 3, '#4f9ad6'); px(X + 4, Y + 8, 8, 1, '#8fd0f0');
-  px(X + 3, Y + 1, 2, 7, WOOD.dark); px(X + 11, Y + 1, 2, 7, WOOD.dark);
-  px(X + 2, Y - 1, 12, 3, '#e0736e'); px(X + 2, Y - 1, 12, 1, '#f28f88');
-  px(X + 7, Y + 3, 2, 3, WOOD.low);
+  px(X + 4, Y + 28, 24, 4, '#00000018');
+  px(X + 4, Y + 14, 24, 16, STONE.mid);
+  for (let i = 0; i < 24; i += 8){ px(X + 4 + i, Y + 14, 2, 16, STONE.low); }
+  px(X + 4, Y + 14, 24, 2, STONE.hi);
+  px(X + 8, Y + 16, 16, 6, '#4f9ad6'); px(X + 8, Y + 16, 16, 2, '#8fd0f0');
+  px(X + 6, Y + 2, 4, 14, WOOD.dark); px(X + 22, Y + 2, 4, 14, WOOD.dark);
+  px(X + 4, Y - 2, 24, 6, '#e0736e'); px(X + 4, Y - 2, 24, 2, '#f28f88');
+  px(X + 14, Y + 6, 4, 6, WOOD.low);
 }
 function drawGreenhouse(night){
   const b = spot('greenhouse'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
   if (!here('greenhouse')){ ghost(X, Y, w, h); return; }
-  px(X + 4, Y + h - 3, w - 8, 3, '#00000018');
+  px(X + 8, Y + h - 6, w - 16, 6, '#00000018');
   // 유리벽
-  px(X + 4, Y + 12, w - 8, h - 18, '#c3e6f6');
-  for (let i = 0; i < w - 8; i += 9) px(X + 4 + i, Y + 12, 1, h - 18, '#8fc7e0');
-  for (let i = 0; i < h - 18; i += 10) px(X + 4, Y + 12 + i, w - 8, 1, '#8fc7e0');
+  px(X + 8, Y + 24, w - 16, h - 36, '#c3e6f6');
+  for (let i = 0; i < w - 16; i += 18) px(X + 8 + i, Y + 24, 2, h - 36, '#8fc7e0');
+  for (let i = 0; i < h - 36; i += 20) px(X + 8, Y + 24 + i, w - 16, 2, '#8fc7e0');
   // 유리 반사
-  px(X + 8, Y + 14, 3, h - 24, '#eaf6ff'); px(X + 20, Y + 16, 2, h - 28, '#ffffff88');
+  px(X + 16, Y + 28, 6, h - 48, '#eaf6ff'); px(X + 40, Y + 32, 4, h - 56, '#ffffff88');
   // 지붕
-  roof(X + 6, Y + 4, w - 12, 8, '#dff0f8');
-  px(X + 6, Y + 3, w - 12, 2, '#a9d3e8');
+  roof(X + 12, Y + 8, w - 24, 16, '#dff0f8');
+  px(X + 12, Y + 6, w - 24, 4, '#a9d3e8');
   // 안 — 화분 줄과 자라는 것들이 유리 너머로 비친다
-  const shelfY = Y + h - 20;
-  px(X + 6, shelfY, w - 12, 3, WOOD.low); px(X + 6, shelfY, w - 12, 1, WOOD.hi);
+  const shelfY = Y + h - 40;
+  px(X + 12, shelfY, w - 24, 6, WOOD.low); px(X + 12, shelfY, w - 24, 2, WOOD.hi);
   for (let i = 0; i < 4; i++){
-    const gx = X + 9 + i * 13;
-    px(gx, shelfY - 5, 7, 5, '#c97a5a'); px(gx, shelfY - 6, 7, 1, '#e09a76');   // 화분
-    blob(gx + 3, shelfY - 13, 9, 8, ['#5da05a', '#4f9a58', '#6aab5e', '#57a06b'][i], '#8ad07a', '#3c7a44', 'gh' + i);
-    if (i % 2) px(gx + 2, shelfY - 12, 2, 2, '#ff9ec4'); else px(gx + 4, shelfY - 11, 2, 2, '#ffd166');
+    const gx = X + 18 + i * 26;
+    px(gx, shelfY - 10, 14, 10, '#c97a5a'); px(gx, shelfY - 12, 14, 2, '#e09a76');   // 화분
+    blob(gx + 6, shelfY - 26, 18, 16, ['#5da05a', '#4f9a58', '#6aab5e', '#57a06b'][i], '#8ad07a', '#3c7a44', 'gh' + i);
+    if (i % 2) px(gx + 4, shelfY - 24, 4, 4, '#ff9ec4'); else px(gx + 8, shelfY - 22, 4, 4, '#ffd166');
   }
   // 세로 골조
-  for (let i = 0; i <= w - 8; i += Math.round((w - 8) / 4)) px(X + 4 + i, Y + 12, 2, h - 18, '#a9d3e8');
-  px(X + 4, Y + h - 8, w - 8, 2, '#8fc7e0');
-  if (night) lamp(X + w / 2, Y + h / 2 + 4, 13, '#cfeccf');
+  for (let i = 0; i <= w - 16; i += Math.round((w - 16) / 4)) px(X + 8 + i, Y + 24, 4, h - 36, '#a9d3e8');
+  px(X + 8, Y + h - 16, w - 16, 4, '#8fc7e0');
+  if (night) lamp(X + w / 2, Y + h / 2 + 8, 26, '#cfeccf');
 }
 function drawCoop(night){
   const b = spot('coop'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
   if (!here('coop')){ ghost(X, Y, w, h); return; }
-  px(X + 3, Y + h - 3, w - 6, 3, '#00000018');
-  planks(X + 3, Y + 12, w - 6, h - 16, '#f0d3a4');
-  roof(X + 5, Y + 4, w - 10, 9, '#e0736e');
-  px(X + w / 2 - 4, Y + h - 16, 8, 12, WOOD.dark); px(X + w / 2 - 3, Y + h - 15, 6, 11, '#4b3527');
-  window4(X + 5, Y + 16, 6, 5, night);
-  px(X + w - 11, Y + 16, 6, 6, WOOD.low); px(X + w - 11, Y + 16, 6, 1, WOOD.hi);
-  px(X + w / 2 - 8, Y + 1, 2, 5, WOOD.dark); px(X + w / 2 - 10, Y + 0, 6, 2, '#ff5a4a');
+  px(X + 6, Y + h - 6, w - 12, 6, '#00000018');
+  planks(X + 6, Y + 24, w - 12, h - 32, '#f0d3a4');
+  roof(X + 10, Y + 8, w - 20, 18, '#e0736e');
+  px(X + w / 2 - 8, Y + h - 32, 16, 24, WOOD.dark); px(X + w / 2 - 6, Y + h - 30, 12, 22, '#4b3527');
+  window4(X + 10, Y + 32, 12, 10, night);
+  px(X + w - 22, Y + 32, 12, 12, WOOD.low); px(X + w - 22, Y + 32, 12, 2, WOOD.hi);
+  px(X + w / 2 - 16, Y + 2, 4, 10, WOOD.dark); px(X + w / 2 - 20, Y + 0, 12, 4, '#ff5a4a');
 }
 function drawBarn(night){
   const b = spot('barn'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
   if (!here('barn')){ ghost(X, Y, w, h); return; }
-  px(X + 4, Y + h - 3, w - 8, 3, '#00000018');
-  planks(X + 4, Y + 16, w - 8, h - 20, '#cf5450');
-  px(X + 4, Y + 16, w - 8, 1, '#e8736e');
-  roof(X + 7, Y + 5, w - 14, 12, '#8a3a36');
+  px(X + 8, Y + h - 6, w - 16, 6, '#00000018');
+  planks(X + 8, Y + 32, w - 16, h - 40, '#cf5450');
+  px(X + 8, Y + 32, w - 16, 2, '#e8736e');
+  roof(X + 14, Y + 10, w - 28, 24, '#8a3a36');
   // 흰 테두리 무늬
-  px(X + 6, Y + 18, w - 12, 2, '#fff1e2');
-  px(X + 6, Y + 18, 2, h - 22, '#fff1e2'); px(X + w - 8, Y + 18, 2, h - 22, '#fff1e2');
+  px(X + 12, Y + 36, w - 24, 4, '#fff1e2');
+  px(X + 12, Y + 36, 4, h - 44, '#fff1e2'); px(X + w - 16, Y + 36, 4, h - 44, '#fff1e2');
   // 큰 문
-  const dw = 18, dx = X + w / 2 - dw / 2;
-  px(dx, Y + h - 24, dw, 22, '#fff1e2');
-  px(dx + 2, Y + h - 22, dw - 4, 20, WOOD.mid);
-  for (let i = 0; i < 20; i += 4) px(dx + 2, Y + h - 22 + i, dw - 4, 1, WOOD.low);
-  px(dx + dw / 2 - 1, Y + h - 22, 2, 20, '#fff1e2');
+  const dw = 36, dx = X + w / 2 - dw / 2;
+  px(dx, Y + h - 48, dw, 44, '#fff1e2');
+  px(dx + 4, Y + h - 44, dw - 8, 40, WOOD.mid);
+  for (let i = 0; i < 40; i += 8) px(dx + 4, Y + h - 44 + i, dw - 8, 2, WOOD.low);
+  px(dx + dw / 2 - 2, Y + h - 44, 4, 40, '#fff1e2');
   // 다락 창
-  px(X + w / 2 - 4, Y + 8, 8, 7, WOOD.line); px(X + w / 2 - 3, Y + 9, 6, 5, night ? '#ffd98a' : '#4b3527');
-  if (night) lamp(X + w / 2, Y + 11, 14);
-  if (night) window4(X + 10, Y + 24, 7, 6, true); else window4(X + 10, Y + 24, 7, 6, false);
+  px(X + w / 2 - 8, Y + 16, 16, 14, WOOD.line); px(X + w / 2 - 6, Y + 18, 12, 10, night ? '#ffd98a' : '#4b3527');
+  if (night) lamp(X + w / 2, Y + 22, 28);
+  if (night) window4(X + 20, Y + 48, 14, 12, true); else window4(X + 20, Y + 48, 14, 12, false);
 }
 function drawPethouse(night){
   const b = spot('pethouse'), X = b.x * T, Y = b.y * T;
   if (!here('pethouse')){ ghost(X, Y, T, T); return; }
-  px(X + 2, Y + 14, 12, 2, '#00000018');
-  px(X + 2, Y + 6, 12, 9, WOOD.mid); px(X + 2, Y + 6, 12, 1, WOOD.hi);
-  for (let i = 0; i < 9; i += 3) px(X + 2, Y + 6 + i, 12, 1, WOOD.low);
-  roof(X + 3, Y + 1, 10, 5, '#5aa9e6');
-  px(X + 6, Y + 9, 5, 6, '#3a2f26');
-  px(X + 5, Y + 8, 7, 1, WOOD.dark);
-  if (night) lamp(X + 8, Y + 11, 10);
+  px(X + 4, Y + 28, 24, 4, '#00000018');
+  px(X + 4, Y + 12, 24, 18, WOOD.mid); px(X + 4, Y + 12, 24, 2, WOOD.hi);
+  for (let i = 0; i < 18; i += 6) px(X + 4, Y + 12 + i, 24, 2, WOOD.low);
+  roof(X + 6, Y + 2, 20, 10, '#5aa9e6');
+  px(X + 12, Y + 18, 10, 12, '#3a2f26');
+  px(X + 10, Y + 16, 14, 2, WOOD.dark);
+  if (night) lamp(X + 16, Y + 22, 20);
 }
 // 목장 — 울타리 친 풀밭. 여물통과 물통, 진창 하나.
 function drawPasture(season){
@@ -1289,69 +1352,69 @@ function drawPasture(season){
   if (!here('pasture')){ ghost(X, Y, w, h); return; }
   // 안쪽 풀은 조금 더 진하게 — 여기가 목장이라는 게 한눈에
   const P = GROUND[season];
-  px(X + 2, Y + 2, w - 4, h - 4, shade(P.g[2], -8));
+  px(X + 4, Y + 4, w - 8, h - 8, shade(P.g[2], -8));
   // 밟혀 풀이 눕고 흙이 드러난 자리 — 얼룩을 좌표 난수로 깔아 밋밋함을 없앤다
-  for (let dy = 2; dy < h - 2; dy += 2) for (let dx = 2; dx < w - 2; dx += 2){
-    const v = noise2b(X + dx, Y + dy, 7, 3, 'pg');
-    if (v > 0.7) px(X + dx, Y + dy, 2, 2, shade(P.g[1], -6));
-    else if (v < 0.24) px(X + dx, Y + dy, 2, 2, mix(shade(P.g[2], -18), P.dry, 0.35));
+  for (let dy = 4; dy < h - 4; dy += 4) for (let dx = 4; dx < w - 4; dx += 4){
+    const v = noise2b(X + dx, Y + dy, 14, 6, 'pg');
+    if (v > 0.7) px(X + dx, Y + dy, 4, 4, shade(P.g[1], -6));
+    else if (v < 0.24) px(X + dx, Y + dy, 4, 4, mix(shade(P.g[2], -18), P.dry, 0.35));
   }
   // 짐승이 다니는 길 — 가운데가 닳아 흙빛
-  for (let dx = 6; dx < w - 6; dx += 2){
-    const wob = Math.round(Math.sin(dx / 9) * 4 + Math.sin(dx / 3.5) * 1.5);
+  for (let dx = 12; dx < w - 12; dx += 4){
+    const wob = Math.round(Math.sin(dx / 18) * 8 + Math.sin(dx / 7) * 3);
     const road = mix(shade(P.g[2], -22), '#836448', 0.7);
-    ditherRow(X + dx, Y + h / 2 + wob, 2, road, 0.6, dx);
-    ditherRow(X + dx, Y + h / 2 + wob + 2, 2, road, 0.3, dx + 1);
+    ditherRow(X + dx, Y + h / 2 + wob, 4, road, 0.6, dx);
+    ditherRow(X + dx, Y + h / 2 + wob + 4, 4, road, 0.3, dx + 2);
   }
   for (let i = 0; i < 90; i++){
     const rr = R.prand('pa' + i), r2 = R.prand('pb' + i);
-    px(X + 3 + Math.floor(rr * (w - 7)), Y + 3 + Math.floor(r2 * (h - 7)), 1, 2, P.tuft[i % 2]);
+    px(X + 6 + Math.floor(rr * (w - 14)), Y + 6 + Math.floor(r2 * (h - 14)), 2, 4, P.tuft[i % 2]);
   }
   // 울타리
-  const post = (px1, py1) => { px(px1, py1 - 8, 2, 10, WOOD.dark); px(px1, py1 - 8, 1, 10, WOOD.mid); px(px1, py1 - 9, 2, 1, WOOD.hi); };
-  px(X + 1, Y + 1, w - 2, 1, WOOD.mid); px(X + 1, Y + 4, w - 2, 1, WOOD.low);
-  px(X + 1, Y + h - 5, w - 2, 1, WOOD.mid); px(X + 1, Y + h - 2, w - 2, 1, WOOD.low);
-  px(X + 1, Y + 1, 1, h - 2, WOOD.mid); px(X + 4, Y + 1, 1, h - 2, WOOD.low);
-  px(X + w - 2, Y + 1, 1, h - 2, WOOD.mid); px(X + w - 5, Y + 1, 1, h - 2, WOOD.low);
-  for (let i = 0; i < w; i += T){ post(X + i, Y + 6); post(X + i, Y + h - 1); }
-  for (let i = T; i < h - T; i += T){ post(X + 1, Y + i); post(X + w - 3, Y + i); }
+  const post = (px1, py1) => { px(px1, py1 - 16, 4, 20, WOOD.dark); px(px1, py1 - 16, 2, 20, WOOD.mid); px(px1, py1 - 18, 4, 2, WOOD.hi); };
+  px(X + 2, Y + 2, w - 4, 2, WOOD.mid); px(X + 2, Y + 8, w - 4, 2, WOOD.low);
+  px(X + 2, Y + h - 10, w - 4, 2, WOOD.mid); px(X + 2, Y + h - 4, w - 4, 2, WOOD.low);
+  px(X + 2, Y + 2, 2, h - 4, WOOD.mid); px(X + 8, Y + 2, 2, h - 4, WOOD.low);
+  px(X + w - 4, Y + 2, 2, h - 4, WOOD.mid); px(X + w - 10, Y + 2, 2, h - 4, WOOD.low);
+  for (let i = 0; i < w; i += T){ post(X + i, Y + 12); post(X + i, Y + h - 2); }
+  for (let i = T; i < h - T; i += T){ post(X + 2, Y + i); post(X + w - 6, Y + i); }
   // 문 — 아래쪽 가운데를 비워 둔다
-  px(X + w / 2 - 8, Y + h - 6, 16, 6, shade(P.g[2], -8));
+  px(X + w / 2 - 16, Y + h - 12, 32, 12, shade(P.g[2], -8));
   // 여물통
-  px(X + 6, Y + h - 22, 16, 6, WOOD.low); px(X + 6, Y + h - 22, 16, 1, WOOD.hi); px(X + 7, Y + h - 20, 14, 3, '#c9a227'); px(X + 8, Y + h - 20, 5, 1, '#e8c94e');
+  px(X + 12, Y + h - 44, 32, 12, WOOD.low); px(X + 12, Y + h - 44, 32, 2, WOOD.hi); px(X + 14, Y + h - 40, 28, 6, '#c9a227'); px(X + 16, Y + h - 40, 10, 2, '#e8c94e');
   // 물통
-  px(X + w - 18, Y + h - 20, 10, 8, STONE.mid); px(X + w - 18, Y + h - 20, 10, 1, STONE.hi); px(X + w - 17, Y + h - 18, 8, 4, '#4f9ad6'); px(X + w - 17, Y + h - 18, 8, 1, '#8fd0f0');
+  px(X + w - 36, Y + h - 40, 20, 16, STONE.mid); px(X + w - 36, Y + h - 40, 20, 2, STONE.hi); px(X + w - 34, Y + h - 36, 16, 8, '#4f9ad6'); px(X + w - 34, Y + h - 36, 16, 2, '#8fd0f0');
   // 진창
-  px(X + 8, Y + 12, 14, 7, '#8a6a4a'); px(X + 10, Y + 13, 10, 4, '#6f5238');
+  px(X + 16, Y + 24, 28, 14, '#8a6a4a'); px(X + 20, Y + 26, 20, 8, '#6f5238');
   // 건초 더미
-  px(X + w - 20, Y + 10, 12, 9, '#e0c268'); px(X + w - 20, Y + 10, 12, 1, '#f2da8a');
-  for (let i = 0; i < 12; i += 3) px(X + w - 20 + i, Y + 11, 1, 8, '#c9a94e');
+  px(X + w - 40, Y + 20, 24, 18, '#e0c268'); px(X + w - 40, Y + 20, 24, 2, '#f2da8a');
+  for (let i = 0; i < 24; i += 6) px(X + w - 40 + i, Y + 22, 2, 16, '#c9a94e');
 }
 function drawHive(){
   const b = spot('hive'), X = b.x * T, Y = b.y * T;
   if (!here('hive')){ ghost(X, Y, T, T); return; }
-  px(X + 3, Y + 14, 10, 2, '#00000018');
-  px(X + 3, Y + 3, 10, 11, '#f2c96b');
-  for (let i = 0; i < 11; i += 3){ px(X + 3, Y + 3 + i, 10, 1, '#c99f47'); px(X + 3, Y + 4 + i, 10, 1, '#ffdd8f'); }
-  px(X + 2, Y + 2, 12, 2, '#c99f47'); px(X + 2, Y + 2, 12, 1, '#ffe3a0');
-  px(X + 7, Y + 12, 3, 2, '#3a2f26');
-  if (W.buildings.hive && W.buildings.hive.honey){ px(X + 11, Y + 0, 4, 4, '#ffb43d'); px(X + 11, Y + 0, 2, 2, '#ffe08a'); }
+  px(X + 6, Y + 28, 20, 4, '#00000018');
+  px(X + 6, Y + 6, 20, 22, '#f2c96b');
+  for (let i = 0; i < 22; i += 6){ px(X + 6, Y + 6 + i, 20, 2, '#c99f47'); px(X + 6, Y + 8 + i, 20, 2, '#ffdd8f'); }
+  px(X + 4, Y + 4, 24, 4, '#c99f47'); px(X + 4, Y + 4, 24, 2, '#ffe3a0');
+  px(X + 14, Y + 24, 6, 4, '#3a2f26');
+  if (W.buildings.hive && W.buildings.hive.honey){ px(X + 22, Y + 0, 8, 8, '#ffb43d'); px(X + 22, Y + 0, 4, 4, '#ffe08a'); }
 }
 function drawScarecrow(){
   if (!here('scarecrow')) return;
   const b = spot('scarecrow'), X = b.x * T, Y = b.y * T;
-  px(X + 5, Y + 15, 6, 1, '#00000020');
-  px(X + 7, Y + 5, 2, 11, WOOD.dark);
-  px(X + 2, Y + 7, 12, 2, WOOD.low); px(X + 2, Y + 7, 12, 1, WOOD.hi);
-  px(X + 4, Y + 8, 8, 6, '#c96b3a'); px(X + 4, Y + 8, 8, 1, '#e08a52');
-  px(X + 5, Y + 2, 6, 5, '#f2da8a'); px(X + 5, Y + 2, 6, 1, '#fff0b8');
-  px(X + 4, Y + 1, 8, 2, WOOD.mid); px(X + 3, Y + 2, 10, 1, WOOD.low);
-  px(X + 6, Y + 4, 1, 1, '#3a3226'); px(X + 9, Y + 4, 1, 1, '#3a3226'); px(X + 7, Y + 6, 2, 1, '#c9646b');
+  px(X + 10, Y + 30, 12, 2, '#00000020');
+  px(X + 14, Y + 10, 4, 22, WOOD.dark);
+  px(X + 4, Y + 14, 24, 4, WOOD.low); px(X + 4, Y + 14, 24, 2, WOOD.hi);
+  px(X + 8, Y + 16, 16, 12, '#c96b3a'); px(X + 8, Y + 16, 16, 2, '#e08a52');
+  px(X + 10, Y + 4, 12, 10, '#f2da8a'); px(X + 10, Y + 4, 12, 2, '#fff0b8');
+  px(X + 8, Y + 2, 16, 4, WOOD.mid); px(X + 6, Y + 4, 20, 2, WOOD.low);
+  px(X + 12, Y + 8, 2, 2, '#3a3226'); px(X + 18, Y + 8, 2, 2, '#3a3226'); px(X + 14, Y + 12, 4, 2, '#c9646b');
 }
 function ghost(X, Y, w, h){
-  for (let i = 0; i < w; i += 5) for (let j = 0; j < h; j += 5) px(X + i + 2, Y + j + 2, 2, 2, '#00000014');
-  px(X + 2, Y + 2, w - 4, 1, '#00000018'); px(X + 2, Y + h - 3, w - 4, 1, '#00000018');
-  px(X + 2, Y + 2, 1, h - 4, '#00000018'); px(X + w - 3, Y + 2, 1, h - 4, '#00000018');
+  for (let i = 0; i < w; i += 10) for (let j = 0; j < h; j += 10) px(X + i + 4, Y + j + 4, 4, 4, '#00000014');
+  px(X + 4, Y + 4, w - 8, 2, '#00000018'); px(X + 4, Y + h - 6, w - 8, 2, '#00000018');
+  px(X + 4, Y + 4, 2, h - 8, '#00000018'); px(X + w - 6, Y + 4, 2, h - 8, '#00000018');
 }
 // ---------- 꾸미개 ----------
 function drawDecor(season, night){
@@ -1360,81 +1423,81 @@ function drawDecor(season, night){
     const b = spot('path'), Y = b.y * T;
     for (let x = 0; x < b.w; x++){
       const X = (b.x + x) * T;
-      px(X, Y + 5, T, 7, season === 'winter' ? '#dcd6c8' : '#e6d7b5');
+      px(X, Y + 10, T, 14, season === 'winter' ? '#dcd6c8' : '#e6d7b5');
       (season === 'winter' ? ['#ffffff', '#eaf6ff'] : season === 'autumn' ? ['#e8874a', '#f2c14e', '#d9603c', '#c9a8ff'] : ['#ffb7d5', '#fff3a0', '#ffffff', '#c9a8ff']).forEach((c, i) => {
-        const fx = X + 2 + i * 4, fy = Y + 4 + (i % 2) * 6;
-        px(fx, fy + 2, 1, 2, '#6fb567'); px(fx, fy, 1, 1, c); px(fx - 1, fy + 1, 3, 1, c); px(fx, fy + 2, 1, 1, c);
+        const fx = X + 4 + i * 8, fy = Y + 8 + (i % 2) * 12;
+        px(fx, fy + 4, 2, 4, '#6fb567'); px(fx, fy, 2, 2, c); px(fx - 2, fy + 2, 6, 2, c); px(fx, fy + 4, 2, 2, c);
       });
     }
   }
   if (d.pond){
     const b = spot('pond'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
     const ice = season === 'winter';
-    px(X + 2, Y + 4, w - 4, h - 8, ice ? '#a9c9d9' : '#3f86c4');
-    px(X + 4, Y + 6, w - 8, h - 12, ice ? '#d3e6ef' : '#5aa9e6');
-    px(X + 6, Y + 8, w - 14, 3, ice ? '#f0f8fc' : '#8fd0f0');
+    px(X + 4, Y + 8, w - 8, h - 16, ice ? '#a9c9d9' : '#3f86c4');
+    px(X + 8, Y + 12, w - 16, h - 24, ice ? '#d3e6ef' : '#5aa9e6');
+    px(X + 12, Y + 16, w - 28, 6, ice ? '#f0f8fc' : '#8fd0f0');
     // 돌 테두리
-    for (let i = 0; i < w - 4; i += 6){ px(X + 2 + i, Y + 2, 5, 3, STONE.mid); px(X + 2 + i, Y + 2, 5, 1, STONE.hi); px(X + 2 + i, Y + h - 6, 5, 3, STONE.low); }
-    if (ice){ px(X + 7, Y + 12, 9, 1, '#ffffff'); px(X + 12, Y + 9, 1, 7, '#ffffff'); px(X + 16, Y + 16, 6, 1, '#eaf6ff'); }
-    else { px(X + 8, Y + h - 14, 6, 4, '#4f9a58'); px(X + 9, Y + h - 15, 3, 1, '#6fb567'); px(X + 10, Y + h - 17, 3, 3, '#ff9ec4'); }
+    for (let i = 0; i < w - 8; i += 12){ px(X + 4 + i, Y + 4, 10, 6, STONE.mid); px(X + 4 + i, Y + 4, 10, 2, STONE.hi); px(X + 4 + i, Y + h - 12, 10, 6, STONE.low); }
+    if (ice){ px(X + 14, Y + 24, 18, 2, '#ffffff'); px(X + 24, Y + 18, 2, 14, '#ffffff'); px(X + 32, Y + 32, 12, 2, '#eaf6ff'); }
+    else { px(X + 16, Y + h - 28, 12, 8, '#4f9a58'); px(X + 18, Y + h - 30, 6, 2, '#6fb567'); px(X + 20, Y + h - 34, 6, 6, '#ff9ec4'); }
   }
   if (d.fountain){
     const b = spot('fountain'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
-    px(X + 3, Y + h - 4, w - 6, 2, '#00000018');
-    px(X + 3, Y + h - 16, w - 6, 13, STONE.mid);
-    for (let i = 0; i < w - 6; i += 6) px(X + 3 + i, Y + h - 16, 1, 13, STONE.low);
-    px(X + 3, Y + h - 16, w - 6, 1, STONE.hi);
-    px(X + 5, Y + h - 14, w - 10, 8, '#4f9ad6'); px(X + 5, Y + h - 14, w - 10, 2, '#8fd0f0');
-    px(X + w / 2 - 2, Y + 6, 4, 14, STONE.low); px(X + w / 2 - 2, Y + 6, 2, 14, STONE.hi);
-    px(X + w / 2 - 5, Y + 4, 10, 3, STONE.mid); px(X + w / 2 - 5, Y + 4, 10, 1, STONE.hi);
-    if (night) lamp(X + w / 2, Y + h - 10, 10, '#9ed6ff');
+    px(X + 6, Y + h - 8, w - 12, 4, '#00000018');
+    px(X + 6, Y + h - 32, w - 12, 26, STONE.mid);
+    for (let i = 0; i < w - 12; i += 12) px(X + 6 + i, Y + h - 32, 2, 26, STONE.low);
+    px(X + 6, Y + h - 32, w - 12, 2, STONE.hi);
+    px(X + 10, Y + h - 28, w - 20, 16, '#4f9ad6'); px(X + 10, Y + h - 28, w - 20, 4, '#8fd0f0');
+    px(X + w / 2 - 4, Y + 12, 8, 28, STONE.low); px(X + w / 2 - 4, Y + 12, 4, 28, STONE.hi);
+    px(X + w / 2 - 10, Y + 8, 20, 6, STONE.mid); px(X + w / 2 - 10, Y + 8, 20, 2, STONE.hi);
+    if (night) lamp(X + w / 2, Y + h - 20, 20, '#9ed6ff');
   }
   if (d.lantern){
     const b = spot('lantern'), X = b.x * T, Y = b.y * T;
-    px(X + 6, Y + 15, 4, 1, '#00000022');
-    px(X + 7, Y + 7, 2, 8, WOOD.dark); px(X + 7, Y + 7, 1, 8, WOOD.low);
-    px(X + 4, Y + 2, 8, 6, '#e8574f'); px(X + 4, Y + 2, 8, 1, '#ff8a80'); px(X + 4, Y + 7, 8, 1, '#a83a36');
-    px(X + 6, Y + 4, 4, 2, '#ffe9a8');
-    px(X + 5, Y + 1, 6, 1, WOOD.dark); px(X + 5, Y + 8, 6, 1, WOOD.dark);
-    if (night) lamp(X + 8, Y + 5, 13, '#ffc46a');
+    px(X + 12, Y + 30, 8, 2, '#00000022');
+    px(X + 14, Y + 14, 4, 16, WOOD.dark); px(X + 14, Y + 14, 2, 16, WOOD.low);
+    px(X + 8, Y + 4, 16, 12, '#e8574f'); px(X + 8, Y + 4, 16, 2, '#ff8a80'); px(X + 8, Y + 14, 16, 2, '#a83a36');
+    px(X + 12, Y + 8, 8, 4, '#ffe9a8');
+    px(X + 10, Y + 2, 12, 2, WOOD.dark); px(X + 10, Y + 16, 12, 2, WOOD.dark);
+    if (night) lamp(X + 16, Y + 10, 26, '#ffc46a');
   }
   if (d.bench){
     const b = spot('bench'), X = b.x * T, Y = b.y * T, w = b.w * T;
-    px(X + 3, Y + 14, w - 6, 1, '#00000022');
-    px(X + 3, Y + 3, w - 6, 2, WOOD.mid); px(X + 3, Y + 6, w - 6, 2, WOOD.low);      // 등받이
-    px(X + 3, Y + 9, w - 6, 3, WOOD.mid); px(X + 3, Y + 9, w - 6, 1, WOOD.hi);        // 앉는 자리
-    px(X + 4, Y + 3, 2, 11, WOOD.dark); px(X + w - 6, Y + 3, 2, 11, WOOD.dark);
-    px(X + 7, Y + 12, 2, 3, WOOD.dark); px(X + w - 9, Y + 12, 2, 3, WOOD.dark);
+    px(X + 6, Y + 28, w - 12, 2, '#00000022');
+    px(X + 6, Y + 6, w - 12, 4, WOOD.mid); px(X + 6, Y + 12, w - 12, 4, WOOD.low);      // 등받이
+    px(X + 6, Y + 18, w - 12, 6, WOOD.mid); px(X + 6, Y + 18, w - 12, 2, WOOD.hi);        // 앉는 자리
+    px(X + 8, Y + 6, 4, 22, WOOD.dark); px(X + w - 12, Y + 6, 4, 22, WOOD.dark);
+    px(X + 14, Y + 24, 4, 6, WOOD.dark); px(X + w - 18, Y + 24, 4, 6, WOOD.dark);
   }
   if (d.swing){
     // 기둥만 바탕에. 흔들리는 자리는 움직이는 겹에서 그린다.
     const b = spot('swing'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
-    px(X + 3, Y + h - 3, w - 6, 2, '#00000022');
-    px(X + 3, Y + 4, 3, h - 6, WOOD.dark); px(X + 3, Y + 4, 1, h - 6, WOOD.low);
-    px(X + w - 6, Y + 4, 3, h - 6, WOOD.dark); px(X + w - 6, Y + 4, 1, h - 6, WOOD.low);
-    px(X + 2, Y + 3, w - 4, 3, WOOD.mid); px(X + 2, Y + 3, w - 4, 1, WOOD.hi);
-    px(X + 1, Y + 2, w - 2, 1, WOOD.low);
+    px(X + 6, Y + h - 6, w - 12, 4, '#00000022');
+    px(X + 6, Y + 8, 6, h - 12, WOOD.dark); px(X + 6, Y + 8, 2, h - 12, WOOD.low);
+    px(X + w - 12, Y + 8, 6, h - 12, WOOD.dark); px(X + w - 12, Y + 8, 2, h - 12, WOOD.low);
+    px(X + 4, Y + 6, w - 8, 6, WOOD.mid); px(X + 4, Y + 6, w - 8, 2, WOOD.hi);
+    px(X + 2, Y + 4, w - 4, 2, WOOD.low);
   }
   if (d.arch){
     const b = spot('arch'), X = b.x * T, Y = b.y * T, w = b.w * T;
-    px(X + 3, Y + 15, w - 6, 1, '#00000022');
-    px(X + 3, Y + 4, 2, 12, '#6f8f5a'); px(X + w - 5, Y + 4, 2, 12, '#6f8f5a');
-    px(X + 3, Y + 2, w - 6, 3, '#6f8f5a'); px(X + 4, Y + 1, w - 8, 2, '#7fa066');
+    px(X + 6, Y + 30, w - 12, 2, '#00000022');
+    px(X + 6, Y + 8, 4, 24, '#6f8f5a'); px(X + w - 10, Y + 8, 4, 24, '#6f8f5a');
+    px(X + 6, Y + 4, w - 12, 6, '#6f8f5a'); px(X + 8, Y + 2, w - 16, 4, '#7fa066');
     for (let i = 0; i < 7; i++){
-      const rx = X + 3 + Math.floor(R.prand('ar' + i) * (w - 6)), ry = Y + 1 + Math.floor(R.prand('as' + i) * 13);
+      const rx = X + 6 + Math.floor(R.prand('ar' + i) * (w - 12)), ry = Y + 2 + Math.floor(R.prand('as' + i) * 26);
       const c = i % 3 === 0 ? '#ffd6e6' : '#e8506a';
-      px(rx, ry, 3, 3, c); px(rx, ry, 2, 1, shade(c, 26)); px(rx + 2, ry + 2, 1, 1, shade(c, -34));
+      px(rx, ry, 6, 6, c); px(rx, ry, 4, 2, shade(c, 26)); px(rx + 4, ry + 4, 2, 2, shade(c, -34));
     }
   }
   if (d.statue){
     const b = spot('statue'), X = b.x * T, Y = b.y * T, h = b.h * T;
-    px(X + 2, Y + h - 3, 12, 2, '#00000018');
-    px(X + 2, Y + h - 10, 12, 8, STONE.mid); px(X + 2, Y + h - 10, 12, 1, STONE.hi); px(X + 3, Y + h - 5, 10, 1, STONE.low);
-    px(X + 5, Y + h - 22, 6, 12, STONE.low); px(X + 5, Y + h - 22, 2, 12, STONE.mid);
-    const sx = X + 8, sy = Y + h - 30;
-    px(sx - 1, sy, 3, 9, '#ffd979'); px(sx - 4, sy + 3, 9, 3, '#ffd979');
-    px(sx - 3, sy + 1, 2, 2, '#ffe9a8'); px(sx + 2, sy + 5, 2, 2, '#e8b74a');
-    if (night) lamp(sx, sy + 4, 11, '#ffe6a0');
+    px(X + 4, Y + h - 6, 24, 4, '#00000018');
+    px(X + 4, Y + h - 20, 24, 16, STONE.mid); px(X + 4, Y + h - 20, 24, 2, STONE.hi); px(X + 6, Y + h - 10, 20, 2, STONE.low);
+    px(X + 10, Y + h - 44, 12, 24, STONE.low); px(X + 10, Y + h - 44, 4, 24, STONE.mid);
+    const sx = X + 16, sy = Y + h - 60;
+    px(sx - 2, sy, 6, 18, '#ffd979'); px(sx - 8, sy + 6, 18, 6, '#ffd979');
+    px(sx - 6, sy + 2, 4, 4, '#ffe9a8'); px(sx + 4, sy + 10, 4, 4, '#e8b74a');
+    if (night) lamp(sx, sy + 8, 22, '#ffe6a0');
   }
 }
 // 둥근 잎 덩어리 — 줄마다 너비를 달리해 네모로 보이지 않게 한다.
@@ -1444,20 +1507,20 @@ function blob(cx, cy, w, h, mid, hi, lo, seed, P){
   for (let r = 0; r < h; r++){
     const t = (r + 0.5) / h;
     const k = Math.sin(Math.PI * Math.pow(t, 0.8));
-    let ww = Math.max(2, Math.round(w * (0.3 + 0.7 * k)));
-    ww += Math.round((R.prand((seed || 'b') + r) - 0.5) * 2.4);   // 가장자리를 조금 울퉁불퉁하게
+    let ww = Math.max(4, Math.round(w * (0.3 + 0.7 * k)));
+    ww += Math.round((R.prand((seed || 'b') + r) - 0.5) * 4.8);   // 가장자리를 조금 울퉁불퉁하게
     const x0 = Math.round(cx - ww / 2);
-    px(x0, cy + r, ww, 1, mid);
+    px(x0, cy + r, ww, 2, mid);
     const lit = Math.round(ww * (0.5 - t * 0.42));
-    if (lit > 1 && t < 0.6){
-      px(x0 + 1, cy + r, lit, 1, hi);
+    if (lit > 2 && t < 0.6){
+      px(x0 + 2, cy + r, lit, 2, hi);
       // 밝은 데와 중간 사이를 두 도트쯤 흩뿌려 섞으면 단 경계가 안 보인다
-      if (x0 + 1 + lit + 2 <= x0 + ww) ditherRow(x0 + 1 + lit, cy + r, 2, hi, 0.5, r, P);
+      if (lit + 6 <= ww) ditherRow(x0 + 2 + lit, cy + r, 4, hi, 0.5, r, P);
     }
     const sh = Math.round(ww * (t - 0.45) * 0.9);
-    if (sh > 1){
-      px(x0 + ww - sh, cy + r, sh, 1, lo);
-      if (ww - sh - 2 >= 0) ditherRow(x0 + ww - sh - 2, cy + r, 2, lo, 0.5, r, P);
+    if (sh > 2){
+      px(x0 + ww - sh, cy + r, sh, 2, lo);
+      if (ww - sh - 4 >= 0) ditherRow(x0 + ww - sh - 4, cy + r, 4, lo, 0.5, r, P);
     }
   }
 }
@@ -1465,67 +1528,67 @@ function blob(cx, cy, w, h, mid, hi, lo, seed, P){
 function drawNode(n, season, t){
   const N = R.NODES[n], X = N.x * T, Y = N.y * T;
   const ready = W && M ? R.nodeReady(W, M, n, now()) : true;
-  const sway = Math.round(Math.sin(t / 900 + N.x) * (curWind + 0.4));
+  const sway = Math.round(Math.sin(t / 900 + N.x) * (curWind + 0.8));
   if (N.kind === 'tree'){
-    footShade(X + 8, Y + 15, 13);
+    footShade(X + 16, Y + 30, 26);
     if (!ready){
       // 벤 자리 — 그루터기와 나이테
-      px(X + 4, Y + 9, 8, 7, WOOD.dark); px(X + 4, Y + 9, 3, 7, WOOD.low);
-      px(X + 3, Y + 7, 10, 3, WOOD.mid); px(X + 3, Y + 7, 10, 1, WOOD.hi);
-      px(X + 6, Y + 8, 4, 1, WOOD.low); px(X + 7, Y + 8, 2, 1, WOOD.line);
+      px(X + 8, Y + 18, 16, 14, WOOD.dark); px(X + 8, Y + 18, 6, 14, WOOD.low);
+      px(X + 6, Y + 14, 20, 6, WOOD.mid); px(X + 6, Y + 14, 20, 2, WOOD.hi);
+      px(X + 12, Y + 16, 8, 2, WOOD.low); px(X + 14, Y + 16, 4, 2, WOOD.line);
       return;
     }
     // 줄기 — 밑동이 넓고 위로 갈수록 좁다
-    px(X + 3, Y + 13, 10, 3, WOOD.dark); px(X + 3, Y + 13, 4, 1, WOOD.low);
-    px(X + 5, Y + 8, 6, 8, WOOD.dark); px(X + 5, Y + 8, 2, 8, WOOD.low);
-    px(X + 6, Y + 2, 4, 8, WOOD.dark); px(X + 6, Y + 2, 1, 8, WOOD.low);
-    px(X + 9, Y + 5, 1, 10, WOOD.line); px(X + 7, Y + 10, 1, 3, WOOD.line);
+    px(X + 6, Y + 26, 20, 6, WOOD.dark); px(X + 6, Y + 26, 8, 2, WOOD.low);
+    px(X + 10, Y + 16, 12, 16, WOOD.dark); px(X + 10, Y + 16, 4, 16, WOOD.low);
+    px(X + 12, Y + 4, 8, 16, WOOD.dark); px(X + 12, Y + 4, 2, 16, WOOD.low);
+    px(X + 18, Y + 10, 2, 20, WOOD.line); px(X + 14, Y + 20, 2, 6, WOOD.line);
     // 가지
-    px(X + 2, Y + 4, 4, 1, WOOD.dark); px(X + 10, Y + 6, 4, 1, WOOD.dark);
+    px(X + 4, Y + 8, 8, 2, WOOD.dark); px(X + 20, Y + 12, 8, 2, WOOD.dark);
     const L = season === 'autumn' ? ['#f0a95c', '#dd7b3f', '#b85a2c']
             : season === 'winter' ? ['#b8ccbe', '#9db4a5', '#7d9488']
             : ['#8ad07a', '#63ad57', '#417c3d'];
     const s = sway;
     // 잎갓 — 큰 덩이 하나에 작은 덩이 둘을 겹쳐 둥글게
-    blob(X + 8 + s, Y - 14, 24, 20, L[1], L[0], L[2], 't' + N.x);
-    blob(X + 2 + s, Y - 9, 12, 11, L[1], L[0], L[2], 'u' + N.x);
-    blob(X + 14 + s, Y - 10, 12, 12, L[1], L[0], L[2], 'v' + N.x);
+    blob(X + 16 + s, Y - 28, 48, 40, L[1], L[0], L[2], 't' + N.x);
+    blob(X + 4 + s, Y - 18, 24, 22, L[1], L[0], L[2], 'u' + N.x);
+    blob(X + 28 + s, Y - 20, 24, 24, L[1], L[0], L[2], 'v' + N.x);
 
     // 잎 결
     for (let i = 0; i < 9; i++){
-      const rx = Math.round((R.prand('lx' + N.x + i) - 0.5) * 18), ry = Math.round(R.prand('ly' + N.x + i) * 17);
-      px(X + 8 + rx + s, Y - 13 + ry, 2, 1, i % 2 ? L[2] : L[0]);
+      const rx = Math.round((R.prand('lx' + N.x + i) - 0.5) * 36), ry = Math.round(R.prand('ly' + N.x + i) * 34);
+      px(X + 16 + rx + s, Y - 26 + ry, 4, 2, i % 2 ? L[2] : L[0]);
     }
-    if (season === 'spring'){ [[-6, 2], [4, 1], [8, 8], [-3, 11], [1, 5]].forEach((q, i) => { const c = i % 2 ? '#ffd6e6' : '#ffb7d5'; px(X + 8 + q[0] + s, Y - 13 + q[1], 2, 2, c); px(X + 8 + q[0] + s, Y - 13 + q[1], 1, 1, '#fff2f7'); }); }
-    if (season === 'summer'){ [[-5, 5], [5, 3], [0, 10]].forEach(q => { px(X + 8 + q[0] + s, Y - 13 + q[1], 2, 2, '#e8324a'); px(X + 8 + q[0] + s, Y - 13 + q[1], 1, 1, '#ff8a94'); }); }
-    if (season === 'winter'){ px(X + 1 + s, Y - 13, 14, 2, '#ffffff'); px(X - 2 + s, Y - 8, 6, 1, '#f2f9ff'); px(X + 13 + s, Y - 9, 6, 1, '#f2f9ff'); }
+    if (season === 'spring'){ [[-12, 4], [8, 2], [16, 16], [-6, 22], [2, 10]].forEach((q, i) => { const c = i % 2 ? '#ffd6e6' : '#ffb7d5'; px(X + 16 + q[0] + s, Y - 26 + q[1], 4, 4, c); px(X + 16 + q[0] + s, Y - 26 + q[1], 2, 2, '#fff2f7'); }); }
+    if (season === 'summer'){ [[-10, 10], [10, 6], [0, 20]].forEach(q => { px(X + 16 + q[0] + s, Y - 26 + q[1], 4, 4, '#e8324a'); px(X + 16 + q[0] + s, Y - 26 + q[1], 2, 2, '#ff8a94'); }); }
+    if (season === 'winter'){ px(X + 2 + s, Y - 26, 28, 4, '#ffffff'); px(X - 4 + s, Y - 16, 12, 2, '#f2f9ff'); px(X + 26 + s, Y - 18, 12, 2, '#f2f9ff'); }
     return;
   }
   if (N.kind === 'rock'){
-    px(X + 3, Y + 14, 10, 1, '#00000020');
-    if (!ready){ px(X + 5, Y + 11, 7, 3, STONE.low); px(X + 5, Y + 11, 5, 1, STONE.mid); return; }
-    px(X + 2, Y + 6, 12, 8, STONE.low);
-    px(X + 4, Y + 3, 8, 4, STONE.mid); px(X + 4, Y + 3, 5, 2, STONE.hi);
-    px(X + 2, Y + 10, 5, 3, STONE.dark); px(X + 10, Y + 8, 3, 5, STONE.dark);
-    px(X + 6, Y + 7, 3, 2, STONE.hi);
-    px(X + 2, Y + 13, 12, 1, STONE.line);
+    px(X + 6, Y + 28, 20, 2, '#00000020');
+    if (!ready){ px(X + 10, Y + 22, 14, 6, STONE.low); px(X + 10, Y + 22, 10, 2, STONE.mid); return; }
+    px(X + 4, Y + 12, 24, 16, STONE.low);
+    px(X + 8, Y + 6, 16, 8, STONE.mid); px(X + 8, Y + 6, 10, 4, STONE.hi);
+    px(X + 4, Y + 20, 10, 6, STONE.dark); px(X + 20, Y + 16, 6, 10, STONE.dark);
+    px(X + 12, Y + 14, 6, 4, STONE.hi);
+    px(X + 4, Y + 26, 24, 2, STONE.line);
     return;
   }
   if (N.kind === 'bush'){
     if (N.season.indexOf(season) < 0) return;
-    px(X + 3, Y + 15, 10, 1, '#00000020');
+    px(X + 6, Y + 30, 20, 2, '#00000020');
     const s = Math.round(sway / 2);
-    blob(X + 8 + s, Y + 3, 15, 13, '#3f7d3c', '#5fa155', '#2b5c2c', 'bs');
-    for (let i = 0; i < 5; i++) px(X + 3 + s + Math.floor(R.prand('bl' + i) * 10), Y + 5 + Math.floor(R.prand('bm' + i) * 9), 2, 1, i % 2 ? '#5fa155' : '#2b5c2c');
-    if (ready){ [[4, 8], [9, 6], [6, 12], [11, 10]].forEach(q => { px(X + q[0] + s, Y + q[1], 2, 2, '#e83a4a'); px(X + q[0] + s, Y + q[1], 1, 1, '#ff8a94'); px(X + q[0] + s + 1, Y + q[1] + 1, 1, 1, '#a81f30'); }); }
+    blob(X + 16 + s, Y + 6, 30, 26, '#3f7d3c', '#5fa155', '#2b5c2c', 'bs');
+    for (let i = 0; i < 5; i++) px(X + 6 + s + Math.floor(R.prand('bl' + i) * 20), Y + 10 + Math.floor(R.prand('bm' + i) * 18), 4, 2, i % 2 ? '#5fa155' : '#2b5c2c');
+    if (ready){ [[8, 16], [18, 12], [12, 24], [22, 20]].forEach(q => { px(X + q[0] + s, Y + q[1], 4, 4, '#e83a4a'); px(X + q[0] + s, Y + q[1], 2, 2, '#ff8a94'); px(X + q[0] + s + 2, Y + q[1] + 2, 2, 2, '#a81f30'); }); }
     return;
   }
   if (N.kind === 'snow'){
     if (season !== 'winter' || !ready) return;
-    px(X + 3, Y + 14, 10, 1, '#00000018');
-    px(X + 3, Y + 8, 10, 6, '#ffffff'); px(X + 5, Y + 4, 6, 5, '#f7fbff');
-    px(X + 3, Y + 8, 10, 1, '#ffffff'); px(X + 4, Y + 12, 8, 1, '#dbe8ef');
-    px(X + 6, Y + 6, 1, 1, '#3a3226'); px(X + 9, Y + 6, 1, 1, '#3a3226'); px(X + 7, Y + 8, 2, 1, '#ff8c2e');
+    px(X + 6, Y + 28, 20, 2, '#00000018');
+    px(X + 6, Y + 16, 20, 12, '#ffffff'); px(X + 10, Y + 8, 12, 10, '#f7fbff');
+    px(X + 6, Y + 16, 20, 2, '#ffffff'); px(X + 8, Y + 24, 16, 2, '#dbe8ef');
+    px(X + 12, Y + 12, 2, 2, '#3a3226'); px(X + 18, Y + 12, 2, 2, '#3a3226'); px(X + 14, Y + 16, 4, 2, '#ff8c2e');
   }
 }
 
@@ -1602,7 +1665,7 @@ function yardOf(kind){
   if (need === 'pethouse') return null;                       // 강아지·고양이는 아이를 따라다닌다
   if (need === 'pasture' || (here('pasture') && need === 'barn')){
     const b = spot('pasture');
-    return { x: b.x * T + 8, y: b.y * T + 10, w: b.w * T - 16, h: b.h * T - 20 };
+    return { x: b.x * T + 16, y: b.y * T + 20, w: b.w * T - 32, h: b.h * T - 40 };
   }
   return { home: spot(need) };     // 우리 둘레의 빈 칸에서 논다
 }
@@ -1611,9 +1674,9 @@ function nearTile(home, reach){
   const cand = [];
   for (let dy = -reach; dy <= home.h + reach; dy++) for (let dx = -reach; dx <= home.w + reach; dx++){
     const tx = home.x + dx, ty = home.y + dy;
-    if (walkableTile(tx, ty)) cand.push({ x: tx * T + 8, y: ty * T + 12 });
+    if (walkableTile(tx, ty)) cand.push({ x: tx * T + 16, y: ty * T + 24 });
   }
-  return cand.length ? cand[Math.floor(Math.random() * cand.length)] : { x: home.x * T + 8, y: (home.y + home.h) * T + 12 };
+  return cand.length ? cand[Math.floor(Math.random() * cand.length)] : { x: home.x * T + 16, y: (home.y + home.h) * T + 24 };
 }
 function yardPoint(kind){
   const y = yardOf(kind);
@@ -1627,7 +1690,7 @@ function ensureActors(){
     const h = spot('house');
     walkers = ['sua', 'yona'].map((who, i) => {
       const t0 = nearestWalkable(h.x + 1 + i * 2, h.y + h.h);
-      return { who, x: t0.x * T + 8, y: t0.y * T + 12, wait: 400 * i, dir: 'down', flip: false, moving: false, phase: i * 2, path: null, step: 0, trail: [] };
+      return { who, x: t0.x * T + 16, y: t0.y * T + 24, wait: 400 * i, dir: 'down', flip: false, moving: false, phase: i * 2, path: null, step: 0, trail: [] };
     });
     walkers.forEach(w => { w.path = null; w.step = 0; });
   }
@@ -1641,28 +1704,28 @@ function ensureActors(){
   }
 }
 function stepActors(dt, t){
-  const kidSp = 13 * dt / 1000;
+  const kidSp = 26 * dt / 1000;
   walkers.forEach(w => {
     if (w.wait > 0){ w.wait -= dt; w.moving = false; return; }
     if (!w.path || w.step >= w.path.length){
       const from = nearestWalkable(Math.floor(w.x / T), Math.floor(w.y / T));
-      if (!walkableTile(Math.floor(w.x / T), Math.floor(w.y / T))){ w.x = from.x * T + 8; w.y = from.y * T + 12; }
+      if (!walkableTile(Math.floor(w.x / T), Math.floor(w.y / T))){ w.x = from.x * T + 16; w.y = from.y * T + 24; }
       const p = someTile();
       w.path = pathFind(from.x, from.y, p.x, p.y);
       w.step = 0; w.moving = false;
       w.wait = w.path && w.path.length ? 400 + Math.random() * 2400 : 500;
       return;
     }
-    const g = w.path[w.step], gx = g.x * T + 8, gy = g.y * T + 12;
+    const g = w.path[w.step], gx = g.x * T + 16, gy = g.y * T + 24;
     const dx = gx - w.x, dy = gy - w.y, d = Math.sqrt(dx * dx + dy * dy);
-    if (d < 2){ w.x = gx; w.y = gy; w.step++; return; }
-    w.x += dx / d * kidSp; w.y += dy / d * kidSp; w.moving = true; w.phase += kidSp / 3.2;
+    if (d < 4){ w.x = gx; w.y = gy; w.step++; return; }
+    w.x += dx / d * kidSp; w.y += dy / d * kidSp; w.moving = true; w.phase += kidSp / 6.4;
     if (Math.abs(dx) > Math.abs(dy) * 1.15){ w.dir = 'side'; w.flip = dx < 0; }
     else w.dir = dy > 0 ? 'down' : 'up';
     w.trail.push({ x: w.x, y: w.y });
     if (w.trail.length > 60) w.trail.shift();
   });
-  const sp = 6 * dt / 1000;
+  const sp = 12 * dt / 1000;
   beasts.list.forEach((a, i) => {
     const pet = R.ANIMALS[a.kind].need === 'pethouse';
     if (pet){
@@ -1670,10 +1733,10 @@ function stepActors(dt, t){
       const w = walkers[i % walkers.length];
       const back = Math.min(w.trail.length - 1, 14);
       const q = back >= 0 ? w.trail[w.trail.length - 1 - back] : { x: w.x, y: w.y };
-      a.tx = q.x + (i % 2 ? 7 : -7); a.ty = q.y + 2;
+      a.tx = q.x + (i % 2 ? 14 : -14); a.ty = q.y + 4;
     } else if (a.wait > 0){ a.wait -= dt; a.moving = false; return; }
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.sqrt(dx * dx + dy * dy);
-    if (d < (pet ? 6 : 2)){
+    if (d < (pet ? 12 : 4)){
       if (!pet){
         const q = yardPoint(a.kind);
         if (q){ a.tx = q.x; a.ty = q.y; }
@@ -1682,26 +1745,26 @@ function stepActors(dt, t){
       a.moving = false; return;
     }
     const s = pet ? sp * 2.1 : sp;
-    a.x += dx / d * s; a.y += dy / d * s; a.moving = true; a.phase += s / 2.4;
-    if (Math.abs(dx) > 0.4) a.flip = dx < 0;
+    a.x += dx / d * s; a.y += dy / d * s; a.moving = true; a.phase += s / 4.8;
+    if (Math.abs(dx) > 0.8) a.flip = dx < 0;
   });
 }
 function drawWalker(w, t){
   const A = KIDART[w.who] || KIDART.yona, set = A[w.dir] || A.down, f = w.moving ? (Math.floor(w.phase) % 2) : 0;
-  const bob = w.moving ? 0 : (Math.sin(t / 900 + w.phase) > 0.8 ? 1 : 0);
-  footShade(w.x, w.y - 1, 11);
+  const bob = w.moving ? 0 : (Math.sin(t / 900 + w.phase) > 0.8 ? 2 : 0);
+  footShade(w.x, w.y - 2, 22);
   const fl = w.dir === 'side' ? w.flip : false;
-  artOut(w.who + w.dir + f, set[f], Math.round(w.x - 6), Math.round(w.y - 16 + bob), KIDPAL[w.who], fl);
+  artOut(w.who + w.dir + f, set[f], Math.round(w.x - 12), Math.round(w.y - 32 + bob), KIDPAL[w.who], fl);
 }
 function drawBeast(a, t){
   const B = BEAST[a.kind] || BEAST.chicken, hgt = B.art.length;
-  const bob = a.moving ? (Math.floor(a.phase) % 2) : (Math.sin(t / 1100 + a.phase) > 0.7 ? 1 : 0);
-  footShade(a.x, a.y - 1, B.w - 1);
+  const bob = a.moving ? (Math.floor(a.phase) % 2) * 2 : (Math.sin(t / 1100 + a.phase) > 0.7 ? 2 : 0);
+  footShade(a.x, a.y - 2, B.w - 2);
   artOut('b' + a.kind, B.art, Math.round(a.x - B.w / 2), Math.round(a.y - hgt + bob), B.pal, a.flip);
   const rec = (W.animals || []).find(x => x.id === a.id);
   if (rec && rec.ready){
-    const by = a.y - hgt - 6 + Math.round(Math.sin(t / 400) * 1.2);
-    px(a.x - 2, by, 5, 5, '#ffe066'); px(a.x - 2, by, 3, 2, '#fff3b8'); px(a.x - 3, by + 1, 1, 3, '#e8b74a'); px(a.x + 3, by + 1, 1, 3, '#e8b74a');
+    const by = a.y - hgt - 12 + Math.round(Math.sin(t / 400) * 2.4);
+    px(a.x - 4, by, 10, 10, '#ffe066'); px(a.x - 4, by, 6, 4, '#fff3b8'); px(a.x - 6, by + 2, 2, 6, '#e8b74a'); px(a.x + 6, by + 2, 2, 6, '#e8b74a');
   }
 }
 
@@ -1710,16 +1773,16 @@ function drawDecorLive(season, t, L){
   const d = W.decor || {};
   if (d.swing){
     const b = spot('swing'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
-    const a = Math.sin(t / 1150) * (2.5 + curWind);
-    const cx = X + w / 2 + a, top = Y + 6, seatY = Y + h - 6;
-    px(cx - 3, top, 1, seatY - top, '#8a7a63'); px(cx + 3, top, 1, seatY - top, '#8a7a63');
-    px(cx - 5, seatY, 10, 2, WOOD.mid); px(cx - 5, seatY, 10, 1, WOOD.hi);
-    px(cx - 5, seatY + 2, 10, 1, WOOD.dark);
+    const a = Math.sin(t / 1150) * (5 + curWind);
+    const cx = X + w / 2 + a, top = Y + 12, seatY = Y + h - 12;
+    px(cx - 6, top, 2, seatY - top, '#8a7a63'); px(cx + 6, top, 2, seatY - top, '#8a7a63');
+    px(cx - 10, seatY, 20, 4, WOOD.mid); px(cx - 10, seatY, 20, 2, WOOD.hi);
+    px(cx - 10, seatY + 4, 20, 2, WOOD.dark);
   }
   if (d.lantern && L.dark > 0.16){
     const b = spot('lantern'), X = b.x * T, Y = b.y * T;
-    const f = Math.sin(t / 190) > 0 ? 1 : 0;
-    px(X + 6, Y + 4 - f, 4, 3, '#fff3c0'); px(X + 7, Y + 3 - f, 2, 1, '#ffffff');
+    const f = Math.sin(t / 190) > 0 ? 2 : 0;
+    px(X + 12, Y + 8 - f, 8, 6, '#fff3c0'); px(X + 14, Y + 6 - f, 4, 2, '#ffffff');
   }
 }
 // ---------- 작은 것들 ----------
@@ -1729,10 +1792,10 @@ function drawCritters(season, t, L){
     if (season !== 'winter'){
       for (let i = 0; i < 16; i++){
         const sx = R.prand('ff' + i), sy = R.prand('fg' + i);
-        const x = (sx * Wp + Math.sin(t / 1500 + i * 1.3) * 18 + Wp) % Wp;
-        const y = (sy * Hp + Math.cos(t / 1900 + i * 2.1) * 13 + Hp) % Hp;
+        const x = (sx * Wp + Math.sin(t / 1500 + i * 1.3) * 36 + Wp) % Wp;
+        const y = (sy * Hp + Math.cos(t / 1900 + i * 2.1) * 26 + Hp) % Hp;
         const a = 0.35 + 0.65 * Math.abs(Math.sin(t / 700 + i * 1.7));
-        ctx.globalAlpha = a; px(x, y, 2, 2, '#ffe66d'); ctx.globalAlpha = 1;
+        ctx.globalAlpha = a; px(x, y, 4, 4, '#ffe66d'); ctx.globalAlpha = 1;
       }
     }
     return;
@@ -1743,34 +1806,34 @@ function drawCritters(season, t, L){
   const wing = season === 'autumn' ? ['#ffd166', '#e8a33d'] : ['#fff1a8', '#ffb7d5'];
   for (let i = 0; i < n; i++){
     const sx = R.prand('bf' + i), sy = R.prand('bg' + i);
-    const x = (sx * Wp + Math.sin(t / 2600 + i * 2) * 46 + t / 46) % Wp;
-    const y = sy * Hp + Math.sin(t / 800 + i * 3) * 9;
+    const x = (sx * Wp + Math.sin(t / 2600 + i * 2) * 92 + t / 23) % Wp;
+    const y = sy * Hp + Math.sin(t / 800 + i * 3) * 18;
     const up = Math.sin(t / 110 + i) > 0;
     const c = wing[i % 2];
-    px(x, y, 1, 2, '#5a4a3a');
-    if (up){ px(x - 2, y - 1, 2, 2, c); px(x + 1, y - 1, 2, 2, c); }
-    else { px(x - 3, y, 3, 1, c); px(x + 1, y, 3, 1, c); }
+    px(x, y, 2, 4, '#5a4a3a');
+    if (up){ px(x - 4, y - 2, 4, 4, c); px(x + 2, y - 2, 4, 4, c); }
+    else { px(x - 6, y, 6, 2, c); px(x + 2, y, 6, 2, c); }
   }
   // 새 — 이따금 위쪽을 가로지른다
   const ph = (t / 60) % 900;
   if (ph < 260){
-    const bx = ph * 1.6 - 20, by = 12 + Math.sin(ph / 26) * 5;
+    const bx = ph * 3.2 - 40, by = 24 + Math.sin(ph / 26) * 10;
     [0, 1].forEach(k => {
-      const x = bx - k * 16, y = by + k * 5;
+      const x = bx - k * 32, y = by + k * 10;
       const flap = Math.sin(t / 130 + k) > 0;
-      px(x, y, 2, 1, '#4a4a55');
-      if (flap){ px(x - 3, y - 1, 3, 1, '#4a4a55'); px(x + 2, y - 1, 3, 1, '#4a4a55'); }
-      else { px(x - 3, y + 1, 3, 1, '#4a4a55'); px(x + 2, y + 1, 3, 1, '#4a4a55'); }
+      px(x, y, 4, 2, '#4a4a55');
+      if (flap){ px(x - 6, y - 2, 6, 2, '#4a4a55'); px(x + 4, y - 2, 6, 2, '#4a4a55'); }
+      else { px(x - 6, y + 2, 6, 2, '#4a4a55'); px(x + 4, y + 2, 6, 2, '#4a4a55'); }
     });
   }
 }
 // 굴뚝 연기 — 집은 늘 사람이 사는 것처럼
 function drawSmoke(t){
-  const b = spot('house'), X = b.x * T + b.w * T - 17, Y = b.y * T - 2;
+  const b = spot('house'), X = b.x * T + b.w * T - 34, Y = b.y * T - 4;
   for (let i = 0; i < 5; i++){
     const ph = ((t / 24) + i * 90) % 450;
-    const y = Y - ph / 9, sz = 2 + ph / 190;
-    const x = X + Math.sin(ph / 55 + i) * (2 + ph / 100);
+    const y = Y - ph / 4.5, sz = 4 + ph / 95;
+    const x = X + Math.sin(ph / 55 + i) * (4 + ph / 50);
     ctx.globalAlpha = Math.max(0, 0.42 - ph / 1100);
     px(x, y, sz, sz, '#f0ece6');
     ctx.globalAlpha = 1;
@@ -1783,13 +1846,13 @@ function drawWeather(wk, season, t, cv){
     // 비 오는 날은 온 세상이 조금 푸르고 어둡다 — 빗줄기만으로는 비처럼 안 보인다
     ctx.fillStyle = wk === 'storm' ? 'rgba(60,74,110,.24)' : 'rgba(84,116,158,.15)';
     ctx.fillRect(0, 0, cv.width, cv.height);
-    const n = wk === 'storm' ? 190 : 140, len = wk === 'storm' ? 9 : 7;
+    const n = wk === 'storm' ? 190 : 140, len = wk === 'storm' ? 18 : 14;
     for (let i = 0; i < n; i++){
       const sx = R.prand('r' + i), sy = R.prand('rr' + i);
-      const y = (sy * Hp + t * (wk === 'storm' ? 0.62 : 0.46)) % Hp;
+      const y = (sy * Hp + t * (wk === 'storm' ? 1.24 : 0.92)) % Hp;
       const x = (sx * Wp + y * 0.3) % Wp;
-      ctx.globalAlpha = 0.75; px(x, y, 1, len, '#dff1ff');
-      ctx.globalAlpha = 0.35; px(x + 1, y + 1, 1, len - 2, '#a8d8f5');
+      ctx.globalAlpha = 0.75; px(x, y, 2, len, '#dff1ff');
+      ctx.globalAlpha = 0.35; px(x + 2, y + 2, 2, len - 4, '#a8d8f5');
       ctx.globalAlpha = 1;
     }
     // 땅에 튀는 물방울
@@ -1799,7 +1862,7 @@ function drawWeather(wk, season, t, cv){
       if (ph < 0.4){
         const x = sx * Wp, y = sy * Hp;
         ctx.globalAlpha = 0.62 - ph;
-        px(x - 2 - ph * 3, y, 2, 1, '#eaf6ff'); px(x + 1 + ph * 3, y, 2, 1, '#eaf6ff'); px(x, y - 1 - ph * 2, 1, 1, '#eaf6ff');
+        px(x - 4 - ph * 6, y, 4, 2, '#eaf6ff'); px(x + 2 + ph * 6, y, 4, 2, '#eaf6ff'); px(x, y - 2 - ph * 4, 2, 2, '#eaf6ff');
         ctx.globalAlpha = 1;
       }
     }
@@ -1807,10 +1870,10 @@ function drawWeather(wk, season, t, cv){
   if (wk === 'snow'){
     ctx.fillStyle = 'rgba(206,224,238,.13)'; ctx.fillRect(0, 0, cv.width, cv.height);
     for (let i = 0; i < 120; i++){
-      const sx = R.prand('s' + i), sy = R.prand('ss' + i), sz = sx > 0.78 ? 3 : sx > 0.42 ? 2 : 1;
-      const y = (sy * Hp + t * (0.028 + sz * 0.016) + sx * 30) % Hp;
-      const x = (sx * Wp + Math.sin(t / 1100 + i * 1.7) * (5 + sz * 4) + Wp) % Wp;
-      ctx.globalAlpha = sz === 1 ? 0.6 : 0.92;
+      const sx = R.prand('s' + i), sy = R.prand('ss' + i), sz = sx > 0.78 ? 6 : sx > 0.42 ? 4 : 2;
+      const y = (sy * Hp + t * (0.056 + sz * 0.016) + sx * 60) % Hp;
+      const x = (sx * Wp + Math.sin(t / 1100 + i * 1.7) * (10 + sz * 4) + Wp) % Wp;
+      ctx.globalAlpha = sz === 2 ? 0.6 : 0.92;
       px(x, y, sz, sz, '#ffffff');
       ctx.globalAlpha = 1;
     }
@@ -1819,20 +1882,20 @@ function drawWeather(wk, season, t, cv){
     const leaf = season === 'autumn' ? ['#e8874a', '#d9603c', '#c9a227', '#a8552c'] : season === 'winter' ? ['#eef8ff', '#dbe8ef'] : ['#ffb7d5', '#fff3a0', '#a9dca1', '#ffffff'];
     for (let i = 0; i < 40; i++){
       const sx = R.prand('w' + i), sy = R.prand('ww' + i);
-      const x = (sx * Wp + t * (0.11 + sx * 0.08)) % Wp;
-      const y = sy * Hp + Math.sin(t / 380 + i * 2) * 15;
+      const x = (sx * Wp + t * (0.22 + sx * 0.16)) % Wp;
+      const y = sy * Hp + Math.sin(t / 380 + i * 2) * 30;
       const c = leaf[i % leaf.length];
       const spin = Math.sin(t / 200 + i) > 0;
-      if (spin){ px(x, y, 3, 1, c); px(x + 1, y + 1, 2, 1, shade(c, -24)); }
-      else { px(x, y, 1, 3, c); px(x + 1, y + 1, 1, 2, shade(c, -24)); }
+      if (spin){ px(x, y, 6, 2, c); px(x + 2, y + 2, 4, 2, shade(c, -24)); }
+      else { px(x, y, 2, 6, c); px(x + 2, y + 2, 2, 4, shade(c, -24)); }
     }
     // 바람 자국 — 가로로 스치는 흰 선
     for (let i = 0; i < 5; i++){
       const ph = ((t / 12) + i * 220) % 1400;
       if (ph > 420) continue;
-      const y = R.prand('wl' + i) * Hp, x = ph - 40;
+      const y = R.prand('wl' + i) * Hp, x = ph * 2 - 80;
       ctx.globalAlpha = 0.3 - ph / 1800;
-      px(x, y, 26, 1, '#ffffff'); px(x + 8, y + 2, 16, 1, '#ffffff');
+      px(x, y, 52, 2, '#ffffff'); px(x + 16, y + 4, 32, 2, '#ffffff');
       ctx.globalAlpha = 1;
     }
   }
@@ -1845,14 +1908,14 @@ function drawWeather(wk, season, t, cv){
 let placeMode = false, placePick = null;
 function outlineBox(b, c){
   const X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
-  px(X, Y, w, 1, c); px(X, Y + h - 1, w, 1, c); px(X, Y, 1, h, c); px(X + w - 1, Y, 1, h, c);
-  px(X + 1, Y + 1, w - 2, 1, c); px(X + 1, Y + h - 2, w - 2, 1, c);
+  px(X, Y, w, 2, c); px(X, Y + h - 2, w, 2, c); px(X, Y, 2, h, c); px(X + w - 2, Y, 2, h, c);
+  px(X + 2, Y + 2, w - 4, 2, c); px(X + 2, Y + h - 4, w - 4, 2, c);
 }
 function drawPlaceOverlay(t){
   if (!placeMode) return;
   ctx.globalAlpha = 0.5;
-  for (let x = 0; x <= COLS; x++) px(x * T, 0, 1, ROWS * T, '#ffffff');
-  for (let y = 0; y <= ROWS; y++) px(0, y * T, COLS * T, 1, '#ffffff');
+  for (let x = 0; x <= COLS; x++) px(x * T, 0, 2, ROWS * T, '#ffffff');
+  for (let y = 0; y <= ROWS; y++) px(0, y * T, COLS * T, 2, '#ffffff');
   ctx.globalAlpha = 1;
   const FB = R.FIELD_BOX;
   ctx.globalAlpha = 0.22; px(FB.x * T, FB.y * T, FB.w * T, FB.h * T, '#ff5a4a'); ctx.globalAlpha = 1;
@@ -1963,20 +2026,20 @@ function drawFront(season){
   if (here('pasture')){
     const b = spot('pasture'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
     // 가운데는 드나드는 문이라 비워 둔다 — 겹은 비어 있는 채로 시작하니 안 그리면 그만이다
-    const gx0 = X + w / 2 - 8, gx1 = X + w / 2 + 8;
-    const rail = (x0, x1) => { if (x1 <= x0) return; px(x0, Y + h - 5, x1 - x0, 1, WOOD.mid); px(x0, Y + h - 2, x1 - x0, 1, WOOD.low); };
-    rail(X + 1, gx0); rail(gx1, X + w - 1);
+    const gx0 = X + w / 2 - 16, gx1 = X + w / 2 + 16;
+    const rail = (x0, x1) => { if (x1 <= x0) return; px(x0, Y + h - 10, x1 - x0, 2, WOOD.mid); px(x0, Y + h - 4, x1 - x0, 2, WOOD.low); };
+    rail(X + 2, gx0); rail(gx1, X + w - 2);
     for (let i = 0; i < w; i += T){
       const px1 = X + i;
-      if (px1 + 2 > gx0 && px1 < gx1) continue;
-      px(px1, Y + h - 9, 2, 10, WOOD.dark); px(px1, Y + h - 9, 1, 10, WOOD.mid); px(px1, Y + h - 10, 2, 1, WOOD.hi);
+      if (px1 + 4 > gx0 && px1 < gx1) continue;
+      px(px1, Y + h - 18, 4, 20, WOOD.dark); px(px1, Y + h - 18, 2, 20, WOOD.mid); px(px1, Y + h - 20, 4, 2, WOOD.hi);
     }
-    px(gx0 - 2, Y + h - 11, 2, 12, WOOD.dark); px(gx1, Y + h - 11, 2, 12, WOOD.dark);   // 문기둥
+    px(gx0 - 4, Y + h - 22, 4, 24, WOOD.dark); px(gx1, Y + h - 22, 4, 24, WOOD.dark);   // 문기둥
   }
   const E = R.EXPANSIONS[Math.min(W.expand || 0, R.EXPANSIONS.length - 1)];
   const fx = R.FIELD.x0 * T, fy = R.FIELD.y0 * T, fw = E.w * T, fh = E.h * T;
-  px(fx - 1, fy + fh + 1, fw + 2, 1, WOOD.mid); px(fx - 1, fy + fh + 4, fw + 2, 1, WOOD.low);
-  for (let i = 0; i <= fw; i += T){ px(fx + i - 1, fy + fh, 2, 8, WOOD.dark); px(fx + i - 1, fy + fh, 1, 8, WOOD.mid); px(fx + i - 1, fy + fh - 1, 2, 1, WOOD.hi); }
+  px(fx - 2, fy + fh + 2, fw + 4, 2, WOOD.mid); px(fx - 2, fy + fh + 8, fw + 4, 2, WOOD.low);
+  for (let i = 0; i <= fw; i += T){ px(fx + i - 2, fy + fh, 4, 16, WOOD.dark); px(fx + i - 2, fy + fh, 2, 16, WOOD.mid); px(fx + i - 2, fy + fh - 2, 4, 2, WOOD.hi); }
   drawFrontGrass(season);
 }
 // 화면 맨 아래를 두르는 앞쪽 수풀. 눈에서 가장 가까우니 가장 진하고, 아이가 그 사이로 지나간다.
@@ -1987,33 +2050,33 @@ function drawFrontGrass(season){
           : season === 'winter' ? ['#7f9a8c', '#67806f', '#4e6356', '#9db4a5']
           : ['#3f7d3c', '#336633', '#264d27', '#4f9a48'];
   // 1) 바닥에 깔리는 그늘 — 수풀이 화면 밖에서 이어져 오는 느낌
-  for (let i = 0; i < 4; i++) px(0, base - 4 + i, Wp, 1, 'rgba(0,0,0,' + (0.05 + i * 0.03).toFixed(3) + ')');
+  for (let i = 0; i < 4; i++) px(0, base - 8 + i * 2, Wp, 2, 'rgba(0,0,0,' + (0.05 + i * 0.03).toFixed(3) + ')');
   // 2) 풀포기 — 세 겹으로 겹쳐 심는다. 뒤가 연하고 앞이 진하다.
-  const bands = [{ n: 120, h: [5, 10], c: 3, y: 3 }, { n: 100, h: [6, 12], c: 0, y: 1 }, { n: 80, h: [8, 14], c: 2, y: 0 }];
+  const bands = [{ n: 120, h: [10, 20], c: 3, y: 6 }, { n: 100, h: [12, 24], c: 0, y: 2 }, { n: 80, h: [16, 28], c: 2, y: 0 }];
   bands.forEach((B, bi) => {
     for (let i = 0; i < B.n; i++){
       const r1 = R.prand('fgx' + bi + '_' + i), r2 = R.prand('fgh' + bi + '_' + i), r3 = R.prand('fgb' + bi + '_' + i);
-      const x = Math.floor(r1 * (Wp + 8)) - 4;
+      const x = Math.floor(r1 * (Wp + 16)) - 8;
       const h = Math.round(B.h[0] + r2 * (B.h[1] - B.h[0]));
       const y0 = base - h + B.y;
       const c = C[B.c], cd = C[2], cl = C[3];
       // 잎 세 갈래
-      px(x, y0 + 2, 1, h - 2, c); px(x, y0 + 2, 1, 2, cl);
-      px(x + 1, y0, 1, h, c);
-      px(x + 2, y0 + 3, 1, h - 3, r3 > 0.5 ? cd : c);
-      if (r3 > 0.62){ px(x - 1, y0 + 5, 1, h - 5, cd); px(x + 3, y0 + 6, 1, h - 6, cd); }
+      px(x, y0 + 4, 2, h - 4, c); px(x, y0 + 4, 2, 4, cl);
+      px(x + 2, y0, 2, h, c);
+      px(x + 4, y0 + 6, 2, h - 6, r3 > 0.5 ? cd : c);
+      if (r3 > 0.62){ px(x - 2, y0 + 10, 2, h - 10, cd); px(x + 6, y0 + 12, 2, h - 12, cd); }
       if (r3 > 0.88 && season !== 'winter'){                       // 이따금 들꽃
         const fc = ['#ffb7d5', '#fff3a0', '#ffffff', '#c9a8ff'][Math.floor(R.prand('fgf' + bi + '_' + i) * 4)];
-        px(x, y0 - 1, 1, 1, fc); px(x - 1, y0, 3, 1, fc); px(x, y0 + 1, 1, 1, fc);
+        px(x, y0 - 2, 2, 2, fc); px(x - 2, y0, 6, 2, fc); px(x, y0 + 2, 2, 2, fc);
       }
-      if (season === 'winter' && r3 > 0.5) px(x, y0 - 1, 3, 1, '#f2f9ff');
+      if (season === 'winter' && r3 > 0.5) px(x, y0 - 2, 6, 2, '#f2f9ff');
     }
   });
   // 3) 맨 앞 실루엣 — 가장 진한 잎 몇 장
   for (let i = 0; i < 16; i++){
     const r1 = R.prand('fsx' + i), r2 = R.prand('fsh' + i);
-    const x = Math.floor(r1 * (Wp + 10)) - 5, h = Math.round(9 + r2 * 7);
-    blob(x, base - h, 8, h, C[2], C[1], C[2], 'fs' + i);
+    const x = Math.floor(r1 * (Wp + 20)) - 10, h = Math.round(18 + r2 * 14);
+    blob(x, base - h, 16, h, C[2], C[1], C[2], 'fs' + i);
   }
 }
 // ---- 겹 8: 빛무리 ----
@@ -2039,9 +2102,9 @@ function drawFarm(cvIn, tms){
   const cal = R.calendar(W, now()), season = cal.season, wk = R.weatherOf(R.dayKey(now()), season);
   const L = dayLight();
   if (fitPixelCanvas(cv, COLS * T, ROWS * T, 5)) dropLayers();
-  S = pixScale(cv, COLS * T, ROWS * T, 3);
+  S = pixScale(cv, COLS * T, ROWS * T, 1.5);
   const cw = cv.width, ch = cv.height;
-  curWind = wk === 'wind' ? 2.4 : wk === 'storm' ? 1.9 : wk === 'rain' ? 1.0 : 0.55;
+  curWind = wk === 'wind' ? 4.8 : wk === 'storm' ? 3.8 : wk === 'rain' ? 2.0 : 1.1;
   // 바람은 0.11초 단위로만 센다. 흔들리는 폭이 어차피 한두 도트라 눈에는 그대로인데,
   // 작물 겹을 다시 그리는 횟수는 절반이 된다.
   const windStep = Math.round(t / 110) * 110;
@@ -2083,7 +2146,7 @@ function drawFarm(cvIn, tms){
   // 5 살아 있는 것 — 나무까지 함께 아래에 있는 것부터. 그래야 아이가 나무 뒤로 지나간다.
   ctx = g;
   const cast = [];
-  Object.keys(R.NODES).forEach(n => { const N = R.NODES[n]; cast.push({ y: N.y * T + 15, go: () => drawNode(n, season, t) }); });
+  Object.keys(R.NODES).forEach(n => { const N = R.NODES[n]; cast.push({ y: N.y * T + 30, go: () => drawNode(n, season, t) }); });
   if (walkers) walkers.forEach(w => cast.push({ y: w.y, go: () => drawWalker(w, t) }));
   if (beasts) beasts.list.forEach(a => cast.push({ y: a.y, go: () => drawBeast(a, t) }));
   cast.sort((a, b) => a.y - b.y).forEach(c => c.go());
@@ -2451,7 +2514,7 @@ function nameDialog(a){
 // 가구와 아이와 빛은 그 위에 매번. 가구는 작은 버퍼에 그린 뒤 돌려서 붙이므로
 // 그림을 네 방향으로 따로 그릴 필요가 없다.
 let HS = 3;                                        // 방도 정수배로 — fitPixelCanvas 가 정한다
-const WALLH = 30;                                  // 벽 높이(도트)
+const WALLH = 60;                                  // 벽 높이(도트)
 function roomPal(r){
   if (r === 'sua') return { wall: '#ffdfe6', wall2: '#ffd0da', trim: '#e79fb0', rail: '#d98ea1', motif: 'heart', dot: '#ff9ec4',
                             wain: '#f6e3e6', wainL: '#fff2f4', base: '#c98a98', floor: ['#d9b68c', '#c8a077', '#e5c69f', '#b98f68'] };
@@ -2473,83 +2536,83 @@ function drawRoomShell(g, r, L){
   const q = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x * HS), Math.round(y * HS), Math.max(1, Math.round(w * HS)), Math.max(1, Math.round(h * HS))); };
   // 벽지
   q(0, 0, Wp, WALLH, P.wall);
-  for (let x = 0; x < Wp; x += 6) q(x, 0, 1, WALLH, P.wall2);          // 세로 결
-  for (let y = 0; y < WALLH; y += 3) q(0, y, Wp, 1, shade(P.wall, -4));
+  for (let x = 0; x < Wp; x += 12) q(x, 0, 2, WALLH, P.wall2);          // 세로 결
+  for (let y = 0; y < WALLH; y += 6) q(0, y, Wp, 2, shade(P.wall, -4));
   // 무늬 — 방마다 다르게
-  for (let x = 4; x < Wp - 4; x += 14) for (let y = 6; y < WALLH - 14; y += 9){
-    const off = ((x / 14) | 0) % 2 ? 4 : 0;
+  for (let x = 8; x < Wp - 8; x += 28) for (let y = 12; y < WALLH - 28; y += 18){
+    const off = ((x / 28) | 0) % 2 ? 8 : 0;
     const mx = x + off, my = y;
-    if (P.motif === 'heart'){ q(mx, my + 1, 2, 2, P.dot); q(mx + 3, my + 1, 2, 2, P.dot); q(mx + 1, my + 3, 3, 1, P.dot); q(mx + 2, my + 4, 1, 1, P.dot); }
-    else if (P.motif === 'star'){ q(mx + 2, my, 1, 5, P.dot); q(mx, my + 2, 5, 1, P.dot); q(mx + 1, my + 1, 3, 3, P.dot); }
-    else { q(mx, my, 1, 6, P.dot); q(mx + 3, my + 2, 1, 6, P.dot); }
+    if (P.motif === 'heart'){ q(mx, my + 2, 4, 4, P.dot); q(mx + 6, my + 2, 4, 4, P.dot); q(mx + 2, my + 6, 6, 2, P.dot); q(mx + 4, my + 8, 2, 2, P.dot); }
+    else if (P.motif === 'star'){ q(mx + 4, my, 2, 10, P.dot); q(mx, my + 4, 10, 2, P.dot); q(mx + 2, my + 2, 6, 6, P.dot); }
+    else { q(mx, my, 2, 12, P.dot); q(mx + 6, my + 4, 2, 12, P.dot); }
   }
   // 위쪽 몰딩
-  q(0, 0, Wp, 2, P.trim); q(0, 2, Wp, 1, shade(P.trim, -22)); q(0, 0, Wp, 1, shade(P.trim, 26));
+  q(0, 0, Wp, 4, P.trim); q(0, 4, Wp, 2, shade(P.trim, -22)); q(0, 0, Wp, 2, shade(P.trim, 26));
   // 아래쪽 널판(웨인스코트)과 걸레받이
-  const wy = WALLH - 13;
-  q(0, wy, Wp, 12, P.wain);
-  for (let x = 0; x < Wp; x += 9){ q(x, wy, 1, 12, shade(P.wain, -16)); q(x + 1, wy + 1, 3, 10, P.wainL); }
-  q(0, wy - 2, Wp, 2, P.rail); q(0, wy - 2, Wp, 1, shade(P.rail, 24));
-  q(0, WALLH - 2, Wp, 2, P.base); q(0, WALLH - 1, Wp, 1, shade(P.base, -26));
+  const wy = WALLH - 26;
+  q(0, wy, Wp, 24, P.wain);
+  for (let x = 0; x < Wp; x += 18){ q(x, wy, 2, 24, shade(P.wain, -16)); q(x + 2, wy + 2, 6, 20, P.wainL); }
+  q(0, wy - 4, Wp, 4, P.rail); q(0, wy - 4, Wp, 2, shade(P.rail, 24));
+  q(0, WALLH - 4, Wp, 4, P.base); q(0, WALLH - 2, Wp, 2, shade(P.base, -26));
   // 창문 — 밖은 지금 하늘색
-  const S2 = skyColors(L), ww = 26, wx = Math.round(Wp / 2 - ww / 2), wyy = 5;
-  q(wx - 2, wyy - 2, ww + 4, 18, '#8a6a4a');
-  q(wx - 1, wyy - 1, ww + 2, 16, '#c79b6d');
-  q(wx, wyy, ww, 14, S2.bot);
-  q(wx, wyy, ww, 7, S2.top);
+  const S2 = skyColors(L), ww = 52, wx = Math.round(Wp / 2 - ww / 2), wyy = 10;
+  q(wx - 4, wyy - 4, ww + 8, 36, '#8a6a4a');
+  q(wx - 2, wyy - 2, ww + 4, 32, '#c79b6d');
+  q(wx, wyy, ww, 28, S2.bot);
+  q(wx, wyy, ww, 14, S2.top);
   if (S2.star){
-    [[3, 2], [9, 4], [15, 2], [21, 5], [6, 8], [18, 9]].forEach((p, i) => q(wx + p[0], wyy + p[1], 1, 1, '#fff6c0'));
-    q(wx + 18, wyy + 2, 4, 4, '#fff3c0'); q(wx + 19, wyy + 2, 2, 1, '#ffe9a8');   // 달
+    [[6, 4], [18, 8], [30, 4], [42, 10], [12, 16], [36, 18]].forEach((p, i) => q(wx + p[0], wyy + p[1], 2, 2, '#fff6c0'));
+    q(wx + 36, wyy + 4, 8, 8, '#fff3c0'); q(wx + 38, wyy + 4, 4, 2, '#ffe9a8');   // 달
   } else {
-    q(wx + 3, wyy + 3, 7, 3, '#ffffff'); q(wx + 5, wyy + 2, 4, 1, '#ffffff');      // 구름
-    q(wx + 16, wyy + 6, 6, 2, '#ffffff');
+    q(wx + 6, wyy + 6, 14, 6, '#ffffff'); q(wx + 10, wyy + 4, 8, 2, '#ffffff');      // 구름
+    q(wx + 32, wyy + 12, 12, 4, '#ffffff');
   }
-  q(wx, wyy + 10, ww, 4, '#7fbf6f'); q(wx, wyy + 10, ww, 1, '#9ad189');            // 창밖 풀밭
-  q(wx + Math.round(ww / 2) - 1, wyy, 2, 14, '#c79b6d'); q(wx, wyy + 6, ww, 2, '#c79b6d');
-  q(wx - 3, wyy + 15, ww + 6, 2, '#a97b4f'); q(wx - 3, wyy + 15, ww + 6, 1, '#d6a878');
+  q(wx, wyy + 20, ww, 8, '#7fbf6f'); q(wx, wyy + 20, ww, 2, '#9ad189');            // 창밖 풀밭
+  q(wx + Math.round(ww / 2) - 2, wyy, 4, 28, '#c79b6d'); q(wx, wyy + 12, ww, 4, '#c79b6d');
+  q(wx - 6, wyy + 30, ww + 12, 4, '#a97b4f'); q(wx - 6, wyy + 30, ww + 12, 2, '#d6a878');
   // 커튼
-  [wx - 6, wx + ww - 2].forEach((cx, i) => {
-    q(cx, wyy - 3, 8, 19, P.trim); q(cx + (i ? 5 : 0), wyy - 3, 3, 19, shade(P.trim, 22));
-    for (let y = wyy - 2; y < wyy + 15; y += 4) q(cx + 1, y, 6, 1, shade(P.trim, -18));
+  [wx - 12, wx + ww - 4].forEach((cx, i) => {
+    q(cx, wyy - 6, 16, 38, P.trim); q(cx + (i ? 10 : 0), wyy - 6, 6, 38, shade(P.trim, 22));
+    for (let y = wyy - 4; y < wyy + 30; y += 8) q(cx + 2, y, 12, 2, shade(P.trim, -18));
   });
-  q(wx - 8, wyy - 5, ww + 16, 2, '#8a6a4a');
+  q(wx - 16, wyy - 10, ww + 32, 4, '#8a6a4a');
   // 거실에는 밖으로 나가는 문이 하나
   if (r === 'living'){
-    const dx = 6, dy = 4, dw = 18, dh = WALLH - 6;
-    q(dx - 1, dy - 1, dw + 2, dh + 1, '#7a5230');
+    const dx = 12, dy = 8, dw = 36, dh = WALLH - 12;
+    q(dx - 2, dy - 2, dw + 4, dh + 2, '#7a5230');
     q(dx, dy, dw, dh, '#a97b4f');
-    for (let i = 0; i < dh; i += 5) q(dx, dy + i, dw, 1, '#96693f');
-    q(dx + 2, dy + 3, dw - 4, 8, '#8a5f3a'); q(dx + 2, dy + 14, dw - 4, 8, '#8a5f3a');
-    q(dx + 3, dy + 4, dw - 6, 6, '#b9885a'); q(dx + 3, dy + 15, dw - 6, 6, '#b9885a');
-    q(dx + dw - 4, dy + Math.round(dh / 2), 2, 2, '#ffd166');
-    q(dx, dy, 1, dh, '#c79b6d');
+    for (let i = 0; i < dh; i += 10) q(dx, dy + i, dw, 2, '#96693f');
+    q(dx + 4, dy + 6, dw - 8, 16, '#8a5f3a'); q(dx + 4, dy + 28, dw - 8, 16, '#8a5f3a');
+    q(dx + 6, dy + 8, dw - 12, 12, '#b9885a'); q(dx + 6, dy + 30, dw - 12, 12, '#b9885a');
+    q(dx + dw - 8, dy + Math.round(dh / 2), 4, 4, '#ffd166');
+    q(dx, dy, 2, dh, '#c79b6d');
   }
   // 마루 — 가로로 길게 깐 널. 이음매는 줄마다 어긋나고 결은 은은하게.
   const fy = WALLH, fh = Rm.h * T;
-  for (let row = 0; row < fh; row += 7){
+  for (let row = 0; row < fh; row += 14){
     const base = P.floor[Math.floor(R.prand('fr' + r + row) * 4)];
-    q(0, fy + row, Wp, 7, base);
-    q(0, fy + row, Wp, 1, shade(base, 7));
-    for (let i = 0; i < Wp; i += 3){
+    q(0, fy + row, Wp, 14, base);
+    q(0, fy + row, Wp, 2, shade(base, 7));
+    for (let i = 0; i < Wp; i += 6){
       const v = R.prand('fg' + r + row + i);
-      if (v > 0.68) q(i, fy + row + 1 + (Math.floor(v * 37) % 5), 5, 1, shade(base, v > 0.9 ? 9 : -8));
+      if (v > 0.68) q(i, fy + row + 2 + (Math.floor(v * 37) % 5) * 2, 10, 2, shade(base, v > 0.9 ? 9 : -8));
     }
     // 널마다 밝기를 조금씩 달리하고 아래쪽을 흩뿌려 어둡게 — 판판한 색종이가 안 된다
-    for (let k = 1; k < 6; k++) ditherRow(0, fy + row + k, Wp, shade(base, -7), k / 13, fy + row + k, q);
+    for (let k = 1; k < 12; k++) ditherRow(0, fy + row + k, Wp, shade(base, -7), k / 26, fy + row + k, q);
     // 옹이
-    for (let i = 0; i < Wp; i += 29){
+    for (let i = 0; i < Wp; i += 58){
       const v = R.prand('fk' + r + row + i);
       if (v > 0.55){
-        const kx = i + Math.floor(v * 13), ky = fy + row + 2 + (Math.floor(v * 53) % 3);
-        q(kx, ky, 3, 2, shade(base, -26)); q(kx + 1, ky, 1, 1, shade(base, -40)); q(kx, ky - 1, 3, 1, shade(base, 6));
+        const kx = i + Math.floor(v * 26), ky = fy + row + 2 + (Math.floor(v * 53) % 3) * 2;
+        q(kx, ky, 6, 4, shade(base, -26)); q(kx + 2, ky, 2, 2, shade(base, -40)); q(kx, ky - 2, 6, 2, shade(base, 6));
       }
     }
-    const off = ((row / 7) % 3) * 15;
-    for (let x = off; x < Wp; x += 46){ q(x, fy + row, 1, 7, shade(base, -30)); q(x + 1, fy + row, 1, 7, shade(base, 10)); }
-    q(0, fy + row + 6, Wp, 1, shade(base, -13));
+    const off = ((row / 14) % 3) * 30;
+    for (let x = off; x < Wp; x += 92){ q(x, fy + row, 2, 14, shade(base, -30)); q(x + 2, fy + row, 2, 14, shade(base, 10)); }
+    q(0, fy + row + 12, Wp, 2, shade(base, -13));
   }
   // 벽 밑 그림자
-  for (let i = 0; i < 5; i++) q(0, fy + i, Wp, 1, 'rgba(0,0,0,' + (0.12 - i * 0.024).toFixed(3) + ')');
+  for (let i = 0; i < 5; i++) q(0, fy + i * 2, Wp, 2, 'rgba(0,0,0,' + (0.12 - i * 0.024).toFixed(3) + ')');
 }
 // 가구 한 점을 버퍼에 그린 뒤 각도만큼 돌려 붙인다
 let furnBuf = null;
@@ -2578,204 +2641,204 @@ function paintFurniture(g, f, w, h, t){
   const F = R.FURNITURE[f], c = F.c;
   const hi = shade(c, 26), lo = shade(c, -26), dk = shade(c, -46);
   const q = (x, y, ww, hh, col) => { g.fillStyle = col; g.fillRect(Math.round(x * HS), Math.round(y * HS), Math.max(1, Math.round(ww * HS)), Math.max(1, Math.round(hh * HS))); };
-  const sh = () => q(1, h - 2, w - 2, 2, '#00000018');
+  const sh = () => q(2, h - 4, w - 4, 4, '#00000018');
   switch (F.kind){
     case 'bed': {
       sh();
-      q(1, 1, w - 2, h - 3, '#8a5f3a'); q(1, 1, w - 2, 1, '#a97b4f');              // 침대틀
-      q(2, 2, w - 4, h - 5, '#fff6e9');                                            // 요
-      q(3, 3, 9, h - 7, '#ffffff'); q(3, 3, 9, 2, '#f0e6da');                       // 베개
-      q(13, 2, w - 16, h - 5, c); q(13, 2, w - 16, 2, hi); q(13, h - 5, w - 16, 2, lo);
-      for (let i = 15; i < w - 4; i += 5) q(i, 3, 1, h - 7, shade(c, -12));
-      if (f === 'bed3'){ q(14, 4, 3, 3, '#ffffff'); q(w - 8, 6, 3, 3, '#ffffff'); }
+      q(2, 2, w - 4, h - 6, '#8a5f3a'); q(2, 2, w - 4, 2, '#a97b4f');              // 침대틀
+      q(4, 4, w - 8, h - 10, '#fff6e9');                                            // 요
+      q(6, 6, 18, h - 14, '#ffffff'); q(6, 6, 18, 4, '#f0e6da');                       // 베개
+      q(26, 4, w - 32, h - 10, c); q(26, 4, w - 32, 4, hi); q(26, h - 10, w - 32, 4, lo);
+      for (let i = 30; i < w - 8; i += 10) q(i, 6, 2, h - 14, shade(c, -12));
+      if (f === 'bed3'){ q(28, 8, 6, 6, '#ffffff'); q(w - 16, 12, 6, 6, '#ffffff'); }
       break;
     }
     case 'bunk': {
       sh();
-      q(1, 1, w - 2, h - 3, '#8a5f3a');
-      q(2, 2, w - 4, 5, '#fff6e9'); q(2, 8, w - 4, h - 11, '#fff6e9');
-      q(3, 2, 8, 5, '#ffffff'); q(3, 8, 8, h - 11, '#ffffff');
-      q(12, 2, w - 15, 5, c); q(12, 8, w - 15, h - 11, c); q(12, 2, w - 15, 1, hi);
-      for (let y = 2; y < h - 3; y += 2) q(w - 3, y, 2, 1, '#c79b6d');             // 사다리
+      q(2, 2, w - 4, h - 6, '#8a5f3a');
+      q(4, 4, w - 8, 10, '#fff6e9'); q(4, 16, w - 8, h - 22, '#fff6e9');
+      q(6, 4, 16, 10, '#ffffff'); q(6, 16, 16, h - 22, '#ffffff');
+      q(24, 4, w - 30, 10, c); q(24, 16, w - 30, h - 22, c); q(24, 4, w - 30, 2, hi);
+      for (let y = 4; y < h - 6; y += 4) q(w - 6, y, 4, 2, '#c79b6d');             // 사다리
       break;
     }
     case 'rug': {
-      q(1, 2, w - 2, h - 4, lo); q(2, 3, w - 4, h - 6, c);
-      q(4, 5, w - 8, h - 10, hi);
-      if (f === 'rug2'){ for (let x = 6; x < w - 6; x += 7) { q(x, 6, 2, 2, '#ffffff'); q(x + 3, h - 8, 2, 2, '#ffffff'); } }
-      else { for (let x = 3; x < w - 3; x += 6) q(x, 3, 2, h - 6, shade(c, -14)); }
+      q(2, 4, w - 4, h - 8, lo); q(4, 6, w - 8, h - 12, c);
+      q(8, 10, w - 16, h - 20, hi);
+      if (f === 'rug2'){ for (let x = 12; x < w - 12; x += 14) { q(x, 12, 4, 4, '#ffffff'); q(x + 6, h - 16, 4, 4, '#ffffff'); } }
+      else { for (let x = 6; x < w - 6; x += 12) q(x, 6, 4, h - 12, shade(c, -14)); }
       break;
     }
     case 'table': {
       sh();
-      q(2, 2, w - 4, h - 5, c); q(2, 2, w - 4, 2, hi); q(2, h - 5, w - 4, 2, lo);
-      q(2, 2, 2, h - 5, hi); q(w - 4, 2, 2, h - 5, lo);
-      [[3, 3], [w - 6, 3], [3, h - 7], [w - 6, h - 7]].forEach(p => q(p[0], p[1], 3, 3, dk));
-      q(w / 2 - 3, h / 2 - 4, 6, 6, '#ffffff'); q(w / 2 - 2, h / 2 - 5, 4, 2, '#ff8fb8'); q(w / 2 - 2, h / 2 - 3, 4, 3, '#6fb567');
+      q(4, 4, w - 8, h - 10, c); q(4, 4, w - 8, 4, hi); q(4, h - 10, w - 8, 4, lo);
+      q(4, 4, 4, h - 10, hi); q(w - 8, 4, 4, h - 10, lo);
+      [[6, 6], [w - 12, 6], [6, h - 14], [w - 12, h - 14]].forEach(p => q(p[0], p[1], 6, 6, dk));
+      q(w / 2 - 6, h / 2 - 8, 12, 12, '#ffffff'); q(w / 2 - 4, h / 2 - 10, 8, 4, '#ff8fb8'); q(w / 2 - 4, h / 2 - 6, 8, 6, '#6fb567');
       break;
     }
     case 'desk': {
       sh();
-      q(2, 2, w - 4, h - 5, c); q(2, 2, w - 4, 2, hi); q(2, h - 5, w - 4, 2, lo);
-      q(w - 12, 4, 9, h - 9, shade(c, -14)); q(w - 11, 6, 7, 1, dk); q(w - 11, 9, 7, 1, dk);
-      q(4, 4, 8, 5, '#fff6e9'); q(4, 4, 8, 1, '#e8dcc8'); q(5, 6, 6, 1, '#a9bcd0');   // 책
-      q(5, 10, 5, 4, '#ff8fb8'); q(5, 10, 5, 1, '#ffb7d5');
+      q(4, 4, w - 8, h - 10, c); q(4, 4, w - 8, 4, hi); q(4, h - 10, w - 8, 4, lo);
+      q(w - 24, 8, 18, h - 18, shade(c, -14)); q(w - 22, 12, 14, 2, dk); q(w - 22, 18, 14, 2, dk);
+      q(8, 8, 16, 10, '#fff6e9'); q(8, 8, 16, 2, '#e8dcc8'); q(10, 12, 12, 2, '#a9bcd0');   // 책
+      q(10, 20, 10, 8, '#ff8fb8'); q(10, 20, 10, 2, '#ffb7d5');
       break;
     }
     case 'chair': {
       sh();
-      q(3, 5, 10, 9, c); q(3, 5, 10, 2, hi); q(3, 12, 10, 2, lo);
-      q(2, 1, 12, 4, shade(c, -12)); q(2, 1, 12, 1, hi);                            // 등받이가 한쪽에
-      [[3, 13], [11, 13]].forEach(p => q(p[0], p[1], 2, 2, dk));
+      q(6, 10, 20, 18, c); q(6, 10, 20, 4, hi); q(6, 24, 20, 4, lo);
+      q(4, 2, 24, 8, shade(c, -12)); q(4, 2, 24, 2, hi);                            // 등받이가 한쪽에
+      [[6, 26], [22, 26]].forEach(p => q(p[0], p[1], 4, 4, dk));
       break;
     }
     case 'sofa': {
       sh();
-      q(1, 1, w - 2, 5, shade(c, -14)); q(1, 1, w - 2, 2, c);                        // 등받이
-      q(1, 6, 5, h - 9, shade(c, -8)); q(w - 6, 6, 5, h - 9, shade(c, -8));          // 팔걸이
-      q(6, 6, w - 12, h - 9, c); q(6, 6, w - 12, 2, hi);
-      q(8, 8, (w - 12) / 2 - 2, h - 13, shade(c, 12)); q(w / 2 + 1, 8, (w - 12) / 2 - 2, h - 13, shade(c, 12));
-      q(1, h - 3, w - 2, 2, lo);
+      q(2, 2, w - 4, 10, shade(c, -14)); q(2, 2, w - 4, 4, c);                        // 등받이
+      q(2, 12, 10, h - 18, shade(c, -8)); q(w - 12, 12, 10, h - 18, shade(c, -8));          // 팔걸이
+      q(12, 12, w - 24, h - 18, c); q(12, 12, w - 24, 4, hi);
+      q(16, 16, (w - 24) / 2 - 4, h - 26, shade(c, 12)); q(w / 2 + 2, 16, (w - 24) / 2 - 4, h - 26, shade(c, 12));
+      q(2, h - 6, w - 4, 4, lo);
       break;
     }
     case 'piano': {
       sh();
-      q(1, 1, w - 2, h - 4, c); q(1, 1, w - 2, 2, shade(c, 30)); q(1, h - 5, w - 2, 2, shade(c, -20));
-      q(3, h - 8, w - 6, 5, '#fffaf2');
-      for (let i = 4; i < w - 6; i += 3) q(i, h - 8, 1, 3, '#2a2a2a');
-      q(4, 3, w - 8, 4, shade(c, 18)); q(6, 4, w - 12, 2, shade(c, -12));
+      q(2, 2, w - 4, h - 8, c); q(2, 2, w - 4, 4, shade(c, 30)); q(2, h - 10, w - 4, 4, shade(c, -20));
+      q(6, h - 16, w - 12, 10, '#fffaf2');
+      for (let i = 8; i < w - 12; i += 6) q(i, h - 16, 2, 6, '#2a2a2a');
+      q(8, 6, w - 16, 8, shade(c, 18)); q(12, 8, w - 24, 4, shade(c, -12));
       break;
     }
     case 'cushion': {
-      q(2, 4, 12, 9, c); q(3, 3, 10, 11, c); q(3, 4, 8, 3, hi); q(5, 10, 8, 3, lo);
-      q(7, 7, 2, 2, shade(c, -34));
+      q(4, 8, 24, 18, c); q(6, 6, 20, 22, c); q(6, 8, 16, 6, hi); q(10, 20, 16, 6, lo);
+      q(14, 14, 4, 4, shade(c, -34));
       break;
     }
     case 'catbed': {
       sh();
-      q(2, 4, 12, 10, lo); q(3, 5, 10, 8, c); q(4, 6, 8, 6, shade(c, -18)); q(4, 6, 6, 2, shade(c, 10));
+      q(4, 8, 24, 20, lo); q(6, 10, 20, 16, c); q(8, 12, 16, 12, shade(c, -18)); q(8, 12, 12, 4, shade(c, 10));
       break;
     }
     case 'fire': {
       sh();
-      q(1, 1, w - 2, h - 3, '#9c8d80'); q(1, 1, w - 2, 2, '#b9aa9c');
-      for (let x = 2; x < w - 2; x += 7) for (let y = 2; y < h - 4; y += 4) q(x, y, 6, 3, '#8a7b6e');
-      q(5, 5, w - 10, h - 8, '#3a2f26');
-      q(7, h - 8, w - 14, 3, '#8a5f3a'); q(9, h - 10, w - 18, 3, '#6f4a2c');
-      const fl = t ? (Math.sin(t / 170) > 0 ? 1 : 0) : 0;
-      q(w / 2 - 4, h - 12 - fl, 8, 6, '#ff8c2e'); q(w / 2 - 2, h - 14 - fl, 4, 5, '#ffd166'); q(w / 2 - 1, h - 15 - fl, 2, 3, '#fff3c0');
+      q(2, 2, w - 4, h - 6, '#9c8d80'); q(2, 2, w - 4, 4, '#b9aa9c');
+      for (let x = 4; x < w - 4; x += 14) for (let y = 4; y < h - 8; y += 8) q(x, y, 12, 6, '#8a7b6e');
+      q(10, 10, w - 20, h - 16, '#3a2f26');
+      q(14, h - 16, w - 28, 6, '#8a5f3a'); q(18, h - 20, w - 36, 6, '#6f4a2c');
+      const fl = t ? (Math.sin(t / 170) > 0 ? 2 : 0) : 0;
+      q(w / 2 - 8, h - 24 - fl, 16, 12, '#ff8c2e'); q(w / 2 - 4, h - 28 - fl, 8, 10, '#ffd166'); q(w / 2 - 2, h - 30 - fl, 4, 6, '#fff3c0');
       break;
     }
     // ---- 여기부터는 세워 두는 것 ----
     case 'lamp':
-      q(5, h - 3, 6, 2, '#00000018');
-      q(7, 6, 2, h - 4, '#8a5f3a'); q(7, 6, 1, h - 4, '#a97b4f');
-      q(5, h - 3, 6, 2, '#6f4a2c');
-      q(3, 1, 10, 6, c); q(3, 1, 10, 2, shade(c, 24)); q(3, 6, 10, 1, shade(c, -26));
-      q(5, 7, 6, 2, '#fff3c0');
+      q(10, h - 6, 12, 4, '#00000018');
+      q(14, 12, 4, h - 8, '#8a5f3a'); q(14, 12, 2, h - 8, '#a97b4f');
+      q(10, h - 6, 12, 4, '#6f4a2c');
+      q(6, 2, 20, 12, c); q(6, 2, 20, 4, shade(c, 24)); q(6, 12, 20, 2, shade(c, -26));
+      q(10, 14, 12, 4, '#fff3c0');
       break;
     case 'plant':
-      q(4, h - 3, 8, 2, '#00000018');
-      q(4, h - 7, 8, 6, '#c97a5a'); q(4, h - 8, 8, 2, '#e09a76'); q(4, h - 3, 8, 1, '#a45f45');
-      blob(8, 1, 11, 9, c, shade(c, 26), shade(c, -30), 'pl' + f, q);
-      q(7, 9, 2, 2, shade(c, -34));
+      q(8, h - 6, 16, 4, '#00000018');
+      q(8, h - 14, 16, 12, '#c97a5a'); q(8, h - 16, 16, 4, '#e09a76'); q(8, h - 6, 16, 2, '#a45f45');
+      blob(16, 2, 22, 18, c, shade(c, 26), shade(c, -30), 'pl' + f, q);
+      q(14, 18, 4, 4, shade(c, -34));
       break;
     case 'shelf':
-      q(2, h - 3, 12, 2, '#00000018');
-      q(1, 1, 14, h - 2, c); q(1, 1, 14, 1, shade(c, 26)); q(13, 1, 2, h - 2, shade(c, -26));
-      [3, 8, 12].forEach(y => q(2, y, 12, 1, shade(c, -40)));
-      q(3, 4, 2, 4, '#f2707d'); q(6, 4, 2, 4, '#5aa9e6'); q(9, 5, 2, 3, '#ffd166');
-      q(3, 9, 4, 3, '#6cc7b3'); q(8, 9, 4, 3, '#ffb7d5');
+      q(4, h - 6, 24, 4, '#00000018');
+      q(2, 2, 28, h - 4, c); q(2, 2, 28, 2, shade(c, 26)); q(26, 2, 4, h - 4, shade(c, -26));
+      [6, 16, 24].forEach(y => q(4, y, 24, 2, shade(c, -40)));
+      q(6, 8, 4, 8, '#f2707d'); q(12, 8, 4, 8, '#5aa9e6'); q(18, 10, 4, 6, '#ffd166');
+      q(6, 18, 8, 6, '#6cc7b3'); q(16, 18, 8, 6, '#ffb7d5');
       break;
     case 'vase':
-      q(5, h - 3, 6, 2, '#00000018');
-      q(6, 8, 4, 6, c); q(5, 11, 6, 3, shade(c, -18)); q(6, 8, 2, 5, shade(c, 26));
-      q(4, 3, 3, 3, '#ffb7d5'); q(9, 2, 3, 3, '#fff3a0'); q(6, 5, 4, 1, '#6fb567'); q(7, 5, 1, 4, '#5da05a');
+      q(10, h - 6, 12, 4, '#00000018');
+      q(12, 16, 8, 12, c); q(10, 22, 12, 6, shade(c, -18)); q(12, 16, 4, 10, shade(c, 26));
+      q(8, 6, 6, 6, '#ffb7d5'); q(18, 4, 6, 6, '#fff3a0'); q(12, 10, 8, 2, '#6fb567'); q(14, 10, 2, 8, '#5da05a');
       break;
     case 'doll':
-      q(5, h - 3, 6, 2, '#00000018');
-      q(5, 2, 6, 5, '#ffe3c9'); q(4, 1, 8, 3, c);
-      q(6, 4, 1, 1, '#3a2a20'); q(9, 4, 1, 1, '#3a2a20'); q(7, 6, 2, 1, '#c9646b');
-      q(4, 7, 8, 6, '#f2707d'); q(3, 8, 2, 4, '#ffe3c9'); q(11, 8, 2, 4, '#ffe3c9');
-      q(5, 13, 2, 2, '#8a5f3a'); q(9, 13, 2, 2, '#8a5f3a');
+      q(10, h - 6, 12, 4, '#00000018');
+      q(10, 4, 12, 10, '#ffe3c9'); q(8, 2, 16, 6, c);
+      q(12, 8, 2, 2, '#3a2a20'); q(18, 8, 2, 2, '#3a2a20'); q(14, 12, 4, 2, '#c9646b');
+      q(8, 14, 16, 12, '#f2707d'); q(6, 16, 4, 8, '#ffe3c9'); q(22, 16, 4, 8, '#ffe3c9');
+      q(10, 26, 4, 4, '#8a5f3a'); q(18, 26, 4, 4, '#8a5f3a');
       break;
     case 'bear':
-      q(4, h - 3, 8, 2, '#00000018');
-      q(3, 2, 3, 3, lo); q(10, 2, 3, 3, lo);
-      q(4, 3, 8, 6, c); q(4, 3, 8, 2, hi);
-      q(6, 6, 1, 1, '#3a2a20'); q(9, 6, 1, 1, '#3a2a20'); q(7, 7, 2, 2, '#6f4a2c');
-      q(4, 9, 8, 6, c); q(5, 10, 6, 4, hi);
-      q(2, 10, 3, 3, lo); q(11, 10, 3, 3, lo); q(4, 14, 3, 2, lo); q(9, 14, 3, 2, lo);
+      q(8, h - 6, 16, 4, '#00000018');
+      q(6, 4, 6, 6, lo); q(20, 4, 6, 6, lo);
+      q(8, 6, 16, 12, c); q(8, 6, 16, 4, hi);
+      q(12, 12, 2, 2, '#3a2a20'); q(18, 12, 2, 2, '#3a2a20'); q(14, 14, 4, 4, '#6f4a2c');
+      q(8, 18, 16, 12, c); q(10, 20, 12, 8, hi);
+      q(4, 20, 6, 6, lo); q(22, 20, 6, 6, lo); q(8, 28, 6, 4, lo); q(18, 28, 6, 4, lo);
       break;
     case 'guitar':
-      q(5, h - 3, 6, 2, '#00000018');
-      q(7, 1, 2, 8, '#6f4a2c'); q(6, 0, 4, 2, '#3a2f26');
-      q(4, 8, 8, 4, c); q(3, 10, 10, 5, c); q(3, 10, 10, 2, shade(c, 24));
-      q(7, 10, 2, 2, '#3a2f26'); q(4, 13, 8, 1, shade(c, -30));
+      q(10, h - 6, 12, 4, '#00000018');
+      q(14, 2, 4, 16, '#6f4a2c'); q(12, 0, 8, 4, '#3a2f26');
+      q(8, 16, 16, 8, c); q(6, 20, 20, 10, c); q(6, 20, 20, 4, shade(c, 24));
+      q(14, 20, 4, 4, '#3a2f26'); q(8, 26, 16, 2, shade(c, -30));
       break;
     case 'trophy':
-      q(5, h - 3, 6, 2, '#00000018');
-      q(4, 12, 8, 3, '#8a5f3a'); q(4, 12, 8, 1, '#a97b4f');
-      q(7, 9, 2, 3, shade(c, -20));
-      q(4, 3, 8, 6, c); q(4, 3, 8, 2, shade(c, 30)); q(5, 8, 6, 2, shade(c, -20));
-      q(2, 4, 2, 3, c); q(12, 4, 2, 3, c);
+      q(10, h - 6, 12, 4, '#00000018');
+      q(8, 24, 16, 6, '#8a5f3a'); q(8, 24, 16, 2, '#a97b4f');
+      q(14, 18, 4, 6, shade(c, -20));
+      q(8, 6, 16, 12, c); q(8, 6, 16, 4, shade(c, 30)); q(10, 16, 12, 4, shade(c, -20));
+      q(4, 8, 4, 6, c); q(24, 8, 4, 6, c);
       break;
     case 'xmas':
-      q(5, h - 3, 6, 2, '#00000018');
-      q(7, 13, 2, 3, '#8a5f3a');
-      blob(8, 8, 13, 6, c, shade(c, 26), shade(c, -30), 'x1', q);
-      blob(8, 4, 10, 5, c, shade(c, 26), shade(c, -30), 'x2', q);
-      blob(8, 1, 6, 4, c, shade(c, 26), shade(c, -30), 'x3', q);
-      q(7, 0, 2, 2, '#ffd979'); q(5, 6, 2, 2, '#f2707d'); q(10, 9, 2, 2, '#5aa9e6'); q(6, 11, 2, 2, '#ffd166');
+      q(10, h - 6, 12, 4, '#00000018');
+      q(14, 26, 4, 6, '#8a5f3a');
+      blob(16, 16, 26, 12, c, shade(c, 26), shade(c, -30), 'x1', q);
+      blob(16, 8, 20, 10, c, shade(c, 26), shade(c, -30), 'x2', q);
+      blob(16, 2, 12, 8, c, shade(c, 26), shade(c, -30), 'x3', q);
+      q(14, 0, 4, 4, '#ffd979'); q(10, 12, 4, 4, '#f2707d'); q(20, 18, 4, 4, '#5aa9e6'); q(12, 22, 4, 4, '#ffd166');
       break;
     case 'tank':
-      q(2, h - 3, 12, 2, '#00000018');
-      q(2, 3, 12, 12, '#2f5f7a'); q(3, 4, 10, 10, '#5aa9e6'); q(3, 4, 10, 3, '#8fd0f0');
-      q(2, 2, 12, 2, '#3a3226'); q(2, 14, 12, 2, '#3a3226');
-      q(4, 8, 3, 2, '#ff8c2e'); q(7, 8, 1, 1, '#ffd166'); q(9, 6, 2, 2, '#ffd979');
-      q(4, 12, 8, 2, '#6fb567'); q(6, 10, 1, 3, '#5da05a'); q(9, 11, 1, 2, '#5da05a');
+      q(4, h - 6, 24, 4, '#00000018');
+      q(4, 6, 24, 24, '#2f5f7a'); q(6, 8, 20, 20, '#5aa9e6'); q(6, 8, 20, 6, '#8fd0f0');
+      q(4, 4, 24, 4, '#3a3226'); q(4, 28, 24, 4, '#3a3226');
+      q(8, 16, 6, 4, '#ff8c2e'); q(14, 16, 2, 2, '#ffd166'); q(18, 12, 4, 4, '#ffd979');
+      q(8, 24, 16, 4, '#6fb567'); q(12, 20, 2, 6, '#5da05a'); q(18, 22, 2, 4, '#5da05a');
       break;
     case 'stove':
-      q(3, h - 3, 10, 2, '#00000018');
-      q(3, 3, 10, 12, c); q(3, 3, 10, 2, shade(c, 24)); q(3, 13, 10, 2, shade(c, -26));
-      q(5, 6, 6, 6, '#3a2f26');
-      const fl2 = t ? (Math.sin(t / 160) > 0 ? 1 : 0) : 0;
-      q(6, 8 - fl2, 4, 4, '#ff8c2e'); q(7, 7 - fl2, 2, 3, '#ffd166');
-      q(6, 1, 2, 2, '#8a7b6e');
+      q(6, h - 6, 20, 4, '#00000018');
+      q(6, 6, 20, 24, c); q(6, 6, 20, 4, shade(c, 24)); q(6, 26, 20, 4, shade(c, -26));
+      q(10, 12, 12, 12, '#3a2f26');
+      const fl2 = t ? (Math.sin(t / 160) > 0 ? 2 : 0) : 0;
+      q(12, 16 - fl2, 8, 8, '#ff8c2e'); q(14, 14 - fl2, 4, 6, '#ffd166');
+      q(12, 2, 4, 4, '#8a7b6e');
       break;
     // ---- 벽에 거는 것 ----
     case 'frame':
-      q(2, 1, 12, 11, '#8a5f3a'); q(3, 2, 10, 9, '#c79b6d'); q(4, 3, 8, 7, c);
-      q(5, 6, 3, 3, '#ff5c6b'); q(9, 5, 2, 2, '#ffd166'); q(4, 8, 8, 2, '#6fb567');
-      q(7, 0, 2, 1, '#8a7b6e');
+      q(4, 2, 24, 22, '#8a5f3a'); q(6, 4, 20, 18, '#c79b6d'); q(8, 6, 16, 14, c);
+      q(10, 12, 6, 6, '#ff5c6b'); q(18, 10, 4, 4, '#ffd166'); q(8, 16, 16, 4, '#6fb567');
+      q(14, 0, 4, 2, '#8a7b6e');
       break;
     case 'poster':
-      q(2, 1, 12, 13, '#fff6e9'); q(3, 2, 10, 11, c);
-      q(4, 3, 8, 4, shade(c, 26)); q(5, 8, 6, 1, '#3a3226'); q(5, 10, 4, 1, '#3a3226');
-      q(2, 1, 1, 1, '#e8574f'); q(13, 1, 1, 1, '#e8574f'); q(2, 13, 1, 1, '#e8574f'); q(13, 13, 1, 1, '#e8574f');
+      q(4, 2, 24, 26, '#fff6e9'); q(6, 4, 20, 22, c);
+      q(8, 6, 16, 8, shade(c, 26)); q(10, 16, 12, 2, '#3a3226'); q(10, 20, 8, 2, '#3a3226');
+      q(4, 2, 2, 2, '#e8574f'); q(26, 2, 2, 2, '#e8574f'); q(4, 26, 2, 2, '#e8574f'); q(26, 26, 2, 2, '#e8574f');
       break;
     case 'clock':
-      q(3, 2, 10, 10, '#8a5f3a'); q(4, 3, 8, 8, c); q(4, 3, 8, 2, shade(c, 20));
-      q(8, 5, 1, 3, '#3a3226'); q(8, 7, 3, 1, '#3a3226'); q(7, 7, 2, 2, '#c9646b');
+      q(6, 4, 20, 20, '#8a5f3a'); q(8, 6, 16, 16, c); q(8, 6, 16, 4, shade(c, 20));
+      q(16, 10, 2, 6, '#3a3226'); q(16, 14, 6, 2, '#3a3226'); q(14, 14, 4, 4, '#c9646b');
       break;
     case 'mirror':
-      q(3, 1, 10, 13, '#c79b6d'); q(4, 2, 8, 11, c); q(4, 2, 3, 11, shade(c, 22));
-      q(9, 4, 2, 6, '#ffffff'); q(4, 2, 8, 1, '#ffffff');
+      q(6, 2, 20, 26, '#c79b6d'); q(8, 4, 16, 22, c); q(8, 4, 6, 22, shade(c, 22));
+      q(18, 8, 4, 12, '#ffffff'); q(8, 4, 16, 2, '#ffffff');
       break;
     case 'curtain':
-      q(2, 1, 12, 11, '#bfe4f7'); q(2, 1, 12, 4, '#dff1fb');
-      q(7, 1, 2, 11, '#c79b6d'); q(2, 6, 12, 1, '#c79b6d');
-      q(0, 0, 3, 13, c); q(13, 0, 3, 13, c); q(0, 0, 1, 13, shade(c, 24)); q(15, 0, 1, 13, shade(c, -24));
-      q(0, 0, 16, 2, '#a97b4f');
+      q(4, 2, 24, 22, '#bfe4f7'); q(4, 2, 24, 8, '#dff1fb');
+      q(14, 2, 4, 22, '#c79b6d'); q(4, 12, 24, 2, '#c79b6d');
+      q(0, 0, 6, 26, c); q(26, 0, 6, 26, c); q(0, 0, 2, 26, shade(c, 24)); q(30, 0, 2, 26, shade(c, -24));
+      q(0, 0, 32, 4, '#a97b4f');
       break;
     case 'stars':
-      [[3, 2], [8, 4], [12, 1], [6, 8], [11, 9], [2, 11]].forEach(p => {
-        q(p[0] + 1, p[1], 1, 5, c); q(p[0], p[1] + 2, 3, 1, c); q(p[0] + 1, p[1] + 1, 1, 3, '#ffffff');
+      [[6, 4], [16, 8], [24, 2], [12, 16], [22, 18], [4, 22]].forEach(p => {
+        q(p[0] + 2, p[1], 2, 10, c); q(p[0], p[1] + 4, 6, 2, c); q(p[0] + 2, p[1] + 2, 2, 6, '#ffffff');
       });
-      q(0, 0, 16, 1, '#c79b6d');
+      q(0, 0, 32, 2, '#c79b6d');
       break;
     default:
-      q(3, 3, 10, 10, c); q(3, 3, 10, 2, hi); q(3, 11, 10, 2, lo);
+      q(6, 6, 20, 20, c); q(6, 6, 20, 4, hi); q(6, 22, 20, 4, lo);
   }
 }
 // 방 안의 아이 — 제 방에는 저마다, 거실에는 나
@@ -2795,7 +2858,7 @@ function drawRoom(cv, r, tms){
   const Rm = R.ROOMS[r]; if (!Rm) return;
   const aw = Rm.w * T, ah = Rm.h * T + WALLH;
   fitPixelCanvas(cv, aw, ah, 6);
-  HS = pixScale(cv, aw, ah, 3);
+  HS = pixScale(cv, aw, ah, 2);
   const cw = cv.width, ch = cv.height;
   const L = dayLight();
   // 바탕 — 방·크기·때가 그대로면 다시 그리지 않는다
@@ -2823,7 +2886,7 @@ function drawRoom(cv, r, tms){
     drawFurnItem(g, it.f, it.r || 0, p[0] * T * HS, (WALLH + p[1] * T) * HS, t);
     const kind = R.FURNITURE[it.f].kind;
     if (kind === 'lamp' || kind === 'stars' || kind === 'fire' || kind === 'stove' || kind === 'xmas')
-      glow.push({ x: (p[0] * T + 8) * HS, y: (WALLH + p[1] * T + 8) * HS, r: (kind === 'fire' ? 34 : 24) * HS });
+      glow.push({ x: (p[0] * T + 16) * HS, y: (WALLH + p[1] * T + 16) * HS, r: (kind === 'fire' ? 68 : 48) * HS });
   });
   // 아이와 고양이
   const keep2 = ctx; ctx = g;
@@ -2832,18 +2895,18 @@ function drawRoom(cv, r, tms){
     const sp = freeTile(r, [[Math.floor(Rm.w / 2), Rm.h - 1], [1, Rm.h - 1], [Rm.w - 2, Rm.h - 1]]);
     const A = KIDART[who] || KIDART.yona;
     const blink = (Math.floor(t / 220) % 22) === 0;
-    const bob = Math.sin(t / 900) > 0.75 ? 1 : 0;
-    const X = sp[0] * T + 2, Y = WALLH + sp[1] * T + 15 + bob;
-    px(X + 1, Y + 1, 10, 2, '#00000022');
+    const bob = Math.sin(t / 900) > 0.75 ? 2 : 0;
+    const X = sp[0] * T + 4, Y = WALLH + sp[1] * T + 30 + bob;
+    px(X + 2, Y + 2, 20, 4, '#00000022');
     const rows = blink ? A.down[1] : A.down[0];
-    g.drawImage(outlined(who + 'room' + (blink ? 1 : 0), rows, KIDPAL[who], false, HS), (X - 1) * HS, (Y - 16) * HS);
+    g.drawImage(outlined(who + 'room' + (blink ? 1 : 0), rows, KIDPAL[who], false, HS), (X - 2) * HS, (Y - 32) * HS);
   }
   // 고양이 집이 있으면 고양이가 앉아 있다
   const catKey = Object.keys(P).find(k => R.FURNITURE[P[k].f].kind === 'catbed');
   if (catKey){
     const p = catKey.split(',').map(Number);
-    const wag = Math.sin(t / 700) > 0 ? 0 : 1;
-    g.drawImage(outlined('bcat', BEAST.cat.art, BEAST.cat.pal, false, HS), (p[0] * T + 1) * HS, (WALLH + p[1] * T + 3 - wag) * HS);
+    const wag = Math.sin(t / 700) > 0 ? 0 : 2;
+    g.drawImage(outlined('bcat', BEAST.cat.art, BEAST.cat.pal, false, HS), (p[0] * T + 2) * HS, (WALLH + p[1] * T + 6 - wag) * HS);
   }
   ctx = keep2;
   // 빛 — 방도 농장과 같은 표로 물들인다. 안쪽은 조금 덜 어둡게.
@@ -2865,13 +2928,13 @@ function drawRoom(cv, r, tms){
     g.save(); g.globalAlpha = 0.13; g.fillStyle = '#fff6c0';
     g.beginPath();
     const wx = (Rm.w * T / 2) * HS;
-    g.moveTo(wx - 13 * HS, 20 * HS); g.lineTo(wx + 13 * HS, 20 * HS);
-    g.lineTo(wx + 34 * HS, ch); g.lineTo(wx - 6 * HS, ch); g.closePath(); g.fill();
+    g.moveTo(wx - 26 * HS, 40 * HS); g.lineTo(wx + 26 * HS, 40 * HS);
+    g.lineTo(wx + 68 * HS, ch); g.lineTo(wx - 12 * HS, ch); g.closePath(); g.fill();
     g.restore();
     for (let i = 0; i < 10; i++){
       const ph = ((t / 26) + i * 90) % 620;
-      const dx = wx + (-8 + (R.prand('du' + i) * 34) + ph * 0.05) * HS;
-      const dy = (22 + ph * 0.16) * HS;
+      const dx = wx + (-16 + (R.prand('du' + i) * 68) + ph * 0.1) * HS;
+      const dy = (44 + ph * 0.32) * HS;
       if (dy > ch) continue;
       g.globalAlpha = 0.5 - ph / 1400; g.fillStyle = '#fff6c0';
       g.fillRect(Math.round(dx), Math.round(dy), HS, HS); g.globalAlpha = 1;
