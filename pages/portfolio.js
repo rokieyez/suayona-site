@@ -43,13 +43,23 @@ function visible(){
     (yearFilter === 'all' || (w.made_on && w.made_on.slice(0,4) === yearFilter)));
 }
 
+/* 한 번에 스물여덟 장까지만 그린다.
+   ------------------------------------------------------------------
+   작품은 해마다 쌓이기만 한다. 전부 그리면 카드와 사진이 함께 늘어 첫 그림이
+   무거워진다. 나머지는 아래로 내려가면 저절로 이어 붙고, 관찰자가 안 도는 자리를
+   위해 「더보기」 단추도 함께 둔다.
+   자르는 자리가 앞쪽이라 잘라 낸 목록의 차례(i)가 원래 목록과 같다 —
+   그래서 사진을 눌러 여는 큰 화면은 여전히 전부를 넘길 수 있다. */
+const PAGE = 28;
+let shownCount = PAGE;
+
 function render(){
   const grid = $('#grid');
   const list = visible();
   grid.innerHTML = '';
   $('#empty').style.display = list.length ? 'none' : 'block';
 
-  list.forEach((w, i) => {
+  list.slice(0, shownCount).forEach((w, i) => {
     const card = document.createElement('div');
     card.className = 'gal-item dot-card hoverable reveal';
     const ytId = w.media_type === 'youtube' ? youtubeId(w.media_url) : '';
@@ -105,6 +115,8 @@ function render(){
     grid.appendChild(card);
     revealNow(card);
   });
+
+  syncMore();
 }
 
 // ---------- 작품 수정 팝업 ----------
@@ -813,11 +825,38 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight' && viewIdx < viewList.length - 1) { viewIdx++; renderWork(); }
 });
 
+// ---------- 더보기 ----------
+function syncMore(){
+  const 남음 = visible().length - shownCount;
+  const box = $('#moreBox');
+  if (!box) return;
+  box.hidden = 남음 <= 0;
+  if (남음 > 0) $('#moreBtn').textContent = '더보기 (' + 남음 + '장 남음)';
+}
+
+function showMore(){
+  if (visible().length <= shownCount) return;
+  shownCount += PAGE;
+  render();
+}
+
+$('#moreBtn').addEventListener('click', showMore);
+
+// 아래로 내려가면 저절로 이어 붙인다. 단추는 관찰자가 안 도는 자리를 위한 대비다.
+// rootMargin 을 넉넉히 두어 바닥에 닿기 전에 미리 붙는다.
+if ('IntersectionObserver' in window) {
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some(e => e.isIntersecting)) showMore();
+  }, { rootMargin: '600px 0px' });
+  io.observe($('#moreBox'));
+}
+
 // ---------- 필터 ----------
 $('#filters').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-filter]');
   if (!btn) return;
   filter = btn.dataset.filter;
+  shownCount = PAGE;
   $$('#filters .dot-btn').forEach(b => b.classList.toggle('on', b === btn));
   render();
 });
@@ -868,6 +907,7 @@ $('#years').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-year]');
   if (!btn) return;
   yearFilter = btn.dataset.year;
+  shownCount = PAGE;
   $$('#years .dot-btn').forEach(b => b.classList.toggle('on', b === btn));
   syncYearbookLink();
   render();

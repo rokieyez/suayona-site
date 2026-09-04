@@ -232,6 +232,10 @@ canvas{-webkit-tap-highlight-color:transparent;}
    전부 이 한 줄이 없어서였다. */
 [hidden]{display:none !important;}
 
+/* 목록을 나눠 그리는 쪽들이 쓰는 「더보기」 자리 (포트폴리오·가볼 곳) */
+.more-box{display:flex; justify-content:center; margin-top:22px;}
+.more-box[hidden]{display:none;}
+
 .section-pad{padding:72px 0;}
 /* 쪽 머리의 초록 배지가 어느 쪽에서나 같은 높이에 오게 한다.
    이벤트 쪽은 body 에 --header-h + 18px 을 주고 그 바로 아래 배지가 온다(79px).
