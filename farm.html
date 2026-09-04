@@ -910,6 +910,19 @@ const BEAST = {
     '...lll....lll...lll.....', '...ll......ll....ll.....',
   ], pal: { c: '#8b8f9c', C: '#6f7382', a: '#6f7382', e: '#ffd166', n: '#ffb3c4', t: '#8b8f9c', l: '#6f7382' } },
 };
+// 가게 아저씨 — 파란 캡에 흰 셔츠, 초록 앞치마.
+// 예전에는 살색 네모 하나에 점 두 개가 전부라 기괴해 보였다.
+const SHOPKEEP = [
+  '.....kkcccccckk.....', '....kccCCCCCCcck....', '...kccCCCCCCCCcck...', '..kkcCCCCCcccccckk..',
+  '.kcCCCCCCCCCCCCCCck.', '.kchhffffffffffhhck.', '..khhffffffffffhhk..', '..khhffffffffffhhk..',
+  '..khhfweffffewfhhk..', '..khhfeeffffeefhhk..', '..khppffffffffpphk..', '..khhffffFFffffhhk..',
+  '...kffffmmmmffffk...', '...kfffffmmfffffk...', '...kFFffffffffFFk...', '...kkkkkFFffkkkkk...',
+  '..kssssssssssssssk..', '.kssssAAAAAAAAssssk.', '.kssssaaaaaaaassssk.', '.kssssAAaaaaAAssssk.',
+  '.kssssaaaaaaaassssk.', '.kssssaaaaaaaassssk.', '.kssssaaaaaaaassssk.', '.kssssaaaaaaaassssk.',
+];
+const SHOPPAL = { k: '#3a3226', c: '#4a7fb5', C: '#6a9fd0', f: '#fbdcc4', F: '#eec3a2', h: '#6b4a2c',
+                  e: '#3a3226', w: '#ffffff', m: '#c9333f', p: '#ffb0b8', s: '#f2ece0',
+                  a: '#4f9a5a', A: '#69b573' };
 function beastW(kind){ return (BEAST[kind] || BEAST.chicken).w; }
 // 도감·카드에서도 쓰는 그림. s 는 도트 한 개의 크기.
 function drawAnimalAt(g, kind, X, Y, s, flip){
@@ -1258,7 +1271,9 @@ function drawStall(cal){
   const b = spot('stall'), X = b.x * T, Y = b.y * T, w = b.w * T;
   px(X + 6, Y + b.h * T - 6, w - 12, 6, '#00000018');
   // 차양
-  for (let i = 0; i < w - 8; i += 16){ px(X + 4 + i, Y + 6, 8, 12, '#f2857a'); px(X + 12 + i, Y + 6, 8, 12, '#fff6e9'); }
+  // 줄무늬가 차양 밖으로 삐져나가지 않게 바탕을 먼저 깔고 그 위에 빨간 줄만 얹는다
+  px(X + 4, Y + 6, w - 8, 12, '#fff6e9');
+  for (let i = 0; i < w - 8; i += 16) px(X + 4 + i, Y + 6, Math.min(8, w - 8 - i), 12, '#f2857a');
   px(X + 4, Y + 4, w - 8, 4, '#c95a58');
   for (let i = 0; i < w - 8; i += 8) px(X + 4 + i, Y + 18, 4, 2, '#c95a58');
   // 좌판
@@ -1267,9 +1282,9 @@ function drawStall(cal){
   px(X + 12, Y + 42, 4, 20, WOOD.dark); px(X + w - 16, Y + 42, 4, 20, WOOD.dark);
   // 좌판 위 물건 — 계절 색으로
   const goods = { spring: ['#ff5c6b', '#ffe066', '#8fd66c'], summer: ['#3f9a4b', '#ff5a4a', '#ffcf3d'], autumn: ['#ff9a2e', '#8a5cc7', '#e8f2c0'], winter: ['#eef8ff', '#4fa653', '#e8f4ee'] }[cal.season];
-  goods.forEach((c, i) => { const gx = X + 16 + i * 22; px(gx, Y + 22, 12, 10, c); px(gx, Y + 22, 12, 2, shade(c, 26)); px(gx + 8, Y + 28, 4, 4, shade(c, -28)); });
-  // 상인
-  px(X + w - 40, Y + 24, 18, 18, '#ffe0c4'); px(X + w - 40, Y + 20, 18, 6, '#5b3ba2'); px(X + w - 36, Y + 30, 2, 2, '#3a3226'); px(X + w - 30, Y + 30, 2, 2, '#3a3226'); px(X + w - 36, Y + 36, 8, 2, '#c9646b');
+  goods.forEach((c, i) => { const gx = X + 14 + i * 17; px(gx, Y + 22, 12, 10, c); px(gx, Y + 22, 12, 2, shade(c, 26)); px(gx + 8, Y + 28, 4, 4, shade(c, -28)); });
+  // 가게 아저씨 — 좌판에 기대선 모습. 어깨 아래는 좌판에 가린다.
+  art(SHOPKEEP, X + w - 32, Y + 18, SHOPPAL, false);
 }
 function drawWell(night){
   const b = spot('well'), X = b.x * T, Y = b.y * T;
