@@ -2512,13 +2512,10 @@ belowFold(async () => {
 // 세이브에 같이 적혀 있다.
 belowFold(async () => {
   const cv = $('#questCard'); if (!cv || typeof SPRITES === 'undefined') return;
-  // 카드가 쓰는 칸만 골라 받는다. 세이브 전체는 met·foeWins 가 붙어 3.3KB 인데
-  // 카드에 필요한 건 일곱 칸뿐이라 0.8KB 로 줄었다(재 보고 고쳤다).
-  const PICK = 'who, lv:data->lv, boss:data->boss, friends:data->friends, wins:data->wins,' +
-               ' week:data->week, lastWeek:data->lastWeek, dexSkies:data->dexSkies';
-  const { data } = await sb.from('quest_saves').select(PICK).in('who', ['sua', 'yona']);
-  // 아래 코드는 r.data.* 모양을 그대로 쓰던 것이라, 받은 칸을 다시 그 모양으로 묶는다.
-  const rows = (data || []).filter(r => r.lv).map(r => ({ who: r.who, data: r }));
+  // 카드가 쓰는 칸만 받는다. 세이브 전체는 아이가 어느 날 왔는지까지 들어 있어
+  // 3.6KB 인데, 요약만 주는 함수를 부르면 1.0KB 이고 날짜도 안 딸려 온다.
+  const { data } = await sb.rpc('quest_cards');
+  const rows = (data || []).filter(r => r.data && r.data.lv);
   if (!rows.length) return;
   const by = {}; rows.forEach(r => { by[r.who] = r.data; });
   const heroes = [['sua', '수아'], ['yona', '연아']].filter(h => by[h[0]]);

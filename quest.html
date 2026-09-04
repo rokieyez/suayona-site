@@ -500,7 +500,12 @@ async function boot(){
 async function bootInner(){
   await refreshAuth();
   key = isChild && me && Q.HEROES[me.author_key] ? me.author_key : null;
-  const { data: rows, error } = await sb.from('quest_saves').select('who, data');
+  // 손님에게는 세이브 표를 안 연다 — 그 안에는 아이가 어느 날 왔는지(playDays·lastPlay
+  // ·journalDay)가 들어 있다. 문 앞 카드에 필요한 요약만 주는 함수를 따로 부른다.
+  const got = isLoggedIn
+    ? await sb.from('quest_saves').select('who, data')
+    : await sb.rpc('quest_cards');
+  const rows = got.data, error = got.error;
   if (error) throw error;
   (rows || []).forEach(r => {
     if (r.who === 'tuning') TUNE = Q.fixTune(r.data);
