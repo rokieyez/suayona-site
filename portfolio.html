@@ -324,7 +324,7 @@ function render(){
     card.className = 'gal-item dot-card hoverable reveal';
     const ytId = w.media_type === 'youtube' ? youtubeId(w.media_url) : '';
     const media = ytId
-      ? youtubeThumbHTML(ytId, w.title, '', '(max-width:560px) 46vw, 220px') + '<span class="yt-mark">▶ 영상</span><span class="yt-play sm"></span>'
+      ? youtubeThumbHTML(ytId, w.title, '', '(max-width:560px) calc(50vw - 57px), 230px') + '<span class="yt-mark">▶ 영상</span><span class="yt-play sm"></span>'
       : w.media_type === 'video'
       ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
       // 격자 칸은 264px 인데 원본은 1800px 이 넘는다. 사본이 있으면 그것만 받는다.

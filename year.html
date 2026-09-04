@@ -292,7 +292,7 @@ function render(){
   html += works.length ? '<div class="yr-works">' + works.map(w =>
     '<div class="yr-work">' +
       (w.media_type === 'youtube'
-        ? youtubeThumbHTML(youtubeId(w.media_url), w.title, '', '(max-width:560px) 46vw, 200px') + '<span class="yr-play"></span>'
+        ? youtubeThumbHTML(youtubeId(w.media_url), w.title, '', '(max-width:400px) 86vw, (max-width:560px) 44vw, 200px') + '<span class="yr-play"></span>'
         : w.media_type === 'video'
         ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
         : '<img src="' + escapeHTML(w.thumb_url || w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">') +
