@@ -268,7 +268,7 @@
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
-        integrity="sha384-cBiHUhMKawRlmm7VSm1DHfF0IGFv/4TS02bmfOdTMTC4HQjvUv10J0R4cwAFuTuC" crossorigin="anonymous"></script>
+        integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi" crossorigin="anonymous"></script>
 <script src="./pixel.js"></script>
 <script src="./common.js"></script>
 <script src="./farm-rules.js"></script>
@@ -353,6 +353,8 @@ async function boot(){
   }
 }
 async function bootInner(){
+  // supabase 스크립트가 안 내려온 채(전파 없음·차단) 손님 화면을 그리면 「아직 시작 전」처럼 보여서 속는다.
+  if (sb.offline) throw new Error('offline');
   await refreshAuth();
   key = isChild && me && R.NAME[me.author_key] ? me.author_key : null;
   if (!key){
