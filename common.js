@@ -172,6 +172,20 @@ const PRIVATE_LINKS = [
 let ACTIVE_KEY = null;
 
 // ---------- 헤더 / 푸터 ----------
+/* 헤더 실제 높이를 --header-h 에 넣는다.
+   61px 으로 박아 뒀더니 실제 높이(69px = 위아래 여백 12px + 로고줄 + 아래 테두리 4px)와
+   8px 어긋나, 그 변수를 쓰는 모든 페이지에서 초록 배지가 헤더에 가렸다. */
+function syncHeaderHeight(header){
+  const apply = () => {
+    const h = Math.round(header.getBoundingClientRect().height);
+    if (h > 0) document.documentElement.style.setProperty('--header-h', h + 'px');
+  };
+  apply();
+  if (window.ResizeObserver) new ResizeObserver(apply).observe(header);
+  else window.addEventListener('resize', apply);
+  window.addEventListener('load', apply);   // 웹폰트가 늦게 오면 높이가 바뀐다
+}
+
 function buildChrome(activeKey){
   ACTIVE_KEY = activeKey;
   const header = document.createElement('header');
@@ -200,6 +214,7 @@ function buildChrome(activeKey){
       '<button class="menu-toggle pixel" id="menuToggle" aria-label="메뉴 열기">☰</button>' +
     '</div>';
   document.body.prepend(header);
+  syncHeaderHeight(header);
   buildAuthModal();
 
   const footer = document.createElement('footer');
