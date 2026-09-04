@@ -1407,8 +1407,10 @@ function formatDate(iso){
   return d.getFullYear() + '.' + p(d.getMonth()+1) + '.' + p(d.getDate());
 }
 
+// 맥에서 친 글은 한글이 자모로 쪼개진 NFD 로 저장돼 있는 경우가 있다.
+// 눈으로는 같지만 글자 수도 다르고 비교도 안 붙으므로, 화면에 내기 전에 NFC 로 모은다.
 function escapeHTML(s){
-  return String(s == null ? '' : s)
+  return String(s == null ? '' : s).normalize('NFC')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
