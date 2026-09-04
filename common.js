@@ -171,6 +171,56 @@ const PRIVATE_LINKS = [
 
 let ACTIVE_KEY = null;
 
+// ---------- 헤더 로고 · 푸터 아이콘 도트 ----------
+/* 이 두 그림만 있으면 되는 쪽이 일곱(포트폴리오·일기장·우체통·시간표·한 해·공개 설정·
+   비밀번호)인데, 아이콘 두 개 때문에 pixel.js 54KB 를 통째로 받고 있었다.
+   원본은 pixel.js 의 SPRITES.fox / SPRITES.youtube 이고 아래는 그 사본이다.
+   도트를 고칠 일이 생기면 pixel.js 와 여기를 같이 본다. */
+const CHROME_PAL = { E:'#ffffff', F:'#3a3226', P:'#ffb0c4', R:'#e03e30' };
+const CHROME_DOTS = {
+  // 레샤 얼굴 14x12 — fox 에서 왼쪽 네 칸(꼬리)을 뗀 모습. 파비콘과 같다.
+  fox: [
+    '..FF......FF..',
+    '.FPPF....FPPF.',
+    '.FPPPFFFFPPPF.',
+    'FPPPPPPPPPPPPF',
+    'FEEEPPPPPPEEEF',
+    'FEEFEEPPEEFEEF',
+    'FEEEEEFFEEEEEF',
+    'FEEEEEEEEEEEEF',
+    '.FEEEEEEEEEEF.',
+    '..FFPPF..FPPFF',
+    '..FPPF...FPPF.',
+    '..FFFF...FFFF.',
+  ],
+  // 유튜브 14x11
+  youtube: [
+    '..FFFFFFFFFF..',
+    '.FRRRRRRRRRRF.',
+    'FRRRRERRRRRRRF',
+    'FRRRREERRRRRRF',
+    'FRRRREEERRRRRF',
+    'FRRRREEEERRRRF',
+    'FRRRREEERRRRRF',
+    'FRRRREERRRRRRF',
+    'FRRRRERRRRRRRF',
+    '.FRRRRRRRRRRF.',
+    '..FFFFFFFFFF..',
+  ],
+};
+
+function drawChromeDots(ctx, dots, s){
+  for (let y = 0; y < dots.length; y++){
+    const line = dots[y];
+    for (let x = 0; x < line.length; x++){
+      const color = CHROME_PAL[line[x]];
+      if (!color) continue;
+      ctx.fillStyle = color;
+      ctx.fillRect(x * s, y * s, s, s);
+    }
+  }
+}
+
 // ---------- 헤더 / 푸터 ----------
 /* 헤더 실제 높이를 --header-h 에 넣는다.
    61px 으로 박아 뒀더니 실제 높이(69px = 위아래 여백 12px + 로고줄 + 아래 테두리 4px)와
@@ -237,17 +287,14 @@ function buildChrome(activeKey){
     syncAuthButton();
   }).catch(() => {});
 
-  // 로고 레샤 · 푸터 유튜브 아이콘 도트 찍기
-  if (typeof SPRITES !== 'undefined') {
+  // 로고 레샤 · 푸터 유튜브 아이콘 도트 찍기 (pixel.js 없이도 그린다)
+  {
     const lc = $('#logoCanvas').getContext('2d');
     lc.imageSmoothingEnabled = false;
-    // 파비콘과 같은 모습으로 얼굴만 쓴다. 왼쪽 네 칸은 꼬리다.
-    // 이 칸수는 tools/make-favicon.py 의 TAIL_COLS 와 같은 값이니 도트를 고치면 둘 다 본다.
-    const foxFace = SPRITES.fox.map(row => row.slice(4));   // 18칸 -> 14칸
-    drawSprite(lc, foxFace, 0, 0, 3);                       // 14x12 도트 * 3 = 42x36
+    drawChromeDots(lc, CHROME_DOTS.fox, 3);        // 14x12 도트 * 3 = 42x36
     const yc = $('#footYoutube').getContext('2d');
     yc.imageSmoothingEnabled = false;
-    drawSprite(yc, SPRITES.youtube, 0, 0, 3);
+    drawChromeDots(yc, CHROME_DOTS.youtube, 3);    // 14x11 * 3 = 42x33
   }
 
   // 모바일 메뉴
