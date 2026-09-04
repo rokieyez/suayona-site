@@ -305,6 +305,9 @@ $('#logoutBtn').addEventListener('click', async () => {
 // ----- 새 일정 추가 폼의 날짜/탭 드롭다운 채우기 -----
 function fillPanelSelect(){
   const sel = $('#addPanel');
+  sel.addEventListener('change', () => {
+    if (insertAfter && insertAfter.panel !== sel.value) { insertAfter = null; syncInsertNote(); }
+  });
   sel.innerHTML = CONFIG.panels.map(p => '<option value="' + p.id + '">' + p.label + '</option>').join('');
 }
 
@@ -523,6 +526,23 @@ async function loadList(){
   });
 }
 
+/* 어디에 끼워 넣을지.
+   ------------------------------------------------------------------
+   새 일정은 늘 그 판의 맨 뒤(sort_order = 마지막 + 1)로 갔다. 하루 일정을 시간
+   순서대로 적다가 중간에 빠뜨린 것이 생각나면 손 쓸 방법이 없었다.
+   여기에 「이 카드 다음」을 적어 두면 그 자리에 넣는다. null 이면 예전처럼 맨 뒤다. */
+let insertAfter = null;   // { id, panel, sortOrder, title }
+
+function syncInsertNote(){
+  const note = $('#insertNote');
+  if (!note) return;
+  if (!insertAfter) { note.hidden = true; return; }
+  note.hidden = false;
+  note.innerHTML = '<span>「' + escapeHTML(insertAfter.title) + '」 <b>다음</b>에 넣습니다</span>' +
+    '<button type="button" class="btn ghost" id="insertReset">맨 뒤로</button>';
+  $('#insertReset').addEventListener('click', () => { insertAfter = null; syncInsertNote(); });
+}
+
 function renderCard(r){
   const card = document.createElement('div');
   card.className = 'item-card';
@@ -536,6 +556,7 @@ function renderCard(r){
     (r.image_url ? '<img class="item-img" loading="lazy" decoding="async" src="' + (r.thumb_url || r.image_url) + '" alt="">' : '') +
     '<div class="item-actions">' +
       '<button class="btn ghost editBtn">수정</button>' +
+      '<button class="btn ghost afterBtn">＋ 여기 아래</button>' +
       '<button class="btn danger delBtn">삭제</button>' +
     '</div>';
 
@@ -554,6 +575,14 @@ function renderCard(r){
   card.querySelector('.editBtn').addEventListener('click', () => {
     card.innerHTML = '';
     card.appendChild(renderEditForm(r));
+  });
+
+  card.querySelector('.afterBtn').addEventListener('click', () => {
+    insertAfter = { id: r.id, panel: r.panel, sortOrder: r.sort_order || 0, title: r.title };
+    $('#addPanel').value = r.panel;      // 판이 다르면 넣을 자리가 어긋난다
+    syncInsertNote();
+    $('#add-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('#addTitle').focus();
   });
 
   return card;
@@ -691,10 +720,36 @@ $('#addBtn').addEventListener('click', async () => {
 
   const placeRes = await addPlacePicker.value(t => { msg.className = ''; msg.textContent = t; });
 
-  const { data: existing } = await sb.from('events').select('sort_order')
-    .eq('event_id', CONFIG.eventSlug).eq('panel', panel)
-    .order('sort_order', {ascending:false}).limit(1);
-  const nextOrder = (existing && existing[0]) ? existing[0].sort_order + 1 : 1;
+  // 끼워 넣기: 기준 카드 뒤에 있는 것들을 한 칸씩 밀고 그 자리를 비운다.
+  // 한 판에 일정이 많아야 열 남짓이라 한 줄씩 고쳐도 무겁지 않다. 표현식 update
+  // (sort_order = sort_order + 1)는 PostgREST 로 보낼 수 없어서 이 방법을 쓴다.
+  let nextOrder;
+  if (insertAfter && insertAfter.panel === panel) {
+    const { data: 뒤엣것, error: 읽기오류 } = await sb.from('events')
+      .select('id, sort_order')
+      .eq('event_id', CONFIG.eventSlug).eq('panel', panel)
+      .gt('sort_order', insertAfter.sortOrder);
+    if (읽기오류) {
+      addBtn.disabled = false; addBtn.textContent = '추가하기';
+      msg.className = 'err'; msg.textContent = '자리를 만들지 못했습니다: ' + 읽기오류.message;
+      return;
+    }
+    for (const row of (뒤엣것 || [])) {
+      const { error: 밀기오류 } = await sb.from('events')
+        .update({ sort_order: (row.sort_order || 0) + 1 }).eq('id', row.id);
+      if (밀기오류) {
+        addBtn.disabled = false; addBtn.textContent = '추가하기';
+        msg.className = 'err'; msg.textContent = '자리를 만들지 못했습니다: ' + 밀기오류.message;
+        return;
+      }
+    }
+    nextOrder = insertAfter.sortOrder + 1;
+  } else {
+    const { data: existing } = await sb.from('events').select('sort_order')
+      .eq('event_id', CONFIG.eventSlug).eq('panel', panel)
+      .order('sort_order', {ascending:false}).limit(1);
+    nextOrder = (existing && existing[0]) ? existing[0].sort_order + 1 : 1;
+  }
 
   const payload = {
     event_id: CONFIG.eventSlug, panel, sort_order: nextOrder,
@@ -710,6 +765,7 @@ $('#addBtn').addEventListener('click', async () => {
   msg.className = 'ok';
   msg.textContent = '추가됐습니다!' + placeNote(placeRes) + (files.length > 1 && !hasExtraImages
     ? ' (사진은 첫 장만 저장됐어요 — 위 안내의 SQL을 실행하면 여러 장이 저장됩니다)' : '');
+  insertAfter = null; syncInsertNote();
   $('#addTime').value = ''; $('#addTitle').value = '';
   $('#addDetail').value = ''; $('#addImage').value = '';
   addPlacePicker = makePlacePicker($('#addPlaceField'));   // 장소 칸도 비운다

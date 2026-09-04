@@ -77,6 +77,12 @@
   /* ----- 새 일정 추가 ----- */
   #add-box{background:var(--paper-card); border-radius:0; padding:18px; border:1px solid rgba(0,0,0,.08); margin-bottom:22px;}
   #add-box h2{font-size:14px; margin:0 0 12px; color:var(--ink);}
+  /* 어디에 끼워 넣는지 — 목록에서 「＋ 여기 아래」를 눌렀을 때만 나온다 */
+  #insertNote{display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    background:#ffd979; border:1px solid rgba(0,0,0,.15); padding:8px 10px;
+    margin:0 0 12px; font-size:12.5px; font-weight:700; color:var(--ink);}
+  #insertNote[hidden]{display:none;}
+  #insertNote button{padding:4px 9px; font-size:11.5px;}
   #add-box label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin:10px 0 5px;}
   #add-box label:first-of-type{margin-top:0;}
   #add-box .hint{font-size:11.5px; color:var(--ink-soft); margin:4px 0 0; line-height:1.7;}
@@ -276,6 +282,8 @@
 
     <div id="add-box">
       <h2>+ 새 일정 추가</h2>
+      <!-- 목록에서 「＋ 여기 아래」를 누르면 여기에 어디에 끼우는지가 뜬다 -->
+      <div id="insertNote" hidden></div>
       <label>날짜/탭</label>
       <select id="addPanel" aria-label="어느 판에 넣을지"></select>
       <label>시간 (예: 09:00-10:00)</label>
