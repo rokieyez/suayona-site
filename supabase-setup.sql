@@ -1165,10 +1165,12 @@ create policy "parent clears stamps" on public.stamps
 
 -- 누구나 찍을 수 있는 칸이라 스크립트가 들이부으면 표가 순식간에 불어난다.
 -- 1분에 스무 개까지만 받는다.
+-- 1분만 막으면 하루 종일 천천히 부어 2만 8천 줄을 만들 수 있다. 시간당으로도 막는다.
 create or replace function public.stamps_rate_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if (select count(*) from stamps where created_at > now() - interval '1 minute') >= 20 then
+  if (select count(*) from stamps where created_at > now() - interval '1 minute') >= 20
+     or (select count(*) from stamps where created_at > now() - interval '1 hour') >= 200 then
     raise exception '도장이 너무 빨리 찍히고 있어요. 잠시 뒤에 다시 해 주세요.';
   end if;
   return new;
@@ -1176,3 +1178,14 @@ end $$;
 drop trigger if exists stamps_rate on public.stamps;
 create trigger stamps_rate before insert on public.stamps
   for each row execute function public.stamps_rate_guard();
+
+
+-- 이벤트 공개 여부가 두 곳에서 다르게 읽히고 있었다.
+--   event_meta 읽기 규칙: is_public = true       → 비어 있으면 손님에게 안 보임
+--   event_is_public():    coalesce(is_public,true) → 비어 있으면 공개로 침
+-- is_public 을 안 적고 만든 이벤트는 「제목은 안 보이는데 사진은 보이는」 상태가 된다.
+-- 두 곳을 같게 맞추고, 칸에 기본값을 박아 애초에 비지 않게 한다.
+alter table public.event_meta alter column is_public set default true;
+drop policy if exists "public can read public event_meta" on public.event_meta;
+create policy "public can read public event_meta" on public.event_meta
+  for select using (coalesce(is_public, true) or auth.role() = 'authenticated');

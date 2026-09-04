@@ -520,7 +520,9 @@ async function bootInner(){
   key = isChild && me && Q.HEROES[me.author_key] ? me.author_key : null;
   // 손님에게는 세이브 표를 안 연다 — 그 안에는 아이가 어느 날 왔는지(playDays·lastPlay
   // ·journalDay)가 들어 있다. 문 앞 카드에 필요한 요약만 주는 함수를 따로 부른다.
-  let got = isLoggedIn ? await sb.from('quest_saves').select('who, data, prev, prev_day') : { data: null, error: null };
+  // prev 는 세이브 한 벌(수아 1.3KB · 연아 2.3KB)이라 통째로 받으면 열 때마다 낭비다.
+  // 있는지만 알면 되고, prev 와 prev_day 는 늘 같이 적히므로 날짜만 받는다.
+  let got = isLoggedIn ? await sb.from('quest_saves').select('who, data, prev_day') : { data: null, error: null };
   // 로그인은 했지만 가족 프로필이 없는 계정이면 표가 비어 온다 — 그때도 카드는 보여야 한다.
   if (!got.error && !(got.data && got.data.length)) got = await sb.rpc('quest_cards');
   const rows = got.data, error = got.error;
@@ -529,7 +531,7 @@ async function bootInner(){
     if (r.who === 'tuning') { TUNE = Q.fixTune(r.data); return; }
     saves[r.who] = Q.fixSave(r.data);
     // 되돌릴 자리가 있는지, 있으면 언제 것인지 — 부모 조정판이 읽는다
-    backups[r.who] = { has: !!r.prev, day: r.prev_day || null };
+    backups[r.who] = { has: !!r.prev_day, day: r.prev_day || null };
   });
 
   if (!key){

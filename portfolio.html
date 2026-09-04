@@ -1348,8 +1348,8 @@ function renderAdminArea(){
 // ---------- 시작 ----------
 (async () => {
   await refreshAuth();
-  await loadKids();            // 가족일 때만 값이 담긴다 — 「그때 몇 살」에 쓴다
-  await loadWorks();
+  // 생일과 작품은 서로를 안 기다려도 된다. 줄 세우면 왕복이 하나씩 늘어난다.
+  await Promise.all([loadKids(), loadWorks()]);
   renderAdminArea();
   initReveal();
   // 그날 자료는 작품을 열었을 때만 쓰이므로 화면을 막지 않고 뒤따라 받는다
