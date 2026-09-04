@@ -754,90 +754,97 @@ function walkFrame(rows, legA, legB){
   const pad = '.'.repeat(rows[0].length);
   const out = [pad, pad].concat(rows.slice(0, rows.length - 2));
   out[out.length - 4] = legA; out[out.length - 3] = legA;
-  out[out.length - 2] = legB; out[out.length - 1] = legB.replace(/b/g, 'k');
+  out[out.length - 2] = legB; out[out.length - 1] = legB.replace(/b/g, 'B');
   return out;
 }
 // 짧은 머리 — 연아
 const KID_SHORT = {
   down: [
-    '.........hhhhhh.........', '........hhhhhhhh........', '.....hhhHHHHHHHHhhh.....', '....hhHHHHHHHHHHHHhh....',
-    '...hhhHHHHHHHHHHHHhhh...', '..hhHHHHHHHHHHHHHHHHhh..', '..hhhhffffffffffffhhhh..', '..hhhhffffffffffffhhhh..',
-    '..hhffffffffffffffffhh..', '..hhffffffffffffffffhh..', '..hhffeeffffffffeeffhh..', '..hhffeeffffffffeeffhh..',
-    '..hhffffffffffffffffhh..', '..hhppffffffffffffpphh..', '....ffffffmmmmffffff....', '....ffffffmmmmffffff....',
-    '......ffffffffffff......', '......ffffffffffff......', '.....CCCCCCCCCCCCCC.....', '....CCCCCCCCCCCCCCCC....',
-    '...fCCCCCCCCCCCCCCCCf...', '..ffCCCCCCCCCCCCCCCCff..', '..ffCCccccccccccccCCff..', '..FFCCccccccccccccCCFF..',
-    '....cccccccccccccccc....', '....cccccccccccccccc....', '....cccccccccccccccc....', '....nnnnnnnnnnnnnnnn....',
-    '......ssss....ssss......', '......ssss....ssss......', '.....bbbbb....bbbbb.....', '....kkkkkk....kkkkkk....',
+    '.....kkhhhhhhhhhhkk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...', '..khhHHHHHHHHHHHHHHhhk..',
+    '..khhHHHHhHHHHhHHHHhhk..', '..khhHHHHhHHHHhHHHHhhk..', '..khhffffhffffhffffhhk..', '..khhffffffffffffffhhk..',
+    '..khhffffffffffffffhhk..', '..khhffweffffffewffhhk..', '..khhffeeffffffeeffhhk..', '..khhffeeffffffeeffhhk..',
+    '..khhffffffffffffffhhk..', '...kffppffmmmmffppffk...', '...kfffffffmmfffffffk...', '....kkFFffffffffFFkk....',
+    '.....kkkffffffffkkk.....', '...kkccCCCCCCCCCCcckk...', '..kssccccccEcEcccccssk..', '..kssccccccEcEcccccssk..',
+    '..kssccccccEcEcccccssk..', '..kssccccccccccccccssk..', '..kssccccccccccccccssk..', '..kssnnnnnnnnnnnnnnssk..',
+    '...kkkVVVVVVVVVVVVkkk...', '.....kvvvvvvvvvvvvk.....', '.....kvvvvvVVvvvvvk.....', '.....kvvvvvVVvvvvvk.....',
+    '......kkssskkssskk......', '......kbbbbkkbbbbk......', '......kbbbbkkbbbbk......', '......kBBBBkkBBBBk......',
   ],
   side: [
-    '.......hhhhhhhh.........', '......hhhhhhhhhh........', '.....hhhHHHHHHHHh.......', '....hhhhHHHHHHHHhh......',
-    '...hhhHHHHHHHHHHHHh.....', '..hhhhHHHHHHHHHHHHhh....', '..hhhhffffffffffffhh....', '..hhhhffffffffffffhh....',
-    '..hhffffffffffffffFF....', '..hhffffffffffffffFF....', '..hhffffeeffffffffff....', '..hhffffeeffffffffff....',
-    '..hhffffffffffffffmm....', '..hhppffffffffffppmm....', '....hhffffffffffff......', '....hhffffffffffff......',
-    '......ffffffffff........', '......ffffffffff........', '.....CCCCCCCCCCC........', '....CCCCCCCCCCCC........',
-    '....CCCCCCCCCCCCf.......', '....CCCCCCCCCCCCFF......', '....cccccccccccc........', '....cccccccccccc........',
-    '....cccccccccccc........', '....nnnnnnnnnnnn........', '......ssss..ssss........', '......ssss..ssss........',
-    '......ssss..ssss........', '......ssss..ssss........', '.....bbbbb..bbbbb.......', '....kkkkkk..kkkkkk......',
+    '......kkhhhhhhhhkk......', '.....khhHHHHHHHHhhk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...',
+    '...khhHHHHHHHHHHHHhhk...', '...khhHHHHHHHHHHHHhhk...', '...khhhhhhhhhhhhhhhhk...', '...khhhffffffffffffhk...',
+    '...khhhffffffffffffhk...', '...khhhffffffffweffhk...', '...khhhffffffffeeffhk...', '...khhhfffffffffffffk...',
+    '...khhhffffppffffffFk...', '....khhhfffffffmmmhk....', '....khhhfffffffmmfhk....', '.....kkhhhFFFFffhkk.....',
+    '......kkkhhhffhkkkk.....', '.....kccccccccccccck....', '.....kccccccEccsssck....', '.....kccccccEccsssck....',
+    '.....kccccccEccsssck....', '.....kcccccccccsssck....', '.....kcccccccccsssck....', '.....knnnnnnnnnsssnk....',
+    '......kVVVVVVVVVVVk.....', '......kvvvvvvvvvvvk.....', '......kvvvvvvvvvvvk.....', '......kvvvvvvvvvvvk.....',
+    '.......kkksssssskk......', '........kbbbbbbbbk......', '........kbbbbbbbbk......', '........kBBBBBBBBk......',
   ],
   up: [
-    '.........hhhhhh.........', '........hhhhhhhh........', '.....hhHHHHHHHHHHhh.....', '....hhHHHHHHHHHHHHhh....',
-    '...hhHHHHHHHHHHHHHHhh...', '..hhHHHHHHHHHHHHHHHHhh..', '..hhhhhhhhhhhhhhhhhhhh..', '..hhhhhhhhhhhhhhhhhhhh..',
-    '..hhhhHHHHHHHHHHHHhhhh..', '..hhhhHHHHHHHHHHHHhhhh..', '..hhhhhhhhhhhhhhhhhhhh..', '..hhhhhhhhhhhhhhhhhhhh..',
-    '..hhhhhhhhhhhhhhhhhhhh..', '..hhhhhhhhhhhhhhhhhhhh..', '....hhhhhhhhhhhhhhhh....', '....hhhhhhhhhhhhhhhh....',
-    '......hhhhhhhhhhhh......', '......hhhhhhhhhhhh......', '.....CCCCCCCCCCCCCC.....', '....CCCCCCCCCCCCCCCC....',
-    '...fCCCCCCCCCCCCCCCCf...', '..ffCCCCCCCCCCCCCCCCff..', '..ffCCccccccccccccCCff..', '..FFCCccccccccccccCCFF..',
-    '....cccccccccccccccc....', '....cccccccccccccccc....', '....cccccccccccccccc....', '....nnnnnnnnnnnnnnnn....',
-    '......ssss....ssss......', '......ssss....ssss......', '.....bbbbb....bbbbb.....', '....kkkkkk....kkkkkk....',
+    '.....kkhhhhhhhhhhkk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...', '..khhHHHHHHHHHHHHHHhhk..',
+    '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..',
+    '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..',
+    '..khhHHHHHHHHHHHHHHhhk..', '...khhHHHHHHHHHHHHhhk...', '...khhhhhhhhhhhhhhhhk...', '....kkhhhhhhhhhhhhkk....',
+    '.....kkkhhhhhhhhkkk.....', '...kkccCCCCCCCCCCcckk...', '..kssccccccEcEcccccssk..', '..kssccccccEcEcccccssk..',
+    '..kssccccccEcEcccccssk..', '..kssccccccccccccccssk..', '..kssccccccccccccccssk..', '..kssnnnnnnnnnnnnnnssk..',
+    '...kkkVVVVVVVVVVVVkkk...', '.....kvvvvvvvvvvvvk.....', '.....kvvvvvVVvvvvvk.....', '.....kvvvvvVVvvvvvk.....',
+    '......kkssskkssskk......', '......kbbbbkkbbbbk......', '......kbbbbkkbbbbk......', '......kBBBBkkBBBBk......',
   ],
 };
 const KID_LONG = {
   down: [
-    '.........hhhhhh.........', '........hhhhhhhh........', '.....hhhHHHHHHHHhhh.....', '....hhHHHHHHHHHHHHhh....',
-    '...hhhHHHHHHHHHHHHhhh...', '..hhHHHHHHHHHHHHHHHHhh..', '..hhhhffffffffffffhhhh..', '..hhhhffffffffffffhhhh..',
-    '.hhhffffffffffffffffhhh.', 'hhhhffffffffffffffffhhhh', 'hhhhffeeffffffffeeffhhhh', 'hhhhffeeffffffffeeffhhhh',
-    'hhhhffffffffffffffffhhhh', 'hhhhppffffffffffffpphhhh', 'hhhhffffffmmmmffffffhhhh', 'hhhhffffffmmmmffffffhhhh',
-    'hhhh..ffffffffffff..hhhh', 'hhhh..ffffffffffff..hhhh', 'hhhhCCCCCCCCCCCCCCCChhhh', 'hhhhCCCCCCCCCCCCCCCChhhh',
-    'hhffCCCCCCCCCCCCCCCCffhh', 'hhffCCCCCCCCCCCCCCCCffhh', 'hhffCCccccccccccccCCffhh', 'hhFFCCccccccccccccCCFFhh',
-    'hhhhcccccccccccccccchhhh', 'hhhhcccccccccccccccchhhh', '..hhcccccccccccccccchh..', '..hhnnnnnnnnnnnnnnnnhh..',
-    '......ssss....ssss......', '......ssss....ssss......', '.....bbbbb....bbbbb.....', '....kkkkkk....kkkkkk....',
+    '.....kkhhhhhhhhhhkk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...', '..khhHHHHHHHHHHHHHHhhk..',
+    '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhffffffffffffffhhk..',
+    '..khhffffffffffffffhhk..', '..khhffweffffffewffhhk..', '..khhffeeffffffeeffhhk..', '..khhffeeffffffeeffhhk..',
+    '..khhffffffmmffffffhhk..', '..kkffppfffmmfffppffkk..', '.khHfffffffmmfffffffHhk.', '.khHkkFFffffffffFFkkHhk.',
+    '.khHkkkkffffffffkkkkHhk.', '.khHkCCCCCCCCCCCCCCkHhk.', '.khHsCCCCCCCCCCCCCCsHhk.', '.khHsccccccccccccccsHhk.',
+    '.khHsCCCCCCCCCCCCCCsHhk.', '..khsccccccccccccccshk..', '..khsCCCCCCCCCCCCCCshk..', '..khsccccccccccccccshk..',
+    '...khkVVVVVVVVVVVVkhk...', '....kkvvvvvvvvvvvvkk....', '.....kvvvvvVVvvvvvk.....', '.....kvvvvvVVvvvvvk.....',
+    '......kkssskkssskk......', '......kbbbbkkbbbbk......', '......kbbbbkkbbbbk......', '......kBBBBkkBBBBk......',
   ],
   side: [
-    '.......hhhhhhhh.........', '......hhhhhhhhhh........', '.....hhhHHHHHHHHh.......', '....hhhhHHHHHHHHhh......',
-    '...hhhHHHHHHHHHHHHh.....', '..hhhhHHHHHHHHHHHHhh....', '..hhhhffffffffffffhh....', '..hhhhffffffffffffhh....',
-    '.hhhhhffffffffffffffF...', 'hhhhhhffffffffffffffFF..', 'hhhhhhffffeeffffffffff..', 'hhhhhhffffeeffffffffff..',
-    'hhhhhhffffffffffffffmm..', 'hhhhhhppffffffffffppmm..', 'hhhhhhffffffffffff......', 'hhhhhhffffffffffff......',
-    'hhhhhh..ffffffffff......', 'hhhhhh..ffffffffff......', 'hhhhCCCCCCCCCCCC........', 'hhhhCCCCCCCCCCCC........',
-    'hhhhCCCCCCCCCCCCf.......', 'hhhhCCCCCCCCCCCCFF......', 'hhhhcccccccccccc........', 'hhhhcccccccccccc........',
-    'hhhhcccccccccccc........', 'hhhhnnnnnnnnnnnn........', '..hhhhssss..ssss........', '..hhhhssss..ssss........',
-    '....hhssss..ssss........', '....hhssss..ssss........', '....bbbbbb..bbbbb.......', '....kkkkkk..kkkkkk......',
+    '......kkhhhhhhhhkk......', '.....khhHHHHHHHHhhk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...',
+    '...khhHHHHHHHHHHHHhhk...', '...khhHHHHHHHHHHHHhhk...', '...khhhhhhhhhhhhhhhhk...', '...khhhffffffffffffhk...',
+    '...khhhffffffffffffhk...', '...khhhffffffffweffhk...', '...khhhffffffffeeffhk...', '...khhhfffffffffffffk...',
+    '...khhhffffppffffffFk...', '...kkhhhfffffffmmmhk....', '..khHHhhfffffffmmfhk....', '..khHHhhhhFFFFffhkk.....',
+    '..khHHhkkhhhffhkkkk.....', '..khHHhCCCCCCCCCCCCk....', '..khHHhCCCCCCCCsssCk....', '..khHHhccccccccsssck....',
+    '..khHHhCCCCCCCCsssCk....', '..khHHhccccccccsssck....', '..khHHhCCCCCCCCsssCk....', '..khHHhccccccccsssck....',
+    '..khHHhVVVVVVVVVVVk.....', '..khHHhvvvvvvvvvvvk.....', '...khhhvvvvvvvvvvvk.....', '....kkkvvvvvvvvvvvk.....',
+    '.......kkksssssskk......', '........kbbbbbbbbk......', '........kbbbbbbbbk......', '........kBBBBBBBBk......',
   ],
   up: [
-    '.........hhhhhh.........', '........hhhhhhhh........', '.....hhHHHHHHHHHHhh.....', '....hhHHHHHHHHHHHHhh....',
-    '...hhHHHHHHHHHHHHHHhh...', '..hhHHHHHHHHHHHHHHHHhh..', '..hhhhhhhhhhhhhhhhhhhh..', '..hhhhhhhhhhhhhhhhhhhh..',
-    '..hhhhHHHHHHHHHHHHhhhh..', '..hhhhHHHHHHHHHHHHhhhh..', '.hhhhhhhhhhhhhhhhhhhhhh.', 'hhhhhhhhhhhhhhhhhhhhhhhh',
-    'hhhhhhhhhhhhhhhhhhhhhhhh', 'hhhhhhhhhhhhhhhhhhhhhhhh', 'hhhhhhhhhhhhhhhhhhhhhhhh', 'hhhhhhhhhhhhhhhhhhhhhhhh',
-    'hhhhhhhhhhhhhhhhhhhhhhhh', 'hhhhhhhhhhhhhhhhhhhhhhhh', 'hhhhCCCCCCCCCCCCCCCChhhh', 'hhhhCCCCCCCCCCCCCCCChhhh',
-    'hhffCCCCCCCCCCCCCCCCffhh', 'hhFFCCCCCCCCCCCCCCCCFFhh', 'hhhhcccccccccccccccchhhh', 'hhhhcccccccccccccccchhhh',
-    'hhhhcccccccccccccccchhhh', 'hhhhcccccccccccccccchhhh', '..hhcccccccccccccccchh..', '..hhnnnnnnnnnnnnnnnnhh..',
-    '......ssss....ssss......', '......ssss....ssss......', '.....bbbbb....bbbbb.....', '....kkkkkk....kkkkkk....',
+    '.....kkhhhhhhhhhhkk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...', '..khhHHHHHHHHHHHHHHhhk..',
+    '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..',
+    '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..',
+    '..khhHHHHHHHHHHHHHHhhk..', '..kkhhHHHHHHHHHHHHhhkk..', '.khHhhhhhhhhhhhhhhhhHhk.', '.khHkkhhhhhhhhhhhhkkHhk.',
+    '.khHkkkkhhhhhhhhkkkkHhk.', '.khHkCCCCCCCCCCCCCCkHhk.', '.khHsCCCCCCCCCCCCCCsHhk.', '.khHsccccccccccccccsHhk.',
+    '.khHsCCCCCCCCCCCCCCsHhk.', '..khsccccccccccccccshk..', '..khsCCCCCCCCCCCCCCshk..', '..khsccccccccccccccshk..',
+    '...khkVVVVVVVVVVVVkhk...', '....kkvvvvvvvvvvvvkk....', '.....kvvvvvVVvvvvvk.....', '.....kvvvvvVVvvvvvk.....',
+    '......kkssskkssskk......', '......kbbbbkkbbbbk......', '......kbbbbkkbbbbk......', '......kBBBBkkBBBBk......',
   ],
 };
 
+
 function kidSet(base){
   return {
-    down: [base.down, walkFrame(base.down, '....ssss........ssss....', '..bbbbbb........bbbbbb..')],
-    side: [base.side, walkFrame(base.side, '........ssssssss........', '......bbbbbbbbbb........')],
-    up:   [base.up,   walkFrame(base.up,   '....ssss........ssss....', '..bbbbbb........bbbbbb..')],
+    down: [base.down, walkFrame(base.down, '.....ksssk....ksssk.....', '....kbbbbk....kbbbbk....')],
+    side: [base.side, walkFrame(base.side, '.......ksssk.ksssk......', '......kbbbbkkbbbbk......')],
+    up:   [base.up,   walkFrame(base.up,   '.....ksssk....ksssk.....', '....kbbbbk....kbbbbk....')],
   };
 }
 const KIDART = { sua: kidSet(KID_LONG), yona: kidSet(KID_SHORT) };
 const KID = KIDART.yona;                       // 방 그림 등에서 기본으로 쓰는 것
 const KIDPAL = {
-  // 수아 — 긴 갈색 머리에 산호색 원피스
-  sua:  { h: '#4a3327', H: '#63452f', f: '#ffe3c9', F: '#f0c6a4', e: '#3a2a20', w: '#ffffff', m: '#c9646b', p: '#ffb0b8', c: '#f2707d', C: '#ff9aa2', n: '#d2545f', s: '#f0c6a4', b: '#8a5f3a', k: '#6b452a' },
-  // 연아 — 짧은 적갈색 머리에 노란 윗도리
-  yona: { h: '#a0562c', H: '#bd6c3a', f: '#ffe3c9', F: '#f0c6a4', e: '#3a2a20', w: '#ffffff', m: '#c9646b', p: '#ffb0b8', c: '#e8b83a', C: '#ffd85c', n: '#c99a26', s: '#f0c6a4', b: '#8a5f3a', k: '#6b452a' },
+  // 메인 첫화면 캐릭터와 같은 색을 쓴다.
+  // 수아 — 진갈색 긴 머리, 빨강·흰 줄무늬 상의, 남색 반바지, 주황 신발
+  sua:  { k: '#3a3226', h: '#3f2d23', H: '#55402f', f: '#fbdcc4', F: '#eec3a2', e: '#3a3226', w: '#ffffff',
+          m: '#c9333f', p: '#ffb0b8', c: '#ea2027', C: '#fdfdfd', n: '#c2151b', E: '#ffffff',
+          s: '#fbdcc4', v: '#2e3a54', V: '#41506e', b: '#e8912f', B: '#c47320' },
+  // 연아 — 적갈색 단발, 노란 후드(흰 끈), 남색 반바지, 주황 신발
+  yona: { k: '#3a3226', h: '#a0562c', H: '#bd6c3a', f: '#fbdcc4', F: '#eec3a2', e: '#3a3226', w: '#ffffff',
+          m: '#c9333f', p: '#ffb0b8', c: '#ffe66d', C: '#fff3ae', n: '#ffc94d', E: '#ffffff',
+          s: '#fbdcc4', v: '#2e3a54', V: '#41506e', b: '#e8912f', B: '#c47320' },
 };
+
 // 동물 — 종마다 그림 한 장과 색표 하나.
 const BEAST = {
   chicken: { w: 24, art: [
@@ -1960,7 +1967,7 @@ function paintLayer(name, w, h, sig, fn){
   }
   return L.cv;
 }
-function dropLayers(){ Object.keys(layers).forEach(k => { layers[k].sig = null; }); Object.keys(spriteBuf).forEach(k => { delete spriteBuf[k]; }); }
+function dropLayers(){ Object.keys(layers).forEach(k => { layers[k].sig = null; }); Object.keys(spriteBuf).forEach(k => { delete spriteBuf[k]; }); Object.keys(furnCache).forEach(k => { delete furnCache[k]; }); }
 // 담아 둔 겹 넷을 한 장으로 미리 합쳐 둔다.
 // 겹을 나눈 값은 「다시 안 그리는 것」에 있지 「매번 여러 장을 얹는 것」에 있지 않다 —
 // 캔버스가 GPU 를 못 쓸 때는 전면 한 장 얹는 데만 0.28ms 가 든다.
@@ -2619,14 +2626,39 @@ function drawRoomShell(g, r, L){
 }
 // 가구 한 점을 버퍼에 그린 뒤 각도만큼 돌려 붙인다
 let furnBuf = null;
-function drawFurnItem(g, f, r, X, Y, t){
-  const F = R.FURNITURE[f]; if (!F) return;
-  const w = (F.w || 1) * T, h = (F.h || 1) * T, bw = w * HS, bh = h * HS;
-  if (!furnBuf) furnBuf = document.createElement('canvas');
-  if (furnBuf.width !== bw || furnBuf.height !== bh){ furnBuf.width = bw; furnBuf.height = bh; }
-  const b = furnBuf.getContext('2d'); b.imageSmoothingEnabled = false;
+// 불꽃이 흔들리는 것만 매번 다시 그리고, 나머지는 한 번 그려 담아 둔다
+const FURN_ANIM = { fire: 1, stove: 1 };
+const furnCache = {};
+function furnBitmap(f, w, h, t){
+  const bw = Math.round(w * HS), bh = Math.round(h * HS);
+  const anim = FURN_ANIM[R.FURNITURE[f].kind];
+  const key = f + '|' + HS;
+  if (!anim){
+    const hit = furnCache[key];
+    if (hit && hit.width === bw && hit.height === bh) return hit;
+  }
+  const cv = anim ? (furnBuf || (furnBuf = document.createElement('canvas'))) : document.createElement('canvas');
+  if (cv.width !== bw || cv.height !== bh){ cv.width = bw; cv.height = bh; }
+  const b = cv.getContext('2d'); b.imageSmoothingEnabled = false;
   b.clearRect(0, 0, bw, bh);
   paintFurniture(b, f, w, h, t);
+  // 실루엣을 오른쪽 아래로 밀어 옅게 깐다 — 가구가 마루에 붙어 보인다
+  const sh = document.createElement('canvas'); sh.width = bw; sh.height = bh;
+  const sg = sh.getContext('2d'); sg.imageSmoothingEnabled = false;
+  sg.drawImage(cv, 0, 0);
+  sg.globalCompositeOperation = 'source-in';
+  sg.fillStyle = 'rgba(26,20,12,0.20)'; sg.fillRect(0, 0, bw, bh);
+  const out = anim ? null : cv;
+  b.globalCompositeOperation = 'destination-over';
+  b.drawImage(sh, Math.round(1.5 * HS), Math.round(2 * HS));
+  b.globalCompositeOperation = 'source-over';
+  if (!anim) furnCache[key] = cv;
+  return cv;
+}
+function drawFurnItem(g, f, r, X, Y, t){
+  const F = R.FURNITURE[f]; if (!F) return;
+  const w = (F.w || 1) * T, h = (F.h || 1) * T;
+  const bm = furnBitmap(f, w, h, t);
   g.save(); g.imageSmoothingEnabled = false;
   g.translate(X, Y);
   if (F.flat){
@@ -2636,7 +2668,7 @@ function drawFurnItem(g, f, r, X, Y, t){
   } else if (r === 1 || r === 2){
     g.translate(w * HS, 0); g.scale(-1, 1);        // 세워 두는 것은 좌우만 바뀐다
   }
-  g.drawImage(furnBuf, 0, 0);
+  g.drawImage(bm, 0, 0);
   g.restore();
 }
 // 바닥에 눕는 것은 위에서 내려다본 모습, 세워 두는 것은 비스듬히 본 모습.
@@ -2644,7 +2676,8 @@ function paintFurniture(g, f, w, h, t){
   const F = R.FURNITURE[f], c = F.c;
   const hi = shade(c, 26), lo = shade(c, -26), dk = shade(c, -46);
   const q = (x, y, ww, hh, col) => { g.fillStyle = col; g.fillRect(Math.round(x * HS), Math.round(y * HS), Math.max(1, Math.round(ww * HS)), Math.max(1, Math.round(hh * HS))); };
-  const sh = () => q(2, h - 4, w - 4, 4, '#00000018');
+  // 발밑 그림자 — 한 단이 아니라 세 단으로 옅어지게
+  const sh = () => { q(3, h - 5, w - 6, 2, '#00000010'); q(2, h - 3, w - 4, 2, '#0000001c'); q(4, h - 1, w - 8, 1, '#00000012'); };
   switch (F.kind){
     case 'bed': {
       sh();
@@ -2843,6 +2876,15 @@ function paintFurniture(g, f, w, h, t){
     default:
       q(6, 6, 20, 20, c); q(6, 6, 20, 4, hi); q(6, 22, 20, 4, lo);
   }
+  // 마무리 — 해가 왼쪽 위에 있다고 보고 아래·오른쪽을 눌러 준다.
+  // source-atop 이라 가구가 그려진 자리에만 얹히고 빈 자리는 그대로 둔다.
+  // (흩뿌려 섞기는 여기선 안 쓴다 — 가구가 작아서 점무늬가 그대로 보인다)
+  g.save(); g.globalCompositeOperation = 'source-atop';
+  q(0, h - 6, w, 3, 'rgba(28,20,12,0.07)');
+  q(0, h - 3, w, 3, 'rgba(28,20,12,0.15)');
+  q(w - 3, 0, 3, h, 'rgba(28,20,12,0.09)');
+  q(0, 0, w, 2, 'rgba(255,250,235,0.16)');
+  g.restore();
 }
 // 방 안의 아이 — 제 방에는 저마다, 거실에는 나
 function roomKid(r){
