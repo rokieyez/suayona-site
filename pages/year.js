@@ -227,14 +227,17 @@ async function drawYearMap(places){
   });
   enablePinchZoom(map, host);
 
-  if (places.length === 1) {
-    map.setCenter(new kakao.maps.LatLng(places[0].lat, places[0].lng));
-    map.setLevel(7);
-  } else {
-    const b = new kakao.maps.LatLngBounds();
-    places.forEach(p => b.extend(new kakao.maps.LatLng(p.lat, p.lng)));
-    map.setBounds(b, 24, 24, 24, 24);
+  function fit(){
+    if (places.length === 1) {
+      map.setCenter(new kakao.maps.LatLng(places[0].lat, places[0].lng));
+      map.setLevel(7);
+    } else {
+      const b = new kakao.maps.LatLngBounds();
+      places.forEach(p => b.extend(new kakao.maps.LatLng(p.lat, p.lng)));
+      map.setBounds(b, 24, 24, 24, 24);
+    }
   }
+  fit();
 
   /* 다녀온 차례대로 번호를 붙인다 — 한 해의 발자국이 순서대로 보인다.
      지도를 막 만든 참에 한 번만 붙이면, 아직 자리가 안 잡혀 핀이 하나도 안 달릴 수
@@ -253,6 +256,19 @@ async function drawYearMap(places){
   }
   paint();
   kakao.maps.event.addListener(map, 'idle', paint);
+
+  /* 칸의 너비가 0 인 채로 그리면 핀이 하나도 안 붙는다(재 보니 일곱 군데에 0개,
+     너비를 준 뒤 다시 부르니 일곱 개가 붙었다). 인쇄 미리보기처럼 나중에 자리가
+     잡히는 자리가 있으므로, 크기가 바뀌면 지도를 다시 재고 핀도 다시 붙인다. */
+  if (window.ResizeObserver) {
+    let last = 0;
+    new ResizeObserver(() => {
+      const w = host.clientWidth;
+      if (!w || w === last) return;
+      last = w;
+      map.relayout(); fit(); paint();
+    }).observe(host);
+  }
 }
 
 $('#yearPick').addEventListener('click', (e) => {
