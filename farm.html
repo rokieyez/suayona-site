@@ -1386,7 +1386,7 @@ function drawNode(n, season, t){
 // 자리는 규칙이 아니라 화면의 것이다 — 세이브에 적지 않는다.
 let walkers = null, beasts = null, curWind = 0.6;
 function walkableTile(tx, ty){
-  if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return false;
+  if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS - 1) return false;   // 맨 아랫줄은 앞쪽 수풀에 가린다
   const FB = R.FIELD_BOX;
   if (tx >= FB.x && tx < FB.x + FB.w && ty >= FB.y && ty < FB.y + FB.h) return false;
   for (let i = 0; i < R.PLACE_IDS.length; i++){
@@ -1749,6 +1749,21 @@ function paintLayer(name, w, h, sig, fn){
   return L.cv;
 }
 function dropLayers(){ Object.keys(layers).forEach(k => { layers[k].sig = null; }); }
+// 담아 둔 겹 넷을 한 장으로 미리 합쳐 둔다.
+// 겹을 나눈 값은 「다시 안 그리는 것」에 있지 「매번 여러 장을 얹는 것」에 있지 않다 —
+// 캔버스가 GPU 를 못 쓸 때는 전면 한 장 얹는 데만 0.28ms 가 든다.
+function composeBack(cw, ch, parts){
+  let sig = '';
+  for (let i = 0; i < parts.length; i++) sig += (layers[parts[i]] ? layers[parts[i]].sig : '-') + '#';
+  const L = layerCv('back', cw, ch);
+  if (L.sig !== sig){
+    L.sig = sig;
+    const g = L.cv.getContext('2d'); g.imageSmoothingEnabled = false;
+    g.clearRect(0, 0, cw, ch);
+    for (let i = 0; i < parts.length; i++) if (layers[parts[i]]) g.drawImage(layers[parts[i]].cv, 0, 0);
+  }
+  return L.cv;
+}
 // ---- 겹마다의 표 ----
 function sigGround(season, wk){ return season + '|' + wk; }
 function sigBuilt(cal, night){
@@ -1769,7 +1784,7 @@ function sigCrops(windStep){
   R.plotIds(W, 'field').forEach(id => { const p = W.plots[id]; s += p && p.crop ? p.crop.charAt(0) + R.stageOf(p) + (p.wilted ? 'x' : '') + (p.giant ? 'G' : '') : '.'; });
   return s;
 }
-function sigFront(){ return JSON.stringify(W.layout || {}) + '|' + (W.expand || 0) + '|' + (W.decor && W.decor.pasture ? 1 : 0) + '|' + (W.buildings.pasture && W.buildings.pasture.done ? 1 : 0); }
+function sigFront(season){ return season + '|' + JSON.stringify(W.layout || {}) + '|' + (W.expand || 0) + '|' + (W.buildings.pasture && W.buildings.pasture.done ? 1 : 0); }
 function sigGlow(dark){ return Math.round(dark * 20) + '|' + lamps.map(l => l.x + ',' + l.y + ',' + l.r + l.c).join(';'); }
 
 // ---- 겹 6: 앞겹 ----
@@ -1793,6 +1808,44 @@ function drawFront(season){
   const fx = R.FIELD.x0 * T, fy = R.FIELD.y0 * T, fw = E.w * T, fh = E.h * T;
   px(fx - 1, fy + fh + 1, fw + 2, 1, WOOD.mid); px(fx - 1, fy + fh + 4, fw + 2, 1, WOOD.low);
   for (let i = 0; i <= fw; i += T){ px(fx + i - 1, fy + fh, 2, 8, WOOD.dark); px(fx + i - 1, fy + fh, 1, 8, WOOD.mid); px(fx + i - 1, fy + fh - 1, 2, 1, WOOD.hi); }
+  drawFrontGrass(season);
+}
+// 화면 맨 아래를 두르는 앞쪽 수풀. 눈에서 가장 가까우니 가장 진하고, 아이가 그 사이로 지나간다.
+// 풀포기는 늘 같은 자리에 나도록 좌표로 난수를 만든다 — 담아 두는 겹이라 흔들리지도 않는다.
+function drawFrontGrass(season){
+  const Wp = COLS * T, base = ROWS * T;
+  const C = season === 'autumn' ? ['#8a6a2e', '#6f5424', '#54401b', '#a8853c']
+          : season === 'winter' ? ['#7f9a8c', '#67806f', '#4e6356', '#9db4a5']
+          : ['#3f7d3c', '#336633', '#264d27', '#4f9a48'];
+  // 1) 바닥에 깔리는 그늘 — 수풀이 화면 밖에서 이어져 오는 느낌
+  for (let i = 0; i < 4; i++) px(0, base - 4 + i, Wp, 1, 'rgba(0,0,0,' + (0.05 + i * 0.03).toFixed(3) + ')');
+  // 2) 풀포기 — 세 겹으로 겹쳐 심는다. 뒤가 연하고 앞이 진하다.
+  const bands = [{ n: 120, h: [5, 10], c: 3, y: 3 }, { n: 100, h: [6, 12], c: 0, y: 1 }, { n: 80, h: [8, 14], c: 2, y: 0 }];
+  bands.forEach((B, bi) => {
+    for (let i = 0; i < B.n; i++){
+      const r1 = R.prand('fgx' + bi + '_' + i), r2 = R.prand('fgh' + bi + '_' + i), r3 = R.prand('fgb' + bi + '_' + i);
+      const x = Math.floor(r1 * (Wp + 8)) - 4;
+      const h = Math.round(B.h[0] + r2 * (B.h[1] - B.h[0]));
+      const y0 = base - h + B.y;
+      const c = C[B.c], cd = C[2], cl = C[3];
+      // 잎 세 갈래
+      px(x, y0 + 2, 1, h - 2, c); px(x, y0 + 2, 1, 2, cl);
+      px(x + 1, y0, 1, h, c);
+      px(x + 2, y0 + 3, 1, h - 3, r3 > 0.5 ? cd : c);
+      if (r3 > 0.62){ px(x - 1, y0 + 5, 1, h - 5, cd); px(x + 3, y0 + 6, 1, h - 6, cd); }
+      if (r3 > 0.88 && season !== 'winter'){                       // 이따금 들꽃
+        const fc = ['#ffb7d5', '#fff3a0', '#ffffff', '#c9a8ff'][Math.floor(R.prand('fgf' + bi + '_' + i) * 4)];
+        px(x, y0 - 1, 1, 1, fc); px(x - 1, y0, 3, 1, fc); px(x, y0 + 1, 1, 1, fc);
+      }
+      if (season === 'winter' && r3 > 0.5) px(x, y0 - 1, 3, 1, '#f2f9ff');
+    }
+  });
+  // 3) 맨 앞 실루엣 — 가장 진한 잎 몇 장
+  for (let i = 0; i < 16; i++){
+    const r1 = R.prand('fsx' + i), r2 = R.prand('fsh' + i);
+    const x = Math.floor(r1 * (Wp + 10)) - 5, h = Math.round(9 + r2 * 7);
+    blob(x, base - h, 8, h, C[2], C[1], C[2], 'fs' + i);
+  }
 }
 // ---- 겹 8: 빛무리 ----
 function drawGlow(g, dark){
@@ -1825,23 +1878,23 @@ function drawFarm(cvIn, tms){
   g.clearRect(0, 0, cw, ch);
 
   // 1 땅
-  g.drawImage(paintLayer('ground', cw, ch, sigGround(season, wk), () => { drawGround(season); drawPath(season); }), 0, 0);
+  paintLayer('ground', cw, ch, sigGround(season, wk), () => { drawGround(season); drawPath(season); });
   // 2 지은 것 (등불 자리는 여기서 모인다)
-  g.drawImage(paintLayer('built', cw, ch, sigBuilt(cal, L.lamp), () => {
+  paintLayer('built', cw, ch, sigBuilt(cal, L.lamp), () => {
     lamps = [];
     drawPasture(season);
     drawDecor(season, L.lamp);
     drawHouse(L.lamp); drawMail(); drawBoard(); drawStall(cal);
     drawWell(L.lamp); drawGreenhouse(L.lamp); drawCoop(L.lamp); drawBarn(L.lamp); drawPethouse(L.lamp);
     drawHive(); drawScarecrow();
-  }), 0, 0);
+  });
   // 3 밭
-  g.drawImage(paintLayer('field', cw, ch, sigField(), () => {
+  paintLayer('field', cw, ch, sigField(), () => {
     drawFieldFrame();
     R.plotIds(W, 'field').forEach(id => drawPlot(id, W.plots[id], false));
-  }), 0, 0);
+  });
   // 4 작물
-  g.drawImage(paintLayer('crops', cw, ch, sigCrops(windStep), () => {
+  paintLayer('crops', cw, ch, sigCrops(windStep), () => {
     const open = R.plotIds(W, 'field');
     const sway = (x, y) => Math.round(Math.sin(windStep / 640 + x * 0.7 + y * 0.4) * curWind);
     open.forEach(id => {
@@ -1850,7 +1903,11 @@ function drawFarm(cvIn, tms){
       drawCrop(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, null, sway(q.x, q.y));
     });
     open.forEach(id => { const p = W.plots[id]; if (p && p.giant && p.pairOf && id < p.pairOf){ const q = R.parseId(id); drawGiant(id, p, sway(q.x, q.y)); } });
-  }), 0, 0);
+  });
+  // 1~3 은 거의 안 바뀌니 한 장으로 합쳐 두고, 자주 바뀌는 작물만 따로 얹는다.
+  // 이러면 매 프레임 전면 그림을 세 번만 얹는다 (뒤·작물·앞).
+  g.drawImage(composeBack(cw, ch, ['ground', 'built', 'field']), 0, 0);
+  g.drawImage(layers.crops.cv, 0, 0);
   // 5 살아 있는 것 — 나무까지 함께 아래에 있는 것부터. 그래야 아이가 나무 뒤로 지나간다.
   ctx = g;
   const cast = [];
@@ -1859,7 +1916,7 @@ function drawFarm(cvIn, tms){
   if (beasts) beasts.list.forEach(a => cast.push({ y: a.y, go: () => drawBeast(a, t) }));
   cast.sort((a, b) => a.y - b.y).forEach(c => c.go());
   // 6 앞겹
-  g.drawImage(paintLayer('front', cw, ch, sigFront(), () => drawFront(season)), 0, 0);
+  g.drawImage(paintLayer('front', cw, ch, sigFront(season), () => drawFront(season)), 0, 0);
   // 7 작은 것과 날씨
   ctx = g;
   drawDecorLive(season, t, L);
