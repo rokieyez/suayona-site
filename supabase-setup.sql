@@ -1044,3 +1044,47 @@ $$;
 drop policy if exists "anyone reads growth" on public.growth;
 create policy "guests read height only" on public.growth for select
   using (kind = 'height' or public.my_role() is not null);
+
+
+-- ─────────────────────────────────────────────────────────────
+-- quest_saves — 손님에게는 요약만 (2026-09-04)
+-- 왜: "anyone reads quest saves ... using (true)" 였다. 첫 화면 카드와 문 앞 카드가
+-- 세이브에서 몇 칸을 꺼내 쓰기 때문이었는데, 어떤 칸을 받을지는 부르는 쪽이 정하는
+-- 것이라 주소만 바꾸면 나머지도 그대로 따라 나온다.
+-- 「이번 주 발자국」을 넣으면서 이 표에 아이가 접속한 날짜가 21일치까지 쌓이기
+-- 시작했다(playDays). lastPlay·journalDay·lastGift·findTries 도 함께 들어 있다 —
+-- 아이가 언제 왔는지가 아무에게나 읽히는 셈이라 그대로 둘 수 없었다.
+-- 그래서 카드에 실제로 보이는 것만 돌려주는 함수를 두고, 표는 가족만 읽게 했다.
+create or replace function public.quest_cards()
+returns table (who text, data jsonb)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select q.who,
+         jsonb_build_object(
+           'lv',         coalesce(q.data->'lv',         '1'::jsonb),
+           'wins',       coalesce(q.data->'wins',       '[]'::jsonb),
+           'boss',       coalesce(q.data->'boss',       '[]'::jsonb),
+           'friends',    coalesce(q.data->'friends',    '[]'::jsonb),
+           'dexSkies',   coalesce(q.data->'dexSkies',   '[]'::jsonb),
+           'finds',      coalesce(q.data->'finds',      '{}'::jsonb),
+           'fights',     coalesce(q.data->'fights',     '0'::jsonb),
+           'weapon',     coalesce(q.data->'weapon',     '0'::jsonb),
+           'armor',      coalesce(q.data->'armor',      '0'::jsonb),
+           'weekWins',   coalesce(q.data->'weekWins',   '0'::jsonb),
+           'bestStreak', coalesce(q.data->'bestStreak', '0'::jsonb),
+           'week',       coalesce((q.data->'week') - 'day' - 'swings', '{}'::jsonb),
+           'lastWeek',   coalesce(q.data->'lastWeek',   'null'::jsonb)
+         )
+  from public.quest_saves q
+  where q.who in ('sua', 'yona');
+$$;
+revoke all on function public.quest_cards() from public;
+grant execute on function public.quest_cards() to anon, authenticated;
+
+drop policy if exists "anyone reads quest saves" on public.quest_saves;
+drop policy if exists "family reads quest saves" on public.quest_saves;
+create policy "family reads quest saves" on public.quest_saves for select
+  using (public.my_role() is not null);
