@@ -7,6 +7,9 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<!-- 이 쪽만 이 줄이 빠져 있었다. 아이 이름과 레벨·진행이 보이는 쪽이라 더 그러면 안 된다.
+     robots.txt 로 막지 않고 각 쪽에서 noindex 로 말하는 것이 이 사이트의 방식이다. -->
+<meta name="robots" content="noindex, nofollow">
 <title>수아연아 모험단 · 수아랑 연아랑</title>
 <meta name="description" content="수아와 연아가 현실에서 한 일이 경험치가 되는 턴제 도트 RPG. 일기를 쓰면 마음이, 작품을 올리면 힘이 자라요.">
 
@@ -50,8 +53,6 @@
   .xp{height:10px; border:2px solid var(--ink); background:#fff; margin:6px 0 10px; position:relative;}
   .xp i{position:absolute; left:0; top:0; bottom:0; background:var(--lemon);}
   .stat{display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:13px; align-items:baseline;}
-  .stat b{font-weight:800;}
-  .stat .why{font-size:11.5px; color:var(--ink-soft);}
   .bag{display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; font-size:13px; font-weight:800;}
   .combo{margin-top:10px; padding:8px 10px; background:var(--lemon); border:2px solid var(--ink); font-size:12.5px; font-weight:800;}
   .friends{display:flex; gap:6px; align-items:flex-end; margin-top:8px; min-height:22px; flex-wrap:wrap;}
@@ -61,7 +62,6 @@
 
   .real{list-style:none; margin:0; padding:0; font-size:13px; line-height:1.85;}
   .real li b{font-weight:800;}
-  .real li .to{color:var(--ink-soft); font-size:12px;}
   .real .tip{margin-top:8px; font-size:12px; color:var(--ink-soft); line-height:1.7;}
 
   .areas{display:grid; grid-template-columns:repeat(5,1fr); gap:6px;}
@@ -144,10 +144,6 @@
   .week canvas{width:66px; height:45px; image-rendering:pixelated;}
   .week .wb{flex:1; min-width:180px;}
   .week .wb .hpbar i{background:#b9a3d6;}
-  .wcmp{margin-top:5px; font-size:10.5px; color:var(--ink-soft);}
-  .wcmp span{display:block; margin-bottom:2px;}
-  .wcmp-bar{height:5px; border:1px solid var(--ink); background:#e7cfe0; position:relative;}
-  .wcmp-bar i{position:absolute; left:0; top:0; bottom:0; background:#b9a3d6;}
   .week .wsay{font-size:12.5px; line-height:1.7; margin-top:6px;}
   .msg{margin-top:8px; font-size:12.5px; color:var(--ink-soft);}
 
@@ -502,9 +498,9 @@ async function bootInner(){
   key = isChild && me && Q.HEROES[me.author_key] ? me.author_key : null;
   // 손님에게는 세이브 표를 안 연다 — 그 안에는 아이가 어느 날 왔는지(playDays·lastPlay
   // ·journalDay)가 들어 있다. 문 앞 카드에 필요한 요약만 주는 함수를 따로 부른다.
-  const got = isLoggedIn
-    ? await sb.from('quest_saves').select('who, data')
-    : await sb.rpc('quest_cards');
+  let got = isLoggedIn ? await sb.from('quest_saves').select('who, data') : { data: null, error: null };
+  // 로그인은 했지만 가족 프로필이 없는 계정이면 표가 비어 온다 — 그때도 카드는 보여야 한다.
+  if (!got.error && !(got.data && got.data.length)) got = await sb.rpc('quest_cards');
   const rows = got.data, error = got.error;
   if (error) throw error;
   (rows || []).forEach(r => {
