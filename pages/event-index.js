@@ -17,10 +17,7 @@ function formatDateRangeText(s, e){
   const f = d => (d[1]+1) + '. ' + d[2] + '(' + WEEKDAY[new Date(d[0],d[1],d[2]).getDay()] + ')';
   return s[0] + '. ' + f(s) + ' ~ ' + f(e);
 }
-function isoToDateKey(iso){
-  const [y,m,d] = iso.split('-').map(Number);
-  return [y, m-1, d];
-}
+// isoToDateKey 는 common.js 에 있다 (행사 세 쪽이 똑같은 것을 갖고 있었다).
 
 function getStatus(ev){
   const now = new Date();

@@ -14,10 +14,7 @@ function formatDateLabel(dateKey){
   const [y,m,d] = dateKey;
   return (m+1) + '/' + d + ' ' + WEEKDAY[new Date(y,m,d).getDay()];
 }
-function isoToDateKey(iso){
-  const [y,m,d] = iso.split('-').map(Number);
-  return [y, m-1, d];
-}
+// isoToDateKey 는 common.js 에 있다 (행사 세 쪽이 똑같은 것을 갖고 있었다).
 function buildDatePanels(startDate, endDate){
   const panels = [];
   let cur = new Date(startDate[0], startDate[1], startDate[2]);

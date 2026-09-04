@@ -343,6 +343,15 @@ async function refreshAuth(){
   return session;
 }
 
+// 다른 탭에서 로그아웃하거나 토큰이 갱신되면 이 탭의 me 도 낡는다. 세션이 바뀔 때마다
+// 다시 읽어 머리(메뉴·로그인 단추)를 맞추고, 쪽 스크립트가 원하면 받을 수 있게 알림을 띄운다.
+// 쪽마다의 관리 화면까지 여기서 다시 그리지는 않는다 — 그건 각 쪽이 `suayona:auth` 를 듣고 정한다.
+sb.auth.onAuthStateChange((event) => {
+  if (event !== 'SIGNED_IN' && event !== 'SIGNED_OUT' && event !== 'TOKEN_REFRESHED') return;
+  refreshAuth().then(() => document.dispatchEvent(new CustomEvent('suayona:auth', { detail: { event, me } })))
+    .catch(() => { /* 세션 확인 실패는 다음 refreshAuth 에서 다시 본다 */ });
+});
+
 // 로그인/로그아웃에 맞춰 시간표 단추를 보이고 감춘다.
 // 헤더는 로그인 확인보다 먼저 그려지므로, 여기서 뒤늦게 켜는 편이 깜빡임이 없다.
 function syncPrivateMenu(){
@@ -1417,6 +1426,12 @@ function formatDate(iso){
 
 // 맥에서 친 글은 한글이 자모로 쪼개진 NFD 로 저장돼 있는 경우가 있다.
 // 눈으로는 같지만 글자 수도 다르고 비교도 안 붙으므로, 화면에 내기 전에 NFC 로 모은다.
+// 행사 세 쪽(목록·상세·관리)이 똑같이 갖고 있던 날짜 열쇠 함수. 한 곳으로 모았다.
+function isoToDateKey(iso){
+  const [y,m,d] = iso.split('-').map(Number);
+  return [y, m-1, d];
+}
+
 function escapeHTML(s){
   return String(s == null ? '' : s).normalize('NFC')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
