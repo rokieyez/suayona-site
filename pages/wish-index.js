@@ -9,11 +9,11 @@ buildChrome('wish');
 // 이 쪽이 이벤트와 같은 「어디를 다녀왔나」의 자리이고 그림도 그쪽이 어울리기 때문이다.
 buildBackdrop('event');
 
-const CATS = ['전체', '놀이', '먹거리', '자연', '체험', '숙소'];
+const CATS = ['전체', '먹거리', '자연', '체험', '숙소'];
 const STATES = [['전체','all'], ['가보고 싶은 곳','want'], ['계획 중','planned'], ['가본 곳','done']];
 const SORTS = [['최근 순','recent'], ['별 높은 순','stars'], ['이름 순','name']];
 const SEASONS = ['아무때나', '봄', '여름', '가을', '겨울'];
-const CAT_ICON = { 놀이:'🎡', 먹거리:'🍜', 자연:'🌳', 체험:'🎨', 숙소:'🏨' };
+const CAT_ICON = { 먹거리:'🍜', 자연:'🌳', 체험:'🎨', 숙소:'🏨' };
 
 let PLACES = [];
 let EVENT_LIST = [];          // 다녀옴으로 바꿀 때 고를 이벤트 목록
