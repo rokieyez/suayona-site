@@ -173,6 +173,16 @@ function editHTML(p){
     '<label>다녀온 뒤 한마디</label><textarea class="e-review">' + escapeHTML(p.review || '') + '</textarea>' +
     '<label>링크 (한 줄에 하나)</label><textarea class="e-links">' +
       escapeHTML((p.links || []).join('\n')) + '</textarea>' +
+    '<label>사진</label>' +
+    '<div class="edit-pic">' +
+      '<div class="edit-pic-now">' + thumbHTML(p) + '</div>' +
+      '<div class="edit-pic-ctl">' +
+        '<input type="file" class="e-pic" accept="image/*">' +
+        (p.photo_url || p.thumb_url
+          ? '<label class="e-pic-off"><input type="checkbox" class="e-pic-del">사진 빼기</label>'
+          : '') +
+      '</div>' +
+    '</div>' +
     '<label><input class="e-again" type="checkbox" style="width:auto; margin-right:6px;"' +
       (p.again ? ' checked' : '') + '>또 가고 싶다</label>' +
     '<div class="act-row" style="margin-top:12px;">' +
@@ -490,6 +500,27 @@ $('#cards').addEventListener('click', async (e) => {
       again: box.querySelector('.e-again').checked,
       links: box.querySelector('.e-links').value.split('\n').map(s => s.trim()).filter(Boolean),
     };
+    // 사진: 새로 고른 것이 있으면 바꾸고, 「빼기」에 표시했으면 링크만 지운다.
+    //
+    // 스토리지의 파일 자체는 건드리지 않는다. 옮겨 온 27곳의 사진은 이벤트가 쓰고 있는
+    // 바로 그 파일이라, 여기서 지우면 이벤트 쪽 사진까지 사라진다. 링크를 끊는 것으로 족하다.
+    const 새사진 = box.querySelector('.e-pic').files[0];
+    const 빼기 = box.querySelector('.e-pic-del');
+    if (새사진) {
+      msg.className = 'msg'; msg.textContent = '사진 올리는 중...';
+      try {
+        const up = await uploadMedia(새사진, 'places');
+        patch.photo_url = up.url;
+        patch.thumb_url = up.thumbUrl;
+      } catch (err) {
+        msg.className = 'msg err'; msg.textContent = '사진을 올리지 못했습니다: ' + err.message;
+        return;
+      }
+    } else if (빼기 && 빼기.checked) {
+      patch.photo_url = null;
+      patch.thumb_url = null;
+    }
+
     msg.className = 'msg'; msg.textContent = '저장 중...';
     const { data, error } = await sb.from('places').update(patch).eq('id', id).select().maybeSingle();
     if (error) { msg.className = 'msg err'; msg.textContent = '저장 실패: ' + error.message; return; }

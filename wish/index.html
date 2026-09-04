@@ -187,6 +187,16 @@
   .edit-box textarea{min-height:60px; resize:vertical;}
   .edit-row{display:flex; gap:6px; flex-wrap:wrap;}
   .edit-row > div{flex:1 1 110px;}
+  /* 사진 바꾸기 — 지금 붙어 있는 것을 왼쪽에 보여 주고 오른쪽에서 고른다 */
+  .edit-pic{display:flex; gap:10px; align-items:flex-start;}
+  .edit-pic-now{width:64px; height:64px; flex:0 0 64px; border:2px solid var(--ink);
+    background:var(--paper-card); overflow:hidden; display:flex;
+    align-items:center; justify-content:center; font-size:24px;}
+  .edit-pic-now img{width:100%; height:100%; object-fit:cover; display:block;}
+  .edit-pic-ctl{flex:1; min-width:0;}
+  .edit-pic-ctl input[type=file]{font-size:11.5px;}
+  .e-pic-off{display:flex; align-items:center; margin-top:8px; font-size:11.5px; font-weight:700;}
+  .e-pic-off input{width:auto; margin-right:6px;}
 
   /* ===== 돌아보기 ===== */
   .best{border:var(--px) solid var(--ink); background:var(--paper-card); padding:16px;
