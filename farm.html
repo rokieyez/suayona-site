@@ -686,28 +686,37 @@ function fitPixelCanvas(cv, artW, artH, maxK){
 
 // ---------- 하루의 빛 ----------
 // 진짜 시계를 본다. 새벽·아침·낮·노을·밤이 이어지도록 사이 값을 섞는다.
+// 하루의 빛을 색보정 표로 둔다.
+// 곱하기 한 겹만 쓰면 낮이든 노을이든 화면 전체가 똑같이 탁해진다.
+// 어두운 쪽은 곱하기(c)로 눌러 물들이고, 밝은 쪽은 스크린(lift)으로 따로 들어 올린다.
+// 그래야 노을이 「전부 주황」이 아니라 「밝은 데가 주황, 그늘은 보라」가 된다.
+// lift 가 검정이면 아무 일도 안 하므로 한낮에는 두 번째 칠을 아예 건너뛴다.
 const SKY = [
-  { h: 0,    dark: .60, c: '#141a46' },
-  { h: 4.2,  dark: .56, c: '#1d2050' },
-  { h: 5.6,  dark: .40, c: '#4a3670' },
-  { h: 6.6,  dark: .22, c: '#c06a86' },
-  { h: 7.4,  dark: .12, c: '#ffb478' },
-  { h: 9.0,  dark: .03, c: '#ffe6b0' },
-  { h: 12,   dark: 0,   c: '#ffffff' },
-  { h: 16,   dark: .02, c: '#fff4d2' },
-  { h: 17.6, dark: .08, c: '#ffcf96' },
-  { h: 18.6, dark: .20, c: '#ff9a68' },
-  { h: 19.4, dark: .34, c: '#d1667e' },
-  { h: 20.2, dark: .46, c: '#6b4a86' },
-  { h: 21.2, dark: .56, c: '#2a2a63' },
-  { h: 22.5, dark: .60, c: '#141a46' },
-  { h: 24,   dark: .60, c: '#141a46' },
+  { h: 0,    dark: .60, c: '#141a46', lift: '#080d22' },
+  { h: 4.2,  dark: .56, c: '#1d2050', lift: '#091027' },
+  { h: 5.6,  dark: .40, c: '#4a3670', lift: '#110d2a' },
+  { h: 6.6,  dark: .22, c: '#c06a86', lift: '#180a20' },
+  { h: 7.4,  dark: .12, c: '#ffb478', lift: '#2a1604' },
+  { h: 9.0,  dark: .03, c: '#ffe6b0', lift: '#120c00' },
+  { h: 12,   dark: 0,   c: '#ffffff', lift: '#000000' },
+  { h: 16,   dark: .02, c: '#fff4d2', lift: '#100a00' },
+  { h: 17.6, dark: .08, c: '#ffcf96', lift: '#241202' },
+  { h: 18.6, dark: .20, c: '#ff9a68', lift: '#3a1a04' },
+  { h: 19.4, dark: .34, c: '#d1667e', lift: '#300e22' },
+  { h: 20.2, dark: .46, c: '#6b4a86', lift: '#140c28' },
+  { h: 21.2, dark: .56, c: '#2a2a63', lift: '#0a1028' },
+  { h: 22.5, dark: .60, c: '#141a46', lift: '#080d22' },
+  { h: 24,   dark: .60, c: '#141a46', lift: '#080d22' },
 ];
 function dayLight(){
   const d = new Date(), h = d.getHours() + d.getMinutes() / 60;
+  return lightAt(h);
+}
+function lightAt(h){
   let i = 0; while (i < SKY.length - 2 && SKY[i + 1].h <= h) i++;
   const a = SKY[i], b = SKY[i + 1], t = Math.max(0, Math.min(1, (h - a.h) / (b.h - a.h || 1)));
-  return { hour: h, dark: a.dark + (b.dark - a.dark) * t, tint: mix(a.c, b.c, t), lamp: (a.dark + (b.dark - a.dark) * t) > 0.16 };
+  const dark = a.dark + (b.dark - a.dark) * t;
+  return { hour: h, dark: dark, tint: mix(a.c, b.c, t), lift: mix(a.lift, b.lift, t), lamp: dark > 0.16 };
 }
 
 // ---------- 색 ----------
@@ -842,6 +851,8 @@ function drawAnimalAt(g, kind, X, Y, s, flip){
 // 칸마다 조금씩 다른 초록을 깔고, 그 위에 풀포기·조약돌·꽃을 흩뿌린다.
 // 같은 자리는 늘 같은 무늬가 나오도록 좌표로 난수를 만든다.
 function noise2(x, y, sc, salt){ return R.prand(salt + Math.floor(x / sc) + '_' + Math.floor(y / sc)); }
+// 얼룩을 한 겹만 쓰면 바둑판처럼 각이 진다. 성긴 겹과 촘촘한 겹을 섞으면 훨씬 자연스럽다.
+function noise2b(x, y, a, b, salt){ return noise2(x, y, a, salt) * 0.62 + noise2(x, y, b, salt + '~') * 0.38; }
 function drawGround(season){
   const P = GROUND[season], Wp = COLS * T, Hp = ROWS * T;
   // 1) 큰 얼룩 — 칸 경계를 넘어 이어지게. 이게 없으면 열여섯 칸짜리 바둑판이 눈에 띈다.
@@ -934,13 +945,27 @@ function drawPlot(id, p, gh){
   if (!p || !p.tilled) return;
   const wet = R.wetNow(p, now(), gh), S3 = wet ? SOIL.wet : SOIL.dry;
   px(X, Y, T, T, S3[0]);
-  px(X, Y, T, 1, shade(S3[0], 14));
-  // 고랑 — 갈아 놓은 결
-  for (let i = 2; i < T - 1; i += 3){ px(X + 1, Y + i, T - 2, 1, S3[2]); px(X + 1, Y + i + 1, T - 2, 1, S3[1]); }
-  // 흙 알갱이
-  for (let i = 0; i < 5; i++){
-    const rr = R.prand('s' + id + i);
-    px(X + 1 + Math.floor(rr * (T - 3)), Y + 1 + Math.floor(R.prand('z' + id + i) * (T - 3)), 1, 1, shade(S3[0], rr > .5 ? 16 : -14));
+  // 흙 얼룩 — 칸 경계를 넘어 이어지는 큰 무늬라 밭 전체가 한 장의 흙처럼 보인다.
+  // 좌표로 난수를 만들므로 칸 크기가 바뀌어도 무늬는 그대로 이어진다.
+  for (let dy = 0; dy < T; dy += 2) for (let dx = 0; dx < T; dx += 2){
+    const v = noise2b(X + dx, Y + dy, 7, 3, 'so');
+    if (v > 0.64) px(X + dx, Y + dy, 2, 2, shade(S3[0], 13));
+    else if (v < 0.3) px(X + dx, Y + dy, 2, 2, shade(S3[0], -13));
+  }
+  // 칸 위쪽 밝은 선은 통으로 그으면 칸마다 밝은 줄이 생겨 바둑판이 된다 — 흩뿌린다
+  ditherRow(X, Y, T, shade(S3[0], 15), 0.6, Y);
+  // 고랑 — 갈아 놓은 결. 골 밑에 그늘을 흩뿌리면 파인 자국처럼 읽힌다
+  for (let i = 2; i < T - 1; i += 3){
+    px(X + 1, Y + i, T - 2, 1, S3[2]);
+    px(X + 1, Y + i + 1, T - 2, 1, S3[1]);
+    ditherRow(X + 1, Y + i + 2, T - 2, shade(S3[0], -13), 0.42, Y + i);
+  }
+  // 흙 알갱이와 잔돌
+  for (let i = 0; i < 7; i++){
+    const rr = R.prand('s' + id + i), r2 = R.prand('z' + id + i);
+    const gx = X + 1 + Math.floor(rr * (T - 3)), gy = Y + 1 + Math.floor(r2 * (T - 3));
+    if (i < 2){ px(gx, gy, 2, 1, shade(S3[0], -22)); px(gx, gy - 1, 1, 1, shade(S3[0], 20)); }
+    else px(gx, gy, 1, 1, shade(S3[0], rr > .5 ? 18 : -16));
   }
   if (wet){ px(X + 3, Y + 4, 2, 1, '#7fbfe066'); px(X + T - 6, Y + T - 5, 2, 1, '#7fbfe066'); }
   if (p.fert){ px(X + 2, Y + T - 3, 2, 1, '#e8dcae'); px(X + T - 5, Y + 3, 2, 1, '#e8dcae'); px(X + 7, Y + T - 6, 1, 1, '#e8dcae'); }
@@ -1056,6 +1081,24 @@ function drawGiant(id, p, sway){
   if (p.pulls && p.pulls.length) p.pulls.forEach((who, i) => { const c = who === 'sua' ? '#ff7f8a' : '#6cc7b3'; px(X + 3 + i * 10, Y + 3, 6, 6, c); px(X + 3 + i * 10, Y + 3, 3, 2, shade(c, 26)); });
 }
 
+// ---------- 흩뿌려 섞기 ----------
+// 색을 하나 더 만드는 대신 두 색을 규칙적으로 번갈아 찍으면 눈이 중간 색으로 읽는다.
+// 도트 그림에서 단을 늘리는 가장 싼 방법이고, 담아 두는 겹 안에서만 쓰므로
+// 매 장 드는 값은 없다. 순서표(BAYER)를 쓰면 얼룩이 뭉치지 않고 고르게 퍼진다.
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+function ditherRow(X, Y, w, c, amt, row, P){
+  const put = P || pxMap;
+  const th = Math.round(Math.max(0, Math.min(1, amt)) * 16);
+  if (th <= 0) return;
+  const r4 = ((row % 4) + 4) % 4;
+  for (let x = 0; x < w; x++){
+    if (BAYER[r4 * 4 + (((X + x) % 4) + 4) % 4] < th) put(X + x, Y, 1, 1, c);
+  }
+}
+function ditherRect(X, Y, w, h, c, amt, P){
+  for (let y = 0; y < h; y++) ditherRow(X, Y + y, w, c, amt, Y + y, P);
+}
+
 // ---------- 건물 ----------
 // 밤에 불이 켜지는 자리는 여기에 모아 둔다. 바탕을 그릴 때 채우고, 어두워지면 그 위에 빛을 얹는다.
 let lamps = [];
@@ -1063,18 +1106,30 @@ function lamp(x, y, r, c){ lamps.push({ x, y, r, c: c || '#ffcf7a' }); }
 // 널빤지 벽 — 같은 색을 통으로 칠하지 않고 판자 결과 못 자국을 넣는다.
 function planks(X, Y, w, h, base){
   px(X, Y, w, h, base);
+  // 아래로 갈수록 조금씩 어둡게 — 벽이 판판한 색종이처럼 보이지 않는다
+  for (let y = 0; y < h; y++){
+    const t = h > 1 ? y / (h - 1) : 0;
+    if (t > 0.3) ditherRow(X, Y + y, w, shade(base, -12), (t - 0.3) * 1.1, Y + y);
+  }
   for (let i = 0; i < h; i += 4){ px(X, Y + i, w, 1, shade(base, 12)); px(X, Y + i + 3, w, 1, shade(base, -16)); }
   for (let i = 6; i < w; i += 11) px(X + i, Y, 1, h, shade(base, -22));
 }
 // 지붕 — 기와를 한 줄씩 어긋나게
 function roof(X, Y, w, h, base){
+  // 다섯 단. 위는 하늘을 보아 밝고 처마로 갈수록 어둡다. 단과 단 사이는 흩뿌려 섞어
+  // 줄무늬처럼 끊기지 않게 한다.
+  const tone = d => shade(base, 20 - d * 12);
   for (let i = 0; i < h; i++){
-    const c = i % 2 ? shade(base, -14) : base;
-    px(X - i, Y + i, w + i * 2, 1, c);
-    for (let j = (i % 2) * 4; j < w + i * 2; j += 8) px(X - i + j, Y + i, 1, 1, shade(base, -30));
+    const t = h > 1 ? i / (h - 1) : 0;
+    const lv = t * 4, k = Math.min(3, Math.floor(lv)), f = lv - k;
+    const rowX = X - i, rowW = w + i * 2;
+    px(rowX, Y + i, rowW, 1, tone(k));
+    if (f > 0.04) ditherRow(rowX, Y + i, rowW, tone(k + 1), f, i);
+    if (i % 2) ditherRow(rowX, Y + i, rowW, shade(base, -22), 0.4, i + 2);      // 기와 결
+    for (let j = (i % 2) * 4; j < rowW; j += 8) px(rowX + j, Y + i, 1, 1, shade(base, -32));
   }
-  px(X - h + 1, Y + h, w + h * 2 - 2, 2, shade(base, -34));
-  px(X, Y, w, 1, shade(base, 26));
+  px(X - h + 1, Y + h, w + h * 2 - 2, 2, shade(base, -36));
+  px(X, Y, w, 1, shade(base, 30));
 }
 function window4(X, Y, w, h, on){
   px(X - 1, Y - 1, w + 2, h + 2, WOOD.dark);
@@ -1235,7 +1290,20 @@ function drawPasture(season){
   // 안쪽 풀은 조금 더 진하게 — 여기가 목장이라는 게 한눈에
   const P = GROUND[season];
   px(X + 2, Y + 2, w - 4, h - 4, shade(P.g[2], -8));
-  for (let i = 0; i < 70; i++){
+  // 밟혀 풀이 눕고 흙이 드러난 자리 — 얼룩을 좌표 난수로 깔아 밋밋함을 없앤다
+  for (let dy = 2; dy < h - 2; dy += 2) for (let dx = 2; dx < w - 2; dx += 2){
+    const v = noise2b(X + dx, Y + dy, 7, 3, 'pg');
+    if (v > 0.7) px(X + dx, Y + dy, 2, 2, shade(P.g[1], -6));
+    else if (v < 0.24) px(X + dx, Y + dy, 2, 2, mix(shade(P.g[2], -18), P.dry, 0.35));
+  }
+  // 짐승이 다니는 길 — 가운데가 닳아 흙빛
+  for (let dx = 6; dx < w - 6; dx += 2){
+    const wob = Math.round(Math.sin(dx / 9) * 4 + Math.sin(dx / 3.5) * 1.5);
+    const road = mix(shade(P.g[2], -22), '#836448', 0.7);
+    ditherRow(X + dx, Y + h / 2 + wob, 2, road, 0.6, dx);
+    ditherRow(X + dx, Y + h / 2 + wob + 2, 2, road, 0.3, dx + 1);
+  }
+  for (let i = 0; i < 90; i++){
     const rr = R.prand('pa' + i), r2 = R.prand('pb' + i);
     px(X + 3 + Math.floor(rr * (w - 7)), Y + 3 + Math.floor(r2 * (h - 7)), 1, 2, P.tuft[i % 2]);
   }
@@ -1381,9 +1449,16 @@ function blob(cx, cy, w, h, mid, hi, lo, seed, P){
     const x0 = Math.round(cx - ww / 2);
     px(x0, cy + r, ww, 1, mid);
     const lit = Math.round(ww * (0.5 - t * 0.42));
-    if (lit > 1 && t < 0.6) px(x0 + 1, cy + r, lit, 1, hi);
+    if (lit > 1 && t < 0.6){
+      px(x0 + 1, cy + r, lit, 1, hi);
+      // 밝은 데와 중간 사이를 두 도트쯤 흩뿌려 섞으면 단 경계가 안 보인다
+      if (x0 + 1 + lit + 2 <= x0 + ww) ditherRow(x0 + 1 + lit, cy + r, 2, hi, 0.5, r, P);
+    }
     const sh = Math.round(ww * (t - 0.45) * 0.9);
-    if (sh > 1) px(x0 + ww - sh, cy + r, sh, 1, lo);
+    if (sh > 1){
+      px(x0 + ww - sh, cy + r, sh, 1, lo);
+      if (ww - sh - 2 >= 0) ditherRow(x0 + ww - sh - 2, cy + r, 2, lo, 0.5, r, P);
+    }
   }
 }
 // ---------- 나무·바위 ----------
@@ -2020,13 +2095,8 @@ function drawFarm(cvIn, tms){
   drawSmoke(t);
   drawCritters(season, t, L);
   drawWeather(wk, season, t, cv);
-  // 9 물들임 — 아래 색을 곱해야 자연스러워서 담아 둘 수 없다. 네모 두 번이라 싸다.
-  if (L.dark > 0.02){
-    g.save(); g.globalCompositeOperation = 'multiply';
-    g.globalAlpha = Math.min(1, L.dark * 1.45);
-    g.fillStyle = L.tint; g.fillRect(0, 0, cw, ch); g.restore();
-  }
-  if (L.dark > 0.3){ g.fillStyle = 'rgba(22,28,74,' + ((L.dark - 0.3) * 0.55).toFixed(3) + ')'; g.fillRect(0, 0, cw, ch); }
+  // 9 색보정 — 아래 색을 봐야 해서 담아 둘 수 없다. 전면 칠 두 번이라 싸다.
+  grade(g, cw, ch, L);
   // 8 빛무리 — 미리 만들어 둔 겹을 얹기만 한다
   if (L.lamp && lamps.length){
     g.save(); g.globalCompositeOperation = 'lighter';
@@ -2035,6 +2105,19 @@ function drawFarm(cvIn, tms){
   }
   ctx = g;
   drawPlaceOverlay(t);
+}
+// 어두운 쪽은 눌러 물들이고(곱하기), 밝은 쪽은 들어 올린다(스크린).
+function grade(g, cw, ch, L, k){
+  const s = k == null ? 1 : k;
+  if (L.dark > 0.02){
+    g.save(); g.globalCompositeOperation = 'multiply';
+    g.globalAlpha = Math.min(0.94, L.dark * 1.28) * s;
+    g.fillStyle = L.tint; g.fillRect(0, 0, cw, ch); g.restore();
+  }
+  if (L.lift && L.lift !== '#000000'){
+    g.save(); g.globalCompositeOperation = 'screen'; g.globalAlpha = s;
+    g.fillStyle = L.lift; g.fillRect(0, 0, cw, ch); g.restore();
+  }
 }
 // ---------- 움직이는 그림 ----------
 // 창이 숨겨져 있거나 「움직임 줄이기」를 켠 사람에게는 한 장만 그린다.
@@ -2451,6 +2534,16 @@ function drawRoomShell(g, r, L){
       const v = R.prand('fg' + r + row + i);
       if (v > 0.68) q(i, fy + row + 1 + (Math.floor(v * 37) % 5), 5, 1, shade(base, v > 0.9 ? 9 : -8));
     }
+    // 널마다 밝기를 조금씩 달리하고 아래쪽을 흩뿌려 어둡게 — 판판한 색종이가 안 된다
+    for (let k = 1; k < 6; k++) ditherRow(0, fy + row + k, Wp, shade(base, -7), k / 13, fy + row + k, q);
+    // 옹이
+    for (let i = 0; i < Wp; i += 29){
+      const v = R.prand('fk' + r + row + i);
+      if (v > 0.55){
+        const kx = i + Math.floor(v * 13), ky = fy + row + 2 + (Math.floor(v * 53) % 3);
+        q(kx, ky, 3, 2, shade(base, -26)); q(kx + 1, ky, 1, 1, shade(base, -40)); q(kx, ky - 1, 3, 1, shade(base, 6));
+      }
+    }
     const off = ((row / 7) % 3) * 15;
     for (let x = off; x < Wp; x += 46){ q(x, fy + row, 1, 7, shade(base, -30)); q(x + 1, fy + row, 1, 7, shade(base, 10)); }
     q(0, fy + row + 6, Wp, 1, shade(base, -13));
@@ -2753,11 +2846,8 @@ function drawRoom(cv, r, tms){
     g.drawImage(outlined('bcat', BEAST.cat.art, BEAST.cat.pal, false, HS), (p[0] * T + 1) * HS, (WALLH + p[1] * T + 3 - wag) * HS);
   }
   ctx = keep2;
-  // 빛 — 밤에는 어둡고 등이 밝다
-  if (L.dark > 0.06){
-    g.save(); g.globalCompositeOperation = 'multiply'; g.globalAlpha = Math.min(0.82, L.dark * 1.25);
-    g.fillStyle = L.tint; g.fillRect(0, 0, cw, ch); g.restore();
-  }
+  // 빛 — 방도 농장과 같은 표로 물들인다. 안쪽은 조금 덜 어둡게.
+  if (L.dark > 0.06) grade(g, cw, ch, L, 0.82);
   if (L.dark > 0.12 && glow.length){
     g.save(); g.globalCompositeOperation = 'lighter';
     const power = Math.min(1, L.dark * 1.9);
