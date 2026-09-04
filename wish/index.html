@@ -277,9 +277,45 @@
         <select id="season"><option>아무때나</option><option>봄</option><option>여름</option><option>가을</option><option>겨울</option></select>
       </div>
       <div>
+        <label for="status">어디까지 왔나</label>
+        <select id="status">
+          <option value="want">가보고 싶은 곳</option>
+          <option value="done">가본 곳</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 가기 전에는 기대를, 다녀온 뒤에는 별을 쓴다. 둘을 한꺼번에 보여 주면
+         무엇을 적는 칸인지 헷갈린다. -->
+    <div class="add-row" id="hopeWrap">
+      <div>
         <label for="hope">얼마나 가고 싶은지</label>
         <select id="hope"><option value="0">보통</option><option value="1">★</option><option value="2" selected>★★</option><option value="3">★★★</option></select>
       </div>
+    </div>
+
+    <div id="doneFields" hidden>
+      <div class="add-row">
+        <div>
+          <label for="visited">다녀온 날</label>
+          <input id="visited" type="date">
+        </div>
+        <div>
+          <label for="stars">별점</label>
+          <select id="stars">
+            <option value="">아직 안 매김</option>
+            <option value="1">★</option><option value="2">★★</option>
+            <option value="3">★★★</option><option value="4">★★★★</option><option value="5">★★★★★</option>
+          </select>
+        </div>
+      </div>
+      <label for="eventSel">이어진 이벤트</label>
+      <select id="eventSel"><option value="">— 이벤트 없음 —</option></select>
+      <p class="hint">고르면 카드에 「이벤트 보기」가 생깁니다. 다녀온 날을 비워 두었으면
+        그 이벤트의 시작일을 넣어 둡니다.</p>
+      <label for="review">다녀온 뒤 한마디</label>
+      <textarea id="review" placeholder="어땠는지 한 줄"></textarea>
+      <label><input id="again" type="checkbox" style="width:auto; margin-right:6px;">또 가고 싶다</label>
     </div>
 
     <label for="memo">메모</label>

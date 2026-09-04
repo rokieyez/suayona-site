@@ -561,6 +561,46 @@ $('#q').addEventListener('input', (e) => {
   }, 280);
 });
 
+// 「가본 곳」을 고르면 다녀온 날·별점·이벤트·한마디 칸이 나온다.
+function syncAddMode(){
+  const done = $('#status').value === 'done';
+  $('#doneFields').hidden = !done;
+  $('#hopeWrap').hidden = done;
+}
+$('#status').addEventListener('change', () => { syncAddMode(); fillEventSelect(); });
+
+// 이벤트 목록은 관리자에게만, 그것도 처음 필요할 때 한 번만 떠 온다.
+async function fillEventSelect(){
+  const sel = $('#eventSel');
+  if (!sel || sel.dataset.filled) return;
+  await loadEventList();
+  if (!EVENT_LIST.length) return;
+  sel.innerHTML = '<option value="">— 이벤트 없음 —</option>' +
+    EVENT_LIST.map(e => '<option value="' + escapeHTML(e.event_id) + '">' +
+      escapeHTML((e.event_name || e.event_id) + (e.org_name ? ' · ' + e.org_name : '')) +
+      '</option>').join('');
+  sel.dataset.filled = '1';
+}
+
+// 이벤트를 고르면 다녀온 날을 그 이벤트 시작일로 채워 준다 — 비어 있을 때만.
+// 이미 적어 둔 날짜를 말없이 덮으면 안 된다.
+$('#eventSel').addEventListener('change', (e) => {
+  if ($('#visited').value) return;
+  const ev = EVENT_LIST.find(x => x.event_id === e.target.value);
+  if (ev && ev.start_date) $('#visited').value = ev.start_date;
+  syncSeasonFromDate();
+});
+
+// 다녀온 날을 넣으면 계절도 그 달에 맞춘다. 사람이 다시 고칠 수 있다.
+function syncSeasonFromDate(){
+  const v = $('#visited').value;
+  if (!v) return;
+  const m = Number(v.split('-')[1]);
+  if (!m) return;
+  $('#season').value = (m === 12 || m <= 2) ? '겨울' : m <= 5 ? '봄' : m <= 8 ? '여름' : '가을';
+}
+$('#visited').addEventListener('change', syncSeasonFromDate);
+
 // 고른 사진을 미리 보여 준다. 올리는 것은 「넣기」를 누를 때다.
 let pickedPic = null;
 $('#pic').addEventListener('change', (e) => {
@@ -579,15 +619,26 @@ $('#addBtn').addEventListener('click', async () => {
   const msg = $('#addMsg');
   const name = $('#q').value.trim();
   if (!name) { msg.className = 'msg err'; msg.textContent = '장소 이름을 적어 주세요.'; return; }
+  const status = $('#status').value;
   const row = {
     name: picked ? picked.name : name,
     category: $('#cat').value,
     season: $('#season').value,
-    hope: +$('#hope').value,
     memo: $('#memo').value.trim() || null,
     links: $('#link').value.split('\n').map(s => s.trim()).filter(Boolean),
-    status: 'want',
+    status,
   };
+  if (status === 'done') {
+    // 다녀온 곳은 기대를 적을 자리가 아니다. 별과 한마디, 그리고 언제 어느 이벤트였는지.
+    row.hope = 0;
+    row.visited_on = $('#visited').value || null;
+    row.event_id = $('#eventSel').value || null;
+    row.stars = $('#stars').value ? +$('#stars').value : null;
+    row.review = $('#review').value.trim() || null;
+    row.again = $('#again').checked;
+  } else {
+    row.hope = +$('#hope').value;
+  }
   // 찾아서 고른 자리가 있으면 좌표까지 넣는다. 손으로만 적었으면 지도에는 안 찍힌다.
   if (picked) { row.lat = picked.lat; row.lng = picked.lng; row.address = picked.address; }
 
@@ -634,6 +685,8 @@ $('#addBtn').addEventListener('click', async () => {
   picked = null; pickedPic = null;
   $('#q').value = ''; $('#memo').value = ''; $('#link').value = '';
   $('#pic').value = ''; $('#picPreview').hidden = true;
+  $('#visited').value = ''; $('#stars').value = ''; $('#review').value = '';
+  $('#again').checked = false; $('#eventSel').value = '';
   msg.className = 'msg ok'; msg.textContent = '넣었습니다.';
   render();
   // 좌표가 있는 첫 곳이면 이제야 지도를 그릴 수 있다. 이미 그렸으면 핀만 다시 얹는다
@@ -646,6 +699,7 @@ $('#addBtn').addEventListener('click', async () => {
 async function refreshAuthUI(){
   await refreshAuth();
   $('#addBox').hidden = !isAdmin;
+  if (isAdmin) { syncAddMode(); fillEventSelect(); }
   $('#headNote').textContent = isAdmin
     ? '가고 싶은 곳을 적어 두고, 다녀오면 별을 매겨 남겨요'
     : '가고 싶은 곳과 다녀온 곳을 한 지도에 모았어요';
@@ -661,5 +715,6 @@ async function refreshAuthUI(){
 // 로그인 상태가 바뀌면 관리 단추도 따라 바뀌어야 한다 (common.js 가 알려 준다)
 document.addEventListener('suayona:auth', () => {
   $('#addBox').hidden = !isAdmin;
+  if (isAdmin) { syncAddMode(); fillEventSelect(); }
   render();
 });
