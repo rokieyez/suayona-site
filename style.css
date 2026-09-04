@@ -219,7 +219,12 @@ canvas{-webkit-tap-highlight-color:transparent;}
 #authBody .login-box .inner{padding:0;}
 
 /* ===== 페이지 공통 레이아웃 ===== */
-.wrap{max-width:960px; margin:0 auto; padding:0 20px;}
+/* width:100% 가 꼭 있어야 한다. body.has-backdrop 은 세로 flex 인데, flex 항목의
+   교차축 자동 여백(margin:0 auto)은 stretch 를 꺼 버린다 — 그러면 폭이 내용에
+   맞춰 쪼그라든다. 이벤트 목록이 <main class="wrap"> 이라 1440px 화면에서
+   640px 상한은커녕 377px 로 나왔다. 100% 를 박아 두면 어느 자리에 걸든 안전하다
+   (box-sizing:border-box 라 padding 과 겹쳐도 넘치지 않는다). */
+.wrap{width:100%; max-width:960px; margin:0 auto; padding:0 20px;}
 /* 브라우저 기본 [hidden]{display:none} 은 작성자 규칙에 진다. .dot-btn 의
    inline-flex, .cap-video 의 flex, .growth-add 의 flex 처럼 display 를 정한
    요소는 el.hidden = true 를 걸어도 그대로 보였다 — 캡슐 영상 「지우기」가
