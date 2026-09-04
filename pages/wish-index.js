@@ -10,7 +10,7 @@ buildChrome('wish');
 buildBackdrop('event');
 
 const CATS = ['전체', '먹거리', '자연', '체험', '숙소'];
-const STATES = [['전체','all'], ['가보고 싶은 곳','want'], ['계획 중','planned'], ['가본 곳','done']];
+const STATES = [['전체','all'], ['가보고 싶은 곳','want'], ['가본 곳','done']];
 const SORTS = [['최근 순','recent'], ['별 높은 순','stars'], ['이름 순','name']];
 const SEASONS = ['아무때나', '봄', '여름', '가을', '겨울'];
 const CAT_ICON = { 먹거리:'🍜', 자연:'🌳', 체험:'🎨', 숙소:'🏨' };
@@ -25,7 +25,9 @@ const pinEls = {};
 // 별은 하나뿐이라 평균을 낼 것이 없다. 0 이나 null 이면 「아직 안 매김」이다.
 function score(p){ return p.stars > 0 ? p.stars : null; }
 function starText(n, max){ return '★'.repeat(n) + '☆'.repeat(max - n); }
-function stateLabel(s){ return s === 'want' ? '가보고 싶은 곳' : s === 'planned' ? '계획 중' : '다녀옴'; }
+// 상태는 둘뿐이다. 「계획 중」을 따로 두었더니 언제 옮겨야 하는지가 애매해
+// 손이 안 갔다 — 날을 잡기 전까지는 다 「가보고 싶은 곳」이다.
+function stateLabel(s){ return s === 'done' ? '다녀옴' : '가보고 싶은 곳'; }
 function iconOf(p){ return CAT_ICON[p.category] || '📍'; }
 
 // 지금이 어느 계절인지. 12·1·2 를 겨울로 묶는다.
@@ -160,8 +162,7 @@ function editHTML(p){
   return '<div class="edit-box" data-edit="' + p.id + '">' +
     '<div class="edit-row">' +
       '<div><label>어디까지 왔나</label><select class="e-status">' +
-        '<option value="want"' + (p.status === 'want' ? ' selected' : '') + '>가보고 싶은 곳</option>' +
-        '<option value="planned"' + (p.status === 'planned' ? ' selected' : '') + '>계획 중</option>' +
+        '<option value="want"' + (p.status !== 'done' ? ' selected' : '') + '>가보고 싶은 곳</option>' +
         '<option value="done"' + (p.status === 'done' ? ' selected' : '') + '>다녀옴</option>' +
       '</select></div>' +
       '<div><label>무엇</label><select class="e-cat">' + opt(CATS.slice(1), p.category) + '</select></div>' +
