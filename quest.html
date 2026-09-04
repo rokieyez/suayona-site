@@ -28,6 +28,7 @@
   .q-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;}
   @media (max-width:720px){ .q-grid{grid-template-columns:1fr;} }
   .q-card{padding:14px 16px;}
+  .q-col{display:flex; flex-direction:column; gap:14px;}
   .q-card h3{margin:0 0 10px; font-size:13px; letter-spacing:.04em;}
   .q-head{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
   .q-head canvas{width:42px; height:40px; image-rendering:pixelated;}
@@ -38,6 +39,9 @@
     border:2px solid var(--ink); background:var(--lemon); color:var(--ink);
   }
   .badge.streak{background:#ffd9c2; margin-left:4px;}
+  .realbtn{margin:10px 0 2px;}
+  #todayCard .mission{margin-top:0;}
+  #todayCard .today{margin-top:12px;}
   .mission{margin-top:10px; padding:8px 10px; border:2px solid var(--ink); background:#eef7ff; font-size:12.5px; line-height:1.6;}
   .mission.done{background:var(--mint);}
   .mission b{display:block;}
@@ -120,8 +124,9 @@
   .qlog{padding:10px 12px; font-size:13px; line-height:1.7; min-height:44px; border-top:2px solid rgba(47,42,36,.12); background:#fff6e9;}
   .qlog b{font-weight:800;}
 
-  .shop{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
-  @media (max-width:520px){ .shop{grid-template-columns:1fr;} }
+  .shop{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  @media (max-width:720px){ .shop{grid-template-columns:1fr 1fr;} }
+  @media (max-width:420px){ .shop{grid-template-columns:1fr;} }
   .shop button{
     font:inherit; font-size:13px; font-weight:800; cursor:pointer; text-align:left; padding:10px 12px;
     border:2px solid var(--ink); background:#fff; color:var(--ink); border-radius:0; box-shadow:2px 2px 0 var(--ink);
@@ -324,24 +329,25 @@
           </div>
           <div class="xp"><i id="xpFill"></i></div>
           <div class="stat" id="stat"></div>
+          <button type="button" class="dot-btn small realbtn" id="realOpen">📊 현실 → 모험</button>
           <div class="bag" id="bag"></div>
           <div class="skill-list" id="skillList"></div>
-          <div class="mission" id="mission"></div>
           <div class="friends" id="friends"></div>
           <div class="friend-say" id="friendSay"></div>
           <div class="combo" id="combo" hidden></div>
         </div>
-        <div class="dot-card q-card reveal">
-          <h3 class="pixel">현실 → 모험</h3>
-          <ul class="real" id="real"></ul>
-          <p class="tip">숫자는 서버가 직접 세요. 🌳는 키가 더 자라면 열리는 숨은 무대예요.</p>
+        <div class="q-col">
+          <div class="dot-card q-card reveal" id="todayCard">
+            <h3 class="pixel">오늘 · 이번 주</h3>
+            <div class="mission" id="mission"></div>
+            <div class="today" id="todayBox"></div>
+            <div class="wkfoot" id="weekFoot"></div>
+          </div>
+          <div class="dot-card q-card reveal">
+            <h3 class="pixel">이번 주 보스</h3>
+            <div class="week" id="week"></div>
+          </div>
         </div>
-      </div>
-
-      <div class="dot-card q-card reveal" id="todayCard">
-        <h3 class="pixel">오늘 · 이번 주</h3>
-        <div class="today" id="todayBox"></div>
-        <div class="wkfoot" id="weekFoot"></div>
       </div>
 
       <div class="dot-card q-card reveal" id="mapCard">
@@ -369,18 +375,12 @@
         <div class="qlog" id="qlog" aria-live="polite"></div>
       </div>
 
-      <div class="q-grid" style="margin-top:14px;">
-        <div class="dot-card q-card reveal">
-          <h3 class="pixel">가게</h3>
-          <div class="shop" id="shop"></div>
-          <div class="msg" id="shopMsg"></div>
-          <div class="gear-now" id="gearNow"></div>
-          <div class="gear-pick" id="gearPick" hidden></div>
-        </div>
-        <div class="dot-card q-card reveal">
-          <h3 class="pixel">이번 주 보스</h3>
-          <div class="week" id="week"></div>
-        </div>
+      <div class="dot-card q-card reveal" style="margin-top:14px;">
+        <h3 class="pixel">가게</h3>
+        <div class="shop" id="shop"></div>
+        <div class="msg" id="shopMsg"></div>
+        <div class="gear-now" id="gearNow"></div>
+        <div class="gear-pick" id="gearPick" hidden></div>
       </div>
 
       <div class="dot-card q-card reveal">
@@ -390,6 +390,17 @@
         <div class="cells" id="findBox"></div>
         <div class="titles" id="titleBox"></div>
       </div>
+    </div>
+
+    <!-- 현실 → 모험. 늘 펴 두면 화면이 글자로 붐벼서, 눌렀을 때만 연다. -->
+    <div class="modal" id="realModal" hidden>
+      <div class="modal-box dot-card"><div class="inner">
+        <h3 class="pixel">현실 → 모험</h3>
+        <p class="msg" style="margin:0 0 10px;">현실에서 한 일이 어떤 힘이 됐는지예요.</p>
+        <ul class="real" id="real"></ul>
+        <p class="tip">숫자는 서버가 직접 세요. 🌳는 키가 더 자라면 열리는 숨은 무대예요.</p>
+        <div class="modal-actions"><button type="button" class="dot-btn small" id="realClose">닫기</button></div>
+      </div></div>
     </div>
   </div>
 </section>
@@ -616,7 +627,7 @@ function missionTick(id, area){
   if (save.mission.n >= m.need) return;
   save.mission.n++;
   dirty = true;
-  if (save.mission.n >= m.need){ sfx('key'); notice('📌 <b>오늘의 미션</b>을 다 했어요! 보상은 이름표 아래에서 받아요.'); }
+  if (save.mission.n >= m.need){ sfx('key'); notice('📌 <b>오늘의 미션</b>을 다 했어요! 보상은 「오늘 · 이번 주」 칸에서 받아요.'); }
   if (!battle) renderMission();
 }
 function renderMission(){
@@ -703,6 +714,18 @@ function renderStatus(){
   if (combo) cb.textContent = '💞 오늘 ' + hero.call + '도 모험 중 — 피해 ×' + Q.COMBO_MULT;
 }
 function paintLeft(){ return Math.max(0, (facts.works || 0) - (save.spentPaint || 0)); }
+
+// 현실 → 모험 팝업 — 늘 펴 두면 화면이 붐빈다. 눌렀을 때만 연다.
+(function(){
+  const m = $('#realModal'), openBtn = $('#realOpen'), closeBtn = $('#realClose');
+  if (!m || !openBtn || !closeBtn) return;
+  const open = () => { if (st) renderReal(); m.hidden = false; sfx('pop'); closeBtn.focus(); };
+  const close = () => { m.hidden = true; openBtn.focus(); };
+  openBtn.addEventListener('click', open);
+  closeBtn.addEventListener('click', close);
+  m.addEventListener('click', e => { if (e.target === m) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !m.hidden) close(); });
+})();
 
 // 친구 소개 — 언제 어디서 친구가 됐는지. 도감과 달리 '우리 사이의 기록'이다.
 function showFriend(f){

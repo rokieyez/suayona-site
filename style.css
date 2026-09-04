@@ -48,9 +48,10 @@ a.dot-card:hover, .dot-card.hoverable:hover{
 .dot-btn:hover{transform:translate(2px,2px); box-shadow:2px 2px 0 var(--ink);}
 .dot-btn:active{transform:translate(var(--px),var(--px)); box-shadow:0 0 0 var(--ink);}
 .dot-btn:disabled{opacity:.55; cursor:default; transform:none; box-shadow:var(--px) var(--px) 0 var(--ink);}
-.dot-btn.primary{background:var(--coral); color:#fff;}
-.dot-btn.mint{background:var(--mint); color:#fff;}
-/* 노랑은 먹빛 글씨라야 읽힌다 — 흰 글씨는 레몬색 위에서 대비가 1.4:1 밖에 안 된다 */
+.dot-btn.primary{background:var(--coral); color:var(--ink);}
+.dot-btn.mint{background:var(--mint); color:var(--ink);}
+/* 파스텔 위에서는 먹빛 글씨라야 읽힌다. 흰 글씨를 얹으면 레몬 1.4:1, 민트 2.0:1,
+   코랄 2.4:1 로 기준(4.5:1)에 한참 못 미친다. 먹빛으로 바꾸면 각각 10.5 / 7.1 / 5.9 이다. */
 .dot-btn.lemon{background:var(--lemon); color:var(--ink);}
 .dot-btn.coral{background:var(--coral); color:var(--ink);}
 .dot-btn.small{padding:7px 14px; font-size:12.5px; box-shadow:2px 2px 0 var(--ink);}
@@ -192,7 +193,7 @@ canvas{-webkit-tap-highlight-color:transparent;}
 .section-head{text-align:center; margin-bottom:38px;}
 .section-head .eyebrow{
   display:inline-block; font-size:11px; padding:5px 12px; margin-bottom:12px;
-  background:var(--mint); color:#fff; border:var(--px) solid var(--ink);
+  background:var(--mint); color:var(--ink); border:var(--px) solid var(--ink);
 }
 .section-head h2{margin:0 0 8px; font-size:clamp(24px,5.5vw,34px); font-weight:800;}
 .section-head p{margin:0; color:var(--ink-soft); font-size:14.5px; line-height:1.7;}
@@ -270,16 +271,16 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
   display:inline-block; font-size:10.5px; padding:3px 8px; margin-right:4px;
   border:2px solid var(--ink); background:var(--lemon);
 }
-.tag.sua{background:var(--coral); color:#fff;}
-.tag.yona{background:var(--mint); color:#fff;}
+.tag.sua{background:var(--coral); color:var(--ink);}
+.tag.yona{background:var(--mint); color:var(--ink);}
 .tag.private{background:var(--ink); color:#fff;}
 
 /* 필터 버튼 줄 — 태그와 같은 색을 써서 색만 보고도 구분되게 함 */
 .filters{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:26px;}
-.filters .dot-btn{color:#fff; opacity:.5; transition:opacity .15s steps(2);}
+.filters .dot-btn{color:var(--ink); opacity:.55; transition:opacity .15s steps(2);}
 .filters .dot-btn:hover{opacity:.8;}
 .filters .dot-btn.on{opacity:1; transform:translate(2px,2px); box-shadow:2px 2px 0 var(--ink);}
-.filters .dot-btn[data-filter="all"]{background:var(--ink);}
+.filters .dot-btn[data-filter="all"]{background:var(--ink); color:#fff;}
 .filters .dot-btn[data-filter="sua"]{background:var(--coral);}
 .filters .dot-btn[data-filter="yona"]{background:var(--mint);}
 .filters .dot-btn[data-filter="together"]{background:var(--lemon); color:var(--ink);}
@@ -415,7 +416,7 @@ body.has-backdrop .admin-bar{color:var(--ink-bg-safe);}
 .fmt-bar .sep{width:2px; align-self:stretch; margin:2px 3px; background:rgba(47,42,36,.2);}
 .fmt-bar .b{font-weight:900;} .fmt-bar .i{font-style:italic;} .fmt-bar .s{text-decoration:line-through;}
 .fmt-bar .hl{background:var(--lemon);}
-.fmt-bar button.on{background:var(--coral); color:#fff;}
+.fmt-bar button.on{background:var(--coral); color:var(--ink);}
 .fmt-bar + textarea, .fmt-bar + .fmt-preview + textarea{border-top:none;}
 .grid-pick{position:absolute; z-index:130; padding:9px; background:var(--paper);
   border:var(--px) solid var(--ink); box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28);}
@@ -441,7 +442,7 @@ body.has-backdrop .admin-bar{color:var(--ink-bg-safe);}
 /* 재생 표시 — 유튜브 것을 그대로 가져오지 않고 사이트처럼 각지게 */
 .yt-play{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2;
-  width:52px; height:36px; background:#e03a2f; border:2px solid var(--ink);
+  width:52px; height:36px; background:#d0342a; border:2px solid var(--ink);
   box-shadow:2px 2px 0 rgba(0,0,0,.45); pointer-events:none;
   display:flex; align-items:center; justify-content:center;
 }
@@ -453,7 +454,7 @@ body.has-backdrop .admin-bar{color:var(--ink-bg-safe);}
 
 /* 그림만 보면 사진과 구별이 안 되니 모서리에 띠를 하나 */
 .yt-mark{
-  position:absolute; left:0; top:0; z-index:2; background:#e03a2f; color:#fff;
+  position:absolute; left:0; top:0; z-index:2; background:#d0342a; color:#fff;
   font-size:10px; font-weight:800; padding:3px 7px; border:2px solid var(--ink);
   pointer-events:none;
 }

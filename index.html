@@ -54,13 +54,22 @@
   @media (max-height:700px){
     .hero-copy{padding-top:32px; padding-bottom:302px;}
   }
+  /* 흰 글씨가 구름 위를 지날 때 대비가 1.04:1 까지 떨어진다(재 봄). 그림자 하나로는
+     못 버티니 사방에 먹빛 테두리를 둘러 어느 배경 위에서도 글자 모양이 남게 한다. */
   .hero h1{
     margin:0; font-size:clamp(38px, 9vw, 76px); font-weight:800; line-height:1.1;
-    color:#fff; text-shadow:var(--px) var(--px) 0 rgba(47,42,36,.55);
+    color:#fff;
+    text-shadow:
+      -2px 0 0 #2f2a24, 2px 0 0 #2f2a24, 0 -2px 0 #2f2a24, 0 2px 0 #2f2a24,
+      -2px -2px 0 #2f2a24, 2px -2px 0 #2f2a24, -2px 2px 0 #2f2a24, 2px 2px 0 #2f2a24,
+      var(--px) var(--px) 0 rgba(47,42,36,.55);
   }
   .hero p{
     margin:0; font-size:clamp(14px, 3.4vw, 17px); font-weight:600; color:#fff;
-    text-shadow:2px 2px 0 rgba(47,42,36,.5);
+    text-shadow:
+      -1px 0 0 #2f2a24, 1px 0 0 #2f2a24, 0 -1px 0 #2f2a24, 0 1px 0 #2f2a24,
+      -1px -1px 0 #2f2a24, 1px -1px 0 #2f2a24, -1px 1px 0 #2f2a24, 1px 1px 0 #2f2a24,
+      2px 2px 0 rgba(47,42,36,.5);
   }
   /* ===== 바로가기 단추 =====
      예전에는 폭에 따라 3+1 로 접혀서 두 번째 줄이 휑했다. 이제 좁은 화면에서는
@@ -94,7 +103,10 @@
   }
   .scroll-cue{
     position:absolute; bottom:26px; left:50%; transform:translateX(-50%); z-index:2;
-    font-size:11px; color:#fff; text-shadow:2px 2px 0 rgba(47,42,36,.5);
+    font-size:11px; color:#fff;
+    text-shadow:
+      -1px 0 0 #2f2a24, 1px 0 0 #2f2a24, 0 -1px 0 #2f2a24, 0 1px 0 #2f2a24,
+      2px 2px 0 rgba(47,42,36,.5);
     animation:bob 1.6s steps(2) infinite;
   }
   @keyframes bob{0%,100%{transform:translate(-50%,0);} 50%{transform:translate(-50%,6px);}}
@@ -103,10 +115,13 @@
   /* ===== 메뉴 카드 ===== */
   /* 220px 이 하한이면 본문 폭(920px)에 넷이 안 들어가서 3+1 로 접혔다 — 마지막 하나가
      늘 혼자 남았다. 200px 으로 낮추니 넷이 한 줄에 들어간다(200*4 + 14*3 = 842). */
-  .menu-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:14px;}
+  /* 다섯 장이라 4열 격자에서는 마지막 한 장만 다음 줄에 홀로 남았다(콘텐츠 폭 920px).
+     줄당 세 장씩 두고 남은 두 장을 가운데로 모아 3+2 로 앉힌다. */
+  .menu-grid{display:flex; flex-wrap:wrap; gap:14px; justify-content:center;}
   .menu-card{
     display:flex; flex-direction:column; gap:8px; padding:18px 16px 16px;
     text-decoration:none; color:inherit; position:relative;
+    flex:1 1 250px; max-width:300px;
   }
   /* data-icon 만 크기를 지정한다. 그냥 canvas 로 잡으면 오른쪽 아래 캐릭터까지 걸려서
      42x40 짜리 수아가 64x64 로 늘어난다 — 카드마다 다른 비율로 찌그러져 있었다. */
@@ -118,8 +133,9 @@
 
   /* 좁은 화면에서는 두 개씩 두 줄. 한 줄에 하나씩이면 네 칸을 지나는 데 스크롤이 너무 길다. */
   @media (max-width:560px){
-    .menu-grid{grid-template-columns:1fr 1fr; gap:10px;}
-    .menu-card{padding:14px 12px 12px; gap:6px;}
+    .menu-grid{gap:10px;}
+    .menu-card{padding:14px 12px 12px; gap:6px; flex:1 1 calc(50% - 5px); max-width:none;}
+    .menu-grid > :last-child:nth-child(odd){flex-basis:100%;}   /* 홀로 남는 한 장은 폭을 채운다 */
     .menu-card h3{font-size:14px;}
     .menu-card p{font-size:11.5px; line-height:1.55;}
     .menu-card .go{font-size:11px; padding-top:6px;}
@@ -154,13 +170,20 @@
   .find-hud.sound{left:auto; right:14px; pointer-events:auto; cursor:pointer; font-family:inherit;}
   .find-hud.sound:active{transform:translate(2px,2px); box-shadow:2px 2px 0 rgba(47,42,36,.45);}
   .find-hud.sound.off{opacity:.55;}
-  .stamp-card{padding:16px;}
+  .stamp-card{padding:16px; max-width:474px; margin-left:auto; margin-right:auto;}
   .stamp-head{font-size:13px; margin-bottom:10px;}
-  .stamp-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;}
+  /* 넓은 화면에서 칸이 135px 까지 부풀어 달력 한 장이 620px 을 먹었다 — 폭을 묶는다.
+     요일 머리글도 없어서 1일이 무슨 요일인지 셀 수가 없었다. */
+  .stamp-wd, .stamp-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;
+    max-width:430px; margin-left:auto; margin-right:auto;}
+  .stamp-wd{margin-bottom:5px; font-size:10.5px; font-weight:800; text-align:center; color:var(--ink-soft);}
+  .stamp-wd .sun{color:#a94438;}
+  .stamp-wd .sat{color:#3f6690;}
   .stamp-cell{
-    aspect-ratio:1; display:flex; align-items:center; justify-content:center;
-    border:2px solid rgba(47,42,36,.18); font-size:11px; color:var(--ink-soft);
+    position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+    border:2px solid rgba(47,42,36,.18); font-size:12px; color:var(--ink-soft);
   }
+  .stamp-cell .st{position:absolute; right:1px; top:0; font-size:10px; line-height:1.2;}
   .stamp-cell.on{background:var(--lemon); border-color:var(--ink); color:var(--ink); font-weight:800;}
   .stamp-cell.today{border-color:var(--coral); border-width:3px;}
   .stamp-cell.pad{border:none;}
@@ -341,7 +364,7 @@
     box-shadow:var(--px) var(--px) 0 var(--ink); transition:transform .12s steps(2), box-shadow .12s steps(2);
   }
   .quiz-choices button:active{transform:translate(var(--px),var(--px)); box-shadow:0 0 0 var(--ink);}
-  .quiz-choices button.right{background:var(--mint); color:#fff;}
+  .quiz-choices button.right{background:var(--mint); color:var(--ink);}
   .quiz-choices button.wrong{background:var(--paper); color:var(--ink-soft); text-decoration:line-through;}
   .quiz-choices button:disabled{cursor:default;}
   .quiz-msg{margin:6px 16px 16px; min-height:1.4em; font-size:14px; font-weight:800; text-align:center;}
@@ -378,9 +401,9 @@
   /* .eyebrow 는 .section-head 안에서만 칠해진다 — 이 둘은 그 밖에 있어서 여기서 다시 칠한다 */
   .draw-say .eyebrow, .ask-card .eyebrow{
     display:inline-block; font-size:11px; padding:4px 10px;
-    background:var(--mint); color:#fff; border:2px solid var(--ink);
+    background:var(--mint); color:var(--ink); border:2px solid var(--ink);
   }
-  .ask-card .eyebrow{background:var(--ink);}
+  .ask-card .eyebrow{background:var(--ink); color:#fff;}
   .draw-say h2{margin:4px 0 8px; font-size:20px; font-weight:800;}
   .draw-say p{margin:0 0 14px; font-size:13.5px; line-height:1.7; color:var(--ink-soft);}
 
@@ -574,6 +597,7 @@
     </div>
     <div class="dot-card stamp-card reveal">
       <div class="stamp-head pixel" id="stampMonth"></div>
+      <div class="stamp-wd" aria-hidden="true"><span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span></div>
       <div class="stamp-grid" id="stampGrid"></div>
     </div>
   </div>
@@ -2405,8 +2429,10 @@ $$('canvas[data-char]').forEach(cv => {
   for (let d = 1; d <= last; d++) {
     const key = y + '-' + pad(m + 1) + '-' + pad(d);
     const on = set.has(key), isToday = key === today;
-    html += '<div class="stamp-cell' + (on ? ' on' : '') + (isToday ? ' today' : '') + '">' +
-            (on ? '⭐' : d) + '</div>';
+    // 도장이 찍힌 날도 날짜는 남는다 — 별로 갈아 치우면 며칠인지 알 수가 없다.
+    html += '<div class="stamp-cell' + (on ? ' on' : '') + (isToday ? ' today' : '') +
+            '" title="' + (m + 1) + '월 ' + d + '일' + (on ? ' · 다녀감' : '') + '">' + d +
+            (on ? '<span class="st">⭐</span>' : '') + '</div>';
   }
   grid.innerHTML = html;
 
@@ -2603,32 +2629,49 @@ belowFold(async () => {
     const hi = Math.ceil(Math.max(...data.map(r => Number(r.cm))) / K2.step) * K2.step + K2.step / 2;
     const y = cm => Math.round((H - S * 6) * (hi - cm) / (hi - lo) / S) * S + S * 3;
 
-    // 종류에 맞는 간격으로 가로줄
-    g.fillStyle = 'rgba(47,42,36,.18)';
+    // 종류에 맞는 간격으로 가로줄. 눈금 글씨는 줄 왼쪽 끝에 두고, 눈금 막대는 그 오른쪽에서
+    // 시작한다 — 예전에는 막대가 글씨 위를 지나가 「140cm」이 반쯤 지워졌다.
+    const AX = S * 16;
+    g.font = '600 11px Pretendard Variable, Pretendard, sans-serif';
     for (let c = Math.ceil(lo / K2.step) * K2.step; c <= hi; c += K2.step) {
-      g.fillRect(S * 5, y(c), W - S * 10, 1);
-      g.fillStyle = 'rgba(47,42,36,.45)';
-      g.font = '600 11px Pretendard Variable, Pretendard, sans-serif';
-      g.fillText(c + K2.unit, S * 6, y(c) - 3);
       g.fillStyle = 'rgba(47,42,36,.18)';
+      g.fillRect(AX, y(c), W - S * 5 - AX, 1);
+      g.fillStyle = 'rgba(47,42,36,.55)';
+      g.fillText(c + K2.unit, S * 6, y(c) + 4);
     }
 
-    // 사람마다 눈금 — 도트 네모 하나와 날짜
+    // 사람마다 눈금 — 도트 네모 하나와 날짜.
+    // 가까운 날에 잰 값은 줄 사이가 좁아 글씨끼리 겹쳤다(3cm 차이 = 18px, 글씨는 11px+막대 8px).
+    // 그래서 글씨만 위아래로 밀어 띄우고, 밀린 만큼 가는 선으로 제 줄과 이어 준다.
     const byWho = {};
     data.forEach(r => (byWho[r.who] = byWho[r.who] || []).push(r));
+    const marks = [];
     Object.keys(byWho).forEach((who, wi) => {
-      const col = COLORS[who] || '#ffd979';
-      const rows = byWho[who];
-      const x0 = S * 8 + wi * S * 3;
-      rows.forEach((r, i) => {
-        const yy = y(Number(r.cm));
-        g.fillStyle = col;
-        g.fillRect(x0, yy - S, W - S * 10 - wi * S * 3 - S * 8, S * 2);
-        g.fillStyle = '#2f2a24';
-        g.font = '800 11px Pretendard Variable, Pretendard, sans-serif';
-        g.fillText(who + ' ' + r.cm + K2.unit + ' (' +
-          String(r.measured_on).slice(2, 7).replace('-', '.') + ')', x0 + 4, yy - S * 2);
-      });
+      byWho[who].forEach(r => marks.push({
+        who, wi, col: COLORS[who] || '#ffd979', cm: Number(r.cm),
+        on: String(r.measured_on), y: y(Number(r.cm)),
+      }));
+    });
+    marks.sort((a, b) => a.y - b.y);
+    const GAP = S * 4;                                  // 글씨 한 줄이 차지하는 최소 높이
+    let last = -1e9;
+    marks.forEach(m => { m.ty = Math.max(m.y - S * 2, last + GAP); last = m.ty; });
+    const spill = last - (H - S * 2);                   // 아래로 넘치면 통째로 끌어올린다
+    if (spill > 0) marks.forEach(m => { m.ty -= spill; });
+
+    marks.forEach(m => {
+      const x0 = AX + S * 2 + m.wi * S * 3;
+      g.fillStyle = m.col;
+      g.fillRect(x0, m.y - S, W - S * 5 - x0, S * 2);
+      const drift = m.ty - (m.y - S * 2);
+      if (Math.abs(drift) > 2){                         // 글씨가 제 줄에서 떨어졌으면 이어 준다
+        g.fillStyle = 'rgba(47,42,36,.4)';
+        g.fillRect(x0 + 1, Math.min(m.ty + 2, m.y - S), 1, Math.abs(drift));
+      }
+      g.fillStyle = '#2f2a24';
+      g.font = '800 11px Pretendard Variable, Pretendard, sans-serif';
+      g.fillText(m.who + ' ' + m.cm + K2.unit + ' (' + m.on.slice(2, 7).replace('-', '.') + ')',
+        x0 + 4, m.ty);
     });
 
     $('#growthLegend').innerHTML = Object.keys(byWho).map(who =>
