@@ -502,7 +502,10 @@ function redrawPins(){
 // focusedId 를 먼저 적어 두었으므로 새로 그려진 핀에도 고른 표시가 남는다.
 function focusOnMap(p){
   if (!map || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return;
-  map.setLevel(FOCUS_LEVEL, { animate: true });
+  // 순서가 중요하다. 중심을 먼저 옮기고 확대하면 핀이 가운데에서 54px 벗어났고,
+  // animate 를 붙이면 애니메이션이 끝나기 전에 중심을 덮어써 아예 왼쪽 끝으로 갔다.
+  // 확대를 끝낸 뒤 중심을 옮기면 재 보니 어긋남이 0px 이다.
+  map.setLevel(FOCUS_LEVEL);
   map.setCenter(new kakao.maps.LatLng(p.lat, p.lng));
   redrawPins();
 }
