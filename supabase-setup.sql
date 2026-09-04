@@ -1189,3 +1189,99 @@ alter table public.event_meta alter column is_public set default true;
 drop policy if exists "public can read public event_meta" on public.event_meta;
 create policy "public can read public event_meta" on public.event_meta
   for select using (coalesce(is_public, true) or auth.role() = 'authenticated');
+
+
+-- =====================================================================
+-- 2026-09-04 — 수아연아 농장 (farm.html)
+-- =====================================================================
+-- 한 표에 네 줄: 'farm'(둘이 같이 쓰는 농장), 'sua'/'yona'(각자 동전·가방), 'tune'(부모 조정판).
+-- 농장 줄은 두 아이가 같이 고치므로 rev 로 겹침을 잡는다 — 읽은 rev 와 다르면 안 쓰고 -1 을 준다.
+-- 화면은 그러면 다시 읽어서 같은 행동을 새 상태 위에 다시 한 번 한다.
+create table if not exists public.farm_saves (
+  who        text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  rev        integer not null default 0,
+  updated_at timestamptz not null default now(),
+  constraint farm_saves_who_ok check (who in ('farm', 'sua', 'yona', 'tune')),
+  constraint farm_saves_size  check (pg_column_size(data) < 65536)
+);
+alter table public.farm_saves enable row level security;
+
+-- 가족만 읽는다. 아이가 언제 왔는지(playDays·lastPlay)가 들어 있어서다. 손님은 farm_cards().
+drop policy if exists "family reads farm" on public.farm_saves;
+create policy "family reads farm" on public.farm_saves for select
+  using (public.my_role() is not null);
+-- 부모는 조정판 줄만 직접 쓰고, 처음부터 다시 하고 싶다고 하면 아무 줄이나 지운다.
+drop policy if exists "parent tunes farm" on public.farm_saves;
+create policy "parent tunes farm" on public.farm_saves for insert
+  with check (public.my_role() = 'parent' and who = 'tune');
+drop policy if exists "parent retunes farm" on public.farm_saves;
+create policy "parent retunes farm" on public.farm_saves for update
+  using (public.my_role() = 'parent' and who = 'tune')
+  with check (public.my_role() = 'parent' and who = 'tune');
+drop policy if exists "parent resets farm" on public.farm_saves;
+create policy "parent resets farm" on public.farm_saves for delete
+  using (public.my_role() = 'parent');
+
+-- 아이는 이 함수로만 쓴다. 농장 줄과 제 줄을 한 번에, 한 트랜잭션으로.
+-- p_rev 가 지금 농장 줄의 rev 와 다르면 아무것도 안 쓰고 -1 을 돌려준다(다른 아이가 먼저 썼다).
+-- 아이 줄에 직접 쓰는 정책은 일부러 없다 — 콘솔에서 동전을 적어 넣는 길을 막는다.
+create or replace function public.farm_commit(p_world jsonb, p_rev integer, p_mine jsonb)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  k text := public.my_author_key();
+  r integer;
+begin
+  if public.my_role() is distinct from 'child' or k not in ('sua', 'yona') then
+    raise exception '수아나 연아만 농장을 가꿀 수 있어요';
+  end if;
+  if pg_column_size(p_world) > 60000 or pg_column_size(p_mine) > 16000 then
+    raise exception '세이브가 너무 커요';
+  end if;
+  if coalesce((p_mine->>'coins')::numeric, 0) not between 0 and 9999999
+     or coalesce((p_mine->>'xp')::numeric, 0) not between 0 and 999999
+     or coalesce((p_mine->>'energy')::numeric, 0) not between 0 and 99 then
+    raise exception '말이 안 되는 값이에요';
+  end if;
+  insert into public.farm_saves (who, data, rev) values ('farm', p_world, 1)
+    on conflict (who) do update
+      set data = excluded.data, rev = farm_saves.rev + 1, updated_at = now()
+      where farm_saves.rev = p_rev
+    returning rev into r;
+  if r is null then return -1; end if;
+  insert into public.farm_saves (who, data, rev) values (k, p_mine, 1)
+    on conflict (who) do update
+      set data = excluded.data, rev = farm_saves.rev + 1, updated_at = now();
+  return r;
+end;
+$$;
+revoke all on function public.farm_commit(jsonb, integer, jsonb) from public;
+grant execute on function public.farm_commit(jsonb, integer, jsonb) to authenticated;
+
+-- 손님 카드 — 농장이 어디까지 컸는지만. 날짜·가방·우편은 안 나간다.
+create or replace function public.farm_cards()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'started',   (select data->>'started' from public.farm_saves where who = 'farm'),
+    'seasonLen', (select data->'seasonLen' from public.farm_saves where who = 'farm'),
+    'expand',    (select coalesce(data->'expand', '0'::jsonb) from public.farm_saves where who = 'farm'),
+    'buildings', (select coalesce((select jsonb_agg(key) from jsonb_each(data->'buildings') where value->>'done' = 'true'), '[]'::jsonb) from public.farm_saves where who = 'farm'),
+    'decor',     (select coalesce((select jsonb_agg(key) from jsonb_object_keys(coalesce(data->'decor','{}'::jsonb)) as key), '[]'::jsonb) from public.farm_saves where who = 'farm'),
+    'animals',   (select coalesce(jsonb_array_length(data->'animals'), 0) from public.farm_saves where who = 'farm'),
+    'crops',     (select coalesce((select count(*) from jsonb_each(data->'plots') where value->>'crop' is not null), 0) from public.farm_saves where who = 'farm'),
+    'cozy',      (select coalesce((select sum(jsonb_array_length(coalesce((select jsonb_agg(v) from jsonb_each(r.value) as e(k, v)), '[]'::jsonb))) from jsonb_each(data->'house') as r), 0) from public.farm_saves where who = 'farm'),
+    'sua',       (select jsonb_build_object('lv', coalesce(data->'xp', '0'::jsonb), 'dex', coalesce(jsonb_array_length(data->'dex'), 0)) from public.farm_saves where who = 'sua'),
+    'yona',      (select jsonb_build_object('lv', coalesce(data->'xp', '0'::jsonb), 'dex', coalesce(jsonb_array_length(data->'dex'), 0)) from public.farm_saves where who = 'yona')
+  );
+$$;
+revoke all on function public.farm_cards() from public;
+grant execute on function public.farm_cards() to anon, authenticated;

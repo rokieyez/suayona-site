@@ -125,13 +125,14 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
 .hdr-icon.active{background:var(--lemon);}
 .hdr-icon:focus-visible{outline:3px solid var(--ink); outline-offset:2px;}
 
-@media (max-width:860px){
+/* 메뉴가 일곱(농장까지)이 되면서 860~980 사이에서 로고 글씨가 세로로 눌렸다 — 햄버거를 조금 일찍 연다. */
+@media (max-width:980px){
   header.site nav{
     position:fixed; top:var(--header-h); left:0; right:0; flex-direction:column; gap:0;
     background:var(--cream); border-bottom:var(--px) solid var(--ink);
     max-height:0; overflow:hidden; transition:max-height .3s ease;
   }
-  header.site nav.open{max-height:360px;}
+  header.site nav.open{max-height:420px;}   /* 항목 일곱이 다 보이게 */
   header.site nav a{padding:14px 20px; border:none; border-top:2px solid rgba(47,42,36,.12); font-size:14px;}
   .menu-toggle{display:block;}
 }
