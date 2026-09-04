@@ -614,8 +614,8 @@ async function uploadThumbAt(bucket, path, blob){
 // 괄호가 그대로 나오는 문장이 여기저기 있었다. 한글 음절과 숫자만 판단하고,
 // 그 밖의 글자는 알 수 없으니 예전처럼 두 가지를 다 적는다.
 // 표의 열쇠(sua/yona)를 이름으로. 그리기·이어그리기 알림이 「sua › 이어 그리기」처럼
-// 열쇠를 그대로 찍고 있었다. growth·sister_notes 처럼 한글 이름을 쓰는 표도 있어
-// 열쇠와 이름을 같은 자리에서 비교하면 안 된다 — 보여 줄 때만 바꾼다.
+// 열쇠를 그대로 찍고 있었다. 표는 이제 전부 sua/yona 를 쓴다(growth 는 2026-09-04 에
+// 옮겼고 CHECK 로 못 박았다). 이름은 여기 한 곳에만 두고, 보여 줄 때만 바꾼다.
 const HERO_NAMES = { sua: '수아', yona: '연아', together: '둘이 함께' };
 function heroName(k){ return HERO_NAMES[k] || k; }
 

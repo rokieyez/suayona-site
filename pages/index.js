@@ -1788,7 +1788,7 @@ belowFold(async () => {
 // 집 문틀에 해마다 새기던 눈금. 그래프는 손님도 보고, 새 눈금은 로그인한 가족만 새긴다.
 belowFold(async () => {
   const cv = $('#growthCanvas'); if (!cv) return;
-  const COLORS = { '수아': '#ff7f8a', '연아': '#6cc7b3' };
+  const COLORS = { sua: '#ff7f8a', yona: '#6cc7b3' };     // growth.who 는 이제 sua/yona 다
   // 종류마다 단위와 말이 되는 범위가 다르다. 서버 규칙과 같은 값을 쓴다.
   const KINDS = {
     height: { label: '키',      unit: 'cm', min: 50, max: 200, step: 10 },
@@ -1897,7 +1897,7 @@ belowFold(async () => {
       }
       // 눈금이 촘촘하면 글씨가 어느 막대 위에든 앉게 된다. 밑에 종이색 판을 깔아
       // 막대가 글자를 가로지르지 않게 한다.
-      const label = m.who + ' ' + m.cm + K2.unit + ' (' + m.on.slice(2, 7).replace('-', '.') + ')';
+      const label = heroName(m.who) + ' ' + m.cm + K2.unit + ' (' + m.on.slice(2, 7).replace('-', '.') + ')';
       const tw = g.measureText(label).width;
       g.fillStyle = '#fff6e9';
       g.fillRect(m.x0 + 2, m.ty - FS + 1, tw + 5, FS + 3);
@@ -1906,7 +1906,7 @@ belowFold(async () => {
     });
 
     $('#growthLegend').innerHTML = Object.keys(byWho).map(who =>
-      '<span><i style="background:' + (COLORS[who] || '#ffd979') + '"></i>' + escapeHTML(who) +
+      '<span><i style="background:' + (COLORS[who] || '#ffd979') + '"></i>' + escapeHTML(heroName(who)) +
       ' · ' + byWho[who].length + '번 쟀어요</span>').join('');
   }
 
@@ -1966,7 +1966,8 @@ belowFold(async () => {
   if (!cv || typeof KOREA === 'undefined') return;      // 옛 pixel.js 와 짝이 되면 조용히 접는다
   const { data } = await sb.from('events')
     .select('event_id, place_lat, place_lng')
-    .not('place_lat', 'is', null);
+    .not('place_lat', 'is', null)
+    .limit(2000);                                      // 좌표 있는 일정만 — 지금 28개, 난간일 뿐
   const been = new Map();                               // 지역 → 다녀온 이벤트 수
   const evOf = new Map();                               // 지역 → 그곳 이벤트 아이디들
   (data || []).forEach(r => {
@@ -2182,7 +2183,7 @@ belowFold(async () => {
 // 잠그는 건 서버다 — opens_on 이 오늘 이후인 줄은 읽기 규칙이 아예 안 돌려준다.
 // 그래서 여기서는 열린 것만 그리고, 잠긴 건 개수와 다음 날짜만 함수로 받아 온다.
 belowFold(async () => {
-  const WHO = { sua:'수아', yona:'연아', together:'수아와 연아' };
+  const WHO = Object.assign({}, HERO_NAMES, { together:'수아와 연아' });
   const fmt = iso => { const d = new Date(iso); return d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '.'; };
 
   async function loadOpened(){

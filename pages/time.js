@@ -6,7 +6,7 @@ buildChrome('time');
 buildBackdrop('time');
 
 const DAYNAME = ['일','월','화','수','목','금','토'];
-const WHONAME = { sua:'수아', yona:'연아', together:'둘 다' };
+const WHONAME = Object.assign({}, HERO_NAMES, { together:'둘 다' });  // 정본은 common.js
 const KINDNAME = { school:'학교', academy:'학원', other:'그 밖' };
 const DEFAULT_LEN = 40;              // 끝 시각을 안 적었을 때 (초등 한 교시)
 

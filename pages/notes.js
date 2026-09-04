@@ -8,7 +8,7 @@ buildChrome('notes');
 // 열쇠는 프로필의 author_key(sua/yona)다. 한글 이름으로 찾고 있어서 아이로
 // 들어와도 짝이 없다고 문이 닫혔다 — 쪽지가 한 통도 없던 이유가 이것이었다.
 const PAIR = { sua: 'yona', yona: 'sua' };
-const NAME = { sua: '수아', yona: '연아' };
+const NAME = HERO_NAMES;                                             // 정본은 common.js
 let myKey = null, youKey = null;
 
 function fmt(iso){

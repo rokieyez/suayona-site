@@ -163,7 +163,8 @@ async function loadInbox(){
   inbox.innerHTML = '';
   if (!isAdmin) return;
 
-  const { data, error } = await sb.from('messages').select('*').order('created_at', {ascending:false});
+  // 최근 500통까지 — 받은 편지함이 커져도 한 번에 다 받지 않게
+  const { data, error } = await sb.from('messages').select('*').order('created_at', {ascending:false}).limit(500);
   if (error) { inbox.innerHTML = '<div class="empty-msg">불러오기 실패: ' + escapeHTML(error.message) + '</div>'; return; }
   if (!data.length) { inbox.innerHTML = '<div class="empty-msg">받은 메시지가 없어요</div>'; return; }
 

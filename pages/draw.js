@@ -316,7 +316,7 @@ try { if (localStorage.getItem(MISSION_KEY) === '1') $('#missionDone').hidden = 
 // ---------- 서버에 남기는 그림 ----------
 // 여기서부터는 로그인해야 한다. 남는 그림이라 누가 그렸는지가 있어야 하고,
 // 정책도 author 를 제 이름으로만 적게 막아 두었다.
-let myKey = null;                    // '수아' | '연아' | '부모'
+let myKey = null;                    // 'sua' | 'yona' — 표의 열쇠. 보여 줄 때는 heroName()
 
 async function syncShareTools(){
   await refreshAuth();
@@ -324,7 +324,7 @@ async function syncShareTools(){
   const on = !!myKey;
   $('#shareTools').hidden = !on;
   $('#shareHint').hidden = on;
-  if (on) $('#shareWho').textContent = myKey + ' 이름으로 올라가요';
+  if (on) $('#shareWho').textContent = heroName(myKey) + ' 이름으로 올라가요';
   loadDuel();
   loadRelays();
   renderPend();

@@ -5,7 +5,7 @@
 buildChrome('year');
 buildBackdrop('year');
 
-const AUTHORS = { sua:'수아', yona:'연아', together:'같이' };
+const AUTHORS = Object.assign({}, HERO_NAMES, { together:'같이' });   // 정본은 common.js
 let allWorks = [], allPosts = [], allEvents = [], allBest = [];
 let year = null, who = 'all';
 let allYears = [], yearsOpen = false;

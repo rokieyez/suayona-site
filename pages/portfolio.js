@@ -5,7 +5,7 @@
 buildChrome('portfolio');
 buildBackdrop('portfolio');   // 배경 픽셀 겹 (common.js)
 
-const AUTHORS = { sua:'수아', yona:'연아', together:'같이' };
+const AUTHORS = Object.assign({}, HERO_NAMES, { together:'같이' });   // 정본은 common.js
 let works = [], filter = 'all', yearFilter = 'all';
 const lightbox = createLightbox();
 
@@ -16,7 +16,8 @@ async function loadWorks(){
   // 올라와 버림. nullsFirst:false 로 뒤로 보내고 올린 순서로 이어 붙임.
   const { data, error } = await sb.from('works').select('*')
     .order('made_on', {ascending:false, nullsFirst:false})
-    .order('created_at', {ascending:false});
+    .order('created_at', {ascending:false})
+    .limit(500);                                       // 지금 39개. 난간이지 기능이 아니다 — 차면 나눠 받기로
   if (error) {
     $('#empty').style.display = 'block';
     $('#empty').textContent = '불러오기 실패: ' + error.message;
@@ -262,7 +263,7 @@ let dayPosts = [];
 async function loadDayLinks(){
   const [p, e] = await Promise.all([
     sb.from('posts').select('id, title, author, happened_on, created_at, status, is_public')
-      .order('created_at', { ascending:false }),
+      .order('created_at', { ascending:false }).limit(500),
     eventList.length ? Promise.resolve({ data: eventList }) : loadEventList().then(() => ({ data: eventList })),
   ]);
   dayPosts = (p.data || []).filter(x => x.status !== 'pending');
@@ -910,6 +911,8 @@ async function showThumbTool(box){
 // 일기와 이벤트 일정에도 사본이 없는 사진이 남아 있다.
 // 작품과 같은 방식으로 한 번에 만들어 준다.
 async function showOtherThumbTool(box){
+  // 여기는 일부러 상한을 두지 않는다 — 섬네일이 빠진 것을 「전부」 찾아야 맞는 검사라,
+  // 잘라 받으면 빠진 것을 못 보고 지나간다.
   const [posts, events] = await Promise.all([
     sb.from('posts').select('id, image_url, thumb_url'),
     sb.from('events').select('id, image_url, thumb_url, extra_images'),

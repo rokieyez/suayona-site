@@ -4,7 +4,7 @@
 
 buildChrome('settings');
 
-const KID_LIST = [{ k:'sua', n:'수아' }, { k:'yona', n:'연아' }];
+const KID_LIST = ['sua', 'yona'].map(k => ({ k, n: HERO_NAMES[k] }));   // 정본은 common.js
 const LIMIT = 100;                    // 묶음마다 최근 100개까지만 그린다
 
 // ---------- 문 ----------
@@ -143,7 +143,7 @@ async function load(){
 
   const cut = list => ({ rows: (list || []).slice(0, LIMIT), more: (list || []).length > LIMIT });
   const P = cut(p.data), E = cut(ev.data), W = cut(w.data);
-  const who = { sua:'수아', yona:'연아', together:'같이' };
+  const who = Object.assign({}, HERO_NAMES, { together:'같이' });
 
   groups = [
     { key:'posts', table:'posts', pk:'id', title:'📓 일기', rows:P.rows, more:P.more,

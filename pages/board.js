@@ -5,7 +5,7 @@
 buildChrome('board');
 buildBackdrop('board');   // 배경 픽셀 겹 (common.js)
 
-const AUTHORS = { sua:'수아', yona:'연아', together:'같이' };
+const AUTHORS = Object.assign({}, HERO_NAMES, { together:'같이' });   // 정본은 common.js
 let posts = [];
 const lightbox = createLightbox();
 
@@ -24,7 +24,9 @@ function photoPosts(){
 
 async function loadPosts(){
   // 비공개 글은 로그인한 사람에게만 보임 (서버 정책에서도 한 번 더 막혀 있음)
-  let q = sb.from('posts').select('*').order('created_at', {ascending:false});
+  // 최근 500개까지. 지금 글은 한 자리 수라 한참 남았지만, 상한이 없으면 표가 자라는 만큼
+  // 매번 통째로 받는다. 500에 가까워지면 「더 보기」로 나눠 받게 바꿔야 한다.
+  let q = sb.from('posts').select('*').order('created_at', {ascending:false}).limit(500);
   if (!isAdmin) q = q.eq('is_public', true);
   const { data, error } = await q;
   if (error) {
