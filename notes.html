@@ -138,7 +138,7 @@ async function load(){
     el.className = 'dot-card note reveal ' + (mine ? 'mine' : 'theirs') + (unread ? ' unread' : '');
     el.innerHTML =
       (unread ? '<span class="new pixel">NEW</span>' : '') +
-      '<div class="head">' + escapeHTML(mine ? '나 ▸ ' + (NAME[n.to_who] || n.to_who) : (NAME[n.from_who] || n.from_who) + ' ▸ 나') +
+      '<div class="head">' + escapeHTML(mine ? '나 › ' + (NAME[n.to_who] || n.to_who) : (NAME[n.from_who] || n.from_who) + ' › 나') +
         ' · ' + escapeHTML(fmt(n.created_at)) + '</div>' +
       '<p class="body">' + escapeHTML(n.body) + '</p>';
     list.appendChild(el);

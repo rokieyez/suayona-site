@@ -222,7 +222,7 @@ function buildYearPick(){
     '<button class="dot-btn small' + (y === year ? ' on' : '') + '" data-year="' + y + '">' +
     y + '년</button>').join('') +
     (foldable
-      ? '<button class="dot-btn small" id="yearsMore">' + (yearsOpen ? '접기 ▴' : '그전 ▾') + '</button>'
+      ? '<button class="dot-btn small" id="yearsMore">' + (yearsOpen ? '접기 <span class="ico">▴</span>' : '그전 <span class="ico">▾</span>') + '</button>'
       : '');
   const more = $('#yearsMore');
   if (more) more.addEventListener('click', () => { yearsOpen = !yearsOpen; buildYearPick(); });

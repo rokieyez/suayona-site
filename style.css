@@ -513,3 +513,14 @@ body.has-backdrop .admin-bar{color:var(--ink-bg-safe);}
 .lightbox-play{position:fixed; top:16px; right:110px; z-index:101;}
 .lightbox-play[hidden]{display:none;}
 @media (max-width:560px){ .lightbox-play{top:10px; right:104px;} }
+
+/* 프리텐다드에 없는 아이콘 글자 (✕ ▸ ▴ ▾ 따위).
+   원본 프리텐다드 14,336자를 뒤져 보니 이 글자들의 글리프가 아예 없다. 그런데
+   글꼴 줄에 CDN 프리텐다드가 있으면 브라우저가 「혹시 저 조각에 있을까」 하고
+   25KB 짜리 조각을 받아 보고, 없으니 결국 시스템 글꼴로 떨어진다. 포트폴리오에서
+   그렇게 두 조각 50KB 를 매번 받고 있었다.
+   글꼴 줄에서 CDN 만 빼면 보이는 모습은 그대로인 채(어차피 시스템 글꼴이 그렸다)
+   그 왕복만 사라진다. 한글은 앞의 'Suayona Sans' 가 그대로 맡는다. */
+.auth-x, .work-close, .lightbox-close, .gal-del, .gallery-del, .ico{
+  font-family:'Suayona Sans', system-ui, -apple-system, sans-serif;
+}

@@ -729,7 +729,7 @@ async function loadRelays(){
     cell.className = 'duel-cell pick';
     cell.appendChild(doodleCanvas(r, 6));
     const who = document.createElement('span');
-    who.className = 'who pixel'; who.textContent = NM(r.author) + ' ▸ 이어 그리기';
+    who.className = 'who pixel'; who.textContent = NM(r.author) + ' › 이어 그리기';
     cell.appendChild(who);
     cell.addEventListener('click', () => {
       if (drawnSomething() && !confirm('그리던 그림이 지워져요. 이어 그릴까요?')) return;

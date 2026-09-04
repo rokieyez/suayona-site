@@ -1114,7 +1114,7 @@ function buildYearFilter(){
     shown.map(y => '<button class="dot-btn small' + (yearFilter === y ? ' on' : '') +
       '" data-year="' + y + '">' + y + '</button>').join('') +
     (foldable
-      ? '<button class="dot-btn small" id="yearsMore">' + (yearsOpen ? '접기 ▴' : '그전 ▾') + '</button>'
+      ? '<button class="dot-btn small" id="yearsMore">' + (yearsOpen ? '접기 <span class="ico">▴</span>' : '그전 <span class="ico">▾</span>') + '</button>'
       : '') +
     '<a class="yearbook-link" id="yearbookLink" href="/year.html"></a>';
   // 연도가 하나뿐이라 버튼 줄을 감추더라도 문집 입구는 남겨야 한다
