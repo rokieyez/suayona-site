@@ -319,7 +319,10 @@
     border:2px solid var(--ink); background:var(--paper); padding:6px 11px;
     font-size:12px; font-weight:800; box-shadow:3px 3px 0 rgba(47,42,36,.35);
   }
-  .badge.locked{opacity:.4; box-shadow:none; border-style:dashed;}
+  /* 못 받은 배지는 점선과 흐린 글씨로 구분한다. 통째로 흐리게(0.4) 하면 「다음 고개」가
+     2.28:1 이라 안 읽힌다 — 읽혀야 다음에 뭘 할지 알고 목표가 된다. */
+  .badge.locked{box-shadow:none; border-style:dashed; border-color:rgba(47,42,36,.5);
+    background:#fff; color:var(--ink-soft);}
   .dex-line{text-align:center; margin:14px 0 0; font-size:12px; color:var(--ink-soft);}
   .find-hud.torch{left:auto; right:14px; bottom:60px; pointer-events:auto; cursor:pointer; font-family:inherit;}
   .find-hud.torch.on{background:var(--lemon);}
