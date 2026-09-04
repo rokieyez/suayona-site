@@ -50,6 +50,14 @@ const sb = (typeof supabase !== 'undefined' && supabase && supabase.createClient
   ? supabase.createClient(SB_URL, SB_KEY)
   : offlineSb();
 
+// 어디서도 잡지 않은 약속 거부는 조용히 사라진다 — 그러면 「가끔 안 되는」 버그가
+// 흔적 없이 남는다. 화면은 건드리지 않고 콘솔에만 남겨서, 나중에 열어 보면 알 수 있게 한다.
+// 빈 catch 68곳이 있는 코드베이스라 더욱 그렇다: 빈 catch 는 의도, 여기 걸리는 것은 실수다.
+window.addEventListener('unhandledrejection', e => {
+  const r = e.reason;
+  console.warn('[suayona] 잡히지 않은 약속 거부:', (r && r.message) || r);
+});
+
 // 사진은 이 버킷에 올라감 (부모로 로그인했을 때만 쓸 수 있도록 정책이 걸려 있음)
 const MEDIA_BUCKET = 'event-images';        // 작품·일기·일정 사진, 목소리
 const GALLERY_BUCKET = 'gallery-uploads';   // 이벤트 갤러리에 올린 사진·영상

@@ -203,10 +203,10 @@ function photoMetaOverlayHTML(takenAt, locationName){
   return '<div class="photo-meta">' + text + '</div>';
 }
 
-function escapeHTML(s){
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+// escapeHTML 은 여기 두지 않는다 — common.js 의 것을 쓴다. 이 파일을 싣는 세 쪽
+// (portfolio·board·event/index) 모두 common.js 도 싣고, 부르는 시점에는 이미 있다.
+// 전에는 여기에도 한 벌이 있었는데, 그쪽에는 NFC 정규화와 null 방어가 없어서
+// 스크립트 순서 하나만 바뀌면 보안 함수가 조용히 약한 쪽으로 갈아치워질 자리였다.
 
 // (노트 서식 변환기 renderNoteContent / inlineFmt 는 common.js 로 옮겼음 —
 //  일기장에서도 같은 서식을 쓰기 때문. 이벤트 페이지도 common.js 를 불러온다.)

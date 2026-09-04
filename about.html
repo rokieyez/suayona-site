@@ -93,22 +93,6 @@
         crossorigin="anonymous"></script>
 <script src="./pixel.js"></script>
 <script src="./common.js"></script>
-<script>
-buildChrome('about');
-buildBackdrop('about');   // 배경 픽셀 겹 (common.js)
-
-// 캐릭터 도트 찍기
-$$('canvas[data-icon]').forEach(cv => {
-  const ctx = cv.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  const sp = SPRITES[cv.dataset.icon];
-  if (!sp) return;
-  const w = sp[0].length, h = sp.length;
-  const s = Math.floor(Math.min(cv.width / w, cv.height / h));
-  drawSprite(ctx, sp, Math.floor((cv.width - w*s)/2), Math.floor((cv.height - h*s)/2), s);
-});
-
-initReveal();
-</script>
+<script src="/pages/about.js"></script>
 </body>
 </html>

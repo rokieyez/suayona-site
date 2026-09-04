@@ -11,7 +11,7 @@ const OFFLINE = '/offline.html';
 
 // 그리기는 신호가 없어도 열려야 한다 — 그래서 한 번도 안 들른 사람에게도 미리 담아 둔다.
 // 하나라도 없으면 addAll 은 통째로 실패하므로 한 장씩 담고 실패는 넘긴다.
-const PRECACHE = [OFFLINE, '/draw.html', '/pixel.js', '/common.js', '/style.css'];
+const PRECACHE = [OFFLINE, '/draw.html', '/pages/draw.js', '/pixel.js', '/common.js', '/style.css'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
