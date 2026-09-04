@@ -112,7 +112,22 @@
   body.header-hidden .tabs{top:0;}
   body:has(header.site.hidden) .tabs{top:0;}
   /* 탭이 줄바꿈되면 가운뎃점이 줄 끝에 홀로 남는다 — 좁은 화면에선 안 그린다 */
-  @media (max-width:520px){ .tab-sep{display:none;} }
+  /* 손전화에서 한 줄에 다섯 개가 들어가게 여백만 줄인다. 글자는 13px 그대로다 —
+     날짜를 작게 쓰면 건너뛸 날을 고르기가 어려워진다.
+     375px 화면에서 잰 값: 탭 안쪽에 쓸 수 있는 폭이 323px, 「8/5 수」가 36px,
+     「🗺 지도」42px, 「📷 갤러리」53px 이다. 좌우 여백 5px 와 2px 테를 더하면
+     탭 다섯 개에 273px, 사이 4px 짜리 틈 넷을 더해 289px — 34px 이 남는다.
+     예전 값(여백 13px, 테 3px, 틈 8px)으로는 355px 이라 넷째에서 줄이 넘어갔다.
+     날짜가 「12/25 목」처럼 두 자리씩인 달이 사흘 넘게 이어지면 그때는 넷 + 하나로
+     나뉜다. 지금 올라온 이벤트 넷은 모두 다섯 개씩 들어간다. */
+  @media (max-width:520px){
+    .tab-sep{display:none;}
+    .tabs{padding-left:6px; padding-right:6px; column-gap:4px; row-gap:6px;}
+    .tab, .tab-link{padding-left:5px; padding-right:5px;
+      border-width:2px; box-shadow:2px 2px 0 var(--ink);}
+    /* 테가 얇아졌으니 눌린 탭이 내려앉는 거리도 같이 줄인다 */
+    .tab.active{transform:translate(2px, 2px);}
+  }
   @media (prefers-reduced-motion: reduce){ .tabs{transition:none;} }
   .tab, .tab-link{
     border:var(--px) solid var(--ink); background:var(--paper); color:var(--ink);
