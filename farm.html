@@ -2301,14 +2301,16 @@ function multi(id, n, fn, okMsg){
 }
 // 온실 — 같은 그리기로 12칸짜리 작은 지도를 띄운다.
 function openGreenhouse(){
+  // 농장 배수는 2.5배 같은 소수일 수 있다. 온실 창은 작으니 정수배로 따로 잡는다.
+  const gs = Math.max(1, Math.min(3, Math.round(S)));
   const inner = $('#modalInner');
   inner.innerHTML = '<h3 class="pixel">온실</h3><p class="msg" style="margin:0 0 8px;">어느 계절 씨앗이든 자라고 물도 필요 없어요. 지금 든 도구로 칸을 눌러요.</p>' +
-    '<div class="stage"><canvas id="ghCanvas" width="' + (R.GH.w * T * S) + '" height="' + (R.GH.h * T * S) + '"></canvas></div><div class="fmsg" id="ghMsg"></div>' +
+    '<div class="stage"><canvas id="ghCanvas" width="' + (R.GH.w * T * gs) + '" height="' + (R.GH.h * T * gs) + '"></canvas></div><div class="fmsg" id="ghMsg"></div>' +
     '<div class="modal-actions"><button type="button" class="dot-btn small" id="ghClose">닫기</button></div>';
   $('#modal').hidden = false;
   const draw = () => {
     const cv = $('#ghCanvas'); const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
-    const keep = ctx; ctx = g;
+    const keep = ctx, keepS = S; ctx = g; S = gs;
     for (let y = 0; y < R.GH.h; y++) for (let x = 0; x < R.GH.w; x++){ px(x * T, y * T, T, T, (x + y) % 2 ? '#d8ecd0' : '#cfe6c6'); }
     R.plotIds(W, 'gh').forEach(id => drawPlot(id, W.plots[id], true));
     // 작물은 밭 그림과 마찬가지로 흙 위에 따로 얹는다
@@ -2318,12 +2320,12 @@ function openGreenhouse(){
       drawCrop(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, null, 0);
     });
     R.plotIds(W, 'gh').forEach(id => { const p = W.plots[id]; if (p && p.giant && p.pairOf && id < p.pairOf) drawGiant(id, p, 0); });
-    ctx = keep;
+    ctx = keep; S = keepS;
   };
   draw();
   $('#ghCanvas').addEventListener('click', e => {
     const cv = $('#ghCanvas'), r = cv.getBoundingClientRect(); const w = r.width || cv.width, h = r.height || cv.height;
-    const tx = Math.floor((e.clientX - r.left) / w * cv.width / S / T), ty = Math.floor((e.clientY - r.top) / h * cv.height / S / T);
+    const tx = Math.floor((e.clientX - r.left) / w * cv.width / gs / T), ty = Math.floor((e.clientY - r.top) / h * cv.height / gs / T);
     if (tx < 0 || ty < 0 || tx >= R.GH.w || ty >= R.GH.h) return;
     onPlot('g' + tx + ',' + ty); draw(); $('#ghMsg').innerHTML = $('#fmsg').innerHTML;
   });
@@ -2352,10 +2354,11 @@ function renderAll(){ syncTop(); renderTools(); drawFarm(); renderTab(); }
 
 // 작은 그림 — 작물은 밭 그림을, 물건은 색 네모를.
 function cropIcon(c){
-  const cv = document.createElement('canvas'); cv.width = 16 * 2; cv.height = 16 * 2;
+  // 한 칸이 32도트가 되었으니 아이콘도 32x32 에 한 도트 한 픽셀로 그린다
+  const cv = document.createElement('canvas'); cv.width = T; cv.height = T;
   const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
-  g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, 32, 32);
-  const P = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(Math.round(x * 2), Math.round(y * 2), Math.round(w * 2), Math.round(h * 2)); };
+  g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, T, T);
+  const P = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); };
   drawCrop(0, 0, c, 4, false, P);
   return cv;
 }
@@ -2463,7 +2466,7 @@ function renderShop(){
     Object.keys(R.ANIMALS).forEach(k => {
       const A = R.ANIMALS[k], ok = built(A.need);
       const card = document.createElement('div'); card.className = 'item' + (ok ? '' : ' locked');
-      const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; cv.getContext('2d').imageSmoothingEnabled = false; drawAnimalAt(cv.getContext('2d'), k, 0, 1, 2);
+      const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; cv.getContext('2d').imageSmoothingEnabled = false; drawAnimalAt(cv.getContext('2d'), k, 4, 5, 1);
       const nm = document.createElement('div'); nm.className = 'nm'; nm.appendChild(cv); nm.appendChild(document.createTextNode(A.name)); card.appendChild(nm);
       const what = A.product ? R.itemName(A.product) + (A.every > 1 ? ' ' + A.every + '일마다' : ' 날마다')
                              : A.find.map(f => R.itemName(f)).join('·') + ' 중 하나를 날마다 물어 와요';
@@ -3068,7 +3071,7 @@ function renderDuo(){
   W.animals.forEach(a => {
     const A = R.ANIMALS[a.kind];
     const d = document.createElement('div'); d.className = 'animal';
-    const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; cv.getContext('2d').imageSmoothingEnabled = false; drawAnimalAt(cv.getContext('2d'), a.kind, 0, 1, 2); d.appendChild(cv);
+    const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; cv.getContext('2d').imageSmoothingEnabled = false; drawAnimalAt(cv.getContext('2d'), a.kind, 4, 5, 1); d.appendChild(cv);
     const info = document.createElement('div');
     const petted = a.petDay === today ? (a.pet || []) : [];
     info.innerHTML = '<span class="nm">' + escapeHTML(a.name) + '</span> <span class="love">' + '♥'.repeat(a.love || 0) + '♡'.repeat(10 - (a.love || 0)) + '</span><br><span class="sub" style="margin:0;">' + (a.fedDay === today ? '밥 먹었어요' : '<b>배고파요</b>') + ' · 쓰다듬기 ' + (petted.length ? petted.map(k => NAME[k]).join('·') : '아직') + (a.ready ? ' · <b>' + escapeHTML(R.ee(R.itemName(a.ready))) + '</b> 있어요' : '') + '</span>';
