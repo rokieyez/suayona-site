@@ -34,7 +34,12 @@
   *, *::before, *::after{box-sizing:border-box;}
   body{
     font-family:'Suayona Sans', 'Pretendard', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-    color:var(--ink); margin:0; padding:40px 16px 60px;
+    color:var(--ink); margin:0;
+    /* 헤더는 화면 위에 붙박이(fixed)로 떠 있다. 그 높이만큼 본문을 내려야 한다 —
+       40px 로 두었더니 헤더가 68px 까지 내려와 제목 위의 「📌 가볼 곳」 배지를
+       28px 만큼 덮고 있었다. 이벤트 쪽들이 쓰는 것과 같은 식이다. */
+    padding:calc(var(--header-h) + 18px) 16px 60px;
+    background-color:var(--paper);
   }
 
   .section-head{text-align:center; margin-bottom:24px;}
