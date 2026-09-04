@@ -246,9 +246,10 @@
   }
   .run-bar .run-hint{font-size:12px; font-weight:800; color:var(--ink-soft); margin-left:auto;}
   .run-who{display:flex; gap:6px;}
+  /* 손가락으로 누르는 칸이 29px 밖에 안 됐다 — 작은 화면에서 32px 아래는 잘 안 눌린다 */
   .run-who button{
     font:inherit; font-size:12px; font-weight:800; cursor:pointer;
-    padding:5px 10px; border:2px solid var(--ink); border-radius:0;
+    min-height:34px; padding:6px 12px; border:2px solid var(--ink); border-radius:0;
     background:var(--cream); color:var(--ink);
   }
   .run-who button.on{background:var(--ink); color:var(--cream);}
@@ -2603,7 +2604,8 @@ belowFold(async () => {
       g0.clearRect(0, 0, cv.width, cv.height);
       g0.fillStyle = '#fff6e9'; g0.fillRect(0, 0, cv.width, cv.height);
       g0.fillStyle = '#6b5f4e'; g0.textAlign = 'center';
-      g0.font = '800 16px Pretendard Variable, Pretendard, sans-serif';
+      g0.font = '800 ' + Math.round(16 * Math.max(1, Math.min(2, cv.width / (cv.getBoundingClientRect().width || cv.width)))) +
+        'px Pretendard Variable, Pretendard, sans-serif';
       g0.fillText('아직 ' + K.label + J(K.label, '을', '를') + ' 잰 적이 없어요',
         cv.width / 2, cv.height / 2);
       g0.textAlign = 'start';
@@ -2614,6 +2616,11 @@ belowFold(async () => {
     const g = cv.getContext('2d');
     g.imageSmoothingEnabled = false;
     const W = cv.width, H = cv.height, S = 4;
+    // 좁은 화면에서는 이 그림이 절반 크기로 줄어 앉는다 — 11px 글씨가 6px 이 돼 안 읽힌다.
+    // 줄어든 만큼 글씨와 자리를 키워서, 화면에 찍히는 크기는 어디서나 비슷하게 만든다.
+    const shown = cv.getBoundingClientRect().width || W;
+    const k = Math.max(1, Math.min(2, W / shown));
+    const FS = Math.round(11 * k);
     g.clearRect(0, 0, W, H);
 
     // 문틀 — 도트로 굵게
@@ -2631,13 +2638,13 @@ belowFold(async () => {
 
     // 종류에 맞는 간격으로 가로줄. 눈금 글씨는 줄 왼쪽 끝에 두고, 눈금 막대는 그 오른쪽에서
     // 시작한다 — 예전에는 막대가 글씨 위를 지나가 「140cm」이 반쯤 지워졌다.
-    const AX = S * 16;
-    g.font = '600 11px Pretendard Variable, Pretendard, sans-serif';
+    const AX = Math.round(S * 16 * k);
+    g.font = '600 ' + FS + 'px Pretendard Variable, Pretendard, sans-serif';
     for (let c = Math.ceil(lo / K2.step) * K2.step; c <= hi; c += K2.step) {
       g.fillStyle = 'rgba(47,42,36,.18)';
       g.fillRect(AX, y(c), W - S * 5 - AX, 1);
       g.fillStyle = 'rgba(47,42,36,.55)';
-      g.fillText(c + K2.unit, S * 6, y(c) + 4);
+      g.fillText(c + K2.unit, S * 2, y(c) + Math.round(FS * 0.36));
     }
 
     // 사람마다 눈금 — 도트 네모 하나와 날짜.
@@ -2653,31 +2660,43 @@ belowFold(async () => {
       }));
     });
     marks.sort((a, b) => a.y - b.y);
-    const GAP = S * 4;                                  // 글씨 한 줄이 차지하는 최소 높이
+    const GAP = Math.round(S * 4 * k);                  // 글씨 한 줄이 차지하는 최소 높이
     let last = -1e9;
     marks.forEach(m => { m.ty = Math.max(m.y - S * 2, last + GAP); last = m.ty; });
     const spill = last - (H - S * 2);                   // 아래로 넘치면 통째로 끌어올린다
     if (spill > 0) marks.forEach(m => { m.ty -= spill; });
 
+    // 막대를 먼저 다 긋고, 글씨는 그 위에 올린다 — 순서를 섞으면 나중 막대가 앞 글씨를 지운다.
     marks.forEach(m => {
-      const x0 = AX + S * 2 + m.wi * S * 3;
+      const x0 = AX + S * 2 + m.wi * S * 3 * k;
+      m.x0 = x0;
       g.fillStyle = m.col;
       g.fillRect(x0, m.y - S, W - S * 5 - x0, S * 2);
+    });
+    g.font = '800 ' + FS + 'px Pretendard Variable, Pretendard, sans-serif';
+    marks.forEach(m => {
       const drift = m.ty - (m.y - S * 2);
       if (Math.abs(drift) > 2){                         // 글씨가 제 줄에서 떨어졌으면 이어 준다
         g.fillStyle = 'rgba(47,42,36,.4)';
-        g.fillRect(x0 + 1, Math.min(m.ty + 2, m.y - S), 1, Math.abs(drift));
+        g.fillRect(m.x0 + 1, Math.min(m.ty + 2, m.y - S), 1, Math.abs(drift));
       }
+      // 눈금이 촘촘하면 글씨가 어느 막대 위에든 앉게 된다. 밑에 종이색 판을 깔아
+      // 막대가 글자를 가로지르지 않게 한다.
+      const label = m.who + ' ' + m.cm + K2.unit + ' (' + m.on.slice(2, 7).replace('-', '.') + ')';
+      const tw = g.measureText(label).width;
+      g.fillStyle = '#fff6e9';
+      g.fillRect(m.x0 + 2, m.ty - FS + 1, tw + 5, FS + 3);
       g.fillStyle = '#2f2a24';
-      g.font = '800 11px Pretendard Variable, Pretendard, sans-serif';
-      g.fillText(m.who + ' ' + m.cm + K2.unit + ' (' + m.on.slice(2, 7).replace('-', '.') + ')',
-        x0 + 4, m.ty);
+      g.fillText(label, m.x0 + 4, m.ty);
     });
 
     $('#growthLegend').innerHTML = Object.keys(byWho).map(who =>
       '<span><i style="background:' + (COLORS[who] || '#ffd979') + '"></i>' + escapeHTML(who) +
       ' · ' + byWho[who].length + '번 쟀어요</span>').join('');
   }
+
+  let redraw = 0;
+  window.addEventListener('resize', () => { clearTimeout(redraw); redraw = setTimeout(draw, 200); });
 
   $$('#gKind button').forEach(b => b.addEventListener('click', () => {
     kind = b.dataset.kind;

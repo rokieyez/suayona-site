@@ -45,9 +45,8 @@
   .mission{margin-top:10px; padding:8px 10px; border:2px solid var(--ink); background:#eef7ff; font-size:12.5px; line-height:1.6;}
   .mission.done{background:var(--mint);}
   .mission b{display:block;}
-  .mission .mbar{height:6px; border:2px solid var(--ink); background:#fff; margin:4px 0 6px; position:relative;}
-  .mission .mbar i{position:absolute; left:0; top:0; bottom:0; background:#5aa9e6;}
-  .mission button{margin-top:2px;}
+  .mission b{margin-bottom:5px;}
+  .mission button{margin-top:6px;}
   .xp{height:10px; border:2px solid var(--ink); background:#fff; margin:6px 0 10px; position:relative;}
   .xp i{position:absolute; left:0; top:0; bottom:0; background:var(--lemon);}
   .stat{display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:13px; align-items:baseline;}
@@ -116,6 +115,7 @@
     box-shadow:2px 2px 0 var(--ink); line-height:1.25;
   }
   .menu button small{display:block; font-size:10px; color:var(--ink-soft); font-weight:700;}
+  .menu button small .pips{margin-right:4px;}
   .menu button:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
   .menu button.skill{background:#fff6e9;}
   .menu button.good small{color:#2f7d4f;}
@@ -636,7 +636,6 @@ function renderMission(){
   box.className = 'mission' + (done ? ' done' : '');
   box.innerHTML =
     '<b>📌 오늘의 미션 — ' + escapeHTML(m.say) + '</b>' +
-    '<div class="mbar"><i style="width:' + Math.round(100 * n / m.need) + '%"></i></div>' +
     (save.mission.claimed
       ? '오늘 몫은 받았어요. 내일 새 미션이 와요.'
       : done ? '' : pips(n, m.need) + ' <i>💰' + Q.MISSION.reward.gold + '</i> <i>⭐' + Q.MISSION.reward.xp + '</i>');
@@ -1100,14 +1099,15 @@ function weekBars(k, total, hp){
   // 넉 주 기록이 쌓이기 전이라면, 예전 방식으로 적어 둔 지난주 한 줄이라도 쓴다.
   if (!log.length && save.lastWeek && save.lastWeek.hp)
     log = [{ key: save.lastWeek.key, total: save.lastWeek.dmg, hp: save.lastWeek.hp }];
+  // 견줄 지난 주가 없으면 이번 주 막대 하나만 덩그러니 남아 고장처럼 보인다 — 그때는 안 그린다.
+  if (!log.length) return '';
   const cells = log.concat([{ key: k, total: total, hp: hp, now: true }]).map(e => {
     const p = Math.max(0, Math.min(100, Math.round(100 * (e.total == null ? e.dmg : e.total) / (e.hp || 1))));
     const cls = [e.now ? 'now' : '', p >= 100 ? 'won' : ''].filter(Boolean).join(' ');
     return '<span class="' + cls + '" title="' + e.key + ' 주 · ' + p + '%">' +
       '<i style="height:' + Math.max(2, Math.round(p * 0.28)) + 'px"></i></span>';
   }).join('');
-  return '<div class="wlog">' + cells +
-    '<em>' + (log.length ? '지난 ' + log.length + '주 → 이번 주' : '이번 주') + '</em></div>';
+  return '<div class="wlog">' + cells + '<em>지난 ' + log.length + '주 → 이번 주</em></div>';
 }
 function renderWeek(){
   const k = Q.weekKey(), box = $('#week');

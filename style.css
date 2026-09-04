@@ -278,13 +278,19 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
 
 /* 필터 버튼 줄 — 태그와 같은 색을 써서 색만 보고도 구분되게 함 */
 .filters{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:26px;}
-.filters .dot-btn{color:var(--ink); opacity:.55; transition:opacity .15s steps(2);}
-.filters .dot-btn:hover{opacity:.8;}
-.filters .dot-btn.on{opacity:1; transform:translate(2px,2px); box-shadow:2px 2px 0 var(--ink);}
-.filters .dot-btn[data-filter="all"]{background:var(--ink); color:#fff;}
-.filters .dot-btn[data-filter="sua"]{background:var(--coral);}
-.filters .dot-btn[data-filter="yona"]{background:var(--mint);}
-.filters .dot-btn[data-filter="together"]{background:var(--lemon); color:var(--ink);}
+/* 안 고른 것은 흰 바탕에 색 테두리, 고른 것만 색으로 채운다. 예전에는 단추를 통째로
+   흐리게(opacity .55) 했는데, 그러면 글씨까지 흐려져 실제 대비가 2.13:1 뿐이었다. */
+.filters .dot-btn{color:var(--ink); background:#fff; transition:background .15s steps(2);}
+.filters .dot-btn:hover{background:var(--cream);}
+.filters .dot-btn.on{transform:translate(2px,2px); box-shadow:2px 2px 0 var(--ink);}
+.filters .dot-btn[data-filter="all"]{border-color:var(--ink);}
+.filters .dot-btn[data-filter="all"].on{background:var(--ink); color:#fff;}
+.filters .dot-btn[data-filter="sua"]{border-color:var(--coral);}
+.filters .dot-btn[data-filter="sua"].on{background:var(--coral);}
+.filters .dot-btn[data-filter="yona"]{border-color:var(--mint);}
+.filters .dot-btn[data-filter="yona"].on{background:var(--mint);}
+.filters .dot-btn[data-filter="together"]{border-color:var(--lemon);}
+.filters .dot-btn[data-filter="together"].on{background:var(--lemon);}
 
 /* 연도 줄은 두 번째 축이라 색으로 구분하지 않고 채움/비움으로만 구분한다.
    위의 .filters 규칙은 버튼마다 배경색이 깔린다는 전제(흰 글자·반투명)라서,
