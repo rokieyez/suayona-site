@@ -1,0 +1,483 @@
+// wish/index.html 의 페이지 스크립트.
+// 싣는 순서는 다른 쪽과 같다 — supabase → pixel → common → 이 파일.
+//
+// 한 곳의 일생을 한 줄에 담는다: 가고 싶다(want) → 계획 중(planned) → 다녀옴(done).
+// 다녀온 뒤에만 별과 한마디가 붙는다. 읽기는 누구나, 쓰기는 부모만 (표의 RLS 와 같은 선).
+
+buildChrome('wish');
+// 배경은 이벤트 쪽 풍경을 그대로 쓴다. BACKDROP 에 'wish' 항목을 따로 만들지 않은 이유는,
+// 이 쪽이 이벤트와 같은 「어디를 다녀왔나」의 자리이고 그림도 그쪽이 어울리기 때문이다.
+buildBackdrop('event');
+
+const CATS = ['전체', '놀이', '먹거리', '자연', '체험', '숙소'];
+const STATES = [['전체','all'], ['가보고 싶은 곳','want'], ['계획 중','planned'], ['가본 곳','done']];
+const SORTS = [['최근 순','recent'], ['별 높은 순','stars'], ['이름 순','name']];
+const SEASONS = ['아무때나', '봄', '여름', '가을', '겨울'];
+const CAT_ICON = { 놀이:'🎡', 먹거리:'🍜', 자연:'🌳', 체험:'🎨', 숙소:'🏨' };
+
+let PLACES = [];
+let EVENT_LIST = [];          // 다녀옴으로 바꿀 때 고를 이벤트 목록
+let fCat = '전체', fState = 'all', fSort = 'recent';
+let openId = null, editId = null;
+let map = null, mapDrawn = false;
+const pinEls = {};
+
+// 별은 하나뿐이라 평균을 낼 것이 없다. 0 이나 null 이면 「아직 안 매김」이다.
+function score(p){ return p.stars > 0 ? p.stars : null; }
+function starText(n, max){ return '★'.repeat(n) + '☆'.repeat(max - n); }
+function stateLabel(s){ return s === 'want' ? '가보고 싶은 곳' : s === 'planned' ? '계획 중' : '다녀옴'; }
+function iconOf(p){ return CAT_ICON[p.category] || '📍'; }
+function dateText(d){
+  if (!d) return '';
+  const k = isoToDateKey(d);
+  return k ? k[0] + '. ' + (k[1] + 1) + '. ' + k[2] + '.' : '';
+}
+
+// ---------- 불러오기 ----------
+async function load(){
+  const { data, error } = await sb.from('places').select('*')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('가볼 곳 로딩 오류:', error); PLACES = []; return; }
+  PLACES = data || [];
+}
+
+async function loadEventList(){
+  if (!isAdmin || EVENT_LIST.length) return;
+  const { data, error } = await sb.from('event_meta')
+    .select('event_id, event_name, org_name, start_date')
+    .order('start_date', { ascending: false });
+  if (error) { console.error('이벤트 목록 오류:', error); return; }
+  EVENT_LIST = data || [];
+}
+
+// ---------- 거르개 ----------
+function shown(){
+  let list = PLACES.filter(p =>
+    (fCat === '전체' || p.category === fCat) &&
+    (fState === 'all' || p.status === fState));
+  if (fSort === 'stars') {
+    list = list.slice().sort((a, b) => (score(b) || -1) - (score(a) || -1));
+  } else if (fSort === 'name') {
+    list = list.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko'));
+  } else {
+    // 최근 순 — 다녀온 날이 있으면 그것이 앞, 없으면 넣은 차례
+    list = list.slice().sort((a, b) =>
+      String(b.visited_on || b.created_at || '').localeCompare(String(a.visited_on || a.created_at || '')));
+  }
+  return list;
+}
+
+function drawFilters(){
+  const box = $('#filters');
+  box.innerHTML = '';
+  CATS.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (c === fCat ? ' on' : '');
+    b.textContent = c;
+    b.addEventListener('click', () => { fCat = c; render(); });
+    box.appendChild(b);
+  });
+  const gap = document.createElement('span'); gap.className = 'filter-gap'; box.appendChild(gap);
+  STATES.forEach(([label, v]) => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (v === fState ? ' on' : '');
+    b.textContent = label;
+    b.addEventListener('click', () => { fState = v; render(); });
+    box.appendChild(b);
+  });
+
+  const sbox = $('#sorts');
+  sbox.innerHTML = '<span class="filter-label">차례</span>';
+  SORTS.forEach(([label, v]) => {
+    const b = document.createElement('button');
+    b.className = 'chip sort' + (v === fSort ? ' on' : '');
+    b.textContent = label;
+    b.addEventListener('click', () => { fSort = v; render(); });
+    sbox.appendChild(b);
+  });
+}
+
+// ---------- 별 ----------
+function rateRows(p){
+  const cur = p.stars || 0;
+  const stars = [1,2,3,4,5].map(n =>
+    '<button type="button" class="' + (n <= cur ? 'on' : '') + '"' +
+    (isAdmin ? ' data-rate="' + p.id + ':' + n + '"' : ' disabled') +
+    ' aria-label="별 ' + n + '점">★</button>').join('');
+  return '<div class="rate-list"><div class="rate-row">' +
+    '<span class="rate-who">별점</span>' +
+    '<span class="rate-stars">' + stars + '</span>' +
+    '<span class="rate-note">' + (cur ? cur + '점' : '아직 안 매김') + '</span></div></div>';
+}
+
+// ---------- 고치기 폼 ----------
+function editHTML(p){
+  const opt = (list, cur) => list.map(v =>
+    '<option' + (v === cur ? ' selected' : '') + '>' + escapeHTML(v) + '</option>').join('');
+  const evOpt = ['<option value="">— 이벤트 없음 —</option>'].concat(
+    EVENT_LIST.map(e => '<option value="' + escapeHTML(e.event_id) + '"' +
+      (e.event_id === p.event_id ? ' selected' : '') + '>' +
+      escapeHTML((e.event_name || e.event_id) + (e.org_name ? ' · ' + e.org_name : '')) +
+      '</option>')).join('');
+  return '<div class="edit-box" data-edit="' + p.id + '">' +
+    '<div class="edit-row">' +
+      '<div><label>어디까지 왔나</label><select class="e-status">' +
+        '<option value="want"' + (p.status === 'want' ? ' selected' : '') + '>가보고 싶은 곳</option>' +
+        '<option value="planned"' + (p.status === 'planned' ? ' selected' : '') + '>계획 중</option>' +
+        '<option value="done"' + (p.status === 'done' ? ' selected' : '') + '>다녀옴</option>' +
+      '</select></div>' +
+      '<div><label>무엇</label><select class="e-cat">' + opt(CATS.slice(1), p.category) + '</select></div>' +
+      '<div><label>언제쯤</label><select class="e-season">' + opt(SEASONS, p.season) + '</select></div>' +
+    '</div>' +
+    '<div class="edit-row">' +
+      '<div><label>얼마나 가고 싶은지</label><select class="e-hope">' +
+        [0,1,2,3].map(n => '<option value="' + n + '"' + ((p.hope || 0) === n ? ' selected' : '') + '>' +
+          (n ? '★'.repeat(n) : '보통') + '</option>').join('') + '</select></div>' +
+      '<div><label>다녀온 날</label><input class="e-visited" type="date" value="' +
+        escapeHTML(p.visited_on || '') + '"></div>' +
+    '</div>' +
+    '<label>이어진 이벤트</label><select class="e-event">' + evOpt + '</select>' +
+    '<label>메모</label><textarea class="e-memo">' + escapeHTML(p.memo || '') + '</textarea>' +
+    '<label>다녀온 뒤 한마디</label><textarea class="e-review">' + escapeHTML(p.review || '') + '</textarea>' +
+    '<label>링크 (한 줄에 하나)</label><textarea class="e-links">' +
+      escapeHTML((p.links || []).join('\n')) + '</textarea>' +
+    '<label><input class="e-again" type="checkbox" style="width:auto; margin-right:6px;"' +
+      (p.again ? ' checked' : '') + '>또 가고 싶다</label>' +
+    '<div class="act-row" style="margin-top:12px;">' +
+      '<button class="act primary" type="button" data-save="' + p.id + '">저장</button>' +
+      '<button class="act ghost" type="button" data-cancel="' + p.id + '">그만두기</button>' +
+      '<span class="msg" data-msg="' + p.id + '"></span>' +
+    '</div>' +
+  '</div>';
+}
+
+// ---------- 카드 ----------
+function cardHTML(p){
+  const sc = score(p);
+  const links = (p.links || []).filter(Boolean).map(u => {
+    const safe = /^https?:\/\//i.test(u) ? u : 'https://' + u;
+    let label = safe;
+    try { label = new URL(safe).hostname.replace(/^www\./, ''); }
+    catch (e) { /* 주소가 아니면 적어 둔 글자를 그대로 보여 준다 */ }
+    return '<a href="' + escapeHTML(safe) + '" target="_blank" rel="noopener noreferrer">🔗 ' +
+      escapeHTML(label) + '</a>';
+  }).join('');
+
+  const adminActs = isAdmin
+    ? '<button class="act" type="button" data-edit-open="' + p.id + '">✏️ 고치기</button>' +
+      '<button class="act ghost" type="button" data-del="' + p.id + '">🗑 지우기</button>'
+    : '';
+  const eventAct = (p.status === 'done' && p.event_id)
+    ? '<a class="act ghost" href="/event/e/?slug=' + encodeURIComponent(p.event_id) + '">📖 이벤트 보기</a>'
+    : '';
+
+  return '<div class="wcard' + (p.status === 'done' ? ' done' : '') +
+      (p.id === openId ? ' open' : '') + '" data-card="' + p.id + '">' +
+    '<div class="wcard-top">' +
+      '<div class="wcard-thumb">' + iconOf(p) + '</div>' +
+      '<div class="wcard-body">' +
+        '<p class="wcard-name">' + escapeHTML(p.name) + '</p>' +
+        '<div class="wcard-meta">' +
+          (p.category ? '<span class="tag cat-' + escapeHTML(p.category) + '">' + escapeHTML(p.category) + '</span>' : '') +
+          '<span class="state ' + p.status + '">' + stateLabel(p.status) + '</span>' +
+          (p.status !== 'done' && p.hope ? '<span class="hope">가고 싶은 정도 ' + starText(p.hope, 3) + '</span>' : '') +
+          (p.again === true ? '<span class="again">또 가고 싶다</span>' : '') +
+        '</div>' +
+        (sc ? '<div class="score"><span class="stars">' + starText(sc, 5) + '</span>' +
+              '<span class="num">' + sc + '점</span></div>' : '') +
+        '<div class="wcard-meta" style="margin-top:4px;">' +
+          escapeHTML(p.visited_on ? dateText(p.visited_on) + ' 다녀옴' : (p.season || '')) + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="wcard-more">' +
+      (p.id === editId ? editHTML(p) : '') +
+      (p.review ? '<p class="review">“' + escapeHTML(p.review) + '”</p>' : '') +
+      (p.memo ? '<p>' + escapeHTML(p.memo) + '</p>' : '') +
+      (p.status === 'done' ? rateRows(p) : '') +
+      (links ? '<div class="link-row">' + links + '</div>' : '') +
+      '<div class="act-row">' + eventAct + adminActs + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function drawCards(){
+  const box = $('#cards');
+  const list = shown();
+  if (!list.length){
+    box.innerHTML = '<p class="empty-msg">' +
+      (PLACES.length ? '고른 조건에 맞는 곳이 없습니다' : '아직 적어 둔 곳이 없습니다') + '</p>';
+    return;
+  }
+  box.innerHTML = list.map(cardHTML).join('');
+}
+
+function drawBest(){
+  const done = PLACES.filter(p => p.status === 'done' && score(p));
+  const top = done.slice().sort((a, b) => score(b) - score(a)).slice(0, 5);
+  const box = $('#best');
+  if (top.length < 2){ box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = '<h2>🏆 별이 높았던 곳</h2>' +
+    '<p class="sub">별을 매긴 차례입니다 · 다녀온 곳 ' + done.length + '군데</p>' +
+    '<ol>' + top.map(p => '<li>' + escapeHTML(p.name) +
+      '<span class="s">' + score(p) + '점</span></li>').join('') + '</ol>';
+}
+
+// ---------- 지도 ----------
+function withCoords(){ return PLACES.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng)); }
+
+function paintPins(){
+  withCoords().forEach((p, i) => {
+    const el = pinEls[p.id];
+    if (!el) return;
+    const sc = score(p);
+    el.className = 'wish-pin' + (p.status === 'done' ? ' done' : '');
+    el.textContent = p.status === 'done' ? (sc ? '★' + sc : '✓') : String(i + 1);
+  });
+}
+
+function focusPin(p){
+  Object.values(pinEls).forEach(el => el.classList.remove('on'));
+  if (pinEls[p.id]) pinEls[p.id].classList.add('on');
+  const sc = score(p);
+  $('#stripText').innerHTML = escapeHTML(p.name) +
+    '<span class="sub">' + escapeHTML((p.category || '') + ' · ' + stateLabel(p.status) +
+      (sc ? ' · 별 ' + sc + '점' : (p.season ? ' · ' + p.season : ''))) + '</span>';
+}
+
+function summary(){
+  const want = PLACES.filter(p => p.status !== 'done').length;
+  const done = PLACES.filter(p => p.status === 'done');
+  const scored = done.map(score).filter(Boolean);
+  const 평균 = scored.length ? (scored.reduce((a, b) => a + b, 0) / scored.length).toFixed(1) : null;
+  $('#stripText').innerHTML = '📌 가볼 곳<span class="sub">' +
+    '가고 싶은 곳 ' + want + '군데 · 가본 곳 ' + done.length + '군데' +
+    (평균 ? ' · 별 평균 ' + 평균 : '') + ' · 핀을 눌러보세요</span>';
+  Object.values(pinEls).forEach(el => el.classList.remove('on'));
+}
+
+async function drawMap(){
+  if (mapDrawn) return;
+  const spots = withCoords();
+  if (!spots.length) return;
+  // 여기서 실패하면(서비스가 꺼져 있거나 도메인이 안 맞으면) 조용히 접는다.
+  // 지도 하나 때문에 목록이 안 보이면 안 되므로.
+  try { await loadKakaoMaps(); } catch (e) { console.warn('지도를 건너뜁니다:', e.message); return; }
+
+  mapDrawn = true;
+  $('#mapBand').hidden = false;
+  map = new kakao.maps.Map($('#wishMap'), {
+    center: new kakao.maps.LatLng(36.5, 127.9), level: 13, scrollwheel: false,
+  });
+  enablePinchZoom(map, $('#wishMap'));
+
+  const bounds = new kakao.maps.LatLngBounds();
+  spots.forEach(p => {
+    const here = new kakao.maps.LatLng(p.lat, p.lng);
+    bounds.extend(here);
+    const pin = document.createElement('div');
+    pin.className = 'wish-pin';
+    pin.addEventListener('click', () => {
+      openId = p.id; editId = null; render(); focusPin(p);
+      const card = document.querySelector('[data-card="' + p.id + '"]');
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    pinEls[p.id] = pin;
+    new kakao.maps.CustomOverlay({ map, position: here, content: pin,
+      xAnchor: 0.5, yAnchor: 0.5, clickable: true, zIndex: 2 });
+  });
+  paintPins();
+
+  // 핀이 다 들어오게. 카카오는 레벨 14 보다 물러날 수 없어, 그래도 안 들어오면
+  // 한가운데에 놓는 쪽으로 물러선다 (이벤트 목록과 같은 규칙).
+  if (spots.length === 1) {
+    map.setCenter(new kakao.maps.LatLng(spots[0].lat, spots[0].lng));
+    map.setLevel(6);
+  } else {
+    map.setBounds(bounds, 22, 22, 22, 22);
+    const view = map.getBounds();
+    if (!spots.every(p => view.contain(new kakao.maps.LatLng(p.lat, p.lng)))) {
+      const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+      map.setLevel(14);
+      map.setCenter(new kakao.maps.LatLng((sw.getLat() + ne.getLat()) / 2, (sw.getLng() + ne.getLng()) / 2));
+    }
+  }
+
+  const zbox = $('#zoomCtl'), zin = $('#zoomIn'), zout = $('#zoomOut');
+  function sync(){ const lv = map.getLevel(); zin.disabled = lv <= 1; zout.disabled = lv >= 14; }
+  zin.addEventListener('click', () => { map.setLevel(map.getLevel() - 1); sync(); });
+  zout.addEventListener('click', () => { map.setLevel(map.getLevel() + 1); sync(); });
+  kakao.maps.event.addListener(map, 'zoom_changed', sync);
+  kakao.maps.event.addListener(map, 'click', summary);
+  zbox.hidden = false; sync();
+  summary();
+}
+
+function render(){ drawFilters(); drawCards(); drawBest(); paintPins(); }
+
+// ---------- 카드 안의 누름은 한 자리에서 받는다 (카드를 다시 그려도 살아 있게) ----------
+$('#cards').addEventListener('click', async (e) => {
+  const t = e.target.closest('button, a');
+
+  // 별 매기기
+  if (t && t.dataset.rate) {
+    e.stopPropagation();
+    const [id, n] = t.dataset.rate.split(':');
+    const p = PLACES.find(x => String(x.id) === id);
+    if (!p) return;
+    // 같은 별을 다시 누르면 지운다 — 잘못 누른 것을 되돌릴 길이 있어야 한다
+    const next = (p.stars === +n) ? null : +n;
+    const before = p.stars;
+    p.stars = next; render();
+    const { error } = await sb.from('places').update({ stars: next }).eq('id', p.id);
+    if (error) { p.stars = before; render(); alert('별을 저장하지 못했습니다: ' + error.message); }
+    return;
+  }
+
+  if (t && t.dataset.editOpen) {
+    e.stopPropagation();
+    await loadEventList();
+    editId = +t.dataset.editOpen; openId = editId; render();
+    return;
+  }
+  if (t && t.dataset.cancel) { e.stopPropagation(); editId = null; render(); return; }
+
+  if (t && t.dataset.save) {
+    e.stopPropagation();
+    const id = +t.dataset.save;
+    const box = document.querySelector('[data-edit="' + id + '"]');
+    const msg = box.querySelector('[data-msg]');
+    const status = box.querySelector('.e-status').value;
+    const patch = {
+      status,
+      category: box.querySelector('.e-cat').value,
+      season: box.querySelector('.e-season').value,
+      hope: +box.querySelector('.e-hope').value,
+      visited_on: box.querySelector('.e-visited').value || null,
+      event_id: box.querySelector('.e-event').value || null,
+      memo: box.querySelector('.e-memo').value.trim() || null,
+      review: box.querySelector('.e-review').value.trim() || null,
+      again: box.querySelector('.e-again').checked,
+      links: box.querySelector('.e-links').value.split('\n').map(s => s.trim()).filter(Boolean),
+    };
+    msg.className = 'msg'; msg.textContent = '저장 중...';
+    const { data, error } = await sb.from('places').update(patch).eq('id', id).select().maybeSingle();
+    if (error) { msg.className = 'msg err'; msg.textContent = '저장 실패: ' + error.message; return; }
+    // RLS 에 막히면 오류 없이 0행이 온다 — 그때를 성공으로 읽으면 안 된다
+    if (!data) { msg.className = 'msg err'; msg.textContent = '저장되지 않았습니다 (권한 확인)'; return; }
+    Object.assign(PLACES.find(x => x.id === id), data);
+    editId = null; render();
+    return;
+  }
+
+  if (t && t.dataset.del) {
+    e.stopPropagation();
+    const id = +t.dataset.del;
+    const p = PLACES.find(x => x.id === id);
+    if (!confirm('「' + p.name + '」을 지웁니다. 되돌릴 수 없습니다.')) return;
+    const { error } = await sb.from('places').delete().eq('id', id);
+    if (error) { alert('지우지 못했습니다: ' + error.message); return; }
+    PLACES = PLACES.filter(x => x.id !== id);
+    if (pinEls[id]) { pinEls[id].remove(); delete pinEls[id]; }
+    openId = editId = null; render(); summary();
+    return;
+  }
+
+  if (t) return;   // 링크·다른 단추는 그대로 둔다
+
+  // 카드 몸통을 누르면 펼치거나 접는다
+  const card = e.target.closest('[data-card]');
+  if (!card) return;
+  const id = +card.dataset.card;
+  openId = (openId === id) ? null : id;
+  if (openId !== id) editId = null;
+  render();
+  const p = PLACES.find(x => x.id === id);
+  if (p && openId === id && Number.isFinite(p.lat)) focusPin(p);
+});
+
+// ---------- 장소 찾기 ----------
+let picked = null;
+let searchTimer = null;
+$('#q').addEventListener('input', (e) => {
+  const kw = e.target.value.trim();
+  const out = $('#searchOut');
+  picked = null;
+  clearTimeout(searchTimer);
+  if (kw.length < 2) { out.hidden = true; return; }
+  // 글자마다 물어보면 한 번 적는 동안 열 번 넘게 부른다. 잠깐 기다렸다 한 번만 부른다.
+  searchTimer = setTimeout(async () => {
+    try { await loadKakaoMaps(); } catch (err) { return; }
+    new kakao.maps.services.Places().keywordSearch(kw, (data, status) => {
+      if (status !== kakao.maps.services.Status.OK) { out.hidden = true; return; }
+      out.innerHTML = '';
+      data.slice(0, 6).forEach(r => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.innerHTML = '<b>' + escapeHTML(r.place_name) + '</b><span>' +
+          escapeHTML(r.road_address_name || r.address_name || '') + '</span>';
+        b.addEventListener('click', () => {
+          picked = { name: r.place_name, lat: +r.y, lng: +r.x,
+                     address: r.road_address_name || r.address_name || null };
+          $('#q').value = r.place_name;
+          out.hidden = true;
+        });
+        out.appendChild(b);
+      });
+      out.hidden = false;
+    });
+  }, 280);
+});
+
+$('#addBtn').addEventListener('click', async () => {
+  const msg = $('#addMsg');
+  const name = $('#q').value.trim();
+  if (!name) { msg.className = 'msg err'; msg.textContent = '장소 이름을 적어 주세요.'; return; }
+  const row = {
+    name: picked ? picked.name : name,
+    category: $('#cat').value,
+    season: $('#season').value,
+    hope: +$('#hope').value,
+    memo: $('#memo').value.trim() || null,
+    links: $('#link').value.split('\n').map(s => s.trim()).filter(Boolean),
+    status: 'want',
+  };
+  // 찾아서 고른 자리가 있으면 좌표까지 넣는다. 손으로만 적었으면 지도에는 안 찍힌다.
+  if (picked) { row.lat = picked.lat; row.lng = picked.lng; row.address = picked.address; }
+
+  msg.className = 'msg'; msg.textContent = '넣는 중...';
+  const { data, error } = await sb.from('places').insert(row).select().maybeSingle();
+  if (error) { msg.className = 'msg err'; msg.textContent = '넣지 못했습니다: ' + error.message; return; }
+  if (!data) { msg.className = 'msg err'; msg.textContent = '넣어지지 않았습니다 (권한 확인)'; return; }
+
+  PLACES.unshift(data);
+  picked = null;
+  $('#q').value = ''; $('#memo').value = ''; $('#link').value = '';
+  msg.className = 'msg ok'; msg.textContent = '넣었습니다.';
+  render();
+  // 좌표가 있는 첫 곳이면 이제야 지도를 그릴 수 있다. 이미 그렸으면 새로 고쳐 핀을 얹는다.
+  if (!mapDrawn) drawMap();
+  else if (data.lat) location.reload();
+});
+
+// ---------- 목록은 누구나, 넣기·고치기·별점은 부모만 ----------
+async function refreshAuthUI(){
+  await refreshAuth();
+  $('#addBox').hidden = !isAdmin;
+  $('#headNote').textContent = isAdmin
+    ? '가고 싶은 곳을 적어 두고, 다녀오면 별을 매겨 남겨요'
+    : '가고 싶은 곳과 다녀온 곳을 한 지도에 모았어요';
+  render();
+}
+
+(async () => {
+  await load();
+  await refreshAuthUI();
+  drawMap();
+})();
+
+// 로그인 상태가 바뀌면 관리 단추도 따라 바뀌어야 한다 (common.js 가 알려 준다)
+document.addEventListener('suayona:auth', () => {
+  $('#addBox').hidden = !isAdmin;
+  render();
+});

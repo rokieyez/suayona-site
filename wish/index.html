@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>가볼 곳 · 수아랑 연아랑</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="가고 싶은 곳을 미리 적어 두고, 다녀오면 별을 매겨 남기는 우리 가족 지도입니다.">
+<meta property="og:title" content="가볼 곳 · 수아랑 연아랑">
+<meta property="og:description" content="가고 싶은 곳과 다녀온 곳을 한 지도에.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.suayona.com/wish/">
+<meta property="og:image" content="https://www.suayona.com/og-image.jpg">
+<meta property="og:image:width" content="2000">
+<meta property="og:image:height" content="1336">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preload" href="/fonts/PretendardVariable.subset.woff2" as="font" type="font/woff2" crossorigin>
+<link href="/fonts/dot.css" rel="stylesheet">
+<link href="/style.css" rel="stylesheet">
+<style>
+  :root{
+    --accent:#ff7f8a; --accent-rgb:255,127,138;
+    --mint:#6cc7b3; --lemon:#ffd979;
+    --paper:#fffaf2; --paper-card:#fff6e9; --ink:#2f2a24; --ink-soft:#6f6558;
+    /* 다른 쪽들과 같은 4px 이어야 테두리와 그림자 두께가 한 사이트로 보인다 */
+    --px:4px;
+  }
+  *, *::before, *::after{box-sizing:border-box;}
+  body{
+    font-family:'Suayona Sans', 'Pretendard', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    color:var(--ink); margin:0; padding:40px 16px 60px;
+  }
+
+  .section-head{text-align:center; margin-bottom:24px;}
+  .section-head h1{margin:6px 0 6px; font-size:26px;}
+  .section-head p{margin:0; font-size:13.5px; color:var(--ink-soft);}
+  .eyebrow{display:inline-block; background:var(--mint); border:2px solid var(--ink);
+    padding:4px 10px; font-size:12px; font-weight:800;}
+
+  /* ===== 지도 띠 — 이벤트 목록과 같은 규칙을 그대로 쓴다 ===== */
+  .band{position:relative; border:2px solid var(--ink); margin-bottom:22px;}
+  .band[hidden]{display:none;}
+  /* 288px 인 이유는 이벤트 목록과 같다. 레벨 14 가 카카오의 끝이고 그 레벨에서
+     담기는 세로 범위는 이 높이에 비례한다. 제주에서 강원까지가 위도 4.3도쯤이고
+     44px 짜리 핀이 잘리지 않으려면 5도쯤이 필요하다. 288px 가 5.08도를 담는다. */
+  .band .map{height:288px; background:#dfe6e2;}
+  .zoom-ctl{position:absolute; left:10px; top:10px; z-index:3; display:flex; flex-direction:column; gap:6px;}
+  .zoom-ctl[hidden]{display:none;}
+  .zoom-ctl button{width:32px; height:32px; padding:0; border:2px solid var(--ink);
+    background:var(--paper-card); color:var(--ink); cursor:pointer; font-family:inherit;
+    font-size:18px; font-weight:800; line-height:1; display:flex; align-items:center; justify-content:center;}
+  .zoom-ctl button:disabled{opacity:.38; cursor:default;}
+  .band .strip{border-top:2px solid var(--ink); background:var(--paper-card);
+    padding:9px 12px; font-size:12.5px; font-weight:700;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .band .strip > span{min-width:0;}
+  .band .strip .sub{display:block; font-size:11px; font-weight:600; color:var(--ink-soft);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  /* 안 간 곳은 점선 핀에 번호, 다녀온 곳은 채운 핀에 별점.
+     지도만 봐도 「어디를 갔고 어디가 남았나」가 갈린다. */
+  .wish-pin{
+    min-width:34px; height:34px; padding:0 4px; border:2px dashed var(--ink); background:var(--paper);
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap;
+  }
+  .wish-pin.done{border-style:solid; background:var(--mint); font-size:11.5px;}
+  .wish-pin.on{background:var(--lemon); border-style:solid;}
+
+  /* ===== 거르개 ===== */
+  .filters{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; align-items:center;}
+  .chip{border:2px solid var(--ink); background:var(--paper); font-family:inherit;
+    font-size:12.5px; font-weight:800; padding:6px 10px; cursor:pointer;
+    box-shadow:2px 2px 0 var(--ink);}
+  .chip.on{background:var(--accent); transform:translate(2px,2px); box-shadow:0 0 0 var(--ink);}
+  .chip.sort{box-shadow:none; border-style:dashed; padding:5px 9px; font-size:12px;}
+  .chip.sort.on{background:var(--lemon); border-style:solid; transform:none;}
+  .filter-gap{width:10px;}
+  .filter-label{font-size:11.5px; font-weight:800; color:var(--ink-soft); margin-right:2px;}
+
+  /* ===== 카드 ===== */
+  .cards{display:grid; grid-template-columns:repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap:14px;}
+  .wcard{border:2px solid var(--ink); background:var(--paper-card);
+    box-shadow:2px 2px 0 rgba(47,42,36,.28); overflow:hidden;}
+  .wcard.done{background:#f3fbf8;}
+  .wcard-top{display:flex; gap:10px; padding:12px; cursor:pointer;}
+  .wcard-thumb{width:58px; height:58px; flex:0 0 58px; border:2px solid var(--ink);
+    background:var(--paper); display:flex; align-items:center; justify-content:center; font-size:24px;}
+  .wcard-body{min-width:0; flex:1;}
+  .wcard-name{font-size:14px; font-weight:800; margin:0 0 3px;}
+  .wcard-meta{font-size:11.5px; color:var(--ink-soft); font-weight:700;
+    display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+  .tag{border:2px solid var(--ink); padding:1px 5px; font-size:10.5px; font-weight:800; background:var(--paper);}
+  .tag.cat-놀이{background:#ffd7dc;} .tag.cat-먹거리{background:var(--lemon);}
+  .tag.cat-자연{background:#cfeee4;} .tag.cat-체험{background:#dcd7f5;}
+  .tag.cat-숙소{background:#ffe6cc;}
+  .state{font-size:10.5px; font-weight:800; border:2px solid var(--ink); padding:1px 5px;}
+  .state.want{background:var(--paper);}
+  .state.planned{background:var(--lemon);}
+  .state.done{background:var(--mint);}
+  .hope{color:var(--ink-soft); font-size:12px; letter-spacing:1px;}
+  .again{border:2px solid var(--ink); background:var(--lemon); font-size:10.5px; font-weight:800; padding:1px 5px;}
+
+  .score{display:flex; align-items:center; gap:6px; margin-top:5px;}
+  .score .stars{color:var(--accent); font-size:15px; letter-spacing:1px; line-height:1;}
+  .score .num{font-size:12px; font-weight:800; font-variant-numeric:tabular-nums;}
+
+  .wcard-more{display:none; border-top:2px dashed rgba(47,42,36,.3); padding:12px; font-size:12.5px;}
+  .wcard.open .wcard-more{display:block;}
+  .wcard-more p{margin:0 0 10px; line-height:1.6; white-space:pre-line;}
+  .review{border-left:var(--px) solid var(--mint); padding:2px 0 2px 10px; margin:0 0 12px;
+    font-size:13px; font-weight:700; line-height:1.6;}
+
+  /* 별은 눌러서 매긴다. 같은 별을 다시 누르면 지워진다 */
+  .rate-list{border:2px solid var(--ink); background:var(--paper); margin:0 0 12px;}
+  .rate-row{display:flex; align-items:center; gap:8px; padding:8px 10px;}
+  .rate-who{font-size:12px; font-weight:800; flex:0 0 auto;}
+  .rate-stars{display:flex; gap:2px;}
+  /* 손전화에서 누를 자리라 별 하나가 20px 이면 빗나간다. 여백으로 30px 을 만든다 */
+  .rate-stars button{border:none; background:none; padding:5px 4px; cursor:pointer;
+    font-size:20px; line-height:1; color:#d8cfc2; font-family:inherit;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent;}
+  .rate-stars button.on{color:var(--accent);}
+  .rate-stars button:disabled{cursor:default;}
+  .rate-note{font-size:11px; color:var(--ink-soft); font-weight:700; margin-left:auto;}
+
+  .link-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+  .link-row a{border:2px solid var(--ink); background:var(--paper); padding:4px 8px;
+    font-size:11.5px; font-weight:800; text-decoration:none; color:var(--ink);
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .act-row{display:flex; flex-wrap:wrap; gap:6px;}
+  .act{border:2px solid var(--ink); background:var(--paper); font-family:inherit;
+    font-size:11.5px; font-weight:800; padding:5px 9px; cursor:pointer; color:var(--ink);
+    text-decoration:none; display:inline-flex; align-items:center;}
+  .act.primary{background:var(--accent);}
+  .act.ghost{background:var(--paper-card);}
+  .act:disabled{opacity:.5; cursor:default;}
+
+  /* 고치기 — 카드 안에서 그대로 편다 */
+  .edit-box{border:2px solid var(--ink); background:var(--paper); padding:10px; margin:0 0 10px;}
+  .edit-box[hidden]{display:none;}
+  .edit-box label{display:block; font-size:11.5px; font-weight:800; margin:8px 0 3px;}
+  .edit-box label:first-child{margin-top:0;}
+  .edit-box input, .edit-box textarea, .edit-box select{
+    width:100%; border:2px solid var(--ink); background:var(--paper-card); font-family:inherit;
+    font-size:12.5px; padding:6px 7px; color:var(--ink);}
+  .edit-box textarea{min-height:60px; resize:vertical;}
+  .edit-row{display:flex; gap:6px; flex-wrap:wrap;}
+  .edit-row > div{flex:1 1 110px;}
+
+  /* ===== 돌아보기 ===== */
+  .best{border:var(--px) solid var(--ink); background:var(--paper-card); padding:16px;
+    margin:24px 0 0; box-shadow:var(--px) var(--px) 0 var(--ink);}
+  .best[hidden]{display:none;}
+  .best h2{margin:0 0 4px; font-size:15px;}
+  .best .sub{font-size:11.5px; color:var(--ink-soft); font-weight:700; margin:0 0 12px;}
+  .best ol{margin:0; padding-left:20px;}
+  .best li{font-size:13px; line-height:1.9; font-weight:700;}
+  .best li .s{color:var(--accent); font-weight:800; margin-left:4px;}
+
+  /* ===== 넣기 폼 ===== */
+  .add-box{border:2px solid var(--ink); background:var(--paper-card); padding:14px;
+    margin:22px 0; max-width:560px;}
+  .add-box[hidden]{display:none;}
+  .add-box h2{margin:0 0 10px; font-size:15px;}
+  .add-box label{display:block; font-size:12px; font-weight:800; margin:10px 0 4px;}
+  .add-box input, .add-box textarea, .add-box select{
+    width:100%; border:2px solid var(--ink); background:var(--paper); font-family:inherit;
+    font-size:13px; padding:8px 9px; color:var(--ink);}
+  .add-box textarea{min-height:70px; resize:vertical;}
+  .add-row{display:flex; gap:8px; flex-wrap:wrap;}
+  .add-row > div{flex:1 1 140px;}
+  .hint{font-size:11.5px; color:var(--ink-soft); margin:6px 0 0; line-height:1.55;}
+  .search-out{border:2px solid var(--ink); border-top:none; background:var(--paper); max-height:170px; overflow:auto;}
+  .search-out[hidden]{display:none;}
+  .search-out button{display:block; width:100%; text-align:left; border:none;
+    border-bottom:2px solid rgba(47,42,36,.15); background:none; font-family:inherit;
+    font-size:12.5px; padding:8px 9px; cursor:pointer; color:var(--ink);}
+  .search-out button b{font-weight:800;}
+  .search-out button span{display:block; font-size:11px; color:var(--ink-soft); font-weight:600;}
+
+  .msg{font-size:12px; font-weight:700; margin-top:8px; min-height:1em;}
+  .msg.err{color:#c0392b;}
+  .msg.ok{color:#2b8a6f;}
+  .empty-msg{grid-column:1 / -1; text-align:center; color:var(--ink-soft);
+    font-size:13px; padding:30px 0;}
+</style>
+</head>
+<body>
+<!-- 배경 겹을 깔면 body 가 세로 flex 가 된다(style.css 의 .has-backdrop).
+     본문을 main 으로 감싸야 푸터가 화면 한가운데 뜨지 않는다. -->
+<main class="wrap">
+  <div class="section-head">
+    <span class="eyebrow pixel">📌 가볼 곳</span>
+    <h1>가볼 곳</h1>
+    <p id="headNote">가고 싶은 곳과 다녀온 곳을 한 지도에 모았어요</p>
+  </div>
+
+  <div class="band" id="mapBand" hidden>
+    <div class="map" id="wishMap"></div>
+    <div class="zoom-ctl" id="zoomCtl" hidden>
+      <button type="button" id="zoomIn" aria-label="지도 확대">+</button>
+      <button type="button" id="zoomOut" aria-label="지도 축소">−</button>
+    </div>
+    <div class="strip">
+      <span id="stripText"></span>
+    </div>
+  </div>
+
+  <div class="filters" id="filters"></div>
+  <div class="filters" id="sorts"></div>
+  <div class="cards" id="cards"></div>
+
+  <div class="best" id="best" hidden></div>
+
+  <div class="add-box" id="addBox" hidden>
+    <h2>+ 가볼 곳 넣기</h2>
+    <label for="q">장소 찾기</label>
+    <input id="q" type="text" placeholder="예: 국립과천과학관" autocomplete="off">
+    <div class="search-out" id="searchOut" hidden></div>
+    <p class="hint">카카오에서 찾은 자리를 그대로 씁니다. 좌표와 주소가 같이 들어가므로 위 지도에 바로 찍힙니다.</p>
+
+    <div class="add-row">
+      <div>
+        <label for="cat">무엇</label>
+        <select id="cat"><option>놀이</option><option>먹거리</option><option>자연</option><option>체험</option><option>숙소</option></select>
+      </div>
+      <div>
+        <label for="season">언제쯤</label>
+        <select id="season"><option>아무때나</option><option>봄</option><option>여름</option><option>가을</option><option>겨울</option></select>
+      </div>
+      <div>
+        <label for="hope">얼마나 가고 싶은지</label>
+        <select id="hope"><option value="0">보통</option><option value="1">★</option><option value="2" selected>★★</option><option value="3">★★★</option></select>
+      </div>
+    </div>
+
+    <label for="memo">메모</label>
+    <textarea id="memo" placeholder="왜 가고 싶은지, 무엇을 하면 좋을지"></textarea>
+
+    <label for="link">링크</label>
+    <textarea id="link" placeholder="https://&#10;여러 개면 줄을 바꿔 적습니다"></textarea>
+
+    <div style="margin-top:14px;">
+      <button class="act primary" id="addBtn" type="button">넣기</button>
+    </div>
+    <div class="msg" id="addMsg"></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
+        crossorigin="anonymous"></script>
+<script src="/pixel.js"></script>
+<script src="/common.js"></script>
+<script src="/pages/wish-index.js"></script>
+</body>
+</html>

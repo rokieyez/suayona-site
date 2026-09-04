@@ -150,6 +150,7 @@ const MENU = [
   { href: '/',              label: '홈',        key: 'home' },
   { href: '/portfolio.html',label: '포트폴리오', key: 'portfolio' },
   { href: '/event/',        label: '이벤트',    key: 'event' },
+  { href: '/wish/',         label: '가볼 곳',   key: 'wish' },
   { href: '/board.html',    label: '일기장',    key: 'board' },
   { href: '/contact.html',  label: '편지쓰기',  key: 'contact' },
   // 그리기는 메뉴에 두지 않는다 — 첫 화면의 「그리러 가기」로 충분하고, 항목이
