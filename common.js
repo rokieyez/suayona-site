@@ -821,11 +821,14 @@ function youtubeUrl(id){ return 'https://www.youtube.com/watch?v=' + id; }
 // 없는 그림을 물으면 유튜브는 404 를 주지 않는다. 200 과 함께 120x90 짜리
 // 회색 판을 준다. 그래서 onerror 만 걸어 두면 아무 일도 안 일어나고, 그 회색 판이
 // 칸에 늘어난 채로 남는다. 실제로 그렇게 됐다 — 크기를 보고 갈아 끼운다.
+//
+// 같은 그림을 webp 로도 준다(i.ytimg.com/vi_webp/…). 크기가 같고 잘린 자리도 같은데
+// 바이트만 절반이다 — 재어 보니 222KB→100KB, 140KB→54KB 였다. 그래서 webp 로 받는다.
 function youtubeThumbHTML(id, alt, cls){
-  const small = 'https://img.youtube.com/vi/' + id + '/mqdefault.jpg';
+  const small = 'https://i.ytimg.com/vi_webp/' + id + '/mqdefault.webp';
   const swap = "this.onload=null; this.onerror=null; this.src='" + small + "';";
   return '<img' + (cls ? ' class="' + cls + '"' : '') +
-    ' src="https://img.youtube.com/vi/' + id + '/maxresdefault.jpg" loading="lazy"' +
+    ' src="https://i.ytimg.com/vi_webp/' + id + '/maxresdefault.webp" loading="lazy" decoding="async"' +
     ' onload="if(this.naturalWidth<200){' + swap + '}"' +
     ' onerror="' + swap + '"' +
     ' alt="' + escapeHTML(alt || '') + '">';

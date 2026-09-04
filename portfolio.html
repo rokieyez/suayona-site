@@ -229,9 +229,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
         integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
-<!-- QR 만들기. 직접 짜면 리드-솔로몬 부호까지 손으로 맞춰야 해서, 검증된 것을 쓴다. -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<!-- exifr(76KB)은 여기서 부르지 않는다. 사진을 고르는 사람만 쓰는 것이라
+     event/compress.js 의 loadExifr() 가 그때 가서 받는다 — 판과 해시도 거기 박혀 있다. -->
+<!-- QR 만들기(57KB)는 로그인한 사람만 쓴다(작품 뒤에 붙일 라벨). 아래 loadQrcode() 가
+     필요할 때 받는다. 직접 짜면 리드-솔로몬 부호까지 손으로 맞춰야 해서 검증된 것을 쓴다. -->
 <script src="/event/compress.js"></script>
 <script src="./pixel.js"></script>
 <script src="./common.js"></script>
@@ -537,6 +538,25 @@ function workUrl(w){
   return 'https://www.suayona.com/portfolio.html?work=' + w.id;
 }
 
+// QR 도구는 라벨을 뽑을 때만 받는다. 화면에 필요해진 그 순간에 부른다.
+const QR_SRC = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+const QR_SRI = 'sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k';
+let _qrReady = null;
+function loadQrcode(){
+  if (_qrReady) return _qrReady;
+  _qrReady = new Promise(resolve => {
+    if (typeof qrcode !== 'undefined') return resolve(true);
+    const sc = document.createElement('script');
+    sc.src = QR_SRC;
+    sc.integrity = QR_SRI;
+    sc.crossOrigin = 'anonymous';
+    sc.onload = () => resolve(true);
+    sc.onerror = () => resolve(false);   // 못 받아도 화면은 그대로 두고 안내만 띄운다
+    document.head.appendChild(sc);
+  });
+  return _qrReady;
+}
+
 function qrSvg(text, cellSize){
   if (typeof qrcode === 'undefined') return '';
   const qr = qrcode(0, 'M');          // 0 = 길이에 맞춰 알아서 고름
@@ -545,10 +565,11 @@ function qrSvg(text, cellSize){
   return qr.createSvgTag({ cellSize: cellSize || 4, margin: 2, scalable: true });
 }
 
-function renderQr(w){
+async function renderQr(w){
   const box = $('#qrBox');
   if (!box) return;
   if (!isAdmin) { box.innerHTML = ''; return; }
+  await loadQrcode();
   if (typeof qrcode === 'undefined') {
     box.innerHTML = '<div class="qrbox"><span class="lab">QR</span>' +
       '<p class="hintline">QR 만드는 도구를 못 불러왔어요. 새로고침해 보세요.</p></div>';
@@ -566,9 +587,11 @@ function renderQr(w){
 }
 
 // 라벨을 종이에 앉히고 인쇄한다. 인쇄가 끝나면 화면을 원래대로 되돌린다.
-function printQrLabels(list){
+async function printQrLabels(list){
   const sheet = $('#qrSheet');
-  if (!list.length || typeof qrcode === 'undefined') return;
+  if (!list.length) return;
+  await loadQrcode();
+  if (typeof qrcode === 'undefined') { alert('QR 만드는 도구를 못 불러왔어요. 새로고침해 보세요.'); return; }
 
   sheet.innerHTML = list.map(w =>
     '<div class="qr-label">' +

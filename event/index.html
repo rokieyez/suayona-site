@@ -277,7 +277,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
         integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
+<!-- exifr(76KB)은 여기서 부르지 않는다. 사진을 고르는 사람만 쓰는 것이라
+     event/compress.js 의 loadExifr() 가 그때 가서 받는다 — 판과 해시도 거기 박혀 있다. -->
 <script src="/event/compress.js"></script>
 <script src="/pixel.js"></script>
 <script src="/common.js"></script>
