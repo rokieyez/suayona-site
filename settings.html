@@ -211,9 +211,17 @@ async function flip(e){
   const next = !isPub(row.is_public);
   btn.disabled = true;
   const msg = $('#visMsg'); msg.className = 'set-msg'; msg.textContent = '바꾸는 중…';
-  const { error } = await sb.from(g.table).update({ is_public: next }).eq(g.pk, row[g.pk]);
+  // 고친 줄을 돌려받는다. 규칙에 걸려 한 줄도 안 바뀌면 PostgREST 는 오류가 아니라
+  // 「0줄 고침」으로 조용히 끝나서, 예전 코드는 바뀌지도 않은 것을 바꿨다고 말했다.
+  const { data, error } = await sb.from(g.table)
+    .update({ is_public: next }).eq(g.pk, row[g.pk]).select(g.pk);
   btn.disabled = false;
   if (error) { msg.className = 'set-msg err'; msg.textContent = '안 됐어요: ' + error.message; return; }
+  if (!data || !data.length) {
+    msg.className = 'set-msg err';
+    msg.textContent = '바꾸지 못했어요. 부모로 로그인했는지 확인해 주세요.';
+    return;
+  }
   row.is_public = next;
   msg.textContent = (next ? '공개로 바꿨어요.' : '비공개로 바꿨어요.');
   renderVis();
