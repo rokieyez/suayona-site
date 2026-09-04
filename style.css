@@ -238,10 +238,11 @@ canvas{-webkit-tap-highlight-color:transparent;}
 
 .section-pad{padding:72px 0;}
 /* 쪽 머리의 초록 배지가 어느 쪽에서나 같은 높이에 오게 한다.
-   이벤트 쪽은 body 에 --header-h + 18px 을 주고 그 바로 아래 배지가 온다(79px).
-   여기 열한 쪽은 .page-top 안에 26px 이 더 끼어 있어 배지가 127px 까지 내려가
-   혼자만 아래에 떠 보였다. 그 26px 을 빼서 79px 로 맞춘다. */
-.page-top{padding-top:calc(var(--header-h) + 18px - 26px);}
+   이벤트 쪽은 body 에 --header-h + 18px 을 준다. 여기도 같은 값이면 된다.
+   전에 26px 을 더 뺐던 것은 잘못이다. 이 쪽들의 .section-head 에는 .reveal 이 붙어
+   있어서 나타나기 전에 translateY(26px) 로 밀려 있는데, 그 밀린 자리를 제자리로
+   착각하고 뺀 값이었다. 애니메이션이 끝나면 26px 이 사라져 배지가 헤더로 파고들었다. */
+.page-top{padding-top:calc(var(--header-h) + 18px);}
 .section-head{text-align:center; margin-bottom:38px;}
 .section-head .eyebrow{
   display:inline-block; font-size:11px; padding:5px 12px; margin-bottom:12px;
