@@ -26,6 +26,12 @@ const PAGE = 30;
 let shownCount = PAGE;
 let map = null, mapDrawn = false;
 const pinEls = {};
+// 지금 고른 곳. 지도는 움직일 때마다 핀을 새로 만들므로, 어느 것을 골랐는지
+// 여기에 적어 두지 않으면 확대하는 순간 표시가 사라진다.
+let focusedId = null;
+// 카드를 고르면 지도가 들어가는 깊이. 동네가 보이는 정도다 —
+// 더 당기면 어디쯤인지 알 수 없고, 덜 당기면 핀이 다시 묶인다.
+const FOCUS_LEVEL = 5;
 
 // 별은 하나뿐이라 평균을 낼 것이 없다. 0 이나 null 이면 「아직 안 매김」이다.
 function score(p){ return p.stars > 0 ? p.stars : null; }
@@ -400,7 +406,7 @@ function drawSeasonTip(){
       render();
       const card = document.querySelector('[data-card="' + p.id + '"]');
       if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      if (Number.isFinite(p.lat)) focusPin(p);
+      if (Number.isFinite(p.lat)) { focusPin(p); focusOnMap(p); }
     });
     box.appendChild(b);
   });
@@ -461,7 +467,8 @@ function redrawPins(){
 
     if (group.length === 1) {
       const p = group[0];
-      el.className = 'wish-pin' + (p.status === 'done' ? ' done' : '');
+      el.className = 'wish-pin' + (p.status === 'done' ? ' done' : '') +
+        (p.id === focusedId ? ' on' : '');
       el.textContent = pinFace(p);
       el.title = p.name;
       pinEls[p.id] = el;
@@ -472,7 +479,8 @@ function redrawPins(){
       });
     } else {
       const done = group.filter(p => p.status === 'done').length;
-      el.className = 'wish-pin cluster' + (done === group.length ? ' done' : '');
+      el.className = 'wish-pin cluster' + (done === group.length ? ' done' : '') +
+        (group.some(p => p.id === focusedId) ? ' on' : '');
       el.textContent = group.length + '곳';
       el.title = group.map(p => p.name).join(', ');
       el.addEventListener('click', () => {
@@ -490,7 +498,17 @@ function redrawPins(){
 
 
 
+// 지도를 그 자리로 데려간다. 옮기고 나면 지도가 멈추면서(idle) 핀을 다시 그리는데,
+// focusedId 를 먼저 적어 두었으므로 새로 그려진 핀에도 고른 표시가 남는다.
+function focusOnMap(p){
+  if (!map || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return;
+  map.setLevel(FOCUS_LEVEL, { animate: true });
+  map.setCenter(new kakao.maps.LatLng(p.lat, p.lng));
+  redrawPins();
+}
+
 function focusPin(p){
+  focusedId = p.id;
   Object.values(pinEls).forEach(el => el.classList.remove('on'));
   if (pinEls[p.id]) pinEls[p.id].classList.add('on');
   const sc = score(p);
@@ -507,6 +525,7 @@ function summary(){
   $('#stripText').innerHTML = '📌 가볼 곳<span class="sub">' +
     '가고 싶은 곳 ' + want + '군데 · 가본 곳 ' + done.length + '군데' +
     (평균 ? ' · 별 평균 ' + 평균 : '') + ' · 핀을 눌러보세요</span>';
+  focusedId = null;
   Object.values(pinEls).forEach(el => el.classList.remove('on'));
 }
 
@@ -694,7 +713,18 @@ $('#cards').addEventListener('click', async (e) => {
   if (openId !== id) editId = null;
   render();
   const p = PLACES.find(x => x.id === id);
-  if (p && openId === id && Number.isFinite(p.lat)) focusPin(p);
+  if (!p) return;
+  if (openId === id && Number.isFinite(p.lat)) {
+    // 카드를 폈으면 지도도 그 자리로. 순서가 중요하다 — focusPin 이 먼저 고른 곳을
+    // 적어 두어야, 지도가 움직이며 핀을 다시 그릴 때 표시가 따라간다.
+    focusPin(p);
+    focusOnMap(p);
+  } else if (openId === null) {
+    // 접었으면 고른 표시를 풀고 띠를 전체 요약으로 되돌린다. 지도는 그대로 둔다 —
+    // 접었다고 화면이 갑자기 뒤로 물러나면 어지럽다.
+    summary();
+    redrawPins();
+  }
 });
 
 // ---------- 장소 찾기 ----------
