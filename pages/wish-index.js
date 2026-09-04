@@ -30,8 +30,10 @@ function iconOf(p){ return CAT_ICON[p.category] || '📍'; }
 // 사진이 있으면 사진을, 없으면 분류 아이콘을 보여 준다.
 function thumbHTML(p){
   const src = p.thumb_url || p.photo_url;
+  // 스토리지에서 파일이 사라지면 깨진 그림 자국만 남는다. 그때는 분류 아이콘으로 돌아간다.
   return src
-    ? '<img alt="" loading="lazy" src="' + escapeHTML(src) + '">'
+    ? '<img alt="" loading="lazy" src="' + escapeHTML(src) + '" ' +
+      'onerror="this.parentNode.textContent=' + "'" + iconOf(p) + "'" + '">'
     : iconOf(p);
 }
 function dateText(d){
@@ -180,7 +182,8 @@ function cardHTML(p){
 
   return '<div class="wcard' + (p.status === 'done' ? ' done' : '') +
       (p.id === openId ? ' open' : '') + '" data-card="' + p.id + '">' +
-    '<div class="wcard-top">' +
+    '<div class="wcard-top" role="button" tabindex="0" aria-expanded="' +
+        (p.id === openId ? 'true' : 'false') + '">' +
       '<div class="wcard-thumb">' + thumbHTML(p) + '</div>' +
       '<div class="wcard-body">' +
         '<p class="wcard-name">' + escapeHTML(p.name) + '</p>' +
@@ -300,8 +303,7 @@ function redrawPins(){
   });
 }
 
-// 이름이 남아 있던 자리들을 위해 — 별점이 바뀌면 핀 글자도 따라 바뀐다
-function paintPins(){ redrawPins(); }
+
 
 function focusPin(p){
   Object.values(pinEls).forEach(el => el.classList.remove('on'));
@@ -370,7 +372,20 @@ async function drawMap(){
   summary();
 }
 
-function render(){ drawFilters(); drawCards(); drawBest(); paintPins(); }
+// 핀은 여기서 다시 그리지 않는다. 카드를 펴고 접을 때마다 오버레이를 통째로 새로
+// 만들던 것을 재 보니 한 번 누를 때 다섯 개(펼쳐 놓으면 스물일곱 개)를 버리고 다시
+// 만들고 있었다. 핀이 달라지는 때 — 별점을 매길 때와 지울 때 — 만 redrawPins() 를 부른다.
+function render(){ drawFilters(); drawCards(); drawBest(); }
+
+// 손가락뿐 아니라 자판으로도 펼 수 있어야 한다. 카드 머리에 role="button" 을 주었으니
+// 엔터와 사이띄개가 누름과 같아야 한다 — div 는 그것을 저절로 해 주지 않는다.
+$('#cards').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const head = e.target.closest('.wcard-top');
+  if (!head) return;
+  e.preventDefault();
+  head.click();
+});
 
 // ---------- 카드 안의 누름은 한 자리에서 받는다 (카드를 다시 그려도 살아 있게) ----------
 $('#cards').addEventListener('click', async (e) => {
@@ -385,9 +400,14 @@ $('#cards').addEventListener('click', async (e) => {
     // 같은 별을 다시 누르면 지운다 — 잘못 누른 것을 되돌릴 길이 있어야 한다
     const next = (p.stars === +n) ? null : +n;
     const before = p.stars;
-    p.stars = next; render();
-    const { error } = await sb.from('places').update({ stars: next }).eq('id', p.id);
-    if (error) { p.stars = before; render(); alert('별을 저장하지 못했습니다: ' + error.message); }
+    p.stars = next; render(); redrawPins();
+    // select() 를 붙여야 한다. RLS 에 막힌 update 는 오류 없이 0행이라, error 만 보면
+    // 저장되지 않은 것을 저장된 것으로 읽는다 — 화면만 바뀌고 새로고침하면 되돌아간다.
+    const { data, error } = await sb.from('places').update({ stars: next }).eq('id', p.id).select();
+    if (error || !data || !data.length) {
+      p.stars = before; render(); redrawPins();
+      alert('별을 저장하지 못했습니다' + (error ? ': ' + error.message : ' (로그인이 풀렸는지 확인해 주세요)'));
+    }
     return;
   }
 
@@ -432,10 +452,13 @@ $('#cards').addEventListener('click', async (e) => {
     const id = +t.dataset.del;
     const p = PLACES.find(x => x.id === id);
     if (!confirm('「' + p.name + '」을 지웁니다. 되돌릴 수 없습니다.')) return;
-    const { error } = await sb.from('places').delete().eq('id', id);
+    // 여기도 select() 가 필요하다. 막힌 delete 는 오류 없이 0행이라, 화면에서만
+    // 사라지고 표에는 그대로 남는다.
+    const { data, error } = await sb.from('places').delete().eq('id', id).select();
     if (error) { alert('지우지 못했습니다: ' + error.message); return; }
+    if (!data || !data.length) { alert('지워지지 않았습니다 (로그인이 풀렸는지 확인해 주세요)'); return; }
     PLACES = PLACES.filter(x => x.id !== id);
-    openId = editId = null; render(); summary();
+    openId = editId = null; render(); redrawPins(); summary();
     return;
   }
 
