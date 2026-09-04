@@ -89,11 +89,13 @@ function loadCrossOrigin(url){
   });
 }
 
-// 이 곳의 카드 사본이 아직 「가볼 곳 것」이 아니면 참. 이벤트에서 물려받은 400px
-// 짜리를 그대로 쓰고 있다는 뜻이다.
+// 이 곳의 카드 사본이 아직 「가볼 곳 것」이 아니면 참.
+// 경로만 보면 놓친다 — places 아래에도 공통 업로드가 만든 400px 사본(….thumb.jpg)이
+// 섞여 있었다(카페숨도 한 장이 400x400 28KB, 다른 것은 160px 8KB 였다).
+// 여기서 만든 작은 사본은 언제나 places/thumb-<번호>- 꼴이니 그 꼴이 아니면 다시 만든다.
 function needsSmallThumb(p){
   if (!p.photo_url && !p.thumb_url) return false;
-  return String(p.thumb_url || '').indexOf('/suayona/places/') < 0;
+  return !/\/suayona\/places\/thumb-\d+-/.test(String(p.thumb_url || ''));
 }
 
 async function rebuildThumbs(){
