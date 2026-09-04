@@ -33,15 +33,16 @@
   .peekart{margin-top:22px; text-align:left;}
   .peekart h3{margin:0 0 2px; font-size:13px;}
   .peekart .cap{margin:0 0 10px; font-size:12px; color:var(--ink-soft);}
-  .peekart .rooms2{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;}
+  .peekart .rooms2{display:flex; gap:12px; margin-top:12px;}
   .peekart figure{margin:0;}
   .peekart figcaption{font-size:12px; font-weight:800; margin-bottom:5px;}
   .peekart .house-stage{max-width:none;}
-  .peekart figure.wide{grid-column:1/-1;}
+  .peekart figure.wide{margin-top:12px;}
   .peekart figure.wide .house-stage{max-width:480px;}
+  /* 두 방은 반 크기로 — 좁은 화면에서도 한 줄에 같이 보이게 */
+  .peekart .rooms2 figure{flex:1 1 0; min-width:0; max-width:165px;}
   /* 손님 그림은 누르는 곳이 아니다 */
   .look canvas{cursor:default; touch-action:auto;}
-  @media (max-width:520px){ .peekart .rooms2{grid-template-columns:1fr;} }
   .tune{margin-top:18px; padding:14px 16px; text-align:left;}
   .tune label{display:block; font-size:12.5px; font-weight:800; margin:10px 0 4px;}
   .tune label span{font-weight:700; color:var(--ink-soft); margin-left:6px;}
@@ -185,8 +186,8 @@
         <h3 class="pixel">지금 농장</h3>
         <p class="cap">방금 그린 그림이에요. 계절도 날씨도 지금 그대로예요.</p>
         <div class="stage look"><canvas id="peekFarm" width="768" height="528" aria-label="지금의 농장 그림"></canvas></div>
+        <figure class="wide"><figcaption>거실</figcaption><div class="house-stage look"><canvas id="peekLiving" aria-label="거실"></canvas></div></figure>
         <div class="rooms2">
-          <figure class="wide"><figcaption>거실</figcaption><div class="house-stage look"><canvas id="peekLiving" aria-label="거실"></canvas></div></figure>
           <figure><figcaption>수아 방</figcaption><div class="house-stage look"><canvas id="peekSua" aria-label="수아 방"></canvas></div></figure>
           <figure><figcaption>연아 방</figcaption><div class="house-stage look"><canvas id="peekYona" aria-label="연아 방"></canvas></div></figure>
         </div>
