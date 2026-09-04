@@ -226,6 +226,7 @@ const FARM = (() => {
     if (k === 'giant') return CROPS[v] ? '큰 ' + CROPS[v].name : id;
     if (k === 'dish') return DISHES[v] ? DISHES[v].name : id;
     if (k === 'f') return FURNITURE[v] ? FURNITURE[v].name : id;
+    if (k === 'fish') return FISH[v] ? FISH[v].name : id;
     return GOODS[id] ? GOODS[id].name : id;
   }
   // 파는 값. 작물은 그날 시세가 붙는다.
@@ -237,6 +238,7 @@ const FARM = (() => {
     if (k === 'dish') return DISHES[v].sell;
     if (k === 'seed') return Math.floor(CROPS[v].seed / 2);
     if (k === 'f') return Math.floor(FURNITURE[v].cost / 3);
+    if (k === 'fish') return FISH[v] ? FISH[v].sell : 0;
     return GOODS[id] ? GOODS[id].sell : 0;
   }
   // 시세 — 날마다 0.8~1.3 사이. 오늘의 인기 작물은 1.5배.
@@ -254,13 +256,14 @@ const FARM = (() => {
     const [k, v] = id.split(':');
     if (k === 'crop') return CROPS[v].flower ? 0 : 3;
     if (k === 'dish') return DISHES[v].food;
+    if (k === 'fish') return FISH[v] && !FISH[v].junk ? 4 : 0;
     if (GOODS[id] && GOODS[id].food) return GOODS[id].food;
     return 0;
   }
 
   // ---------- 기운 ----------
   const ENERGY_BASE = 40;
-  const COST = { till: 1, water: 1, harvest: 1, chop: 2, mine: 2, plant: 0, fert: 0, feed: 1, pet: 0, cook: 1, forage: 1 };
+  const COST = { till: 1, water: 1, harvest: 1, chop: 2, mine: 2, plant: 0, fert: 0, feed: 1, pet: 0, cook: 1, forage: 1, fish: 1 };
   function maxEnergy(world, mine){
     let e = ENERGY_BASE;
     const bed = bestOf(world, mine.key, 'bed');          // 침대가 좋을수록 잘 자서 기운이 는다
@@ -321,12 +324,16 @@ const FARM = (() => {
     pond:     { name: '연못',     icon: '🦆', cost: 2000, lv: 5, desc: '오리 두 마리가 헤엄쳐요' },
     fountain: { name: '분수',     icon: '⛲', cost: 3500, lv: 7 },
     statue:   { name: '별 동상',  icon: '🌟', cost: 8000, lv: 9, desc: '농장의 자랑' },
+    lantern:  { name: '등불',     icon: '🏮', cost: 400,  lv: 2, desc: '밤이 되면 둘레를 밝혀요' },
+    bench:    { name: '나무 벤치', icon: '🪑', cost: 300,  lv: 2, desc: '앉아서 쉬는 자리' },
+    swing:    { name: '그네',     icon: '🎠', cost: 1200, lv: 4, desc: '바람에 살랑살랑 흔들려요' },
+    arch:     { name: '장미 아치', icon: '🌹', cost: 2500, lv: 6, desc: '들어오는 길에 꽃문' },
   };
 
   // ---------- 농장 배치 ----------
   // 지도는 20×12 칸. 밭은 늘 가운데(6..15, 2..7)에 있고, 나머지는 아이들이 옮길 수 있다.
   // 자리는 world.layout 에만 적는다 — 표(PLACE)의 x,y 는 아무도 옮기지 않았을 때의 처음 자리다.
-  const GRID = { w: 20, h: 12 };
+  const GRID = { w: 20, h: 16 };
   // kind: 'always' 늘 있는 것 · 'build' 지어야 생기는 것 · 'decor' 사야 생기는 것.
   const PLACE = {
     house:      { name: '집',       w: 4, h: 3, x: 0,  y: 0,  kind: 'always', move: false },
@@ -338,13 +345,17 @@ const FARM = (() => {
     well:       { name: '우물',     w: 1, h: 1, x: 5,  y: 3,  kind: 'build',  move: true },
     hive:       { name: '벌통',     w: 1, h: 1, x: 4,  y: 4,  kind: 'build',  move: true },
     greenhouse: { name: '온실',     w: 4, h: 3, x: 0,  y: 6,  kind: 'build',  move: true },
+    barn:       { name: '외양간',   w: 3, h: 3, x: 16, y: 3,  kind: 'build',  move: true },
     scarecrow:  { name: '허수아비', w: 1, h: 1, x: 6,  y: 8,  kind: 'build',  move: true },
-    pasture:    { name: '목장',     w: 4, h: 6, x: 16, y: 3,  kind: 'build',  move: true },
-    barn:       { name: '외양간',   w: 3, h: 3, x: 16, y: 9,  kind: 'build',  move: true },
+    pasture:    { name: '목장',     w: 6, h: 5, x: 13, y: 10, kind: 'build',  move: true },
     fountain:   { name: '분수',     w: 2, h: 2, x: 8,  y: 0,  kind: 'decor',  move: true },
     statue:     { name: '별 동상',  w: 1, h: 2, x: 11, y: 0,  kind: 'decor',  move: true },
-    pond:       { name: '연못',     w: 2, h: 2, x: 12, y: 10, kind: 'decor',  move: true },
+    pond:       { name: '연못',     w: 2, h: 2, x: 0,  y: 13, kind: 'decor',  move: true },
     path:       { name: '꽃길',     w: 8, h: 1, x: 8,  y: 8,  kind: 'decor',  move: true },
+    lantern:    { name: '등불',     w: 1, h: 1, x: 16, y: 7,  kind: 'decor',  move: true },
+    bench:      { name: '나무 벤치', w: 2, h: 1, x: 8, y: 15, kind: 'decor',  move: true },
+    swing:      { name: '그네',     w: 2, h: 2, x: 4,  y: 14, kind: 'decor',  move: true },
+    arch:       { name: '장미 아치', w: 2, h: 1, x: 18, y: 7, kind: 'decor',  move: true },
   };
   const PLACE_IDS = Object.keys(PLACE);
   function spotOf(world, id){
@@ -436,16 +447,56 @@ const FARM = (() => {
     return made;
   }
 
+  // ---------- 낚시 ----------
+  // 연못을 놓으면 생기는 놀이. 하루 다섯 번까지, 한 번에 기운 하나.
+  // 무엇이 걸릴지는 그날 그 아이의 차례로 정해진다 — 두 아이가 같은 것만 낚지 않게.
+  const FISH = {
+    minnow:  { name: '피라미',     sell: 25,  w: 34, c: '#a9c4d6' },
+    crucian: { name: '붕어',       sell: 55,  w: 24, c: '#c9b06a' },
+    carp:    { name: '잉어',       sell: 120, w: 15, c: '#e0813f' },
+    eel:     { name: '장어',       sell: 200, w: 8,  c: '#5a6b52', season: ['summer', 'autumn'] },
+    trout:   { name: '송어',       sell: 260, w: 6,  c: '#8fb7c9', season: ['winter', 'spring'] },
+    golden:  { name: '금빛 잉어',   sell: 900, w: 2,  c: '#ffd24d' },
+    boot:    { name: '낡은 장화',   sell: 2,   w: 11, c: '#6b5a4a', junk: true },
+  };
+  const FISH_IDS = Object.keys(FISH);
+  const FISH_MAX = 5;                    // 하루에 다섯 번
+  function fishLeft(mine, now){
+    const key = dayKey(now);
+    return FISH_MAX - (mine.fishDay === key ? (mine.fishN || 0) : 0);
+  }
+  function fish(world, mine, now){
+    if (!(world.decor && world.decor.pond)) return fail('연못을 먼저 놓아요. 가게 꾸미기 칸에 있어요');
+    if (fishLeft(mine, now) <= 0) return fail('오늘은 많이 잡았어요. 내일 또 와요');
+    if (!spend(mine, 'fish')) return fail('기운이 없어요');
+    const key = dayKey(now), n = mine.fishDay === key ? (mine.fishN || 0) : 0;
+    const cal = calendar(world, now);
+    const pool = FISH_IDS.filter(f => !FISH[f].season || FISH[f].season.indexOf(cal.season) >= 0);
+    const total = pool.reduce((a, f) => a + FISH[f].w, 0);
+    let r = prand('fi' + mine.key + key + n) * total, got = pool[0];
+    for (const f of pool){ r -= FISH[f].w; if (r <= 0){ got = f; break; } }
+    mine.fishDay = key; mine.fishN = n + 1;
+    give(mine, 'fish:' + got, 1);
+    if (mine.dex.indexOf('fish:' + got) < 0) mine.dex.push('fish:' + got);
+    mine.xp += XP.fish; bump(mine, 'fished', 1, now);
+    if (FISH[got].junk) return okay(eul(FISH[got].name) + ' 건졌어요… 물고기는 아니네요', { junk: true });
+    if (got === 'golden'){ logAdd(world, mine.key, NAME[mine.key] + '가 금빛 잉어를 낚았어요!', now); return okay('<b>금빛 잉어</b>! 아주 귀한 물고기예요', { rare: true }); }
+    return okay(eul(FISH[got].name) + ' 낚았어요');
+  }
+
   // ---------- 채집 ----------
   // 나무 셋·바위 둘·산딸기 덤불 하나가 날마다 돌아온다. 건물 재료는 여기서 난다.
   const NODES = {
-    tree1: { kind: 'tree', x: 0,  y: 10, give: { wood: 3 },  cost: 'chop',   days: 1 },
-    tree2: { kind: 'tree', x: 2,  y: 10, give: { wood: 3 },  cost: 'chop',   days: 1 },
-    tree3: { kind: 'tree', x: 4,  y: 10, give: { wood: 4 },  cost: 'chop',   days: 2 },
-    rock1: { kind: 'rock', x: 9,  y: 10, give: { stone: 2 }, cost: 'mine',   days: 1 },
-    rock2: { kind: 'rock', x: 11, y: 10, give: { stone: 3 }, cost: 'mine',   days: 1 },
-    bush:  { kind: 'bush', x: 6,  y: 11, give: { berry: 2 }, cost: 'forage', days: 1, season: ['spring', 'summer', 'autumn'] },
-    snow:  { kind: 'snow', x: 8,  y: 11, give: { snowball: 1 }, cost: 'forage', days: 1, season: ['winter'] },
+    tree1: { kind: 'tree', x: 1,  y: 10, give: { wood: 3 },  cost: 'chop',   days: 1 },
+    tree2: { kind: 'tree', x: 3,  y: 10, give: { wood: 3 },  cost: 'chop',   days: 1 },
+    tree3: { kind: 'tree', x: 5,  y: 10, give: { wood: 4 },  cost: 'chop',   days: 2 },
+    tree4: { kind: 'tree', x: 7,  y: 11, give: { wood: 5 },  cost: 'chop',   days: 2 },
+    rock1: { kind: 'rock', x: 9,  y: 11, give: { stone: 2 }, cost: 'mine',   days: 1 },
+    rock2: { kind: 'rock', x: 11, y: 11, give: { stone: 3 }, cost: 'mine',   days: 1 },
+    rock3: { kind: 'rock', x: 10, y: 13, give: { stone: 4 }, cost: 'mine',   days: 2 },
+    bush:  { kind: 'bush', x: 3,  y: 12, give: { berry: 2 }, cost: 'forage', days: 1, season: ['spring', 'summer', 'autumn'] },
+    bush2: { kind: 'bush', x: 6,  y: 13, give: { berry: 3 }, cost: 'forage', days: 2, season: ['spring', 'summer', 'autumn'] },
+    snow:  { kind: 'snow', x: 8,  y: 13, give: { snowball: 1 }, cost: 'forage', days: 1, season: ['winter'] },
   };
   // 자리는 하나지만 몫은 각자다 — 먼저 온 사람이 다 가져가면 둘째는 늘 빈손이라서.
   function nodeReady(world, mine, id, now){
@@ -459,47 +510,69 @@ const FARM = (() => {
   // w: 몇 칸 너비. cozy: 아늑함 점수. room: 놓을 수 있는 방(없으면 아무 데나).
   // 색은 화면이 그릴 때 쓴다. 이 파일은 그림을 모른다.
   const FURNITURE = {
-    bed1:    { name: '작은 침대',   cost: 0,    w: 2, kind: 'bed', energy: 0,  cozy: 1, c: '#f2c6c6' },
-    bed2:    { name: '포근한 침대', cost: 400,  w: 2, kind: 'bed', energy: 4,  cozy: 3, c: '#f7a8bf' },
-    bed3:    { name: '구름 침대',   cost: 1500, w: 2, kind: 'bed', energy: 8,  cozy: 5, c: '#cfe4ff' },
-    rug1:    { name: '줄무늬 러그', cost: 80,   w: 2, kind: 'rug', cozy: 1, c: '#ffd979' },
-    rug2:    { name: '꽃무늬 러그', cost: 200,  w: 2, kind: 'rug', cozy: 2, c: '#f7a8bf' },
-    table:   { name: '탁자',        cost: 120,  w: 2, kind: 'table', cozy: 1, c: '#c79a62' },
-    chair:   { name: '의자',        cost: 60,   w: 1, kind: 'chair', cozy: 1, c: '#c79a62' },
+    bed1:    { name: '작은 침대',   cost: 0,    w: 2, kind: 'bed', energy: 0,  cozy: 1, c: '#f2c6c6' , flat: true },
+    bed2:    { name: '포근한 침대', cost: 400,  w: 2, kind: 'bed', energy: 4,  cozy: 3, c: '#f7a8bf' , flat: true },
+    bed3:    { name: '구름 침대',   cost: 1500, w: 2, kind: 'bed', energy: 8,  cozy: 5, c: '#cfe4ff' , flat: true },
+    rug1:    { name: '줄무늬 러그', cost: 80,   w: 2, kind: 'rug', cozy: 1, c: '#ffd979' , flat: true },
+    rug2:    { name: '꽃무늬 러그', cost: 200,  w: 2, kind: 'rug', cozy: 2, c: '#f7a8bf' , flat: true },
+    table:   { name: '탁자',        cost: 120,  w: 2, kind: 'table', cozy: 1, c: '#c79a62' , flat: true },
+    chair:   { name: '의자',        cost: 60,   w: 1, kind: 'chair', cozy: 1, c: '#c79a62' , flat: true },
     lamp:    { name: '램프',        cost: 90,   w: 1, kind: 'lamp', cozy: 2, c: '#ffe9a8' },
     plant:   { name: '화분',        cost: 70,   w: 1, kind: 'plant', cozy: 1, c: '#6fb567' },
     shelf:   { name: '책장',        cost: 220,  w: 1, kind: 'shelf', cozy: 2, c: '#a67c52' },
-    frame:   { name: '그림 액자',   cost: 150,  w: 1, kind: 'frame', cozy: 2, c: '#ffb7d5' },
-    curtain: { name: '커튼 창문',   cost: 180,  w: 1, kind: 'window', cozy: 2, c: '#bfe4f7' },
-    sofa:    { name: '소파',        cost: 350,  w: 2, kind: 'sofa', cozy: 3, c: '#ff7f8a' },
-    clock:   { name: '벽시계',      cost: 130,  w: 1, kind: 'clock', cozy: 1, c: '#fff6e9' },
+    frame:   { name: '그림 액자',   cost: 150,  w: 1, kind: 'frame', cozy: 2, c: '#ffb7d5' , wall: true },
+    curtain: { name: '커튼 창문',   cost: 180,  w: 1, kind: 'window', cozy: 2, c: '#bfe4f7' , wall: true },
+    sofa:    { name: '소파',        cost: 350,  w: 2, kind: 'sofa', cozy: 3, c: '#ff7f8a' , flat: true },
+    clock:   { name: '벽시계',      cost: 130,  w: 1, kind: 'clock', cozy: 1, c: '#fff6e9' , wall: true },
     tank:    { name: '어항',        cost: 300,  w: 1, kind: 'tank', cozy: 2, c: '#8ec9ee' },
-    catbed:  { name: '고양이 집',   cost: 250,  w: 1, kind: 'catbed', cozy: 2, c: '#f5d9a8' },
-    stars:   { name: '별 조명',     cost: 260,  w: 1, kind: 'stars', cozy: 3, c: '#ffe680' },
-    piano:   { name: '피아노',      cost: 900,  w: 2, kind: 'piano', cozy: 4, c: '#3a3230' },
+    catbed:  { name: '고양이 집',   cost: 250,  w: 1, kind: 'catbed', cozy: 2, c: '#f5d9a8' , flat: true },
+    stars:   { name: '별 조명',     cost: 260,  w: 1, kind: 'stars', cozy: 3, c: '#ffe680' , wall: true },
+    piano:   { name: '피아노',      cost: 900,  w: 2, kind: 'piano', cozy: 4, c: '#3a3230' , flat: true },
     doll:    { name: '인형',        cost: 110,  w: 1, kind: 'doll', cozy: 1, c: '#ffcf9e' },
     vase:    { name: '꽃병',        cost: 95,   w: 1, kind: 'vase', cozy: 1, c: '#6cc7b3' },
     tree:    { name: '겨울 나무',   cost: 500,  w: 1, kind: 'xmas', cozy: 3, c: '#3f7d3c', season: 'winter' },
     trophy:  { name: '축제 트로피', cost: 0,    w: 1, kind: 'trophy', cozy: 3, c: '#ffd25a', rare: true },
     stove:   { name: '화로',        cost: 0,    w: 1, kind: 'stove', cozy: 2, c: '#7a5c48', rare: true },
+    // 나중에 들어온 것들
+    bunk:    { name: '이층 침대',   cost: 900,  w: 2, kind: 'bunk',  energy: 6, cozy: 4, c: '#f7c6a8' , flat: true },
+    desk:    { name: '책상',        cost: 260,  w: 2, kind: 'desk',  cozy: 2, c: '#c79a62' , flat: true },
+    fire:    { name: '벽난로',      cost: 1100, w: 2, kind: 'fire',  cozy: 5, c: '#a9866a' , flat: true },
+    mirror:  { name: '거울',        cost: 190,  w: 1, kind: 'mirror', cozy: 2, c: '#cfe4ff' , wall: true },
+    guitar:  { name: '기타',        cost: 420,  w: 1, kind: 'guitar', cozy: 3, c: '#d8a05a' },
+    bear:    { name: '큰 곰인형',   cost: 340,  w: 1, kind: 'bear',  cozy: 3, c: '#c79b6d' },
+    cushion: { name: '방석',        cost: 70,   w: 1, kind: 'cushion', cozy: 1, c: '#ffc48a' , flat: true },
+    poster:  { name: '포스터',      cost: 140,  w: 1, kind: 'poster', cozy: 2, c: '#8fd9c8' , wall: true },
   };
+  // 방은 가로 칸 수 × 세로 칸 수. 넓히는 건 언제든 안전하다 — 이미 놓인 가구는 그대로 있다.
   const ROOMS = {
-    living: { name: '거실',    w: 8, h: 5, owner: null },
-    sua:    { name: '수아 방', w: 6, h: 5, owner: 'sua' },
-    yona:   { name: '연아 방', w: 6, h: 5, owner: 'yona' },
+    living: { name: '거실',    w: 9, h: 5, owner: null },
+    sua:    { name: '수아 방', w: 7, h: 5, owner: 'sua' },
+    yona:   { name: '연아 방', w: 7, h: 5, owner: 'yona' },
   };
-  // 어떤 방의 어느 칸에 무엇이 있나: world.house[room]["x,y"] = { f, by }
+  // 어떤 방의 어느 칸에 무엇이 있나: world.house[room]["x,y"] = { f, by, r }
+  // r 은 돌린 횟수 0·1·2·3 (오른쪽으로 90도씩). 없으면 0 — 예전 세이브가 그대로 열린다.
   function placed(world, room){ return (world.house && world.house[room]) || {}; }
+  // 돌리면 가로세로가 바뀐다. 두 칸짜리 침대가 세로로 눕는다.
+  function furnBox(f, r){
+    const F = FURNITURE[f]; if (!F) return { w: 1, h: 1 };
+    const w = F.w || 1, h = F.h || 1;
+    return ((r || 0) % 2) ? { w: h, h: w } : { w, h };
+  }
   function occupied(world, room, x, y){
     const P = placed(world, room);
-    for (const k in P){ const [px, py] = k.split(',').map(Number); const w = FURNITURE[P[k].f].w; if (py === y && x >= px && x < px + w) return k; }
+    for (const k in P){
+      const parts = k.split(',').map(Number), px = parts[0], py = parts[1];
+      const b = furnBox(P[k].f, P[k].r);
+      if (x >= px && x < px + b.w && y >= py && y < py + b.h) return k;
+    }
     return null;
   }
-  function canPlace(world, room, f, x, y){
+  function canPlace(world, room, f, x, y, r){
     const R = ROOMS[room], F = FURNITURE[f];
     if (!R || !F) return false;
-    if (x < 0 || y < 0 || y >= R.h || x + F.w > R.w) return false;
-    for (let i = 0; i < F.w; i++) if (occupied(world, room, x + i, y)) return false;
+    const b = furnBox(f, r);
+    if (x < 0 || y < 0 || x + b.w > R.w || y + b.h > R.h) return false;
+    for (let i = 0; i < b.w; i++) for (let j = 0; j < b.h; j++) if (occupied(world, room, x + i, y + j)) return false;
     return true;
   }
   function bestOf(world, who, kind){
@@ -530,6 +603,8 @@ const FARM = (() => {
     kimchi:  { name: '김치',          need: { 'crop:napa': 1, 'crop:pepper': 2, 'crop:radish': 1 }, sell: 480, food: 12, lv: 3 },
     omelet:  { name: '오리알 오믈렛', need: { 'duckegg': 2, 'milk': 1 },              sell: 330, food: 11, lv: 2 },
     risotto: { name: '송로 리조또',  need: { 'truffle': 1, 'milk': 1, 'crop:onion': 1 }, sell: 760, food: 16, lv: 3 },
+    stew:    { name: '매운탕',      need: { 'fish:crucian': 1, 'crop:radish': 1, 'crop:pepper': 1 }, sell: 430, food: 13, lv: 2 },
+    sushi:   { name: '연어초밥',    need: { 'fish:trout': 1, 'crop:cucumber': 1 },                sell: 640, food: 15, lv: 3 },
     pickle:  { name: '오이지',       need: { 'crop:cucumber': 3, 'crop:pepper': 1 },   sell: 210, food: 7,  lv: 1 },
     starpie: { name: '별열매 파이',   need: { 'crop:star': 1, 'egg': 1, 'milk': 1 },    sell: 1200, food: 20, lv: 4 },
   };
@@ -592,17 +667,18 @@ const FARM = (() => {
     { id: 'gift',    text: '자매에게 선물 보내기',       stat: 'gifted',   n: 1,  coins: 40 },
     { id: 'gather',  text: '나무나 돌 모으기',           stat: 'gathered', n: 2,  coins: 20 },
     { id: 'sell',    text: '상인에게 무엇이든 팔기',     stat: 'sold',     n: 1,  coins: 15 },
+    { id: 'fish',    text: '연못에서 두 번 낚시하기',     stat: 'fished',   n: 2,  coins: 30 },
   ];
   function missionOf(world, mine, now){
     const key = dayKey(now);
-    let list = MISSIONS.filter(m => m.id !== 'pet' || (world.animals || []).length);
+    let list = MISSIONS.filter(m => (m.id !== 'pet' || (world.animals || []).length) && (m.id !== 'fish' || (world.decor && world.decor.pond)));
     const m = list[Math.floor(prand('m' + key + mine.key) * list.length)];
     const day = mine.day && mine.day.key === key ? mine.day : { key, stats: {} };
     return { m, got: day.stats[m.stat] || 0, done: !!(day.missionDone) };
   }
 
   // ---------- 경험치 ----------
-  const XP = { plant: 2, water: 1, harvest: 4, giant: 40, build: 60, cook: 8, gather: 2, feed: 2, pet: 1, order: 15, festival: 80, expand: 30 };
+  const XP = { plant: 2, water: 1, harvest: 4, giant: 40, build: 60, cook: 8, gather: 2, feed: 2, pet: 1, order: 15, festival: 80, expand: 30, fish: 5 };
   function levelOf(xp){ return Math.min(20, Math.floor(Math.sqrt((xp || 0) / 30)) + 1); }
   function xpForLevel(l){ return (l - 1) * (l - 1) * 30; }
 
@@ -611,7 +687,7 @@ const FARM = (() => {
     return {
       v: 1, started: dayKey(now), seasonLen: SEASON_LEN_DEFAULT, seasonIndex: 0,
       expand: 0, plots: {}, buildings: {}, animals: [], layout: {}, decor: {},
-      house: { living: {}, sua: { '0,0': { f: 'bed1' } }, yona: { '0,0': { f: 'bed1' } } },
+      house: { living: {}, sua: { '0,0': { f: 'bed1', r: 0 } }, yona: { '0,0': { f: 'bed1', r: 0 } } },
       orders: {}, festival: {}, mail: { sua: [], yona: [] }, log: [], seen: {},
     };
   }
@@ -621,7 +697,7 @@ const FARM = (() => {
       // 제 가게에 있는 씨앗 셋과 자매 가게 씨앗 하나 — 첫날부터 「이건 내 가게엔 없네」를 알게 된다.
       inv: key === 'yona' ? { 'seed:potato': 3, 'seed:radish': 1 } : { 'seed:radish': 3, 'seed:potato': 1 },
       tools: { can: 0, hoe: 0 }, dex: [], recipes: ['salad', 'jam'], stats: {}, day: null, nodes: {},
-      lastPlay: null, playDays: [], fertSpent: 0, claimed: [],
+      lastPlay: null, playDays: [], fertSpent: 0, claimed: [], fishDay: null, fishN: 0,
     };
   }
   function fixWorld(w, now){
@@ -639,7 +715,15 @@ const FARM = (() => {
     if (!Array.isArray(o.animals)) o.animals = [];
     if (!Array.isArray(o.log)) o.log = [];
     if (!o.house) o.house = base.house;
-    Object.keys(ROOMS).forEach(r => { if (!o.house[r]) o.house[r] = {}; });
+    Object.keys(ROOMS).forEach(r => {
+      if (!o.house[r]) o.house[r] = {};
+      const P = o.house[r];
+      Object.keys(P).forEach(k => {
+        const it = P[k];
+        if (!it || !FURNITURE[it.f]){ delete P[k]; return; }        // 없어진 가구는 지운다
+        it.r = FURNITURE[it.f].wall ? 0 : ((Math.round(Number(it.r) || 0) % 4) + 4) % 4;
+      });
+    });
     if (!o.mail) o.mail = { sua: [], yona: [] };
     if (!o.started) o.started = dayKey(now);
     return o;
@@ -957,14 +1041,32 @@ const FARM = (() => {
     if (mine.dex.indexOf('honey') < 0) mine.dex.push('honey');
     return okay('꿀 ' + n + '개를 떴어요');
   }
-  function place(world, mine, room, f, x, y){
+  function place(world, mine, room, f, x, y, r){
     const R = ROOMS[room], F = FURNITURE[f];
     if (!R || !F) return fail('놓을 수 없어요');
     if (R.owner && R.owner !== mine.key) return fail('여기는 ' + NAME[R.owner] + '의 방이에요');
-    if (!canPlace(world, room, f, x, y)) return fail('그 자리에는 놓을 수 없어요');
+    r = F.wall ? 0 : (((Math.round(Number(r) || 0)) % 4) + 4) % 4;   // 벽에 붙는 것은 늘 정면
+    if (!canPlace(world, room, f, x, y, r)) return fail('그 자리에는 놓을 수 없어요');
     if (!take(mine, 'f:' + f)) return fail('그 가구가 없어요');
-    world.house[room][x + ',' + y] = { f, by: mine.key };
+    world.house[room][x + ',' + y] = { f, by: mine.key, r };
     return okay(eul(F.name) + ' 놓았어요');
+  }
+  // 놓여 있는 것을 그 자리에서 90도 돌린다. 돌려서 방 밖으로 나가거나 옆것과 겹치면 안 된다.
+  function rotateFurn(world, mine, room, k){
+    const R = ROOMS[room], P = world.house && world.house[room];
+    if (!R || !P || !P[k]) return fail('그 자리에 아무것도 없어요');
+    if (R.owner && R.owner !== mine.key) return fail('여기는 ' + NAME[R.owner] + '의 방이에요');
+    const it = P[k], F = FURNITURE[it.f];
+    if (F.wall) return fail(eun(F.name) + ' 벽에 걸린 것이라 못 돌려요');
+    const parts = k.split(',').map(Number), x = parts[0], y = parts[1];
+    const nr = ((it.r || 0) + 1) % 4, b = furnBox(it.f, nr);
+    if (x + b.w > R.w || y + b.h > R.h) return fail('돌리면 방 밖으로 나가요');
+    for (let i = 0; i < b.w; i++) for (let j = 0; j < b.h; j++){
+      const o = occupied(world, room, x + i, y + j);
+      if (o && o !== k) return fail('옆에 다른 가구가 있어요');
+    }
+    it.r = nr;
+    return okay(eul(F.name) + ' 돌렸어요');
   }
   function pickUp(world, mine, room, key){
     const R = ROOMS[room]; const P = world.house[room];
@@ -1093,15 +1195,15 @@ const FARM = (() => {
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
-    GIANT_MULT, WATER_HOURS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX,
+    GIANT_MULT, WATER_HOURS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand,
     seedsFor, plotIds, plotOpen, parseId, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep,
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
-    canPay, buildState, animalDay, nodeReady, placed, occupied, canPlace, bestOf, cozyOf, cozyLevel, canCook,
+    canPay, buildState, animalDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,
     newWorld, newMine, fixWorld, fixMine, fixTune, logAdd, give, take, bump, markPlayed,
-    till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, pickUp, cook, sendGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, newDay,
+    till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, pickUp, cook, sendGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, newDay,
   };
 })();
 if (typeof module !== 'undefined') module.exports = FARM;
