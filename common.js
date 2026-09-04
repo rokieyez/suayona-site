@@ -193,7 +193,7 @@ function buildChrome(activeKey){
   header.id = 'siteHeader';
   header.innerHTML =
     '<a class="logo" href="/">' +
-      '<canvas id="logoCanvas" width="36" height="36"></canvas>' +
+      '<canvas id="logoCanvas" width="42" height="36"></canvas>' +
       '<span class="logo-text pixel">수아랑 연아랑</span>' +
     '</a>' +
     '<div class="hdr-right">' +
@@ -237,11 +237,14 @@ function buildChrome(activeKey){
     syncAuthButton();
   }).catch(() => {});
 
-  // 로고 하트 · 푸터 유튜브 아이콘 도트 찍기
+  // 로고 레샤 · 푸터 유튜브 아이콘 도트 찍기
   if (typeof SPRITES !== 'undefined') {
     const lc = $('#logoCanvas').getContext('2d');
     lc.imageSmoothingEnabled = false;
-    drawSprite(lc, SPRITES.heart, 1, 3, 5);
+    // 파비콘과 같은 모습으로 얼굴만 쓴다. 왼쪽 네 칸은 꼬리다.
+    // 이 칸수는 tools/make-favicon.py 의 TAIL_COLS 와 같은 값이니 도트를 고치면 둘 다 본다.
+    const foxFace = SPRITES.fox.map(row => row.slice(4));   // 18칸 -> 14칸
+    drawSprite(lc, foxFace, 0, 0, 3);                       // 14x12 도트 * 3 = 42x36
     const yc = $('#footYoutube').getContext('2d');
     yc.imageSmoothingEnabled = false;
     drawSprite(yc, SPRITES.youtube, 0, 0, 3);

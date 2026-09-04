@@ -116,7 +116,7 @@ header.site{
 }
 header.site.hidden{transform:translateY(-100%);}
 .logo{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink);}
-.logo canvas{width:36px; height:36px;}
+.logo canvas{width:42px; height:36px;}   /* 레샤 얼굴 14x12 도트의 비율 */
 .logo-text{font-size:17px; font-weight:700;}
 header.site nav{display:flex; gap:4px;}
 header.site nav a{
