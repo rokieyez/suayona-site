@@ -70,6 +70,18 @@
   #metaPreview b{display:block; font-size:17px; color:var(--ink); font-weight:800;}
 
   /* ----- 기존 사진 재처리 ----- */
+  /* 가볼 곳 고르기 목록 */
+  #wishPickBox{border:1px solid rgba(0,0,0,.14); background:var(--paper); padding:8px;
+    margin:8px 0 10px; max-height:230px; overflow-y:auto;}
+  #wishPickBox[hidden]{display:none;}
+  #wishPickBox .wp{display:block; width:100%; text-align:left; border:0; background:none;
+    font-family:inherit; font-size:13px; color:var(--ink); padding:7px 6px; cursor:pointer;
+    border-bottom:1px solid rgba(0,0,0,.06);}
+  #wishPickBox .wp:last-child{border-bottom:0;}
+  #wishPickBox .wp:hover{background:var(--lemon);}
+  #wishPickBox .wp .sub{display:block; font-size:11px; color:var(--ink-soft);}
+  #wishPickBox .none{font-size:12px; color:var(--ink-soft); padding:6px;}
+
   #retrofit-box{margin-bottom:22px;}
   #retrofit-box .btn{width:100%;}
   #retrofitMsg{font-size:12.5px; color:var(--ink-soft); margin-top:8px; min-height:1em;}
@@ -291,6 +303,9 @@
       <label>제목</label>
       <input type="text" id="addTitle" placeholder="예: 아침식사">
       <label>장소 (선택)</label>
+      <!-- 가볼 곳에 적어 둔 자리를 그대로 끌어온다 — 이름과 좌표를 다시 찾을 일이 없다 -->
+      <button type="button" class="btn ghost" id="wishPickBtn">🧭 가볼 곳에서 고르기</button>
+      <div id="wishPickBox" hidden></div>
       <div id="addPlaceField"></div>
       <label>상세 설명 (선택)</label>
       <textarea id="addDetail" placeholder="예: 식당 1층"></textarea>

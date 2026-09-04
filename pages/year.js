@@ -6,14 +6,14 @@ buildChrome('year');
 buildBackdrop('year');
 
 const AUTHORS = Object.assign({}, HERO_NAMES, { together:'같이' });   // 정본은 common.js
-let allWorks = [], allPosts = [], allEvents = [], allBest = [];
+let allWorks = [], allPosts = [], allEvents = [], allBest = [], allPlaces = [];
 let year = null, who = 'all';
 let allYears = [], yearsOpen = false;
 
 const yearOf = d => d ? String(d).slice(0, 4) : null;
 
 async function loadAll(){
-  const [w, p, e, b] = await Promise.all([
+  const [w, p, e, b, pl] = await Promise.all([
     sb.from('works').select('*').order('made_on', { ascending:true, nullsFirst:false }),
     sb.from('posts').select('*').order('created_at', { ascending:true }),
     sb.from('event_meta').select('*').order('start_date', { ascending:true }),
@@ -22,6 +22,10 @@ async function loadAll(){
     sb.from('gallery_media').select('media_url, thumb_url, taken_at, event_id')
       .eq('is_best', true).eq('media_type', 'image')
       .order('taken_at', { ascending:true }),
+    // 그 해 다녀온 곳 — 지도에 찍어 「어디까지 다녀왔나」를 한 장으로 보여 준다
+    sb.from('places').select('id, name, category, lat, lng, visited_on, stars, again')
+      .eq('status', 'done').not('visited_on', 'is', null)
+      .order('visited_on', { ascending:true }),
   ]);
   allWorks  = w.data || [];
   allPosts  = p.data || [];
@@ -29,12 +33,14 @@ async function loadAll(){
   // 볼 수 있는 이벤트의 사진만 — 비공개 이벤트가 여기로 새면 안 된다
   const okEvents = new Set(allEvents.map(x => x.event_id));
   allBest = (b.data || []).filter(x => okEvents.has(x.event_id));
+  allPlaces = (pl.data || []).filter(x => Number.isFinite(x.lat) && Number.isFinite(x.lng));
 
   // 연도 목록은 실제로 자료가 있는 해만 — 빈 해를 눌러 허탕치지 않게
   const years = [...new Set([
     ...allWorks.map(x => yearOf(x.made_on)),
     ...allPosts.map(x => yearOf(x.happened_on || x.created_at)),
     ...allEvents.map(x => yearOf(x.start_date)),
+    ...(pl.data || []).map(x => yearOf(x.visited_on)),
   ].filter(Boolean))].sort((a, b) => b.localeCompare(a));
 
   // 포트폴리오에서 연도를 골라 넘어오면 그 해로 연다 (?year=2026&who=sua).
@@ -112,11 +118,12 @@ function pick(){
                                  && x.status !== 'pending'),
     events: allEvents.filter(x => yearOf(x.start_date) === year),
     best:   allBest.filter(x => yearOf(x.taken_at) === year),
+    places: allPlaces.filter(x => yearOf(x.visited_on) === year),
   };
 }
 
 function render(){
-  const { works, posts, events, best } = pick();
+  const { works, posts, events, best, places } = pick();
   const whoLabel = who === 'all' ? '수아와 연아' : AUTHORS[who];
 
   $('#printTitle').innerHTML =
@@ -175,6 +182,18 @@ function render(){
         '</a>').join('') + '</div></div>';
   }
 
+  // 나들이 지도 — 좌표가 있는 곳이 두 군데는 돼야 지도로서 뜻이 있다
+  if (places.length) {
+    const 별 = places.filter(x => x.stars > 0);
+    const 평균 = 별.length
+      ? (별.reduce((a, b) => a + b.stars, 0) / 별.length).toFixed(1) : null;
+    html += '<div class="yr-section"><h2>🗺 다녀온 자리</h2>' +
+      '<div class="yr-map-wrap"><div class="yr-map" id="yearMap"></div></div>' +
+      '<div class="yr-map-note">' + year + '년에 ' + places.length + '군데' +
+      (평균 ? ' · 별 평균 ' + 평균 + '점' : '') +
+      ' · <a href="/wish/">가볼 곳에서 더 보기</a></div></div>';
+  }
+
   // 일정
   html += '<div class="yr-section"><h2>📅 함께한 날</h2>';
   html += events.length ? '<div class="yr-events">' + events.map(e =>
@@ -187,6 +206,45 @@ function render(){
 
   $('#body').innerHTML = html;
   initReveal();
+  drawYearMap(places);
+}
+
+/* ---------- 그 해 나들이 지도 ----------
+   해를 바꿀 때마다 #body 를 통째로 새로 그리므로 지도도 그때마다 다시 만든다.
+   해를 고르는 일은 잦지 않아 이 편이 코드가 단순하다. */
+async function drawYearMap(places){
+  const host = document.getElementById('yearMap');
+  if (!host || !places.length) return;
+  try { await loadKakaoMaps(); } catch (e) {
+    host.parentElement.innerHTML = '<div class="yr-empty">지도를 불러오지 못했어요.</div>';
+    return;
+  }
+  // 그 사이에 해를 또 바꿨으면 이 지도는 이미 화면에서 사라졌다
+  if (!document.body.contains(host)) return;
+
+  const map = new kakao.maps.Map(host, {
+    center: new kakao.maps.LatLng(36.5, 127.9), level: 12, scrollwheel: false,
+  });
+  enablePinchZoom(map, host);
+
+  if (places.length === 1) {
+    map.setCenter(new kakao.maps.LatLng(places[0].lat, places[0].lng));
+    map.setLevel(7);
+  } else {
+    const b = new kakao.maps.LatLngBounds();
+    places.forEach(p => b.extend(new kakao.maps.LatLng(p.lat, p.lng)));
+    map.setBounds(b, 24, 24, 24, 24);
+  }
+
+  // 다녀온 차례대로 번호를 붙인다 — 한 해의 발자국이 순서대로 보인다
+  places.forEach((p, i) => {
+    const el = document.createElement('div');
+    el.className = 'yr-pin' + (p.stars >= 4 ? ' hi' : '');
+    el.innerHTML = '<b>' + (i + 1) + '</b><span>' + escapeHTML(p.name) + '</span>';
+    new kakao.maps.CustomOverlay({
+      map, position: new kakao.maps.LatLng(p.lat, p.lng), content: el, yAnchor: 1,
+    });
+  });
 }
 
 $('#yearPick').addEventListener('click', (e) => {

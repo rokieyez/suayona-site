@@ -247,6 +247,59 @@ function makePlacePicker(host, init){
 
 let addPlacePicker = null;
 
+/* ---------- 가볼 곳에서 고르기 ----------
+   이제까지는 이벤트 -> 가볼 곳 한 방향뿐이었다. 나들이를 짜면서 「적어 둔 곳」을
+   일정으로 옮길 때, 이름을 다시 치고 좌표를 다시 찾는 일이 없게 한다. */
+let WISH_PLACES = null;
+
+async function loadWishPlaces(){
+  if (WISH_PLACES) return WISH_PLACES;
+  const { data, error } = await sb.from('places')
+    .select('id, name, category, lat, lng, address, memo, status, season')
+    .eq('status', 'want')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('가볼 곳 목록 오류:', error); return (WISH_PLACES = []); }
+  return (WISH_PLACES = data || []);
+}
+
+const WISH_ICON = { 먹거리:'🍜', 자연:'🌳', 체험:'🎨', 숙소:'🏨' };
+
+async function toggleWishPick(){
+  const box = $('#wishPickBox');
+  if (!box.hidden) { box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = '<div class="none">불러오는 중…</div>';
+  const list = await loadWishPlaces();
+  if (!list.length) {
+    box.innerHTML = '<div class="none">가볼 곳에 적어 둔 「가보고 싶은 곳」이 없습니다.</div>';
+    return;
+  }
+  box.innerHTML = '';
+  list.forEach(p => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'wp';
+    b.innerHTML = (WISH_ICON[p.category] || '📍') + ' ' + escapeHTML(p.name) +
+      '<span class="sub">' + escapeHTML([p.category, p.season && p.season !== '아무때나' ? p.season : '',
+        p.address || ''].filter(Boolean).join(' · ')) + '</span>';
+    b.addEventListener('click', () => {
+      if (!$('#addTitle').value.trim()) $('#addTitle').value = p.name;
+      // 좌표까지 그대로 물려주려면 고르개를 그 값으로 다시 세우는 것이 가장 확실하다
+      addPlacePicker = makePlacePicker($('#addPlaceField'),
+        { name: p.name, lat: p.lat, lng: p.lng });
+      if (p.memo && !$('#addDetail').value.trim()) $('#addDetail').value = p.memo;
+      box.hidden = true;
+      const msg = $('#add-msg');
+      msg.className = '';
+      msg.textContent = '「' + p.name + '」을 가져왔습니다' +
+        (Number.isFinite(p.lat) ? ' 📍 핀도 함께.' : ' (좌표는 저장할 때 찾아 봅니다)');
+    });
+    box.appendChild(b);
+  });
+}
+
+
+
 // ----- 장소 -> 좌표 -----
 // 이름만 저장해도 지도는 열린다(이름으로 찾아 준다). 좌표는 목록 페이지 지도에 핀을 찍는 데 쓴다.
 // 못 찾아도 저장은 그대로 진행한다 — 장소 하나 때문에 일정이 안 들어가면 안 되므로.
@@ -277,6 +330,8 @@ async function refreshAuthUI(){
     fillPanelSelect();
     fillMetaForm();
     if (!addPlacePicker) addPlacePicker = makePlacePicker($('#addPlaceField'));
+    const wb = $('#wishPickBtn');
+    if (wb && !wb.dataset.on) { wb.dataset.on = '1'; wb.addEventListener('click', toggleWishPick); }
     await checkExtraImagesColumn();     // 사진 여러 장 컬럼 유무를 먼저 확인
     await loadList();
     await loadCustomTabsAdmin();
