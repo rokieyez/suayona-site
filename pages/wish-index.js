@@ -548,8 +548,14 @@ $('#cards').addEventListener('click', async (e) => {
 
   if (t) return;   // 링크·다른 단추는 그대로 둔다
 
-  // 카드 몸통을 누르면 펼치거나 접는다
-  const card = e.target.closest('[data-card]');
+  // 접고 펴는 것은 카드 「머리」를 눌렀을 때만이다.
+  //
+  // 예전에는 카드 어디를 눌러도 접혔다. 그래서 고치기 폼의 칸을 누르는 순간 카드가
+  // 접혀 폼이 통째로 사라졌다 — 사진 고르기 단추를 누를 수조차 없었다. 펼친 안쪽은
+  // 읽고 적는 자리이지 접는 자리가 아니다.
+  const head = e.target.closest('.wcard-top');
+  if (!head) return;
+  const card = head.closest('[data-card]');
   if (!card) return;
   const id = +card.dataset.card;
   openId = (openId === id) ? null : id;
