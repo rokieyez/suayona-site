@@ -198,6 +198,15 @@
   .e-pic-off{display:flex; align-items:center; margin-top:8px; font-size:11.5px; font-weight:700;}
   .e-pic-off input{width:auto; margin-right:6px;}
 
+  .tool-box{border:2px dashed var(--ink); background:var(--paper-card); padding:12px;
+    margin:0 0 22px; max-width:560px;}
+  .tool-box[hidden]{display:none;}
+  .tool-box .hint{margin-top:8px;}
+
+  .more-box{display:flex; justify-content:center; margin-top:16px;}
+  .more-box[hidden]{display:none;}
+  .more-box button{padding:9px 18px; font-size:12.5px; box-shadow:2px 2px 0 var(--ink);}
+
   /* ===== 돌아보기 ===== */
   .best{border:var(--px) solid var(--ink); background:var(--paper-card); padding:16px;
     margin:24px 0 0; box-shadow:var(--px) var(--px) 0 var(--ink);}
@@ -267,6 +276,9 @@
   <div class="filters" id="filters"></div>
   <div class="filters" id="sorts"></div>
   <div class="cards" id="cards"></div>
+  <div class="more-box" id="moreBox" hidden>
+    <button class="act" type="button" id="moreBtn">더 불러오기</button>
+  </div>
 
   <div class="best" id="best" hidden></div>
 
@@ -344,6 +356,14 @@
       <button class="act primary" id="addBtn" type="button">넣기</button>
     </div>
     <div class="msg" id="addMsg"></div>
+  </div>
+
+  <!-- 이벤트에서 물려받은 400px 사본을 쓰는 곳이 남아 있을 때만 나온다.
+       한 번 눌러 두면 다시 나오지 않는다. -->
+  <div class="tool-box" id="toolBox" hidden>
+    <button class="act" type="button" id="reThumbBtn">사진 사본 다시 만들기</button>
+    <span class="hint" id="reThumbMsg">카드에 쓰는 작은 사본을 160px 로 다시 만듭니다.
+      원본과 이벤트 쪽 사진은 그대로 둡니다.</span>
   </div>
 </main>
 

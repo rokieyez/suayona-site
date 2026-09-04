@@ -19,6 +19,11 @@ let PLACES = [];
 let EVENT_LIST = [];          // 다녀옴으로 바꿀 때 고를 이벤트 목록
 let fCat = '전체', fState = 'all', fSort = 'recent';
 let openId = null, editId = null;
+
+// 한 번에 서른 장까지만 그린다. 스물여덟 곳인 지금은 한 화면이지만, 곳이 쌓이면
+// 사진과 카드가 함께 늘어 첫 그림이 무거워진다. 나머지는 눌러서 마저 부른다.
+const PAGE = 30;
+let shownCount = PAGE;
 let map = null, mapDrawn = false;
 const pinEls = {};
 
@@ -40,6 +45,114 @@ function nowSeason(){
 }
 
 // 거리 재기(metersBetween)는 common.js 에 있다 — 이벤트 지도도 같은 것을 쓴다.
+/* 가볼 곳 전용 작은 사본.
+   ------------------------------------------------------------------
+   공통 썸네일(THUMB_DIM)은 400px 이다. 이벤트 격자는 그만큼 크게 보여 주니 제값을
+   하지만, 여기 카드의 사진 칸은 안쪽 54px 뿐이다. 재 보니 한 장 24.8KB, 스물다섯
+   장이면 621KB 가 나갔다 — 폭으로 3.7배, 픽셀 수로는 13.7배 넘치는 것을 받고 있었다.
+   160px 로 줄이면 한 장 6.7KB, 스물다섯 장 168KB 다. 108px(54×2)이면 더 줄지만
+   화면 배율이 3배인 기기가 있어 160px 로 둔다. */
+const WISH_THUMB_DIM = 160;
+
+function shrinkToBlob(img){
+  const long = Math.max(img.naturalWidth, img.naturalHeight);
+  if (!long || long <= WISH_THUMB_DIM) return null;   // 이미 작으면 그대로 쓴다
+  const sc = WISH_THUMB_DIM / long;
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * sc);
+  c.height = Math.round(img.naturalHeight * sc);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.72));
+}
+
+async function makeSmallThumbBlob(file){
+  const src = URL.createObjectURL(file);
+  try { return await shrinkToBlob(await loadImage(src)); }
+  finally { URL.revokeObjectURL(src); }
+}
+
+// 이미 올라가 있는 사진에서 작은 사본을 만든다. 남의 자리에서 받아 캔버스에 그리므로
+// crossOrigin 을 붙여야 한다 — 안 붙이면 캔버스가 오염돼 toBlob 이 막힌다.
+function loadCrossOrigin(url){
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => res(im);
+    im.onerror = () => rej(new Error('사진을 받지 못했습니다'));
+    im.src = url;
+  });
+}
+
+// 이 곳의 카드 사본이 아직 「가볼 곳 것」이 아니면 참. 이벤트에서 물려받은 400px
+// 짜리를 그대로 쓰고 있다는 뜻이다.
+function needsSmallThumb(p){
+  if (!p.photo_url && !p.thumb_url) return false;
+  return String(p.thumb_url || '').indexOf('/suayona/places/') < 0;
+}
+
+async function rebuildThumbs(){
+  const btn = $('#reThumbBtn'), msg = $('#reThumbMsg');
+  const 대상 = PLACES.filter(needsSmallThumb);
+  if (!대상.length) { msg.textContent = '다시 만들 것이 없습니다.'; return; }
+  btn.disabled = true;
+  let 됨 = 0, 안됨 = 0;
+  for (let i = 0; i < 대상.length; i++) {
+    const p = 대상[i];
+    msg.textContent = (i + 1) + '/' + 대상.length + ' — ' + p.name;
+    try {
+      const img = await loadCrossOrigin(p.photo_url || p.thumb_url);
+      const blob = await shrinkToBlob(img);
+      if (!blob) { 안됨++; continue; }               // 이미 작은 사진
+      const path = 'suayona/places/thumb-' + p.id + '-' +
+        Math.random().toString(36).slice(2, 8) + '.jpg';
+      const file = new File([blob], path.split('/').pop(), { type: 'image/jpeg' });
+      const { error: upErr } = await sb.storage.from(MEDIA_BUCKET).upload(path, file);
+      if (upErr) throw upErr;
+      const url = sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+      const { data, error } = await sb.from('places')
+        .update({ thumb_url: url }).eq('id', p.id).select();
+      if (error || !data || !data.length) throw (error || new Error('저장되지 않았습니다'));
+      p.thumb_url = url;
+      됨++;
+    } catch (e) {
+      console.warn('사본 다시 만들기 실패:', p.name, e.message);
+      안됨++;
+    }
+  }
+  btn.disabled = false;
+  msg.textContent = '다시 만든 곳 ' + 됨 + '군데' + (안됨 ? ' · 건너뛴 곳 ' + 안됨 + '군데' : '');
+  render();
+  syncToolBox();
+}
+
+function syncToolBox(){
+  const box = $('#toolBox');
+  if (!box) return;
+  const n = PLACES.filter(needsSmallThumb).length;
+  box.hidden = !isAdmin || !n;
+  if (n) $('#reThumbBtn').textContent = '사진 사본 다시 만들기 (' + n + '곳)';
+}
+$('#reThumbBtn').addEventListener('click', rebuildThumbs);
+
+// 사진 한 장을 올린다. 원본은 눌러서 크게 볼 때를 위해 그대로 두고, 카드에는 작은 사본만.
+async function uploadPlacePhoto(file){
+  const upFile = await compressImage(file, IMAGE_LIMIT);
+  const safe = upFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+  const path = 'suayona/places/' + Date.now() + '-' +
+    Math.random().toString(36).slice(2, 8) + '-' + safe;
+  const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, upFile);
+  if (error) throw error;
+  const url = sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+  let thumbUrl = null;
+  try {
+    const blob = await makeSmallThumbBlob(upFile);
+    if (blob) thumbUrl = await uploadThumbAt(MEDIA_BUCKET, path, blob);
+  } catch (e) {
+    console.warn('작은 사본을 못 만들었습니다:', e.message);   // 없으면 원본으로 물러난다
+  }
+  return { url, thumbUrl };
+}
+
 // 주소 줄. 누르면 카카오맵이 그 자리를 열어 준다 — 이벤트 상세의 장소 표와 같은 주소 꼴이다.
 function addrHTML(p){
   const 자리 = (Number.isFinite(p.lat) && Number.isFinite(p.lng))
@@ -107,7 +220,7 @@ function drawFilters(){
     const b = document.createElement('button');
     b.className = 'chip' + (c === fCat ? ' on' : '');
     b.textContent = c;
-    b.addEventListener('click', () => { fCat = c; render(); });
+    b.addEventListener('click', () => { fCat = c; shownCount = PAGE; render(); });
     box.appendChild(b);
   });
   const gap = document.createElement('span'); gap.className = 'filter-gap'; box.appendChild(gap);
@@ -115,7 +228,7 @@ function drawFilters(){
     const b = document.createElement('button');
     b.className = 'chip' + (v === fState ? ' on' : '');
     b.textContent = label;
-    b.addEventListener('click', () => { fState = v; render(); });
+    b.addEventListener('click', () => { fState = v; shownCount = PAGE; render(); });
     box.appendChild(b);
   });
 
@@ -125,7 +238,7 @@ function drawFilters(){
     const b = document.createElement('button');
     b.className = 'chip sort' + (v === fSort ? ' on' : '');
     b.textContent = label;
-    b.addEventListener('click', () => { fSort = v; render(); });
+    b.addEventListener('click', () => { fSort = v; shownCount = PAGE; render(); });
     sbox.appendChild(b);
   });
 }
@@ -250,9 +363,22 @@ function drawCards(){
   if (!list.length){
     box.innerHTML = '<p class="empty-msg">' +
       (PLACES.length ? '고른 조건에 맞는 곳이 없습니다' : '아직 적어 둔 곳이 없습니다') + '</p>';
+    $('#moreBox').hidden = true;
     return;
   }
-  box.innerHTML = list.map(cardHTML).join('');
+  // 펴 놓은 카드가 아직 안 그린 자리에 있으면 거기까지는 그린다 — 지도 핀이나 계절 띠에서
+  // 건너뛰어 왔는데 카드가 없으면 아무 일도 안 일어난 것처럼 보인다.
+  const 펴진자리 = list.findIndex(p => p.id === openId);
+  const 끝 = Math.max(shownCount, 펴진자리 >= 0 ? 펴진자리 + 1 : 0);
+  box.innerHTML = list.slice(0, 끝).map(cardHTML).join('');
+
+  const 남음 = list.length - 끝;
+  const moreBox = $('#moreBox');
+  moreBox.hidden = 남음 <= 0;
+  if (남음 > 0) {
+    $('#moreBtn').textContent = '더 불러오기 (' + 남음 + '곳 남음)';
+    shownCount = 끝;
+  }
 }
 
 // 이번 계절과 맞는, 아직 안 간 곳
@@ -270,6 +396,7 @@ function drawSeasonTip(){
     b.addEventListener('click', () => {
       // 거르개가 걸려 있으면 그 카드가 안 보일 수 있다. 풀고 나서 편다.
       fCat = '전체'; fState = 'all'; openId = p.id; editId = null;
+      shownCount = PAGE;
       render();
       const card = document.querySelector('[data-card="' + p.id + '"]');
       if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -440,6 +567,11 @@ async function drawMap(){
 // 만들고 있었다. 핀이 달라지는 때 — 별점을 매길 때와 지울 때 — 만 redrawPins() 를 부른다.
 function render(){ drawSeasonTip(); drawFilters(); drawCards(); drawBest(); }
 
+$('#moreBtn').addEventListener('click', () => {
+  shownCount += PAGE;
+  render();
+});
+
 // 손가락뿐 아니라 자판으로도 펼 수 있어야 한다. 카드 머리에 role="button" 을 주었으니
 // 엔터와 사이띄개가 누름과 같아야 한다 — div 는 그것을 저절로 해 주지 않는다.
 $('#cards').addEventListener('keydown', (e) => {
@@ -509,7 +641,7 @@ $('#cards').addEventListener('click', async (e) => {
     if (새사진) {
       msg.className = 'msg'; msg.textContent = '사진 올리는 중...';
       try {
-        const up = await uploadMedia(새사진, 'places');
+        const up = await uploadPlacePhoto(새사진);
         patch.photo_url = up.url;
         patch.thumb_url = up.thumbUrl;
       } catch (err) {
@@ -704,7 +836,7 @@ $('#addBtn').addEventListener('click', async () => {
   if (pickedPic) {
     try {
       msg.textContent = '사진 올리는 중...';
-      const up = await uploadMedia(pickedPic, 'places');
+      const up = await uploadPlacePhoto(pickedPic);
       row.photo_url = up.url;
       row.thumb_url = up.thumbUrl;
     } catch (err) {
@@ -737,6 +869,7 @@ async function refreshAuthUI(){
   await refreshAuth();
   $('#addBox').hidden = !isAdmin;
   if (isAdmin) { syncAddMode(); fillEventSelect(); }
+  syncToolBox();
   $('#headNote').textContent = isAdmin
     ? '가고 싶은 곳을 적어 두고, 다녀오면 별을 매겨 남겨요'
     : '가고 싶은 곳과 다녀온 곳을 한 지도에 모았어요';
@@ -753,5 +886,6 @@ async function refreshAuthUI(){
 document.addEventListener('suayona:auth', () => {
   $('#addBox').hidden = !isAdmin;
   if (isAdmin) { syncAddMode(); fillEventSelect(); }
+  syncToolBox();
   render();
 });
