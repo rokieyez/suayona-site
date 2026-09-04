@@ -92,6 +92,11 @@
   .wcard{border:2px solid var(--ink); background:var(--paper-card);
     box-shadow:2px 2px 0 rgba(47,42,36,.28); overflow:hidden;}
   .wcard.done{background:#f3fbf8;}
+  /* 펼친 카드는 테를 강조색으로 바꾼다. 카드가 스물 몇 장 깔리면 어느 것을 열어
+     두었는지 스크롤 중에 놓치기 쉽다. 그림자도 같은 색으로 맞춰야 테만 뜬 것처럼
+     보이지 않는다. 굵기는 그대로 2px 이다 — 굵히면 안쪽 자리가 줄어 글이 흔들린다. */
+  .wcard.open{border-color:var(--accent); box-shadow:2px 2px 0 var(--accent);}
+  .wcard.open .wcard-more{border-top-color:rgba(var(--accent-rgb), .55);}
   .wcard-top{display:flex; gap:10px; padding:12px; cursor:pointer;}
   .wcard-thumb{width:58px; height:58px; flex:0 0 58px; border:2px solid var(--ink);
     background:var(--paper); display:flex; align-items:center; justify-content:center;
