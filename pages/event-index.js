@@ -129,6 +129,31 @@ async function fetchEventPlaces(slugs){
   return byEvent;
 }
 
+// 왼쪽 확대·축소 버튼.
+//
+// 카카오의 레벨은 숫자가 클수록 멀리 본다. 14 가 끝이라 setLevel(15) 를 넣어도
+// 14 로 되돌아온다(직접 재 봤다). 목록 지도는 핀을 다 담느라 처음부터 14 로 열리므로
+// 축소는 처음부터 더 갈 곳이 없다 — 그래서 「핀치로 줄여도 안 줄어든다」로 보였다.
+// 버튼도 사정은 같으니, 안 되는 쪽을 흐리게 해서 끝에 닿았다는 것을 보이게 한다.
+const MAP_MAX_LEVEL = 14;
+const MAP_MIN_LEVEL = 1;
+function attachZoomButtons(map){
+  const box = $('#zoomCtl'), zin = $('#zoomIn'), zout = $('#zoomOut');
+  if (!box || !zin || !zout) return;
+  function sync(){
+    const lv = map.getLevel();
+    zin.disabled  = lv <= MAP_MIN_LEVEL;
+    zout.disabled = lv >= MAP_MAX_LEVEL;
+  }
+  // 한 칸씩. 지도 한가운데를 붙잡고 움직인다(버튼에는 손가락 자리가 없다).
+  zin.addEventListener('click', () => { map.setLevel(map.getLevel() - 1); sync(); });
+  zout.addEventListener('click', () => { map.setLevel(map.getLevel() + 1); sync(); });
+  // 핀치나 더블클릭으로 바뀌었을 때도 버튼 상태가 따라가야 한다.
+  kakao.maps.event.addListener(map, 'zoom_changed', sync);
+  box.hidden = false;
+  sync();
+}
+
 async function drawMapBand(events){
   if (mapBandDrawn) return;
   const band = $('#mapBand');
@@ -146,6 +171,7 @@ async function drawMapBand(events){
     center: new kakao.maps.LatLng(36.5, 127.9), level: 13, scrollwheel: false,
   });
   enablePinchZoom(map, $('#eventMap'));
+  attachZoomButtons(map);
   const bounds = new kakao.maps.LatLngBounds();
   const pins = [];
 

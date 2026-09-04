@@ -58,7 +58,7 @@
      이벤트마다 사진 한 장씩. 띠가 얇아 전국이 한 화면에 들어오는데, 그 크기에서는
      한 여행에서 다닌 곳들이 서로 몇 km 안이라 장소마다 찍으면 사진이 통째로 포개진다.
      장소를 아직 아무 데도 안 적었으면 이 띠는 아예 안 그려진다(hidden 인 채로 둔다). */
-  .band{border:2px solid var(--ink); margin-bottom:26px;}
+  .band{position:relative; border:2px solid var(--ink); margin-bottom:26px;}
   .band[hidden]{display:none;}
   /* 288px 는 눈대중이 아니라 잰 값이다. 카카오 지도는 레벨 14 보다 더 물러나지
      못하고, 그 레벨에서 담기는 세로 범위는 오직 이 높이에 비례한다. 제주에서
@@ -85,15 +85,36 @@
   /* 테는 지도 띠와 같은 2px 로 얇게. 도트 굵기(--px, 4px)로 두었더니 44px 짜리
      핀에서 테가 전체의 18% 를 먹어 사진이 무엇인지 알아보기 어려웠다.
      box-sizing 이 border-box 라 테를 줄여도 핀은 44px 그대로다 — 지도 높이
-     288px 계산이 이 44px 에 기대고 있으니 크기는 건드리지 않는다. */
+     288px 계산이 이 44px 에 기대고 있으니 크기는 건드리지 않는다.
+     그림자(box-shadow)는 뺐다. 핀이 서로 가까이 붙는 자리에서 옆 핀 위에 검은
+     선이 겹쳐 테가 두 겹으로 보였다. */
   .pin-photo{
-    width:44px; height:44px; border:2px solid var(--ink); box-shadow:2px 2px 0 var(--ink);
+    width:44px; height:44px; border:2px solid var(--ink);
     background:var(--paper-card); overflow:hidden; cursor:pointer;
     display:flex; align-items:center; justify-content:center; font-size:20px;
   }
   .pin-photo img{width:100%; height:100%; object-fit:cover; display:block;}
   /* 고른 표시도 같은 굵기로. 테보다 두꺼우면 그 핀만 부풀어 보인다. */
   .pin-photo.on{outline:2px solid var(--lemon);}
+
+  /* 지도 확대·축소 버튼.
+     띠 지도는 scrollwheel 을 꺼 두었다 — 안 그러면 지도 위에서 페이지를 못 넘긴다.
+     트랙패드 핀치는 브라우저가 「ctrl+휠」로 보내므로 common.js 에서 되살려 두었지만
+     눈에 보이지 않는 길이라 있는 줄 모른다. 그래서 왼쪽에 버튼을 둔다.
+     지도 컨테이너 안이 아니라 형제로 얹는다 — 카카오가 컨테이너 안쪽 DOM 을
+     자기 것으로 다루기 때문이다. */
+  .zoom-ctl{position:absolute; left:10px; top:10px; z-index:3;
+    display:flex; flex-direction:column; gap:6px;}
+  .zoom-ctl[hidden]{display:none;}
+  .zoom-ctl button{
+    width:32px; height:32px; padding:0; border:2px solid var(--ink);
+    background:var(--paper-card); color:var(--ink); cursor:pointer;
+    font-family:inherit; font-size:18px; font-weight:800; line-height:1;
+    display:flex; align-items:center; justify-content:center;}
+  /* 끝까지 간 쪽은 눌러도 아무 일이 없다. 「고장났나」 싶지 않게 흐리게 둔다 —
+     목록 지도는 처음부터 레벨 14(카카오의 끝)라 축소가 처음부터 흐리다. */
+  .zoom-ctl button:disabled{opacity:.38; cursor:default;}
+  .zoom-ctl button:not(:disabled):active{transform:translate(1px, 1px);}
 
   /* 다른 쪽의 .dot-card 와 같은 무게로 맞춘다 — 얇은 2px 테에 그림자도 없어서
      이 쪽만 다른 사이트처럼 보였다. 평소에 그림자를 깔고, 누를 수 있다는 표시로
@@ -242,6 +263,10 @@
 
   <div class="band" id="mapBand" hidden>
     <div class="map" id="eventMap"></div>
+    <div class="zoom-ctl" id="zoomCtl" hidden>
+      <button type="button" id="zoomIn" aria-label="지도 확대">+</button>
+      <button type="button" id="zoomOut" aria-label="지도 축소">−</button>
+    </div>
     <div class="strip">
       <span id="stripText"></span>
       <a href="#" id="stripLink" hidden>보러가기 →</a>
