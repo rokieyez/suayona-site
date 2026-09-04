@@ -38,8 +38,17 @@
     /* 헤더는 화면 위에 붙박이(fixed)로 떠 있다. 그 높이만큼 본문을 내려야 한다 —
        40px 로 두었더니 헤더가 68px 까지 내려와 제목 위의 「📌 가볼 곳」 배지를
        28px 만큼 덮고 있었다. 이벤트 쪽들이 쓰는 것과 같은 식이다. */
-    padding:calc(var(--header-h) + 18px) 16px 60px;
+    padding:calc(var(--header-h) + 18px) var(--side-pad) 60px;
+    --side-pad:16px;
     background-color:var(--paper);
+  }
+  /* body 좌우 여백만큼 되돌려 푸터를 화면 끝까지 펼친다. 이 줄이 없어 푸터가 좌우
+     16px 씩 들어와 있었다 — 먹빛 띠 옆으로 종이색이 비쳐 잘린 것처럼 보였다.
+     (100vw 를 쓰면 세로 스크롤바 폭만큼 어긋나 가로 스크롤이 생긴다) */
+  footer.site{
+    margin-left:calc(var(--side-pad) * -1);
+    margin-right:calc(var(--side-pad) * -1);
+    margin-top:40px;
   }
 
   .section-head{text-align:center; margin-bottom:24px;}
