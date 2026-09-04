@@ -233,15 +233,75 @@ function drawBest(){
 // ---------- 지도 ----------
 function withCoords(){ return PLACES.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng)); }
 
-function paintPins(){
-  withCoords().forEach((p, i) => {
-    const el = pinEls[p.id];
-    if (!el) return;
-    const sc = score(p);
-    el.className = 'wish-pin' + (p.status === 'done' ? ' done' : '');
-    el.textContent = p.status === 'done' ? (sc ? '★' + sc : '✓') : String(i + 1);
+/* 핀 그리기.
+   ------------------------------------------------------------------
+   한 곳에 하나씩 그대로 얹으면 안 된다. 이벤트에서 옮겨 온 27곳 가운데 스무 곳이
+   제주에 있어, 전국이 보이는 레벨에서는 34px 짜리 핀들이 171쌍이나 겹쳤다.
+   그래서 화면에서 가까운 것끼리 묶어 「N곳」 하나로 그리고, 누르면 그 자리를
+   확대한다. 묶는 기준은 위경도가 아니라 화면 픽셀이다 — 같은 거리라도 확대하면
+   멀어지므로, 지도가 멈출 때(idle)마다 다시 센다. */
+const CLUSTER_PX = 46;
+let overlays = [];
+
+function pinFace(p){
+  const sc = score(p);
+  if (p.status !== 'done') return iconOf(p);
+  return sc ? '★' + sc : '✓';
+}
+
+function redrawPins(){
+  if (!map) return;
+  overlays.forEach(o => o.setMap(null));
+  overlays = [];
+  Object.keys(pinEls).forEach(k => delete pinEls[k]);
+
+  const proj = map.getProjection();
+  const spots = withCoords();
+  const cells = new Map();
+  spots.forEach(p => {
+    const pt = proj.containerPointFromCoords(new kakao.maps.LatLng(p.lat, p.lng));
+    const key = Math.round(pt.x / CLUSTER_PX) + ':' + Math.round(pt.y / CLUSTER_PX);
+    if (!cells.has(key)) cells.set(key, []);
+    cells.get(key).push(p);
+  });
+
+  cells.forEach(group => {
+    const lat = group.reduce((a, p) => a + p.lat, 0) / group.length;
+    const lng = group.reduce((a, p) => a + p.lng, 0) / group.length;
+    const here = new kakao.maps.LatLng(lat, lng);
+    const el = document.createElement('div');
+
+    if (group.length === 1) {
+      const p = group[0];
+      el.className = 'wish-pin' + (p.status === 'done' ? ' done' : '');
+      el.textContent = pinFace(p);
+      el.title = p.name;
+      pinEls[p.id] = el;
+      el.addEventListener('click', () => {
+        openId = p.id; editId = null; render(); focusPin(p);
+        const card = document.querySelector('[data-card="' + p.id + '"]');
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    } else {
+      const done = group.filter(p => p.status === 'done').length;
+      el.className = 'wish-pin cluster' + (done === group.length ? ' done' : '');
+      el.textContent = group.length + '곳';
+      el.title = group.map(p => p.name).join(', ');
+      el.addEventListener('click', () => {
+        // 한 칸 더 들어가도 안 갈라지는 자리가 있어 두 칸씩 당긴다
+        map.setLevel(Math.max(1, map.getLevel() - 2), { anchor: here });
+      });
+    }
+
+    overlays.push(new kakao.maps.CustomOverlay({
+      map, position: here, content: el,
+      xAnchor: 0.5, yAnchor: 0.5, clickable: true, zIndex: 2,
+    }));
   });
 }
+
+// 이름이 남아 있던 자리들을 위해 — 별점이 바뀌면 핀 글자도 따라 바뀐다
+function paintPins(){ redrawPins(); }
 
 function focusPin(p){
   Object.values(pinEls).forEach(el => el.classList.remove('on'));
@@ -279,21 +339,7 @@ async function drawMap(){
   enablePinchZoom(map, $('#wishMap'));
 
   const bounds = new kakao.maps.LatLngBounds();
-  spots.forEach(p => {
-    const here = new kakao.maps.LatLng(p.lat, p.lng);
-    bounds.extend(here);
-    const pin = document.createElement('div');
-    pin.className = 'wish-pin';
-    pin.addEventListener('click', () => {
-      openId = p.id; editId = null; render(); focusPin(p);
-      const card = document.querySelector('[data-card="' + p.id + '"]');
-      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-    pinEls[p.id] = pin;
-    new kakao.maps.CustomOverlay({ map, position: here, content: pin,
-      xAnchor: 0.5, yAnchor: 0.5, clickable: true, zIndex: 2 });
-  });
-  paintPins();
+  spots.forEach(p => bounds.extend(new kakao.maps.LatLng(p.lat, p.lng)));
 
   // 핀이 다 들어오게. 카카오는 레벨 14 보다 물러날 수 없어, 그래도 안 들어오면
   // 한가운데에 놓는 쪽으로 물러선다 (이벤트 목록과 같은 규칙).
@@ -309,6 +355,10 @@ async function drawMap(){
       map.setCenter(new kakao.maps.LatLng((sw.getLat() + ne.getLat()) / 2, (sw.getLng() + ne.getLng()) / 2));
     }
   }
+
+  // 자리가 정해진 뒤에 그려야 화면 좌표가 맞는다. 그 뒤로는 지도가 멈출 때마다.
+  redrawPins();
+  kakao.maps.event.addListener(map, 'idle', redrawPins);
 
   const zbox = $('#zoomCtl'), zin = $('#zoomIn'), zout = $('#zoomOut');
   function sync(){ const lv = map.getLevel(); zin.disabled = lv <= 1; zout.disabled = lv >= 14; }
@@ -385,7 +435,6 @@ $('#cards').addEventListener('click', async (e) => {
     const { error } = await sb.from('places').delete().eq('id', id);
     if (error) { alert('지우지 못했습니다: ' + error.message); return; }
     PLACES = PLACES.filter(x => x.id !== id);
-    if (pinEls[id]) { pinEls[id].remove(); delete pinEls[id]; }
     openId = editId = null; render(); summary();
     return;
   }
