@@ -27,6 +27,13 @@ function score(p){ return p.stars > 0 ? p.stars : null; }
 function starText(n, max){ return '★'.repeat(n) + '☆'.repeat(max - n); }
 function stateLabel(s){ return s === 'want' ? '가보고 싶은 곳' : s === 'planned' ? '계획 중' : '다녀옴'; }
 function iconOf(p){ return CAT_ICON[p.category] || '📍'; }
+// 사진이 있으면 사진을, 없으면 분류 아이콘을 보여 준다.
+function thumbHTML(p){
+  const src = p.thumb_url || p.photo_url;
+  return src
+    ? '<img alt="" loading="lazy" src="' + escapeHTML(src) + '">'
+    : iconOf(p);
+}
 function dateText(d){
   if (!d) return '';
   const k = isoToDateKey(d);
@@ -174,7 +181,7 @@ function cardHTML(p){
   return '<div class="wcard' + (p.status === 'done' ? ' done' : '') +
       (p.id === openId ? ' open' : '') + '" data-card="' + p.id + '">' +
     '<div class="wcard-top">' +
-      '<div class="wcard-thumb">' + iconOf(p) + '</div>' +
+      '<div class="wcard-thumb">' + thumbHTML(p) + '</div>' +
       '<div class="wcard-body">' +
         '<p class="wcard-name">' + escapeHTML(p.name) + '</p>' +
         '<div class="wcard-meta">' +

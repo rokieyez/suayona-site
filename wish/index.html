@@ -91,7 +91,10 @@
   .wcard.done{background:#f3fbf8;}
   .wcard-top{display:flex; gap:10px; padding:12px; cursor:pointer;}
   .wcard-thumb{width:58px; height:58px; flex:0 0 58px; border:2px solid var(--ink);
-    background:var(--paper); display:flex; align-items:center; justify-content:center; font-size:24px;}
+    background:var(--paper); display:flex; align-items:center; justify-content:center;
+    font-size:24px; overflow:hidden;}
+  /* 이벤트에서 옮겨 온 곳에는 그때 찍은 사진이 붙는다. 없으면 분류 아이콘이 대신한다. */
+  .wcard-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
   .wcard-body{min-width:0; flex:1;}
   .wcard-name{font-size:14px; font-weight:800; margin:0 0 3px;}
   .wcard-meta{font-size:11.5px; color:var(--ink-soft); font-weight:700;
