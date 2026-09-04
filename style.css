@@ -233,7 +233,11 @@ canvas{-webkit-tap-highlight-color:transparent;}
 [hidden]{display:none !important;}
 
 .section-pad{padding:72px 0;}
-.page-top{padding-top:calc(var(--header-h) + 40px);}
+/* 쪽 머리의 초록 배지가 어느 쪽에서나 같은 높이에 오게 한다.
+   이벤트 쪽은 body 에 --header-h + 18px 을 주고 그 바로 아래 배지가 온다(79px).
+   여기 열한 쪽은 .page-top 안에 26px 이 더 끼어 있어 배지가 127px 까지 내려가
+   혼자만 아래에 떠 보였다. 그 26px 을 빼서 79px 로 맞춘다. */
+.page-top{padding-top:calc(var(--header-h) + 18px - 26px);}
 .section-head{text-align:center; margin-bottom:38px;}
 .section-head .eyebrow{
   display:inline-block; font-size:11px; padding:5px 12px; margin-bottom:12px;
