@@ -236,15 +236,23 @@ async function drawYearMap(places){
     map.setBounds(b, 24, 24, 24, 24);
   }
 
-  // 다녀온 차례대로 번호를 붙인다 — 한 해의 발자국이 순서대로 보인다
-  places.forEach((p, i) => {
-    const el = document.createElement('div');
-    el.className = 'yr-pin' + (p.stars >= 4 ? ' hi' : '');
-    el.innerHTML = '<b>' + (i + 1) + '</b><span>' + escapeHTML(p.name) + '</span>';
-    new kakao.maps.CustomOverlay({
-      map, position: new kakao.maps.LatLng(p.lat, p.lng), content: el, yAnchor: 1,
+  /* 다녀온 차례대로 번호를 붙인다 — 한 해의 발자국이 순서대로 보인다.
+     지도를 막 만든 참에 한 번만 붙이면, 아직 자리가 안 잡혀 핀이 하나도 안 달릴 수
+     있다(재 보니 0개였다). 가볼 곳 지도와 같이 지도가 멈출 때마다 다시 붙인다. */
+  let pins = [];
+  function paint(){
+    pins.forEach(o => o.setMap(null));
+    pins = places.map((p, i) => {
+      const el = document.createElement('div');
+      el.className = 'yr-pin' + (p.stars >= 4 ? ' hi' : '');
+      el.innerHTML = '<b>' + (i + 1) + '</b><span>' + escapeHTML(p.name) + '</span>';
+      return new kakao.maps.CustomOverlay({
+        map, position: new kakao.maps.LatLng(p.lat, p.lng), content: el, yAnchor: 1, zIndex: 2,
+      });
     });
-  });
+  }
+  paint();
+  kakao.maps.event.addListener(map, 'idle', paint);
 }
 
 $('#yearPick').addEventListener('click', (e) => {
