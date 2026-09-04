@@ -1743,7 +1743,8 @@ function loop(ts){
 function startLoop(cv){
   liveCv = cv;
   ensureActors();
-  if (STILL){ drawFarm(cv); return; }
+  drawFarm(cv);                                  // 첫 장은 바로 — 빈 화면이 잠깐 보이지 않게
+  if (STILL) return;
   if (!rafId) rafId = requestAnimationFrame(loop);
 }
 
