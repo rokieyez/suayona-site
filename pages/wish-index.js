@@ -27,6 +27,35 @@ function score(p){ return p.stars > 0 ? p.stars : null; }
 function starText(n, max){ return '★'.repeat(n) + '☆'.repeat(max - n); }
 function stateLabel(s){ return s === 'want' ? '가보고 싶은 곳' : s === 'planned' ? '계획 중' : '다녀옴'; }
 function iconOf(p){ return CAT_ICON[p.category] || '📍'; }
+
+// 지금이 어느 계절인지. 12·1·2 를 겨울로 묶는다.
+function nowSeason(){
+  const m = new Date().getMonth() + 1;
+  if (m === 12 || m <= 2) return '겨울';
+  if (m <= 5) return '봄';
+  if (m <= 8) return '여름';
+  return '가을';
+}
+
+// 두 자리 사이의 거리(m). 하버사인을 쓸 만큼 멀지 않아 평면으로 셈해도 된다 —
+// 우리가 볼 거리는 길어야 몇 km 이고, 위도 1도를 111km 로 두면 그 안에서는 오차가
+// 몇 m 밖에 안 난다. 경도는 위도에 따라 좁아지므로 cos 을 곱한다.
+function metersBetween(a, b){
+  const dLat = (a.lat - b.lat) * 111000;
+  const dLng = (a.lng - b.lng) * 111000 * Math.cos((a.lat + b.lat) / 2 * Math.PI / 180);
+  return Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
+}
+// 주소 줄. 누르면 카카오맵이 그 자리를 열어 준다 — 이벤트 상세의 장소 표와 같은 주소 꼴이다.
+function addrHTML(p){
+  const 자리 = (Number.isFinite(p.lat) && Number.isFinite(p.lng))
+    ? 'https://map.kakao.com/link/map/' + encodeURIComponent(p.name) + ',' + p.lat + ',' + p.lng
+    : 'https://map.kakao.com/link/search/' + encodeURIComponent(p.name);
+  // 주소가 아직 없는 곳도 있다(이벤트에서 옮겨 올 때 좌표만 있었다). 그때는 이름으로 찾아 준다.
+  const 글 = p.address || '지도에서 찾아보기';
+  return '<a class="addr" href="' + escapeHTML(자리) + '" target="_blank" rel="noopener noreferrer">' +
+    '📍 <span>' + escapeHTML(글) + '</span></a>';
+}
+
 // 사진이 있으면 사진을, 없으면 분류 아이콘을 보여 준다.
 function thumbHTML(p){
   const src = p.thumb_url || p.photo_url;
@@ -201,6 +230,7 @@ function cardHTML(p){
     '</div>' +
     '<div class="wcard-more">' +
       (p.id === editId ? editHTML(p) : '') +
+      addrHTML(p) +
       (p.review ? '<p class="review">“' + escapeHTML(p.review) + '”</p>' : '') +
       (p.memo ? '<p>' + escapeHTML(p.memo) + '</p>' : '') +
       (p.status === 'done' ? rateRows(p) : '') +
@@ -219,6 +249,30 @@ function drawCards(){
     return;
   }
   box.innerHTML = list.map(cardHTML).join('');
+}
+
+// 이번 계절과 맞는, 아직 안 간 곳
+function drawSeasonTip(){
+  const box = $('#seasonTip');
+  const 계절 = nowSeason();
+  const list = PLACES.filter(p => p.status !== 'done' && p.season === 계절);
+  if (!list.length){ box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = '<b>🍂 지금은 ' + 계절 + ' — 이때 가면 좋을 곳 ' + list.length + '군데</b>';
+  list.slice(0, 6).forEach(p => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = iconOf(p) + ' ' + p.name;
+    b.addEventListener('click', () => {
+      // 거르개가 걸려 있으면 그 카드가 안 보일 수 있다. 풀고 나서 편다.
+      fCat = '전체'; fState = 'all'; openId = p.id; editId = null;
+      render();
+      const card = document.querySelector('[data-card="' + p.id + '"]');
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (Number.isFinite(p.lat)) focusPin(p);
+    });
+    box.appendChild(b);
+  });
 }
 
 function drawBest(){
@@ -325,6 +379,27 @@ function summary(){
   Object.values(pinEls).forEach(el => el.classList.remove('on'));
 }
 
+// 핀이 다 들어오게 맞춘다. 카카오는 레벨 14 보다 물러날 수 없어, 그래도 안 들어오면
+// 한가운데에 놓는 쪽으로 물러선다 (이벤트 목록과 같은 규칙).
+function mapFit(){
+  const spots = withCoords();
+  if (!map || !spots.length) return;
+  if (spots.length === 1) {
+    map.setCenter(new kakao.maps.LatLng(spots[0].lat, spots[0].lng));
+    map.setLevel(6);
+    return;
+  }
+  const bounds = new kakao.maps.LatLngBounds();
+  spots.forEach(p => bounds.extend(new kakao.maps.LatLng(p.lat, p.lng)));
+  map.setBounds(bounds, 22, 22, 22, 22);
+  const view = map.getBounds();
+  if (!spots.every(p => view.contain(new kakao.maps.LatLng(p.lat, p.lng)))) {
+    const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+    map.setLevel(14);
+    map.setCenter(new kakao.maps.LatLng((sw.getLat() + ne.getLat()) / 2, (sw.getLng() + ne.getLng()) / 2));
+  }
+}
+
 async function drawMap(){
   if (mapDrawn) return;
   const spots = withCoords();
@@ -340,23 +415,7 @@ async function drawMap(){
   });
   enablePinchZoom(map, $('#wishMap'));
 
-  const bounds = new kakao.maps.LatLngBounds();
-  spots.forEach(p => bounds.extend(new kakao.maps.LatLng(p.lat, p.lng)));
-
-  // 핀이 다 들어오게. 카카오는 레벨 14 보다 물러날 수 없어, 그래도 안 들어오면
-  // 한가운데에 놓는 쪽으로 물러선다 (이벤트 목록과 같은 규칙).
-  if (spots.length === 1) {
-    map.setCenter(new kakao.maps.LatLng(spots[0].lat, spots[0].lng));
-    map.setLevel(6);
-  } else {
-    map.setBounds(bounds, 22, 22, 22, 22);
-    const view = map.getBounds();
-    if (!spots.every(p => view.contain(new kakao.maps.LatLng(p.lat, p.lng)))) {
-      const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
-      map.setLevel(14);
-      map.setCenter(new kakao.maps.LatLng((sw.getLat() + ne.getLat()) / 2, (sw.getLng() + ne.getLng()) / 2));
-    }
-  }
+  mapFit();
 
   // 자리가 정해진 뒤에 그려야 화면 좌표가 맞는다. 그 뒤로는 지도가 멈출 때마다.
   redrawPins();
@@ -375,7 +434,7 @@ async function drawMap(){
 // 핀은 여기서 다시 그리지 않는다. 카드를 펴고 접을 때마다 오버레이를 통째로 새로
 // 만들던 것을 재 보니 한 번 누를 때 다섯 개(펼쳐 놓으면 스물일곱 개)를 버리고 다시
 // 만들고 있었다. 핀이 달라지는 때 — 별점을 매길 때와 지울 때 — 만 redrawPins() 를 부른다.
-function render(){ drawFilters(); drawCards(); drawBest(); }
+function render(){ drawSeasonTip(); drawFilters(); drawCards(); drawBest(); }
 
 // 손가락뿐 아니라 자판으로도 펼 수 있어야 한다. 카드 머리에 role="button" 을 주었으니
 // 엔터와 사이띄개가 누름과 같아야 한다 — div 는 그것을 저절로 해 주지 않는다.
@@ -508,6 +567,20 @@ $('#q').addEventListener('input', (e) => {
   }, 280);
 });
 
+// 고른 사진을 미리 보여 준다. 올리는 것은 「넣기」를 누를 때다.
+let pickedPic = null;
+$('#pic').addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0];
+  pickedPic = f || null;
+  const box = $('#picPreview');
+  if (!f) { box.hidden = true; return; }
+  const url = URL.createObjectURL(f);
+  $('#picImg').src = url;
+  // 미리보기용 주소는 곧 쓸모가 없어진다. 그림이 뜨고 나면 바로 놓아 준다.
+  $('#picImg').onload = () => URL.revokeObjectURL(url);
+  box.hidden = false;
+});
+
 $('#addBtn').addEventListener('click', async () => {
   const msg = $('#addMsg');
   const name = $('#q').value.trim();
@@ -524,19 +597,55 @@ $('#addBtn').addEventListener('click', async () => {
   // 찾아서 고른 자리가 있으면 좌표까지 넣는다. 손으로만 적었으면 지도에는 안 찍힌다.
   if (picked) { row.lat = picked.lat; row.lng = picked.lng; row.address = picked.address; }
 
+  // 이미 있는 곳인지 먼저 본다. 이벤트에서 옮겨 올 때 씨앤하우스가 두 번 들어가
+  // 있던 것과 같은 일이 여기서도 생긴다. 이름이 같거나, 걸어서 갈 만한 거리(300m)
+  // 안에 다른 곳이 이미 있으면 물어본다.
+  const 같은이름 = PLACES.find(x => x.name === row.name);
+  const 가까운곳 = row.lat
+    ? PLACES.find(x => Number.isFinite(x.lat) && metersBetween(row, x) <= 300)
+    : null;
+  if (같은이름 || 가까운곳) {
+    const 겹친것 = 같은이름 || 가까운곳;
+    const 이유 = 같은이름
+      ? '「' + 겹친것.name + '」은 이미 목록에 있습니다.'
+      : '「' + 겹친것.name + '」이(가) ' + metersBetween(row, 겹친것) + 'm 거리에 이미 있습니다.';
+    if (!confirm(이유 + '\n그래도 넣을까요?')) {
+      msg.className = 'msg'; msg.textContent = '넣지 않았습니다.';
+      return;
+    }
+  }
+
   msg.className = 'msg'; msg.textContent = '넣는 중...';
+
+  // 사진이 있으면 먼저 올린다. 여기서 실패하면 줄 자체를 만들지 않는다 —
+  // 사진 없는 줄이 남고 사람은 넣었다고 생각하는 편이 더 나쁘다.
+  if (pickedPic) {
+    try {
+      msg.textContent = '사진 올리는 중...';
+      const up = await uploadMedia(pickedPic, 'places');
+      row.photo_url = up.url;
+      row.thumb_url = up.thumbUrl;
+    } catch (err) {
+      msg.className = 'msg err'; msg.textContent = '사진을 올리지 못했습니다: ' + err.message;
+      return;
+    }
+    msg.textContent = '넣는 중...';
+  }
+
   const { data, error } = await sb.from('places').insert(row).select().maybeSingle();
   if (error) { msg.className = 'msg err'; msg.textContent = '넣지 못했습니다: ' + error.message; return; }
   if (!data) { msg.className = 'msg err'; msg.textContent = '넣어지지 않았습니다 (권한 확인)'; return; }
 
   PLACES.unshift(data);
-  picked = null;
+  picked = null; pickedPic = null;
   $('#q').value = ''; $('#memo').value = ''; $('#link').value = '';
+  $('#pic').value = ''; $('#picPreview').hidden = true;
   msg.className = 'msg ok'; msg.textContent = '넣었습니다.';
   render();
-  // 좌표가 있는 첫 곳이면 이제야 지도를 그릴 수 있다. 이미 그렸으면 새로 고쳐 핀을 얹는다.
+  // 좌표가 있는 첫 곳이면 이제야 지도를 그릴 수 있다. 이미 그렸으면 핀만 다시 얹는다
+  // (예전에는 쪽을 통째로 새로고침했다 — 스크롤과 거르개가 다 날아갔다).
   if (!mapDrawn) drawMap();
-  else if (data.lat) location.reload();
+  else if (data.lat) { mapFit(); redrawPins(); }
 });
 
 // ---------- 목록은 누구나, 넣기·고치기·별점은 부모만 ----------

@@ -76,6 +76,17 @@
   .wish-pin.cluster{border-style:solid; background:var(--paper-card); font-size:11.5px;}
   .wish-pin.cluster.done{background:var(--mint);}
 
+  /* ===== 이번 계절 띠 =====
+     겨울에 여름 장소만 눈에 띄면 목록이 소용없다. 지금 계절과 맞는, 아직 안 간 곳만
+     맨 위에 따로 모은다. 「아무때나」는 넣지 않는다 — 그것까지 넣으면 추천이 아니라
+     그냥 목록이 된다. */
+  .season-tip{border:2px solid var(--ink); background:var(--lemon); padding:10px 12px;
+    margin-bottom:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+  .season-tip[hidden]{display:none;}
+  .season-tip b{font-size:12.5px;}
+  .season-tip button{border:2px solid var(--ink); background:var(--paper); font-family:inherit;
+    font-size:11.5px; font-weight:800; padding:3px 8px; cursor:pointer; color:var(--ink);}
+
   /* ===== 거르개 ===== */
   .filters{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; align-items:center;}
   .chip{border:2px solid var(--ink); background:var(--paper); font-family:inherit;
@@ -132,6 +143,14 @@
   .wcard-more p{margin:0 0 10px; line-height:1.6; white-space:pre-line;}
   .review{border-left:var(--px) solid var(--mint); padding:2px 0 2px 10px; margin:0 0 12px;
     font-size:13px; font-weight:700; line-height:1.6;}
+
+  /* 주소 — 누르면 카카오맵이 열린다. 길게 이어지는 도로명 주소가 카드 폭을 밀지 않도록
+     한 줄로 자른다. */
+  .addr{display:flex; gap:4px; align-items:baseline; margin:0 0 10px;
+    font-size:12px; font-weight:700; color:var(--ink-soft); text-decoration:none;}
+  .addr span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    border-bottom:1px solid rgba(47,42,36,.3);}
+  .addr:hover span{color:var(--ink);}
 
   /* 별은 눌러서 매긴다. 같은 별을 다시 누르면 지워진다 */
   .rate-list{border:2px solid var(--ink); background:var(--paper); margin:0 0 12px;}
@@ -201,6 +220,11 @@
   .search-out button b{font-weight:800;}
   .search-out button span{display:block; font-size:11px; color:var(--ink-soft); font-weight:600;}
 
+  .pic-preview{margin-top:8px; width:96px; height:96px; border:2px solid var(--ink);
+    background:var(--paper); overflow:hidden;}
+  .pic-preview[hidden]{display:none;}
+  .pic-preview img{width:100%; height:100%; object-fit:cover; display:block;}
+
   .msg{font-size:12px; font-weight:700; margin-top:8px; min-height:1em;}
   .msg.err{color:#c0392b;}
   .msg.ok{color:#2b8a6f;}
@@ -228,6 +252,8 @@
       <span id="stripText"></span>
     </div>
   </div>
+
+  <div class="season-tip" id="seasonTip" hidden></div>
 
   <div class="filters" id="filters"></div>
   <div class="filters" id="sorts"></div>
@@ -262,6 +288,12 @@
 
     <label for="link">링크</label>
     <textarea id="link" placeholder="https://&#10;여러 개면 줄을 바꿔 적습니다"></textarea>
+
+    <label for="pic">사진</label>
+    <input id="pic" type="file" accept="image/*">
+    <p class="hint">한 장만. 아직 안 가 본 곳이라 찍어 둔 사진이 없으면 비워 두세요 —
+      분류 아이콘이 대신 들어갑니다.</p>
+    <div class="pic-preview" id="picPreview" hidden><img alt="" id="picImg"></div>
 
     <div style="margin-top:14px;">
       <button class="act primary" id="addBtn" type="button">넣기</button>
