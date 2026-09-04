@@ -185,7 +185,7 @@
       <button class="dot-btn small" data-filter="youtube">▶ 영상</button>
     </div>
     <div class="filters years reveal" id="years">
-      <button class="dot-btn small on" data-year="all">전체 연도</button>
+      <button class="dot-btn small on" data-year="all">모든 해</button>
     </div>
 
     <div class="gal-grid" id="grid"></div>
@@ -933,7 +933,7 @@ function buildYearFilter(){
     ? years.filter((y, i) => i < RECENT_YEARS || y === yearFilter)
     : years;
   box.innerHTML = '<button class="dot-btn small' + (yearFilter === 'all' ? ' on' : '') +
-    '" data-year="all">전체</button>' +
+    '" data-year="all">모든 해</button>' +
     shown.map(y => '<button class="dot-btn small' + (yearFilter === y ? ' on' : '') +
       '" data-year="' + y + '">' + y + '</button>').join('') +
     (foldable
