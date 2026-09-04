@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -13,10 +14,7 @@
 <title>수아연아 모험단 · 수아랑 연아랑</title>
 <meta name="description" content="수아와 연아가 현실에서 한 일이 경험치가 되는 턴제 도트 RPG. 일기를 쓰면 마음이, 작품을 올리면 힘이 자라요.">
 
-<link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preload" href="/fonts/PretendardVariable.subset.woff2" as="font" type="font/woff2" crossorigin>
-<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" rel="stylesheet"
-      integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" crossorigin="anonymous">
 <link href="/fonts/dot.css" rel="stylesheet">
 <link href="./style.css" rel="stylesheet">
 <style>
@@ -2021,7 +2019,7 @@ function draw(){
   if (fairyAt && t - fairyAt < 1600){
     const fy = 60 - Math.sin((t - fairyAt) / 300) * 6;
     drawSprite(ctx, SPRITES.butterfly, hx + 30, fy, 3);
-    ctx.font = '700 9px "Galmuri11", "Suayona Sans", "Pretendard Variable", sans-serif'; ctx.textAlign = 'left';
+    ctx.font = '700 9px "Galmuri11", "Suayona Sans", sans-serif'; ctx.textAlign = 'left';
     ctx.fillStyle = A.dark ? '#fff' : '#2f2a24';
     ctx.fillText('💌 ' + TUNE.cheer.slice(0, 18), hx + 54, fy + 12);
   }
@@ -2054,7 +2052,7 @@ function draw(){
   fx.forEach(f => {
     const d = t - f.t0; if (d > 900) return; keep.push(f);
     ctx.globalAlpha = 1 - d / 900;
-    ctx.font = '700 12px "Galmuri11", "Suayona Sans", "Pretendard Variable", sans-serif';
+    ctx.font = '700 12px "Galmuri11", "Suayona Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#2f2a24'; ctx.fillText(f.txt, f.x + 1, f.y - d / 22 + 1);
     ctx.fillStyle = f.color; ctx.fillText(f.txt, f.x, f.y - d / 22);
@@ -2075,7 +2073,7 @@ function draw(){
     ctx.fillStyle = '#ff7f8a'; ctx.fillRect(zx + zw / 4, by, zw / 2, bh);
     const pos = timing.done ? timing.pos : markerPos(t);
     px(bx + pos / 100 * bw - 2, by - 4, 4, bh + 8, '#2f2a24');
-    ctx.font = '700 10px "Galmuri11", "Suayona Sans", "Pretendard Variable", sans-serif'; ctx.textAlign = 'center';
+    ctx.font = '700 10px "Galmuri11", "Suayona Sans", sans-serif'; ctx.textAlign = 'center';
     ctx.fillStyle = A.dark ? '#fff' : '#2f2a24';
     ctx.fillText(timing.done ? SAY[timing.result] : '칸 안에서 톡!', W / 2, by + bh + 14);
   }

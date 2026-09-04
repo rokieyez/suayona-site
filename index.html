@@ -7,6 +7,7 @@
      보고 알아서 어둡게 칠하는 것은 이걸로 막힌다. 다만 사용자가 「웹 페이지를 다크
      모드로 표시」처럼 스위치를 직접 켠 경우는 못 막는다 — 웨일에서 확인했다. -->
 <meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -27,10 +28,7 @@
 <meta property="og:image:height" content="1336">
 <meta name="twitter:card" content="summary_large_image">
 
-<link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preload" href="/fonts/PretendardVariable.subset.woff2" as="font" type="font/woff2" crossorigin>
-<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" rel="stylesheet"
-      integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" crossorigin="anonymous">
 <link href="/fonts/dot.css" rel="stylesheet">
 <link href="./style.css" rel="stylesheet">
 <style>
@@ -1949,7 +1947,7 @@ const belowFold = (() => {
 
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, fade));
-    ctx.font = '800 ' + fs + 'px Suayona Dot, Suayona Sans, Pretendard Variable, Pretendard, sans-serif';
+    ctx.font = '800 ' + fs + 'px Suayona Dot, Suayona Sans, Pretendard, sans-serif';
     ctx.textBaseline = 'top';
 
     const bw = Math.ceil(ctx.measureText(nameTag.text).width) + pad * 2;
@@ -2401,10 +2399,10 @@ $$('canvas[data-char]').forEach(cv => {
 
     g.textAlign = 'center';
     g.fillStyle = '#3a3226';
-    g.font = '800 20px Suayona Dot, Suayona Sans, Pretendard Variable, sans-serif';
+    g.font = '800 20px Suayona Dot, Suayona Sans, sans-serif';
     g.fillText(year + ' 수아랑 연아랑', yCard.width / 2, 36);
 
-    g.font = '800 12px Suayona Dot, Suayona Sans, Pretendard Variable, sans-serif';
+    g.font = '800 12px Suayona Dot, Suayona Sans, sans-serif';
     const rows = [
       ['작품', nums.works + '점'],   ['일기', nums.posts + '편'],
       ['사진', nums.photos + '장'],  ['나들이', nums.events + '번'],
@@ -2421,7 +2419,7 @@ $$('canvas[data-char]').forEach(cv => {
     drawSprite(g, SPRITES.sua,  16, 142, 2);
     drawSprite(g, SPRITES.yona, 220, 150, 2);
     g.textAlign = 'center'; g.fillStyle = '#6b5f4e';
-    g.font = '800 11px Suayona Dot, Suayona Sans, Pretendard Variable, sans-serif';
+    g.font = '800 11px Suayona Dot, Suayona Sans, sans-serif';
     g.fillText('www.suayona.com', yCard.width / 2, 208);
     g.textAlign = 'start';
 
@@ -2584,26 +2582,26 @@ belowFold(async () => {
   g.fillStyle = '#fff6e9'; g.fillRect(0, 0, 320, 180);
   g.fillStyle = '#3a3226'; g.fillRect(0, 0, 320, 3); g.fillRect(0, 177, 320, 3);
   g.textAlign = 'center'; g.fillStyle = '#3a3226';
-  g.font = '800 16px Suayona Dot, Suayona Sans, Pretendard Variable, sans-serif';
+  g.font = '800 16px Suayona Dot, Suayona Sans, sans-serif';
   g.fillText(last ? '지난주 우리 모험단' : '우리 모험단', 160, 28);
   heroes.forEach((h, i) => {
     const d = by[h[0]], x = 28 + i * 152;
     drawSprite(g, SPRITES[h[0]], x, 46, 1);
-    g.font = '800 12px Suayona Dot, Suayona Sans, Pretendard Variable, sans-serif'; g.textAlign = 'left';
+    g.font = '800 12px Suayona Dot, Suayona Sans, sans-serif'; g.textAlign = 'left';
     g.fillStyle = '#3a3226'; g.fillText(h[1] + ' 레벨 ' + d.lv, x + 52, 60);
-    g.fillStyle = '#6b5f4e'; g.font = '800 10px Suayona Dot, Suayona Sans, Pretendard Variable, sans-serif';
+    g.fillStyle = '#6b5f4e'; g.font = '800 10px Suayona Dot, Suayona Sans, sans-serif';
     g.fillText('대장 ' + d.boss.filter(Boolean).length + '명 · 친구 ' + (d.friends || []).length, x + 52, 78);
     g.fillText((d.wins || []).reduce((a, b) => a + b, 0) + '번 이김', x + 52, 94);
   });
   g.textAlign = 'center'; g.fillStyle = '#3a3226';
-  g.font = '800 12px Suayona Dot, Suayona Sans, Pretendard Variable, sans-serif';
+  g.font = '800 12px Suayona Dot, Suayona Sans, sans-serif';
   if (last){
     const beat = last.hp && lastDmg >= last.hp;
     g.fillText(last.name + ' — 둘이 합쳐 ' + lastDmg + ' 피해 ' + (beat ? '· 쓰러뜨렸어요!' : '· 다음 주엔 꼭'), 160, 148);
   } else if (thisHp){
     g.fillText('이번 주 보스 ' + Math.min(thisDmg, thisHp) + ' / ' + thisHp, 160, 148);
   }
-  g.fillStyle = '#6b5f4e'; g.font = '800 10px Suayona Dot, Suayona Sans, Pretendard Variable, sans-serif';
+  g.fillStyle = '#6b5f4e'; g.font = '800 10px Suayona Dot, Suayona Sans, sans-serif';
   g.fillText('www.suayona.com/quest', 160, 166);
   $('#questWeekLead').textContent = last ? '지난주 보스는 어땠을까' : '자매가 함께 쓰러뜨리는 이번 주 보스';
   $('#questSay').textContent = thisHp
@@ -2658,7 +2656,7 @@ belowFold(async () => {
       g0.fillStyle = '#fff6e9'; g0.fillRect(0, 0, cv.width, cv.height);
       g0.fillStyle = '#6b5f4e'; g0.textAlign = 'center';
       g0.font = '800 ' + Math.round(16 * Math.max(1, Math.min(2, cv.width / (cv.getBoundingClientRect().width || cv.width)))) +
-        'px Suayona Sans, Pretendard Variable, Pretendard, sans-serif';
+        'px Suayona Sans, Pretendard, sans-serif';
       g0.fillText('아직 ' + K.label + J(K.label, '을', '를') + ' 잰 적이 없어요',
         cv.width / 2, cv.height / 2);
       g0.textAlign = 'start';
@@ -2692,7 +2690,7 @@ belowFold(async () => {
     // 종류에 맞는 간격으로 가로줄. 눈금 글씨는 줄 왼쪽 끝에 두고, 눈금 막대는 그 오른쪽에서
     // 시작한다 — 예전에는 막대가 글씨 위를 지나가 「140cm」이 반쯤 지워졌다.
     const AX = Math.round(S * 16 * k);
-    g.font = '600 ' + FS + 'px Suayona Sans, Pretendard Variable, Pretendard, sans-serif';
+    g.font = '600 ' + FS + 'px Suayona Sans, Pretendard, sans-serif';
     for (let c = Math.ceil(lo / K2.step) * K2.step; c <= hi; c += K2.step) {
       g.fillStyle = 'rgba(47,42,36,.18)';
       g.fillRect(AX, y(c), W - S * 5 - AX, 1);
@@ -2726,7 +2724,7 @@ belowFold(async () => {
       g.fillStyle = m.col;
       g.fillRect(x0, m.y - S, W - S * 5 - x0, S * 2);
     });
-    g.font = '800 ' + FS + 'px Suayona Sans, Pretendard Variable, Pretendard, sans-serif';
+    g.font = '800 ' + FS + 'px Suayona Sans, Pretendard, sans-serif';
     marks.forEach(m => {
       const drift = m.ty - (m.y - S * 2);
       if (Math.abs(drift) > 2){                         // 글씨가 제 줄에서 떨어졌으면 이어 준다
@@ -3705,7 +3703,7 @@ belowFold(async () => {
   }
   function label(text, y, size, soft){
     const c = textPair();
-    ctx.font = '800 ' + size + 'px Suayona Dot, Suayona Sans, Pretendard Variable, sans-serif';
+    ctx.font = '800 ' + size + 'px Suayona Dot, Suayona Sans, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.lineWidth = 4; ctx.strokeStyle = c.line;
     ctx.strokeText(text, W / 2, y);
@@ -3715,7 +3713,7 @@ belowFold(async () => {
   }
   function hud(text, x, y, size, align){
     const c = textPair();
-    ctx.font = '800 ' + size + 'px Suayona Dot, Suayona Sans, Pretendard Variable, sans-serif';
+    ctx.font = '800 ' + size + 'px Suayona Dot, Suayona Sans, sans-serif';
     ctx.textAlign = align || 'start';
     ctx.lineWidth = 4; ctx.strokeStyle = c.line; ctx.strokeText(text, x, y);
     ctx.fillStyle = c.fill; ctx.fillText(text, x, y);

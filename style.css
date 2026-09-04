@@ -22,7 +22,7 @@ body{
   margin:0; color:var(--ink); background:var(--cream);
   /* 맨 앞은 우리가 자른 벌(158KB 한 파일). 거기 없는 글자만 뒤의 CDN 조각으로 간다.
      같은 프리텐다드라 섞여도 모양이 달라지지 않는다. */
-  font-family:'Suayona Sans', 'Pretendard Variable', 'Pretendard', sans-serif;
+  font-family:'Suayona Sans', 'Pretendard', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
   /* 한글은 어절 단위로 끊어 읽는다. 기본값(break-all 비슷하게 아무 데서나 끊김)으로 두면
@@ -37,7 +37,7 @@ body{
 h1, h2, h3, h4, .section-head h1, .section-head h2{text-wrap:balance;}
 p, li, dd, figcaption{text-wrap:pretty;}
 img, canvas{display:block;}
-.pixel{font-family:'Suayona Dot', 'Suayona Sans', 'Pretendard Variable', 'Pretendard', sans-serif; letter-spacing:.5px;}
+.pixel{font-family:'Suayona Dot', 'Suayona Sans', 'Pretendard', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; letter-spacing:.5px;}
 
 /* ===== 도트 느낌 공통 부품 ===== */
 .dot-card{
