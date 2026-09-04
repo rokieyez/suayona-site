@@ -660,7 +660,7 @@ function markSeen(id){
     if (seen.indexOf(id) >= 0) return;
     seen.push(id);
     localStorage.setItem('sy.dex', JSON.stringify(seen));
-  } catch (e) {}          // 저장이 막혀 있어도 작품 보기는 그대로 돌아야 한다
+  } catch (e) { /* 저장이 막혀 있어도 작품 보기는 그대로 돌아야 한다 */ }
 }
 
 function renderWork(){

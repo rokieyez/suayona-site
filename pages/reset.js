@@ -101,7 +101,7 @@ $('#saveBtn').addEventListener('click', async () => {
   // (실제로 그렇게 됐다 — 다른 둘은 끊기고 문제의 하나만 살아남았다.)
   //
   // 실패해도 비밀번호는 이미 바뀐 뒤라 여기서 되돌리지 않고 넘어간다.
-  try { await sb.auth.signOut(); } catch (e) {}
+  try { await sb.auth.signOut(); } catch (e) { /* 비밀번호는 이미 바뀐 뒤다 — 로그아웃 실패는 넘어간다 */ }
 
   show('stDone', '다 됐어요');
 });

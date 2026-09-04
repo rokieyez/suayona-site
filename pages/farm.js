@@ -2383,7 +2383,6 @@ function furnBitmap(f, w, h, t){
   sg.drawImage(cv, 0, 0);
   sg.globalCompositeOperation = 'source-in';
   sg.fillStyle = 'rgba(26,20,12,0.20)'; sg.fillRect(0, 0, bw, bh);
-  const out = anim ? null : cv;
   b.globalCompositeOperation = 'destination-over';
   b.drawImage(sh, Math.round(1.5 * HS), Math.round(2 * HS));
   b.globalCompositeOperation = 'source-over';
@@ -2846,7 +2845,6 @@ function renderDuo(){
   if (!W.animals.length) ab.innerHTML = '<p class="sub">아직 동물이 없어요. 닭장을 지으면 가게에서 닭을 살 수 있어요.</p>';
   const today = R.dayKey(now());
   W.animals.forEach(a => {
-    const A = R.ANIMALS[a.kind];
     const d = document.createElement('div'); d.className = 'animal';
     const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; cv.getContext('2d').imageSmoothingEnabled = false; drawAnimalAt(cv.getContext('2d'), a.kind, 4, 5, 1); d.appendChild(cv);
     const info = document.createElement('div');

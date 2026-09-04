@@ -475,7 +475,7 @@ $('#manualToggle').addEventListener('click', () => {
 // ----- 목록은 누구나 볼 수 있고, 만들기/삭제만 로그인한 사람에게 노출 -----
 async function refreshAuthUI(){
   // 역할까지 확인 — 아이 계정은 이벤트를 만들거나 지울 수 없어야 한다
-  const session = await refreshAuth();
+  await refreshAuth();
 
   $('#content').style.display = 'block';            // 목록은 항상 보임
   $('#new-event-box').style.display = isAdmin ? 'block' : 'none';

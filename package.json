@@ -1,0 +1,13 @@
+{
+  "name": "suayona-site",
+  "private": true,
+  "description": "수아랑 연아랑 — 정적 사이트. 빌드는 없고, 검사만 있다.",
+  "scripts": {
+    "lint": "eslint .",
+    "check": "node --check common.js && node --check pixel.js && node --check sw.js && for f in pages/*.js; do node --check \"$f\" || exit 1; done && echo 문법 OK"
+  },
+  "devDependencies": {
+    "eslint": "^9",
+    "globals": "^16"
+  }
+}

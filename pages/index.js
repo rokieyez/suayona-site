@@ -65,7 +65,7 @@ const belowFold = (() => {
   // 그 0줄을 받으려고 700바이트짜리 주소를 매번 보내던 참이었다.
   const memKey = 'sy.mem.' + now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
   let cached = null;
-  try { const t = sessionStorage.getItem(memKey); if (t) cached = JSON.parse(t); } catch (e) {}
+  try { const t = sessionStorage.getItem(memKey); if (t) cached = JSON.parse(t); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
   if (cached && cached.none) return;
 
   const [photosRes, metaList] = cached
@@ -78,7 +78,7 @@ const belowFold = (() => {
       ]);
   const metas = new Map(metaList.map(m => [m.event_id, m]));
   const hits = (photosRes.data || []).filter(r => metas.has(r.event_id));
-  try { sessionStorage.setItem(memKey, JSON.stringify(hits.length ? { hits } : { none: 1 })); } catch (e) {}
+  try { sessionStorage.setItem(memKey, JSON.stringify(hits.length ? { hits } : { none: 1 })); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
   if (!hits.length) return;                      // 오늘은 겹치는 날이 없다 — 조용히 지나간다
 
   // 베스트 컷이 있으면 그중에서, 없으면 전체에서 하루 단위로 같은 한 장을 고른다.
@@ -261,7 +261,7 @@ const belowFold = (() => {
   ];
   const FOUND_KEY = 'sy.found.' + DAY_SEED;
   let found = new Set();
-  try { found = new Set(JSON.parse(localStorage.getItem(FOUND_KEY) || '[]')); } catch (e) {}
+  try { found = new Set(JSON.parse(localStorage.getItem(FOUND_KEY) || '[]')); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
 
   const secrets = (() => {
     const kinds = SECRET_KINDS.slice(), spots = SECRET_SPOTS.slice(), out = [];
@@ -357,7 +357,7 @@ const belowFold = (() => {
   // ---- 열쇠 (순서를 맞춰야 열리는 비밀) ----
   // 안내 없이 숨겨 둔다. 찾은 건 남아서 표시에 🔑 로 붙는다.
   let keys = new Set();
-  try { keys = new Set(JSON.parse(localStorage.getItem('sy.keys') || '[]')); } catch (e) {}
+  try { keys = new Set(JSON.parse(localStorage.getItem('sy.keys') || '[]')); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
   const taps = {};                                       // { key: [시각들] }
   let doorOpen = 0, meteorAt = 0;
   function countTap(key, need, within){
@@ -371,7 +371,7 @@ const belowFold = (() => {
   function unlock(key, hit, text){
     const fresh = !keys.has(key);
     keys.add(key);
-    try { localStorage.setItem('sy.keys', JSON.stringify(Array.from(keys))); } catch (e) {}
+    try { localStorage.setItem('sy.keys', JSON.stringify(Array.from(keys))); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
     popAt(hit.x, hit.y, SPRITES.star, fresh ? 9 : 4);
     if (fresh) sfx('key');
     say(fresh ? '🔑 비밀 발견! ' + text : text, hit);
@@ -657,7 +657,7 @@ const belowFold = (() => {
   const isMapStar = idx => idx != null && MAP_IDS.indexOf(idx) >= 0;
   const MAP_KEY = 'sy.starmap.' + DAY_SEED;
   let lit = [];                              // 누른 순서대로의 별 번호
-  try { lit = JSON.parse(localStorage.getItem(MAP_KEY) || '[]'); } catch (e) {}
+  try { lit = JSON.parse(localStorage.getItem(MAP_KEY) || '[]'); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
   let starPts = [];                          // 이번 화면에서의 별 좌표 (그릴 때 채운다)
   const STAR_NAMES = ['수아자리', '연아자리', '레샤자리', '미미자리', '상그렐라자리', '자매자리'];
 
@@ -989,7 +989,7 @@ const belowFold = (() => {
             if (chick.far > W * 0.05) {
               const h = hits.find(x => x.kind === 'char' && x.name === '상그렐라');
               if (m > bestThrow()) {
-                try { localStorage.setItem('sy.throw.best', String(m)); } catch (e) {}
+                try { localStorage.setItem('sy.throw.best', String(m)); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
                 if (h) { sfx('key'); say('신기록! ' + m.toFixed(1) + 'm', h); popAt(h.x, h.y, SPRITES.star, 8); }
               } else if (h) say(m.toFixed(1) + 'm', h);
             }
@@ -1208,7 +1208,7 @@ const belowFold = (() => {
     if (hit && hit.kind === 'char' && hit.name === '상그렐라') {
       chick.held = true; chick.vx = 0;
       drag.base = chick.ox;
-      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 이미 놓인 포인터면 실패한다 — 붙잡기는 덤이다 */ }
     }
   });
 
@@ -1290,7 +1290,7 @@ const belowFold = (() => {
       if (!sec) return;
       if (!found.has(sec.key)) {
         found.add(sec.key);
-        try { localStorage.setItem(FOUND_KEY, JSON.stringify(Array.from(found))); } catch (e) {}
+        try { localStorage.setItem(FOUND_KEY, JSON.stringify(Array.from(found))); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
         syncHud();
         sfx('secret');
         popAt(hit.x, hit.y, SPRITES.star, 7);
@@ -1310,7 +1310,7 @@ const belowFold = (() => {
       // 별자리 잇기 — 아직 안 이은 별이면 선이 하나 더 늘어난다.
       if (isMapStar(hit.idx) && lit.indexOf(hit.idx) < 0) {
         lit.push(hit.idx);
-        try { localStorage.setItem(MAP_KEY, JSON.stringify(lit)); } catch (e) {}
+        try { localStorage.setItem(MAP_KEY, JSON.stringify(lit)); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
         if (MAP_IDS.length && lit.length >= MAP_IDS.length) {
           const name = STAR_NAMES[DAY_SEED % STAR_NAMES.length];
           unlock('starmap', hit, '별자리 완성! 오늘의 이름은 ' + name);
@@ -1403,7 +1403,7 @@ const belowFold = (() => {
     const prev = Number(localStorage.getItem(LAST_KEY) || 0);
     if (prev) awayDays = Math.floor((Date.now() - prev) / 86400000);
     localStorage.setItem(LAST_KEY, String(Date.now()));
-  } catch (e) {}
+  } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
 
   setInterval(() => {
     if (document.hidden || scrollY > H * 0.5) return;
@@ -1512,7 +1512,7 @@ $$('canvas[data-char]').forEach(cv => {
   const dex = $('#dexLine');
   if (dex && nums.works) {
     let seenWorks = [];
-    try { seenWorks = JSON.parse(localStorage.getItem('sy.dex') || '[]'); } catch (e) {}
+    try { seenWorks = JSON.parse(localStorage.getItem('sy.dex') || '[]'); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
     const n = Math.min(seenWorks.length, nums.works);
     dex.hidden = false;
     dex.textContent = n >= nums.works
@@ -1536,13 +1536,13 @@ $$('canvas[data-char]').forEach(cv => {
   if (yBtn && yCard) yBtn.addEventListener('click', () => {
     const get = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } };
     let dexN = 0, stamps = 0;
-    try { dexN = (JSON.parse(localStorage.getItem('sy.dex') || '[]') || []).length; } catch (e) {}
+    try { dexN = (JSON.parse(localStorage.getItem('sy.dex') || '[]') || []).length; } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
     // 출석 도장은 sy.stamps 에 날짜 문자열로 쌓이고 최근 70일치만 남는다.
     // 그래서 「올해 몇 번」이 아니라 「최근 며칠」이다.
     try {
       const st = JSON.parse(localStorage.getItem('sy.stamps') || '[]');
       stamps = Array.isArray(st) ? st.length : 0;
-    } catch (e) {}
+    } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
     const best = Math.max(0, parseInt(get('sy.run.best', '0'), 10) || 0);
     const year = new Date().getFullYear();
 
@@ -1625,7 +1625,7 @@ $$('canvas[data-char]').forEach(cv => {
   const grid = $('#stampGrid'); if (!grid) return;
   const KEY = 'sy.stamps';
   let days = [];
-  try { days = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+  try { days = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
 
   const now = new Date();
   const pad = n => String(n).padStart(2, '0');
@@ -1634,7 +1634,7 @@ $$('canvas[data-char]').forEach(cv => {
     days.push(today);
     // 두 달치만 남긴다. 몇 년을 모으면 저장 칸만 차지하고 화면에는 안 나온다.
     days = days.slice(-70);
-    try { localStorage.setItem(KEY, JSON.stringify(days)); } catch (e) {}
+    try { localStorage.setItem(KEY, JSON.stringify(days)); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
   }
   const set = new Set(days);
 
@@ -2063,7 +2063,7 @@ belowFold(async () => {
 
   const KEY = 'sy.quiz.' + seed;
   let solved = false;
-  try { solved = localStorage.getItem(KEY) === 'ok'; } catch (e) {}
+  try { solved = localStorage.getItem(KEY) === 'ok'; } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
 
   $('#quizImg').src = pick.thumb_url || pick.media_url;
   const box = $('#quizChoices'), msg = $('#quizMsg');
@@ -2077,7 +2077,7 @@ belowFold(async () => {
     const b = document.createElement('button');
     b.type = 'button'; b.textContent = m.event_name; b.dataset.id = m.event_id;
     b.addEventListener('click', () => {
-      if (m === answer) { try { localStorage.setItem(KEY, 'ok'); } catch (e) {} done(); return; }
+      if (m === answer) { try { localStorage.setItem(KEY, 'ok'); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ } done(); return; }
       b.classList.add('wrong'); b.disabled = true;
       msg.textContent = '아니야, 다시!';
     });
@@ -2172,7 +2172,7 @@ belowFold(async () => {
     }
     put(chosen, true);
     sfx('plant');
-    try { localStorage.setItem(GB_TODAY_KEY, new Date().toDateString()); } catch (e) {}
+    try { localStorage.setItem(GB_TODAY_KEY, new Date().toDateString()); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
     lock();
     msg.textContent = '찍었어요! 고마워요';
   });
@@ -2406,11 +2406,11 @@ belowFold(async () => {
     canvas.style.touchAction = (v === 'play') ? 'none' : 'manipulation';
   }
   let who = 'sua';
-  try { if (localStorage.getItem('sy.run.who') === 'yona') who = 'yona'; } catch (e) {}
+  try { if (localStorage.getItem('sy.run.who') === 'yona') who = 'yona'; } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
   let best = 0;
-  try { best = Math.max(0, parseInt(localStorage.getItem('sy.run.best') || '0', 10) || 0); } catch (e) {}
+  try { best = Math.max(0, parseInt(localStorage.getItem('sy.run.best') || '0', 10) || 0); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
 
-  let py = 0, vy = 0, onGround = true, holding = false;
+  let py = 0, vy = 0, onGround = true;
   let holdT = 0, holdCap = 0, jumpTier = 1;
   let dist = 0, hearts = 0, lv = 0, spd = SPEEDS[0], t = 0, nextAt = 0, lvFlash = 0;
   let lives = MAX_LIVES, gemStreak = 0, invulnUntil = -1, lifeFlash = 0, shieldFlash = 0;
@@ -2432,7 +2432,7 @@ belowFold(async () => {
   function recordBest(){
     if (score() <= best) return;
     best = score();
-    try { localStorage.setItem('sy.run.best', String(best)); } catch (e) {}
+    try { localStorage.setItem('sy.run.best', String(best)); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
   }
 
   function resize(){
@@ -3030,7 +3030,6 @@ belowFold(async () => {
     return HOLD_TIERS.length - 1;
   }
   function release(){
-    holding = false;
     if (!onGround && vy < 0){
       holdCap = HOLD_TIERS[tierOf(holdT)];
       jumpTier = tierOf(holdT) + 1;
@@ -3052,7 +3051,7 @@ belowFold(async () => {
 
   canvas.addEventListener('pointerdown', e => {
     e.preventDefault(); canvas.focus({ preventScroll: true });
-    holding = true; jump();
+    jump();
   });
   // touch-action 을 늦게 받아들인 옛 사파리가 있어 한 겹 더 막는다.
   // passive:false 가 없으면 preventDefault 가 무시된다.
@@ -3065,7 +3064,7 @@ belowFold(async () => {
   canvas.addEventListener('keydown', e => {
     if (JUMP_KEYS.indexOf(e.key) < 0) return;
     e.preventDefault();
-    if (!e.repeat){ holding = true; jump(); }
+    if (!e.repeat){ jump(); }
   });
   canvas.addEventListener('keyup', e => { if (JUMP_KEYS.indexOf(e.key) >= 0) release(); });
   canvas.addEventListener('blur', release);
@@ -3074,7 +3073,7 @@ belowFold(async () => {
     b.classList.toggle('on', b.dataset.who === who);
     b.addEventListener('click', () => {
       who = b.dataset.who;
-      try { localStorage.setItem('sy.run.who', who); } catch (e) {}
+      try { localStorage.setItem('sy.run.who', who); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
       document.querySelectorAll('#runWho button').forEach(x => x.classList.toggle('on', x === b));
       if (state !== 'play') draw();
     });
@@ -3084,7 +3083,7 @@ belowFold(async () => {
   const resetBtn = document.getElementById('runReset');
   resetBtn.addEventListener('click', () => {
     best = 0;
-    try { localStorage.removeItem('sy.run.best'); } catch (e) {}
+    try { localStorage.removeItem('sy.run.best'); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
     if (state !== 'play') draw();
   });
   // 이 한 줄이 던지면 게임 전체가 안 뜬다. 바깥에서 오는 이름이라 조심스럽게 만진다.
@@ -3106,7 +3105,7 @@ belowFold(async () => {
   const topRows  = { all: null, week: null };   // 탭마다 받아 둔 줄
   const topCache = {};                          // 탭마다 한 번씩만 받는다
   let weekAsked = false;                        // 저장 여부를 정하려고 한 번만 더 받는다
-  try { nameIn.value = localStorage.getItem('sy.run.name') || ''; } catch (e) {}
+  try { nameIn.value = localStorage.getItem('sy.run.name') || ''; } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
 
   function renderTop(){
     document.querySelectorAll('#runWhen button')
@@ -3198,7 +3197,7 @@ belowFold(async () => {
     if (pt <= 0) return;
     sendBtn.disabled = true;
     saveMsg.className = 'run-msg'; saveMsg.textContent = '남기는 중…';
-    try { localStorage.setItem('sy.run.name', nm); } catch (e) {}
+    try { localStorage.setItem('sy.run.name', nm); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
     const { data, error } = await sb.from('run_scores')
       .insert({ name: nm, score: pt, who }).select('id').single();
     if (error){
@@ -3219,7 +3218,7 @@ belowFold(async () => {
   let visible = false;
   function sync(){
     if (visible && !document.hidden && state === 'play') start();
-    else { stop(); holding = false; }
+    else { stop(); }
   }
   if ('IntersectionObserver' in window){
     new IntersectionObserver(es => {

@@ -24,7 +24,7 @@ function offlineSb(){
     get(t, prop){
       if (prop === 'then') return (ok, no) => Promise.resolve(res).then(ok, no);
       if (prop === 'catch') return () => chain;
-      if (prop === 'finally') return fn => { try { fn(); } catch (e) {} return chain; };
+      if (prop === 'finally') return fn => { try { fn(); } catch (e) { /* 오프라인 대역 — finally 안의 오류까지 흉내 낼 이유가 없다 */ } return chain; };
       return () => chain;
     },
     apply(){ return chain; },
@@ -122,7 +122,7 @@ function enablePinchZoom(map, el){
       const r = el.getBoundingClientRect();
       anchor = map.getProjection().coordsFromContainerPoint(
         new kakao.maps.Point(e.clientX - r.left, e.clientY - r.top));
-    } catch (err) {}
+    } catch (err) { /* 지도가 아직 안 떴으면 기준점 없이 확대한다 */ }
     map.setLevel(map.getLevel() + step, anchor ? { anchor } : undefined);
   }, { passive:false });
 }
@@ -1036,12 +1036,12 @@ async function backfillThumbs(bucket, rows, save, onStep){
 // ---------------------------------------------------------------------------
 let _ac = null;
 let SFX_MUTED = false;
-try { SFX_MUTED = localStorage.getItem('sy.mute') === '1'; } catch (e) {}
+try { SFX_MUTED = localStorage.getItem('sy.mute') === '1'; } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
 
 function sfxMuted(){ return SFX_MUTED; }
 function sfxSetMuted(v){
   SFX_MUTED = !!v;
-  try { localStorage.setItem('sy.mute', SFX_MUTED ? '1' : '0'); } catch (e) {}
+  try { localStorage.setItem('sy.mute', SFX_MUTED ? '1' : '0'); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
 }
 
 function tone(freq, dur, type, vol, delay){
@@ -1059,7 +1059,7 @@ function tone(freq, dur, type, vol, delay){
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     o.connect(g); g.connect(_ac.destination);
     o.start(t0); o.stop(t0 + dur + 0.02);
-  } catch (e) {}                                  // 소리는 덤이다 — 안 나도 그만
+  } catch (e) { /* 소리는 덤이다 — 안 나도 그만 */ }
 }
 
 // 첫 화면에서 무엇을 눌렀느냐에 따라 다른 소리
@@ -1126,7 +1126,7 @@ const VOICE_MAX_SECS = 60;
 function pickAudioType(){
   if (typeof MediaRecorder === 'undefined') return null;
   for (const t of AUDIO_TYPES) {
-    try { if (MediaRecorder.isTypeSupported(t.mime)) return t; } catch (e) {}
+    try { if (MediaRecorder.isTypeSupported(t.mime)) return t; } catch (e) { /* 옛 브라우저는 이 호출 자체가 던진다 — 다음 형식을 본다 */ }
   }
   return { mime: '', ext: 'webm' };     // 브라우저 기본값에 맡김
 }
@@ -1191,7 +1191,7 @@ function canRecordVideo(){
 async function startVideoRecorder(preview, onTick){
   let type = { mime: '', ext: 'webm' };
   for (const t of VIDEO_TYPES) {
-    try { if (MediaRecorder.isTypeSupported(t.mime)) { type = t; break; } } catch (e) {}
+    try { if (MediaRecorder.isTypeSupported(t.mime)) { type = t; break; } } catch (e) { /* 옛 브라우저는 이 호출 자체가 던진다 — 다음 형식을 본다 */ }
   }
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
@@ -1671,7 +1671,7 @@ function buildFormatBar(ta, opts){
     if (pv.style.display === 'none') return;
     body.innerHTML = renderNoteContent(ta.value) || '<div class="empty-msg">아직 내용이 없어요</div>';
   };
-  const pvBtn = add('👁 미리보기', '작성한 내용이 어떻게 보이는지', (b) => {
+  add('👁 미리보기', '작성한 내용이 어떻게 보이는지', (b) => {
     const on = pv.style.display === 'none';
     pv.style.display = on ? 'block' : 'none';
     b.classList.toggle('on', on);

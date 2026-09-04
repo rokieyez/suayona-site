@@ -67,7 +67,7 @@ board.addEventListener('pointerdown', e => {
   // 손가락이 판 밖으로 나가도 계속 그려지게 붙잡아 둔다.
   // 붙잡기는 실패할 수 있으므로(이미 놓인 포인터 등) 그리기보다 뒤에 둔다 —
   // 앞에 두면 여기서 걸릴 때 한 칸도 안 칠해진다.
-  try { board.setPointerCapture(e.pointerId); } catch (err) {}
+  try { board.setPointerCapture(e.pointerId); } catch (err) { /* 이미 놓인 포인터면 실패한다 — 붙잡기는 덤이다 */ }
   lastCell = cellAt(e);
   put(lastCell);
 });
@@ -195,7 +195,7 @@ function readMine(){
   try { return JSON.parse(localStorage.getItem(MINE_KEY) || '[]'); } catch (e) { return []; }
 }
 function writeMine(list){
-  try { localStorage.setItem(MINE_KEY, JSON.stringify(list)); } catch (e) {}
+  try { localStorage.setItem(MINE_KEY, JSON.stringify(list)); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
 }
 
 $('#keep').addEventListener('click', () => {
@@ -308,10 +308,10 @@ $('#missionText').textContent = MISSION;
 // 오늘 미션을 해냈는지는 이 기기에 적어 둔다. 출석 도장과 같은 방식.
 const MISSION_KEY = 'sy.mission.' + TODAY;
 function markMissionDone(){
-  try { localStorage.setItem(MISSION_KEY, '1'); } catch (e) {}
+  try { localStorage.setItem(MISSION_KEY, '1'); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
   $('#missionDone').hidden = false;
 }
-try { if (localStorage.getItem(MISSION_KEY) === '1') $('#missionDone').hidden = false; } catch (e) {}
+try { if (localStorage.getItem(MISSION_KEY) === '1') $('#missionDone').hidden = false; } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
 
 // ---------- 서버에 남기는 그림 ----------
 // 여기서부터는 로그인해야 한다. 남는 그림이라 누가 그렸는지가 있어야 하고,
@@ -344,7 +344,7 @@ function queued(){
   catch (e) { return []; }
 }
 function setQueued(list){
-  try { localStorage.setItem(DRAW_QUEUE_KEY, JSON.stringify(list)); } catch (e) {}
+  try { localStorage.setItem(DRAW_QUEUE_KEY, JSON.stringify(list)); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
   renderPend();
 }
 function renderPend(){

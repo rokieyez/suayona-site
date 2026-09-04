@@ -168,14 +168,14 @@ async function extractPhotoMeta(file){
   // 합쳐서 만들어 주는 값이다. 그래서 pick 목록에 적어 두면 오히려 걸러져 사라진다.
   // 위치가 여태 한 장도 안 들어온 이유가 이것이었다. 좌표는 전용 헬퍼로 따로 읽는다.
   let exif = null;
-  try { exif = await exifr.parse(file, { pick: ['DateTimeOriginal', 'CreateDate'] }); } catch (e) {}
+  try { exif = await exifr.parse(file, { pick: ['DateTimeOriginal', 'CreateDate'] }); } catch (e) { /* EXIF 가 없거나 깨진 사진 — 날짜 없이 간다 */ }
 
   let takenAtISO = null;
   const dt = exif && (exif.DateTimeOriginal || exif.CreateDate);
   if (dt instanceof Date && !isNaN(dt)) takenAtISO = dt.toISOString();
 
   let coords;
-  try { coords = await exifr.gps(file); } catch (e) {}
+  try { coords = await exifr.gps(file); } catch (e) { /* EXIF 에 좌표가 없거나 깨진 사진 — 좌표 없이 간다 */ }
 
   // Number.isFinite 로 봐야 한다. 값이 지워진 사진에서 exifr 는 NaN 을 돌려주는데
   // NaN 도 typeof 로는 'number' 라, 그것만 보면 좌표가 있는 줄 알고 NaN 으로 지명을 물으러 간다.
