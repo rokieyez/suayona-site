@@ -138,7 +138,8 @@ function buildTabsAndPanels(){
             '<button type="button" id="tripGo" hidden>일정 보기 →</button>' +
           '</div>' +
         '</div>' +
-        '<div class="near-wish" id="nearWish" hidden></div>'
+        '<div class="near-wish" id="nearWish" hidden></div>' +
+        '<div class="trip-stash" id="tripStash" hidden></div>'
       : '<div class="timeline"></div>';
     panel.innerHTML = '<div class="day-head"><span>' + label + '</span>' +
       '<span class="day-count"></span></div>' + body;
@@ -198,6 +199,8 @@ function collectTripStops(byPanel){
         id: r.id, panelId: p.id, dayIndex, dayLabel: formatDateLabel(p.dateKey),
         no: ++no, time: r.time || '', title: r.title, place: r.place_name,
         lat: r.place_lat, lng: r.place_lng,
+        // 「가볼 곳으로 담기」가 쓰는 것들 — 날짜와 그날 사진
+        dateKey: p.dateKey, photo: r.image_url || null, thumb: r.thumb_url || null,
       });
     });
   });
@@ -314,6 +317,90 @@ async function drawTripMap(){
   });
 
   showNearbyWishes();
+  buildStashBox();
+}
+
+/* 이 일정의 장소를 「가볼 곳」으로 담기 (부모만)
+   ------------------------------------------------------------------
+   저장할 때 저절로 담게 하지 않는 이유: 한 여행에서 열 곳을 찍으면 카드도 열 장이
+   생겨 목록이 금세 무거워진다. 남길 만한 곳은 몇 되지 않는다. 그래서 골라 담는다.
+   이미 담긴 것(이름이 같거나 300m 안)은 목록에서 빼고, 다 담겼으면 상자를 안 그린다. */
+async function buildStashBox(){
+  const box = document.getElementById('tripStash');
+  if (!box || !isAdmin || !TRIP_STOPS.length) return;
+
+  const { data, error } = await sb.from('places').select('name, lat, lng');
+  if (error) { console.warn('가볼 곳을 못 읽었습니다:', error.message); return; }
+  const 이미 = data || [];
+  const 담긴가 = (s) => 이미.some(x =>
+    x.name === (s.place || s.title) ||
+    (Number.isFinite(x.lat) && metersBetween({ lat: s.lat, lng: s.lng }, x) <= 300));
+
+  // 같은 장소가 여러 날에 나오면 한 번만 (제주에서 숙소가 그랬다)
+  const 남은 = [];
+  TRIP_STOPS.forEach(s => {
+    if (담긴가(s)) return;
+    if (남은.some(x => (x.place || x.title) === (s.place || s.title))) return;
+    남은.push(s);
+  });
+  if (!남은.length) return;
+
+  box.hidden = false;
+  box.innerHTML = '<b>📌 이 일정의 장소를 가볼 곳으로 담기</b>' +
+    '<p class="stash-hint">담긴 곳은 「가본 곳」으로 들어가고 이 이벤트에 이어집니다. ' +
+    '무엇인지(먹거리·자연·체험·숙소)는 가볼 곳 쪽에서 정하세요.</p>' +
+    '<div class="stash-list">' +
+      남은.map((s, i) => '<label><input type="checkbox" data-stash="' + i + '">' +
+        '<span>' + escapeHTML(s.place || s.title) + '</span>' +
+        '<em>' + escapeHTML(s.dayLabel) + '</em></label>').join('') +
+    '</div>' +
+    '<div class="stash-act">' +
+      '<button type="button" class="stash-all">모두 고르기</button>' +
+      '<button type="button" class="stash-go">담기</button>' +
+      '<span class="stash-msg"></span>' +
+    '</div>';
+
+  const msg = box.querySelector('.stash-msg');
+  box.querySelector('.stash-all').addEventListener('click', () => {
+    const 켤까 = [...box.querySelectorAll('[data-stash]')].some(c => !c.checked);
+    box.querySelectorAll('[data-stash]').forEach(c => { c.checked = 켤까; });
+  });
+
+  box.querySelector('.stash-go').addEventListener('click', async () => {
+    const 고른 = [...box.querySelectorAll('[data-stash]')]
+      .filter(c => c.checked).map(c => 남은[+c.dataset.stash]);
+    if (!고른.length) { msg.textContent = '담을 곳을 골라 주세요.'; return; }
+
+    const rows = 고른.map(s => ({
+      name: s.place || s.title,
+      lat: s.lat, lng: s.lng,
+      status: 'done',
+      event_id: CONFIG.eventSlug,
+      // dateKey 는 [년, 달-1, 일] 이다. 표에는 'YYYY-MM-DD' 로 넣는다.
+      visited_on: s.dateKey
+        ? s.dateKey[0] + '-' + String(s.dateKey[1] + 1).padStart(2, '0') + '-' +
+          String(s.dateKey[2]).padStart(2, '0')
+        : null,
+      season: s.dateKey ? seasonOfMonth(s.dateKey[1] + 1) : null,
+      photo_url: s.photo, thumb_url: s.thumb,
+      hope: 0,
+    }));
+
+    msg.textContent = '담는 중...';
+    const { data: 넣은것, error: err } = await sb.from('places').insert(rows).select();
+    if (err) { msg.textContent = '담지 못했습니다: ' + err.message; return; }
+    if (!넣은것 || !넣은것.length) { msg.textContent = '담기지 않았습니다 (권한 확인)'; return; }
+    msg.textContent = 넣은것.length + '군데를 담았습니다.';
+    box.querySelectorAll('[data-stash]').forEach(c => { c.checked = false; });
+    // 담고 나면 목록에서 빠져야 한다 — 다시 세어 그린다.
+    box.hidden = true;
+    buildStashBox();
+    showNearbyWishes();
+  });
+}
+
+function seasonOfMonth(m){
+  return (m === 12 || m <= 2) ? '겨울' : m <= 5 ? '봄' : m <= 8 ? '여름' : '가을';
 }
 
 /* 이 여행길 가까이에 적어 둔 「가볼 곳」이 있으면 알려 준다.
