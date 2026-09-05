@@ -906,6 +906,30 @@ function drawSky(q, W, H){
   q(tx - 2, ty - 42, 4, 24, '#cdd8e6'); q(tx - 1, ty - 58, 2, 16, '#dfe7f2'); q(tx - 1, ty - 66, 1, 8, '#ffffff');
   q(tx - 9, ty - 20, 18, 5, '#c0cddc'); q(tx - 7, ty - 24, 14, 4, '#d3dde9'); q(tx - 11, ty - 15, 22, 3, '#b2c1d3');
   q(tx - 3, ty - 12, 6, 12, '#c0cddc'); q(tx - 5, ty - 8, 10, 8, '#b2c1d3');
+  // 롯데타워 — 도시 오른쪽. 밑은 넓고 위로 갈수록 가늘어지는 곡선에, 꼭대기는 격자 왕관과 첨탑.
+  // 밤에는 실제 타워처럼 두 모서리 선과 왕관에 불이 들어온다
+  {
+    const lit = typeof NIGHT !== 'undefined' && NIGHT;
+    const lx = Math.round(0.72 * W), lb = SKY + 12, lh = 100, hw0 = 8;
+    const body = lit ? '#38445e' : '#93aac6', dim = lit ? '#2e3950' : '#849dbb';
+    const rib  = lit ? '#43506c' : '#adc0d6';
+    for (let i = 0; i < lh; i++){
+      const t = i / lh, y = lb - i;
+      const hw = Math.round(hw0 * (1 - Math.pow(t, 1.9)));
+      const crown = t > 0.82;                                    // 격자 왕관 — 밤에 제일 밝다
+      const edge = lit ? (crown ? '#fff6dc' : '#ffdf9e') : (crown ? '#e2ecf6' : '#cfdcea');
+      if (hw <= 0){ q(lx, y, 1, 1, edge); continue; }             // 첨탑
+      q(lx - hw, y, hw * 2 + 1, 1, crown ? dim : body);
+      if (!crown && hw > 2){                                      // 세로 리브 — 유리벽 골
+        q(lx - hw + 2, y, 1, 1, rib); q(lx + hw - 2, y, 1, 1, rib);
+        if (hw > 4) q(lx, y, 1, 1, rib);
+      }
+      if (crown && i % 2 === 0) q(lx - hw + 1, y, Math.max(1, hw * 2 - 1), 1, lit ? '#6a6a52' : '#c3d2e2');   // 격자
+      q(lx - hw, y, 1, 1, edge); q(lx + hw, y, 1, 1, edge);       // 두 모서리 선
+      if (lit && !crown && i % 5 === 2 && hw > 2) q(lx - hw + 3, y, 1, 1, '#ffd77a');   // 창불 몇 점
+    }
+    if (lit) LIGHTS.push({ x: lx, y: lb - lh + 10, r: 11, c: '#ffe6a8' });
+  }
   // 도시 — 두 겹, 창 점
   for (let i = 0; i < Math.ceil(W / 9.4) + 2; i++){
     const bx = -10 + i * 9.4, bh = 6 + Math.round(20 * Math.abs(Math.sin(i * 2.1 + 0.4))), bw = 6 + (i % 3);
@@ -1347,12 +1371,12 @@ VS.draw = function(env){
   add(4.55, 7.35, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(4.6, 7.4), NIGHT), 12);
   add(13.1, 6.8, 0.5, 0.5, 60, q2 => P.tree(q2, ...at(13.35, 7.05), 2, 23), 26, 'tree');
   add(3.0, 11.0, 0.8, 0.5, 16, q2 => P.boat(q2, ...at(1.2, 11.35)), 14, 'boat');
-  [[5.15, 3.65], [8.85, 3.65], [5.15, 7.35], [8.85, 7.35]].forEach(([x, y], i) => add(x - 0.05, y - 0.05, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(x, y), NIGHT), 12));
+  [[5.15, 3.65], [8.85, 3.65], [8.85, 7.35]].forEach(([x, y], i) => add(x - 0.05, y - 0.05, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(x, y), NIGHT), 12));   // 앞왼쪽 자리는 (4.55, 7.35) 가로등이 대신한다 — 수아가 그 앞에 선다
   const bed = (x, y, w, d, seed) => add(x, y, w, d, 8, q2 => { box(q2, x, y, 0, w, d, 4, () => '#a89f91', () => '#8a8071', () => '#6f4f38'); for (let i = 0; i < 12; i++){ const fx = x + 0.08 + hash(i, 1, seed) * (w - 0.16), fy = y + 0.08 + hash(i, 2, seed) * (d - 0.16); const Pp = proj(fx, fy, 4).map(Math.round); P.flower(q2, Pp[0], Pp[1], ['#ff8fb8', '#ffd166', '#ff7f7f', '#ffffff', '#c9a8ff'][i % 5]); } }, 6);
   bed(5.3, 6.8, 1.0, 0.4, 3); bed(7.7, 6.8, 1.0, 0.4, 4);
   add(9.0, 7.0, 0.3, 0.3, 12, q2 => { const Pp = at(9.15, 7.15); spr(q2, Pp[0] - 5, Pp[1] - 7, SPR.S.cat, SPR.PAL); }, 6);
   // 우체국 앞 — 우체통, 자전거, 가로등
-  add(10.5, 7.7, 0.3, 0.3, 20, q2 => P.pillarBox(q2, ...at(10.65, 7.85)), 6, 'post');
+  add(9.95, 5.65, 0.3, 0.3, 20, q2 => P.pillarBox(q2, ...at(10.1, 5.8)), 6, 'post');   // 해자 앞 포장길 — 예전 자리는 풍차 날개가 덮었다
   add(12.25, 6.6, 0.3, 0.7, 20, q2 => P.bike(q2, ...at(12.4, 7.0)), 10);
   add(12.6, 7.4, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(12.65, 7.45), NIGHT), 12);
   // 축제 — 만국기 기둥 둘
@@ -1366,9 +1390,10 @@ VS.draw = function(env){
   add(4.95, 8.65, 0.05, 2.1, 16, q2 => P.fence(q2, 4.95, 8.65, 2.1, 'y'), 6);
   add(4.95, 10.7, 2.5, 0.05, 16, q2 => P.fence(q2, 4.95, 10.7, 2.5, 'x'), 6);
   add(6.0, 9.55, 0.3, 0.3, 40, q2 => P.scarecrow(q2, ...at(6.15, 9.7)), 12);
+  add(10.9, 9.7, 0.6, 0.6, 38, q2 => P.well(q2, ...at(11.2, 10.0)), 14, 'well');
   add(3.15, 10.62, 1.2, 1.36, 22, q2 => P.bridge(q2, 3.15, 10.62, 1.2, 1.36, 'y'), 10, 'bridge');   // 길 끝에서 강 건너 땅끝까지 — 길 따라 놓으면 진입이 막힌다
   // 나무들
-  [[0.6, 9.0, 3, 12], [1.6, 10.2, 1, 13], [11.6, 10.4, 1, 15], [0.4, 7.9, 1, 17], [8.6, 0.6, 1, 18]].forEach(([x, y, s, seed]) =>
+  [[0.6, 9.0, 3, 12], [0.4, 7.9, 1, 17], [8.6, 0.6, 1, 18]].forEach(([x, y, s, seed]) =>
     add(x - 0.3, y - 0.3, 0.6, 0.6, 30 + s * 12, q2 => (s === 1 && seed % 2 ? P.pine : P.tree)(q2, ...at(x, y), s, seed), 18 + s * 8, 'tree'));
   add(13.6, 10.4, 0.5, 0.5, 40, q2 => P.pine(q2, ...at(13.85, 10.65), 1, 19), 20, 'tree');
   add(12.0, 10.0, 0.4, 0.3, 18, q2 => P.bush(q2, ...at(12.2, 10.15), 12, 26), 10);
@@ -1397,7 +1422,7 @@ VS.draw = function(env){
     { text: '이벤트', href: '/event/', x: 1.55, y: 6.1, z: 100 },
     { text: '일기장', href: '/board.html', x: 5.45, y: 1.0, z: 82 },
     { text: '모험단', href: '/quest.html', x: 12.3, y: 1.9, z: 132 },
-    { text: '편지쓰기', href: '/contact.html', x: 10.65, y: 7.85, z: 30 },
+    { text: '편지쓰기', href: '/contact.html', x: 10.1, y: 5.8, z: 28 },
     { text: '농장', href: '/farm.html', x: 6.5, y: 9.8, z: 52 },
     { text: '그림 그리기', href: '/draw.html', x: 0.7, y: 10.5, z: 40 },
     { text: '가볼 곳', href: '/wish/', x: 3.2, y: 9.45, z: 48 },
@@ -1559,7 +1584,7 @@ function render(o){
     },
     labels: VS.labels.map(l => Object.assign({ text: l.text, href: l.href }, pt(l.x, l.y, l.z))),
     // 아이 둘은 서로도, 광장 가로등과도 안 겹치게 왼쪽으로 벌려 세운다 (도트 그림이 한 칸보다 넓다)
-    chars: { sua: pt(5.6, 7.9), yona: pt(6.7, 6.6), chick: pt(7.15, 7.3), easel: pt(0.7, 10.5) },   // 이젤은 강가 — 큰 나무 밑에서는 가려졌다
+    chars: { sua: pt(4.95, 7.15), yona: pt(6.7, 6.6), chick: pt(7.15, 7.3), easel: pt(0.7, 10.5) },   // 이젤은 강가 — 큰 나무 밑에서는 가려졌다
     // 숨는 자리 일곱 곳 — 낮은 물건(벤치·덤불·술통·화단·건초·성벽) 꼭대기보다 넉 도트 아래에 발을 둔다.
     // 위 절반만 그리면 물건 너머로 머리만 내민 것처럼 보인다. 아이·이젤 터치 영역과 꼬리표를 피한 자리다.
     secrets: [[1.9, 9.82], [2.77, 1.81], [3.78, 1.64], [5.35, 6.85], [9.38, 10.04], [8.58, 2.25], [11.94, 9.90]].map(([x, y]) => pt(x, y)),
