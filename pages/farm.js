@@ -155,7 +155,8 @@ function renderGate(c){
     d.innerHTML = '<div class="nm">' + NAME[k] + '</div><div class="lv">' + (s ? '농장 레벨 ' + R.levelOf(s.lv) + ' · 도감 ' + s.dex + '칸' : '아직 농장에 오지 않았어요') + '</div>';
     card.appendChild(d); box.appendChild(card);
   });
-  if (isLoggedIn) $('#gateWho').textContent = '이 농장은 수아와 연아의 것이에요. 부모는 여기서 구경하고, 아래에서 계절 길이를 맞추거나 선물을 보낼 수 있어요.';
+  // 로그인한 어른에게는 「로그인하면 열려요」도 그 설명도 필요 없다 — 줄바꿈까지 함께 감춘다
+  if (isLoggedIn) $('#gateWho').hidden = true;
 }
 // 손님에게 보여 줄 그림 — 농장 한 장과 집 안 세 칸. 우편·일지는 빼고 받는다.
 async function renderPeekArt(){

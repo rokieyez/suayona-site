@@ -16,6 +16,8 @@
 <link href="/fonts/dot.css" rel="stylesheet">
 <link href="./style.css" rel="stylesheet">
 <style>
+  /* 이 쪽은 제목 바로 아래에 설명 한 줄이 붙어야 읽힌다 — 기본 38px 은 너무 멀다 */
+  #farm .section-head{margin-bottom:12px;}
   .gate{max-width:620px; margin:0 auto; text-align:center;}
   .gate .why{font-size:13.5px; line-height:1.85; color:var(--ink-soft); margin-bottom:16px;}
   .gate .why b{color:var(--ink);}
@@ -191,11 +193,9 @@
     <!-- 손님과 부모는 구경만. 아이로 로그인하면 아래 농장이 열린다. 부모에게는 조정판이 붙는다. -->
     <div class="gate" id="gate" hidden>
       <p class="why">
-        씨앗의 <b>반은 언니 가게에, 반은 동생 가게에</b>만 있어요. 큰 수박은 둘이 나란히 심어야 열리고, 둘이 잡아당겨야 뽑혀요.<br>
-        <span id="gateWho">수아나 연아로 로그인하면 농장이 열려요.</span>
+        씨앗의 <b>반은 언니 가게에, 반은 동생 가게에</b>만 있어요. 큰 수박은 둘이 나란히 심어야 열리고, 둘이 잡아당겨야 뽑혀요.
+        <span id="gateWho"><br>수아나 연아로 로그인하면 농장이 열려요.</span>
       </p>
-      <div class="peek" id="peek"></div>
-      <div class="heroes" id="heroes"></div>
 
       <div class="peekart" id="peekArt" hidden>
         <h3 class="pixel">지금 농장</h3>
@@ -207,6 +207,9 @@
           <figure><figcaption>연아 방</figcaption><div class="house-stage look"><canvas id="peekYona" aria-label="연아 방"></canvas></div></figure>
         </div>
       </div>
+
+      <div class="peek" id="peek"></div>
+      <div class="heroes" id="heroes"></div>
 
       <div class="dot-card tune" id="tuneCard" hidden>
         <h3 class="pixel" style="margin:0 0 4px;font-size:13px;">부모 조정판</h3>
