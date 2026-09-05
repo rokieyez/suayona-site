@@ -118,6 +118,7 @@ const FARM = (() => {
     });
   }
   const GIANT_MULT = 5;          // 큰 작물은 다섯 배로 팔린다
+  const GOLD_MULT = 2;           // 반짝 작물(★★★)은 두 배로 팔린다
   const GIANT_TIME = 1.6;        // 대신 시간이 더 걸린다
   const FERT_SPEED = 1.5;        // 비료를 준 칸은 1.5배 빨리 자란다
   const WATER_HOURS = 20;        // 한 번 물을 주면 스무 시간 촉촉하다
@@ -182,6 +183,19 @@ const FARM = (() => {
     return Math.max(0, (growTime(plot) - (plot.progress || 0)) / H / (plot.fert ? FERT_SPEED : 1));
   }
   function wetNow(plot, now, gh){ return gh && GH_ALWAYS_WET ? true : (plot.wet || 0) > now; }
+  /* 작물의 별. 물을 제때 준 만큼, 비료를 준 만큼 오른다.
+     ★ 보통 · ★★ 잘 돌봤다(한 개 더) · ★★★ 반짝 작물(값이 두 배).
+     싹은 촉촉할 때만 자라므로, 비가 대신 적셔 준 작물은 물 준 횟수가 모자라 ★ 하나에 그친다.
+     온실은 늘 촉촉하니 값을 치른 셈 치고 물은 다 준 것으로 본다. */
+  // 비료를 주면 1.5배 빨리 자라니 물 줄 기회도 그만큼 줄어든다 — 셈에 넣는다
+  function careNeed(plot){ const C = CROPS[plot.crop]; if (!C) return 1; const h = (plot.regrowLeft || C.hours) / (plot.fert ? FERT_SPEED : 1); return Math.max(1, Math.round(h / WATER_HOURS)); }
+  function starOf(plot, gh){
+    if (!plot || !plot.crop) return 0;
+    let st = 1;
+    if (gh || (plot.care || 0) >= careNeed(plot)) st++;
+    if (plot.fert) st++;
+    return Math.min(3, st);
+  }
 
   // 계절이 바뀌면 그 계절에 안 맞는 작물은 시든다. 온실 안과 별열매는 예외.
   function seasonSweep(world, now){
@@ -224,6 +238,7 @@ const FARM = (() => {
     if (k === 'seed') return CROPS[v] ? CROPS[v].name + ' 씨앗' : id;
     if (k === 'crop') return CROPS[v] ? CROPS[v].name : id;
     if (k === 'giant') return CROPS[v] ? '큰 ' + CROPS[v].name : id;
+    if (k === 'gold') return CROPS[v] ? '반짝 ' + CROPS[v].name : id;
     if (k === 'dish') return DISHES[v] ? DISHES[v].name : id;
     if (k === 'f') return FURNITURE[v] ? FURNITURE[v].name : id;
     if (k === 'fish') return FISH[v] ? FISH[v].name : id;
@@ -235,6 +250,7 @@ const FARM = (() => {
     const mult = world ? priceMult(world, now) : 1;
     if (k === 'crop') return Math.round(CROPS[v].sell * mult * (world && world.hot === v ? 1.5 : 1));
     if (k === 'giant') return Math.round(CROPS[v].sell * GIANT_MULT * mult);
+    if (k === 'gold') return Math.round(CROPS[v].sell * GOLD_MULT * mult * (world && world.hot === v ? 1.5 : 1));
     if (k === 'dish') return DISHES[v].sell;
     if (k === 'seed') return Math.floor(CROPS[v].seed / 2);
     if (k === 'f') return Math.floor(FURNITURE[v].cost / 3);
@@ -255,6 +271,7 @@ const FARM = (() => {
   function foodOf(id){
     const [k, v] = id.split(':');
     if (k === 'crop') return CROPS[v].flower ? 0 : 3;
+    if (k === 'gold') return CROPS[v].flower ? 0 : 6;
     if (k === 'dish') return DISHES[v].food;
     if (k === 'fish') return FISH[v] && !FISH[v].junk ? 4 : 0;
     if (GOODS[id] && GOODS[id].food) return GOODS[id].food;
@@ -682,7 +699,7 @@ const FARM = (() => {
   };
   function canCook(mine, d){
     const D = DISHES[d];
-    return Object.keys(D.need).every(k => (mine.inv[k] || 0) >= D.need[k]);
+    return Object.keys(D.need).every(k => countOf(mine, k) >= D.need[k]);
   }
 
   // ---------- 주문 게시판 (둘이서) ----------
@@ -723,10 +740,10 @@ const FARM = (() => {
   // 물건 하나가 축제에 얼마나 보태나. 0 이면 받지 않는다.
   function festivalWorth(fest, id, world, now){
     const F = FESTIVALS[fest], [k, v] = id.split(':');
-    if (F.want === 'flower') return k === 'crop' && CROPS[v].flower ? 1 : 0;
+    if (F.want === 'flower') return (k === 'crop' || k === 'gold') && CROPS[v].flower ? 1 : 0;
     if (F.want === 'snowball') return id === 'snowball' ? 1 : 0;
-    if (F.want === 'value') return k === 'crop' || k === 'giant' ? sellPrice(id, world, now) : 0;
-    if (F.want === 'crop:watermelon') return id === 'crop:watermelon' ? 1 : id === 'giant:watermelon' ? 3 : 0;
+    if (F.want === 'value') return k === 'crop' || k === 'gold' || k === 'giant' ? sellPrice(id, world, now) : 0;
+    if (F.want === 'crop:watermelon') return v === 'watermelon' ? (k === 'giant' ? 3 : k === 'gold' ? 2 : k === 'crop' ? 1 : 0) : 0;
     return 0;
   }
 
@@ -820,6 +837,21 @@ const FARM = (() => {
     if (world.log.length > LOG_MAX) world.log.length = LOG_MAX;
   }
   function give(mine, id, n){ mine.inv[id] = (mine.inv[id] || 0) + (n == null ? 1 : n); }
+  /* 반짝 작물은 보통 작물 대신 쓸 수 있다 — 요리와 주문에는 그대로 통한다.
+     아까우니 보통 것을 먼저 쓰고, 모자랄 때만 반짝 것에 손을 댄다. */
+  function subsOf(id){ return id.slice(0, 5) === 'crop:' ? ['gold:' + id.slice(5)] : []; }
+  function countOf(mine, id){ return (mine.inv[id] || 0) + subsOf(id).reduce((a, s) => a + (mine.inv[s] || 0), 0); }
+  function takeAny(mine, id, n){
+    n = n == null ? 1 : n;
+    if (countOf(mine, id) < n) return false;
+    let left = n;
+    [id].concat(subsOf(id)).forEach(k => {
+      if (left <= 0) return;
+      const u = Math.min(mine.inv[k] || 0, left);
+      if (u){ take(mine, k, u); left -= u; }
+    });
+    return true;
+  }
   function take(mine, id, n){
     n = n == null ? 1 : n;
     if ((mine.inv[id] || 0) < n) return false;
@@ -877,6 +909,7 @@ const FARM = (() => {
     if (!take(mine, 'seed:' + crop)) return fail(C.name + ' 씨앗이 없어요');
     Object.assign(p, { crop, by: mine.key, plantedAt: now, tick: now, progress: 0, picks: 0, wilted: false, giant: false });
     delete p.wet;
+    p.care = 0;                                        // 새로 심으면 별도 처음부터
     mine.xp += XP.plant; bump(mine, 'planted', 1, now);
     // 큰 작물: 옆 칸에 자매가 오늘 심은 같은 작물이 있으면 둘이 합쳐진다.
     let joined = null;
@@ -899,6 +932,7 @@ const FARM = (() => {
     if (!spend(mine, 'water')) return fail('기운이 없어요');
     tickPlot(p, now, false);
     p.wet = now + WATER_HOURS * H;
+    p.care = (p.care || 0) + 1;                        // 제때 준 물이 별이 된다
     mine.xp += XP.water; bump(mine, 'watered', 1, now);
     return okay('물을 줬어요');
   }
@@ -938,18 +972,25 @@ const FARM = (() => {
       logAdd(world, mine.key, '둘이서 큰 ' + eul(C.name) + ' 뽑았어요!', now);
       return okay('둘이서 ' + eul('<b>큰 ' + C.name + '</b>') + ' 뽑았어요!', { giant: true });
     }
-    const n = C.yield;
-    give(mine, 'crop:' + p.crop, n);
-    mine.xp += XP.harvest; bump(mine, 'harvested', n, now);
-    if (mine.dex.indexOf(p.crop) < 0) mine.dex.push(p.crop);
+    const star = starOf(p, gh);
+    const n = C.yield + (star >= 2 ? 1 : 0);   // 잘 돌본 작물은 한 개 더
+    const cropId = p.crop, gold = star >= 3;
+    give(mine, (gold ? 'gold:' : 'crop:') + cropId, n);
+    mine.xp += XP.harvest + (gold ? 4 : 0); bump(mine, 'harvested', n, now);
+    if (mine.dex.indexOf(cropId) < 0) mine.dex.push(cropId);
+    if (gold && mine.dex.indexOf('gold:' + cropId) < 0) mine.dex.push('gold:' + cropId);
+    const say = gold ? '<b>반짝 ' + C.name + '</b> ' + n + '개! 잘 돌봤네요'
+              : star === 2 ? C.name + ' ' + n + '개를 거뒀어요 (잘 돌봐서 한 개 더!)'
+              : C.name + ' ' + n + '개를 거뒀어요';
+    if (gold) logAdd(world, mine.key, NAME[mine.key] + '가 반짝 ' + eul(C.name) + ' 거뒀어요!', now);
     if (C.regrow){
       p.picks = (p.picks || 0) + 1;
       p.progress = growTime(p) - C.regrow * H;         // 다시 열릴 때까지
-      p.tick = now;
-      return okay(C.name + ' ' + n + '개를 땄어요. 또 열려요', { n });
+      p.tick = now; p.care = 0;                        // 다음 열매는 다시 돌봐야 한다
+      return okay(say + ' 또 열려요', { n, star });
     }
-    Object.assign(p, { crop: null, fert: false, progress: 0 });
-    return okay(C.name + ' ' + n + '개를 거뒀어요', { n });
+    Object.assign(p, { crop: null, fert: false, progress: 0, care: 0 });
+    return okay(say, { n, star, gold });
   }
   function clear(world, mine, id){
     const p = world.plots[id];
@@ -1181,7 +1222,7 @@ const FARM = (() => {
     if (mine.recipes.indexOf(d) < 0) return fail('아직 모르는 요리예요');
     if (!canCook(mine, d)) return fail('재료가 모자라요');
     if (!spend(mine, 'cook')) return fail('기운이 없어요');
-    Object.keys(D.need).forEach(k => take(mine, k, D.need[k]));
+    Object.keys(D.need).forEach(k => takeAny(mine, k, D.need[k]));
     give(mine, 'dish:' + d, 1); mine.xp += XP.cook; bump(mine, 'cooked', 1, now);
     if (mine.dex.indexOf('dish:' + d) < 0) mine.dex.push('dish:' + d);
     return okay(eul(D.name) + ' 만들었어요');
@@ -1200,7 +1241,7 @@ const FARM = (() => {
     if (p.done) return fail('이미 채운 주문이에요');
     n = Math.min(n, o.n - p.got);
     if (n <= 0) return fail('다 찼어요');
-    if (!take(mine, 'crop:' + o.crop, n)) return fail(ee(CROPS[o.crop].name) + ' 그만큼 없어요');
+    if (!takeAny(mine, 'crop:' + o.crop, n)) return fail(ee(CROPS[o.crop].name) + ' 그만큼 없어요');
     p.got += n; p.by[mine.key] = (p.by[mine.key] || 0) + n;
     if (p.got >= o.n){
       p.done = true;
@@ -1292,10 +1333,10 @@ const FARM = (() => {
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
-    GIANT_MULT, WATER_HOURS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
+    GIANT_MULT, GOLD_MULT, WATER_HOURS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand,
-    seedsFor, plotIds, plotOpen, parseId, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep,
+    countOf, seedsFor, plotIds, plotOpen, parseId, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep, starOf, careNeed,
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
     canPay, buildState, animalDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,

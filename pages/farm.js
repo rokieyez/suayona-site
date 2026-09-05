@@ -2158,7 +2158,13 @@ function onPlot(id){
     R.tickPlot(p, now(), gh);
     if (p.wilted || R.ripe(p)){ const r = act((w, m) => R.harvest(w, m, id, now())); if (r.ok) sfx(r.giant ? 'fanfare' : r.waiting ? 'prop' : 'pop'); return; }
     const C = R.CROPS[p.crop];
-    flash(C.name + (p.giant ? '(큰 것)' : '') + ' — ' + Math.ceil(R.hoursLeft(p, now())) + '시간 더. ' + (R.wetNow(p, now(), gh) ? '촉촉해요' : '<b>물이 말랐어요</b>') + (p.by !== key ? ' · ' + NAME[p.by] + '가 심었어요' : ''));
+    // 지금까지 돌본 만큼의 별 — 물을 다 주면 하나 더, 비료까지 주면 반짝 작물이 된다
+    const st = R.starOf(p, gh), need = R.careNeed(p);
+    const stars = '★'.repeat(st) + '☆'.repeat(3 - st);
+    flash(C.name + (p.giant ? '(큰 것)' : '') + ' <b>' + stars + '</b> — ' + Math.ceil(R.hoursLeft(p, now())) + '시간 더. '
+      + (R.wetNow(p, now(), gh) ? '촉촉해요' : '<b>물이 말랐어요</b>')
+      + (st < 3 ? ' · ' + (!gh && (p.care || 0) < need ? '물 ' + (need - (p.care || 0)) + '번 더' : '비료를 주면 반짝!') : ' · <b>반짝 작물이 돼요</b>')
+      + (p.by !== key ? ' · ' + NAME[p.by] + '가 심었어요' : ''));
     return;
   }
   flash(p && p.tilled ? '갈아 둔 땅이에요. 씨앗을 골라 심어요' : '괭이로 갈면 심을 수 있어요');
@@ -2237,6 +2243,12 @@ function cropIcon(c){
 }
 function itemIcon(id){
   const [k, v] = id.split(':');
+  if (k === 'gold'){                                    // 반짝 작물 — 같은 그림에 금테와 반짝임을 두른다
+    const cv = cropIcon(v), g = cv.getContext('2d');
+    g.fillStyle = '#ffd979'; g.fillRect(0, 0, 32, 2); g.fillRect(0, 30, 32, 2); g.fillRect(0, 0, 2, 32); g.fillRect(30, 0, 2, 32);
+    g.fillStyle = '#fff6c0'; g.fillRect(24, 4, 2, 2); g.fillRect(22, 6, 6, 2); g.fillRect(24, 8, 2, 2);
+    return cv;
+  }
   if (k === 'crop' || k === 'seed' || k === 'giant') { const cv = cropIcon(v); if (k === 'seed'){ const g = cv.getContext('2d'); g.fillStyle = '#fff6e9cc'; g.fillRect(0, 0, 32, 32); g.fillStyle = '#8a5f3a'; g.fillRect(10, 12, 4, 6); g.fillRect(18, 10, 4, 6); g.fillRect(14, 18, 4, 6); } return cv; }
   if (k === 'fish'){
     const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
@@ -3941,7 +3953,7 @@ function renderHouse(){
     M.recipes.forEach(d => {
       const Dd = R.DISHES[d], ok = R.canCook(M, d);
       const card = itemCard('dish:' + d, M.inv['dish:' + d] || 0, null, ok ? '' : 'locked');
-      const pr = document.createElement('div'); pr.className = 'pr'; pr.textContent = Object.keys(Dd.need).map(k => R.itemName(k) + ' ' + Dd.need[k] + '(' + (M.inv[k] || 0) + ')').join(' + '); card.appendChild(pr);
+      const pr = document.createElement('div'); pr.className = 'pr'; pr.textContent = Object.keys(Dd.need).map(k => R.itemName(k) + ' ' + Dd.need[k] + '(' + R.countOf(M, k) + ')').join(' + '); card.appendChild(pr);
       const a = document.createElement('div'); a.className = 'act'; a.appendChild(btn('만들기', 'buy', () => { const r = act((w, m) => R.cook(w, m, d, now())); if (r.ok) sfx('sparkle'); }, !ok)); card.appendChild(a); grid.appendChild(card);
     });
     kb.appendChild(grid);
@@ -4051,7 +4063,7 @@ function renderDuo(){
   // 주문
   const ob = $('#orders'); ob.innerHTML = '';
   R.ordersOf(W, now()).forEach(od => {
-    const p = R.orderProgress(W, od), C = R.CROPS[od.crop], have = M.inv['crop:' + od.crop] || 0;
+    const p = R.orderProgress(W, od), C = R.CROPS[od.crop], have = R.countOf(M, 'crop:' + od.crop);
     const d = document.createElement('div'); d.className = 'order' + (p.done ? ' done' : '');
     d.innerHTML = '<b>' + C.name + ' ' + od.n + '개</b><span class="pb"><i style="width:' + Math.round(100 * p.got / od.n) + '%"></i></span><span>' + p.got + '/' + od.n + ' · 🪙 ' + od.reward + (od.rareSeed ? ' + 별씨앗' : '') + '</span>' +
       (Object.keys(p.by || {}).length ? '<span class="sub" style="margin:0;flex-basis:100%;">' + Object.keys(p.by).map(k => NAME[k] + ' ' + p.by[k]).join(' · ') + '</span>' : '');
@@ -4095,14 +4107,19 @@ function renderDex(){
   const box = $('#dex'); box.innerHTML = '';
   const all = R.CROP_IDS.map(c => ['crop:' + c, c]).concat(R.CROP_IDS.filter(c => R.CROPS[c].giant).map(c => ['giant:' + c, 'giant:' + c]))
     .concat(['egg', 'bigegg', 'milk', 'goldmilk', 'wool', 'honey'].map(k => [k, k])).concat(Object.keys(R.DISHES).map(d => ['dish:' + d, 'dish:' + d]));
-  let got = 0;
+  let got = 0, gold = 0;
   all.forEach(([id, dexKey]) => {
     const have = M.dex.indexOf(dexKey) >= 0; if (have) got++;
-    const d = document.createElement('div'); d.className = have ? '' : 'no';
-    d.appendChild(itemIcon(id)); d.appendChild(document.createTextNode(have ? R.itemName(id) : '???'));
+    // 반짝 작물은 따로 칸을 만들지 않고, 그 작물 칸에 금테와 별을 얹는다
+    const shiny = id.slice(0, 5) === 'crop:' && M.dex.indexOf('gold:' + id.slice(5)) >= 0;
+    if (shiny) gold++;
+    const d = document.createElement('div'); d.className = have ? (shiny ? 'gold' : '') : 'no';
+    d.appendChild(itemIcon(shiny ? 'gold:' + id.slice(5) : id));
+    d.appendChild(document.createTextNode(have ? R.itemName(id) : '???'));
+    if (shiny){ const sp = document.createElement('span'); sp.className = 'sp'; sp.textContent = '★★★'; d.appendChild(sp); }
     box.appendChild(d);
   });
-  $('#dexCount').textContent = got + '/' + all.length;
+  $('#dexCount').textContent = got + '/' + all.length + (gold ? ' · 반짝 ' + gold : '');
   const st = M.stats || {};
   $('#stats').innerHTML = [['거둔 작물', st.harvested], ['물 준 횟수', st.watered], ['심은 씨앗', st.planted], ['판 물건', st.sold], ['보낸 선물', st.gifted], ['만든 요리', st.cooked], ['모은 재료', st.gathered], ['온 날', (M.playDays || []).length + '일']].map(x => '<div>' + x[0] + '<b>' + (x[1] || 0) + '</b></div>').join('');
   $('#logs').innerHTML = (W.log || []).slice(0, 12).map(l => '<li><b>' + formatDate(l.t) + '</b> ' + escapeHTML(l.text).replace(/&lt;b&gt;|&lt;\/b&gt;/g, '') + '</li>').join('') || '<li>아직 일지가 없어요</li>';
