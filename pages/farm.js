@@ -4230,11 +4230,21 @@ function renderDuo(){
   const cal = R.calendar(W, now()), F = R.FESTIVALS[cal.season], fk = R.festivalKey(W, now()), fs = W.festival[fk];
   const fb = $('#fest');
   const openNow = R.festivalOpen(W, now());
-  fb.innerHTML = '<b class="t">' + F.icon + ' ' + F.name + '</b> — ' + F.desc + '<br>' + (fs && fs.done ? '이번 ' + R.SEASON_NAME[cal.season] + ' 축제는 상을 받았어요 🏆' : openNow ? '지금 열렸어요! ' + (fs ? fs.score : 0) + '/' + F.n : R.SEASON_NAME[cal.season] + ' ' + (cal.len - 1) + '일째부터 열려요 (' + Math.max(0, cal.len - 1 - cal.dayOfSeason) + '일 뒤). 미리 모아 둬요.') +
-    (fs && !fs.done && Object.keys(fs.by || {}).length ? '<br><span class="sub">' + Object.keys(fs.by).map(k => NAME[k] + ' ' + fs.by[k]).join(' · ') + '</span>' : '');
+  /* 축제 저울 — 얼마나 찼는지, 그중 누가 얼마를 냈는지가 한눈에 보여야
+     「같이 채우는 일」이 된다. 숫자만 적으면 아이는 자기 몫을 못 읽는다. */
+  const sc = fs ? fs.score : 0, byS = (fs && fs.by && fs.by.sua) || 0, byY = (fs && fs.by && fs.by.yona) || 0;
+  const pc = v => Math.min(100, Math.round(v / F.n * 100));
+  fb.innerHTML = '<b class="t">' + F.icon + ' ' + F.name + '</b> — ' + F.desc + '<br>'
+    + (fs && fs.done ? '이번 ' + R.SEASON_NAME[cal.season] + ' 축제는 상을 받았어요 🏆'
+      : openNow ? '지금 열렸어요!'
+      : R.SEASON_NAME[cal.season] + ' ' + (cal.len - 1) + '일째부터 열려요 (' + Math.max(0, cal.len - 1 - cal.dayOfSeason) + '일 뒤). 미리 모아 둬요.')
+    + '<div class="fbar"><i class="s" style="width:' + pc(byS) + '%"></i>'
+    + '<i class="y" style="left:' + pc(byS) + '%;width:' + pc(byY) + '%"></i>'
+    + '<b>' + sc + ' / ' + F.n + '</b></div>'
+    + '<span class="fkeys"><i class="s"></i>' + NAME.sua + ' ' + byS + ' &nbsp; <i class="y"></i>' + NAME.yona + ' ' + byY + '</span>';
   if (openNow && !(fs && fs.done)){
     const wrap = document.createElement('div'); wrap.className = 'act'; wrap.style.marginTop = '6px';
-    Object.keys(M.inv).filter(id => M.inv[id] > 0 && R.festivalWorth(cal.season, id, W, now()) > 0).forEach(id => wrap.appendChild(btn(R.itemName(id) + ' ' + M.inv[id] + '개 내기', 'sm', () => { const n = M.inv[id]; const r = act((w, m) => R.donate(w, m, id, n, now())); if (r.ok) sfx(r.won ? 'fanfare' : 'pop'); })));
+    Object.keys(M.inv).filter(id => M.inv[id] > 0 && R.festivalWorth(cal.season, id, W, now()) > 0).forEach(id => wrap.appendChild(btn(R.itemName(id) + ' ' + M.inv[id] + '개 내기', 'sm', () => { const n = M.inv[id]; const r = act((w, m) => R.donate(w, m, id, n, now())); if (r.ok){ sfx(r.won ? 'fanfare' : 'pop'); if (r.won) openPrize(F); } })));
     if (!wrap.children.length) wrap.innerHTML = '<span class="sub">낼 것이 가방에 없어요</span>';
     fb.appendChild(wrap);
   }
@@ -4377,6 +4387,21 @@ async function sendSnap(cv, b){
     b.disabled = false; b.textContent = '🖼 작품으로 내기';
     flash('내지 못했어요: ' + readableError(e), true);
   }
+}
+
+/* 축제 시상식. 우편함에 조용히 상이 들어가면 「받았다」는 느낌이 없다 —
+   트로피를 한 번 크게 보여 주고, 둘이 각각 얼마를 냈는지 이름을 적어 준다. */
+function openPrize(F){
+  const fk = R.festivalKey(W, now()), fs = W.festival[fk] || { by: {} };
+  const byS = (fs.by || {}).sua || 0, byY = (fs.by || {}).yona || 0;
+  $('#modalInner').innerHTML = '<div class="prize"><div class="cup">🏆</div>'
+    + '<h3 class="pixel">' + F.icon + ' ' + escapeHTML(F.name) + ' 상!</h3>'
+    + '<p class="who"><b>' + NAME.sua + '</b> ' + byS + ' &nbsp;·&nbsp; <b>' + NAME.yona + '</b> ' + byY + '<br>'
+    + '둘이 모아 <b>' + (byS + byY) + '</b>만큼 채웠어요</p>'
+    + '<p class="sub">상은 둘의 우편함으로 갔어요 — 동전 300, 별열매 씨앗, 축제 트로피.</p></div>'
+    + '<div class="modal-actions"><button type="button" class="dot-btn small primary" id="prizeClose">고마워요</button></div>';
+  $('#modal').hidden = false;
+  $('#prizeClose').addEventListener('click', closeModal);
 }
 
 // ---------- 배선 ----------

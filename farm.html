@@ -151,6 +151,19 @@
   /* 오늘의 한 장 */
   .snapwrap{text-align:center;}
   .snapwrap canvas{width:100%; max-width:520px; height:auto; image-rendering:pixelated; border:3px solid var(--ink); background:#fff;}
+  /* 축제 저울 — 둘이 낸 몫이 색으로 나뉜다 */
+  .fbar{position:relative; height:18px; border:2px solid var(--ink); background:#fff; margin:8px 0 4px; overflow:hidden;}
+  .fbar i{position:absolute; top:0; bottom:0; display:block;}
+  .fbar .s{background:var(--mint); left:0;}
+  .fbar .y{background:var(--coral);}
+  .fbar b{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:var(--ink);}
+  .fkeys{font-size:11px; color:var(--ink-soft);}
+  .fkeys i{display:inline-block; width:10px; height:10px; border:2px solid var(--ink); vertical-align:-2px; margin-right:3px;}
+  .fkeys i.s{background:var(--mint);} .fkeys i.y{background:var(--coral);}
+  /* 시상식 */
+  .prize{text-align:center; padding:6px 0;}
+  .prize .cup{font-size:52px; line-height:1.1;}
+  .prize .who{font-size:13px; margin:6px 0;}
   .animal .act{display:flex; gap:4px; margin-left:auto; flex-wrap:wrap;}
   .order{border:2px solid var(--ink); background:#fff; padding:8px 10px; font-size:12.5px; margin-bottom:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
   .order .pb{flex:1 1 100px; height:10px; border:2px solid var(--ink); background:#f1ede6; position:relative; min-width:80px;}
