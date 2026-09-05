@@ -624,6 +624,8 @@ async function loadList(){
 
   const byPanel = {};
   data.forEach(r => (byPanel[r.panel] = byPanel[r.panel] || []).push(r));
+  // 보는 쪽과 같은 차례로 늘어놓아야 「여기 아래」가 눈에 보이는 그대로 동작한다
+  Object.values(byPanel).forEach(rows => rows.sort(bySchedule));
 
   listEl.innerHTML = '';
   CONFIG.panels.forEach(p => {
@@ -652,7 +654,10 @@ function syncInsertNote(){
   if (!note) return;
   if (!insertAfter) { note.hidden = true; return; }
   note.hidden = false;
-  note.innerHTML = '<span>「' + escapeHTML(insertAfter.title) + '」 <b>다음</b>에 넣습니다</span>' +
+  // 시간을 적으면 시각 순으로 저절로 자리를 잡으므로, 이 자리 지정은 시간을 비운
+  // 일정에서만 뜻이 있다. 그 사실을 여기서 알려 준다.
+  note.innerHTML = '<span>「' + escapeHTML(insertAfter.title) + '」 <b>다음</b>에 넣습니다' +
+    '<br><small>시간을 고르면 그 시각 차례로 자리를 잡습니다</small></span>' +
     '<button type="button" class="btn ghost" id="insertReset">맨 뒤로</button>';
   $('#insertReset').addEventListener('click', () => { insertAfter = null; syncInsertNote(); });
 }

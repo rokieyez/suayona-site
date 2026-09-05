@@ -619,6 +619,7 @@ async function fetchScheduleRows(){
   scheduleRowsOnce = data || [];
   const byPanel = {};
   (data || []).forEach(r => (byPanel[r.panel] = byPanel[r.panel] || []).push(r));
+  Object.values(byPanel).forEach(rows => rows.sort(bySchedule));   // 시작 시각 순
   return byPanel;
 }
 

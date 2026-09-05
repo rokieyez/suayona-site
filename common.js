@@ -1497,6 +1497,24 @@ function formatDate(iso){
 // 우리가 볼 거리는 길어야 몇 km 이고, 위도 1도를 111km 로 두면 그 안에서는 오차가
 // 몇 m 밖에 안 난다. 경도는 위도에 따라 좁아지므로 cos 을 곱한다.
 // 두 곳(가볼 곳, 이벤트 지도)이 각자 갖고 있던 것을 여기로 모았다.
+/* ---------- 일정 카드 차례 ----------
+   일정은 시작 시각 순으로 놓는다. 나중에 생각난 일정을 맨 뒤에 넣어도 제자리를
+   찾아가게 하려는 것이다. 시간을 안 적은 것은 뒤로 미루고, 그것들끼리는 넣은
+   차례(sort_order)를 지킨다 — 「몇 시」가 없는 일정은 사람이 정한 차례가 뜻을 갖는다. */
+function scheduleStartMinutes(time){
+  const m = String(time || '').match(/(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return (+m[1]) * 60 + (+m[2]);
+}
+
+function bySchedule(a, b){
+  const ta = scheduleStartMinutes(a.time), tb = scheduleStartMinutes(b.time);
+  if (ta !== null && tb !== null && ta !== tb) return ta - tb;
+  if (ta === null && tb !== null) return 1;
+  if (ta !== null && tb === null) return -1;
+  return ((a.sort_order || 0) - (b.sort_order || 0)) || ((a.id || 0) - (b.id || 0));
+}
+
 function metersBetween(a, b){
   const dLat = (a.lat - b.lat) * 111000;
   const dLng = (a.lng - b.lng) * 111000 * Math.cos((a.lat + b.lat) / 2 * Math.PI / 180);
