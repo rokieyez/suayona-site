@@ -237,6 +237,7 @@ const FARM = (() => {
     snowball:{ name: '눈덩이',   sell: 0 },
     sprinkler:{ name: '스프링클러', sell: 0 },     // 팔지는 않는다 — 밭에 놓는 물건
     firefly: { name: '반딧불이', sell: 45 },      // 여름·가을 밤에만 날아다닌다
+    box:     { name: '수수께끼 보따리', sell: 0 },  // 행상인에게서만. 사면 그 자리에서 풀린다
   };
   function itemName(id){
     const [k, v] = id.split(':');
@@ -785,6 +786,54 @@ const FARM = (() => {
     return 0;
   }
 
+  // ---------- 돌아다니는 행상인 ----------
+  /* 이레에 두 번쯤 수레를 끌고 온다. 가게에 없는 것만 판다 —
+     별열매 씨앗, 비료 묶음, 싸게 나온 스프링클러, 값을 깎은 가구, 그리고 수수께끼 보따리.
+     세 자리는 날짜로 정해지므로 둘이 같은 날 보는 물건이 같다. */
+  const PEDDLER = { x: 16, y: 8, w: 2, h: 1, chance: 0.3 };
+  function peddlerHere(world, now){ return prand('pd' + dayKey(now)) < PEDDLER.chance; }
+  function peddlerStock(world, now){
+    if (!peddlerHere(world, now)) return [];
+    const key = dayKey(now);
+    const furn = Object.keys(FURNITURE).filter(f => !FURNITURE[f].rare && FURNITURE[f].cost > 0 && !FURNITURE[f].season);
+    const fPick = furn[Math.floor(prand('pf' + key) * furn.length)];
+    const pool = [
+      { slot: 'star',  id: 'seed:star', n: 1, cost: 600,  desc: '어디서도 안 파는 씨앗이에요' },
+      { slot: 'fert',  id: 'fert',      n: 5, cost: 120,  desc: '비료 다섯 개 묶음' },
+      { slot: 'sprk',  id: 'sprinkler', n: 1, cost: 1200, desc: '가게보다 300 싸요' },
+      { slot: 'furn',  id: 'f:' + fPick, n: 1, cost: Math.round(FURNITURE[fPick].cost * 0.8), desc: '값을 깎아 왔어요' },
+      { slot: 'box',   id: 'box',       n: 1, cost: 300,  desc: '열어 보기 전엔 나도 몰라요' },
+    ];
+    // 다섯 중 셋. 날짜로 고르니 둘이 같은 것을 본다.
+    const pick = [];
+    const left = pool.slice();
+    for (let i = 0; i < 3; i++){
+      const j = Math.floor(prand('pp' + key + i) * left.length);
+      pick.push(left.splice(j, 1)[0]);
+    }
+    return pick;
+  }
+  function peddlerGot(mine, now, slot){
+    return mine.pedDay === dayKey(now) && (mine.pedGot || {})[slot];
+  }
+  // 수수께끼 보따리 — 무엇이 나와도 300냥어치는 넘는다. 아이가 하는 놀이라 꽝은 두지 않았다.
+  const BOX_PRIZES = [
+    { id: 'seed:star', n: 1, say: '<b>별열매 씨앗</b>' },
+    { id: 'gem',       n: 1, say: '<b>반짝돌</b>' },
+    { id: 'fert',      n: 10, say: '비료 열 장' },
+    { id: 'honey',     n: 4, say: '꿀 네 통' },
+    { id: 'coins',     n: 420, say: '<b>420 동전</b>' },
+    { id: 'goldmilk',  n: 3, say: '금빛 우유 셋' },
+  ];
+  function openBox(world, mine, now){
+    const r = prand('bx' + mine.key + dayKey(now) + (mine.boxes || 0));
+    mine.boxes = (mine.boxes || 0) + 1;
+    const P = BOX_PRIZES[Math.floor(r * BOX_PRIZES.length)];
+    if (P.id === 'coins') mine.coins += P.n;
+    else { give(mine, P.id, P.n); if (mine.dex.indexOf(P.id) < 0 && GOODS[P.id]) mine.dex.push(P.id); }
+    return P;
+  }
+
   // ---------- 밤에만 있는 것 ----------
   /* 반딧불이는 여름과 가을 밤에만 난다. 기운은 안 든다 — 잡는 재미가 상이고,
      하루에 여섯 마리까지만 잡히니 밤마다 조금씩 모으는 일이 된다. */
@@ -1189,6 +1238,23 @@ const FARM = (() => {
       logAdd(world, mine.key, NAME[mine.key] + '가 농장에 ' + Dc.name + '을 놓았어요', now);
       return okay(ee(Dc.name) + ' 생겼어요');
     }
+    if (k === 'ped'){
+      if (!peddlerHere(world, now)) return fail('행상인은 오늘 안 왔어요');
+      const it = peddlerStock(world, now).find(x => x.slot === v);
+      if (!it) return fail('오늘은 그 물건이 없어요');
+      if (peddlerGot(mine, now, v)) return fail('오늘 몫은 이미 샀어요');
+      if (mine.coins < it.cost) return fail('동전이 모자라요');
+      mine.coins -= it.cost;
+      if (mine.pedDay !== dayKey(now)){ mine.pedDay = dayKey(now); mine.pedGot = {}; }
+      mine.pedGot[v] = true;
+      if (it.id === 'box'){
+        const P = openBox(world, mine, now);
+        logAdd(world, mine.key, NAME[mine.key] + '가 행상인의 보따리에서 ' + P.say.replace(/<[^>]*>/g, '') + '을 얻었어요', now);
+        return okay('보따리를 풀었더니 — ' + P.say + '!', { box: true });
+      }
+      give(mine, it.id, it.n);
+      return okay(eul(itemName(it.id)) + (it.n > 1 ? ' ' + it.n + '개를' : '') + ' 샀어요');
+    }
     if (k === 'sprinkler'){
       if (levelOf(mine.xp) < SPRINKLER.lv) return fail('농장 레벨 ' + SPRINKLER.lv + '부터 살 수 있어요');
       if (mine.coins < SPRINKLER.cost) return fail('동전이 모자라요');
@@ -1458,6 +1524,7 @@ const FARM = (() => {
     });
     const sprinkled_n = sprinklerDay(world, now);
     if (sprinkled_n) notes.push('스프링클러가 ' + sprinkled_n + '칸에 물을 줬어요');
+    if (peddlerHere(world, now)) notes.push('<b>행상인</b>이 수레를 끌고 왔어요');
     if (honeyCheck(world, now)) notes.push('벌통에 꿀이 찼어요');
     if (isWet(weatherOf(key, cal.season))){
       Object.keys(world.plots).forEach(id => { const p = world.plots[id]; if (p.tilled && id[0] !== 'g'){ tickPlot(p, now, false); p.wet = Math.max(p.wet || 0, dayEndMs(now)); } });
@@ -1474,11 +1541,12 @@ const FARM = (() => {
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
-    GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, FIREFLY_MAX, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
+    GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, FIREFLY_MAX, PEDDLER, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand,
     countOf, seedsFor, plotIds, plotOpen, parseId, putSprinkler, pullSprinkler, sprinkled, sprinklerDay,
-    fireflyNight, fireflyLeft, catchFirefly, fireSit, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep, starOf, careNeed,
+    fireflyNight, fireflyLeft, catchFirefly, fireSit,
+    peddlerHere, peddlerStock, peddlerGot, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep, starOf, careNeed,
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
     canPay, buildState, animalDay, babyDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,

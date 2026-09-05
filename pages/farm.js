@@ -654,6 +654,41 @@ const SHOPKEEP = [
 const SHOPPAL = { k: '#3a3226', c: '#4a7fb5', C: '#6a9fd0', f: '#fbdcc4', F: '#eec3a2', h: '#6b4a2c',
                   e: '#3a3226', w: '#ffffff', m: '#c9333f', p: '#ffb0b8', s: '#f2ece0',
                   a: '#4f9a5a', A: '#69b573' };
+// 행상인은 가게 아저씨와 같은 그림에 색만 갈아 끼운다 — 보라 외투에 붉은 목도리
+const PEDPAL = { k: '#2b2620', c: '#7a5cb5', C: '#9b7bd4', f: '#f6d3b4', F: '#e3b48f', h: '#4a3524',
+                 e: '#2b2620', w: '#ffffff', m: '#c9333f', p: '#f0a6ae', s: '#e8dcc8',
+                 a: '#8a5cc7', A: '#a479dd' };
+/* 수레를 끌고 온 행상인. 이레에 두 번쯤 와서, 온 날에만 그린다.
+   줄무늬 덮개와 둥근 바퀴로 가게 좌판과 구별한다 — 네모 바퀴는 탁자 다리로 읽혔다.
+   가게 아저씨 그림은 좌판에 가릴 몫이라 다리가 없다. 그대로 쓰면 허리에서 잘려 보이므로
+   외투 자락과 신을 아래에 덧그린다. */
+function drawPeddler(t){
+  const b = R.PEDDLER, X = b.x * T, Y = b.y * T, G = Y + T;      // G: 바닥 줄
+  const bob = Math.sin(t / 900) > 0.6 ? 1 : 0;
+  px(X + 2, G - 4, 76, 4, '#00000018');
+  // 둥근 바퀴 둘
+  const wheel = (wx, wy) => {
+    px(wx + 3, wy, 6, 2, '#3a2f22'); px(wx + 1, wy + 2, 10, 2, '#3a2f22');
+    px(wx, wy + 4, 12, 2, '#3a2f22'); px(wx + 1, wy + 6, 10, 2, '#3a2f22');
+    px(wx + 3, wy + 8, 6, 2, '#3a2f22'); px(wx + 4, wy + 3, 4, 4, '#9b8a6d');
+  };
+  wheel(X + 6, G - 12); wheel(X + 38, G - 12);
+  // 짐칸
+  px(X + 2, G - 22, 54, 10, WOOD.dark);
+  px(X + 2, G - 22, 54, 3, WOOD.mid);
+  px(X + 2, G - 13, 54, 2, '#5a3f26');
+  // 줄무늬 덮개
+  px(X + 4, G - 38, 50, 16, '#fff6e9');
+  for (let i = 0; i < 50; i += 14) px(X + 4 + i, G - 38, 7, 16, '#8a5cc7');
+  px(X + 2, G - 40, 54, 4, '#5f3f96');
+  // 손잡이
+  px(X + 56, G - 20, 10, 3, WOOD.low);
+  // 행상인 — 수레 오른쪽. 자락과 신을 붙여 바닥에 세운다
+  px(X + 62, G - 10 - bob, 16, 6, '#7a5cb5');
+  px(X + 63, G - 4, 5, 4, '#3a2f22'); px(X + 72, G - 4, 5, 4, '#3a2f22');
+  art(SHOPKEEP, X + 60, G - 30 - bob, PEDPAL, true);
+  px(X + 60, G - 32 - bob, 20, 3, '#5f3f96');     // 챙
+}
 function beastW(kind){ return (BEAST[kind] || BEAST.chicken).w; }
 // 도감·카드에서도 쓰는 그림. s 는 도트 한 개의 크기.
 function drawAnimalAt(g, kind, X, Y, s, flip, k){
@@ -2094,6 +2129,7 @@ function drawFarm(cvIn, tms){
   const cast = [];
   Object.keys(R.NODES).forEach(n => { const N = R.NODES[n]; cast.push({ y: N.y * T + 30, go: () => drawNode(n, season, t) }); });
   Object.keys(W.sprinklers || {}).forEach(id => { const q = R.parseId(id); cast.push({ y: q.y * T + 30, go: () => drawSprinkler(q.x * T, q.y * T, t) }); });
+  if (R.peddlerHere(W, now())) cast.push({ y: R.PEDDLER.y * T + 30, go: () => drawPeddler(t) });
   if (walkers) walkers.forEach(w => cast.push({ y: w.y, go: () => drawWalker(w, t) }));
   if (beasts) beasts.list.forEach(a => cast.push({ y: a.y, go: () => drawBeast(a, t) }));
   cast.sort((a, b) => a.y - b.y).forEach(c => c.go());
@@ -2196,6 +2232,7 @@ function onFarmTap(e){
   if (inSpot('greenhouse', tx, ty)){ if (built('greenhouse')) openGreenhouse(); else flash('온실 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('well', tx, ty)){ flash(built('well') ? '우물이에요. 물뿌리개를 키울 수 있어요' : '우물 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('pond', tx, ty)){ startFishing(); return; }
+  if (R.peddlerHere(W, now()) && inBox({ x: R.PEDDLER.x, y: R.PEDDLER.y, w: R.PEDDLER.w + 1, h: R.PEDDLER.h }, tx, ty)){ openPeddler(); sfx('prop'); return; }
   if (inSpot('firepit', tx, ty)){ const r = act((w, m) => R.fireSit(w, m, now())); if (r.ok) sfx(r.both ? 'fanfare' : 'purr'); return; }
   if (inSpot('bench', tx, ty) || inSpot('swing', tx, ty)){ flash('쉬는 자리예요. 앉으면 기분이 좋아져요'); return; }
   // 동물이 있는 곳은 어디를 눌러도 동물 카드로
@@ -2315,6 +2352,31 @@ function openMail(){
   $('#modal').hidden = false;
   $('#mailClose').addEventListener('click', closeModal);
   const t = $('#mailTake'); if (t) t.addEventListener('click', () => { const r = act((w, m) => R.openMail(w, m)); if (r.ok) sfx('fanfare'); closeModal(); });
+}
+
+/* 행상인 창. 세 자리는 날짜로 정해지므로 둘이 같은 물건을 본다.
+   하나씩 각자 한 번만 살 수 있다 — 한 사람이 싹쓸이하면 다른 하나가 서운하다. */
+function openPeddler(){
+  const stock = R.peddlerStock(W, now());
+  const inner = $('#modalInner');
+  inner.innerHTML = '<h3 class="pixel">🛒 행상인</h3><p class="sub">이레에 두 번쯤 와요. 오늘 물건은 셋, 둘이 하나씩 살 수 있어요.</p>'
+    + '<div id="pedRows"></div><div class="modal-actions"><button type="button" class="dot-btn small" id="pedClose">닫기</button></div>';
+  const rows = $('#pedRows');
+  stock.forEach(it => {
+    const got = R.peddlerGot(M, now(), it.slot);
+    const d = document.createElement('div'); d.className = 'mailrow';
+    d.innerHTML = '<b>' + escapeHTML(R.itemName(it.id)) + (it.n > 1 ? ' ' + it.n + '개' : '') + '</b>'
+      + '<span class="from">' + escapeHTML(it.desc) + '</span>';
+    const b = btn(got ? '샀어요' : '🪙 ' + it.cost, 'sm buy', () => {
+      const r = act((w, m) => R.buy(w, m, 'ped:' + it.slot, now()));
+      if (r.ok) sfx(r.box ? 'fanfare' : 'pop');
+      openPeddler();
+    }, got || M.coins < it.cost);
+    b.style.marginLeft = 'auto';
+    d.appendChild(b); rows.appendChild(d);
+  });
+  $('#modal').hidden = false;
+  $('#pedClose').addEventListener('click', closeModal);
 }
 
 // ---------- 탭 ----------
