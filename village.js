@@ -1430,6 +1430,20 @@ VS.draw = function(env){
   add(4.95, 10.7, 2.5, 0.05, 16, q2 => P.fence(q2, 4.95, 10.7, 2.5, 'x'), 6);
   add(6.0, 9.55, 0.3, 0.3, 40, q2 => P.scarecrow(q2, ...at(6.15, 9.7)), 12);
   add(10.9, 9.7, 0.6, 0.6, 38, q2 => P.well(q2, ...at(11.2, 10.0)), 14, 'well');
+  // 키 재기 기둥 — 우물 앞. 눈금은 첫화면이 두 아이의 키로 덧그린다
+  add(11.8, 9.9, 0.2, 0.2, 52, q2 => {
+    const Pp = at(11.9, 10.0), RH = 46;
+    P.shadow(q2, Pp[0], Pp[1], 7, 2);
+    q2(Pp[0] - 2, Pp[1] - RH, 4, RH, '#c8a978');                 // 기둥
+    q2(Pp[0] - 2, Pp[1] - RH, 1, RH, '#e0c396');                 // 왼쪽 밝은 면
+    q2(Pp[0] + 1, Pp[1] - RH, 1, RH, '#a2854f');                 // 오른쪽 그늘
+    q2(Pp[0] - 3, Pp[1] - RH - 3, 6, 3, '#8a6a3a');              // 머리 갓
+    for (let i = 4; i < RH; i += 4){                              // 눈금 — 다섯 칸마다 길게
+      const long = i % 20 === 0;
+      q2(Pp[0] - 2, Pp[1] - i, long ? 5 : 3, 1, long ? '#3f3a33' : '#6b6259');
+    }
+    VS.ruler = { x: Pp[0], y: Pp[1], h: RH, cm0: 90, cm1: 180 };  // 90cm 가 밑, 180cm 가 꼭대기
+  }, 8, 'ruler');
   add(3.15, 10.62, 1.2, 1.36, 22, q2 => P.bridge(q2, 3.15, 10.62, 1.2, 1.36, 'y'), 10, 'bridge');   // 길 끝에서 강 건너 땅끝까지 — 길 따라 놓으면 진입이 막힌다
   // 나무들
   [[0.6, 9.0, 3, 12], [0.4, 7.9, 1, 17], [8.6, 0.6, 1, 18]].forEach(([x, y, s, seed]) =>
@@ -1462,7 +1476,7 @@ VS.draw = function(env){
     { text: '일기장', href: '/board.html', x: 5.45, y: 1.0, z: 82 },
     { text: '모험단', href: '/quest.html', x: 12.3, y: 1.9, z: 132 },
     { text: '편지쓰기', href: '/contact.html', x: 10.1, y: 5.8, z: 28 },
-    { text: '농장', href: '/farm.html', x: 6.5, y: 9.8, z: 52 },
+    { text: '농장', href: '/farm.html', x: 6.5, y: 9.8, z: 12 },    // 낮게 띄운다 — 52 로 띄우면 폰에서 수아를 19px 덮었다
     { text: '그림 그리기', href: '/draw.html', x: 0.7, y: 10.5, z: 40 },
     { text: '가볼 곳', href: '/wish/', x: 3.2, y: 9.45, z: 48 },
   ];
@@ -1561,9 +1575,30 @@ class Dots {
   }
 }
 
+// 눈 덮기 — 물건마다 따로 그리지 않는다. 겹을 얹을 때 적어 둔 번호판(ids)에서
+// 「위가 비어 있는 물건 도트」를 찾으면 그게 곧 하늘을 보고 있는 면의 꼭대기다.
+// 이웃 열과 높이가 비슷하면 평평한 면이라 서너 겹 두껍게, 가파르면 한 겹만 얹는다.
+// 하늘에 그린 것(도시·능선)에는 번호가 없어 저절로 빠진다 — 먼 산까지 하얘지면 과하다.
+function snowCaps(R, w, h){
+  const ids = R.ids;
+  const isTop = (x, y) => y >= 2 && ids[y * w + x] && !ids[(y - 1) * w + x] && !ids[(y - 2) * w + x];
+  const topY = new Int16Array(w).fill(-1);
+  for (let x = 0; x < w; x++) for (let y = 2; y < h; y++) if (isTop(x, y)){ topY[x] = y; break; }
+  for (let x = 0; x < w; x++) for (let y = 2; y < h; y++){
+    if (!isTop(x, y)) continue;
+    const l = x > 0 ? topY[x - 1] : y, r = x < w - 1 ? topY[x + 1] : y;
+    const flat = (l < 0 || Math.abs(l - y) <= 1) || (r < 0 || Math.abs(r - y) <= 1);
+    const n = flat ? 3 + ((x * 7 + y * 3) % 2) : 1;
+    for (let k = 0; k < n; k++){
+      if (!ids[(y + k) * w + x]) break;
+      R.fill(x, y + k, 1, 1, k === 0 ? '#ffffff' : k === 1 ? '#f6f9ff' : 'rgba(240,246,255,0.8)');
+    }
+  }
+}
+
 // ---------- 밖에서 부르는 문 ----------
 /* o = { w, h (도트), hs (도트 한 개의 px), orgX, orgY (땅 뒤 꼭짓점 자리, 도트), night,
-         sprites, pal (사이트의 도트 그림), frames: [캔버스|null, 캔버스|null], env (시험용) }
+         sprites, pal (사이트의 도트 그림), frames: [캔버스|null, 캔버스|null], snow (지붕에 눈), env (시험용) }
    돌려주는 것: 캔버스와, 첫화면 코드가 놀이를 얹는 데 쓰는 자리들(전부 도트 단위). */
 function render(o){
   SPR = { S: o.sprites || {}, PAL: o.pal || {} };
@@ -1583,6 +1618,10 @@ function render(o){
     };
   }
   VS.draw(env);
+  // 눈 오는 날 — 지붕과 나무 꼭대기에 눈이 쌓인다. 물건마다 따로 그리지 않고,
+  // 겹을 얹을 때 적어 둔 번호판(ids)으로 열마다 「맨 위 물건 도트」를 찾아 그 위에 흰 점을 놓는다.
+  // 하늘에 그린 것(도시·능선)에는 번호가 없어서 저절로 빠진다 — 먼 산까지 하얘지면 과하다.
+  if (R && o.snow) snowCaps(R, VS.w, VS.h);
   if (R){
     // 도트 그림을 캔버스에 옮기고 hs 배로 키운다 — 보간을 끄면 도트가 그대로 커진다
     const small = document.createElement('canvas'); small.width = VS.w; small.height = VS.h;
@@ -1625,7 +1664,7 @@ function render(o){
     },
     labels: VS.labels.map(l => Object.assign({ text: l.text, href: l.href }, pt(l.x, l.y, l.z))),
     // 아이 둘은 서로도, 광장 가로등과도 안 겹치게 왼쪽으로 벌려 세운다 (도트 그림이 한 칸보다 넓다)
-    chars: { sua: pt(4.95, 7.15), yona: pt(6.7, 6.6), chick: pt(7.15, 7.3), easel: pt(0.7, 10.5) },   // 이젤은 강가 — 큰 나무 밑에서는 가려졌다
+    chars: { sua: pt(4.75, 6.95), yona: pt(6.7, 6.6), chick: pt(7.15, 7.3), easel: pt(0.7, 10.5) },   // 이젤은 강가 — 큰 나무 밑에서는 가려졌다
     // 숨는 자리 일곱 곳 — 낮은 물건(벤치·덤불·술통·화단·건초·성벽) 꼭대기보다 넉 도트 아래에 발을 둔다.
     // 위 절반만 그리면 물건 너머로 머리만 내민 것처럼 보인다. 아이·이젤 터치 영역과 꼬리표를 피한 자리다.
     secrets: [[1.9, 9.82], [2.77, 1.81], [3.78, 1.64], [5.35, 6.85], [9.38, 10.04], [8.58, 2.25], [11.94, 9.90]].map(([x, y]) => pt(x, y)),
@@ -1633,6 +1672,7 @@ function render(o){
     house: { door: { x: doorP.x, y: doorP.y, w: 8, h: 18 }, foot: pt(5.75, 1.95) },
     kite: VS.kite ? { home: VS.kite.home, anchor: VS.kite.anchor } : null,   // 연 가운데와 줄 끝(도트) — 첫화면이 흔들며 그린다
     smoke: VS.smoke || null,                    // 굴뚝 아가리 — 첫화면이 연기를 피운다
+    ruler: VS.ruler || null,                    // 키 재기 기둥 — 첫화면이 두 아이 눈금을 얹는다
     horizon: SKY,
     // 도트 자리 → 땅 칸. 땅 밖이면 kind 가 null
     worldAt: (dx, dy) => { const [tx, ty] = unprojHere(dx, dy); return { tx, ty, kind: inPlot(tx, ty) ? kindAt(tx, ty) : null }; },

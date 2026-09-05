@@ -177,6 +177,7 @@ const belowFold = (() => {
     shed:       ['삽 어디 갔지?', '덜컹'],
     stall:      ['사과 사세요~', '딸기 한 알?'],
     sign:       ['이쪽!', '저쪽?'],
+    ruler:      ['키 재 볼까?', '얼마나 컸을까'],
     lamp:       ['딸깍', '불 켜졌다'],
   };
 
@@ -257,6 +258,31 @@ const belowFold = (() => {
     });
   }
 
+  // 인터넷이 끊기면 알려 준다. 서비스 워커가 그리기를 미리 담아 두어서 그때도 열린다 —
+  // 「지금 아무것도 안 된다」가 아니라 「이건 된다」를 보여 주는 자리다.
+  const offHud = $('#offHud');
+  function syncOnline(){ if (offHud) offHud.hidden = navigator.onLine !== false; }
+  syncOnline();
+  window.addEventListener('online', syncOnline);
+  window.addEventListener('offline', syncOnline);
+
+  // 폰에서는 마을이 화면보다 넓다. 끌 수 있다는 것을 처음 한 번만 알려 준다 —
+  // 꼬리표 여덟 중 셋이 화면 밖에 있어서, 모르면 그 셋은 없는 것이나 같다.
+  const panHint = $('#panHint');
+  const PAN_HINT_KEY = 'sy.panhint';
+  let panHintOff = false;
+  try { panHintOff = localStorage.getItem(PAN_HINT_KEY) === '1'; } catch (e) { /* 저장이 막힌 브라우저 — 힌트는 덤이다 */ }
+  function hidePanHint(){
+    if (!panHint || panHint.hidden) return;
+    panHint.hidden = true;
+    try { localStorage.setItem(PAN_HINT_KEY, '1'); } catch (e) { /* 위와 같은 이유 */ }
+  }
+  function maybePanHint(){
+    if (!panHint || panHintOff || panMax <= 0) return;
+    panHint.hidden = false;
+    setTimeout(hidePanHint, 6000);
+  }
+
   // 눌렀을 때 톡 튀어나오는 하트와 별
   let pops = [];
   function popAt(x, y, sp, n){
@@ -271,12 +297,18 @@ const belowFold = (() => {
   // ---- 숨은 친구 ----
   // 하루에 세 마리만, 절반쯤 잘린 채로 수풀에 섞여 있다. 자리는 날짜로 정하므로
   // 자매 둘이 같은 날 같은 자리에서 같은 친구를 찾는다.
+  // 계절마다 나오는 친구가 다르다 — 봄에 나비, 가을에 다람쥐. 자리는 날마다 바뀌고
+  // 얼굴은 계절마다 바뀌어서, 하루도 어제와 같지 않고 석 달 뒤에는 아예 다른 마을이 된다.
   const SECRET_KINDS = [
-    { key:'cat',      sp:SPRITES.cat,      label:'고양이',   line:'야옹!' },
-    { key:'squirrel', sp:SPRITES.squirrel, label:'다람쥐',   line:'또르르' },
-    { key:'snail',    sp:SPRITES.snail,    label:'달팽이',   line:'느릿... 느릿...' },
-    { key:'mushroom', sp:SPRITES.mushroom, label:'버섯',     line:'뽕!' },
-    { key:'ladybug',  sp:SPRITES.ladybug,  label:'무당벌레', line:'톡' },
+    { key:'cat',      sp:SPRITES.cat,      label:'고양이',   line:'야옹!',           when:['winter', 'autumn'] },
+    { key:'squirrel', sp:SPRITES.squirrel, label:'다람쥐',   line:'또르르',          when:['autumn', 'winter'] },
+    { key:'snail',    sp:SPRITES.snail,    label:'달팽이',   line:'느릿... 느릿...', when:['spring', 'summer'] },
+    { key:'mushroom', sp:SPRITES.mushroom, label:'버섯',     line:'뽕!',             when:['autumn', 'summer'] },
+    { key:'ladybug',  sp:SPRITES.ladybug,  label:'무당벌레', line:'톡',              when:['spring', 'summer'] },
+    { key:'butterfly',sp:SPRITES.butterfly,label:'나비',     line:'팔랑팔랑',        when:['spring', 'summer'] },
+    { key:'fox',      sp:SPRITES.fox,      label:'여우',     line:'캥!',             when:['winter', 'autumn'] },
+    { key:'bird',     sp:SPRITES.bird,     label:'새',       line:'짹짹',            when:['spring', 'winter'] },
+    { key:'crab',     sp:SPRITES.crab,     label:'게',       line:'집게집게',        when:['summer'] },
   ].filter(k => k.sp);                       // 예전 pixel.js 와 짝이 되면 그림이 없다 (위 HAS_PHASE 와 같은 이유)
   // 마을의 숨을 자리 일곱 곳 — 번호만 고르고 자리는 village.js 가 안다
   // (벤치 뒤, 미술관 앞 덤불, 술통 뒤, 광장 화단, 건초 더미, 성벽 위, 풍차 옆 덤불)
@@ -286,7 +318,11 @@ const belowFold = (() => {
   try { found = new Set(JSON.parse(localStorage.getItem(FOUND_KEY) || '[]')); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
 
   const secrets = (() => {
-    const kinds = SECRET_KINDS.slice(), spots = SECRET_SPOTS.slice(), out = [];
+    // 이 계절에 나오는 얼굴부터. 셋이 안 되면 나머지에서 채운다 — 빈 날은 없어야 한다.
+    const inSeason = SECRET_KINDS.filter(k => k.when.indexOf(SEASON) >= 0);
+    const rest = SECRET_KINDS.filter(k => k.when.indexOf(SEASON) < 0);
+    const kinds = inSeason.concat(rest.slice(0, Math.max(0, 3 - inSeason.length)));
+    const spots = SECRET_SPOTS.slice(), out = [];
     const n = Math.min(3, kinds.length);
     for (let i = 0; i < n; i++) {
       const k = kinds.splice(Math.floor(prand(DAY_SEED + i * 3.1) * kinds.length), 1)[0];
@@ -296,6 +332,14 @@ const belowFold = (() => {
     return out;
   })();
 
+  // ---- 밤 산책: 반딧불이 잡기 ----
+  // 여름밤(또는 손전등을 켠 밤)에만 난다. 누르면 병에 담기고, 그 밤 동안 그대로 남는다.
+  // 날마다 새로 태어난다 — 어제 다 잡았다고 오늘 밤이 심심하면 안 된다.
+  const FLY_KEY = 'sy.flies.' + DAY_SEED;
+  let caughtFlies = new Set();
+  try { caughtFlies = new Set(JSON.parse(localStorage.getItem(FLY_KEY) || '[]')); } catch (e) { /* 저장이 막힌 브라우저 — 그 자리에서만 센다 */ }
+  const flyPos = [];                                    // 이번 장에 떠 있는 자리 (누를 자리)
+
   const hud = $('#findHud');
   function syncHud(){
     if (!hud) return;
@@ -303,6 +347,7 @@ const belowFold = (() => {
     if (!all) { hud.hidden = true; return; }
     const n = secrets.filter(s => found.has(s.key)).length;
     hud.textContent = (n >= all ? '🔍 다 찾았다!' : '🔍 숨은 친구 ' + n + '/' + all) +
+                      (caughtFlies.size ? ' · ✨' + caughtFlies.size : '') +
                       (keys.size ? ' · 🔑' + keys.size : '');
     hud.classList.toggle('done', n >= all);
   }
@@ -338,6 +383,7 @@ const belowFold = (() => {
   let rainbowFrom = 0, rainbowUntil = 0;
   let torch = false;                                     // 밤에 켜는 손전등
   const raining = () => weather.rain || performance.now() < shower;
+  let snowPainted = false;                               // 마을 그림에 눈을 구워 넣었는지
   let ct = 0;                                            // 구름 전용 시계 — 바람이 세면 빨리 간다
   // ?weather=rain|snow|fog|wind 로 미리 볼 수 있다 (phase·season 과 같은 이유)
   const forcedW = new URLSearchParams(location.search).get('weather');
@@ -354,6 +400,9 @@ const belowFold = (() => {
       weather.snow = (code >= 71 && code <= 77) || code === 85 || code === 86;
       weather.fog  = code === 45 || code === 48;
       weather.wind = c.wind_speed_10m > 25 ? 2.2 : c.wind_speed_10m > 12 ? 1.5 : 1;
+      // 눈은 지붕마다 그리는 것이 아니라 마을 그림 한 장에 통째로 굽는다. 날씨는 늦게
+      // 도착하므로, 눈 여부가 바뀌었을 때만 마을을 한 번 더 그린다(300ms 짜리라 아껴 쓴다).
+      if (weather.snow !== snowPainted) paint(() => paintGround());
       kick();
     }).catch(() => {});
 
@@ -500,11 +549,12 @@ const belowFold = (() => {
     const dim = NIGHT || PHASE === 'dusk';               // 저녁부터 가로등과 창에 불이 켜진다
     if (VG && VG.canvas) VG.canvas.width = 0;           // 지난 마을 캔버스를 바로 놓아 준다 (크기를 바꿀 때마다 20MB 씩 쌓인다)
     VG = Village.render({
-      w: vw, h: vh, hs: HS * dpr, orgX: Math.round(vw / 2 - 24), orgY, night: dim,
+      w: vw, h: vh, hs: HS * dpr, orgX: Math.round(vw / 2 - 24), orgY, night: dim, snow: weather.snow,
       sprites: SPRITES, pal: PAL,
       frames: hung.map(h => h ? drawingToCanvas(h) : null),
     });
     VG.dpr = dpr;
+    snowPainted = weather.snow;                          // 지금 그림에 눈이 얹혀 있는지
     horizon = VG.horizon * HS;
     const g = VG.canvas.getContext('2d');
     // 시간대 색은 맨 마지막에 한 겹으로 덮는다. source-atop 이라 하늘로 비치는 빈 자리에는 묻지 않는다.
@@ -522,6 +572,7 @@ const belowFold = (() => {
       g.restore();
     }
     layoutTags();
+    maybePanHint();
   }
 
   // 계절이 뿌리는 것 — 봄 꽃잎, 가을 낙엽, 겨울 눈
@@ -690,14 +741,17 @@ const belowFold = (() => {
   }
 
   function drawFireflies(){
+    flyPos.length = 0;
     if (!NIGHT) return;
     // 원래는 여름밤에만 열넷. 손전등을 켜면 계절과 상관없이 서른 마리가 나온다 —
     // 「불을 꺼야 보이는 것이 있다」 를 손으로 만져 보게 하는 자리.
     if (SEASON !== 'summer' && !torch) return;
     const n = torch ? 30 : 14;
     for (let i = 0; i < n; i++) {
+      if (caughtFlies.has(i)) continue;                 // 잡은 놈은 병 속에 있다
       const x = (prand(i * 4.4) + Math.sin(t * 0.3 + i) * 0.04) * W;
       const y = H * (0.66 + prand(i * 8.8) * 0.22) + Math.sin(t * 0.7 + i * 1.7) * H * 0.02;
+      flyPos.push({ i: i, x: x, y: y });                // 누를 자리는 그린 그 자리다
       const blink = Math.sin(t * 2.3 + i * 2.9);
       if (blink < 0) continue;
       ctx.globalAlpha = blink;
@@ -792,6 +846,40 @@ const belowFold = (() => {
     ctx.globalAlpha = 1;
   }
 
+  // 비 오는 날 웅덩이 — 광장 돌바닥의 빈 자리 다섯 곳. 비가 오는 동안 천천히 커지고,
+  // 그치면 천천히 마른다. 자리는 물건에 안 가리는 칸으로 미리 골라 뒀다.
+  const PUDDLES = [[5.0, 5.5], [5.5, 6.0], [6.0, 7.0], [7.0, 7.0], [8.0, 6.0]];
+  let wet = 0;                                          // 0 마름 → 1 흥건함
+  function drawPuddles(gx, gy){
+    if (!VG) return;
+    wet = Math.max(0, Math.min(1, wet + (raining() ? 0.016 / 22 : -0.016 / 60)));
+    if (wet < 0.02) return;
+    const s = Math.max(1, Math.round(HS));
+    PUDDLES.forEach(([tx, ty], i) => {
+      const c = VG.dotAt(tx, ty);
+      const r = (5 + (i % 3) * 2) * wet;                 // 도트 반지름
+      if (r < 1) return;
+      const x0 = c.x * HS + gx, y0 = c.y * HS + gy;
+      ctx.fillStyle = 'rgba(150,180,205,0.45)';
+      for (let dy = -Math.round(r / 2); dy <= Math.round(r / 2); dy++){
+        const k = 1 - Math.pow(dy / Math.max(1, r / 2), 2);
+        const hw = Math.round(r * Math.sqrt(Math.max(0, k)));
+        if (hw <= 0) continue;
+        ctx.fillRect(Math.round(x0 - hw * HS), Math.round(y0 + dy * HS), Math.round(hw * 2 * HS), s);
+      }
+      // 빗방울이 떨어진 자리 — 고리 하나가 퍼졌다 사라진다
+      if (!raining()) return;
+      const u = ((t * 0.7) + i * 0.37) % 1;
+      const rr = Math.round(r * u);
+      if (rr < 1) return;
+      ctx.globalAlpha = (1 - u) * 0.5;
+      ctx.fillStyle = '#e8f2fa';
+      ctx.fillRect(Math.round(x0 - rr * HS), Math.round(y0), s, s);
+      ctx.fillRect(Math.round(x0 + rr * HS), Math.round(y0), s, s);
+      ctx.globalAlpha = 1;
+    });
+  }
+
   // 오리 두 마리 — 다리 오른쪽 강(x 5.2~13, 물은 y 10.8~12)을 천천히 오가며 둥실거린다.
   // 다리(x 3.15~4.35)와 배(x 1.2) 쪽으로는 안 간다 — 마을 그림 위에 얹혀서, 다리 밑을 지나면 다리 위에 그려진다.
   const ducks = [
@@ -799,18 +887,55 @@ const belowFold = (() => {
     { tx: 8.4, ty: 11.65, dir: -1, v: 0.10, ph: 2.1 },
   ];
   const DUCK_MIN = 5.2, DUCK_MAX = 13.0;
+  // 강을 누르면 빵조각이 떨어지고 가까운 오리가 헤엄쳐 온다. 하루 세 번까지 —
+  // 매번 되면 오리가 늘 먹고만 있고, 오늘 몫을 아껴 쓰는 재미도 없다.
+  const FEED_KEY = 'sy.feed.' + DAY_SEED, FEED_MAX = 3;
+  let fedToday = 0;
+  try { fedToday = Number(localStorage.getItem(FEED_KEY) || 0) || 0; } catch (e) { /* 저장이 막힌 브라우저 — 이 자리에서만 센다 */ }
+  let crumb = null;                                     // { tx, ty }
+  function feed(tx, ty, px, py){
+    if (fedToday >= FEED_MAX) { say('오늘 몫은 다 줬어 (' + FEED_MAX + '/' + FEED_MAX + ')', { x:px, y:py, w:0, h:0 }); return; }
+    if (crumb) return;                                  // 아직 안 먹은 것이 떠 있다
+    crumb = { tx: Math.max(DUCK_MIN, Math.min(DUCK_MAX, tx)), ty: ty };
+    sfx('plant');
+    popAt(px, py, SPRITES.heart, 1);
+    kick();
+  }
   function drawDucks(gx, gy){
     ducks.forEach(d => {
       if (!reduce) {
-        d.tx += d.dir * d.v * 0.016;
-        if (d.tx > DUCK_MAX) { d.tx = DUCK_MAX; d.dir = -1; }
-        else if (d.tx < DUCK_MIN) { d.tx = DUCK_MIN; d.dir = 1; }
-        else if (Math.random() < 0.0012) d.dir = -d.dir;          // 가끔 마음이 바뀐다 — 14초에 한 번쯤
+        // 빵조각이 떠 있으면 그쪽으로 뱃머리를 돌린다 — 두 배 빠르게
+        if (crumb) {
+          const away = crumb.tx - d.tx;
+          d.dir = away >= 0 ? 1 : -1;
+          d.tx += d.dir * d.v * 2 * 0.016;
+          if (Math.abs(crumb.tx - d.tx) < 0.18) {
+            const p2 = VG.dotAt(crumb.tx, crumb.ty);
+            popAt(p2.x * HS + gx, p2.y * HS + gy, SPRITES.heart, 3);
+            crumb = null;
+            fedToday++;
+            try { localStorage.setItem(FEED_KEY, String(fedToday)); } catch (e) { /* 위와 같은 이유 */ }
+            sfx('char');
+          }
+        } else {
+          d.tx += d.dir * d.v * 0.016;
+          if (d.tx > DUCK_MAX) { d.tx = DUCK_MAX; d.dir = -1; }
+          else if (d.tx < DUCK_MIN) { d.tx = DUCK_MIN; d.dir = 1; }
+          else if (Math.random() < 0.0012) d.dir = -d.dir;        // 가끔 마음이 바뀐다 — 14초에 한 번쯤
+        }
+        d.tx = Math.max(DUCK_MIN, Math.min(DUCK_MAX, d.tx));
       }
       const p = VG.dotAt(d.tx, d.ty + Math.sin(t * 0.35 + d.ph) * 0.12);   // 강 폭 안에서 살짝 비껴 흐른다
       const bob = Math.sin(t * 1.7 + d.ph) * 1.2;                            // 둥실 — 도트
       blitDots(SPR2.duck, p.x, p.y + bob, gx, gy, d.dir < 0);
     });
+    // 빵조각 — 물 위에서 까딱거린다
+    if (crumb) {
+      const c = VG.dotAt(crumb.tx, crumb.ty), s = Math.max(1, Math.round(HS));
+      const y = Math.round((c.y + Math.sin(t * 2.4) * 0.8) * HS + gy), x = Math.round(c.x * HS + gx);
+      ctx.fillStyle = '#e6c48a'; ctx.fillRect(x - s, y - s, s * 2, s * 2);
+      ctx.fillStyle = '#c9a465'; ctx.fillRect(x, y, s, s);
+    }
   }
   // 연 — 천막 기둥에 줄로 매여 바람에 살살 흔들리고, 꼬리는 물결친다 (village.js 의 위상 12장)
   function drawKite(gx, gy){
@@ -964,9 +1089,11 @@ const belowFold = (() => {
 
     // 5b) 강의 오리와 천막의 연 — 마을 그림 위에서 움직인다
     if (VG && SPR2) { drawDucks(gx, gy); if (VG.kite) drawKite(gx, gy); }
+    drawPuddles(gx, gy);
     drawSmoke(gx, gy);
 
     drawPlanted(gx, gy);
+    drawRuler(gx, gy);
     drawSecrets(gx, gy);
     secrets.forEach(sec => sec.rect && hits.push({ kind:'secret', key:sec.key,
       x:sec.rect.x, y:sec.rect.y, w:sec.rect.w, h:sec.rect.h }));
@@ -1182,6 +1309,12 @@ const belowFold = (() => {
     const slack = S * 2;
     const inside = h => px >= h.x - h.w / 2 - slack && px <= h.x + h.w / 2 + slack &&
                         py >= h.y - slack && py <= h.y + h.h + slack;
+    // 반딧불이가 맨 먼저다. 점 한 개짜리라 다른 물건 상자에 밀리면 영영 못 잡는다.
+    for (let i = 0; i < flyPos.length; i++) {
+      const f = flyPos[i];
+      if (Math.abs(px - f.x) <= S * 3 && Math.abs(py - f.y) <= S * 3)
+        return { kind:'fly', idx:f.i, x:f.x, y:f.y - S, w:S * 2, h:S * 2 };
+    }
     // 별자리로 이을 별만 먼저 본다.
     // 뒤에서부터 훑으면 나중에 그린 것이 이긴다. 구름은 별보다 나중에 그려지고 상자도
     // 넓어서, 구름 아래 놓인 별은 눌러도 구름이 대신 대답한다. 여섯 번 눌러 둘만
@@ -1254,6 +1387,7 @@ const belowFold = (() => {
       } else if (panMax > 0 && drag.moved) {
         // 좁은 화면 — 마을을 옆으로 끌어 본다. 이름표도 같이 간다
         panX = Math.max(-panMax, Math.min(0, drag.panBase + (p.x - drag.x0)));
+        hidePanHint();
         kick();
       }
     }
@@ -1318,6 +1452,16 @@ const belowFold = (() => {
       else say('아직 걸린 그림이 없어', hit);
       return;
     }
+    if (hit.kind === 'fly') {
+      caughtFlies.add(hit.idx);
+      try { localStorage.setItem(FLY_KEY, JSON.stringify(Array.from(caughtFlies))); } catch (e) { /* 저장이 막힌 브라우저 — 그 자리에서만 센다 */ }
+      sfx('star');
+      popAt(hit.x, hit.y, SPRITES.star, 5);
+      const n = caughtFlies.size;
+      say(n >= 10 ? '반딧불이 ' + n + '마리! 병이 환하다' : n === 1 ? '반딧불이 한 마리 잡았다' : '반딧불이 ' + n + '마리', hit);
+      syncHud();
+      return;
+    }
     if (hit.kind === 'secret') {
       const sec = secrets.find(s => s.key === hit.key);
       if (!sec) return;
@@ -1360,6 +1504,20 @@ const belowFold = (() => {
       popAt(hit.x, hit.y, SPRITES.heart, 2);
       return;
     }
+    // 두 타워 — 그 앞에서 찍은 날이 이벤트에 있으면 그 달을 말한다
+    if (hit.key === 'lotte' || hit.key === 'nseoul') {
+      const nm = hit.key === 'lotte' ? '롯데타워' : '남산타워';
+      sfx('prop');
+      say(towerVisit[hit.key] ? nm + ' · ' + towerVisit[hit.key] + '에 갔었지' : nm, hit);
+      popAt(hit.x, hit.y, SPRITES.star, 3);
+      return;
+    }
+    // 마을 게시판 — 다음 일정 한 줄
+    if (hit.key === 'sign' && boardLine) {
+      sfx('prop'); say(boardLine, hit); popAt(hit.x, hit.y, SPRITES.heart, 2); return;
+    }
+    // 키 재기 기둥 — 두 아이의 키 눈금을 기둥에 얹는다
+    if (hit.key === 'ruler') { sfx('prop'); showHeights(hit); return; }
     // 소품 — 이름이 없으니 소리만 낸다
     const memo = said['prop:' + hit.key] || (said['prop:' + hit.key] = { last:-1 });
     sfx(SOUND[hit.key] ? hit.key : 'prop');
@@ -1376,6 +1534,8 @@ const belowFold = (() => {
     // 마을 잔디에만 — 길·광장·건물·물에는 안 심긴다
     const gy = Math.round(scrollY * 0.06 / S) * S;
     const w = VG.worldAt((p.x - panX) / HS, (p.y - gy) / HS);
+    // 강을 누르면 오리 밥. 잔디가 아니면 여기서 끝난다
+    if (w.kind === 'water' && w.ty > 10.4) { feed(w.tx, w.ty, p.x, p.y); return; }
     if (w.kind !== 'grass' && w.kind !== 'garden') return;
     if (plantedHere >= PLANT_MAX) return;
     const now = performance.now();
@@ -1418,6 +1578,15 @@ const belowFold = (() => {
       const w = data && data[0];
       if (!w) return;
       const img = new Image();
+      // 저장소 그림이 그냥 붙으면 캔버스가 cross-origin 으로 물들어 엽서를 못 뽑는다.
+      // 저장소가 Access-Control-Allow-Origin: * 를 주므로 이렇게 받으면 깨끗하게 남는다.
+      // 혹시 막히면 물들더라도 그림은 걸고, 엽서 단추만 조용히 접는다.
+      img.crossOrigin = 'anonymous';
+      img.onerror = () => {
+        const plain = new Image();
+        plain.onload = () => { easelImg = plain; easelHref = '/portfolio.html'; canvasTainted = true; syncCardHud(); kick(); };
+        plain.src = w.thumb_url || w.media_url;
+      };
       img.onload = () => {
         easelImg = img; easelHref = '/portfolio.html';
         if (w.audio_url) {
@@ -1429,6 +1598,122 @@ const belowFold = (() => {
       };
       img.src = w.thumb_url || w.media_url;
     }, () => {});
+
+  // ---- 마을이 아는 우리 이야기 ----
+  // 타워를 누르면 그 앞에서 찍은 날이 있으면 그 날을, 게시판을 누르면 다음 일정을 말한다.
+  // 날짜를 손으로 박아 두지 않는다 — 이벤트가 하나 늘면 마을이 저절로 새 말을 한다.
+  const towerVisit = { lotte: null, nseoul: null };
+  let boardLine = null;
+  const ymLabel = d => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); return m ? Number(m[1]) + '년 ' + Number(m[2]) + '월' : null; };
+  Promise.all([
+    sb.from('event_meta').select('event_id, event_name, start_date').then(r => r.data || [], () => []),
+    sb.from('events').select('event_id, title, place_name').then(r => r.data || [], () => []),
+  ]).then(([metas, evs]) => {
+    const dateOf = {};
+    metas.forEach(m => { dateOf[m.event_id] = m.start_date; });
+    const hit = (row, word) => (row.place_name || '').indexOf(word) >= 0 || (row.title || '').indexOf(word) >= 0;
+    [['lotte', '롯데'], ['nseoul', '남산']].forEach(([key, word]) => {
+      const row = evs.filter(e => hit(e, word)).sort((a, b) => String(dateOf[b.event_id] || '').localeCompare(String(dateOf[a.event_id] || '')))[0];
+      if (row) towerVisit[key] = ymLabel(dateOf[row.event_id]);
+    });
+    // 게시판 — 앞으로 올 일이 있으면 그것을, 없으면 가장 가까운 지난 일을 적는다
+    const today = new Date().toISOString().slice(0, 10);
+    const ahead = metas.filter(m => m.start_date && m.start_date >= today).sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
+    const past = metas.filter(m => m.start_date && m.start_date < today).sort((a, b) => b.start_date.localeCompare(a.start_date))[0];
+    const pick = ahead || past;
+    if (pick) boardLine = (ahead ? '다음은 ' : '지난 ') + ymLabel(pick.start_date) + ' · ' + pick.event_name;
+  });
+
+  // ---- 키 재기 기둥 ----
+  // 성장 기록의 키만 손님에게 열려 있다(무게·발 크기는 가족만 본다). 누르면 그 키가
+  // 기둥에 눈금으로 올라가고, 몇 초 뒤 사라진다.
+  let heights = null, heightsAsked = false, rulerUntil = 0;
+  const RULER_MS = 7000;
+  function showHeights(hit){
+    const tell = () => {
+      if (!heights || (!heights.sua && !heights.yona)) { say('아직 잰 키가 없어', hit); return; }
+      rulerUntil = performance.now() + RULER_MS;
+      const bits = [];
+      if (heights.sua)  bits.push('수아 ' + heights.sua + 'cm');
+      if (heights.yona) bits.push('연아 ' + heights.yona + 'cm');
+      say(bits.join(' · '), hit);
+      kick();
+    };
+    if (heights) { tell(); return; }
+    if (heightsAsked) { say('재는 중…', hit); return; }
+    heightsAsked = true;
+    say('키 재는 중…', hit);
+    sb.from('growth').select('who, cm, measured_on').eq('kind', 'height')
+      .order('measured_on', { ascending: false })
+      .then(({ data }) => {
+        heights = {};
+        (data || []).forEach(r => { if (!heights[r.who]) heights[r.who] = Math.round(Number(r.cm)); });
+        tell();
+      }, () => { heights = {}; tell(); });
+  }
+  // 기둥에 눈금을 얹는다 — 마을 도트 자리에 맞춰 그리므로 화면 크기와 상관없이 같은 높이다
+  function drawRuler(gx, gy){
+    if (!VG || !VG.ruler || performance.now() > rulerUntil || !heights) return;
+    const R = VG.ruler, s = Math.max(1, Math.round(HS));
+    const rows = [['sua', heights.sua, '#e86a5c'], ['yona', heights.yona, '#4f8fd6']];
+    rows.forEach(([, cm, col]) => {
+      if (!cm) return;
+      const f = Math.max(0, Math.min(1, (cm - R.cm0) / (R.cm1 - R.cm0)));
+      const y = Math.round((R.y - f * R.h) * HS + gy);
+      const x = Math.round((R.x - 4) * HS + gx);
+      ctx.fillStyle = col;
+      ctx.fillRect(x, y, Math.round(9 * HS), s);              // 눈금 한 줄
+      ctx.fillRect(x - Math.round(2 * HS), y - s, s * 2, s * 3);  // 왼쪽 끝의 작은 깃발
+    });
+  }
+
+  // ---- 지금 마을을 엽서 한 장으로 ----
+  // 화면에 보이는 그대로를 도트 엽서로 만들어 내려받는다. 친구에게 보낼 수 있게.
+  let canvasTainted = false;
+  const cardHud = $('#cardHud');
+  function syncCardHud(){ if (cardHud) cardHud.hidden = canvasTainted; }
+  function savePostcard(){
+    const pad = 16, capH = 52, sc = Math.min(2, 1200 / Math.max(1, W));
+    const iw = Math.round(W * sc), ih = Math.round(H * sc);
+    const o = document.createElement('canvas');
+    o.width = iw + pad * 2; o.height = ih + pad * 2 + capH;
+    const g = o.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.fillStyle = '#fff6e9'; g.fillRect(0, 0, o.width, o.height);
+    try {
+      g.drawImage(canvas, 0, 0, canvas.width, canvas.height, pad, pad, iw, ih);
+    } catch (e) { canvasTainted = true; syncCardHud(); return false; }
+    g.strokeStyle = '#2f2a24'; g.lineWidth = 6;
+    g.strokeRect(3, 3, o.width - 6, o.height - 6);
+    g.strokeRect(pad - 2, pad - 2, iw + 4, ih + 4);
+    const d = new Date();
+    g.fillStyle = '#2f2a24';
+    g.font = '700 26px "Suayona Dot", monospace';
+    g.textBaseline = 'middle';
+    g.fillText('수아랑 연아랑', pad, pad + ih + capH / 2);
+    g.font = '700 18px "Suayona Dot", monospace';
+    const stamp = d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 · www.suayona.com';
+    g.textAlign = 'right';
+    g.fillText(stamp, o.width - pad, pad + ih + capH / 2);
+    const name = 'suayona-' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '.png';
+    try {
+      o.toBlob(b => {
+        if (!b) return;
+        const url = URL.createObjectURL(b);
+        const a = document.createElement('a');
+        a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }, 'image/png');
+    } catch (e) { canvasTainted = true; syncCardHud(); return false; }
+    return true;
+  }
+  if (cardHud) cardHud.addEventListener('click', () => {
+    const ok = savePostcard();
+    sfx(ok ? 'key' : 'prop');
+    const box = { x: W / 2, y: H * 0.5, w: 0, h: 0 };
+    say(ok ? '📮 엽서를 저장했어요' : '엽서를 못 만들었어요', box);
+  });
 
   // ---- 먼저 말 걸기 ----
   // 처음 한 번은 조금 빨리(4초), 그 뒤로는 12초마다. 스크롤로 첫 화면을 벗어나면 멈춘다.
