@@ -743,6 +743,69 @@ const belowFold = (() => {
     });
   }
 
+  // ---- 강의 오리와 천막의 연 ----
+  // 마을 그림에 박지 않고 프레임마다 움직여 그린다. 도트 그림은 village.js 가 같은 코드로 만들어 준다.
+  const SPR2 = (() => {
+    if (typeof Village.sprites !== 'function') return null;
+    const raw = Village.sprites();
+    // 저녁·밤에는 마을과 같은 색으로 가라앉힌다 — 마을은 tintLayer 로 물들었는데 오리만 낮 색이면 튄다
+    const dimOf = sp => {
+      if (!HAS_PHASE) return sp;
+      const cv = document.createElement('canvas'); cv.width = sp.w; cv.height = sp.h;
+      const g = cv.getContext('2d'); g.drawImage(sp.canvas, 0, 0); tintLayer(g, sp.w, sp.h, PHASE);
+      return Object.assign({}, sp, { canvas: cv });
+    };
+    const dim = NIGHT || PHASE === 'dusk';
+    return { duck: dim ? dimOf(raw.duck) : raw.duck, kite: dim ? raw.kite.map(dimOf) : raw.kite };
+  })();
+  // 도트 1:1 그림을 마을 자리(도트)에 마을 배율로 얹는다. flip 이면 좌우를 뒤집는다 — 기준점은 그대로
+  function blitDots(sp, dx, dy, gx, gy, flip){
+    const x = dx * HS + gx, y = dy * HS + gy, w = Math.round(sp.w * HS), h = Math.round(sp.h * HS);
+    if (!flip) { ctx.drawImage(sp.canvas, 0, 0, sp.w, sp.h, Math.round(x - sp.ox * HS), Math.round(y - sp.oy * HS), w, h); return; }
+    ctx.save(); ctx.translate(Math.round(x), 0); ctx.scale(-1, 1);
+    ctx.drawImage(sp.canvas, 0, 0, sp.w, sp.h, -Math.round(sp.ox * HS), Math.round(y - sp.oy * HS), w, h);
+    ctx.restore();
+  }
+  // 도트 단위 직선 — 연줄
+  function dotLine(x0, y0, x1, y1, gx, gy, col){
+    const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+    const s = Math.ceil(HS);
+    ctx.fillStyle = col;
+    for (let i = 0; i <= n; i++){
+      const x = Math.round(x0 + (x1 - x0) * i / n), y = Math.round(y0 + (y1 - y0) * i / n);
+      ctx.fillRect(Math.round(x * HS + gx), Math.round(y * HS + gy), s, s);
+    }
+  }
+  // 오리 두 마리 — 다리 오른쪽 강(x 5.2~13, 물은 y 10.8~12)을 천천히 오가며 둥실거린다.
+  // 다리(x 3.15~4.35)와 배(x 1.2) 쪽으로는 안 간다 — 마을 그림 위에 얹혀서, 다리 밑을 지나면 다리 위에 그려진다.
+  const ducks = [
+    { tx: 6.9, ty: 11.35, dir: 1,  v: 0.13, ph: 0 },      // v: 초당 칸 — 한 칸에 8초쯤
+    { tx: 8.4, ty: 11.65, dir: -1, v: 0.10, ph: 2.1 },
+  ];
+  const DUCK_MIN = 5.2, DUCK_MAX = 13.0;
+  function drawDucks(gx, gy){
+    ducks.forEach(d => {
+      if (!reduce) {
+        d.tx += d.dir * d.v * 0.016;
+        if (d.tx > DUCK_MAX) { d.tx = DUCK_MAX; d.dir = -1; }
+        else if (d.tx < DUCK_MIN) { d.tx = DUCK_MIN; d.dir = 1; }
+        else if (Math.random() < 0.0012) d.dir = -d.dir;          // 가끔 마음이 바뀐다 — 14초에 한 번쯤
+      }
+      const p = VG.dotAt(d.tx, d.ty + Math.sin(t * 0.35 + d.ph) * 0.12);   // 강 폭 안에서 살짝 비껴 흐른다
+      const bob = Math.sin(t * 1.7 + d.ph) * 1.2;                            // 둥실 — 도트
+      blitDots(SPR2.duck, p.x, p.y + bob, gx, gy, d.dir < 0);
+    });
+  }
+  // 연 — 천막 기둥에 줄로 매여 바람에 살살 흔들리고, 꼬리는 물결친다 (village.js 의 위상 12장)
+  function drawKite(gx, gy){
+    const k = VG.kite, wind = Math.min(2, weather.wind || 1);
+    const sway = (Math.sin(t * 0.7) * 4 + Math.sin(t * 1.9) * 1.5) * wind;   // 좌우 — 도트
+    const lift = Math.sin(t * 1.1 + 1) * 2 * wind;                            // 위아래
+    const kx = k.home.x + sway, ky = k.home.y + lift;
+    dotLine(k.anchor.x, k.anchor.y, kx, ky + 5, gx, gy, '#5a4a3a');           // 줄: 기둥 끝 → 연 아래 꼭짓점
+    blitDots(SPR2.kite[Math.floor(t * 8) % SPR2.kite.length], kx, ky, gx, gy, false);
+  }
+
   function drawSecrets(gx, gy){
     if (!VG) return;
     const s = Math.max(1, Math.round(HS));
@@ -882,6 +945,9 @@ const belowFold = (() => {
       const cs = Math.max(1, Math.round(HS)), f = VG.house.foot;
       drawSprite(ctx, SPRITES.cat, Math.round(f.x * HS + gx) - 5 * cs, Math.round(f.y * HS + gy) - SPRITES.cat.length * cs, cs, wash(SPRITES.cat));
     }
+
+    // 5b) 강의 오리와 천막의 연 — 마을 그림 위에서 움직인다
+    if (VG && SPR2) { drawDucks(gx, gy); if (VG.kite) drawKite(gx, gy); }
 
     drawPlanted(gx, gy);
     drawSecrets(gx, gy);

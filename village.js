@@ -688,10 +688,14 @@ P.laundry = (q, a, b) => {
   for (let k = 0; k < 4; k++){ const t = 0.15 + k * 0.22, x = Math.round(a[0] + (b[0] - a[0]) * t), y = Math.round(a[1] + (b[1] - a[1]) * t - 24 + Math.sin(t * Math.PI) * 2); const c = cols[k % cols.length]; q(x - 3, y + 1, 7, 6 + (k % 2) * 2, c); q(x - 3, y + 1, 7, 1, shade(c, -20)); q(x + 3, y + 1, 1, 6 + (k % 2) * 2, shade(c, -18)); }
 };
 // 나무 다리 — 도랑 위 널판
-P.bridge = (q, x, y, w, d) => {
+// along: 건너는 방향. 'x' 면 x 축을 따라(난간이 y 양끝), 'y' 면 y 축을 따라(난간이 x 양끝).
+// 널판은 건너는 방향과 직각으로 깐다.
+P.bridge = (q, x, y, w, d, along) => {
   const pal = { a: ['#c8a072', '#b88e60', '#a47c50'], gap: '#6a4a30' };
-  box(q, x, y, 2, w, d, 3, M.planks(pal, 1, -10, true), M.planks(pal, 1, -30, true), M.planks(pal, 2, 6, true));
-  P.fence(q, x, y, w, 'x', '#a47c50'); P.fence(q, x, y + d, w, 'x', '#a47c50');
+  const y_ = along === 'y';
+  box(q, x, y, 2, w, d, 3, M.planks(pal, 1, -10, true), M.planks(pal, 1, -30, true), M.planks(pal, 2, 6, !y_));
+  if (y_){ P.fence(q, x, y, d, 'y', '#a47c50'); P.fence(q, x + w, y, d, 'y', '#a47c50'); }
+  else { P.fence(q, x, y, w, 'x', '#a47c50'); P.fence(q, x, y + d, w, 'x', '#a47c50'); }
 };
 
 /* 촘촘한 판에 더 얹는 소품들. props.js 뒤에 싣는다. */
@@ -783,7 +787,10 @@ P.lilypad = (q, X, Y, flower) => { ellipse(q, X, Y, 4, 2, (x, y) => (x > X && y 
 P.boat = (q, X, Y) => { for (let i = 0; i < 5; i++) q(X - 12 + i, Y - 5 + i, 24 - 2 * i, 1, i === 0 ? '#c8a072' : i < 3 ? '#a47c50' : '#8f6a42'); q(X - 12, Y - 6, 24, 1, '#dbb88a'); q(X - 6, Y - 8, 12, 2, '#8f6a42'); q(X + 2, Y - 14, 1, 8, '#5a3f2b'); q(X + 3, Y - 13, 6, 1, '#5a3f2b'); };
 P.pigeon = (q, X, Y) => { q(X - 3, Y - 3, 6, 3, '#9a9aa2'); q(X - 3, Y - 3, 6, 1, '#b8b8c0'); q(X + 2, Y - 5, 3, 3, '#8a8a92'); q(X + 4, Y - 4, 2, 1, '#e0a050'); q(X - 4, Y - 2, 2, 1, '#6a6a72'); q(X - 1, Y, 1, 1, '#e0a050'); q(X + 1, Y, 1, 1, '#e0a050'); };
 P.dog = (q, X, Y) => { const c = '#c9915a'; q(X - 7, Y - 8, 12, 6, c); q(X - 7, Y - 8, 12, 1, shade(c, 16)); q(X + 4, Y - 12, 6, 6, c); q(X + 4, Y - 14, 2, 3, shade(c, -20)); q(X + 8, Y - 9, 2, 2, '#2a2622'); q(X + 6, Y - 10, 1, 1, '#2a2622'); q(X - 9, Y - 12, 2, 5, c); q(X - 6, Y - 2, 2, 2, c); q(X - 2, Y - 2, 2, 2, c); q(X + 1, Y - 2, 2, 2, c); q(X + 4, Y - 2, 2, 2, c); q(X - 4, Y - 6, 6, 3, shade(c, 30)); };
-P.kite = (q, X, Y) => { for (let i = -5; i <= 5; i++){ const w = 5 - Math.abs(i); q(X - w, Y + i, 2 * w + 1, 1, i < 0 ? '#ff6b6b' : '#ffd166'); } q(X, Y - 5, 1, 11, '#3a2a1e'); q(X - 5, Y, 11, 1, '#3a2a1e'); let px = X, py = Y + 6; for (let i = 0; i < 14; i++){ px += (i % 4 < 2 ? 1 : -1); py += 2; q(px, py, 1, 1, '#3a2a1e'); if (i % 4 === 1) q(px - 1, py, 3, 2, i % 8 < 4 ? '#5aa9e6' : '#ff8fb8'); } };
+// 연 — 몸통(마름모)과 꼬리를 따로 둔다. 꼬리는 위상(ph 0~1)에 따라 물결쳐서, 첫화면이 프레임을 바꿔 가며 띄운다
+P.kiteBody = (q, X, Y) => { for (let i = -5; i <= 5; i++){ const w = 5 - Math.abs(i); q(X - w, Y + i, 2 * w + 1, 1, i < 0 ? '#ff6b6b' : '#ffd166'); } q(X, Y - 5, 1, 11, '#3a2a1e'); q(X - 5, Y, 11, 1, '#3a2a1e'); };
+P.kiteTail = (q, X, Y, ph) => { for (let i = 0; i < 14; i++){ const px = X + Math.round(Math.sin(i * 0.6 + (ph || 0) * Math.PI * 2) * 2.5), py = Y + 6 + i * 2; q(px, py, 1, 2, '#3a2a1e'); if (i % 4 === 1) q(px - 1, py, 3, 2, i % 8 < 4 ? '#5aa9e6' : '#ff8fb8'); } };
+P.kite = (q, X, Y, ph) => { P.kiteBody(q, X, Y); P.kiteTail(q, X, Y, ph); };
 P.hotAir = (q, X, Y) => { ellipse(q, X, Y - 14, 7, 8, (x, y) => { const k = Math.floor((x - X + 7) / 3); return ['#e8463a', '#ffd166', '#5aa9e6', '#e8463a', '#ffd166'][k % 5]; }); q(X - 2, Y - 5, 5, 2, '#8d6440'); q(X - 2, Y - 1, 5, 3, '#a67a52'); q(X - 2, Y - 4, 1, 3, '#5a3f2b'); q(X + 2, Y - 4, 1, 3, '#5a3f2b'); };
 P.noticeBoard = (q, X, Y) => { q(X - 8, Y - 22, 2, 22, '#8d6440'); q(X + 6, Y - 22, 2, 22, '#8d6440'); q(X - 11, Y - 30, 22, 12, '#5a3f2b'); q(X - 10, Y - 29, 20, 10, '#8fb5a0'); q(X - 8, Y - 27, 5, 6, '#fff6e9'); q(X - 2, Y - 28, 6, 7, '#fff3a0'); q(X + 5, Y - 26, 4, 5, '#ffd9d0'); q(X - 7, Y - 25, 3, 1, '#8a7a66'); q(X - 1, Y - 26, 4, 1, '#8a7a66'); q(X - 1, Y - 24, 4, 1, '#8a7a66'); q(X - 11, Y - 32, 22, 2, '#7a5636'); };
 P.bin = (q, X, Y) => { cylinder(q, X, Y, 4, 9, (a, v) => v === 0 ? '#5a6a5a' : a < 0.4 ? '#4f6650' : a < 0.7 ? '#3f5440' : '#2f4030'); ellipse(q, X, Y - 9, 4, 2, '#6a7a6a'); q(X - 2, Y - 10, 4, 1, '#2a2622'); };
@@ -1158,7 +1165,8 @@ function bTent(q){
   P.lanterns(q, [proj(0.3, 4.75, 0)[0], proj(0.3, 4.75, 0)[1] - 30], [proj(2.9, 4.75, 0)[0], proj(2.9, 4.75, 0)[1] - 30], ['#ff6b6b', '#ffd166', '#ff8fb8', '#8fd9c8']);
   P.icecream(q, 2.85, 5.4);
   const K = [C[0] - 52, C[1] - H - CH - 28];
-  lineDots(q, [K[0], K[1] + 22], [C[0] + 36, C[1] - 6], '#5a4a3a'); P.kite(q, K[0], K[1]);
+  // 연은 여기 그리지 않는다 — 첫화면이 바람에 흔들며 프레임마다 그린다. 자리(연 가운데)와 줄 끝(천막 기둥)만 적어 둔다
+  VS.kite = { home: { x: K[0], y: K[1] }, anchor: { x: C[0] + 36, y: C[1] - 6 } };
   // 풍선
   const Bb = proj(3.05, 7.3, 0);
   [['#ff6b6b', -6, -40], ['#5aa9e6', 2, -46], ['#ffd166', 8, -38]].forEach(([c, dx, dy]) => { lineDots(q, [Bb[0], Bb[1] - 18], [Bb[0] + dx, Bb[1] + dy + 5], '#6a5a50'); ellipse(q, Bb[0] + dx, Bb[1] + dy, 4, 5, (x, y) => (x - (Bb[0] + dx) < -1 && y - (Bb[1] + dy) < -1) ? shade(c, 40) : c); q(Bb[0] + dx, Bb[1] + dy + 5, 1, 1, shade(c, -30)); });
@@ -1363,7 +1371,6 @@ VS.draw = function(env){
   add(3.05, 6.25, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(3.1, 6.3), NIGHT), 12);
   add(4.55, 7.35, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(4.6, 7.4), NIGHT), 12);
   add(13.1, 6.8, 0.5, 0.5, 60, q2 => P.tree(q2, ...at(13.35, 7.05), 2, 23), 26, 'tree');
-  add(0.5, 10.4, 0.4, 0.3, 18, q2 => P.bush(q2, ...at(0.7, 10.55), 12, 24), 10);
   add(3.0, 11.0, 0.8, 0.5, 16, q2 => P.boat(q2, ...at(1.2, 11.35)), 14, 'boat');
   [[5.15, 3.65], [8.85, 3.65], [5.15, 7.35], [8.85, 7.35]].forEach(([x, y], i) => add(x - 0.05, y - 0.05, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(x, y), NIGHT), 12));
   const bed = (x, y, w, d, seed) => add(x, y, w, d, 8, q2 => { box(q2, x, y, 0, w, d, 4, () => '#a89f91', () => '#8a8071', () => '#6f4f38'); for (let i = 0; i < 12; i++){ const fx = x + 0.08 + hash(i, 1, seed) * (w - 0.16), fy = y + 0.08 + hash(i, 2, seed) * (d - 0.16); const Pp = proj(fx, fy, 4).map(Math.round); P.flower(q2, Pp[0], Pp[1], ['#ff8fb8', '#ffd166', '#ff7f7f', '#ffffff', '#c9a8ff'][i % 5]); } }, 6);
@@ -1385,9 +1392,7 @@ VS.draw = function(env){
   add(4.95, 10.7, 2.5, 0.05, 16, q2 => P.fence(q2, 4.95, 10.7, 2.5, 'x'), 6);
   add(6.0, 9.55, 0.3, 0.3, 40, q2 => P.scarecrow(q2, ...at(6.15, 9.7)), 12);
   add(10.9, 9.7, 0.6, 0.6, 38, q2 => P.well(q2, ...at(11.2, 10.0)), 14, 'well');
-  add(3.1, 10.6, 1.4, 1.3, 22, q2 => P.bridge(q2, 3.1, 10.6, 1.4, 1.2), 10, 'bridge');
-  add(6.8, 11.2, 0.3, 0.3, 10, q2 => P.duck(q2, ...at(6.95, 11.35)), 6);
-  add(7.4, 11.5, 0.3, 0.3, 10, q2 => P.duck(q2, ...at(7.55, 11.65)), 6);
+  add(3.15, 10.62, 1.2, 1.36, 22, q2 => P.bridge(q2, 3.15, 10.62, 1.2, 1.36, 'y'), 10, 'bridge');   // 길 끝에서 강 건너 땅끝까지 — 길 따라 놓으면 진입이 막힌다
   // 나무들
   [[0.6, 9.0, 3, 12], [1.6, 10.2, 1, 13], [11.6, 10.4, 1, 15], [0.4, 7.9, 1, 17], [8.6, 0.6, 1, 18]].forEach(([x, y, s, seed]) =>
     add(x - 0.3, y - 0.3, 0.6, 0.6, 30 + s * 12, q2 => (s === 1 && seed % 2 ? P.pine : P.tree)(q2, ...at(x, y), s, seed), 18 + s * 8, 'tree'));
@@ -1420,8 +1425,8 @@ VS.draw = function(env){
     { text: '모험단', href: '/quest.html', x: 12.3, y: 1.9, z: 132 },
     { text: '편지쓰기', href: '/contact.html', x: 11.2, y: 7.0, z: 62 },
     { text: '농장', href: '/farm.html', x: 6.5, y: 9.8, z: 52 },
-    { text: '그림 그리기', href: '/draw.html', x: 1.0, y: 8.55, z: 44 },
-    { text: '가볼 곳', href: '/wish/', x: 2.6, y: 9.45, z: 48 },
+    { text: '그림 그리기', href: '/draw.html', x: 0.7, y: 10.5, z: 40 },
+    { text: '가볼 곳', href: '/wish/', x: 3.2, y: 9.45, z: 48 },
   ];
 };
 
@@ -1579,12 +1584,13 @@ function render(o){
       return i ? hits[i - 1] : null;
     },
     labels: VS.labels.map(l => Object.assign({ text: l.text, href: l.href }, pt(l.x, l.y, l.z))),
-    chars: { sua: pt(6.3, 6.35), yona: pt(7.6, 6.55), chick: pt(7.1, 7.05), easel: pt(1.0, 8.55) },
-    // 숨는 자리 일곱 곳 — 낮은 물건(덤불·술통·화단·건초·성벽) 꼭대기보다 넉 도트 아래에 발을 둔다.
+    chars: { sua: pt(6.3, 6.35), yona: pt(7.6, 6.55), chick: pt(7.1, 7.05), easel: pt(0.7, 10.5) },   // 이젤은 강가 — 큰 나무 밑에서는 가려졌다
+    // 숨는 자리 일곱 곳 — 낮은 물건(벤치·덤불·술통·화단·건초·성벽) 꼭대기보다 넉 도트 아래에 발을 둔다.
     // 위 절반만 그리면 물건 너머로 머리만 내민 것처럼 보인다. 아이·이젤 터치 영역과 꼬리표를 피한 자리다.
-    secrets: [[0.42, 10.25], [2.77, 1.81], [3.78, 1.64], [5.35, 6.85], [9.38, 10.04], [8.58, 2.25], [11.94, 9.90]].map(([x, y]) => pt(x, y)),
+    secrets: [[1.9, 9.82], [2.77, 1.81], [3.78, 1.64], [5.35, 6.85], [9.38, 10.04], [8.58, 2.25], [11.94, 9.90]].map(([x, y]) => pt(x, y)),
     frames: VS.frameRects.map(f => ({ x: f.cx, y: f.cy, w: f.w, h: f.h })),
     house: { door: { x: doorP.x, y: doorP.y, w: 8, h: 18 }, foot: pt(5.75, 1.95) },
+    kite: VS.kite ? { home: VS.kite.home, anchor: VS.kite.anchor } : null,   // 연 가운데와 줄 끝(도트) — 첫화면이 흔들며 그린다
     horizon: SKY,
     // 도트 자리 → 땅 칸. 땅 밖이면 kind 가 null
     worldAt: (dx, dy) => { const [tx, ty] = unprojHere(dx, dy); return { tx, ty, kind: inPlot(tx, ty) ? kindAt(tx, ty) : null }; },
@@ -1593,6 +1599,22 @@ function render(o){
     PW, PD,
   };
 }
-return { render };
+// ---------- 첫화면이 프레임마다 움직여 그리는 작은 것들 ----------
+// 오리와 연. 마을 그림과 같은 코드로 도트 1:1 캔버스를 만들어 준다 — 배율은 첫화면이 맞춘다.
+function dotsCanvas(w, h, draw){
+  const D = new Dots(w, h); draw(D.q);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').putImageData(new ImageData(D.d, w, h), 0, 0);
+  return c;
+}
+function sprites(){
+  // 오리: 오른쪽을 본다. 기준점 (6, 10) 은 물에 닿는 배 밑 가운데
+  const duck = { canvas: dotsCanvas(14, 10, q => P.duck(q, 6, 10)), w: 14, h: 10, ox: 6, oy: 10 };
+  // 연: 몸통 가운데가 기준점 (12, 6). 꼬리가 물결치는 위상 12장
+  const kite = [];
+  for (let i = 0; i < 12; i++) kite.push({ canvas: dotsCanvas(24, 44, q => P.kite(q, 12, 6, i / 12)), w: 24, h: 44, ox: 12, oy: 6 });
+  return { duck, kite };
+}
+return { render, sprites };
 })();
 if (typeof module !== 'undefined') module.exports = Village;
