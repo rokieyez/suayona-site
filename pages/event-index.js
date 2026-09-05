@@ -44,7 +44,9 @@ function cardHTML(ev, status){
   const todo = needsName
     ? '<a class="card-todo" href="/event/e/admin.html?slug=' + encodeURIComponent(ev.slug) + '">✏️ 이름을 지어주세요</a>'
     : '';
-  return '<div class="card' + (ev.isPublic === false ? ' is-private' : '') + '" data-slug="' + ev.slug + '">' +
+  // 지금 열려 있는 이벤트는 테두리를 코랄로 둘러 한눈에 갈라 보이게 한다
+  return '<div class="card' + (status === 'ongoing' ? ' is-now' : '') +
+    (ev.isPublic === false ? ' is-private' : '') + '" data-slug="' + ev.slug + '">' +
     '<a class="card-link" href="' + ev.href + '">' +
     '<div class="card-top"><span class="card-name">' + ev.orgName + ' · ' + ev.eventName + '</span>' +
     '<span class="badge-group">' + privateTag +

@@ -141,6 +141,9 @@
   .badge-group{display:flex; align-items:center; gap:5px; flex-shrink:0;}
   .badge.private{background:var(--ink); color:var(--paper);}
   .card.is-private{border-style:dashed;}
+  /* 오늘이 기간 안에 든 이벤트. 그림자는 그대로 어두운 색으로 두어야 윤곽이 살아 있고,
+     테두리만 코랄로 바꿔도 목록에서 바로 눈에 든다. */
+  .card.is-now{border-color:var(--coral);}
 
   .card-del{position:absolute; top:12px; right:12px; width:24px; height:24px; border:none; border-radius:0;
     background:transparent; color:var(--ink-soft); font-size:14px; cursor:pointer; line-height:1;
