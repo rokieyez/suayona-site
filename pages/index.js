@@ -127,7 +127,15 @@ const belowFold = (() => {
   // hits 는 그릴 때마다 다시 채운다 — 캐릭터가 화면 폭에 따라 자리를 옮기기 때문에
   // 좌표를 미리 박아 둘 수가 없다. 그린 그 자리가 곧 누를 자리다.
   let hits = [];
-  let propHits = [];                                    // 땅 겹에 그린 소품 (한 번만 계산)
+  const view = { gx: 0, gy: 0 };                        // 마을 그림이 캔버스에 놓인 자리 — 누른 곳을 마을 도트로 되돌릴 때 쓴다
+  // ---- 마을 ----
+  // 풍경은 village.js 가 한 장으로 그린다 (건물·길·나무·개울). 여기서는 그 위에 놀이를 얹는다.
+  // VG 는 그 그림과, 놀이를 얹을 자리들(도트 단위)을 들고 있다.
+  let VG = null;
+  let HS = 2;                                           // 마을 도트 한 개가 몇 px 인가
+  let panX = 0, panMax = 0;                             // 좁은 화면에서는 마을이 화면보다 넓다 — 끌어서 본다
+  const TITLE_H = 108;                                  // 헤더 아래 제목 두 줄이 차지하는 하늘 띠
+  const tagBox = $('#heroTags');
   let nameTag = null;                                   // { text, x, y, at }
   const TAG_IN = 140, TAG_HOLD = 1700, TAG_OUT = 340;   // 뜨고 · 머물고 · 사라지고 (ms)
   const TAG_LIFE = TAG_IN + TAG_HOLD + TAG_OUT;
@@ -154,6 +162,20 @@ const belowFold = (() => {
     moon:  ['잘 자~', '반짝', '쉿, 다들 자는 중'],
     cloud: ['뭉게뭉게', '폭신폭신', '어디 가는 길이야?'],
     star:  ['반짝', '✦'],
+    castle:     ['두둥!', '용사님, 어서 오세요', '성문은 열려 있어요'],
+    fountain:   ['첨벙', '시원해~', '동전 던질래?'],
+    tent:       ['둥둥~', '축제다!', '표 사세요~'],
+    windmill:   ['빙글빙글', '바람이 분다~'],
+    well:       ['똑, 똑', '깊다~', '메아리~'],
+    post:       ['편지 왔어요!', '우표 붙였어?'],
+    gallery:    ['쉿, 전시 중', '이 그림 누가 그렸게?'],
+    boat:       ['출렁', '노 저어라~'],
+    bridge:     ['삐걱삐걱', '건너가요'],
+    greenhouse: ['따뜻해', '무럭무럭'],
+    shed:       ['삽 어디 갔지?', '덜컹'],
+    stall:      ['사과 사세요~', '딸기 한 알?'],
+    sign:       ['이쪽!', '저쪽?'],
+    lamp:       ['딸깍', '불 켜졌다'],
   };
 
   // 아무도 안 눌러 주면 먼저 말을 건다.
@@ -254,11 +276,9 @@ const belowFold = (() => {
     { key:'mushroom', sp:SPRITES.mushroom, label:'버섯',     line:'뽕!' },
     { key:'ladybug',  sp:SPRITES.ladybug,  label:'무당벌레', line:'톡' },
   ].filter(k => k.sp);                       // 예전 pixel.js 와 짝이 되면 그림이 없다 (위 HAS_PHASE 와 같은 이유)
-  const SECRET_SPOTS = [
-    { xr:0.07, yr:0.885 }, { xr:0.235, yr:0.905 }, { xr:0.38, yr:0.875 },
-    { xr:0.52, yr:0.915 }, { xr:0.63,  yr:0.870 }, { xr:0.78, yr:0.900 },
-    { xr:0.90, yr:0.880 },
-  ];
+  // 마을의 숨을 자리 일곱 곳 — 번호만 고르고 자리는 village.js 가 안다
+  // (강가 덤불, 미술관 앞 덤불, 술통 뒤, 광장 화단, 건초 더미, 성벽 위, 우물 옆 덤불)
+  const SECRET_SPOTS = [0, 1, 2, 3, 4, 5, 6];
   const FOUND_KEY = 'sy.found.' + DAY_SEED;
   let found = new Set();
   try { found = new Set(JSON.parse(localStorage.getItem(FOUND_KEY) || '[]')); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
@@ -269,7 +289,7 @@ const belowFold = (() => {
     for (let i = 0; i < n; i++) {
       const k = kinds.splice(Math.floor(prand(DAY_SEED + i * 3.1) * kinds.length), 1)[0];
       const s = spots.splice(Math.floor(prand(DAY_SEED + i * 7.7) * spots.length), 1)[0];
-      out.push(Object.assign({}, k, s));
+      out.push(Object.assign({}, k, { spot: s }));
     }
     return out;
   })();
@@ -302,7 +322,6 @@ const belowFold = (() => {
     try { const raw = localStorage.getItem('sy.hang.' + n); const h = raw && JSON.parse(raw);
           return h && h.n && h.s ? h : null; } catch (e) { return null; }
   });
-  let houseAt = null;                     // 문을 두드리면 열어야 해서 자리를 기억해 둔다
 
   // ---- 진짜 날씨 ----
   // open-meteo 는 열쇠 없이 좌표만 주면 된다. 풍경에 남산타워가 있으니 서울시청으로 둔다.
@@ -403,13 +422,14 @@ const belowFold = (() => {
   }
 
   // 배경은 매 프레임 다시 그리기엔 무거워서, 크기가 바뀔 때만 한 번 그려두고 재사용함.
-  // sky = 하늘(고정), ground = 언덕부터 앞쪽 수풀까지(스크롤에 따라 조금 밀림)
+  // sky = 하늘(고정). 마을은 village.js 가 그린 캔버스(VG.canvas)를 그대로 쓴다.
   const skyLayer = document.createElement('canvas');
-  const groundLayer = document.createElement('canvas');
   const torchLayer = document.createElement('canvas');   // 손전등의 어둠을 따로 만드는 판
-  let horizon = 0, groundY = 0, charS = 4;
+  let horizon = 0, charS = 4;
 
   function resize(){
+    // 폰에서 주소창이 접히고 펴질 때마다 resize 가 온다. 크기가 그대로면 300ms 짜리 마을 그리기를 되풀이하지 않는다
+    if (VG && W === canvas.clientWidth && H === canvas.clientHeight) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     W = canvas.clientWidth; H = canvas.clientHeight;
     canvas.width = Math.floor(W * dpr); canvas.height = Math.floor(H * dpr);
@@ -418,11 +438,17 @@ const belowFold = (() => {
     S = W < 640 ? 4 : 5;
     const hdr = document.querySelector('header.site');
     headerH = hdr ? Math.round(hdr.getBoundingClientRect().height) : 0;
-    horizon = H * 0.52;
-    groundY = H * 0.80;
+    // 마을 배율. 집 꼭대기(뒤 꼭짓점 위 74도트)부터 절벽 밑(아래 352도트)까지 426도트가
+    // 헤더 아래에서 화면 밑 여백 위까지 들어가게 한다. 폰에서는 1배쯤으로 두고 좌우로 끌어 본다.
+    // 제목 띠(헤더 아래 108px)는 비워 둔다 — 마을 지붕이 제목 글자에 걸리면 둘 다 안 읽힌다
+    HS = W < 700 ? Math.max(1, Math.min(1.4, W / 460)) : Math.max(1.2, Math.min(2.6, (H - headerH - TITLE_H - 40) / 426));
+    const vw = Math.max(Math.ceil(W / HS), 660);
+    panMax = Math.max(0, Math.round(vw * HS - W));
+    panX = panMax ? Math.max(-panMax, Math.min(0, panX || -Math.round(panMax / 2))) : 0;
     charS = Math.max(2, Math.round(S * 0.85));
+    planted.forEach(f => { delete f.dot; });             // 꽃 자리는 다시 푼다 — 원점이 옮겨졌다
 
-    [skyLayer, groundLayer, torchLayer].forEach(c => {
+    [skyLayer, torchLayer].forEach(c => {
       c.width = Math.floor(W * dpr); c.height = Math.floor(H * dpr);
       const g = c.getContext('2d');
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -443,146 +469,57 @@ const belowFold = (() => {
     if (NIGHT) drawStars(g, W, H, S, Math.round(W / 14), 0);   // NIGHT 는 HAS_PHASE 일 때만 참이다
   }
 
-  // 화면 가로 위치에 따른 "가까움" 정도. 0 = 왼쪽 끝(멀다), 1 = 오른쪽 끝(가깝다).
-  // 소품의 크기와 발밑 높이를 여기에 맞추면 왼쪽은 멀고 오른쪽은 가까운 구도가 됨.
-  const near = x => Math.min(1, Math.max(0, x / W));
-  // 원근 기울기 — 능선이 오른쪽으로 갈수록 내려와 이쪽으로 다가오는 느낌을 만듦
-  const TILT = () => H * 0.085;
+  // 색을 반투명으로
+  const hexA = (hex, a) => 'rgba(' + parseInt(hex.slice(1, 3), 16) + ',' + parseInt(hex.slice(3, 5), 16) + ',' + parseInt(hex.slice(5, 7), 16) + ',' + a + ')';
 
-  // 원근에 맞춘 소품 배치: 왼쪽일수록 작고 높이, 오른쪽일수록 크고 낮게
-  function prop(g, sprite, xr, baseScale, lift){
-    const d = near(W * xr);
-    const sc = Math.max(2, Math.round(baseScale * (0.72 + d * 0.78)));
-    const x = Math.round((W * xr) / S) * S;
-    // 발밑을 잔디 경계(왼쪽 높고 오른쪽 낮음)에 맞춰 세움
-    const y = Math.round((H * (0.775 + d * 0.105) - (lift || 0) - sprite.length * sc) / S) * S;
-    drawSprite(g, sprite, x, y, sc);
-    return { x, y, sc };
+  // 마을 이름표 — 집 위에 떠 있는 메뉴. 캔버스가 아니라 링크라서 눌리고, 읽히고, 탭으로 옮겨 다닌다.
+  function layoutTags(){
+    if (!tagBox) return;
+    tagBox.innerHTML = '';
+    if (!VG) return;
+    VG.labels.forEach(l => {
+      const a = document.createElement('a');
+      a.className = 'tag'; a.href = l.href; a.textContent = l.text;
+      a.style.left = Math.round(l.x * HS) + 'px';
+      a.style.top = Math.round(l.y * HS) + 'px';
+      tagBox.appendChild(a);
+    });
+    moveTags(0);
   }
-
-  // 소품을 세우면서 누를 자리도 같이 적어 둔다. 땅 겹은 한 번만 그리므로 여기서만 계산하면 된다.
-  function tapProp(g, sprite, key, xr, baseScale, lift){
-    const r = prop(g, sprite, xr, baseScale, lift);
-    const w = sprite[0].length * r.sc, h = sprite.length * r.sc;
-    propHits.push({ kind:'prop', key, x: r.x + w / 2, y: r.y, w, h });
-    return r;
-  }
+  function moveTags(gy){ if (tagBox) tagBox.style.transform = 'translate(' + panX + 'px,' + gy + 'px)'; }
 
   function paintGround(){
-    const g = groundLayer.getContext('2d');
-    g.clearRect(0, 0, W, H);
-    propHits = [];
-    const tilt = TILT();
-
-    // ---- 원경: 산맥 → 남산(타워) → 건물 → 언덕 순으로 겹쳐 공기원근법을 만듦 ----
-    drawHill(g, [{freq:1.7,amp:40,phase:1.2},{freq:4.3,amp:16,phase:3.1}],
-      '#b6cade', S, horizon - H*0.11, W, H, { tilt: tilt * 0.35, lit:'#c9d9e8' });
-
-    const peak = drawMountain(g, W * 0.26, horizon + H*0.04, W * 0.28, H * 0.29, S,
-      { body:'#9db6cd', light:'#bacddd', shade:'#849db6' }, 2.4);
-    const tw = SPRITES.tower[0].length, th = SPRITES.tower.length;
-    const ts = Math.max(2, Math.round(S * 0.65));
-    drawSprite(g, SPRITES.tower,
-      Math.round((peak.x - tw * ts / 2) / S) * S,
-      Math.round((peak.y - th * ts + S * 2) / S) * S, ts);
-
-    drawSkyline(g, horizon + S * 2, W, S, 3.7);
-
-    // 언덕 네 겹 — 각 겹마다 능선 하이라이트와 디더 전환을 넣어 색 단계를 늘림
-    const ridge0 = drawHill(g, [{freq:2.4,amp:22,phase:0.6},{freq:5.1,amp:8,phase:2.0}],
-      SCENE.hills[1], S, horizon, W, H, { tilt: tilt * 0.5, lit:SCENE.hillsLit[1], litRows:1, dither:SCENE.hills[0] });
-    drawTreeLine(g, ridge0, S, W, SCENE.hills[4], SCENE.hills[3], 2.1, 0.8);
-
-    const ridge1 = drawHill(g, [{freq:1.8,amp:26,phase:2.4},{freq:3.7,amp:10,phase:0.3}],
-      SCENE.hills[2], S, horizon + H*0.055, W, H, { tilt: tilt * 0.7, lit:SCENE.hillsLit[2], litRows:1, dither:SCENE.hills[1] });
-    drawTreeLine(g, ridge1, S, W, SCENE.hills[5], SCENE.hills[4], 7.4, 1.1);
-
-    drawHill(g, [{freq:1.3,amp:22,phase:4.2},{freq:3.1,amp:7,phase:1.7}],
-      SCENE.hills[3], S, horizon + H*0.12, W, H, { tilt: tilt * 0.85, lit:SCENE.hillsLit[3], litRows:1, dither:SCENE.hills[2] });
-
-    drawHill(g, [{freq:1.0,amp:16,phase:5.3}],
-      SCENE.hills[4], S, horizon + H*0.175, W, H, { tilt: tilt, lit:SCENE.hillsLit[4], litRows:1, dither:SCENE.hills[3], ditherRows:3 });
-
-    // ---- 중경: 잔디밭. 오른쪽이 가깝도록 위 경계를 기울임 ----
-    for (let c = 0; c < Math.ceil(W / S); c++) {
-      const t = c / Math.ceil(W / S);
-      const top = Math.round((horizon + H*0.225 + tilt * t) / S) * S;
-      g.fillStyle = SCENE.hills[5]; g.fillRect(c * S, top, S, H - top);
-      g.fillStyle = SCENE.hillsLit[5]; g.fillRect(c * S, top, S, S);
-      for (let k = 1; k < 4; k++) {                  // 뒤 언덕 색과 체커보드로 섞어 경계를 없앰
-        if ((c + k) % 2) continue;
-        g.fillStyle = SCENE.hills[4]; g.fillRect(c * S, top + S * k, S, S);
-      }
-    }
-    drawPath(g, W, horizon + H*0.24, H * 0.90, S, 1.1, 0.33, 0.70);
-    drawGrassTufts(g, 0, W, horizon + H*0.24, H * 0.95, S, 9.3, 0.18);
-
-    // ---- 중경 소품 — 왼쪽은 멀고 작게, 오른쪽은 가깝고 크게 ----
-    const bigS = Math.max(2, Math.round(S * 0.78));
-    // 액자 두 개 — draw.html 에서 걸어 둔 그림이 들어간다. 나무보다 먼저 그려 뒤에 서 있게 한다.
-    // 아이들 머리 위 언덕에 세운다 — 0.55 에 두면 레샤와 겹쳤다(375px 에서 확인)
-    [0.27, 0.47].forEach((xr, i) => {
-      const r = tapProp(g, SPRITES.picFrame, 'frame' + (i + 1), xr, bigS, H * 0.19);
-      // 빈 액자는 흰 바탕 — 비워 두면 잔디가 비쳐서 액자가 아니라 창틀처럼 보인다
-      g.fillStyle = '#ffffff';
-      g.fillRect(r.x + 2 * r.sc, r.y + 2 * r.sc, 10 * r.sc, 8 * r.sc);
-      if (!hung[i]) return;
-      g.imageSmoothingEnabled = false;
-      g.drawImage(drawingToCanvas(hung[i]), r.x + 3 * r.sc, r.y + 2 * r.sc, 8 * r.sc, 8 * r.sc);
+    // 배포 직후 HTML 과 village.js 가 짝이 안 맞는 10분 — 하늘과 아이들만 나오고 마을은 비어 있다
+    if (typeof Village === 'undefined') { VG = null; layoutTags(); return; }
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const vw = Math.ceil((W + panMax) / HS), vh = Math.ceil(H / HS);
+    // 땅 뒤 꼭짓점 — 가로는 마을이 가운데, 세로는 헤더 밑에서 가장 높은 지붕(74도트)만큼 내려온 곳
+    const orgY = Math.round((headerH + TITLE_H) / HS) + 74;
+    const dim = NIGHT || PHASE === 'dusk';               // 저녁부터 가로등과 창에 불이 켜진다
+    if (VG && VG.canvas) VG.canvas.width = 0;           // 지난 마을 캔버스를 바로 놓아 준다 (크기를 바꿀 때마다 20MB 씩 쌓인다)
+    VG = Village.render({
+      w: vw, h: vh, hs: HS * dpr, orgX: Math.round(vw / 2 - 24), orgY, night: dim,
+      sprites: SPRITES, pal: PAL,
+      frames: hung.map(h => h ? drawingToCanvas(h) : null),
     });
-    // 집은 언덕 위쪽(후방)에. 크기가 커져서(34x28) 앞에 두면 아이들을 가린다.
-    houseAt = tapProp(g, SPRITES.house, 'house', 0.06, bigS, H*0.15);
-    tapProp(g, SPRITES.tree,  'tree',  0.03, bigS, H*0.045);
-    tapProp(g, SPRITES.tree,  'tree',  0.20, bigS, H*0.050);
-    tapProp(g, SPRITES.tree,  'tree',  0.44, bigS, H*0.020);
-    tapProp(g, SPRITES.bench, 'bench', 0.31, charS, H*0.010);
-    tapProp(g, SPRITES.tree,  'tree',  0.66, bigS, -H*0.010);
-    tapProp(g, SPRITES.tree,  'tree',  0.84, bigS, -H*0.045);
-
-    // 바위 몇 개 — 뒤쪽은 작고 희미하게, 앞쪽은 크게
-    [[0.09,0.5],[0.27,0.7],[0.55,1.0],[0.70,1.3],[0.86,1.7]].forEach(([xr, sc], i) => {
-      const d = near(W * xr);
-      drawRock(g, W * xr, groundY - H * (0.16 - d * 0.12), S, sc, SCENE.rock);
-    });
-
-    // 잔디밭에 흩뿌린 덤불 — 앞쪽일수록 크게 해서 거리감을 보탬
-    for (let i = 0; i < 16; i++) {
-      const bx = prand(i * 3.3) * W;
-      const d = near(bx);
-      const by = H * (0.765 + d * 0.10) + prand(i * 5.5) * H * 0.045;
-      const sc = Math.max(2, Math.round(charS * (0.45 + d * 0.95)));
-      drawSprite(g, SPRITES.bush, Math.round(bx / S) * S,
-        Math.round((by - SPRITES.bush.length * sc) / S) * S, sc);
+    VG.dpr = dpr;
+    horizon = VG.horizon * HS;
+    const g = VG.canvas.getContext('2d');
+    // 시간대 색은 맨 마지막에 한 겹으로 덮는다. source-atop 이라 하늘로 비치는 빈 자리에는 묻지 않는다.
+    if (HAS_PHASE) tintLayer(g, VG.canvas.width, VG.canvas.height, PHASE);
+    // 덮개 뒤에 켜는 불 — 가로등·창·횃불. 덮기 전에 그리면 같이 어두워져서 불이 꺼진 것처럼 보인다.
+    if (dim) {
+      const k = HS * dpr, a = NIGHT ? 0.55 : 0.26;
+      g.save(); g.globalCompositeOperation = 'lighter';
+      VG.lights.forEach(l => {
+        const gr = g.createRadialGradient(l.x * k, l.y * k, 0, l.x * k, l.y * k, l.r * k);
+        gr.addColorStop(0, hexA(l.c, a)); gr.addColorStop(1, hexA(l.c, 0));
+        g.fillStyle = gr;
+        g.fillRect((l.x - l.r) * k, (l.y - l.r) * k, l.r * 2 * k, l.r * 2 * k);
+      });
+      g.restore();
     }
-
-    // 화면을 감싸는 큰 나무 (오른쪽) — 참조 이미지처럼 잎이 위쪽까지 걸치게
-    drawBigTree(g, W, H, S);
-
-    // ---- 전경: 가장 진한 수풀 + 그 위로 솟은 긴 풀로 아래쪽을 채워 깊이를 만듦 ----
-    drawTallGrass(g, -S*2, W + S*2, H * 0.875, S, 3.7, [SCENE.bush[0], SCENE.bush[1], SCENE.grass.dark], 2);
-    drawBushMass(g, -S*4, W + S*4, H * 0.86, H, S, 5.5, SCENE.bush);
-    drawTallGrass(g, -S*2, W + S*2, H * 0.985, S, 8.1, [SCENE.bush[2], SCENE.bush[3], SCENE.bush[4]], 2);
-
-    // 잔디밭에 흩뿌린 꽃 — 앞쪽일수록 크게
-    for (let i = 0; i < 26; i++) {
-      const fx = prand(i * 2.7) * W;
-      const fy = horizon + H*0.26 + prand(i * 4.1) * (H*0.58);
-      if (fy > H * 0.86) continue;                      // 앞 수풀에 가려질 자리는 건너뜀
-      const d = near(fx);
-      const sc = Math.max(2, Math.round(charS * (0.5 + d * 0.5 + prand(i*6.3) * 0.4)));
-      drawSprite(g, SPRITES.flower, Math.round(fx/S)*S, Math.round(fy/S)*S, sc,
-        { J: SCENE.petal[i % SCENE.petal.length] });
-    }
-
-    // 시간대 색은 맨 마지막에 한 겹으로 덮는다. 소재마다 색을 다시 잡는 것보다
-    // 훨씬 싸고, source-atop 이라 하늘로 비치는 빈 자리에는 묻지 않는다.
-    if (HAS_PHASE) tintLayer(g, W, H, PHASE);
-
-    // 덮개 뒤에 켜는 창문. 덮기 전에 그리면 같이 어두워져서 불이 꺼진 것처럼 보인다.
-    if (NIGHT) {
-      drawSprite(g, SPRITES.house, houseAt.x, houseAt.y, houseAt.sc,
-        onlyChars({ v: '#ffd979' }));
-    }
+    layoutTags();
   }
 
   // 계절이 뿌리는 것 — 봄 꽃잎, 가을 낙엽, 겨울 눈
@@ -783,29 +720,37 @@ const belowFold = (() => {
     ctx.globalAlpha = 1;
   }
 
-  // 심어 둔 꽃 — 땅 겹이 스크롤로 밀리는 만큼 같이 민다
-  function drawPlanted(gy){
-    const base = Math.max(2, Math.round(charS * 0.8));
-    planted.forEach((f, i) => {
-      const x = Math.round(f.xr * W / S) * S;
-      const y = Math.round((f.yr * H + gy) / S) * S;
+  // 심어 둔 꽃 — 마을 잔디 위에. 자리(xr, yr)는 땅 칸의 비율이라 화면 크기와 상관없이 같은 자리에 핀다
+  function drawPlanted(gx, gy){
+    if (!VG) return;
+    const base = Math.max(1, Math.round(HS));
+    planted.forEach(f => {
+      if (f.dot === undefined) {                          // 자리는 한 번만 푼다 (resize 가 지운다)
+        const tx = f.xr * VG.PW, ty = f.yr * VG.PD, kind = VG.kindOf(tx, ty);
+        f.dot = (kind === 'grass' || kind === 'garden') ? VG.dotAt(tx, ty) : null;   // 길·집 자리에 떨어진 옛 꽃은 안 그린다
+      }
+      if (!f.dot) return;
       // 심자마자 활짝 피면 「심었다」 는 느낌이 안 난다. 한 시간은 새싹, 하루는 봉오리,
       // 그다음부터 꽃이다 — 오늘 심은 것을 내일 보러 올 이유가 생긴다.
       const sp = f.age == null ? SPRITES.flower
                : f.age < 3600e3   ? (SPRITES.sprout || SPRITES.flower)
                : f.age < 86400e3  ? (SPRITES.bud || SPRITES.flower)
                : SPRITES.flower;
+      const x = Math.round(f.dot.x * HS + gx - sp[0].length * base / 2);
+      const y = Math.round(f.dot.y * HS + gy - sp.length * base);
       drawSprite(ctx, sp, x, y, base,
         Object.assign({}, wash(sp), { J: SCENE.petal[f.k % SCENE.petal.length] }));
     });
   }
 
-  function drawSecrets(gy){
-    const s = Math.max(2, Math.round(charS * 0.9));
+  function drawSecrets(gx, gy){
+    if (!VG) return;
+    const s = Math.max(1, Math.round(HS));
     secrets.forEach(sec => {
+      const p = VG.secrets[sec.spot] || VG.secrets[0];
       const w = sec.sp[0].length * s, h = sec.sp.length * s;
-      const x = Math.round((sec.xr * W - w / 2) / S) * S;
-      const y = Math.round((sec.yr * H - h + gy) / S) * S;
+      const x = Math.round(p.x * HS + gx - w / 2);
+      const y = Math.round(p.y * HS + gy - h);
       const done = found.has(sec.key);
       // 못 찾은 동안에는 위쪽 절반만 보인다 — 수풀 밖으로 빼꼼 내민 모습.
       // 찾고 나면 통째로 나와서, 찾았다는 게 눈으로 보인다.
@@ -919,67 +864,58 @@ const belowFold = (() => {
     const budW = budSp[0].length * budS, budH = budSp.length * budS;
     hits.push({ kind:'char', name: '미미', x: budDX + budW / 2, y: budDY, w: budW, h: budH });
 
-    // 5) 땅 (스크롤에 따라 살짝 밀림)
-    const gy = Math.round(scrollY * 0.06 / S) * S;
-    ctx.drawImage(groundLayer, 0, gy, W, H);
+    // 5) 마을 (스크롤에 따라 살짝 밀리고, 좁은 화면에서는 끌어 본 만큼 옆으로)
+    const gy = Math.round(scrollY * 0.06 / S) * S, gx = panX;
+    view.gx = gx; view.gy = gy;
+    if (VG) ctx.drawImage(VG.canvas, 0, 0, VG.canvas.width, VG.canvas.height, gx, gy, VG.canvas.width / VG.dpr, VG.canvas.height / VG.dpr);
+    moveTags(gy);
     // 비 오면 온 화면이 한 톤 가라앉고, 안개 낀 날은 지평선에 뿌연 띠가 낀다
     if (raining()) { ctx.fillStyle = 'rgba(70,80,100,.22)'; ctx.fillRect(0, 0, W, H); }
     if (weather.fog) { ctx.fillStyle = 'rgba(232,236,240,.40)'; ctx.fillRect(0, horizon - H * 0.1, W, H * 0.24); }
-    // 두드려서 열린 문 — 집은 땅 겹에 박혀 있으니 그 위에 문틀만 어둡게 덧그리고 고양이를 내보낸다
-    if (houseAt && performance.now() < doorOpen) {
-      const sc = houseAt.sc, hx = houseAt.x, hy = houseAt.y + gy;
-      ctx.fillStyle = '#3a2a1a'; ctx.fillRect(hx + 15 * sc, hy + 18 * sc, 4 * sc, 9 * sc);   // 문(15~18열, 18~26행)
-      const cs = Math.max(2, Math.round(sc * 0.7));
-      drawSprite(ctx, SPRITES.cat, hx + 21 * sc, hy + 27 * sc - SPRITES.cat.length * cs, cs, wash(SPRITES.cat));
+    // 두드려서 열린 문 — 오두막은 마을 그림에 박혀 있으니 그 위에 문만 어둡게 덧그리고 고양이를 내보낸다.
+    // 문은 2:1 로 기운 벽에 있어서 기둥마다 반 도트씩 내려간다.
+    if (VG && performance.now() < doorOpen) {
+      const d = VG.house.door;
+      ctx.fillStyle = '#2a1e16';
+      for (let i = 0; i < d.w; i++)
+        ctx.fillRect(Math.round((d.x + i) * HS + gx), Math.round((d.y + Math.floor(i / 2)) * HS + gy), Math.ceil(HS), Math.round(d.h * HS));
+      const cs = Math.max(1, Math.round(HS)), f = VG.house.foot;
+      drawSprite(ctx, SPRITES.cat, Math.round(f.x * HS + gx) - 5 * cs, Math.round(f.y * HS + gy) - SPRITES.cat.length * cs, cs, wash(SPRITES.cat));
     }
-    propHits.forEach(p => hits.push({ kind:p.kind, key:p.key, x:p.x, y:p.y + gy, w:p.w, h:p.h }));
 
-    drawPlanted(gy);
-    drawSecrets(gy);
+    drawPlanted(gx, gy);
+    drawSecrets(gx, gy);
     secrets.forEach(sec => sec.rect && hits.push({ kind:'secret', key:sec.key,
       x:sec.rect.x, y:sec.rect.y, w:sec.rect.w, h:sec.rect.h }));
 
-    // 6) 두 아이와 친구들 — 통통 튀는 모션
+    // 6) 두 아이와 친구들 — 광장에 서 있다. 통통 튀는 모션.
+    // 마을과 같은 배율로 그린다 — 집과 아이의 도트 크기가 같아야 한 그림으로 보인다.
     const hop1 = Math.abs(Math.sin(t * 1.4)) * 4;
     const hop2 = Math.abs(Math.sin(t * 1.4 + 0.9)) * 4;
-    const standY = groundY + gy - H * 0.03;
-    // 아이 스프라이트가 커져서 풍경을 압도하므로 등장인물만 따로 줄여 그림
-    const castS = Math.max(2, Math.round(charS * 0.7));
-    const petS = Math.max(2, Math.round(castS * 0.85));
-
-    // 좌표를 화면 비율로 박아두면 스프라이트 크기를 바꿀 때마다 서로 겹침.
-    // 실제 폭을 재서 가운데 정렬로 늘어놓고, 발끝은 sprite.length 로 맞춤.
-    const cast = [
-      { sp: SPRITES.chick, s: petS,  bob: 0, roll: true, name: '상그렐라' },  // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다님
-      { sp: SPRITES.sua,   s: castS, bob: hop1, name: '수아' },
-      { sp: SPRITES.yona,  s: castS, bob: hop2, rider: SPRITES.fox, name: '연아', riderName: '레샤' },
-      { sp: SPRITES.easel, s: castS, bob: 0, easel: true },   // 이젤은 사람이 아니라 이름이 없다
-    ];
-    // 좁은 화면에서는 캐릭터를 통째로 한 단계씩 줄여 가로로 넘치지 않게 함
-    while (cast[0].s > 2 && cast.reduce((n, c) => n + c.sp[0].length * c.s, 0) > W * 0.92) {
-      cast.forEach(c => c.s -= 1);
-    }
-    const castW = cast.reduce((n, c) => n + c.sp[0].length * c.s, 0);
-    // 넓은 화면에서 화면 폭을 다 쓰면 뿔뿔이 흩어져 보여서 간격에 상한을 둠
-    const gap = Math.max(0, Math.min(cast[1].s * 7,
-      Math.round((W * 0.94 - castW) / (cast.length - 1))));
-    // 스크롤을 내리면 다 같이 오른쪽으로 걸어간다 — 화면을 내리는 일이 곧 이야기를 넘기는 일이 되게
-    const walk = Math.min(1, Math.max(0, scrollY / (H * 0.9))) * W * 0.10;
-    let cx = Math.round((W - (castW + gap * (cast.length - 1))) / 2 / S) * S + walk;
+    const castS = Math.max(1, Math.round(HS));
+    const spot = p => ({ x: p.x * HS + gx, y: p.y * HS + gy });
+    const cast = VG ? [
+      { sp: SPRITES.chick, s: castS, bob: 0, roll: true, name: '상그렐라', at: spot(VG.chars.chick) },  // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다님
+      { sp: SPRITES.sua,   s: castS, bob: hop1, name: '수아', at: spot(VG.chars.sua) },
+      { sp: SPRITES.yona,  s: castS, bob: hop2, rider: SPRITES.fox, name: '연아', riderName: '레샤', at: spot(VG.chars.yona) },
+      { sp: SPRITES.easel, s: castS, bob: 0, easel: true, at: spot(VG.chars.easel) },   // 이젤은 사람이 아니라 이름이 없다
+    ] : [];
     cast.forEach(c => {
+      const w = c.sp[0].length * c.s, h = c.sp.length * c.s;
+      const cx = Math.round(c.at.x - w / 2), standY = Math.round(c.at.y);
       if (c.roll) {
         // 돌처럼 굴러다님: 좌우로 천천히 오가고, 굴러간 거리만큼 실제로 돌아간다.
         // 각도 = 이동거리 / 반지름 이라서 미끄러지지 않고 굴러가는 것으로 보임.
-        const w = c.sp[0].length * c.s, h = c.sp.length * c.s;
         const radius = w / 2;
-        const amp = Math.min(w * 1.6, W * 0.05);
+        const amp = Math.min(w * 1.6, HS * 18);
+        const LIM = HS * 110;                             // 광장과 길 너비만큼만 — 성이나 개울까지 굴러가지 않는다
         // 끌어다 던질 수 있다. 던진 뒤에는 제자리로 천천히 돌아온다 —
         // 아주 돌아오지 않으면 다음에 왔을 때 화면 구석에 박혀 있게 된다.
         if (!chick.held) {
           chick.ox += chick.vx;
           chick.vx = chick.vx * 0.94 - chick.ox * 0.006;    // 감쇠 + 제자리로 당기는 힘
-          // 화면 끝에 닿으면 튕긴다
-          if (Math.abs(chick.ox) >= W * 0.42 && Math.sign(chick.vx) === Math.sign(chick.ox)) chick.vx = -chick.vx * 0.55;
+          // 끝에 닿으면 튕긴다
+          if (Math.abs(chick.ox) >= LIM && Math.sign(chick.vx) === Math.sign(chick.ox)) chick.vx = -chick.vx * 0.55;
           if (chick.thrown) chick.far = Math.max(chick.far, Math.abs(chick.ox - chick.from));
           if (Math.abs(chick.vx) < 0.02 && Math.abs(chick.ox) < 0.5) { chick.vx = 0; chick.ox = 0; }
           // 멈추면 기록. 살짝 민 것(화면의 5% 미만)은 던진 걸로 안 친다.
@@ -987,31 +923,30 @@ const belowFold = (() => {
             chick.thrown = false;
             const m = Math.round(chick.far / W * 100) / 10;      // 화면 폭 = 10m
             if (chick.far > W * 0.05) {
-              const h = hits.find(x => x.kind === 'char' && x.name === '상그렐라');
+              const hh = hits.find(x => x.kind === 'char' && x.name === '상그렐라');
               if (m > bestThrow()) {
                 try { localStorage.setItem('sy.throw.best', String(m)); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
-                if (h) { sfx('key'); say('신기록! ' + m.toFixed(1) + 'm', h); popAt(h.x, h.y, SPRITES.star, 8); }
-              } else if (h) say(m.toFixed(1) + 'm', h);
+                if (hh) { sfx('key'); say('신기록! ' + m.toFixed(1) + 'm', hh); popAt(hh.x, hh.y, SPRITES.star, 8); }
+              } else if (hh) say(m.toFixed(1) + 'm', hh);
             }
           }
         }
-        chick.ox = Math.max(-W * 0.42, Math.min(W * 0.42, chick.ox));
+        chick.ox = Math.max(-LIM, Math.min(LIM, chick.ox));
         const dx = Math.sin(t * 0.42) * amp + chick.ox;
         ctx.save();
         // 회전 중심을 도트 격자에 맞춰 잡아야 돌 때 그림이 떨리지 않음
-        ctx.translate(Math.round((cx + w / 2 + dx) / S) * S,
-                      Math.round((standY - h / 2) / S) * S);
+        ctx.translate(Math.round((cx + w / 2 + dx) / c.s) * c.s, Math.round((standY - h / 2) / c.s) * c.s);
         ctx.rotate(dx / radius);
         drawSprite(ctx, c.sp, -Math.round(w / 2), -Math.round(h / 2), c.s, wash(c.sp));
         ctx.restore();
         // 돌고 있어도 누를 자리는 네모로 잡는다 — 돌아가는 모양까지 따라가면
         // 손끝이 계속 빗나가서 오히려 누르기 어렵다
-        if (c.name) hits.push({ kind:'char', name: c.name, x: cx + w / 2 + dx, y: standY - h, w: w, h: h });
+        hits.push({ kind:'char', name: c.name, x: cx + w / 2 + dx, y: standY - h, w: w, h: h });
       } else {
-        const top = standY - c.sp.length * c.s - c.bob;
+        const top = standY - h - c.bob;
         drawSprite(ctx, c.sp, cx, top, c.s, wash(c.sp));
         let headTop = top;                                 // 우산을 씌울 높이 — 머리 위 친구가 있으면 그 위
-        if (BIRTHDAY && c.name === BIRTHDAY) bdayFoot = { x: cx + c.sp[0].length * c.s + S, y: standY };
+        if (BIRTHDAY && c.name === BIRTHDAY) bdayFoot = { x: cx + w + S, y: standY };
         // 이젤에는 최근 작품 한 점이 걸린다. 흰 캔버스 자리(가로 4~19칸, 세로 2~14칸)에 맞춰 얹음.
         if (c.easel) {
           const ex = cx + 4 * c.s, ey = top + 2 * c.s, ew = 16 * c.s, eh = 13 * c.s;
@@ -1022,26 +957,21 @@ const belowFold = (() => {
             if (NIGHT) { ctx.globalAlpha = 0.42; ctx.fillStyle = '#101d3a'; ctx.fillRect(ex, ey, ew, eh); }
             ctx.restore();
           }
-          easelRect = { x: cx + c.sp[0].length * c.s / 2, y: top,
-                        w: c.sp[0].length * c.s, h: c.sp.length * c.s };
+          easelRect = { x: cx + w / 2, y: top, w: w, h: h };
           hits.push(Object.assign({ kind:'easel' }, easelRect));
         }
-        const own = c.name
-          ? { kind:'char', name: c.name, x: cx + c.sp[0].length * c.s / 2, y: top,
-              w: c.sp[0].length * c.s, h: c.sp.length * c.s }
-          : null;
+        const own = c.name ? { kind:'char', name: c.name, x: cx + w / 2, y: top, w: w, h: h } : null;
         if (own) hits.push(own);
         if (c.rider) {
           // 머리 위에 올라탄 친구 — 주인이 튀면 같이 튀도록 같은 top 을 기준으로 앉힘.
           // ★ 세로값을 도트 격자로 반올림하면 안 된다. 주인은 실수 좌표로 그려지는데
-          //   여기만 S(4~5px) 단위로 끊으면 혼자 뚝뚝 끊겨 보인다.
-          const rs = Math.max(2, Math.round(c.s * 0.85));
+          //   여기만 격자 단위로 끊으면 혼자 뚝뚝 끊겨 보인다.
+          const rs = Math.max(1, Math.round(c.s * 0.85));
           const rw = c.rider[0].length * rs, rh = c.rider.length * rs;
-          const rx = Math.round((cx + (c.sp[0].length * c.s - rw) / 2) / S) * S;
+          const rx = Math.round((cx + (w - rw) / 2) / rs) * rs;
           const rtop = top - rh + rs;
           drawSprite(ctx, c.rider, rx, rtop, rs, wash(c.rider));
           // 주인을 눌렀을 때 이름표는 머리 위 친구보다 더 높이 띄운다.
-          // 누르는 자리는 몸 그대로 두고 말풍선만 올리는 것 — 안 그러면 이름표가 그 친구를 덮는다.
           if (own) own.tagY = rtop;
           // 머리 위 친구는 주인 위에 겹쳐 있으니 뒤에 넣어 둔다 — 찾을 때 뒤에서부터 보므로
           // 겹친 자리를 누르면 위에 있는 쪽이 잡힌다
@@ -1050,13 +980,12 @@ const belowFold = (() => {
         }
         // 비 오는 날엔 아이들이 우산을 쓴다. 이젤은 안 쓴다 — 그림이 젖는 건 모른 척.
         if (raining() && c.name) {
-          const us = Math.max(2, Math.round(c.s * 2.2));
+          const us = Math.max(1, Math.round(c.s * 2.2));
           const uw = SPRITES.umbrella[0].length * us, uh = SPRITES.umbrella.length * us;
-          drawSprite(ctx, SPRITES.umbrella, Math.round((cx + (c.sp[0].length * c.s - uw) / 2) / S) * S,
-            Math.round((headTop - uh + us * 2) / S) * S, us, wash(SPRITES.umbrella));
+          drawSprite(ctx, SPRITES.umbrella, Math.round((cx + (w - uw) / 2) / us) * us,
+            Math.round((headTop - uh + us * 2) / us) * us, us, wash(SPRITES.umbrella));
         }
       }
-      cx += c.sp[0].length * c.s + gap;
     });
     // 생일 케이크 — 생일인 아이 발밑 옆에
     if (bdayFoot) {
@@ -1067,9 +996,10 @@ const belowFold = (() => {
 
     // 7) 나비 — 8자를 그리며 떠다니다가, 손가락이 가까이 오면 그쪽으로 끌려온다
     for (let i = 0; i < 3; i++) {
-      let bx = W * (0.22 + i * 0.26) + Math.sin(t * 0.7 + i * 2) * W * 0.06;
+      const home = VG ? spot(VG.chars.sua) : { x: W * 0.5, y: H * 0.6 };
+      let bx = home.x + (i - 1) * HS * 46 + Math.sin(t * 0.7 + i * 2) * HS * 22;
       // 아이들 머리 위로 띄움 — 얼굴 높이면 표정을 가림
-      let by = groundY + gy - H * 0.19 + Math.sin(t * 1.5 + i) * S * 5;
+      let by = home.y - HS * 62 + Math.sin(t * 1.5 + i) * S * 5;
       if (pointer.on) {
         const d = Math.hypot(pointer.x - bx, pointer.y - by);
         if (d < W * 0.45) {
@@ -1173,7 +1103,16 @@ const belowFold = (() => {
       const h = hits[i];
       if (h.key === 'star' && isMapStar(h.idx) && inside(h)) return h;
     }
+    // 숨은 친구도 먼저 본다. 아이들 상자는 넓고 나중에 그려져서, 그 여유 폭 안에
+    // 숨은 친구가 있으면 눌러도 아이가 대신 대답했다 (광장 화단의 달팽이가 그랬다).
+    for (let i = 0; i < hits.length; i++) if (hits[i].kind === 'secret' && inside(hits[i])) return hits[i];
     for (let i = hits.length - 1; i >= 0; i--) if (inside(hits[i])) return hits[i];
+    // 마을의 물건은 상자가 아니라 그려진 도트로 본다. 성은 상자가 화면의 반이라,
+    // 그 앞 집의 벽을 눌러도 성이 대답했다. 말풍선은 그 물건의 상자 위에 띄운다.
+    if (VG) {
+      const b = VG.hitAt((px - view.gx) / HS, (py - view.gy) / HS);
+      if (b) return { kind:'prop', key:b.key, x:b.x * HS + view.gx, y:b.y * HS + view.gy, w:b.w * HS, h:b.h * HS };
+    }
     return null;
   }
 
@@ -1204,7 +1143,7 @@ const belowFold = (() => {
   canvas.addEventListener('pointerdown', e => {
     const p = atCanvas(e);
     const hit = hitAt(p.x, p.y);
-    drag = { x0:p.x, y0:p.y, hit, moved:false, last:p.x, vx:0 };
+    drag = { x0:p.x, y0:p.y, hit, moved:false, last:p.x, vx:0, panBase: panX };
     if (hit && hit.kind === 'char' && hit.name === '상그렐라') {
       chick.held = true; chick.vx = 0;
       drag.base = chick.ox;
@@ -1221,6 +1160,10 @@ const belowFold = (() => {
         chick.ox = drag.base + (p.x - drag.x0);
         drag.vx = p.x - drag.last;
         drag.last = p.x;
+        kick();
+      } else if (panMax > 0 && drag.moved) {
+        // 좁은 화면 — 마을을 옆으로 끌어 본다. 이름표도 같이 간다
+        panX = Math.max(-panMax, Math.min(0, drag.panBase + (p.x - drag.x0)));
         kick();
       }
     }
@@ -1339,14 +1282,17 @@ const belowFold = (() => {
   // 여기서 먼저 막아야 눌러 놓고 거절당하는 일이 없다.
   const PLANT_MAX = 5;
   function plant(p){
-    const top = horizon + H * 0.24, bottom = H * 0.87;
-    if (p.y < top || p.y > bottom) return;
+    if (!VG) return;
+    // 마을 잔디에만 — 길·광장·건물·물에는 안 심긴다
+    const gy = Math.round(scrollY * 0.06 / S) * S;
+    const w = VG.worldAt((p.x - panX) / HS, (p.y - gy) / HS);
+    if (w.kind !== 'grass' && w.kind !== 'garden') return;
     if (plantedHere >= PLANT_MAX) return;
     const now = performance.now();
     if (now - plantAt < 1200) return;
     plantAt = now; plantedHere++;
 
-    const f = { xr: p.x / W, yr: p.y / H, k: Math.floor(Math.random() * SCENE.petal.length), age: 0 };
+    const f = { xr: w.tx / VG.PW, yr: w.ty / VG.PD, k: Math.floor(Math.random() * SCENE.petal.length), age: 0 };
     planted.push(f);
     popAt(p.x, p.y, SPRITES.heart, 2);
     sfx('plant');
@@ -1426,7 +1372,9 @@ const belowFold = (() => {
     if (b) { b.textContent = '🎂 오늘은 ' + BIRTHDAY + ' 생일!'; b.hidden = false; }
   }
 
-  window.addEventListener('resize', () => { resize(); draw(); });
+  // 창 크기를 끄는 동안 300ms 짜리 마을 그리기를 매번 하지 않게 조금 기다린다
+  let resizeT = 0;
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { resize(); draw(); }, 120); });
   window.addEventListener('scroll', () => { scrollY = window.scrollY; if (reduce) draw(); }, {passive:true});
   resize();
   if (reduce) draw(); else loop();

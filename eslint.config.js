@@ -30,6 +30,7 @@ const shared = Object.assign(
   {},
   topLevelNames('common.js'),
   topLevelNames('pixel.js'),
+  topLevelNames('village.js'),       // Village — index.html 이 pixel.js 뒤에 싣는다
   topLevelNames('event/compress.js'),
   topLevelNames('farm-rules.js'),    // FARM — farm.html 이 common.js 뒤에 싣는다
   topLevelNames('quest-rules.js'),   // QUEST — quest.html 도 같다
@@ -50,7 +51,7 @@ module.exports = [
 
   // 공유 스크립트와 페이지 스크립트 — 브라우저 전역 + 우리 전역
   {
-    files: ['common.js', 'pixel.js', 'event/compress.js', 'pages/**/*.js', 'farm-rules.js', 'quest-rules.js'],
+    files: ['common.js', 'pixel.js', 'village.js', 'event/compress.js', 'pages/**/*.js', 'farm-rules.js', 'quest-rules.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'script',
