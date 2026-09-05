@@ -4264,7 +4264,8 @@ function renderDuo(){
 function renderDex(){
   const box = $('#dex'); box.innerHTML = '';
   const all = R.CROP_IDS.map(c => ['crop:' + c, c]).concat(R.CROP_IDS.filter(c => R.CROPS[c].giant).map(c => ['giant:' + c, 'giant:' + c]))
-    .concat(['egg', 'bigegg', 'milk', 'goldmilk', 'wool', 'honey', 'firefly'].map(k => [k, k])).concat(Object.keys(R.DISHES).map(d => ['dish:' + d, 'dish:' + d]));
+    .concat(['egg', 'bigegg', 'milk', 'goldmilk', 'wool', 'honey', 'firefly'].map(k => [k, k]))
+    .concat(R.FISH_IDS.map(f => ['fish:' + f, 'fish:' + f])).concat(Object.keys(R.DISHES).map(d => ['dish:' + d, 'dish:' + d]));
   let got = 0, gold = 0;
   all.forEach(([id, dexKey]) => {
     const have = M.dex.indexOf(dexKey) >= 0; if (have) got++;
@@ -4280,7 +4281,30 @@ function renderDex(){
   $('#dexCount').textContent = got + '/' + all.length + (gold ? ' · 반짝 ' + gold : '');
   const st = M.stats || {};
   $('#stats').innerHTML = [['거둔 작물', st.harvested], ['물 준 횟수', st.watered], ['심은 씨앗', st.planted], ['판 물건', st.sold], ['보낸 선물', st.gifted], ['만든 요리', st.cooked], ['모은 재료', st.gathered], ['낚은 물고기', st.fished], ['잡은 반딧불이', st.caught], ['온 날', (M.playDays || []).length + '일']].map(x => '<div>' + x[0] + '<b>' + (x[1] || 0) + '</b></div>').join('');
+  renderMedals();
   $('#logs').innerHTML = (W.log || []).slice(0, 12).map(l => '<li><b>' + formatDate(l.t) + '</b> ' + escapeHTML(l.text).replace(/&lt;b&gt;|&lt;\/b&gt;/g, '') + '</li>').join('') || '<li>아직 일지가 없어요</li>';
+}
+
+/* 훈장. 조건이 찬 것은 초록 테로 눈에 띄게 하고, 받고 나면 금테로 남는다.
+   받기를 눌러야 동전이 오므로 「받았다」는 실감이 생긴다. */
+function renderMedals(){
+  const box = $('#medals'); if (!box) return;
+  box.innerHTML = '';
+  const list = R.medalState(W, M);
+  list.forEach(m => {
+    const d = document.createElement('div');
+    d.className = m.got ? 'got' : m.ready ? 'can' : 'no';
+    d.innerHTML = '<span class="ic">' + m.icon + '</span><span><b>' + escapeHTML(m.name) + '</b><br>'
+      + escapeHTML(m.got ? '받았어요' : m.desc) + '</span>';
+    if (!m.got && m.ready){
+      d.appendChild(btn('받기 🪙' + m.coins, 'sm buy', () => {
+        const r = act((w, mm) => R.claimMedal(w, mm, m.id, now()));
+        if (r.ok) sfx('fanfare');
+      }));
+    }
+    box.appendChild(d);
+  });
+  $('#medalCount').textContent = list.filter(m => m.got).length + '/' + list.length;
 }
 
 // ---------- 배선 ----------

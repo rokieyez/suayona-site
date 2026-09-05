@@ -140,6 +140,14 @@
   .animal .love{color:#b8355a; letter-spacing:1px;}
   /* 아직 어른이 안 된 새끼 */
   .animal .baby{background:#ffeab5; border:2px solid var(--ink); font-size:10px; padding:0 4px;}
+  /* 훈장 — 받은 것은 금테, 받을 수 있는 것은 깜빡이는 테 */
+  .medals{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:6px;}
+  .medals div{border:2px solid var(--ink); background:#fff; padding:6px; font-size:11px; line-height:1.4; display:flex; gap:6px; align-items:center;}
+  .medals div .ic{font-size:20px; line-height:1;}
+  .medals div.no{opacity:.45;}
+  .medals div.got{border-color:#e0a72b; background:#fffbe9;}
+  .medals div.can{border-color:#3f9a4b; background:#f1fbf0;}
+  .medals div button{margin-left:auto;}
   .animal .act{display:flex; gap:4px; margin-left:auto; flex-wrap:wrap;}
   .order{border:2px solid var(--ink); background:#fff; padding:8px 10px; font-size:12.5px; margin-bottom:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
   .order .pb{flex:1 1 100px; height:10px; border:2px solid var(--ink); background:#f1ede6; position:relative; min-width:80px;}
@@ -317,6 +325,9 @@
       <div class="dot-card panel" id="tab-dex" hidden>
         <h3 class="pixel">도감 <span id="dexCount" style="font-weight:700;color:var(--ink-soft);"></span></h3>
         <div class="dex" id="dex"></div>
+        <h3 class="pixel">훈장 <span id="medalCount" style="font-weight:700;color:var(--ink-soft);"></span></h3>
+        <p class="sub">조건이 차면 받을 수 있어요. 받으면 동전도 와요.</p>
+        <div class="medals" id="medals"></div>
         <h3 class="pixel">기록</h3>
         <div class="stats" id="stats"></div>
         <h3 class="pixel">농장 일지</h3>
