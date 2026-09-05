@@ -1016,7 +1016,6 @@ function drawDecals(q){
 }
 // ---------- 팔레트 ----------
 const TILE_P = { a: ['#c9705a', '#bd6650', '#b25d48', '#a55340'], edge: '#7c3a2c', joint: '#8f4536' };
-const TILE_D = { a: ['#b85e4a', '#ac5542', '#a04d3c', '#944636'], edge: '#6a3024', joint: '#7d3a2c' };
 const SLATE_P = { a: ['#5f6b7a', '#566270', '#4d5866', '#455060'], edge: '#2f3742', joint: '#3d4653' };
 const TIN_P = { a: ['#9aa4ab', '#8e989f', '#838d94', '#78828a'], edge: '#5a636a', joint: '#6b747b' };
 const STONE_P = { a: ['#cfc6b6', '#bcb2a2', '#a99f8f', '#978d7e', '#b5aa99'], m: '#6e665c', moss: '#7d9457' };
@@ -1559,7 +1558,8 @@ function render(o){
       return i ? hits[i - 1] : null;
     },
     labels: VS.labels.map(l => Object.assign({ text: l.text, href: l.href }, pt(l.x, l.y, l.z))),
-    chars: { sua: pt(6.3, 6.35), yona: pt(7.6, 6.55), chick: pt(7.1, 7.05), easel: pt(0.7, 10.5) },   // 이젤은 강가 — 큰 나무 밑에서는 가려졌다
+    // 아이 둘은 서로도, 광장 가로등과도 안 겹치게 왼쪽으로 벌려 세운다 (도트 그림이 한 칸보다 넓다)
+    chars: { sua: pt(5.6, 7.9), yona: pt(6.7, 6.6), chick: pt(7.15, 7.3), easel: pt(0.7, 10.5) },   // 이젤은 강가 — 큰 나무 밑에서는 가려졌다
     // 숨는 자리 일곱 곳 — 낮은 물건(벤치·덤불·술통·화단·건초·성벽) 꼭대기보다 넉 도트 아래에 발을 둔다.
     // 위 절반만 그리면 물건 너머로 머리만 내민 것처럼 보인다. 아이·이젤 터치 영역과 꼬리표를 피한 자리다.
     secrets: [[1.9, 9.82], [2.77, 1.81], [3.78, 1.64], [5.35, 6.85], [9.38, 10.04], [8.58, 2.25], [11.94, 9.90]].map(([x, y]) => pt(x, y)),

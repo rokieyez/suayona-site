@@ -955,15 +955,18 @@ const belowFold = (() => {
 
     // 6) 두 아이와 친구들 — 광장에 서 있다. 통통 튀는 모션.
     // 마을과 같은 배율로 그린다 — 집과 아이의 도트 크기가 같아야 한 그림으로 보인다.
-    const hop1 = Math.abs(Math.sin(t * 1.4)) * 4;
-    const hop2 = Math.abs(Math.sin(t * 1.4 + 0.9)) * 4;
     const castS = Math.max(1, Math.round(HS));
+    // 튀는 높이는 도트 격자에 맞춰 끊는다. 소수 자리로 올리면 drawSprite 가 그 소수를 알파로
+    // 구워 넣어서(SUBY) 도트 줄마다 반투명한 이음매가 생기고, 아이들 사이로 배경이 비친다.
+    const hop1 = Math.round(Math.abs(Math.sin(t * 1.4)) * 3) * castS;
+    const hop2 = Math.round(Math.abs(Math.sin(t * 1.4 + 0.9)) * 3) * castS;
     const spot = p => ({ x: p.x * HS + gx, y: p.y * HS + gy });
     const cast = VG ? [
-      { sp: SPRITES.chick, s: castS, bob: 0, roll: true, name: '상그렐라', at: spot(VG.chars.chick) },  // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다님
       { sp: SPRITES.sua,   s: castS, bob: hop1, name: '수아', at: spot(VG.chars.sua) },
       { sp: SPRITES.yona,  s: castS, bob: hop2, rider: SPRITES.fox, name: '연아', riderName: '레샤', at: spot(VG.chars.yona) },
       { sp: SPRITES.easel, s: castS, bob: 0, easel: true, at: spot(VG.chars.easel) },   // 이젤은 사람이 아니라 이름이 없다
+      // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다닌다. 두 아이보다 앞줄에 서 있으니 맨 나중에 그린다
+      { sp: SPRITES.chick, s: castS, bob: 0, roll: true, name: '상그렐라', at: spot(VG.chars.chick) },
     ] : [];
     cast.forEach(c => {
       const w = c.sp[0].length * c.s, h = c.sp.length * c.s;
@@ -988,7 +991,9 @@ const belowFold = (() => {
             chick.thrown = false;
             const m = Math.round(chick.far / W * 100) / 10;      // 화면 폭 = 10m
             if (chick.far > W * 0.05) {
-              const hh = hits.find(x => x.kind === 'char' && x.name === '상그렐라');
+              // 자기 자리를 직접 만든다 — hits 는 매 장 새로 채우는데 상그렐라는 아직 안 들어가 있어서
+              // 찾으면 undefined 였고, 그 바람에 신기록 소리도 말풍선도 안 나왔다
+              const hh = { x: cx + w / 2 + chick.ox, y: standY - h, w: w, h: h };
               if (m > bestThrow()) {
                 try { localStorage.setItem('sy.throw.best', String(m)); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
                 if (hh) { sfx('key'); say('신기록! ' + m.toFixed(1) + 'm', hh); popAt(hh.x, hh.y, SPRITES.star, 8); }
@@ -1029,8 +1034,7 @@ const belowFold = (() => {
         if (own) hits.push(own);
         if (c.rider) {
           // 머리 위에 올라탄 친구 — 주인이 튀면 같이 튀도록 같은 top 을 기준으로 앉힘.
-          // ★ 세로값을 도트 격자로 반올림하면 안 된다. 주인은 실수 좌표로 그려지는데
-          //   여기만 격자 단위로 끊으면 혼자 뚝뚝 끊겨 보인다.
+          // 주인의 top 이 정수라 여기도 정수가 된다. 따로 반올림하면 주인과 어긋나 혼자 끊겨 보인다.
           const rs = Math.max(1, Math.round(c.s * 0.85));
           const rw = c.rider[0].length * rs, rh = c.rider.length * rs;
           const rx = Math.round((cx + (w - rw) / 2) / rs) * rs;
