@@ -92,6 +92,59 @@ $('#mSaveBtn').addEventListener('click', async () => {
    3번이 있어야 하는 이유: 카카오가 못 찾는 곳은 이름만 남고 핀이 안 찍혔는데,
    그걸 고칠 방법이 화면에 없었다. 이제 손으로 찍을 수 있다.
    ========================================================================= */
+/* ---------- 시간 고르기 ----------
+   손으로 적으면 「9시」·「09:0」·「18:00 - 18:30」 처럼 꼴이 제각각이 된다.
+   실제로 서른여덟 개 가운데 여덟 개가 가운뎃줄 앞뒤에 사이띄개가 붙어 있었다.
+   열 분 간격으로 고르게 하고, 저장은 늘 「09:00-10:00」 한 꼴로 한다.
+   이미 있는 값은 전부 열 분 단위라 그대로 옮겨 담긴다. */
+const TIME_STEP = 10;
+
+function timeOptionsHTML(){
+  const out = ['<option value="">— 없음 —</option>'];
+  for (let m = 0; m < 24 * 60; m += TIME_STEP) {
+    const t = String(Math.floor(m / 60)).padStart(2, '0') + ':' +
+              String(m % 60).padStart(2, '0');
+    out.push('<option value="' + t + '">' + t + '</option>');
+  }
+  return out.join('');
+}
+
+// 「18:00 - 18:30」, 「09:00~10:00」, 「9:00」 을 모두 받아 준다
+function parseTimeText(text){
+  const m = String(text || '').match(/(\d{1,2}):(\d{2})\s*(?:[-~–—]\s*(\d{1,2}):(\d{2}))?/);
+  if (!m) return { from: '', to: '' };
+  const pad = (h, mm) => String(+h).padStart(2, '0') + ':' + mm;
+  return { from: pad(m[1], m[2]), to: m[3] ? pad(m[3], m[4]) : '' };
+}
+
+function timeTextOf(from, to){
+  if (!from) return '';
+  return to ? from + '-' + to : from;
+}
+
+// 고를 거리에 없는 값(열 분에 안 떨어지는 옛 값)이면 그 한 칸만 끼워 넣는다 —
+// 안 그러면 저장할 때 조용히 시간이 지워진다.
+function setTimeSelect(sel, value){
+  if (value && !Array.from(sel.options).some(o => o.value === value)) {
+    const o = document.createElement('option');
+    o.value = o.textContent = value;
+    sel.insertBefore(o, sel.options[1] || null);
+  }
+  sel.value = value || '';
+}
+
+/* 시작을 고르면 끝을 한 시간 뒤로 채워 준다 — 아직 안 골랐을 때만.
+   사람이 이미 적어 둔 것을 말없이 덮으면 안 된다. */
+function linkTimePair(fromSel, toSel){
+  fromSel.addEventListener('change', () => {
+    if (!fromSel.value || toSel.value) return;
+    const [h, m] = fromSel.value.split(':').map(Number);
+    const t = (h * 60 + m + 60) % (24 * 60);
+    setTimeSelect(toSel, String(Math.floor(t / 60)).padStart(2, '0') + ':' +
+                          String(t % 60).padStart(2, '0'));
+  });
+}
+
 function makePlacePicker(host, init){
   init = init || {};
   const st = { lat: Number.isFinite(init.lat) ? init.lat : null,
@@ -330,6 +383,12 @@ async function refreshAuthUI(){
     fillPanelSelect();
     fillMetaForm();
     if (!addPlacePicker) addPlacePicker = makePlacePicker($('#addPlaceField'));
+    const tf = $('#addTimeFrom'), tt = $('#addTimeTo');
+    if (tf && !tf.options.length) {
+      tf.innerHTML = timeOptionsHTML();
+      tt.innerHTML = timeOptionsHTML();
+      linkTimePair(tf, tt);
+    }
     const wb = $('#wishPickBtn');
     if (wb && !wb.dataset.on) { wb.dataset.on = '1'; wb.addEventListener('click', toggleWishPick); }
     await checkExtraImagesColumn();     // 사진 여러 장 컬럼 유무를 먼저 확인
@@ -677,7 +736,12 @@ function renderEditForm(r){
   const form = document.createElement('div');
   form.className = 'edit-form';
   form.innerHTML =
-    '<label>시간</label><input type="text" class="eTime" value="' + escapeHTML(r.time || '') + '">' +
+    '<label>시간 (열 분 간격)</label>' +
+    '<div class="time-pick">' +
+      '<select class="eTimeFrom" aria-label="시작 시각">' + timeOptionsHTML() + '</select>' +
+      '<span class="tilde">~</span>' +
+      '<select class="eTimeTo" aria-label="끝 시각">' + timeOptionsHTML() + '</select>' +
+    '</div>' +
     '<label>제목</label><input type="text" class="eTitle" value="' + escapeHTML(r.title) + '">' +
     '<label>장소</label><div class="ePlaceField"></div>' +
     '<label>상세 설명</label><textarea class="eDetail">' + escapeHTML(r.detail || '') + '</textarea>' +
@@ -694,6 +758,15 @@ function renderEditForm(r){
     '<div class="btn-row"><button class="btn saveBtn">저장</button><button class="btn ghost cancelBtn">취소</button></div>' +
     '<div class="add-msg"></div>';
 
+  // 적혀 있던 시간을 고른 자리로 옮긴다
+  {
+    const f = form.querySelector('.eTimeFrom'), t = form.querySelector('.eTimeTo');
+    const parsed = parseTimeText(r.time);
+    setTimeSelect(f, parsed.from);
+    setTimeSelect(t, parsed.to);
+    linkTimePair(f, t);
+  }
+
   // 폼이 화면에 붙은 뒤에 만들어야 지도가 크기를 잴 수 있다
   const editPlacePicker = makePlacePicker(form.querySelector('.ePlaceField'), {
     name: r.place_name || '', lat: r.place_lat, lng: r.place_lng,
@@ -703,7 +776,8 @@ function renderEditForm(r){
 
   form.querySelector('.saveBtn').addEventListener('click', async () => {
     const saveBtn = form.querySelector('.saveBtn');
-    const time = form.querySelector('.eTime').value.trim();
+    const time = timeTextOf(form.querySelector('.eTimeFrom').value,
+                            form.querySelector('.eTimeTo').value);
     const title = form.querySelector('.eTitle').value.trim();
     const detail = form.querySelector('.eDetail').value.trim();
     const files = Array.from(form.querySelector('.eImage').files);
@@ -748,7 +822,7 @@ function renderEditForm(r){
 $('#addBtn').addEventListener('click', async () => {
   const addBtn = $('#addBtn');
   const panel = $('#addPanel').value;
-  const time = $('#addTime').value.trim();
+  const time = timeTextOf($('#addTimeFrom').value, $('#addTimeTo').value);
   const title = $('#addTitle').value.trim();
   const detail = $('#addDetail').value.trim();
   const files = Array.from($('#addImage').files);
@@ -821,7 +895,7 @@ $('#addBtn').addEventListener('click', async () => {
   msg.textContent = '추가됐습니다!' + placeNote(placeRes) + (files.length > 1 && !hasExtraImages
     ? ' (사진은 첫 장만 저장됐어요 — 위 안내의 SQL을 실행하면 여러 장이 저장됩니다)' : '');
   insertAfter = null; syncInsertNote();
-  $('#addTime').value = ''; $('#addTitle').value = '';
+  $('#addTimeFrom').value = ''; $('#addTimeTo').value = ''; $('#addTitle').value = '';
   $('#addDetail').value = ''; $('#addImage').value = '';
   addPlacePicker = makePlacePicker($('#addPlaceField'));   // 장소 칸도 비운다
   loadList();

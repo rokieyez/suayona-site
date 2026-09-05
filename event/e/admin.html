@@ -82,6 +82,11 @@
   #wishPickBox .wp .sub{display:block; font-size:11px; color:var(--ink-soft);}
   #wishPickBox .none{font-size:12px; color:var(--ink-soft); padding:6px;}
 
+  /* 시간 고르기 — 두 칸이 한 줄에 들어가고, 좁은 화면에서도 안 넘친다 */
+  .time-pick{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .time-pick select{flex:1; min-width:0;}
+  .time-pick .tilde{color:var(--ink-soft); font-size:13px; flex-shrink:0;}
+
   #retrofit-box{margin-bottom:22px;}
   #retrofit-box .btn{width:100%;}
   #retrofitMsg{font-size:12.5px; color:var(--ink-soft); margin-top:8px; min-height:1em;}
@@ -298,8 +303,12 @@
       <div id="insertNote" hidden></div>
       <label>날짜/탭</label>
       <select id="addPanel" aria-label="어느 판에 넣을지"></select>
-      <label>시간 (예: 09:00-10:00)</label>
-      <input type="text" id="addTime" placeholder="09:00-10:00">
+      <label>시간 (열 분 간격)</label>
+      <div class="time-pick">
+        <select id="addTimeFrom" aria-label="시작 시각"></select>
+        <span class="tilde">~</span>
+        <select id="addTimeTo" aria-label="끝 시각"></select>
+      </div>
       <label>제목</label>
       <input type="text" id="addTitle" placeholder="예: 아침식사">
       <label>장소 (선택)</label>
