@@ -195,6 +195,7 @@ const belowFold = (() => {
     sign:       ['이쪽!', '저쪽?'],
     ruler:      ['키 재 볼까?', '얼마나 컸을까'],
     lamp:       ['딸깍', '불 켜졌다'],
+    butterfly:  ['팔랑팔랑', '꽃 좋아해', '살랑~'],
   };
 
   // 아무도 안 눌러 주면 먼저 말을 건다.
@@ -348,6 +349,25 @@ const belowFold = (() => {
     return out;
   })();
 
+  // ---- 오늘의 숨바꼭질 ----
+  // 하루에 한 번, 연아가 마을 어딘가에 숨는다. 숨은 친구가 쓰지 않은 자리 중에서 날짜로 고르므로
+  // 자매가 같은 날 같은 자리를 뒤진다. 생일에는 숨지 않는다 — 주인공이 없으면 잔치가 안 된다.
+  const HIDE_KEY = 'sy.hide.' + DAY_SEED;
+  const HIDE_LINES = ['연아가 숨었어! 찾아 줘', '연아 어디 갔지?', '숨바꼭질 중이야'];
+  let yonaFound = false;
+  try { yonaFound = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) { /* 저장이 막힌 브라우저 — 올 때마다 새로 숨는다 */ }
+  // 자리는 처음 물어볼 때 정한다 — 생일 여부(BIRTHDAY)가 이 줄보다 아래에서 정해진다
+  let hideSpot;
+  function hideSpotOf(){
+    if (hideSpot === undefined) {
+      const used = secrets.map(x => x.spot);
+      const free = SECRET_SPOTS.filter(i => used.indexOf(i) < 0);
+      hideSpot = (BIRTHDAY || !free.length) ? -1 : free[Math.floor(prand(DAY_SEED + 11.3) * free.length)];
+    }
+    return hideSpot;
+  }
+  const hiding = () => hideSpotOf() >= 0 && !yonaFound;
+
   // ---- 밤 산책: 반딧불이 잡기 ----
   // 여름밤(또는 손전등을 켠 밤)에만 난다. 누르면 병에 담기고, 그 밤 동안 그대로 남는다.
   // 날마다 새로 태어난다 — 어제 다 잡았다고 오늘 밤이 심심하면 안 된다.
@@ -363,6 +383,7 @@ const belowFold = (() => {
     if (!all) { hud.hidden = true; return; }
     const n = secrets.filter(s => found.has(s.key)).length;
     hud.textContent = (n >= all ? '🔍 다 찾았다!' : '🔍 숨은 친구 ' + n + '/' + all) +
+                      (hiding() ? ' · 🙈 연아' : '') +
                       (caughtFlies.size ? ' · ✨' + caughtFlies.size : '') +
                       (keys.size ? ' · 🔑' + keys.size : '');
     hud.classList.toggle('done', n >= all);
@@ -517,6 +538,7 @@ const belowFold = (() => {
     charS = Math.max(2, Math.round(S * 0.85));
     planted.forEach(f => { delete f.dot; });             // 꽃 자리는 다시 푼다 — 원점이 옮겨졌다
     steps.forEach(s => { delete s.dot; });
+    snowmen.forEach(m => { delete m.dot; });
 
     [skyLayer, torchLayer].forEach(c => {
       c.width = Math.floor(W * dpr); c.height = Math.floor(H * dpr);
@@ -661,6 +683,31 @@ const belowFold = (() => {
       ctx.fillStyle = i < 2 ? '#ffffff' : '#ffe9a8';
       ctx.fillRect(Math.round((hx - i * S * 2.2) / S) * S, Math.round((hy - i * S * 0.85) / S) * S, S, S);
     }
+    ctx.globalAlpha = 1;
+  }
+
+  // 생일 밤에는 성 위로 불꽃이 오른다. 2.6초마다 저절로 하나, 하늘을 누르면 그 자리에 하나 더.
+  const FW_COL = ['#ff7f8a', '#ffd979', '#6cc7b3', '#5aa9e6', '#b9a3d6'];
+  let fireworks = [], fwAt = 0;
+  function boom(x, y){
+    fireworks.push({ x, y, at: performance.now(), c: FW_COL[Math.floor(Math.random() * FW_COL.length)], a: Math.random() * 6.283 });
+    sfx('star');
+  }
+  function drawFireworks(){
+    if (!BIRTHDAY || !NIGHT) return;
+    const now = performance.now();
+    if (!reduce && now - fwAt > 2600) { fwAt = now; boom(W * (0.42 + Math.random() * 0.5), horizon * (0.22 + Math.random() * 0.42)); }
+    fireworks = fireworks.filter(f => now - f.at < 1400);
+    const s = Math.max(1, Math.round(S / 2));
+    fireworks.forEach(f => {
+      const u = (now - f.at) / 1400;
+      ctx.globalAlpha = 1 - u * u;
+      ctx.fillStyle = f.c;
+      for (let i = 0; i < 18; i++) {
+        const a = i / 18 * 6.283 + f.a, r = u * S * 26;
+        ctx.fillRect(Math.round(f.x + Math.cos(a) * r), Math.round(f.y + Math.sin(a) * r + u * u * S * 10), s, s);
+      }
+    });
     ctx.globalAlpha = 1;
   }
 
@@ -816,16 +863,16 @@ const belowFold = (() => {
   function drawSteps(gx, gy){
     if (!VG || !steps.length) return;
     const b = Math.max(1, Math.round(HS)), now = Date.now();
-    ctx.fillStyle = '#3d2e22';
     steps.forEach(s => {
       if (s.dot === undefined) {
         const tx = s.xr * VG.PW, ty = s.yr * VG.PD;
         s.dot = STEP_KINDS[VG.kindOf(tx, ty)] ? VG.dotAt(tx, ty) : null;   // 길이 아닌 자리에 떨어진 옛 자국은 안 그린다
       }
       if (!s.dot) return;
-      const a = 0.55 * (1 - (now - s.at) / 86400e3);
+      const a = (s.wet ? 0.8 : 0.55) * (1 - (now - s.at) / 86400e3);
       if (a <= 0) return;
       ctx.globalAlpha = a;
+      ctx.fillStyle = s.wet ? '#2b2a3a' : '#3d2e22';   // 웅덩이를 밟고 지나간 자국은 더 짙다
       const x = Math.round(s.dot.x * HS + gx), y = Math.round(s.dot.y * HS + gy), f = s.dir ? -1 : 1;
       ctx.fillRect(x - 3 * b, y - f * b, 2 * b, 3 * b);   // 왼발
       ctx.fillRect(x + b, y + f * b, 2 * b, 3 * b);       // 오른발 — 어느 발이 앞인지 번갈아
@@ -856,6 +903,86 @@ const belowFold = (() => {
     });
   }
 
+  // ---- 눈사람 ----
+  // 눈 오는 날에는 잔디를 누르면 꽃 대신 눈덩이가 생긴다. 같은 자리를 세 번 누르면 눈사람이 선다.
+  // 꽃처럼 남아서 다른 손님도 본다 — 사흘 지난 것은 표가 스스로 지운다.
+  let snowmen = [];                       // { xr, yr, at }
+  const balls = {};                       // 굴리는 중인 눈덩이 { 반칸키: { n, tx, ty } }
+  let snowAt = 0, builtHere = 0;
+  const SNOW_MAX = 3;                     // 한 방문에 셋까지 — 마을이 눈사람 밭이 되면 안 된다
+  function snowball(w, p){
+    const now = performance.now();
+    if (now - snowAt < 300) return;
+    snowAt = now;
+    const key = Math.round(w.tx * 2) + ',' + Math.round(w.ty * 2);
+    const o = balls[key] || (balls[key] = { n: 0, tx: w.tx, ty: w.ty });
+    o.n++;
+    if (o.n < 3) { sfx('plant'); popAt(p.x, p.y, SPRITES.star, 1); kick(); return; }
+    delete balls[key];
+    if (builtHere >= SNOW_MAX) return;
+    builtHere++;
+    const m = { xr: o.tx / VG.PW, yr: o.ty / VG.PD, at: Date.now() };
+    snowmen.push(m);
+    sfx('key');
+    popAt(p.x, p.y, SPRITES.star, 6);
+    kick();
+    sb.from('snowmen').insert({ xr: Math.round(m.xr * 1000), yr: Math.round(m.yr * 1000) }).then(() => {}, () => {});
+  }
+  // 꽃이 가장 많이 모인 칸 — 네 송이부터 나비가 찾아온다.
+  // 매 프레임 세면 아깝다. 3초에 한 번만 세고 그 사이에는 같은 자리를 쓴다.
+  let patchAt = 0, patchPt = null;
+  function flowerPatch(gx, gy){
+    if (!VG) return null;
+    const now = performance.now();
+    if (now - patchAt > 3000) {
+      patchAt = now;
+      const box = {};
+      planted.forEach(f => {
+        if (!f.dot) return;
+        const k = Math.round(f.xr * VG.PW) + ',' + Math.round(f.yr * VG.PD);
+        (box[k] || (box[k] = [])).push(f.dot);
+      });
+      let best = null;
+      Object.keys(box).forEach(k => { if (!best || box[k].length > box[best].length) best = k; });
+      const g = best && box[best].length >= 4 ? box[best] : null;
+      patchPt = g ? { x: g.reduce((a, d) => a + d.x, 0) / g.length, y: g.reduce((a, d) => a + d.y, 0) / g.length } : null;
+    }
+    return patchPt ? { x: patchPt.x * HS + gx, y: patchPt.y * HS + gy, low: true } : null;
+  }
+
+  function drawSnowmen(gx, gy){
+    if (!VG) return;
+    const b = Math.max(1, Math.round(HS));
+    Object.keys(balls).forEach(k => {
+      const o = balls[k], p = VG.dotAt(o.tx, o.ty), r = o.n === 1 ? 3 : 5;
+      dotEllipse(p.x, p.y - r, r, r, gx, gy, '#f2f8ff');
+    });
+    snowmen.forEach(m => {
+      if (m.dot === undefined) {
+        const tx = m.xr * VG.PW, ty = m.yr * VG.PD, kind = VG.kindOf(tx, ty);
+        m.dot = (kind === 'grass' || kind === 'garden') ? VG.dotAt(tx, ty) : null;   // 길·집 자리에 떨어진 옛 눈사람은 안 그린다
+      }
+      if (!m.dot) return;
+      const x = m.dot.x, y = m.dot.y;
+      dotLine(x - 6, y - 8, x - 11, y - 12, gx, gy, '#8a6a4a');    // 나뭇가지 팔 — 몸통 옆에서 위로
+      dotLine(x + 6, y - 8, x + 11, y - 12, gx, gy, '#8a6a4a');
+      dotEllipse(x, y - 5, 6, 5, gx, gy, '#e9f2fb');      // 아랫덩이
+      dotEllipse(x, y - 13, 4, 4, gx, gy, '#f8fbff');     // 머리
+      ctx.fillStyle = '#3a3632';                           // 눈
+      ctx.fillRect(Math.round((x - 2) * HS + gx), Math.round((y - 14) * HS + gy), b, b);
+      ctx.fillRect(Math.round((x + 1) * HS + gx), Math.round((y - 14) * HS + gy), b, b);
+      ctx.fillStyle = '#e8913a';                           // 당근 코
+      ctx.fillRect(Math.round((x - 1) * HS + gx), Math.round((y - 12) * HS + gy), b * 2, b);
+    });
+  }
+  // 남이 만들어 둔 눈사람 — 사흘 안의 것만
+  sb.from('snowmen').select('xr, yr, created_at').order('id', { ascending: false }).limit(40)
+    .then(({ data }) => {
+      if (!data) return;
+      snowmen = data.map(r => ({ xr: r.xr / 1000, yr: r.yr / 1000, at: new Date(r.created_at).getTime() })).concat(snowmen);
+      kick();
+    }, () => {});
+
   // ---- 강의 오리와 천막의 연 ----
   // 마을 그림에 박지 않고 프레임마다 움직여 그린다. 도트 그림은 village.js 가 같은 코드로 만들어 준다.
   const SPR2 = (() => {
@@ -872,11 +999,12 @@ const belowFold = (() => {
     return { duck: dim ? dimOf(raw.duck) : raw.duck, kite: dim ? raw.kite.map(dimOf) : raw.kite };
   })();
   // 도트 1:1 그림을 마을 자리(도트)에 마을 배율로 얹는다. flip 이면 좌우를 뒤집는다 — 기준점은 그대로
-  function blitDots(sp, dx, dy, gx, gy, flip){
-    const x = dx * HS + gx, y = dy * HS + gy, w = Math.round(sp.w * HS), h = Math.round(sp.h * HS);
-    if (!flip) { ctx.drawImage(sp.canvas, 0, 0, sp.w, sp.h, Math.round(x - sp.ox * HS), Math.round(y - sp.oy * HS), w, h); return; }
+  function blitDots(sp, dx, dy, gx, gy, flip, sc){
+    const k = HS * (sc || 1);                                   // sc: 새끼 오리처럼 같은 그림을 작게 얹을 때
+    const x = dx * HS + gx, y = dy * HS + gy, w = Math.round(sp.w * k), h = Math.round(sp.h * k);
+    if (!flip) { ctx.drawImage(sp.canvas, 0, 0, sp.w, sp.h, Math.round(x - sp.ox * k), Math.round(y - sp.oy * k), w, h); return; }
     ctx.save(); ctx.translate(Math.round(x), 0); ctx.scale(-1, 1);
-    ctx.drawImage(sp.canvas, 0, 0, sp.w, sp.h, -Math.round(sp.ox * HS), Math.round(y - sp.oy * HS), w, h);
+    ctx.drawImage(sp.canvas, 0, 0, sp.w, sp.h, -Math.round(sp.ox * k), Math.round(y - sp.oy * k), w, h);
     ctx.restore();
   }
   // 도트 단위 직선 — 연줄
@@ -919,6 +1047,7 @@ const belowFold = (() => {
       const r = (5 + (i % 3) * 2) * wet;                 // 도트 반지름
       if (r < 1) return;
       const x0 = c.x * HS + gx, y0 = c.y * HS + gy;
+      hits.push({ kind:'puddle', x: x0, y: y0 - r * HS / 2, w: r * 2 * HS, h: r * HS });
       ctx.fillStyle = 'rgba(150,180,205,0.45)';
       for (let dy = -Math.round(r / 2); dy <= Math.round(r / 2); dy++){
         const k = 1 - Math.pow(dy / Math.max(1, r / 2), 2);
@@ -939,6 +1068,25 @@ const belowFold = (() => {
     });
   }
 
+  // 웅덩이를 밟으면 물이 튄다. 튄 뒤 2분 동안 남기는 발자국은 젖은 자국이 된다.
+  let splashes = [];
+  let wetUntil = 0;
+  function drawSplash(){
+    if (!splashes.length) return;
+    const now = performance.now(), s = Math.max(1, Math.round(HS));
+    splashes = splashes.filter(sp => now - sp.at < 520);
+    ctx.fillStyle = '#dcecfa';
+    splashes.forEach(sp => {
+      const u = (now - sp.at) / 520;
+      ctx.globalAlpha = 1 - u;
+      for (let i = 0; i < 8; i++){
+        const a = i / 8 * 6.283, r = u * S * 7;
+        ctx.fillRect(Math.round(sp.x + Math.cos(a) * r), Math.round(sp.y + Math.sin(a) * r * 0.5 - u * S * 5 + u * u * S * 8), s, s);
+      }
+    });
+    ctx.globalAlpha = 1;
+  }
+
   // 오리 두 마리 — 다리 오른쪽 강(x 5.2~13, 물은 y 10.8~12)을 천천히 오가며 둥실거린다.
   // 다리(x 3.15~4.35)와 배(x 1.2) 쪽으로는 안 간다 — 마을 그림 위에 얹혀서, 다리 밑을 지나면 다리 위에 그려진다.
   const ducks = [
@@ -948,9 +1096,13 @@ const belowFold = (() => {
   const DUCK_MIN = 5.2, DUCK_MAX = 13.0;
   // 강을 누르면 빵조각이 떨어지고 가까운 오리가 헤엄쳐 온다. 하루 세 번까지 —
   // 매번 되면 오리가 늘 먹고만 있고, 오늘 몫을 아껴 쓰는 재미도 없다.
-  const FEED_KEY = 'sy.feed.' + DAY_SEED, FEED_MAX = 3;
-  let fedToday = 0;
-  try { fedToday = Number(localStorage.getItem(FEED_KEY) || 0) || 0; } catch (e) { /* 저장이 막힌 브라우저 — 이 자리에서만 센다 */ }
+  // 준 밥은 날마다 세 번까지지만, 모두 합한 횟수는 계속 쌓인다 — 세 번마다 새끼가 한 마리 는다.
+  // 하루에 다 못 채우니 여러 날에 걸쳐 오리 가족이 자란다.
+  const FEED_KEY = 'sy.feed.' + DAY_SEED, FEED_MAX = 3, FEED_ALL_KEY = 'sy.feed.total';
+  let fedToday = 0, fedAll = 0;
+  try { fedToday = Number(localStorage.getItem(FEED_KEY) || 0) || 0;
+        fedAll = Number(localStorage.getItem(FEED_ALL_KEY) || 0) || 0; } catch (e) { /* 저장이 막힌 브라우저 — 이 자리에서만 센다 */ }
+  const DUCKLINGS = 5;                                  // 다 모이면 다섯 마리
   let crumb = null;                                     // { tx, ty }
   function feed(tx, ty, px, py){
     if (fedToday >= FEED_MAX) { say('오늘 몫은 다 줬어 (' + FEED_MAX + '/' + FEED_MAX + ')', { x:px, y:py, w:0, h:0 }); return; }
@@ -972,9 +1124,14 @@ const belowFold = (() => {
             const p2 = VG.dotAt(crumb.tx, crumb.ty);
             popAt(p2.x * HS + gx, p2.y * HS + gy, SPRITES.heart, 3);
             crumb = null;
-            fedToday++;
-            try { localStorage.setItem(FEED_KEY, String(fedToday)); } catch (e) { /* 위와 같은 이유 */ }
+            fedToday++; fedAll++;
+            try { localStorage.setItem(FEED_KEY, String(fedToday));
+                  localStorage.setItem(FEED_ALL_KEY, String(fedAll)); } catch (e) { /* 위와 같은 이유 */ }
             sfx('char');
+            if (fedAll === DUCKLINGS * 3)
+              unlock('ducks', { x: p2.x * HS + gx, y: p2.y * HS + gy - S * 4, w: S * 10, h: S * 6 }, '오리 가족이 다 모였다!');
+            else if (fedAll % 3 === 0 && fedAll < DUCKLINGS * 3)
+              say('새끼 오리가 한 마리 늘었다!', { x: p2.x * HS + gx, y: p2.y * HS + gy - S * 4, w: S * 10, h: S * 6 });
           }
         } else {
           d.tx += d.dir * d.v * 0.016;
@@ -988,6 +1145,17 @@ const belowFold = (() => {
       const bob = Math.sin(t * 1.7 + d.ph) * 1.2;                            // 둥실 — 도트
       blitDots(SPR2.duck, p.x, p.y + bob, gx, gy, d.dir < 0);
     });
+    // 새끼 오리 — 어미(첫째 오리) 뒤를 줄지어 따라간다. 밥을 세 번 줄 때마다 한 마리씩
+    const kids = Math.min(DUCKLINGS, Math.floor(fedAll / 3));
+    if (kids) {
+      const m = ducks[0];
+      for (let i = 1; i <= kids; i++) {
+        const tx = m.tx - m.dir * 0.26 * i;
+        if (tx < DUCK_MIN - 0.4 || tx > DUCK_MAX + 0.4) continue;
+        const p = VG.dotAt(tx, m.ty + Math.sin(t * 0.35 + m.ph + i * 0.5) * 0.12);
+        blitDots(SPR2.duck, p.x, p.y + Math.sin(t * 1.7 + m.ph + i) * 1.0, gx, gy, m.dir < 0, 0.62);
+      }
+    }
     // 빵조각 — 물 위에서 까딱거린다
     if (crumb) {
       const c = VG.dotAt(crumb.tx, crumb.ty), s = Math.max(1, Math.round(HS));
@@ -1005,6 +1173,109 @@ const belowFold = (() => {
     dotLine(k.anchor.x, k.anchor.y, kx, ky + 5, gx, gy, '#5a4a3a');           // 줄: 기둥 끝 → 연 아래 꼭짓점
     blitDots(SPR2.kite[Math.floor(t * 8) % SPR2.kite.length], kx, ky, gx, gy, false);
   }
+
+  // ---- 매표소 풍선 ----
+  // 마을 그림에 박지 않고 여기서 흔들며 그린다 — 아이가 하나를 떼어 하늘로 날려 보낼 수 있다.
+  // 하루에 하나까지. 날려 보낸 자리는 다음 날 다시 매여 있다.
+  const BALLOONS = [
+    { c:'#ff6b6b', hi:'#ff9d9d', kc:'#c04a45', dx:-6, dy:-40 },
+    { c:'#5aa9e6', hi:'#8ecdf5', kc:'#3d7cae', dx: 2, dy:-46 },
+    { c:'#ffd166', hi:'#ffe6a8', kc:'#c9a13f', dx: 8, dy:-38 },
+  ];
+  const WISHES = ['소원 하나 하늘로!', '풍선아 잘 가~', '구름까지 갈까?', '높이 높이!', '안녕~ 또 만나'];
+  const BAL_KEY = 'sy.balloon.' + DAY_SEED;
+  let balloonGone = -1;                                 // 오늘 떼어 낸 풍선 번호 (-1 이면 아직 셋 다 있다)
+  try { const v = localStorage.getItem(BAL_KEY); if (v != null) balloonGone = Number(v); } catch (e) { /* 저장이 막힌 브라우저 — 이 자리에서만 센다 */ }
+  let freeBalloon = null;                               // 날아가는 중 { c, hi, kc, cx, cy, at }
+
+  // 도트 타원 — 마을 배율로. 풍선처럼 작고 둥근 것에만 쓴다.
+  // 줄마다 다음 줄이 시작하는 자리까지 채운다 — 배율이 정수가 아니면 줄 사이가 벌어져
+  // 눈사람이 줄무늬 통이 됐다.
+  function dotEllipse(cx, cy, rx, ry, gx, gy, col){
+    ctx.fillStyle = col;
+    for (let dy = -ry; dy <= ry; dy++){
+      const hw = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / ry) * (dy / ry))));
+      if (hw <= 0) continue;
+      const x0 = Math.round((cx - hw) * HS + gx), x1 = Math.round((cx + hw + 1) * HS + gx);
+      const y0 = Math.round((cy + dy) * HS + gy), y1 = Math.round((cy + dy + 1) * HS + gy);
+      ctx.fillRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+    }
+  }
+  function oneBalloon(b, cx, cy, gx, gy, tied){
+    const s = Math.max(1, Math.round(HS));
+    if (tied) dotLine(VG.balloons.x, VG.balloons.y - 18, cx, cy + 5, gx, gy, '#6a5a50');
+    else dotLine(cx, cy + 5, cx + 1, cy + 11, gx, gy, '#6a5a50');   // 끊어진 줄이 대롱대롱
+    dotEllipse(cx, cy, 4, 5, gx, gy, b.c);
+    ctx.fillStyle = b.hi; ctx.fillRect(Math.round((cx - 2) * HS + gx), Math.round((cy - 3) * HS + gy), s * 2, s * 2);
+    ctx.fillStyle = b.kc; ctx.fillRect(Math.round(cx * HS + gx), Math.round((cy + 5) * HS + gy), s, s);
+  }
+  function drawTentBalloons(gx, gy){
+    const B = VG.balloons; if (!B) return;
+    BALLOONS.forEach((b, i) => {
+      if (i === balloonGone) return;
+      const cx = B.x + b.dx + Math.sin(t * 0.8 + i * 1.7) * 1.6, cy = B.y + b.dy + Math.sin(t * 1.1 + i) * 1.2;
+      oneBalloon(b, cx, cy, gx, gy, true);
+      hits.push({ kind:'balloon', idx:i, x: cx * HS + gx, y: (cy - 5) * HS + gy, w: 9 * HS, h: 11 * HS });
+    });
+    if (freeBalloon) {
+      const age = (performance.now() - freeBalloon.at) / 1000;
+      if (age > 9) { freeBalloon = null; return; }
+      oneBalloon(freeBalloon, freeBalloon.cx + Math.sin(age * 1.6) * 5, freeBalloon.cy - age * 34, gx, gy, false);
+    }
+  }
+
+  // ---- 광장 고양이 ----
+  // 마을 그림에 박지 않고 여기서 그린다. 누르면 일어나고, 그다음 광장을 누르면 그리로 걸어온다.
+  // 15초 동안만 깨어 있다 — 계속 따라다니면 부르는 재미가 없다.
+  const CAT_LINES = ['야옹', '골골골', '냐앙~', '...', '꼬리 살랑', '배고파'];
+  const CAT_AREA = { x0: 5.3, x1: 8.7, y0: 3.9, y1: 7.3 };
+  const CAT_NAME_KEY = 'sy.cat.name', CAT_PLAY_KEY = 'sy.cat.play';
+  let catName = '', catPlay = 0;
+  try { catName = localStorage.getItem(CAT_NAME_KEY) || ''; catPlay = Number(localStorage.getItem(CAT_PLAY_KEY) || 0) || 0; } catch (e) { /* 저장이 막힌 브라우저 — 이름 없이도 논다 */ }
+  const cat = { tx: 0, ty: 0, gx: 0, gy: 0, walk: 0, ready: false };
+  let catAwake = 0;                                     // 이때까지는 부르면 온다
+  function drawCat(gx, gy){
+    if (!VG.cat) return;
+    if (!cat.ready) { cat.tx = cat.gx = VG.cat.tx; cat.ty = cat.gy = VG.cat.ty; cat.ready = true; }
+    if (!reduce) {
+      const dx = cat.gx - cat.tx, dy = cat.gy - cat.ty, d = Math.hypot(dx, dy);
+      if (d > 0.05) { const v = 0.9 * 0.016; cat.tx += dx / d * v; cat.ty += dy / d * v; cat.walk += 0.016; }
+      else cat.walk = 0;
+    }
+    const p = VG.dotAt(cat.tx, cat.ty), s = Math.max(1, Math.round(HS));
+    const bob = cat.walk ? Math.round(Math.abs(Math.sin(cat.walk * 9))) * s : 0;   // 걸을 때만 통통
+    const x = Math.round(p.x * HS + gx) - 5 * s, y = Math.round(p.y * HS + gy) - 7 * s - bob;
+    drawSprite(ctx, SPRITES.cat, x, y, s, wash(SPRITES.cat));
+    hits.push({ kind:'cat', name: catName || '고양이', x: x + 5 * s, y, w: 10 * s, h: 7 * s });
+  }
+  // 고양이를 부르는 자리 — 광장 안이어야 하고, 너무 가까우면 안 움직인다
+  function callCat(tx, ty){
+    if (performance.now() > catAwake) return false;
+    const gx2 = Math.max(CAT_AREA.x0, Math.min(CAT_AREA.x1, tx));
+    const gy2 = Math.max(CAT_AREA.y0, Math.min(CAT_AREA.y1, ty));
+    if (Math.hypot(gx2 - cat.tx, gy2 - cat.ty) < 0.35) return false;
+    cat.gx = gx2; cat.gy = gy2;
+    catAwake = performance.now() + 15000;               // 부를 때마다 조금 더 깨어 있는다
+    sfx('prop');
+    kick();
+    return true;
+  }
+
+  // 이름 짓기 상자 — 이름이 없을 때 고양이를 누르면 뜬다. 지어 주면 다시 안 뜬다.
+  const catBox = $('#catNameBox'), catIn = $('#catNameIn');
+  function showCatName(){ if (catBox && !catName) { catBox.hidden = false; if (catIn) catIn.focus(); } }
+  if (catBox) catBox.addEventListener('submit', e => {
+    e.preventDefault();
+    const v = (catIn && catIn.value || '').trim().slice(0, 6);
+    if (!v) return;
+    catName = v;
+    try { localStorage.setItem(CAT_NAME_KEY, catName); } catch (e2) { /* 저장이 막힌 브라우저 — 이 방문 동안만 부른다 */ }
+    catBox.hidden = true;
+    sfx('key');
+    const h = hits.find(x => x.kind === 'cat');
+    if (h) { say('이제부터 나는 ' + catName, h); popAt(h.x, h.y, SPRITES.heart, 5); }
+    kick();
+  });
 
   function drawSecrets(gx, gy){
     if (!VG) return;
@@ -1148,11 +1419,14 @@ const belowFold = (() => {
 
     // 5b) 강의 오리와 천막의 연 — 마을 그림 위에서 움직인다
     if (VG && SPR2) { drawDucks(gx, gy); if (VG.kite) drawKite(gx, gy); }
+    if (VG) drawTentBalloons(gx, gy);
     drawPuddles(gx, gy);
     drawSmoke(gx, gy);
 
     drawSteps(gx, gy);
     drawPlanted(gx, gy);
+    drawSnowmen(gx, gy);
+    if (VG) drawCat(gx, gy);
     drawRuler(gx, gy);
     drawSecrets(gx, gy);
     secrets.forEach(sec => sec.rect && hits.push({ kind:'secret', key:sec.key,
@@ -1168,7 +1442,10 @@ const belowFold = (() => {
     const spot = p => ({ x: p.x * HS + gx, y: p.y * HS + gy });
     const cast = VG ? [
       { sp: SPRITES.sua,   s: castS, bob: hop1, name: '수아', at: spot(VG.chars.sua) },
-      { sp: SPRITES.yona,  s: castS, bob: hop2, rider: SPRITES.fox, name: '연아', riderName: '레샤', at: spot(VG.chars.yona) },
+      // 숨는 날에는 광장 대신 숨는 자리에, 위 절반만 내밀고 서 있다 (레샤는 같이 안 숨는다)
+      hiding() && VG.secrets[hideSpotOf()]
+        ? { sp: SPRITES.yona, s: castS, bob: 0, name: '연아', hide: true, at: spot(VG.secrets[hideSpotOf()]) }
+        : { sp: SPRITES.yona, s: castS, bob: hop2, rider: SPRITES.fox, name: '연아', riderName: '레샤', at: spot(VG.chars.yona) },
       { sp: SPRITES.easel, s: castS, bob: 0, easel: true, at: spot(VG.chars.easel) },   // 이젤은 사람이 아니라 이름이 없다
       // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다닌다. 두 아이보다 앞줄에 서 있으니 맨 나중에 그린다
       { sp: SPRITES.chick, s: castS, bob: 0, roll: true, name: '상그렐라', at: spot(VG.chars.chick) },
@@ -1219,6 +1496,15 @@ const belowFold = (() => {
         hits.push({ kind:'char', name: c.name, x: cx + w / 2 + dx, y: standY - h, w: w, h: h });
       } else {
         const top = standY - h - c.bob;
+        if (c.hide) {
+          // 물건 너머로 머리만 내민 모습 — 숨은 친구와 같은 방식이다
+          ctx.save();
+          ctx.beginPath(); ctx.rect(cx, top, w, h * 0.55); ctx.clip();
+          drawSprite(ctx, c.sp, cx, top, c.s, wash(c.sp));
+          ctx.restore();
+          hits.push({ kind:'char', name: c.name, hide: true, x: cx + w / 2, y: top, w: w, h: h * 0.55 });
+          return;
+        }
         drawSprite(ctx, c.sp, cx, top, c.s, wash(c.sp));
         let headTop = top;                                 // 우산을 씌울 높이 — 머리 위 친구가 있으면 그 위
         if (BIRTHDAY && c.name === BIRTHDAY) bdayFoot = { x: cx + w + S, y: standY };
@@ -1268,12 +1554,15 @@ const belowFold = (() => {
         Math.round((bdayFoot.y - SPRITES.cake.length * cs) / S) * S, cs);
     }
 
-    // 7) 나비 — 8자를 그리며 떠다니다가, 손가락이 가까이 오면 그쪽으로 끌려온다
+    // 7) 나비 — 8자를 그리며 떠다니다가, 손가락이 가까이 오면 그쪽으로 끌려온다.
+    // 꽃이 네 송이 넘게 모인 자리가 있으면 아이들 머리 위 대신 그 꽃밭으로 간다 — 심을수록 나비가 온다
+    const patch = flowerPatch(gx, gy);
     for (let i = 0; i < 3; i++) {
-      const home = VG ? spot(VG.chars.sua) : { x: W * 0.5, y: H * 0.6 };
-      let bx = home.x + (i - 1) * HS * 46 + Math.sin(t * 0.7 + i * 2) * HS * 22;
-      // 아이들 머리 위로 띄움 — 얼굴 높이면 표정을 가림
-      let by = home.y - HS * 62 + Math.sin(t * 1.5 + i) * S * 5;
+      const home = patch || (VG ? spot(VG.chars.sua) : { x: W * 0.5, y: H * 0.6 });
+      const spread = patch ? 16 : 46, lift = patch ? 14 : 62;
+      let bx = home.x + (i - 1) * HS * spread + Math.sin(t * 0.7 + i * 2) * HS * (patch ? 9 : 22);
+      // 아이들 머리 위로 띄움 — 얼굴 높이면 표정을 가림. 꽃밭에서는 꽃 바로 위에서 난다
+      let by = home.y - HS * lift + Math.sin(t * 1.5 + i) * S * (patch ? 3 : 5);
       if (pointer.on) {
         const d = Math.hypot(pointer.x - bx, pointer.y - by);
         if (d < W * 0.45) {
@@ -1283,15 +1572,19 @@ const belowFold = (() => {
           by += (pointer.y - by - S * 6) * k;
         }
       }
-      drawSprite(ctx, SPRITES.butterfly, Math.round(bx/S)*S, Math.round(by/S)*S,
-        Math.max(2, charS - 1), wash(SPRITES.butterfly));
+      const bs = Math.max(2, charS - 1), bdx = Math.round(bx / S) * S, bdy = Math.round(by / S) * S;
+      drawSprite(ctx, SPRITES.butterfly, bdx, bdy, bs, wash(SPRITES.butterfly));
+      const bw = SPRITES.butterfly[0].length * bs, bh = SPRITES.butterfly.length * bs;
+      hits.push({ kind:'prop', key:'butterfly', x: bdx + bw / 2, y: bdy, w: bw, h: bh });
     }
 
     drawRainbow();
     drawFalling();
     drawRain();
     drawBalloons();
+    drawFireworks();
     drawFireflies();
+    drawSplash();
     drawPops();
   }
 
@@ -1386,6 +1679,9 @@ const belowFold = (() => {
     // 숨은 친구도 먼저 본다. 아이들 상자는 넓고 나중에 그려져서, 그 여유 폭 안에
     // 숨은 친구가 있으면 눌러도 아이가 대신 대답했다 (광장 화단의 달팽이가 그랬다).
     for (let i = 0; i < hits.length; i++) if (hits[i].kind === 'secret' && inside(hits[i])) return hits[i];
+    // 웅덩이도 먼저 본다. 광장 바닥에 있어서 아이들 상자 밑에 깔리는데, 상자가 넓어
+    // 다섯 중 셋은 눌러도 아이가 대신 대답했다. 웅덩이 상자는 손바닥만 하니 아이를 가리지 않는다.
+    for (let i = 0; i < hits.length; i++) if (hits[i].kind === 'puddle' && inside(hits[i])) return hits[i];
     for (let i = hits.length - 1; i >= 0; i--) if (inside(hits[i])) return hits[i];
     // 마을의 물건은 상자가 아니라 그려진 도트로 본다. 성은 상자가 화면의 반이라,
     // 그 앞 집의 벽을 눌러도 성이 대답했다. 말풍선은 그 물건의 상자 위에 띄운다.
@@ -1406,7 +1702,7 @@ const belowFold = (() => {
     ticking = true;
     (function tick(){
       draw();
-      if (nameTag || pops.length) requestAnimationFrame(tick);
+      if (nameTag || pops.length || splashes.length || fireworks.length || freeBalloon || Math.hypot(cat.gx - cat.tx, cat.gy - cat.ty) > 0.05) requestAnimationFrame(tick);
       else ticking = false;
     })();
   }
@@ -1477,6 +1773,16 @@ const belowFold = (() => {
 
   function react(hit){
     if (hit.kind === 'char') {
+      if (hit.hide) {
+        yonaFound = true;
+        try { localStorage.setItem(HIDE_KEY, '1'); } catch (e) { /* 저장이 막힌 브라우저 — 다음에 오면 또 숨어 있다 */ }
+        sfx('secret');
+        popAt(hit.x, hit.y, SPRITES.star, 9);
+        say('찾았다! 여기 숨어 있었지~', hit);
+        syncHud();
+        kick();
+        return;
+      }
       const now = performance.now();
       // 방금 다른 한 명을 눌렀으면 둘의 대화를 튼다
       if (!talk && lastTap && lastTap.name !== hit.name && now - lastTap.at < 5000) {
@@ -1493,6 +1799,37 @@ const belowFold = (() => {
       lastTap = { name: hit.name, at: now };
       sfx('char');
       say(speak(hit.name), hit); popAt(hit.x, hit.y, SPRITES.heart, 3); return;
+    }
+    if (hit.kind === 'puddle') {
+      splashes.push({ x: hit.x, y: hit.y + hit.h / 2, at: performance.now() });
+      wetUntil = performance.now() + 120000;
+      sfx('splash');
+      say(pickLine(['첨벙!', '철퍽', '물 튀었다!', '신발 젖었다'], said['puddle'] || (said['puddle'] = { last:-1 })), hit);
+      kick();
+      return;
+    }
+    if (hit.kind === 'balloon') {
+      if (balloonGone >= 0) { sfx('prop'); say('풍선은 하루에 하나만~', hit); return; }
+      balloonGone = hit.idx;
+      try { localStorage.setItem(BAL_KEY, String(hit.idx)); } catch (e) { /* 저장이 막힌 브라우저 — 이 방문 동안만 날아간 채로 */ }
+      const b = BALLOONS[hit.idx], B = VG.balloons;
+      freeBalloon = { c: b.c, hi: b.hi, kc: b.kc, cx: B.x + b.dx, cy: B.y + b.dy, at: performance.now() };
+      sfx('star');
+      popAt(hit.x, hit.y, SPRITES.heart, 3);
+      say(WISHES[Math.floor(Math.random() * WISHES.length)], hit);
+      kick();
+      return;
+    }
+    if (hit.kind === 'cat') {
+      catAwake = performance.now() + 15000;
+      catPlay++;
+      try { localStorage.setItem(CAT_PLAY_KEY, String(catPlay)); } catch (e) { /* 위와 같은 이유 */ }
+      sfx('char');
+      popAt(hit.x, hit.y, SPRITES.heart, 3);
+      if (!catName) { showCatName(); say('이름을 지어 줄래?', hit); return; }
+      if (catPlay === 5) { unlock('cat', hit, catName + '와 친구가 됐다'); return; }
+      say(pickLine(CAT_LINES, said['cat'] || (said['cat'] = { last:-1 })), hit);
+      return;
     }
     if (hit.kind === 'easel') {
       // 목소리가 붙은 작품이면 그 목소리부터. 이미 나오는 중이면 멈춘다.
@@ -1591,13 +1928,18 @@ const belowFold = (() => {
   const PLANT_MAX = 5;
   function plant(p){
     if (!VG) return;
+    // 생일 밤에 하늘을 누르면 불꽃이 하나 더 터진다
+    if (BIRTHDAY && NIGHT && p.y < horizon) { boom(p.x, p.y); kick(); return; }
     // 마을 잔디에만 — 길·광장·건물·물에는 안 심긴다
     const gy = Math.round(scrollY * 0.06 / S) * S;
     const w = VG.worldAt((p.x - panX) / HS, (p.y - gy) / HS);
     // 강을 누르면 오리 밥. 잔디가 아니면 여기서 끝난다
     if (w.kind === 'water' && w.ty > 10.4) { feed(w.tx, w.ty, p.x, p.y); return; }
+    if (w.kind === 'plaza' && callCat(w.tx, w.ty)) return;
     if (STEP_KINDS[w.kind]) { step(w); return; }
     if (w.kind !== 'grass' && w.kind !== 'garden') return;
+    // 눈 오는 날엔 꽃 대신 눈덩이. 눈 위에 꽃을 심는 것보다 눈사람을 만드는 편이 겨울답다
+    if (weather.snow) { snowball(w, p); return; }
     if (plantedHere >= PLANT_MAX) return;
     const now = performance.now();
     if (now - plantAt < 1200) return;
@@ -1623,7 +1965,7 @@ const belowFold = (() => {
     const now = performance.now();
     if (now - stepAt < 400) return;
     stepAt = now; steppedHere++;
-    const s = { xr: w.tx / VG.PW, yr: w.ty / VG.PD, dir: steppedHere % 2, at: Date.now() };
+    const s = { xr: w.tx / VG.PW, yr: w.ty / VG.PD, dir: steppedHere % 2, at: Date.now(), wet: performance.now() < wetUntil };
     steps.push(s);
     canvas.dataset.steps = steps.length;                 // 시험용
     kick();
@@ -1760,12 +2102,12 @@ const belowFold = (() => {
     if (document.hidden || scrollY > H * 0.5) return;
     const wait = greeted ? 12000 : 4000;
     if (performance.now() - idleAt < wait) return;
-    const talkers = hits.filter(h => h.kind === 'char');
+    const talkers = hits.filter(h => h.kind === 'char' && !h.hide);
     if (!talkers.length) return;
     const who = talkers[Math.floor(Math.random() * talkers.length)];
     // 오랜만에 온 사람에게는 그 말부터. 하루 안에 다시 온 사람에게 "오랜만" 은 어색하다.
     if (talk) return;                                    // 대화 중엔 끼어들지 않는다
-    const lines = BIRTHDAY ? CONGRATS : (!greeted && awayDays >= 3) ? BACK_LINES : GREET[PHASE];
+    const lines = BIRTHDAY ? CONGRATS : hiding() ? HIDE_LINES : (!greeted && awayDays >= 3) ? BACK_LINES : GREET[PHASE];
     const memo = said['greet'] || (said['greet'] = { last:-1 });
     greeted = true;
     say(pickLine(lines, memo), who);

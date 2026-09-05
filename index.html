@@ -326,6 +326,16 @@
   }
   @keyframes panSway{ 0%,100%{transform:translateX(-50%) translateX(-6px);} 50%{transform:translateX(-50%) translateX(6px);} }
   @media (prefers-reduced-motion:reduce){ .pan-hint{animation:none;} }
+  /* 고양이 이름 짓기 — 처음 고양이를 눌렀을 때 한 번만 뜬다 */
+  .cat-name{
+    position:absolute; left:50%; bottom:64px; z-index:4; transform:translateX(-50%);
+    display:flex; gap:6px; align-items:center; white-space:nowrap;
+    padding:6px 10px; font-size:12px; font-weight:800;
+    background:var(--cream); color:var(--ink);
+    border:var(--px) solid var(--ink); box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.45);
+  }
+  .cat-name input{width:78px; font:inherit; font-size:12px; padding:3px 6px;
+    border:2px solid var(--ink); background:#fff; color:var(--ink);}
   @media (max-width:400px){ .find-hud.sound, .find-hud.torch{right:10px;} }
   @media (max-width:400px){ .find-hud{left:10px; bottom:18px; font-size:10px;} }
 
@@ -463,6 +473,13 @@
   <div class="find-hud pixel off" id="offHud" hidden>📴 인터넷이 없어요 — <a href="/draw.html">그리기</a>는 열려요</div>
   <!-- 폰에서 마을이 화면보다 넓다. 처음 한 번만 알려 준다 -->
   <div class="pan-hint pixel" id="panHint" hidden>← 옆으로 밀어 보세요 →</div>
+
+  <!-- 광장 고양이 이름 짓기 — 이름이 없을 때 고양이를 누르면 뜬다 -->
+  <form class="cat-name pixel" id="catNameBox" hidden>
+    <label for="catNameIn">고양이 이름</label>
+    <input id="catNameIn" maxlength="6" placeholder="나비" autocomplete="off">
+    <button class="dot-btn small primary" type="submit">짓기</button>
+  </form>
   <div class="scroll-cue pixel">▼ SCROLL</div>
 </section>
 

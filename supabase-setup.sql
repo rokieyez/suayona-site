@@ -1403,3 +1403,42 @@ end $$;
 drop trigger if exists steps_flood_guard on public.steps;
 create trigger steps_flood_guard before insert on public.steps for each row execute function public.steps_flood_guard();
 revoke execute on function public.steps_flood_guard() from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 눈사람 (2026-09-05 밤): 눈 오는 날 잔디를 세 번 누르면 선다
+-- 발자국(steps)과 같은 꼴 — 로그인 없이 만들고, 같은 홍수 방지, 부모만 치운다.
+-- 사흘 지난 줄은 새 눈사람이 들어올 때 트리거가 녹인다.
+-- ---------------------------------------------------------------------------
+create table if not exists public.snowmen (
+  id         bigint generated always as identity primary key,
+  xr         smallint not null check (xr between 0 and 1000),
+  yr         smallint not null check (yr between 0 and 1000),
+  created_at timestamptz not null default now()
+);
+create index if not exists snowmen_recent_idx on public.snowmen (id desc);
+alter table public.snowmen enable row level security;
+drop policy if exists "anyone reads snowmen" on public.snowmen;
+create policy "anyone reads snowmen" on public.snowmen for select using (true);
+drop policy if exists "anyone builds a snowman" on public.snowmen;
+create policy "anyone builds a snowman" on public.snowmen for insert with check (true);
+drop policy if exists "parent melts snowmen" on public.snowmen;
+create policy "parent melts snowmen" on public.snowmen for delete to authenticated using ((select public.my_role()) = 'parent');
+
+create or replace function public.snowmen_flood_guard() returns trigger
+language plpgsql security definer set search_path to 'public' as $$
+declare mine int; total int;
+begin
+  delete from snowmen where created_at < now() - interval '3 days';
+  mine := public.ip_note('snowmen');
+  if mine > 12 then
+    raise exception '눈사람을 방금 많이 만드셨어요. 잠시 뒤에 다시 만들어 주세요.' using errcode = 'check_violation';
+  end if;
+  select count(*) into total from snowmen where created_at > now() - interval '10 minutes';
+  if total >= 60 then
+    raise exception '마을이 눈사람으로 가득해요. 잠시 뒤에 다시 만들어 주세요.' using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+drop trigger if exists snowmen_flood_guard on public.snowmen;
+create trigger snowmen_flood_guard before insert on public.snowmen for each row execute function public.snowmen_flood_guard();
+revoke execute on function public.snowmen_flood_guard() from public, anon, authenticated;

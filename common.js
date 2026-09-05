@@ -1151,6 +1151,7 @@ const SOUND = {
   key:     () => { tone(523,.09,'square',.06); tone(659,.09,'square',.06,.08);
                    tone(784,.09,'square',.06,.16); tone(1046,.22,'square',.06,.24); },
   prop:    () => tone(440, .07, 'square', .045),
+  splash:  () => { tone(320, .06, 'sine', .06); tone(180, .14, 'sine', .05, .05); },
   brush:   () => tone(1200 + Math.random() * 400, .03, 'square', .025),
 };
 

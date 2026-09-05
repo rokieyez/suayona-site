@@ -1204,9 +1204,10 @@ function bTent(q){
   const K = [C[0] - 52, C[1] - H - CH - 28];
   // 연은 여기 그리지 않는다 — 첫화면이 바람에 흔들며 프레임마다 그린다. 자리(연 가운데)와 줄 끝(천막 기둥)만 적어 둔다
   VS.kite = { home: { x: K[0], y: K[1] }, anchor: { x: C[0] + 36, y: C[1] - 6 } };
-  // 풍선
+  // 풍선 — 여기 그리지 않는다. 첫화면이 흔들며 그리고, 아이가 하나를 떼어 날려 보낼 수 있다.
+  // 줄을 맨 자리(매표소 앞 말뚝)만 적어 둔다.
   const Bb = proj(3.05, 7.3, 0);
-  [['#ff6b6b', -6, -40], ['#5aa9e6', 2, -46], ['#ffd166', 8, -38]].forEach(([c, dx, dy]) => { lineDots(q, [Bb[0], Bb[1] - 18], [Bb[0] + dx, Bb[1] + dy + 5], '#6a5a50'); ellipse(q, Bb[0] + dx, Bb[1] + dy, 4, 5, (x, y) => (x - (Bb[0] + dx) < -1 && y - (Bb[1] + dy) < -1) ? shade(c, 40) : c); q(Bb[0] + dx, Bb[1] + dy + 5, 1, 1, shade(c, -30)); });
+  VS.balloons = { x: Bb[0], y: Bb[1] };
 }
 // ---------- 성 (모험단) ----------
 function bCastle(q){
@@ -1414,7 +1415,7 @@ VS.draw = function(env){
   [[5.15, 3.65], [8.85, 3.65], [8.85, 7.35]].forEach(([x, y], i) => add(x - 0.05, y - 0.05, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(x, y), NIGHT), 12));   // 앞왼쪽 자리는 비워 둔다 — 수아가 그 자리에 서서 가로등을 가렸다
   const bed = (x, y, w, d, seed) => add(x, y, w, d, 8, q2 => { box(q2, x, y, 0, w, d, 4, () => '#a89f91', () => '#8a8071', () => '#6f4f38'); for (let i = 0; i < 12; i++){ const fx = x + 0.08 + hash(i, 1, seed) * (w - 0.16), fy = y + 0.08 + hash(i, 2, seed) * (d - 0.16); const Pp = proj(fx, fy, 4).map(Math.round); P.flower(q2, Pp[0], Pp[1], ['#ff8fb8', '#ffd166', '#ff7f7f', '#ffffff', '#c9a8ff'][i % 5]); } }, 6);
   bed(5.3, 6.8, 1.0, 0.4, 3); bed(7.7, 6.8, 1.0, 0.4, 4);
-  add(9.0, 7.0, 0.3, 0.3, 12, q2 => { const Pp = at(9.15, 7.15); spr(q2, Pp[0] - 5, Pp[1] - 7, SPR.S.cat, SPR.PAL); }, 6);
+  VS.cat = { tx: 9.15, ty: 7.15 };   // 광장 고양이도 여기 그리지 않는다 — 부르면 걸어오므로 첫화면이 그린다
   // 우체국 앞 — 우체통, 자전거, 가로등
   add(9.95, 5.65, 0.3, 0.3, 20, q2 => P.pillarBox(q2, ...at(10.1, 5.8)), 6, 'post');   // 해자 앞 포장길 — 예전 자리는 풍차 날개가 덮었다
   add(12.25, 6.6, 0.3, 0.7, 20, q2 => P.bike(q2, ...at(12.4, 7.0)), 10);
@@ -1672,6 +1673,8 @@ function render(o){
     frames: VS.frameRects.map(f => ({ x: f.cx, y: f.cy, w: f.w, h: f.h })),
     house: { door: { x: doorP.x, y: doorP.y, w: 8, h: 18 }, foot: pt(5.75, 1.95) },
     kite: VS.kite ? { home: VS.kite.home, anchor: VS.kite.anchor } : null,   // 연 가운데와 줄 끝(도트) — 첫화면이 흔들며 그린다
+    balloons: VS.balloons || null,              // 매표소 풍선을 맨 자리(도트) — 첫화면이 그리고 하나는 날려 보낸다
+    cat: VS.cat || null,                        // 광장 고양이가 처음 앉아 있는 칸 — 첫화면이 걸린다
     smoke: VS.smoke || null,                    // 굴뚝 아가리 — 첫화면이 연기를 피운다
     ruler: VS.ruler || null,                    // 키 재기 기둥 — 첫화면이 두 아이 눈금을 얹는다
     horizon: SKY,
