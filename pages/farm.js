@@ -2499,7 +2499,8 @@ let houseBg = null, houseSig = '';
 const W_MOULD = 6, W_RAIL = 66, W_WAIN = 70, W_BASE = 98;
 const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars: 1,
                      board: 1, garland: 1, wshelf: 1, rainbow: 1,
-                     heightbar: 1, worldmap: 1, mobile: 1, wreath: 1 };
+                     heightbar: 1, worldmap: 1, mobile: 1, wreath: 1,
+                     whale: 1, wlight: 1 };
 /* 벽에 거는 것은 어느 벽에 붙나. 칸에서 뒤로 물러났을 때 더 가까운 벽에 건다.
    (y 쪽이 가까우면 오른쪽 벽, x 쪽이 가까우면 왼쪽 벽) */
 function wallSlot(Rm, x, y){
@@ -2725,6 +2726,49 @@ function paintWallItem(wall, u, f, P){
       w(16, 16, 3, 8, shade(c, -18)); w(22, 16, 3, 8, shade(c, -18));  // 늘어뜨린 끈
       break;
     }
+    case 'whale': {                                                   // 고래 그림 — 바다 한 장
+      hang(20, 3, 9);
+      w(4, 8, 32, 34, '#3f2a1a');                                     // 바깥 테
+      w(4, 8, 32, 2, '#8a5f3a'); w(4, 40, 32, 2, '#2a1c12');
+      w(4, 8, 2, 34, '#6f4a2c'); w(34, 8, 2, 34, '#2a1c12');
+      w(6, 10, 28, 30, '#e8dcc8');                                    // 매트
+      w(8, 12, 24, 26, '#cfeaf8');                                    // 하늘
+      w(24, 15, 6, 3, '#ffffff'); w(22, 18, 4, 2, '#ffffff');         // 구름
+      const wc = '#3f5f8a', wl = '#7098c6', wb = '#e2eef8';
+      w(16, 14, 2, 6, wb); w(14, 12, 6, 2, '#ffffff');                // 물줄기 — 먼저, 몸에 가리게
+      w(14, 20, 10, 1, wc);                                           // 등 — 위로 볼록하게
+      w(12, 21, 14, 1, wc);
+      w(10, 22, 18, 6, wc);                                           // 몸통 — 아래는 바다에 잠긴다
+      w(8, 24, 2, 3, wc);                                             // 머리 끝
+      w(27, 22, 2, 6, wc); w(28, 19, 2, 4, wc);                       // 꼬리로 이어지는 허리
+      w(29, 16, 3, 4, wc); w(30, 19, 2, 3, wc);                       // 꼬리 두 갈래
+      w(13, 21, 12, 1, wl); w(15, 20, 8, 1, wl);                      // 등에 닿는 빛
+      w(11, 24, 2, 2, '#ffffff'); w(11, 24, 1, 1, '#20344f');         // 눈
+      w(18, 25, 5, 3, '#33507a');                                     // 가슴지느러미
+      w(8, 27, 24, 11, c);                                            // 바다 — 몸의 아래를 덮는다
+      w(8, 27, 24, 1, '#a8dcf4');
+      w(8, 26, 4, 1, '#ffffff'); w(24, 26, 5, 1, '#ffffff');          // 몸이 물을 가르며 이는 흰 거품
+      for (let v = 30; v < 38; v += 3) w(8, v, 24, 1, shade(c, -20));  // 잔물결
+      for (let i = 0; i < 10; i += 2) w(8 + i, 12 + i, 2, 4, 'rgba(255,255,255,0.20)');   // 유리 반사
+      break;
+    }
+    case 'wlight': {                                                  // 벽 조명 — 따뜻한 불빛이 벽에 번진다
+      // 벽에 번지는 빛부터 — 뒤에 깔아야 등이 위에 온다
+      for (let i = 0; i < 7; i++){
+        const half = 4 + i * 2;
+        w(20 - half, 20 + i * 4, half * 2, 4, 'rgba(255,225,150,' + (0.20 - i * 0.026).toFixed(3) + ')');
+      }
+      w(18, 4, 4, 12, '#8a7b6e'); w(18, 4, 2, 12, '#a9998a');          // 벽에 붙은 대
+      w(14, 14, 12, 3, '#6f6257'); w(14, 14, 12, 1, '#8a7b6e');        // 팔
+      w(10, 16, 20, 3, shade(c, -30));                                 // 갓의 테
+      w(8, 17, 24, 10, c);                                             // 갓
+      w(8, 17, 24, 3, shade(c, 22));
+      for (let x = 10; x < 30; x += 4) w(x, 20, 2, 7, shade(c, -12));  // 갓의 주름
+      w(8, 26, 24, 2, shade(c, -34));
+      w(12, 28, 16, 3, '#fff3c0'); w(14, 31, 12, 2, '#ffe9a8');        // 새어 나오는 빛
+      w(16, 33, 8, 2, '#ffd979');
+      break;
+    }
     default: {                                                        // 커튼 창문
       w(6, 10, 28, 36, '#8a6a4a');                                    // 창틀 바깥
       w(8, 12, 24, 32, '#c79b6d');
@@ -2945,7 +2989,8 @@ const FURN_H = { rug: 2, bed: 24, bunk: 72, table: 28, desk: 32, chair: 38, sofa
                  beanbag: 24, tent: 56, rocker: 42, books: 20, bigplant: 60,
                  sakura: 46, fan: 52, pumpkin: 32,
                  dollhouse: 54, slide: 44, ballpit: 18, hammock: 46, kitchen: 46,
-                 blocks: 32, dresser: 46, nightsky: 24 };
+                 blocks: 32, dresser: 46, nightsky: 24,
+                 fox: 40, sangre: 34, rabbit: 44, pcdesk: 62, sunflower: 58, rose: 44 };
 // 가구마다의 재질 — 적지 않은 것은 나무로 친다
 const FURN_MAT = {
   rug:'cloth', bed:'cloth', sofa:'cloth', cushion:'cloth', catbed:'cloth', beanbag:'cloth',
@@ -2957,6 +3002,7 @@ const FURN_MAT = {
   vase:'plain', books:'plain', easel:'wood', guitar:'wood',
   ballpit:'plain', hammock:'cloth', kitchen:'plain', blocks:'plain', nightsky:'plain',
   slide:'plain', dollhouse:'wood', dresser:'wood',
+  fox:'cloth', sangre:'cloth', rabbit:'cloth', pcdesk:'wood', sunflower:'plain', rose:'plain',
 };
 function furnArt(f, rot){
   const F = R.FURNITURE[f], b = R.furnBox(f, rot);
@@ -3385,6 +3431,106 @@ function paintFurniture(g, f, rot, A, t){
       oq(8, 16, 16, 14, c); oq(10, 18, 12, 8, hi);
       oq(4, 18, 6, 6, lo); oq(22, 18, 6, 6, lo); oq(8, 28, 6, 4, lo); oq(18, 28, 6, 4, lo);
       break;
+    case 'fox': {                                                        // 레샤 인형 — 첫화면의 분홍 여우
+      const wh = '#ffffff', ink = '#3a3226';
+      oq(0, 19, 9, 6, c); oq(0, 20, 4, 5, '#5a3a24');                    // 꼬리 — 끝만 갈색
+      oq(7, 2, 4, 3, c); oq(6, 4, 6, 5, c);                              // 귀 — 여우답게 낮고 넓은 세모
+      oq(21, 2, 4, 3, c); oq(20, 4, 6, 5, c);
+      oq(8, 5, 2, 3, '#ffd9e2'); oq(22, 5, 2, 3, '#ffd9e2');
+      oq(6, 7, 20, 12, c); oq(6, 7, 20, 3, shade(c, 18));                // 머리
+      oq(9, 11, 14, 8, wh);                                              // 흰 얼굴
+      oq(11, 12, 2, 3, ink); oq(19, 12, 2, 3, ink);                      // 눈
+      oq(11, 12, 1, 1, wh); oq(19, 12, 1, 1, wh);                        // 눈에 빛
+      oq(15, 15, 2, 2, ink); oq(14, 17, 4, 1, ink);                      // 코와 입
+      oq(7, 15, 2, 2, '#ff8fb0'); oq(23, 15, 2, 2, '#ff8fb0');           // 볼
+      oq(8, 19, 16, 10, wh); oq(8, 19, 16, 3, c);                        // 몸
+      oq(10, 23, 12, 1, shade(wh, -14));                                 // 봉제선
+      oq(4, 20, 5, 7, c); oq(23, 20, 5, 7, c);                           // 팔
+      oq(9, 28, 6, 4, wh); oq(17, 28, 6, 4, wh);                         // 발
+      break;
+    }
+    case 'sangre': {                                                     // 상그렐라 인형 — 굴러다니는 그 얼굴
+      const sh = shade(c, -12), bk = '#ffc94d', ink = '#3a3226';
+      oq(11, 3, 10, 2, c); oq(8, 5, 16, 2, c); oq(6, 7, 20, 3, c);       // 동그란 몸
+      oq(4, 10, 24, 12, c); oq(6, 22, 20, 3, c); oq(8, 25, 16, 2, c); oq(11, 27, 10, 2, c);
+      oq(4, 18, 24, 4, sh); oq(8, 25, 16, 2, sh);                        // 아래쪽 그늘
+      oq(6, 9, 4, 4, '#ffffff');                                         // 빛
+      oq(9, 11, 3, 5, ink); oq(20, 11, 3, 5, ink);                       // 눈
+      oq(13, 16, 6, 3, bk); oq(14, 19, 4, 1, ink);                       // 벌린 윗부리
+      oq(13, 20, 6, 3, shade(bk, -20));                                  // 아랫부리
+      oq(24, 13, 4, 7, sh); oq(24, 13, 4, 2, c);                         // 날개
+      break;
+    }
+    case 'rabbit': {                                                     // 토끼 인형
+      const pk = '#ffc0cf', ink = '#3a3226';
+      oq(9, 0, 5, 12, c); oq(18, 0, 5, 12, c);                           // 긴 귀
+      oq(10, 2, 3, 8, pk); oq(19, 2, 3, 8, pk);
+      oq(7, 10, 18, 12, c); oq(7, 10, 18, 3, shade(c, 14));              // 머리
+      oq(11, 14, 2, 3, ink); oq(19, 14, 2, 3, ink);
+      oq(11, 14, 1, 1, '#ffffff'); oq(19, 14, 1, 1, '#ffffff');
+      oq(15, 17, 2, 2, pk); oq(14, 19, 4, 1, ink);                       // 코와 입
+      oq(8, 22, 16, 8, c); oq(10, 23, 12, 4, shade(c, 12));              // 몸
+      oq(5, 23, 4, 6, c); oq(23, 23, 4, 6, c);                           // 팔
+      oq(8, 29, 7, 3, c); oq(17, 29, 7, 3, c);                           // 발
+      oq(24, 24, 4, 4, '#ffffff');                                       // 동그란 꼬리
+      break;
+    }
+    case 'pcdesk': {                                                     // 컴퓨터 책상
+      const HH = 30, tt = 4;
+      // 돌리면 상판이 세로로 눕는다 — 위에 올리는 것은 상판 크기에 맞춰 잡는다
+      const mw = Math.max(10, Math.round(E * 0.46)), mx = Math.round(E * 0.14);
+      const kw = Math.max(8, Math.round(E * 0.36)), kx = Math.round(E * 0.52);
+      const ky = Math.max(3, D - 16);
+      box(3, 3, 5, 5, HH - tt, dk); box(E - 8, 3, 5, 5, HH - tt, dk);    // 다리 넷
+      box(3, D - 8, 5, 5, HH - tt, dk); box(E - 8, D - 8, 5, 5, HH - tt, dk);
+      box(4, Math.max(4, D - 15), Math.min(11, E - 8), 11, 22, '#454b54');   // 책상 밑 본체
+      box3(4, Math.min(D - 4, Math.max(4, D - 15) + 11), 8, 1, 3, '#8fd9f0', '#8fd9f0', '#6fb8d8', 12);
+      box(0, 0, E, D, tt, c, HH - tt);                                   // 상판
+      box3(mx + 3, 2, mw - 6, 4, 2, '#4a505a', '#3a3f47', '#2f343b', HH);        // 모니터 받침
+      box3(mx + Math.round(mw / 2) - 2, 3, 4, 2, 6, '#4a505a', '#3a3f47', '#2f343b', HH + 2);   // 목
+      box3(mx, 1, mw, 4, 20, '#2f343b', '#3a3f47', '#262a30', HH + 8);           // 몸통
+      box3(mx + 2, 4, mw - 4, 1, 15, '#a8e2f6', '#bfeaff', '#8fd0e8', HH + 11);  // 화면 — 앞면이 우리를 본다
+      top(mx + 2, 4, HH + 26, mw - 4, 1, '#dff4ff');                             // 화면 위쪽 빛
+      top(kx, ky, HH, kw, 9, '#3a3f47');                                         // 자판
+      for (let a2 = kx + 2; a2 < kx + kw - 2; a2 += 3) top(a2, ky + 2, HH + 1, 2, 5, '#c9d2da');
+      top(Math.min(E - 6, kx + kw + 2), ky + 3, HH, 5, 5, '#e3e9ee');            // 마우스
+      box(E - 11, Math.max(5, D - 11), 6, 6, 9, '#f2857a', HH);                  // 컵
+      top(E - 10, Math.max(6, D - 10), HH + 9, 4, 4, '#8a5f3a');
+      break;
+    }
+    case 'sunflower': {                                                  // 해바라기 화분
+      oq(9, 22, 14, 10, '#c97a5a'); oq(9, 20, 14, 4, '#e09a76'); oq(9, 30, 14, 2, '#a45f45');
+      oq(11, 21, 10, 2, '#8a5f3a');                                      // 흙
+      oq(15, 14, 2, 8, '#4f9a48'); oq(15, 14, 1, 8, '#6fb567');          // 줄기
+      oq(8, 16, 7, 3, '#5da05a'); oq(7, 17, 2, 2, '#4f9a48');            // 잎 둘
+      oq(17, 18, 7, 3, '#5da05a'); oq(23, 19, 2, 2, '#4f9a48');
+      for (let i = 0; i < 12; i++){                                      // 꽃잎 열둘 — 하나씩 떨어뜨려 놓는다
+        const ang = i * Math.PI / 6;
+        const px2 = Math.round(16 + Math.cos(ang) * 9) - 2, py2 = Math.round(9 + Math.sin(ang) * 8) - 2;
+        oq(px2, py2, 5, 5, i % 2 ? shade(c, -14) : c);
+        oq(px2 + 1, py2, 3, 1, shade(c, 24));
+      }
+      oq(10, 4, 12, 10, shade(c, -18)); oq(11, 3, 10, 12, shade(c, -18));  // 씨자리 테
+      oq(11, 4, 10, 10, '#8a5f3a'); oq(12, 5, 8, 8, '#6f4a2c');
+      for (let x = 12; x < 20; x += 2) for (let y = 5; y < 12; y += 2) oq(x + (y / 2 % 2 ? 1 : 0), y, 1, 1, '#523524');
+      break;
+    }
+    case 'rose': {                                                       // 장미 화분
+      oq(10, 23, 12, 9, '#8ec9ee'); oq(10, 21, 12, 4, '#b6ddf3'); oq(10, 30, 12, 2, '#6fa8cc');
+      oq(15, 10, 2, 12, '#4f9a48'); oq(11, 13, 2, 8, '#4f9a48'); oq(19, 15, 2, 6, '#4f9a48');   // 줄기 셋
+      oq(8, 17, 5, 3, '#5da05a'); oq(19, 19, 5, 3, '#5da05a'); oq(13, 20, 5, 3, '#5da05a');     // 잎
+      const rosy = (x, y, n) => {                                       // 겹겹이 말린 꽃 한 송이 (n×n)
+        oq(x + 1, y, n - 2, 1, shade(c, -20));                           // 네 귀퉁이를 깎아 동그랗게
+        oq(x, y + 1, n, n - 2, c);
+        oq(x + 1, y + n - 1, n - 2, 1, shade(c, -20));
+        oq(x, y + 1, 1, n - 2, shade(c, -20)); oq(x + n - 1, y + 1, 1, n - 2, shade(c, -20));
+        oq(x + 1, y + 1, n - 2, 2, shade(c, 20));                        // 위쪽 빛
+        oq(x + 2, y + 3, n - 4, n - 6, shade(c, -24));                   // 가운데 말린 자리
+        oq(x + 3, y + 4, n - 6, 1, shade(c, 12));
+      };
+      rosy(11, 2, 9); rosy(6, 9, 7); rosy(18, 11, 7);
+      break;
+    }
     case 'guitar':
       oq(14, 0, 4, 16, '#6f4a2c'); oq(12, 0, 8, 4, '#3a2f26');
       oq(8, 14, 16, 8, c); oq(6, 18, 20, 12, c); oq(6, 18, 20, 4, shade(c, 24));

@@ -583,6 +583,15 @@ const FARM = (() => {
     worldmap: { name: '세계 지도',  cost: 200, w: 1, kind: 'worldmap',  cozy: 2, c: '#8fd9c8' , wall: true },
     mobile:   { name: '별 모빌',    cost: 160, w: 1, kind: 'mobile',    cozy: 2, c: '#ffd166' , wall: true },
     wreath:   { name: '겨울 화환',  cost: 180, w: 1, kind: 'wreath',    cozy: 2, c: '#e8574f' , wall: true, season: 'winter' },
+    // 아이들이 골라 넣은 것 — 레샤와 상그렐라는 이 집의 진짜 식구다
+    fox:      { name: '레샤 인형',     cost: 300, w: 1, kind: 'fox',       cozy: 3, c: '#ffb0c4' },
+    sangre:   { name: '상그렐라 인형', cost: 300, w: 1, kind: 'sangre',    cozy: 3, c: '#fff6e9' },
+    rabbit:   { name: '토끼 인형',     cost: 220, w: 1, kind: 'rabbit',    cozy: 2, c: '#f7f0ea' },
+    pcdesk:   { name: '컴퓨터 책상',   cost: 720, w: 2, kind: 'pcdesk',    cozy: 3, c: '#c79a62' , flat: true },
+    sunflower:{ name: '해바라기 화분', cost: 170, w: 1, kind: 'sunflower', cozy: 2, c: '#ffc94d' },
+    rose:     { name: '장미 화분',     cost: 190, w: 1, kind: 'rose',      cozy: 2, c: '#ff6b7a' },
+    whale:    { name: '고래 그림',     cost: 230, w: 1, kind: 'whale',     cozy: 3, c: '#5aa9e6' , wall: true },
+    wlight:   { name: '벽 조명',       cost: 200, w: 1, kind: 'wlight',    cozy: 3, c: '#ffe9a8' , wall: true },
   };
   // 방은 가로 칸 수 × 세로 칸 수. 넓히는 건 언제든 안전하다 — 이미 놓인 가구는 그대로 있다.
   const ROOMS = {
