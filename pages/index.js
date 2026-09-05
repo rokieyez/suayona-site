@@ -1213,6 +1213,9 @@ const belowFold = (() => {
     if (hit && hit.kind === 'char' && hit.name === '상그렐라') {
       chick.held = true; chick.vx = 0;
       drag.base = chick.ox;
+    }
+    // 상그렐라를 잡았거나 좁은 화면에서 마을을 끌 때는 손가락이 캔버스 밖으로 나가도 놓치지 않게 붙잡는다
+    if (chick.held || panMax > 0) {
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 이미 놓인 포인터면 실패한다 — 붙잡기는 덤이다 */ }
     }
   });
