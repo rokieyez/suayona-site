@@ -10,7 +10,8 @@ buildChrome('home');
 //
 // supabase 의 질의 객체는 await 할 때마다 새로 물어보러 간다. 그래서 객체를 나눠 쓰면
 // 소용이 없고, 이렇게 결과 약속(Promise) 자체를 만들어 두고 나눠 써야 한 번만 다녀온다.
-const metaOnce   = (async () => (await sb.from('event_meta').select('event_id, org_name, event_name')).data || [])();
+// start_date 는 아래 「마을이 아는 우리 이야기」가 쓴다 — 같은 표를 두 번 묻지 않으려고 여기서 함께 받는다.
+const metaOnce   = (async () => (await sb.from('event_meta').select('event_id, org_name, event_name, start_date')).data || [])();
 const countsOnce = (async () => ((await sb.rpc('home_counts')).data || [])[0] || {})();
 // 로그인 확인은 페이지당 한 번이면 된다. 세 군데가 나눠 쓴다.
 const authOnce   = refreshAuth().catch(() => null);
@@ -1613,7 +1614,7 @@ const belowFold = (() => {
   let boardLine = null;
   const ymLabel = d => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); return m ? Number(m[1]) + '년 ' + Number(m[2]) + '월' : null; };
   Promise.all([
-    sb.from('event_meta').select('event_id, event_name, start_date').then(r => r.data || [], () => []),
+    metaOnce,
     sb.from('events').select('event_id, title, place_name').then(r => r.data || [], () => []),
   ]).then(([metas, evs]) => {
     const dateOf = {};

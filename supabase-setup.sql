@@ -654,6 +654,22 @@ grant execute on function public.event_is_public(text) to anon, authenticated;
 grant execute on function public.capsules_locked()     to anon, authenticated;
 grant execute on function public.home_counts()         to anon, authenticated;
 
+-- ---------------------------------------------------------------------------
+-- 로그인 없이는 쓸 일이 없는 함수는 익명 실행 권한을 걷는다 (2026-09-05 마무리작업)
+--
+-- 다섯 함수 모두 안에서 my_role() 을 검사해서 손님이 부르면 예외나 null 로 끝나긴
+-- 했다. 그래도 권한 자체가 열려 있으면 수파베이스 점검이 「익명이 SECURITY DEFINER
+-- 함수를 부를 수 있다」 고 경고하고, 함수 본문을 고칠 때 검사 한 줄을 빠뜨리면 그대로
+-- 뚫린다. 부르는 쪽은 전부 로그인한 뒤(authenticated)라 걷어도 달라지는 것이 없다.
+-- farm_peek 는 농장 손님 미리보기가, farm_cards·quest_cards 는 첫 화면이 로그인
+-- 없이 부르므로 그대로 둔다.
+-- ---------------------------------------------------------------------------
+revoke execute on function public.farm_commit(jsonb, integer, jsonb) from public, anon;
+revoke execute on function public.farm_restore()                     from public, anon;
+revoke execute on function public.farm_restore_info()                from public, anon;
+revoke execute on function public.quest_restore(text)                from public, anon;
+revoke execute on function public.parent_digest()                    from public, anon;
+
 -- 버킷이 아무 형식이나 받고 있었다. 올릴 수 있는 건 부모뿐이지만 버킷이 공개라,
 -- 실수로 .html 이나 .svg 가 들어가면 supabase.co 주소에서 스크립트가 도는 문서가 된다.
 update storage.buckets

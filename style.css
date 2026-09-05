@@ -272,10 +272,6 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
 .foot-link:hover{transform:translateY(-3px);}
 
 /* ===== 관리자(로그인) 영역 ===== */
-.admin-bar{
-  display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;
-  margin-bottom:26px; font-size:12.5px; color:var(--ink-soft);
-}
 .login-box{max-width:340px; margin:0 auto 26px;}
 .login-box .inner{padding:22px;}
 .msg{font-size:12.5px; margin-top:10px; min-height:1em; color:var(--ink-soft);}
@@ -437,8 +433,7 @@ body.has-backdrop main{flex:1 0 auto;}
 /* 카드 보호를 못 받고 배경 위에 맨살로 앉는 글자만 한 단계 진하게.
    --ink-soft 자체는 건드리지 않는다 (카드 안 글자와 첫 페이지는 그대로). */
 body.has-backdrop .section-head p,
-body.has-backdrop .empty-msg,
-body.has-backdrop .admin-bar{color:var(--ink-bg-safe);}
+body.has-backdrop .empty-msg{color:var(--ink-bg-safe);}
 
 /* ===== 글 서식 (일정표 커스텀 탭 · 일기장 공용) =====
    이벤트 페이지는 자기 색 변수(--accent 등)를 따로 쓰므로 그쪽 값을 먼저 보고,
