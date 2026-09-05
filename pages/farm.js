@@ -107,6 +107,7 @@ async function bootInner(){
   if (r.ok){ pending.push(daily); dirty = true; persist(); }
   $('#game').hidden = false;
   $('#lead').textContent = NAME[key] + '의 농장 — ' + NAME[R.OTHER[key]] + '와 함께 가꿔요';
+  $('#lead').hidden = false;
   wireUI();
   renderAll();
   initReveal();
