@@ -2655,7 +2655,16 @@ function drawRoom(cv, r, tms){
   const Rm = R.ROOMS[r]; if (!Rm) return;
   const aw = Rm.w * T, ah = Rm.h * T + WALLH;
   watchRoomCanvas(cv, r);
+  const 전너비 = cv.width;
   fitPixelCanvas(cv, aw, ah, 6);
+  /* 자리를 못 잡아 물러섰으면 잠시 뒤에 다시 잰다. 크기 관찰자만 믿으면 그것이
+     안 도는 자리(숨어 있는 창 따위)에서 낮은 배수로 굳는다. 몇 번만 해 보고 그만둔다. */
+  if (cv.width === 전너비 && cv.width < aw * 3){
+    const 시도 = (cv.__roomTry = (cv.__roomTry || 0) + 1);
+    if (시도 <= 12) setTimeout(() => drawRoom(cv, r), 60 * 시도);
+  } else {
+    cv.__roomTry = 0;
+  }
   HS = pixScale(cv, aw, ah, 2);
   const cw = cv.width, ch = cv.height;
   const L = dayLight();
