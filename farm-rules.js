@@ -134,6 +134,9 @@ const FARM = (() => {
     { w: 10, h: 6, cost: 2500, lv: 6 },
   ];
   const GH = { w: 4, h: 3 };     // 온실 안 12칸
+  /* 스프링클러. 밭 한 칸을 차지하고, 아침마다 둘레 네 칸에 물을 준다.
+     그 칸에는 심을 수 없다 — 한 칸을 내주고 네 칸의 손을 던다. */
+  const SPRINKLER = { name: '스프링클러', cost: 1500, lv: 5, reach: 4 };
   function plotIds(world, area){
     const out = [];
     if (area === 'gh'){
@@ -232,6 +235,7 @@ const FARM = (() => {
     stone:   { name: '돌',       sell: 3 },
     fert:    { name: '비료',     sell: 0 },
     snowball:{ name: '눈덩이',   sell: 0 },
+    sprinkler:{ name: '스프링클러', sell: 0 },     // 팔지는 않는다 — 밭에 놓는 물건
   };
   function itemName(id){
     const [k, v] = id.split(':');
@@ -808,7 +812,7 @@ const FARM = (() => {
   function newWorld(now){
     return {
       v: 1, started: dayKey(now), seasonLen: SEASON_LEN_DEFAULT, seasonIndex: 0,
-      expand: 0, plots: {}, buildings: {}, animals: [], layout: {}, decor: {},
+      expand: 0, plots: {}, buildings: {}, animals: [], layout: {}, decor: {}, sprinklers: {},
       house: { living: {}, sua: { '0,0': { f: 'bed1', r: 0 } }, yona: { '0,0': { f: 'bed1', r: 0 } } },
       orders: {}, festival: {}, mail: { sua: [], yona: [] }, log: [], seen: {},
     };
@@ -846,6 +850,7 @@ const FARM = (() => {
         it.r = FURNITURE[it.f].wall ? 0 : ((Math.round(Number(it.r) || 0) % 4) + 4) % 4;
       });
     });
+    if (!o.sprinklers || typeof o.sprinklers !== 'object') o.sprinklers = {};
     if (!o.mail) o.mail = { sua: [], yona: [] };
     if (!o.started) o.started = dayKey(now);
     return o;
@@ -934,6 +939,7 @@ const FARM = (() => {
     const C = CROPS[crop];
     if (!C) return fail('그런 씨앗은 없어요');
     if (!plotOpen(world, id)) return fail('아직 열리지 않은 땅이에요');
+    if ((world.sprinklers || {})[id]) return fail('스프링클러가 놓인 칸이에요');
     const p = world.plots[id] || (world.plots[id] = {});
     if (!p.tilled) return fail('먼저 땅을 갈아요');
     if (p.crop) return fail('이미 무언가 자라고 있어요');
@@ -968,6 +974,48 @@ const FARM = (() => {
     p.care = (p.care || 0) + 1;                        // 제때 준 물이 별이 된다
     mine.xp += XP.water; bump(mine, 'watered', 1, now);
     return okay('물을 줬어요');
+  }
+  // 스프링클러를 밭 한 칸에 놓는다. 온실은 늘 촉촉하니 받지 않는다.
+  function putSprinkler(world, mine, id){
+    if (id[0] === 'g') return fail('온실은 물을 안 줘도 돼요');
+    if (!plotOpen(world, id)) return fail('밭이 아니에요');
+    world.sprinklers = world.sprinklers || {};
+    if (world.sprinklers[id]) return fail('여기 이미 있어요');
+    const p = world.plots[id];
+    if (p && p.crop) return fail('심어 둔 칸에는 못 놓아요');
+    if (!take(mine, 'sprinkler')) return fail('스프링클러가 없어요');
+    world.sprinklers[id] = { by: mine.key };
+    return okay(eul(SPRINKLER.name) + ' 놓았어요. 아침마다 둘레 네 칸을 적셔요');
+  }
+  function pullSprinkler(world, mine, id){
+    if (!world.sprinklers || !world.sprinklers[id]) return fail('여기 스프링클러가 없어요');
+    delete world.sprinklers[id];
+    give(mine, 'sprinkler', 1);
+    return okay('스프링클러를 걷었어요');
+  }
+  // 스프링클러가 적시는 칸 — 자기 칸은 빼고 둘레 넷. 밭 밖은 셈에서 뺀다.
+  function sprinkled(world){
+    const out = {};
+    Object.keys(world.sprinklers || {}).forEach(id => {
+      neighborsOf(id).forEach(n => { if (plotOpen(world, n) && !(world.sprinklers || {})[n]) out[n] = true; });
+    });
+    return Object.keys(out);
+  }
+  /* 아침마다 한 번. 손으로 준 물과 똑같이 쳐 준다 — 값을 치르고 한 칸을 내준 물이니
+     별에도 그대로 보탠다. 여러 대가 같은 칸을 적셔도 한 번만 센다. */
+  function sprinklerDay(world, now){
+    const ids = sprinkled(world);
+    let n = 0;
+    ids.forEach(id => {
+      const p = world.plots[id];
+      if (!p || !p.tilled) return;
+      if ((p.wet || 0) > now) return;                  // 아직 촉촉하면 그냥 둔다
+      tickPlot(p, now, false);
+      p.wet = now + WATER_HOURS * H;
+      if (p.crop) p.care = (p.care || 0) + 1;
+      n++;
+    });
+    return n;
   }
   function fertilize(world, mine, id, now){
     const p = world.plots[id];
@@ -1097,6 +1145,12 @@ const FARM = (() => {
       mine.coins -= Dc.cost; world.decor[v] = { by: mine.key, on: dayKey(now) }; mine.xp += XP.expand;
       logAdd(world, mine.key, NAME[mine.key] + '가 농장에 ' + Dc.name + '을 놓았어요', now);
       return okay(ee(Dc.name) + ' 생겼어요');
+    }
+    if (k === 'sprinkler'){
+      if (levelOf(mine.xp) < SPRINKLER.lv) return fail('농장 레벨 ' + SPRINKLER.lv + '부터 살 수 있어요');
+      if (mine.coins < SPRINKLER.cost) return fail('동전이 모자라요');
+      mine.coins -= SPRINKLER.cost; give(mine, 'sprinkler', 1);
+      return okay(eul(SPRINKLER.name) + ' 샀어요. 밭의 빈 칸에 놓아요');
     }
     if (k === 'fert'){ if (mine.coins < 30) return fail('동전이 모자라요'); mine.coins -= 30; give(mine, 'fert', 1); return okay('비료를 샀어요'); }
     if (k === 'recipe'){
@@ -1359,6 +1413,8 @@ const FARM = (() => {
       notes.push(g.name + (jong(g.name) ? '이' : '가') + ' 다 자랐어요');
       logAdd(world, g.by, g.name + (jong(g.name) ? '이' : '가') + ' 어른이 됐어요', now);
     });
+    const sprinkled_n = sprinklerDay(world, now);
+    if (sprinkled_n) notes.push('스프링클러가 ' + sprinkled_n + '칸에 물을 줬어요');
     if (honeyCheck(world, now)) notes.push('벌통에 꿀이 찼어요');
     if (isWet(weatherOf(key, cal.season))){
       Object.keys(world.plots).forEach(id => { const p = world.plots[id]; if (p.tilled && id[0] !== 'g'){ tickPlot(p, now, false); p.wet = Math.max(p.wet || 0, dayEndMs(now)); } });
@@ -1375,10 +1431,10 @@ const FARM = (() => {
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
-    GIANT_MULT, GOLD_MULT, WATER_HOURS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
+    GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand,
-    countOf, seedsFor, plotIds, plotOpen, parseId, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep, starOf, careNeed,
+    countOf, seedsFor, plotIds, plotOpen, parseId, putSprinkler, pullSprinkler, sprinkled, sprinklerDay, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep, starOf, careNeed,
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
     canPay, buildState, animalDay, babyDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,

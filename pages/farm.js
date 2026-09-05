@@ -260,10 +260,13 @@ const TOOLS = [
   { id: 'seed', icon: '🌱', name: '씨앗',      sub: () => seed ? R.CROPS[seed].name : '골라요' },
   { id: 'fert', icon: '🧪', name: '비료',      sub: () => (M.inv.fert || 0) + '개' },
   { id: 'pull', icon: '🪴', name: '뽑기',      sub: '시든 것 · 그만 키우기' },
+  { id: 'sprk', icon: '⛲', name: '스프링클러', sub: () => (M.inv.sprinkler || 0) + '개',
+    when: () => (M.inv.sprinkler || 0) > 0 || Object.keys(W.sprinklers || {}).length > 0 },
 ];
 function renderTools(){
   const box = $('#tools'); box.innerHTML = '';
   TOOLS.forEach(t => {
+    if (t.when && !t.when()){ if (tool === t.id) tool = 'hand'; return; }
     const b = document.createElement('button'); b.type = 'button';
     b.className = tool === t.id ? 'on' : '';
     b.innerHTML = t.icon + ' ' + t.name + '<small>' + (typeof t.sub === 'function' ? t.sub() : t.sub) + '</small>';
@@ -295,6 +298,7 @@ function hintFor(){
   if (tool === 'seed') return seed ? R.CROPS[seed].name + ' — ' + R.CROPS[seed].hours + '시간이면 자라요. ' + (R.CROPS[seed].season.indexOf(cal.season) >= 0 || R.CROPS[seed].hardy ? '지금 심을 수 있어요.' : '지금은 ' + R.SEASON_NAME[cal.season] + '이라 밭에서는 안 자라요(온실은 돼요).') : '';
   if (tool === 'fert') return '비료는 일기를 쓰면 하나씩 생겨요. 1.5배 빨리 자라요.';
   if (tool === 'pull') return '시든 작물이나 그만 키울 작물을 뽑아요. 큰 작물은 짝도 같이 뽑혀요.';
+  if (tool === 'sprk') return '밭의 빈 칸을 눌러 놓아요. 아침마다 둘레 네 칸에 물을 줘요. 놓은 칸을 다시 누르면 걷어요.';
   return '다 자란 작물·나무·바위·동물·집·우편함·게시판·가게를 눌러요.';
 }
 
@@ -1579,6 +1583,49 @@ function drawBeast(a, t){
   }
 }
 
+/* 스프링클러. 쇠기둥에 놋쇠 머리를 얹고 네 갈래 물줄기가 돌아간다.
+   흙과 색이 겹치지 않게 기둥은 회색 쇠로, 머리는 진한 놋쇠로 두고 둘레에 짙은 선을 두른다.
+   물방울은 각도로 자리를 잡으므로 칸 크기가 달라져도 같은 모양이 나온다. */
+function drawSprinkler(X, Y, t){
+  const cx = X + T / 2, base = Y + T - 6;
+  const INK = '#2b2620';
+  // 젖은 흙 자국과 그림자
+  px(cx - 11, base - 1, 22, 4, '#00000018');
+  px(cx - 8, base - 1, 16, 3, '#5d4a35');
+  // 받침
+  px(cx - 8, base - 4, 16, 4, INK);
+  px(cx - 7, base - 4, 14, 2, '#8d8880');
+  // 쇠기둥
+  px(cx - 4, base - 18, 8, 14, INK);
+  px(cx - 3, base - 18, 6, 14, '#a9a49a');
+  px(cx - 3, base - 18, 2, 14, '#d5cec5');
+  px(cx + 1, base - 18, 2, 14, '#7b756d');
+  // 놋쇠 머리 — 아래가 넓은 종 모양
+  px(cx - 9, base - 22, 18, 5, INK);
+  px(cx - 8, base - 21, 16, 3, '#c79a4e');
+  px(cx - 8, base - 21, 16, 1, '#e8c274');
+  px(cx - 6, base - 26, 12, 5, INK);
+  px(cx - 5, base - 25, 10, 4, '#b9924a');
+  px(cx - 5, base - 25, 10, 1, '#e6c274');
+  px(cx - 2, base - 29, 4, 4, INK);
+  px(cx - 1, base - 28, 2, 3, '#d9b463');
+  // 네 갈래 물줄기 — 한 바퀴 도는 데 2.4초
+  const spin = (t % 2400) / 2400 * Math.PI * 2;
+  for (let i = 0; i < 4; i++){
+    const a = spin + i * Math.PI / 2;
+    // 앞뒤로 곧장 뻗은 줄기는 기둥에 그대로 겹쳐 지저분해진다 — 옆으로 벌어진 것만 그린다
+    if (Math.abs(Math.cos(a)) < 0.36) continue;
+    // 머리에서 나와 땅으로 떨어지는 길 — 멀어질수록 낮아지고, 앞뒤로도 조금 벌어진다
+    for (let d = 1; d <= 4; d++){
+      const r = 4 + d * 4;
+      const hgt = Math.max(0, 20 - d * 5) + Math.round(Math.sin(Math.PI * d / 5) * 3);
+      const dx = Math.round(Math.cos(a) * r * 1.15), dy = Math.round(Math.sin(a) * r * 0.32);
+      const c = d === 1 ? '#eaf6ff' : d >= 4 ? '#6fb3e0' : '#a8d7f5';
+      px(cx + dx - 1, base - 4 - hgt + dy, 2, 2, c);
+    }
+  }
+}
+
 // 그네는 바람을 타고, 등불은 조금씩 흔들린다 — 움직이는 겹에서 그린다.
 function drawDecorLive(season, t, L){
   const d = W.decor || {};
@@ -2028,6 +2075,7 @@ function drawFarm(cvIn, tms){
   ctx = g;
   const cast = [];
   Object.keys(R.NODES).forEach(n => { const N = R.NODES[n]; cast.push({ y: N.y * T + 30, go: () => drawNode(n, season, t) }); });
+  Object.keys(W.sprinklers || {}).forEach(id => { const q = R.parseId(id); cast.push({ y: q.y * T + 30, go: () => drawSprinkler(q.x * T, q.y * T, t) }); });
   if (walkers) walkers.forEach(w => cast.push({ y: w.y, go: () => drawWalker(w, t) }));
   if (beasts) beasts.list.forEach(a => cast.push({ y: a.y, go: () => drawBeast(a, t) }));
   cast.sort((a, b) => a.y - b.y).forEach(c => c.go());
@@ -2158,6 +2206,12 @@ function onPlot(id){
   if (tool === 'seed'){ if (!seed){ flash('씨앗을 먼저 골라요', true); return; } const c = seed; const r = act((w, m) => R.plant(w, m, id, c, now())); if (r.ok){ sfx(r.joined ? 'fanfare' : 'plant'); renderTools(); } return; }
   if (tool === 'fert'){ const r = act((w, m) => R.fertilize(w, m, id, now())); if (r.ok) sfx('pop'); renderTools(); return; }
   if (tool === 'pull'){ const p = W.plots[id]; if (p && p.crop && !p.wilted && !confirm(R.CROPS[p.crop].name + '을 정말 뽑을까요?')) return; act((w, m) => R.clear(w, m, id)); return; }
+  if (tool === 'sprk'){
+    const on = (W.sprinklers || {})[id];
+    const r = act((w, m) => on ? R.pullSprinkler(w, m, id) : R.putSprinkler(w, m, id));
+    if (r.ok) sfx('pop');
+    renderTools(); return;
+  }
   // 손
   const p = W.plots[id];
   if (p && p.crop){
@@ -2173,6 +2227,7 @@ function onPlot(id){
       + (p.by !== key ? ' · ' + NAME[p.by] + '가 심었어요' : ''));
     return;
   }
+  if ((W.sprinklers || {})[id]){ flash('스프링클러예요. 아침마다 둘레 네 칸에 물을 줘요'); return; }
   flash(p && p.tilled ? '갈아 둔 땅이에요. 씨앗을 골라 심어요' : '괭이로 갈면 심을 수 있어요');
 }
 // 도구가 여러 칸을 다루면 하나라도 되면 성공으로 친다. 실패 이유는 마지막 것만.
@@ -2270,7 +2325,7 @@ function itemIcon(id){
     return cv;
   }
   const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; const g = cv.getContext('2d');
-  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff' }[id] || (k === 'dish' ? '#ffb3a7' : k === 'f' ? R.FURNITURE[v].c : '#ddd');
+  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a' }[id] || (k === 'dish' ? '#ffb3a7' : k === 'f' ? R.FURNITURE[v].c : '#ddd');
   g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, 32, 32); g.fillStyle = col; g.fillRect(8, 8, 16, 16); g.fillStyle = '#3a3226'; g.fillRect(8, 8, 16, 2); g.fillRect(8, 22, 16, 2); g.fillRect(8, 8, 2, 16); g.fillRect(22, 8, 2, 16);
   return cv;
 }
@@ -2376,6 +2431,9 @@ function renderShop(){
     card.innerHTML = '<div class="nm">🟫 밭 넓히기</div><div class="pr">지금 ' + R.EXPANSIONS[W.expand || 0].w + '×' + R.EXPANSIONS[W.expand || 0].h + (nxE ? ' → ' + nxE.w + '×' + nxE.h + ' · 레벨 ' + nxE.lv + '부터' : ' · 제일 넓어요') + '</div>';
     if (nxE){ const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('expand:1', nxE.cost, M.coins >= nxE.cost && lv >= nxE.lv)); card.appendChild(a); }
     box.appendChild(card);
+    const sp = document.createElement('div'); sp.className = 'item';
+    sp.innerHTML = '<div class="nm">⛲ ' + R.SPRINKLER.name + '</div><div class="pr">밭 한 칸을 차지하고, 아침마다 둘레 네 칸에 물을 줘요 · 레벨 ' + R.SPRINKLER.lv + '부터 · 가진 것 ' + (M.inv.sprinkler || 0) + '개</div>';
+    const spa = document.createElement('div'); spa.className = 'act'; spa.appendChild(buyBtn('sprinkler:1', R.SPRINKLER.cost, M.coins >= R.SPRINKLER.cost && lv >= R.SPRINKLER.lv)); sp.appendChild(spa); box.appendChild(sp);
     const fc = document.createElement('div'); fc.className = 'item'; fc.innerHTML = '<div class="nm">🧪 비료</div><div class="pr">1.5배 빨리. 일기를 쓰면 공짜로 하나</div>';
     const fa = document.createElement('div'); fa.className = 'act'; fa.appendChild(buyBtn('fert:1', 30, M.coins >= 30)); fc.appendChild(fa); box.appendChild(fc);
   } else if (shopTab === 'animal'){
