@@ -441,12 +441,17 @@ const FARM = (() => {
   };
   const ANIMAL_MAX = { coop: 6, barn: 6, pasture: 4, pethouse: 2 };
   const LOVE_FOR_BEST = 5;
+  // 새끼. 마음이 아주 큰 어른이, 우리에 자리가 있을 때만 본다.
+  const LOVE_FOR_BABY = 8;      // 마음이 이만큼 크면 새끼를 볼 수 있다
+  const BABY_DAYS = 5;          // 닷새 돌보면 어른이 된다
+  const BABY_REST_DAYS = 8;     // 한 번 낳으면 여드레는 쉰다
+  const BABY_CHANCE = 0.34;     // 조건이 맞은 날에도 셋에 하나꼴로만
   function animalDay(world, now){
     // 하루가 바뀌면 어제 밥을 먹은 동물이 알을 낳는다. 그리고 밥그릇을 비운다.
     const key = dayKey(now);
     let made = [];
     (world.animals || []).forEach(a => {
-      if (a.fedDay && a.fedDay !== key && a.fedDay !== a.lastMade){
+      if (!a.baby && a.fedDay && a.fedDay !== key && a.fedDay !== a.lastMade){
         const A = ANIMALS[a.kind];
         a.since = (a.since || 0) + 1;
         if (a.since >= A.every){
@@ -466,6 +471,34 @@ const FARM = (() => {
       if (a.petDay !== key){ a.pet = []; a.petDay = key; }
     });
     return made;
+  }
+  /* 하루가 열리면 새끼가 자라고, 마음이 큰 어른이 새끼를 본다.
+     자란 것을 먼저 세는 까닭: 어른이 되어도 자리는 그대로라 셈이 달라지지 않지만,
+     「아기」 딱지는 그날 아침에 떼 주는 것이 맞다. */
+  function babyDay(world, now){
+    const key = dayKey(now), list = world.animals || [];
+    const born = [], grown = [];
+    list.forEach(a => {
+      if (a.baby && daysBetween(a.born, key) >= BABY_DAYS){ a.baby = false; grown.push(a); }
+    });
+    list.slice().forEach(a => {
+      const A = ANIMALS[a.kind];
+      if (a.baby || !A) return;
+      if ((a.love || 0) < LOVE_FOR_BABY) return;
+      if (a.lastBorn && daysBetween(a.lastBorn, key) < BABY_REST_DAYS) return;
+      const here = world.animals.filter(x => ANIMALS[x.kind] && ANIMALS[x.kind].need === A.need).length;
+      if (here >= ANIMAL_MAX[A.need]) return;                 // 우리가 꽉 찼다
+      if (prand('bb' + a.id + key) >= BABY_CHANCE) return;
+      a.lastBorn = key;
+      // 이름이 겹치면 누구 새끼인지 알 수 없다 — 그럴 때는 어미 이름을 앞에 붙인다
+      let nm = '아기 ' + A.name;
+      if (world.animals.some(x => x.name === nm)) nm = a.name + '의 아기';
+      const baby = { id: 'a' + now + 'b' + world.animals.length, kind: a.kind, name: nm,
+        by: a.by, born: key, love: 0, pet: [], since: 0, baby: true, mom: a.id, momName: a.name };
+      world.animals.push(baby);
+      born.push(baby);
+    });
+    return { born, grown };
   }
 
   // ---------- 낚시 ----------
@@ -1140,7 +1173,7 @@ const FARM = (() => {
   }
   function rename(world, mine, aid, name){
     const a = world.animals.find(x => x.id === aid); if (!a) return fail('없는 동물이에요');
-    name = String(name || '').trim().slice(0, 8);
+    name = String(name || '').replace(/[<>]/g, '').trim().slice(0, 8);
     if (!name) return fail('이름이 비었어요');
     a.name = name; return okay(name + (jong(name) ? '이라고' : '라고') + ' 부를게요');
   }
@@ -1317,6 +1350,15 @@ const FARM = (() => {
     if (wilted) notes.push(SEASON_NAME[cal.season] + '이 와서 작물 ' + wilted + '개가 시들었어요');
     const made = animalDay(world, now);
     if (made.length) notes.push(made.map(a => a.name).join(', ') + '이 무언가 남겼어요');
+    const babies = babyDay(world, now);
+    babies.born.forEach(b => {
+      notes.push('<b>' + b.momName + '</b>가 새끼를 낳았어요! 이름을 지어 줘요');
+      logAdd(world, b.by, b.momName + '가 새끼 ' + ANIMALS[b.kind].name + '을 낳았어요', now);
+    });
+    babies.grown.forEach(g => {
+      notes.push(g.name + (jong(g.name) ? '이' : '가') + ' 다 자랐어요');
+      logAdd(world, g.by, g.name + (jong(g.name) ? '이' : '가') + ' 어른이 됐어요', now);
+    });
     if (honeyCheck(world, now)) notes.push('벌통에 꿀이 찼어요');
     if (isWet(weatherOf(key, cal.season))){
       Object.keys(world.plots).forEach(id => { const p = world.plots[id]; if (p.tilled && id[0] !== 'g'){ tickPlot(p, now, false); p.wet = Math.max(p.wet || 0, dayEndMs(now)); } });
@@ -1332,13 +1374,13 @@ const FARM = (() => {
   }
 
   return {
-    SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
+    SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
     GIANT_MULT, GOLD_MULT, WATER_HOURS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand,
     countOf, seedsFor, plotIds, plotOpen, parseId, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep, starOf, careNeed,
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
-    canPay, buildState, animalDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
+    canPay, buildState, animalDay, babyDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,
     newWorld, newMine, fixWorld, fixMine, fixTune, logAdd, give, take, bump, markPlayed,
     till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, moveFurn, pickUp, cook, sendGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, newDay,

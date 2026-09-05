@@ -380,9 +380,10 @@ function outlined(id, rows, pal, flip, s){
   spriteBuf[k] = c;
   return c;
 }
-// 지도 좌표(도트)로, 테두리째 붙인다
-function artOut(id, rows, mx, my, pal, flip){
-  ctx.drawImage(outlined(id, rows, pal, flip, S), Math.round((mx - 1) * S), Math.round(my * S));
+// 지도 좌표(도트)로, 테두리째 붙인다. k 는 크기 배수 — 새끼는 3분의 2로 그린다.
+function artOut(id, rows, mx, my, pal, flip, k){
+  k = k || 1;
+  ctx.drawImage(outlined(id + (k === 1 ? '' : '@' + k), rows, pal, flip, S * k), Math.round((mx - 1) * S), Math.round(my * S));
 }
 // 발밑 그림자 — 한 단이 아니라 가운데가 진한 세 단이면 바닥에 붙어 보인다
 function footShade(cx, y, w){
@@ -651,9 +652,11 @@ const SHOPPAL = { k: '#3a3226', c: '#4a7fb5', C: '#6a9fd0', f: '#fbdcc4', F: '#e
                   a: '#4f9a5a', A: '#69b573' };
 function beastW(kind){ return (BEAST[kind] || BEAST.chicken).w; }
 // 도감·카드에서도 쓰는 그림. s 는 도트 한 개의 크기.
-function drawAnimalAt(g, kind, X, Y, s, flip){
+function drawAnimalAt(g, kind, X, Y, s, flip, k){
   const B = BEAST[kind] || BEAST.chicken;
-  drawArt(g, B.art, X * s, Y * s, s, B.pal, flip);
+  if (!k || k === 1){ drawArt(g, B.art, X * s, Y * s, s, B.pal, flip); return; }
+  // 새끼는 작게. 발이 같은 줄에 놓이도록 아래로 밀고 가로는 가운데를 맞춘다
+  drawArt(g, B.art, (X + B.art[0].length * (1 - k) / 2) * s, (Y + B.art.length * (1 - k)) * s, s * k, B.pal, flip);
 }
 
 // ---------- 풀밭 ----------
@@ -1561,12 +1564,15 @@ function drawWalker(w, t){
   const fl = w.dir === 'side' ? w.flip : false;
   artOut(w.who + w.dir + f, set[f], Math.round(w.x - 12), Math.round(w.y - 32 + bob), KIDPAL[w.who], fl);
 }
+const BABY_K = 2 / 3;      // 새끼는 어른의 3분의 2 크기
 function drawBeast(a, t){
-  const B = BEAST[a.kind] || BEAST.chicken, hgt = B.art.length;
-  const bob = a.moving ? (Math.floor(a.phase) % 2) * 2 : (Math.sin(t / 1100 + a.phase) > 0.7 ? 2 : 0);
-  footShade(a.x, a.y - 2, B.w - 2);
-  artOut('b' + a.kind, B.art, Math.round(a.x - B.w / 2), Math.round(a.y - hgt + bob), B.pal, a.flip);
+  const B = BEAST[a.kind] || BEAST.chicken;
   const rec = (W.animals || []).find(x => x.id === a.id);
+  const k = rec && rec.baby ? BABY_K : 1;
+  const hgt = B.art.length * k, bw = B.w * k;
+  const bob = a.moving ? (Math.floor(a.phase) % 2) * 2 : (Math.sin(t / 1100 + a.phase) > 0.7 ? 2 : 0);
+  footShade(a.x, a.y - 2, bw - 2);
+  artOut('b' + a.kind, B.art, Math.round(a.x - bw / 2), Math.round(a.y - hgt + bob), B.pal, a.flip, k);
   if (rec && rec.ready){
     const by = a.y - hgt - 12 + Math.round(Math.sin(t / 400) * 2.4);
     px(a.x - 4, by, 10, 10, '#ffe066'); px(a.x - 4, by, 6, 4, '#fff3b8'); px(a.x - 6, by + 2, 2, 6, '#e8b74a'); px(a.x + 6, by + 2, 2, 6, '#e8b74a');
@@ -2382,7 +2388,7 @@ function renderShop(){
       const what = A.product ? R.itemName(A.product) + (A.every > 1 ? ' ' + A.every + '일마다' : ' 날마다')
                              : A.find.map(f => R.itemName(f)).join('·') + ' 중 하나를 날마다 물어 와요';
       const pr = document.createElement('div'); pr.className = 'pr';
-      pr.textContent = what + (A.best ? ' · 마음 ' + R.LOVE_FOR_BEST + '이면 ' + R.itemName(A.best) : '') + (ok ? '' : ' · ' + R.BUILDINGS[A.need].name + ' 필요');
+      pr.textContent = what + (A.best ? ' · 마음 ' + R.LOVE_FOR_BEST + '이면 ' + R.itemName(A.best) : '') + ' · 마음 ' + R.LOVE_FOR_BABY + '이면 새끼를 봐요' + (ok ? '' : ' · ' + R.BUILDINGS[A.need].name + ' 필요');
       card.appendChild(pr);
       const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('animal:' + k, A.cost, ok && M.coins >= A.cost)); card.appendChild(a); box.appendChild(card);
     });
@@ -4088,10 +4094,12 @@ function renderDuo(){
   const today = R.dayKey(now());
   W.animals.forEach(a => {
     const d = document.createElement('div'); d.className = 'animal';
-    const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; cv.getContext('2d').imageSmoothingEnabled = false; drawAnimalAt(cv.getContext('2d'), a.kind, 4, 5, 1); d.appendChild(cv);
+    const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; cv.getContext('2d').imageSmoothingEnabled = false; drawAnimalAt(cv.getContext('2d'), a.kind, 4, 5, 1, false, a.baby ? 2 / 3 : 1); d.appendChild(cv);
     const info = document.createElement('div');
     const petted = a.petDay === today ? (a.pet || []) : [];
-    info.innerHTML = '<span class="nm">' + escapeHTML(a.name) + '</span> <span class="love">' + '♥'.repeat(a.love || 0) + '♡'.repeat(10 - (a.love || 0)) + '</span><br><span class="sub" style="margin:0;">' + (a.fedDay === today ? '밥 먹었어요' : '<b>배고파요</b>') + ' · 쓰다듬기 ' + (petted.length ? petted.map(k => NAME[k]).join('·') : '아직') + (a.ready ? ' · <b>' + escapeHTML(R.ee(R.itemName(a.ready))) + '</b> 있어요' : '') + '</span>';
+    // 새끼는 아직 알을 못 낳는다. 며칠 더 돌보면 어른이 되는지 알려 준다.
+    const grow = a.baby ? Math.max(1, R.BABY_DAYS - R.daysBetween(a.born, today)) : 0;
+    info.innerHTML = '<span class="nm">' + escapeHTML(a.name) + '</span> ' + (a.baby ? '<span class="baby">🐣 아기</span> ' : '') + '<span class="love">' + '♥'.repeat(a.love || 0) + '♡'.repeat(10 - (a.love || 0)) + '</span><br><span class="sub" style="margin:0;">' + (a.fedDay === today ? '밥 먹었어요' : '<b>배고파요</b>') + ' · 쓰다듬기 ' + (petted.length ? petted.map(k => NAME[k]).join('·') : '아직') + (a.baby ? ' · <b>' + grow + '일</b> 뒤 어른이 돼요' : '') + (a.ready ? ' · <b>' + escapeHTML(R.ee(R.itemName(a.ready))) + '</b> 있어요' : '') + '</span>';
     d.appendChild(info);
     const act2 = document.createElement('div'); act2.className = 'act';
     act2.appendChild(btn('🍚 밥', 'sm', () => act((w, m) => R.feed(w, m, a.id, now())), a.fedDay === today));
