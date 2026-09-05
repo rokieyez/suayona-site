@@ -2125,6 +2125,28 @@ function itemIcon(id){
   g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, 32, 32); g.fillStyle = col; g.fillRect(8, 8, 16, 16); g.fillStyle = '#3a3226'; g.fillRect(8, 8, 16, 2); g.fillRect(8, 22, 16, 2); g.fillRect(8, 8, 2, 16); g.fillRect(22, 8, 2, 16);
   return cv;
 }
+/* 가게에서 가구를 고를 때는 색 네모 말고 실제 그림을 보여 준다. 도트 배수를 1로
+   낮춰 그린 뒤 그대로 붙인다 — 카드 폭 안에 대개 제 크기로 들어간다. */
+function furnPreview(f){
+  const wrap = document.createElement('div'); wrap.className = 'fprev';
+  const keep = HS; HS = 1;
+  try {
+    const F = R.FURNITURE[f];
+    const cv = document.createElement('canvas');
+    if (WALL_KINDS[F.kind]){
+      cv.width = 34; cv.height = 48;
+      const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+      paintWallItem((u, v, uw, vh, c) => { g.fillStyle = c; g.fillRect(u + 1, v - 8, Math.max(1, uw), Math.max(1, vh)); }, 0, f, roomPal('sua'));
+    } else {
+      const A = furnArt(f, 0), bm = furnBitmap(f, 0, A, 0);
+      cv.width = bm.width; cv.height = bm.height;
+      const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(bm, 0, 0);
+    }
+    wrap.appendChild(cv);
+  } catch (e){ /* 그림이 없어도 카드는 나와야 한다 */ }
+  HS = keep;
+  return wrap;
+}
 function itemCard(id, n, actions, cls){
   const d = document.createElement('div'); d.className = 'item' + (cls ? ' ' + cls : '');
   const nm = document.createElement('div'); nm.className = 'nm'; nm.appendChild(itemIcon(id));
@@ -2219,10 +2241,14 @@ function renderShop(){
     });
   } else if (shopTab === 'furn'){
     $('#shopSub').textContent = '사면 가방에 들어와요. 집 탭에서 놓아요. 좋은 침대는 기운을 늘려 줘요.';
-    Object.keys(R.FURNITURE).filter(f => !R.FURNITURE[f].rare && R.FURNITURE[f].cost > 0).forEach(f => {
+    // 쉰 가지가 넘으니 싼 것부터 세운다 — 아이가 가진 돈으로 살 수 있는 것이 먼저 보인다
+    const furnList = Object.keys(R.FURNITURE).filter(f => !R.FURNITURE[f].rare && R.FURNITURE[f].cost > 0);
+    furnList.sort((a, b) => R.FURNITURE[a].cost - R.FURNITURE[b].cost);
+    furnList.forEach(f => {
       const Fu = R.FURNITURE[f], seasonOk = !Fu.season || Fu.season === cal.season;
       const card = itemCard('f:' + f, M.inv['f:' + f] || 0, null, seasonOk ? '' : 'locked');
-      const pr = document.createElement('div'); pr.className = 'pr'; pr.textContent = '아늑함 +' + Fu.cozy + (Fu.energy ? ' · 기운 +' + Fu.energy : '') + (Fu.w > 1 ? ' · ' + Fu.w + '칸' : '') + (Fu.season ? ' · ' + R.SEASON_NAME[Fu.season] + '에만' : ''); card.appendChild(pr);
+      card.insertBefore(furnPreview(f), card.firstChild);
+      const pr = document.createElement('div'); pr.className = 'pr'; pr.textContent = '아늑함 +' + Fu.cozy + (Fu.energy ? ' · 기운 +' + Fu.energy : '') + (Fu.wall ? ' · 벽에 걸어요' : Fu.w > 1 ? ' · ' + Fu.w + '칸' : '') + (Fu.season ? ' · ' + R.SEASON_NAME[Fu.season] + '에만' : ''); card.appendChild(pr);
       const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('f:' + f, Fu.cost, seasonOk && M.coins >= Fu.cost)); card.appendChild(a); box.appendChild(card);
     });
   } else if (shopTab === 'deco'){
@@ -2327,7 +2353,8 @@ function skyColors(L){
 let houseBg = null, houseSig = '';
 // 벽을 나눈 자리 — 벽 꼭대기에서 내려온 거리(도트)
 const W_MOULD = 6, W_RAIL = 66, W_WAIN = 70, W_BASE = 98;
-const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars: 1 };
+const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars: 1,
+                     board: 1, garland: 1, wshelf: 1, rainbow: 1 };
 /* 벽에 거는 것은 어느 벽에 붙나. 칸에서 뒤로 물러났을 때 더 가까운 벽에 건다.
    (y 쪽이 가까우면 오른쪽 벽, x 쪽이 가까우면 왼쪽 벽) */
 function wallSlot(Rm, x, y){
@@ -2362,6 +2389,34 @@ function paintWallItem(wall, u, f, P){
       });
       w(0, 12, 32, 2, shade(P.trim, -10));
       break;
+    case 'board':                                   // 칠판
+      w(0, 14, 32, 30, '#a97b4f'); w(2, 16, 28, 26, c);
+      w(4, 20, 14, 2, '#fff6e9'); w(4, 26, 20, 2, '#fff6e9'); w(4, 32, 10, 2, '#fff6e9');
+      w(2, 40, 28, 4, '#c79b6d'); w(22, 41, 6, 2, '#ffffff');
+      break;
+    case 'garland': {                               // 사진 줄
+      const pc = ['#ffd166', '#8fd9c8', '#ffb7d5', '#a9c8ff'];
+      w(0, 16, 32, 2, '#8a6a4a');
+      for (let i = 0; i < 4; i++){ w(2 + i * 8, 18, 6, 8, '#fff6e9'); w(2 + i * 8, 20, 6, 4, pc[i]); }
+      w(0, 32, 32, 2, '#8a6a4a');
+      for (let i = 0; i < 3; i++){ w(6 + i * 8, 34, 6, 8, '#fff6e9'); w(6 + i * 8, 36, 6, 4, pc[(i + 2) % 4]); }
+      break;
+    }
+    case 'wshelf':                                  // 벽 선반
+      w(4, 20, 4, 10, '#f2707d'); w(8, 22, 4, 8, '#5aa9e6'); w(12, 18, 4, 12, '#ffd166');
+      w(18, 24, 8, 6, '#6cc7b3'); w(18, 22, 4, 2, '#8fd9c8');
+      w(2, 30, 28, 4, c); w(2, 30, 28, 2, shade(c, 22)); w(2, 34, 28, 2, shade(c, -30));
+      w(4, 36, 4, 4, shade(c, -20)); w(24, 36, 4, 4, shade(c, -20));
+      break;
+    case 'rainbow': {                               // 무지개 — 가운데가 가장 높은 반원
+      const rc = ['#ff8fb8', '#ffb26b', '#ffe066', '#8fd98f', '#7fc4f0', '#b79ae8'];
+      for (let x = 0; x < 32; x += 2){
+        const t2 = (x - 15) / 15;
+        const dip = Math.round(13 * t2 * t2);
+        rc.forEach((col, i) => w(x, 18 + dip + i * 3, 2, 3, col));
+      }
+      break;
+    }
     default:                                        // 커튼 창문
       w(4, 14, 24, 30, '#8ec9ee'); w(4, 14, 24, 12, '#bfe4f7');
       w(4, 36, 24, 8, '#7fbf6f');
@@ -2510,7 +2565,10 @@ const furnCache = {};
 // 가구가 위로 솟는 높이(도트)
 const FURN_H = { rug: 2, bed: 24, bunk: 72, table: 28, desk: 32, chair: 38, sofa: 36, piano: 48,
                  cushion: 12, catbed: 20, fire: 58, shelf: 66, tank: 38, stove: 44,
-                 lamp: 54, plant: 46, vase: 30, doll: 34, bear: 40, guitar: 48, trophy: 32, xmas: 68 };
+                 lamp: 54, plant: 46, vase: 30, doll: 34, bear: 40, guitar: 48, trophy: 32, xmas: 68,
+                 wardrobe: 78, drawer: 36, tv: 46, fridge: 70, toybox: 24, cattower: 74, easel: 56,
+                 beanbag: 24, tent: 56, rocker: 42, books: 20, bigplant: 60,
+                 sakura: 46, fan: 52, pumpkin: 32 };
 function furnArt(f, rot){
   const F = R.FURNITURE[f], b = R.furnBox(f, rot);
   const EW = b.w * (TW / 2), EH = b.h * (TW / 2), H = FURN_H[F.kind] || 32;
@@ -2576,6 +2634,7 @@ function paintFurniture(g, f, rot, A, t){
       top(3, 3, 2, E - 6, D - 6, c);
       top(9, 9, 2, E - 18, D - 18, hi);
       if (f === 'rug2'){ for (let a = 10; a < E - 12; a += 16) for (let b2 = 10; b2 < D - 12; b2 += 16) top(a, b2, 2, 6, 6, '#ffffff'); }
+      else if (f === 'rug3'){ top(6, 6, 2, E - 12, D - 12, '#ffffff'); top(10, 10, 2, E - 20, D - 20, shade(c, 16)); }
       else { for (let a = 6; a < E - 8; a += 12) top(a, 4, 2, 4, D - 8, shade(c, -14)); }
       break;
     }
@@ -2694,6 +2753,94 @@ function paintFurniture(g, f, rot, A, t){
       box(E / 2 - 3, D / 2 - 3, 6, 6, 6, '#8a7b6e', 38);                           // 연통
       break;
     }
+    /* ---- 나중에 늘린 것들 ----
+       상자 앞면을 꾸밀 때는 발자국 앞 가장자리(ay = D - 2)에 얇은 판을 하나 더 세운다.
+       그 판의 왼쪽 옆면이 곧 가구의 앞면이 된다. */
+    case 'wardrobe': {
+      box(0, 0, E, D, 8, shade(c, -32));                                         // 굽
+      box(1, 1, E - 2, D - 2, 62, c, 8);                                         // 몸통
+      box(3, D - 3, E - 6, 3, 54, shade(c, -20), 12);                            // 문 두 짝
+      box(E / 2 - 1, D - 3, 2, 3, 54, shade(c, -46), 12);                        // 가운데 틈
+      box(E / 2 - 7, D - 3, 3, 3, 5, '#ffd166', 36); box(E / 2 + 4, D - 3, 3, 3, 5, '#ffd166', 36);
+      box(0, 0, E, D, 6, shade(c, 24), 70);                                      // 갓
+      break;
+    }
+    case 'drawer': {
+      box(0, 0, E, D, 30, c);
+      for (let z = 3; z < 27; z += 9){
+        box(3, D - 2, E - 6, 2, 7, shade(c, 12), z);
+        box(E / 2 - 4, D - 2, 8, 2, 2, shade(c, -34), z + 4);                    // 손잡이
+      }
+      box(0, 0, E, D, 5, shade(c, 22), 30);
+      break;
+    }
+    case 'tv': {
+      box(2, 2, E - 4, D - 4, 12, '#8a6a4a');                                    // 받침대
+      box(4, 3, E - 8, 3, 3, '#6f4a2c', 4);                                      // 아래 칸
+      box(E / 2 - 3, D / 2 - 3, 6, 6, 6, '#5a5a62', 12);                         // 목
+      box(4, D / 2 - 3, E - 8, 5, 26, c, 18);                                    // 몸통
+      box(6, D / 2 - 1, E - 12, 2, 21, '#9fd8f0', 21);                           // 화면
+      box(7, D / 2 - 1, E - 20, 2, 6, '#e8f6ff', 33);                            // 비치는 빛
+      break;
+    }
+    case 'fridge': {
+      box(0, 0, E, D, 64, c);
+      box(2, D - 2, E - 4, 2, 58, shade(c, 10), 3);
+      box(2, D - 2, E - 4, 2, 2, shade(c, -22), 42);                             // 냉동칸 선
+      box(E - 9, D - 2, 3, 2, 10, '#a9b7c0', 46); box(E - 9, D - 2, 3, 2, 10, '#a9b7c0', 24);
+      box(4, D - 2, 5, 2, 4, '#ffb7d5', 50);                                      // 붙여 놓은 자석
+      box(0, 0, E, D, 4, shade(c, 16), 64);
+      break;
+    }
+    case 'toybox': {
+      box(0, 0, E, D, 13, c);
+      top(3, 3, 13, E - 6, D - 6, shade(c, -38));
+      box(0, 0, E, 5, 5, shade(c, 16), 13); box(0, D - 5, E, 5, 5, shade(c, -6), 13);
+      box(0, 0, 5, D, 5, shade(c, 22), 13); box(E - 5, 0, 5, D, 5, shade(c, -20), 13);
+      box(6, 6, 7, 7, 7, '#5aa9e6', 11); box(12, 11, 6, 6, 6, '#ffd166', 11);     // 삐져나온 장난감
+      break;
+    }
+    case 'cattower': {
+      box(0, 0, E, D, 7, shade(c, -20));                                          // 바닥판
+      box(E / 2 - 5, D / 2 - 5, 10, 10, 20, '#c9b393', 7);                        // 기둥
+      for (let z = 9; z < 25; z += 4) box(E / 2 - 5, D / 2 - 5, 10, 10, 2, '#b09978', z);  // 감아 놓은 끈
+      box(1, 1, E - 2, D - 2, 20, c, 27);                                         // 고양이 집
+      box(5, D - 3, 12, 3, 13, '#4a3d30', 31);                                    // 들어가는 구멍
+      box(E / 2 - 4, D / 2 - 4, 8, 8, 10, '#c9b393', 47);
+      box(2, 2, E - 4, D - 4, 6, shade(c, 12), 57);                               // 꼭대기 판
+      top(6, 6, 63, E - 12, D - 12, shade(c, -16));                               // 방석
+      box(E - 9, D - 7, 4, 4, 4, '#f2707d', 66);                                  // 방울
+      break;
+    }
+    case 'beanbag': {
+      box(0, 0, E, D, 8, shade(c, -10));
+      box(2, 2, E - 4, D - 4, 6, c, 8);
+      box(5, 5, E - 10, D - 10, 5, shade(c, 14), 14);
+      top(9, 9, 19, E - 18, D - 18, shade(c, 26));
+      break;
+    }
+    case 'tent': {
+      box(0, 0, E, D, 5, shade(c, -22));                                          // 바닥천
+      for (let i = 0; i < 4; i++){
+        const fx = 2 + i * (E - 12) / 8, fy = 2 + i * (D - 8) / 8;
+        box(fx, fy, E - fx * 2, D - fy * 2, 13, i % 2 ? shade(c, -8) : c, 5 + i * 12);
+      }
+      box(E / 2 - 5, D - 3, 10, 3, 26, '#5a4632', 5);                             // 들어가는 곳
+      box(E / 2 - 2, D / 2 - 2, 4, 4, 6, '#f2707d', 53);                          // 꼭대기 깃발
+      break;
+    }
+    case 'books': {
+      const bc = ['#5aa9e6', '#f2707d', '#ffd166', '#6cc7b3'];
+      for (let i = 0; i < 4; i++) box(3 + (i % 2) * 3, 3 + ((i + 1) % 2) * 3, E - 12, D - 12, 4, bc[i], i * 4);
+      break;
+    }
+    case 'bigplant': {
+      box(4, 4, E - 8, D - 8, 6, '#a45f45');
+      box3(6, 6, E - 12, D - 12, 14, '#e09a76', '#c97a5a', '#a45f45', 6);
+      top(8, 8, 20, E - 16, D - 16, '#6a4a36');                                   // 흙
+      blob(CX, CY - 56, 26, 30, c, shade(c, 26), shade(c, -30), 'bp', q);
+      break;
+    }
     // ---- 앞에서 본 작은 것들 ----
     case 'lamp':
       oq(14, 12, 4, 18, '#8a5f3a'); oq(14, 12, 2, 18, '#a97b4f');
@@ -2740,6 +2887,44 @@ function paintFurniture(g, f, rot, A, t){
       blob(CX, CY - 32 + 8, 20, 10, c, shade(c, 26), shade(c, -30), 'x2', (x, y, w, h, col) => q(x, y, w, h, col));
       blob(CX, CY - 32 + 2, 12, 8, c, shade(c, 26), shade(c, -30), 'x3', (x, y, w, h, col) => q(x, y, w, h, col));
       oq(14, 0, 4, 4, '#ffd979'); oq(10, 12, 4, 4, '#f2707d'); oq(20, 18, 4, 4, '#5aa9e6'); oq(12, 22, 4, 4, '#ffd166');
+      break;
+    case 'easel':
+      oq(6, 26, 4, 6, '#a97b4f'); oq(22, 26, 4, 6, '#a97b4f');
+      oq(9, 4, 4, 24, c); oq(19, 4, 4, 24, c);
+      oq(6, 8, 20, 16, '#fff6e9'); oq(6, 8, 20, 2, '#e8dcc8');
+      oq(9, 12, 6, 6, '#ff8fb8'); oq(17, 14, 6, 4, '#6fb567'); oq(9, 20, 14, 2, '#5aa9e6');
+      oq(7, 23, 18, 3, shade(c, -22));
+      break;
+    case 'rocker':
+      oq(4, 26, 24, 4, '#a97b4f'); oq(2, 23, 4, 4, '#a97b4f'); oq(26, 23, 4, 4, '#a97b4f');
+      oq(8, 20, 4, 7, '#c79b6d'); oq(19, 20, 4, 7, '#c79b6d');
+      oq(6, 12, 20, 9, c); oq(6, 12, 20, 3, shade(c, 22));
+      oq(19, 4, 10, 10, c); oq(19, 4, 10, 3, shade(c, 22));
+      oq(25, 8, 2, 2, '#3a2a20'); oq(20, 2, 7, 3, '#e8574f'); oq(15, 6, 5, 8, '#e8574f');
+      oq(8, 14, 11, 2, '#ffd166');
+      break;
+    case 'sakura':
+      oq(11, 20, 10, 12, '#dfe8ee'); oq(11, 20, 4, 12, '#ffffff'); oq(10, 18, 12, 3, '#c3ced6');
+      oq(15, 6, 2, 14, '#8a5f3a'); oq(9, 10, 8, 2, '#8a5f3a'); oq(17, 8, 7, 2, '#8a5f3a');
+      [[6, 6], [10, 3], [20, 3], [24, 6], [7, 13], [22, 11], [14, 1]].forEach(pp => {
+        oq(pp[0], pp[1], 5, 4, c); oq(pp[0] + 1, pp[1] + 1, 2, 2, '#ffffff');
+      });
+      break;
+    case 'fan':
+      oq(9, 28, 14, 4, '#b9c4cc'); oq(10, 29, 12, 2, '#8d99a3');                  // 받침
+      oq(14, 17, 4, 12, '#c3ced6'); oq(14, 17, 2, 12, '#e3ebf0');                 // 기둥
+      oq(7, 2, 18, 16, shade(c, -26)); oq(8, 3, 16, 14, '#8d99a3');               // 망
+      oq(10, 5, 12, 10, shade(c, 6));
+      oq(15, 4, 3, 7, '#ffffff'); oq(18, 11, 6, 3, '#eef4f7'); oq(8, 11, 6, 3, '#dbe4ea');  // 날개 셋
+      oq(14, 9, 4, 4, '#7f8f99');                                                 // 가운데
+      oq(8, 3, 16, 2, '#eef4f7');
+      break;
+    case 'pumpkin':
+      oq(4, 14, 24, 15, c); oq(6, 12, 20, 19, c); oq(4, 17, 24, 12, shade(c, -16));
+      oq(6, 12, 20, 4, shade(c, 22)); oq(9, 13, 3, 16, shade(c, 14));
+      oq(14, 8, 4, 6, '#5da05a'); oq(18, 8, 4, 2, '#6fb567');
+      oq(10, 18, 4, 4, '#3a2a20'); oq(18, 18, 4, 4, '#3a2a20');
+      oq(12, 24, 8, 3, '#3a2a20'); oq(14, 22, 4, 2, '#3a2a20');
       break;
     default:
       box(2, 2, E - 4, D - 4, 20, c);

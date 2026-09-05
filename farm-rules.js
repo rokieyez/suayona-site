@@ -542,6 +542,29 @@ const FARM = (() => {
     bear:    { name: '큰 곰인형',   cost: 340,  w: 1, kind: 'bear',  cozy: 3, c: '#c79b6d' },
     cushion: { name: '방석',        cost: 70,   w: 1, kind: 'cushion', cozy: 1, c: '#ffc48a' , flat: true },
     poster:  { name: '포스터',      cost: 140,  w: 1, kind: 'poster', cozy: 2, c: '#8fd9c8' , wall: true },
+    // 방을 채울 것들 — 바닥에 놓는 것
+    wardrobe:{ name: '옷장',        cost: 420,  w: 1, kind: 'wardrobe', cozy: 3, c: '#b98a5e' },
+    drawer:  { name: '서랍장',      cost: 200,  w: 1, kind: 'drawer',  cozy: 2, c: '#d9b48a' },
+    tv:      { name: '텔레비전',    cost: 650,  w: 2, kind: 'tv',      cozy: 3, c: '#3a3a42' , flat: true },
+    fridge:  { name: '냉장고',      cost: 480,  w: 1, kind: 'fridge',  cozy: 2, c: '#e8eef2' },
+    toybox:  { name: '장난감 상자', cost: 150,  w: 1, kind: 'toybox',  cozy: 2, c: '#ff9f6e' , flat: true },
+    cattower:{ name: '고양이 타워', cost: 330,  w: 1, kind: 'cattower', cozy: 3, c: '#d8c7a8' },
+    easel:   { name: '이젤',        cost: 240,  w: 1, kind: 'easel',   cozy: 3, c: '#c79a62' },
+    beanbag: { name: '빈백',        cost: 190,  w: 1, kind: 'beanbag', cozy: 2, c: '#8fd0c0' , flat: true },
+    tent:    { name: '놀이 텐트',   cost: 560,  w: 2, kind: 'tent',    cozy: 4, c: '#ffd979' , flat: true },
+    rocker:  { name: '흔들목마',    cost: 300,  w: 1, kind: 'rocker',  cozy: 3, c: '#f7c6a8' },
+    books:   { name: '책 더미',     cost: 60,   w: 1, kind: 'books',   cozy: 1, c: '#5aa9e6' , flat: true },
+    bigplant:{ name: '큰 화분',     cost: 230,  w: 1, kind: 'bigplant', cozy: 2, c: '#4f9e57' },
+    rug3:    { name: '동그란 러그', cost: 260,  w: 2, kind: 'rug',     cozy: 2, c: '#a9c8ff' , flat: true },
+    // 벽에 거는 것
+    board:   { name: '칠판',        cost: 170,  w: 1, kind: 'board',   cozy: 2, c: '#3f6b4a' , wall: true },
+    garland: { name: '사진 줄',     cost: 120,  w: 1, kind: 'garland', cozy: 2, c: '#ffb7d5' , wall: true },
+    wshelf:  { name: '벽 선반',     cost: 160,  w: 1, kind: 'wshelf',  cozy: 2, c: '#c79a62' , wall: true },
+    rainbow: { name: '무지개',      cost: 150,  w: 1, kind: 'rainbow', cozy: 2, c: '#ff8fb8' , wall: true },
+    // 그 계절에만 가게에 나오는 것
+    sakura:  { name: '벚꽃 가지',   cost: 220,  w: 1, kind: 'sakura',  cozy: 2, c: '#ffc0d4', season: 'spring' },
+    fan:     { name: '선풍기',      cost: 200,  w: 1, kind: 'fan',     cozy: 2, c: '#dfe8ee', season: 'summer' },
+    pumpkin: { name: '호박 등',     cost: 220,  w: 1, kind: 'pumpkin', cozy: 2, c: '#ff8c3a', season: 'autumn' },
   };
   // 방은 가로 칸 수 × 세로 칸 수. 넓히는 건 언제든 안전하다 — 이미 놓인 가구는 그대로 있다.
   const ROOMS = {
