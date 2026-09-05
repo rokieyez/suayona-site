@@ -1322,3 +1322,84 @@ as $$
 $$;
 revoke all on function public.farm_peek() from public;
 grant execute on function public.farm_peek() to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 정책 정리 (2026-09-05 밤): 명령마다 정책 하나, 함수 호출은 (select …) 로
+--
+-- 「parent writes X」 를 for all 로 두면 SELECT 까지 겹쳐서 수파베이스 성능 점검이
+-- 「겹치는 허용 정책」 61개를 경고했다. 쓰기 정책은 insert/update/delete 로 쪼개고,
+-- 아이와 부모가 같은 명령에 따로 있던 것은 or 로 한 정책에 합쳤다. 정책 속의
+-- my_role()·auth.uid() 는 (select …) 로 감싸 줄마다 다시 부르지 않게 했다(initplan).
+-- 쓰기 정책은 전부 to authenticated — 어차피 my_role() 이 있어야 통과한다.
+-- 부모·아이 역할로 넣기·고치기·빼기·읽기 개수를 전후로 재서 똑같은 것을 확인했다.
+-- ---------------------------------------------------------------------------
+-- (표마다 같은 꼴이라 events 만 적는다. custom_tabs·event_meta·gallery_media·kids·
+--  places·schedules 도 같다 — 실제 정의는 대시보드의 pg_policies 가 원본이다.)
+drop policy if exists "parent writes events" on public.events;
+drop policy if exists "public can read events" on public.events;
+create policy "public can read events" on public.events for select
+  using (public.event_is_public(event_id) or (select auth.role()) = 'authenticated');
+create policy "parent adds events"  on public.events for insert to authenticated with check ((select public.my_role()) = 'parent');
+create policy "parent edits events" on public.events for update to authenticated using ((select public.my_role()) = 'parent') with check ((select public.my_role()) = 'parent');
+create policy "parent drops events" on public.events for delete to authenticated using ((select public.my_role()) = 'parent');
+
+-- posts: 부모는 다, 아이는 자기 pending 글만 — 한 정책에 or 로
+drop policy if exists "parent writes posts" on public.posts;
+drop policy if exists "child inserts own pending post" on public.posts;
+drop policy if exists "child edits own pending post" on public.posts;
+drop policy if exists "child deletes own pending post" on public.posts;
+drop policy if exists "read posts" on public.posts;
+create policy "read posts" on public.posts for select
+  using ((is_public = true and status = 'published') or (select public.my_role()) = 'parent' or written_by = (select auth.uid()));
+create policy "family adds posts" on public.posts for insert to authenticated
+  with check ((select public.my_role()) = 'parent'
+    or ((select public.my_role()) = 'child' and status = 'pending' and written_by = (select auth.uid()) and author = (select public.my_author_key())));
+create policy "family edits posts" on public.posts for update to authenticated
+  using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and written_by = (select auth.uid()) and status = 'pending'))
+  with check ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and written_by = (select auth.uid()) and status = 'pending'));
+create policy "family drops posts" on public.posts for delete to authenticated
+  using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and written_by = (select auth.uid()) and status = 'pending'));
+-- works 도 같은 꼴 (아이는 image 인 pending 작품만 내고 뺄 수 있고, 고치는 건 부모만).
+-- profiles 는 읽기 정책 둘을 하나로: (select my_role()) = 'parent' or user_id = (select auth.uid()).
+-- quest_saves 는 insert 둘(아이 자기 것 / 부모 tuning)·update 둘을 각각 하나로 합쳤다.
+
+-- ---------------------------------------------------------------------------
+-- 발자국 (2026-09-05 밤): 길·광장·마당을 누르면 남고, 하루면 사라진다
+-- 꽃밭(garden)과 같은 꼴 — 로그인 없이 남기고, 같은 홍수 방지, 부모만 쓸어 낸다.
+-- 하루 지난 줄은 새 발자국이 들어올 때 트리거가 지운다.
+-- ---------------------------------------------------------------------------
+create table if not exists public.steps (
+  id         bigint generated always as identity primary key,
+  xr         smallint not null check (xr between 0 and 1000),
+  yr         smallint not null check (yr between 0 and 1000),
+  dir        smallint not null default 0 check (dir between 0 and 3),
+  created_at timestamptz not null default now()
+);
+create index if not exists steps_recent_idx on public.steps (id desc);
+alter table public.steps enable row level security;
+drop policy if exists "anyone reads steps" on public.steps;
+create policy "anyone reads steps" on public.steps for select using (true);
+drop policy if exists "anyone leaves a step" on public.steps;
+create policy "anyone leaves a step" on public.steps for insert with check (true);
+drop policy if exists "parent sweeps steps" on public.steps;
+create policy "parent sweeps steps" on public.steps for delete to authenticated using ((select public.my_role()) = 'parent');
+
+create or replace function public.steps_flood_guard() returns trigger
+language plpgsql security definer set search_path to 'public' as $$
+declare mine int; total int;
+begin
+  -- 하루 지난 발자국은 새 발자국이 들어올 때 쓸어 낸다 — 표가 커질 일이 없다
+  delete from steps where created_at < now() - interval '1 day';
+  mine := public.ip_note('steps');
+  if mine > 40 then
+    raise exception '발자국을 방금 많이 남기셨어요. 잠시 뒤에 다시 걸어 주세요.' using errcode = 'check_violation';
+  end if;
+  select count(*) into total from steps where created_at > now() - interval '10 minutes';
+  if total >= 200 then
+    raise exception '마을이 너무 붐벼요. 잠시 뒤에 다시 걸어 주세요.' using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+drop trigger if exists steps_flood_guard on public.steps;
+create trigger steps_flood_guard before insert on public.steps for each row execute function public.steps_flood_guard();
+revoke execute on function public.steps_flood_guard() from public, anon, authenticated;

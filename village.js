@@ -3,6 +3,7 @@
    밖으로는 Village.render 하나만 낸다. 놀이(숨은 친구·심은 꽃·이젤·날씨)는 pages/index.js 가 이 위에 얹는다. */
 const Village = (() => {
 let NIGHT = false;                            // 밤이면 창에 불이 켜지고 가로등이 켜진다
+let LIT_P = 0.6;                              // 밤에 불 켜진 창의 비율 — 첫화면의 시계가 시각으로 정한다
 const LIGHTS = [];                            // 밤에 빛나는 자리 — 첫화면 코드가 덮개 뒤에 빛을 얹는다
 const HITS = [];                              // 누를 수 있는 물건들의 화면 자리
 /* 아이소메트릭 기본기 (2판). 농장 방과 같은 2:1 규칙.
@@ -325,8 +326,8 @@ B.on = (q, side, bx, u, v, w, h, tex) => (side === 'L' ? onL : onR)(q, bx.x, bx.
 // 창 — 창턱과 화분까지
 B.win = (q, side, bx, u, v, w, h, o) => {
   o = o || {};
-  // 밤에는 창의 절반쯤에 불이 켜진다 — 어느 창인지는 자리로 정해 늘 같다
-  if (NIGHT && !o.lit && o.night !== false && hash(Math.round(bx.x * 10) + u, Math.round(bx.y * 10) + v, 77) < 0.6)
+  // 밤에는 창의 일부에 불이 켜진다 — 몇 집인지는 LIT_P(시각), 어느 창인지는 자리로 정해 늘 같다
+  if (NIGHT && !o.lit && o.night !== false && hash(Math.round(bx.x * 10) + u, Math.round(bx.y * 10) + v, 77) < LIT_P)
     o = Object.assign({}, o, { lit: o.glass && o.glass < '#5' ? '#d9a44a' : '#ffd77a' });
   B.on(q, side, bx, u, v, w, h, M.window(Object.assign({ w, h }, o)));
   if (o.lit) LIGHTS.push(Object.assign(B.faceCenter(side, bx, u + w / 2, v + h / 2), { r: Math.max(w, h) * 1.3, c: o.lit }));
@@ -1597,12 +1598,12 @@ function snowCaps(R, w, h){
 }
 
 // ---------- 밖에서 부르는 문 ----------
-/* o = { w, h (도트), hs (도트 한 개의 px), orgX, orgY (땅 뒤 꼭짓점 자리, 도트), night,
+/* o = { w, h (도트), hs (도트 한 개의 px), orgX, orgY (땅 뒤 꼭짓점 자리, 도트), night, litP (불 켜진 창 비율 0~1),
          sprites, pal (사이트의 도트 그림), frames: [캔버스|null, 캔버스|null], snow (지붕에 눈), env (시험용) }
    돌려주는 것: 캔버스와, 첫화면 코드가 놀이를 얹는 데 쓰는 자리들(전부 도트 단위). */
 function render(o){
   SPR = { S: o.sprites || {}, PAL: o.pal || {} };
-  NIGHT = !!o.night; LIGHTS.length = 0; HITS.length = 0;
+  NIGHT = !!o.night; LIT_P = o.litP == null ? 0.6 : o.litP; LIGHTS.length = 0; HITS.length = 0;
   VS.w = Math.max(64, Math.ceil(o.w)); VS.h = Math.max(64, Math.ceil(o.h)); VS.orgX = o.orgX; SKY = o.orgY;
   const hs = o.hs || 1;
   let canvas = null, env = o.env, R = null;

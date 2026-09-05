@@ -118,6 +118,21 @@ const belowFold = (() => {
   const PHASE  = HAS_PHASE ? phaseAt() : 'day';
   const SEASON = HAS_PHASE ? seasonAt() : 'summer';
   const NIGHT  = PHASE === 'night';
+  // 마을의 시계 — 창에 불이 몇 집이나 켜졌는지, 굴뚝 연기가 얼마나 굵은지는 시각이 정한다.
+  // 시간대처럼 들어온 순간에 한 번만 잰다. ?phase= 로 시간대를 억지로 바꾸면 그 시간대의
+  // 한가운데 시각으로 치고, ?hour=21.5 처럼 시각만 바꿔 볼 수도 있다.
+  const CLOCK = (() => {
+    const q = new URLSearchParams(location.search);
+    const forced = parseFloat(q.get('hour'));
+    const mid = { night: 22, dusk: 18.5, dawn: 6.5, day: 12 };
+    const d = new Date();
+    const h = !isNaN(forced) ? forced : (q.get('phase') && mid[PHASE] != null) ? mid[PHASE] : d.getHours() + d.getMinutes() / 60;
+    // 창불: 해 질 녘엔 드문드문, 저녁엔 거의 다, 자정을 넘기면 몇 집만 남는다
+    const litP = h < 5 ? 0.15 : h < 17 ? 0 : h < 18.5 ? 0.3 : h < 22 ? 0.8 : 0.45;
+    // 연기: 아침·저녁 밥때 굵고, 낮엔 보통, 한밤엔 실낱
+    const smoke = ((h >= 6.5 && h < 9) || (h >= 17 && h < 20.5)) ? 1 : (h >= 11.5 && h < 13.5) ? 0.7 : (h < 5.5 || h >= 23) ? 0.15 : 0.45;
+    return { h, litP, smoke };
+  })();
   const wash   = sp => HAS_PHASE ? phaseWash(sp, PHASE) : undefined;   // 밤이면 스프라이트 색을 물 뺀다
   const paint  = (fn) => HAS_PHASE ? withPhase(PHASE, fn) : fn();
   const DAY_SEED = (() => { const d = new Date();
@@ -358,6 +373,8 @@ const belowFold = (() => {
   // 할머니가 심고 간 꽃을 아이가 본다.
   let planted = [];                       // { xr, yr, k }
   let plantAt = 0, plantedHere = 0;       // 도배 방지: 간격과 한 번 방문당 개수
+  let steps = [];                         // 길 위의 발자국 { xr, yr, dir, at } — 하루면 사라진다
+  let stepAt = 0, steppedHere = 0;
 
   // ---- 이젤에 걸린 그림 ----
   let easelImg = null, easelHref = null, easelRect = null;
@@ -499,6 +516,7 @@ const belowFold = (() => {
     panX = panMax ? Math.max(-panMax, Math.min(0, panX || -Math.round(panMax / 2))) : 0;
     charS = Math.max(2, Math.round(S * 0.85));
     planted.forEach(f => { delete f.dot; });             // 꽃 자리는 다시 푼다 — 원점이 옮겨졌다
+    steps.forEach(s => { delete s.dot; });
 
     [skyLayer, torchLayer].forEach(c => {
       c.width = Math.floor(W * dpr); c.height = Math.floor(H * dpr);
@@ -566,11 +584,12 @@ const belowFold = (() => {
     const dim = NIGHT || PHASE === 'dusk';               // 저녁부터 가로등과 창에 불이 켜진다
     if (VG && VG.canvas) VG.canvas.width = 0;           // 지난 마을 캔버스를 바로 놓아 준다 (크기를 바꿀 때마다 20MB 씩 쌓인다)
     VG = Village.render({
-      w: vw, h: vh, hs: HS * dpr, orgX: Math.round(vw / 2 - 24), orgY, night: dim, snow: weather.snow,
+      w: vw, h: vh, hs: HS * dpr, orgX: Math.round(vw / 2 - 24), orgY, night: dim, litP: CLOCK.litP, snow: weather.snow,
       sprites: SPRITES, pal: PAL,
       frames: hung.map(h => h ? drawingToCanvas(h) : null),
     });
     VG.dpr = dpr;
+    canvas.dataset.lights = VG.lights.length;           // 시험용 — 시각에 따라 불 켜진 창이 몇인지 밖에서 읽는다
     snowPainted = weather.snow;                          // 지금 그림에 눈이 얹혀 있는지
     horizon = VG.horizon * HS;
     const g = VG.canvas.getContext('2d');
@@ -793,6 +812,27 @@ const belowFold = (() => {
     ctx.globalAlpha = 1;
   }
 
+  // 발자국 — 길 위에 두 발씩. 갓 남긴 것은 또렷하고, 하루에 걸쳐 옅어진다
+  function drawSteps(gx, gy){
+    if (!VG || !steps.length) return;
+    const b = Math.max(1, Math.round(HS)), now = Date.now();
+    ctx.fillStyle = '#3d2e22';
+    steps.forEach(s => {
+      if (s.dot === undefined) {
+        const tx = s.xr * VG.PW, ty = s.yr * VG.PD;
+        s.dot = STEP_KINDS[VG.kindOf(tx, ty)] ? VG.dotAt(tx, ty) : null;   // 길이 아닌 자리에 떨어진 옛 자국은 안 그린다
+      }
+      if (!s.dot) return;
+      const a = 0.55 * (1 - (now - s.at) / 86400e3);
+      if (a <= 0) return;
+      ctx.globalAlpha = a;
+      const x = Math.round(s.dot.x * HS + gx), y = Math.round(s.dot.y * HS + gy), f = s.dir ? -1 : 1;
+      ctx.fillRect(x - 3 * b, y - f * b, 2 * b, 3 * b);   // 왼발
+      ctx.fillRect(x + b, y + f * b, 2 * b, 3 * b);       // 오른발 — 어느 발이 앞인지 번갈아
+    });
+    ctx.globalAlpha = 1;
+  }
+
   // 심어 둔 꽃 — 마을 잔디 위에. 자리(xr, yr)는 땅 칸의 비율이라 화면 크기와 상관없이 같은 자리에 핀다
   function drawPlanted(gx, gy){
     if (!VG) return;
@@ -852,13 +892,15 @@ const belowFold = (() => {
   // 굴뚝 연기 — 마을 그림에 박지 않고 프레임마다 피워 올린다. 바람이 세면 더 옆으로 눕는다
   function drawSmoke(gx, gy){
     const s = VG && VG.smoke; if (!s) return;
-    const step = Math.max(1, Math.round(HS)), wind = Math.min(2, weather.wind || 1), N = 5;
+    // 밥때는 굵고 자주, 한밤엔 실낱 하나 — 시계(CLOCK.smoke 0~1)가 정한다
+    const lv = CLOCK.smoke;
+    const step = Math.max(1, Math.round(HS)), wind = Math.min(2, weather.wind || 1), N = Math.round(2 + 5 * lv);
     for (let i = 0; i < N; i++){
       const u = ((t / 3.4) + i / N) % 1;                   // 0 갓 나온 것 → 1 다 흩어진 것
       const x = (s.x - u * 11 * wind) * HS + gx, y = (s.y - u * 26) * HS + gy;
-      ctx.globalAlpha = 0.62 * (1 - u) * (1 - u * 0.3);
+      ctx.globalAlpha = 0.62 * (0.45 + 0.55 * lv) * (1 - u) * (1 - u * 0.3);
       ctx.fillStyle = i % 2 ? '#e6e6eb' : '#d2d2dc';
-      pixelCircle(ctx, x, y, (1.6 + u * 4.4) * HS, step);
+      pixelCircle(ctx, x, y, (1.6 + u * 4.4) * (0.55 + 0.45 * lv) * HS, step);
     }
     ctx.globalAlpha = 1;
   }
@@ -1109,6 +1151,7 @@ const belowFold = (() => {
     drawPuddles(gx, gy);
     drawSmoke(gx, gy);
 
+    drawSteps(gx, gy);
     drawPlanted(gx, gy);
     drawRuler(gx, gy);
     drawSecrets(gx, gy);
@@ -1553,6 +1596,7 @@ const belowFold = (() => {
     const w = VG.worldAt((p.x - panX) / HS, (p.y - gy) / HS);
     // 강을 누르면 오리 밥. 잔디가 아니면 여기서 끝난다
     if (w.kind === 'water' && w.ty > 10.4) { feed(w.tx, w.ty, p.x, p.y); return; }
+    if (STEP_KINDS[w.kind]) { step(w); return; }
     if (w.kind !== 'grass' && w.kind !== 'garden') return;
     if (plantedHere >= PLANT_MAX) return;
     const now = performance.now();
@@ -1569,6 +1613,32 @@ const belowFold = (() => {
       xr: Math.round(f.xr * 1000), yr: Math.round(f.yr * 1000), kind: f.k,
     }).then(() => {}, () => {});
   }
+
+  // 길·광장·마당을 누르면 발자국이 남는다 — 손님이 다녀간 자리. 하루 지나면 옅어져 사라진다.
+  // 꽃과 달리 소리도 하트도 없다. 지나간 자국이지 심은 것이 아니라서.
+  const STEP_KINDS = { cobble: 1, plaza: 1, dirt: 1, court: 1 };
+  const STEP_MAX = 12;
+  function step(w){
+    if (steppedHere >= STEP_MAX) return;
+    const now = performance.now();
+    if (now - stepAt < 400) return;
+    stepAt = now; steppedHere++;
+    const s = { xr: w.tx / VG.PW, yr: w.ty / VG.PD, dir: steppedHere % 2, at: Date.now() };
+    steps.push(s);
+    canvas.dataset.steps = steps.length;                 // 시험용
+    kick();
+    sb.from('steps').insert({ xr: Math.round(s.xr * 1000), yr: Math.round(s.yr * 1000), dir: s.dir }).then(() => {}, () => {});
+  }
+  // 남이 남긴 발자국 — 하루 안의 것만, 최근 200개까지
+  sb.from('steps').select('xr, yr, dir, created_at')
+    .gte('created_at', new Date(Date.now() - 86400e3).toISOString())
+    .order('id', { ascending: false }).limit(200)
+    .then(({ data }) => {
+      if (!data) return;
+      steps = data.map(r => ({ xr: r.xr / 1000, yr: r.yr / 1000, dir: r.dir || 0, at: new Date(r.created_at).getTime() })).concat(steps);
+      canvas.dataset.steps = steps.length;
+      kick();
+    }, () => {});
 
   // 남이 심어 둔 꽃 불러오기 — 최근 것부터 120송이까지만.
   // 다 그리면 화면이 꽃밭이 되고, 오래된 것부터 자연스럽게 밀려나는 편이 낫다.
