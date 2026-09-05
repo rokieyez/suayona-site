@@ -875,7 +875,7 @@ function groundColor(kind, tx, ty, x, y){
     return c;
   }
   if (kind === 'moat'){
-    const e = Math.min(ty - 5.05, 5.6 - ty);
+    const e = Math.min(ty - 5.05, 5.6 - ty, tx - 8.8);   // 왼쪽 끝도 돌로 막는다 — 우체국이 가려 주던 자리라 물이 잘려 보였다
     if (e < 0.07) return '#8a7a66';
     let c = e < 0.16 ? '#6fb3da' : '#4a90bf';
     if ((x + y * 2 + Math.floor(hash(x >> 3, y >> 2, 14) * 4)) % 13 < 2) c = '#6fb3da';
@@ -1120,27 +1120,6 @@ function bDiary(q){
   const C0 = proj(6.24, 0.86, 68);
   [[0, 0, 2], [-2, -5, 3], [-5, -11, 3], [-9, -18, 4]].forEach(([dx, dy, r], i) => ellipse(q, C0[0] + dx, C0[1] + dy, r, r * 0.8, i % 2 ? 'rgba(230,230,235,0.75)' : 'rgba(210,210,220,0.7)'));
 }
-// ---------- 우체국 (편지쓰기) ----------
-function bPost(q){
-  const bx = { x: 10.2, y: 6.5, z: 0, w: 2.0, d: 1.0, h: 32 };
-  const D = bx.d * S;
-  const pl = sh => M.plaster({ a: '#fbf3e4', b: '#f1e7d4', c: '#e0d3ba', base: '#c9584f' }, 5, sh, bx.h);
-  B.walls(q, bx, pl(0), pl(-26));
-  // 큰 진열창과 차양, 빨간 문, 간판
-  B.win(q, 'L', bx, 5, 13, 18, 13, { transom: 1, frame: '#ffffff' });
-  B.door(q, 'L', bx, 30, 12, 10, 20, { wood: '#d8433c', glass: '#9cc6dc', frame: '#ffffff' });
-  B.on(q, 'L', bx, 27, 3, 16, 7, M.sign(16, 7, '#fff6e9'));
-  B.on(q, 'L', bx, 29, 5, 12, 3, (u, v) => v === 0 ? '#d8433c' : v === 1 ? '#ffffff' : '#d8433c');
-  B.awning(q, bx, 3, 22, 11, ['#d8433c', '#fff1dc'], 7);
-  B.win(q, 'R', bx, 7, 12, 9, 11, { frame: '#ffffff' });
-  P.downpipe(q, 'R', bx, D - 3);
-  B.eaveShadow(q, bx, 3);
-  B.roofFor(q, bx, { type: 'hip', rise: 14, over: 0.22, tex: tileTex(TILE_D), cap: ['#d69a84', '#5a2c22'] });
-  B.chimney(q, 11.6, 6.9, 40, 12);
-  const Fp = proj(10.55, 6.75, 44).map(Math.round);
-  q(Fp[0], Fp[1] - 18, 1, 18, '#5a5652'); q(Fp[0] + 1, Fp[1] - 18, 9, 6, '#fff6e9'); q(Fp[0] + 1, Fp[1] - 16, 9, 2, '#d8433c'); q(Fp[0] - 1, Fp[1] - 19, 3, 1, '#ffd166');
-  P.pots(q, ...proj(11.45, 7.62, 0).map(Math.round), 2, 5);
-}
 // ---------- 축제 천막 (이벤트) ----------
 function bTent(q){
   const C = proj(1.55, 6.1, 0), R = 30, H = 16, CR = 34, CH = 34;
@@ -1294,8 +1273,6 @@ function bShed(q){
   P.barrel(q, ...proj(9.35, 10.1, 0).map(Math.round));
   P.cart(q, ...proj(10.45, 10.5, 0).map(Math.round));
   P.trough(q, 9.0, 8.72);
-  P.coop(q, 10.62, 8.72);
-  if (SPR.S.chick){ const c1 = proj(10.85, 9.55, 0).map(Math.round), c2 = proj(11.05, 9.3, 0).map(Math.round); spr(q, c1[0] - 9, c1[1] - 15, SPR.S.chick, SPR.PAL); spr(q, c2[0] - 9, c2[1] - 15, SPR.S.chick, SPR.PAL); }
   if (SPR.S.cat){ const ct = proj(10.1, 9.55, 30).map(Math.round); spr(q, ct[0] - 5, ct[1] - 7, SPR.S.cat, SPR.PAL); }
 }
 // ---------- 조립 ----------
@@ -1336,7 +1313,6 @@ VS.draw = function(env){
   add(0.15, 0.15, 2.7, 3.4, 96, bGallery, 16, 'gallery');
   add(4.2, 0.2, 2.5, 1.6, 74, bDiary, 16, 'house');
   add(9, 0, 5, 6.0, 130, bCastle, 20, 'castle');
-  add(10.2, 6.5, 2.0, 1.0, 54, bPost, 14, 'post');
   add(0.3, 4.8, 2.9, 2.6, 96, bTent, 16, 'tent');
   add(7.6, 8.95, 1.4, 1.35, 30, bGreenhouse, 8, 'greenhouse');
   add(9.4, 9.05, 1.2, 0.95, 42, bShed, 12, 'shed');
@@ -1359,7 +1335,7 @@ VS.draw = function(env){
   add(8.55, 7.35, 0.2, 0.2, 14, q2 => P.bin(q2, ...at(8.65, 7.45)), 6);
   [[6.3, 4.7], [7.9, 5.95], [6.9, 4.4]].forEach(([x, y]) => add(x, y, 0.15, 0.1, 8, q2 => P.pigeon(q2, ...at(x + 0.07, y + 0.08)), 4));
   add(0.3, 4.15, 0.4, 0.15, 34, q2 => P.noticeBoard(q2, ...at(0.5, 4.28)), 12);
-  add(9.7, 7.65, 0.4, 0.15, 34, q2 => P.noticeBoard(q2, ...at(9.9, 7.78)), 12);
+  add(13.55, 6.05, 0.4, 0.15, 34, q2 => P.noticeBoard(q2, ...at(13.75, 6.18)), 12);   // 성 해자 바로 앞, 풍차보다 뒤 (y 6.0 이상이라야 성보다 앞에 그려진다)
   add(0.0, 3.0, 0.22, 1.4, 10, q2 => P.hedge(q2, 0.0, 3.0, 0.22, 1.4, 10, 5), 4);
   add(7.0, 2.05, 2.0, 0.22, 10, q2 => P.hedge(q2, 7.0, 2.05, 2.0, 0.22, 10, 6), 4);
   add(7.1, 1.2, 0.1, 0.1, 36, q2 => P.birdhouse(q2, ...at(7.15, 1.25)), 8);
@@ -1377,7 +1353,7 @@ VS.draw = function(env){
   bed(5.3, 6.8, 1.0, 0.4, 3); bed(7.7, 6.8, 1.0, 0.4, 4);
   add(9.0, 7.0, 0.3, 0.3, 12, q2 => { const Pp = at(9.15, 7.15); spr(q2, Pp[0] - 5, Pp[1] - 7, SPR.S.cat, SPR.PAL); }, 6);
   // 우체국 앞 — 우체통, 자전거, 가로등
-  add(10.5, 7.7, 0.3, 0.3, 20, q2 => P.pillarBox(q2, ...at(10.65, 7.85)), 6);
+  add(10.5, 7.7, 0.3, 0.3, 20, q2 => P.pillarBox(q2, ...at(10.65, 7.85)), 6, 'post');
   add(12.25, 6.6, 0.3, 0.7, 20, q2 => P.bike(q2, ...at(12.4, 7.0)), 10);
   add(12.6, 7.4, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(12.65, 7.45), NIGHT), 12);
   // 축제 — 만국기 기둥 둘
@@ -1391,7 +1367,6 @@ VS.draw = function(env){
   add(4.95, 8.65, 0.05, 2.1, 16, q2 => P.fence(q2, 4.95, 8.65, 2.1, 'y'), 6);
   add(4.95, 10.7, 2.5, 0.05, 16, q2 => P.fence(q2, 4.95, 10.7, 2.5, 'x'), 6);
   add(6.0, 9.55, 0.3, 0.3, 40, q2 => P.scarecrow(q2, ...at(6.15, 9.7)), 12);
-  add(10.9, 9.7, 0.6, 0.6, 38, q2 => P.well(q2, ...at(11.2, 10.0)), 14, 'well');
   add(3.15, 10.62, 1.2, 1.36, 22, q2 => P.bridge(q2, 3.15, 10.62, 1.2, 1.36, 'y'), 10, 'bridge');   // 길 끝에서 강 건너 땅끝까지 — 길 따라 놓으면 진입이 막힌다
   // 나무들
   [[0.6, 9.0, 3, 12], [1.6, 10.2, 1, 13], [11.6, 10.4, 1, 15], [0.4, 7.9, 1, 17], [8.6, 0.6, 1, 18]].forEach(([x, y, s, seed]) =>
@@ -1423,7 +1398,7 @@ VS.draw = function(env){
     { text: '이벤트', href: '/event/', x: 1.55, y: 6.1, z: 100 },
     { text: '일기장', href: '/board.html', x: 5.45, y: 1.0, z: 82 },
     { text: '모험단', href: '/quest.html', x: 12.3, y: 1.9, z: 132 },
-    { text: '편지쓰기', href: '/contact.html', x: 11.2, y: 7.0, z: 62 },
+    { text: '편지쓰기', href: '/contact.html', x: 10.65, y: 7.85, z: 30 },
     { text: '농장', href: '/farm.html', x: 6.5, y: 9.8, z: 52 },
     { text: '그림 그리기', href: '/draw.html', x: 0.7, y: 10.5, z: 40 },
     { text: '가볼 곳', href: '/wish/', x: 3.2, y: 9.45, z: 48 },

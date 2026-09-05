@@ -166,7 +166,6 @@ const belowFold = (() => {
     fountain:   ['첨벙', '시원해~', '동전 던질래?'],
     tent:       ['둥둥~', '축제다!', '표 사세요~'],
     windmill:   ['빙글빙글', '바람이 분다~'],
-    well:       ['똑, 똑', '깊다~', '메아리~'],
     post:       ['편지 왔어요!', '우표 붙였어?'],
     gallery:    ['쉿, 전시 중', '이 그림 누가 그렸게?'],
     boat:       ['출렁', '노 저어라~'],
@@ -277,7 +276,7 @@ const belowFold = (() => {
     { key:'ladybug',  sp:SPRITES.ladybug,  label:'무당벌레', line:'톡' },
   ].filter(k => k.sp);                       // 예전 pixel.js 와 짝이 되면 그림이 없다 (위 HAS_PHASE 와 같은 이유)
   // 마을의 숨을 자리 일곱 곳 — 번호만 고르고 자리는 village.js 가 안다
-  // (강가 덤불, 미술관 앞 덤불, 술통 뒤, 광장 화단, 건초 더미, 성벽 위, 우물 옆 덤불)
+  // (벤치 뒤, 미술관 앞 덤불, 술통 뒤, 광장 화단, 건초 더미, 성벽 위, 풍차 옆 덤불)
   const SECRET_SPOTS = [0, 1, 2, 3, 4, 5, 6];
   const FOUND_KEY = 'sy.found.' + DAY_SEED;
   let found = new Set();
