@@ -16,6 +16,8 @@ let Mbase = null;                              // 마지막으로 서버에 올�
 let pending = [];                              // 아직 안 올라간 행동들
 let tool = 'hand', seed = null, tab = 'bag', shopTab = 'seed', room = 'living', furnPick = null;
 let furnRot = 0, rotMode = false;      // 가구를 놓을 각도 · 놓인 것을 돌리는 중인가
+// 끌어 옮기는 중인 가구. 누른 채 끌면 여기 담기고, 손을 떼면 그 칸으로 옮긴다.
+let grab = null, grabClick = false;
 // 재배치 중일 때만 가구를 들거나 놓을 수 있다. 구경하다 잘못 눌러 가구가 가방으로 들어가곤 했다.
 let arrange = false;
 const now = () => Date.now();
@@ -3522,7 +3524,9 @@ function drawRoom(cv, r, tms){
   g.clearRect(0, 0, cw, ch); g.drawImage(houseBg, 0, 0);
   // 바닥에 둔 것 — 뒤(x+y 가 작은 쪽)부터 그려야 앞뒤가 맞다
   const glow = [];
+  const held = grab && grab.moved && room === r ? grab : null;      // 끌고 있는 것은 제자리에 안 그린다
   floorItems.sort((a, b) => (a.x + a.y) - (b.x + b.y) || (a.x - b.x)).forEach(it => {
+    if (held && it.x === held.fx && it.y === held.fy) return;
     drawFurnItem(g, it.f, it.r, Rm, it.x, it.y, t);
     const kind = R.FURNITURE[it.f].kind;
     if (kind === 'lamp' || kind === 'fire' || kind === 'stove' || kind === 'xmas')
@@ -3592,6 +3596,22 @@ function drawRoom(cv, r, tms){
       g.fillRect(Math.round(dx), Math.round(dy), HS, HS); g.globalAlpha = 1;
     }
   }
+  /* 끌어 옮기는 중 — 원래 자리에는 자국만, 손끝 칸에는 옮길 모습을 미리 보여 준다.
+     놓을 수 있으면 초록, 안 되면 빨강. 아이가 손을 떼기 전에 알 수 있어야 한다. */
+  if (held){
+    const dot2 = (x, y, col) => { g.fillStyle = col; g.fillRect(Math.round(x * HS), Math.round(y * HS), Math.max(1, Math.round(2 * HS)), Math.max(1, Math.round(HS))); };
+    const b = R.furnBox(held.f, held.r), EW = b.w * (TW / 2), EH = b.h * (TW / 2);
+    const mark = (x0, y0, col) => {
+      const X = isoX(Rm, x0, y0), Y = isoY(x0, y0);
+      for (let i = 0; i < EW; i += 2){ dot2(X + i, Y + i / 2, col); dot2(X - EH + i, Y + EH / 2 + i / 2, col); }
+      for (let i = 0; i < EH; i += 2){ dot2(X - i - 2, Y + (i + 2) / 2, col); dot2(X + EW - i - 2, Y + EW / 2 + (i + 2) / 2, col); }
+    };
+    g.save(); g.globalAlpha = 0.45; mark(held.fx, held.fy, '#ffffff'); g.restore();
+    g.save(); g.globalAlpha = 0.85; mark(held.tx, held.ty, held.ok ? '#8fd98f' : '#ff8f8f'); g.restore();
+    g.save(); g.globalAlpha = held.ok ? 0.9 : 0.4;
+    drawFurnItem(g, held.f, held.r, Rm, held.tx, held.ty, t);
+    g.restore();
+  }
   // 가구를 놓거나 돌릴 때는 칸을 보여 준다 — 마름모 격자다
   if (tab === 'house' && (arrange || furnPick || rotMode)){
     const dot = (x, y) => g.fillRect(Math.round(x * HS), Math.round(y * HS), Math.max(1, Math.round(2 * HS)), Math.max(1, Math.round(HS)));
@@ -3623,14 +3643,16 @@ function renderHouse(){
   const cz = R.cozyOf(W), lvl = R.cozyLevel(W), nxt = R.COZY_LEVELS[lvl + 1];
   $('#cozy').innerHTML = '아늑함 <span class="hearts">' + '♥'.repeat(lvl) + '♡'.repeat(Math.max(0, 5 - lvl)) + '</span> ' + cz + (nxt ? ' / ' + nxt : '') + ' · 기운 최대 ' + R.maxEnergy(W, M);
   const Rm = R.ROOMS[room];
-  drawRoom($('#houseCanvas'), room);
+  const hcv = $('#houseCanvas');
+  hcv.style.touchAction = arrange ? 'none' : '';   // 재배치 중엔 끌어도 화면이 안 따라 움직인다
+  drawRoom(hcv, room);
   const mineRoom = !Rm.owner || Rm.owner === key;
   const dirName = ['↑ 처음', '→ 오른쪽', '↓ 뒤로', '← 왼쪽'][furnRot];
   $('#houseHint').innerHTML = !mineRoom ? NAME[Rm.owner] + '의 방이에요. 구경만 해요.'
     : !arrange ? '<b>재배치</b>를 누르면 가구를 놓거나 가방에 넣을 수 있어요.'
     : rotMode ? '<b>돌리기</b> 중이에요. 놓인 가구를 누르면 90도씩 돌아가요. 다시 누르면 끝나요.'
     : furnPick ? '<b>' + R.FURNITURE[furnPick].name + '</b>을 놓을 자리를 눌러요 (' + dirName + '). 놓인 가구를 누르면 가방에 들어가요.'
-    : '가방의 가구를 골라 놓아요. 놓인 가구를 누르면 가방에 들어가요.';
+    : '놓인 가구는 <b>끌어서</b> 옮겨요. 그냥 누르면 가방에 들어가요. 가방의 가구를 고르면 놓을 수 있어요.';
   const fb = $('#furn'); fb.innerHTML = '';
   if (mineRoom){
     // 재배치 — 이걸 누른 뒤에만 들고 놓고 돌릴 수 있다. 끝내면 들고 있던 것도 내려놓는다
@@ -3671,12 +3693,63 @@ function renderHouse(){
     kb.innerHTML = '<p class="sub" style="margin-top:12px;">부엌은 둘이서 탭에서 같이 지어요. 지으면 여기서 요리할 수 있어요.</p>';
   }
 }
-function onHouseTap(e){
+// 화면 자리 → 방의 칸. 마름모 격자라 x,y 를 따로 나누면 안 되고 두 축을 함께 되돌린다
+function houseTileAt(e){
   const cv = $('#houseCanvas'), r = cv.getBoundingClientRect(); const w = r.width || cv.width, h = r.height || cv.height;
   const Rm = R.ROOMS[room];
-  // 마름모 격자라 x,y 를 따로 나누면 안 된다 — 두 축을 되돌려 푼다
   const x = (e.clientX - r.left) / w * cv.width / HS, y = (e.clientY - r.top) / h * cv.height / HS;
-  const T2 = dotTile(Rm, x, y), tx = T2.tx, ty = T2.ty;
+  const T2 = dotTile(Rm, x, y);
+  return { x, y, tx: T2.tx, ty: T2.ty, Rm };
+}
+// 지금 끌고 있는 것을 그 자리에 놓을 수 있나 — 방 밖으로 나가거나 다른 가구와 겹치면 안 된다
+function grabFits(){
+  const Rm = R.ROOMS[room], b = R.furnBox(grab.f, grab.r);
+  if (grab.tx < 0 || grab.ty < 0 || grab.tx + b.w > Rm.w || grab.ty + b.h > Rm.h) return false;
+  for (let i = 0; i < b.w; i++) for (let j = 0; j < b.h; j++){
+    const o = R.occupied(W, room, grab.tx + i, grab.ty + j);
+    if (o && o !== grab.k) return false;
+  }
+  return true;
+}
+/* 가구 집어 끌기. 재배치 중에 놓인 가구를 누른 채 끌면 그 칸으로 옮긴다.
+   끌지 않고 그냥 누르면 예전대로 가방에 들어간다 — 누르는 것과 끄는 것을 손이 알아서 고른다. */
+function onHouseDown(e){
+  if (tab !== 'house' || !arrange || rotMode || furnPick) return;
+  const Rm = R.ROOMS[room];
+  if (Rm.owner && Rm.owner !== key) return;             // 남의 방은 못 만진다
+  const p = houseTileAt(e);
+  if (p.tx < 0 || p.ty < 0 || p.tx >= Rm.w || p.ty >= Rm.h) return;
+  const k = R.occupied(W, room, p.tx, p.ty); if (!k) return;
+  const it = R.placed(W, room)[k];
+  if (!it || R.FURNITURE[it.f].wall) return;            // 벽에 건 것은 안 끈다
+  const parts = k.split(',').map(Number);
+  grab = { k, f: it.f, r: it.r || 0, fx: parts[0], fy: parts[1],
+           ox: p.tx - parts[0], oy: p.ty - parts[1], tx: parts[0], ty: parts[1],
+           sx: e.clientX, sy: e.clientY, moved: false, ok: true };
+  try { $('#houseCanvas').setPointerCapture(e.pointerId); } catch (err) { /* 붙잡기는 덤이다 */ }
+}
+function onHouseMove(e){
+  if (!grab) return;
+  // 몇 도트 안 움직였으면 아직 「누른 것」이다 — 손가락은 조금씩 떨린다
+  if (!grab.moved && Math.abs(e.clientX - grab.sx) < 6 && Math.abs(e.clientY - grab.sy) < 6) return;
+  grab.moved = true;
+  const p = houseTileAt(e);
+  grab.tx = p.tx - grab.ox; grab.ty = p.ty - grab.oy;
+  grab.ok = grabFits();
+}
+function onHouseUp(){
+  if (!grab) return;
+  const gg = grab; grab = null;
+  if (!gg.moved) return;                                 // 끌지 않았으면 뒤따라 오는 click 이 맡는다
+  grabClick = true;                                      // 끌고 난 뒤의 click 은 삼킨다
+  if (gg.tx === gg.fx && gg.ty === gg.fy){ renderHouse(); return; }
+  const r2 = act((w2, m) => R.moveFurn(w2, m, room, gg.k, gg.tx, gg.ty));
+  if (r2.ok) sfx('plant');
+  renderHouse();
+}
+function onHouseTap(e){
+  if (grabClick){ grabClick = false; return; }
+  const p = houseTileAt(e), Rm = p.Rm, tx = p.tx, ty = p.ty, y = p.y;
   if (tx < 0 || ty < 0 || tx >= Rm.w || ty >= Rm.h){
     if (y < WALLH) flash('벽이에요. 가구는 바닥에 놓아요');
     return;
@@ -3685,7 +3758,7 @@ function onHouseTap(e){
   // 재배치 중이 아니면 구경만 — 가구가 가방으로 들어가 버리지 않는다
   if (!arrange){
     const Rm2 = R.ROOMS[room];
-    if (!Rm2.owner || Rm2.owner === key) flash('재배치를 누르면 가구를 옮길 수 있어요');
+    if (!Rm2.owner || Rm2.owner === key) flash('재배치를 누르면 가구를 끌어 옮길 수 있어요');
     return;
   }
   if (rotMode){
@@ -3782,7 +3855,12 @@ function renderDex(){
 // ---------- 배선 ----------
 function wireUI(){
   $('#farmCanvas').addEventListener('click', onFarmTap);
-  $('#houseCanvas').addEventListener('click', onHouseTap);
+  const hc = $('#houseCanvas');
+  hc.addEventListener('click', onHouseTap);
+  hc.addEventListener('pointerdown', onHouseDown);
+  hc.addEventListener('pointermove', onHouseMove);
+  hc.addEventListener('pointerup', onHouseUp);
+  hc.addEventListener('pointercancel', () => { grab = null; });
   // 창 크기가 바뀌면 도트 배수가 달라질 수 있다 — 겹을 버리고 다시 그린다
   let fitT = 0;
   window.addEventListener('resize', () => {

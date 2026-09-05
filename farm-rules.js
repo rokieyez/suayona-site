@@ -1114,6 +1114,26 @@ const FARM = (() => {
     it.r = nr;
     return okay(eul(F.name) + ' 돌렸어요');
   }
+  /* 놓인 것을 다른 칸으로 곧장 옮긴다 — 가방을 거치지 않는다.
+     아이가 가구를 집어 끌면 이걸 부른다. 돌린 각도는 그대로 간다. */
+  function moveFurn(world, mine, room, k, x, y){
+    const R = ROOMS[room], P = world.house && world.house[room];
+    if (!R || !P || !P[k]) return fail('그 자리에 아무것도 없어요');
+    if (R.owner && R.owner !== mine.key) return fail('여기는 ' + NAME[R.owner] + '의 방이에요');
+    const it = P[k], F = FURNITURE[it.f];
+    if (F.wall) return fail(eun(F.name) + ' 벽에 걸린 것이라 못 끌어요');
+    x = Math.round(Number(x)); y = Math.round(Number(y));
+    const b = furnBox(it.f, it.r);
+    if (!(x >= 0 && y >= 0) || x + b.w > R.w || y + b.h > R.h) return fail('방 밖으로는 못 옮겨요');
+    for (let i = 0; i < b.w; i++) for (let j = 0; j < b.h; j++){
+      const o = occupied(world, room, x + i, y + j);
+      if (o && o !== k) return fail('그 자리에는 다른 가구가 있어요');
+    }
+    const nk = x + ',' + y;
+    if (nk === k) return fail('제자리예요');
+    delete P[k]; P[nk] = it;
+    return okay(eul(F.name) + ' 옮겼어요');
+  }
   function pickUp(world, mine, room, key){
     const R = ROOMS[room]; const P = world.house[room];
     if (!R || !P || !P[key]) return fail('없어요');
@@ -1249,7 +1269,7 @@ const FARM = (() => {
     canPay, buildState, animalDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,
     newWorld, newMine, fixWorld, fixMine, fixTune, logAdd, give, take, bump, markPlayed,
-    till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, pickUp, cook, sendGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, newDay,
+    till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, moveFurn, pickUp, cook, sendGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, newDay,
   };
 })();
 if (typeof module !== 'undefined') module.exports = FARM;
