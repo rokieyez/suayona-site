@@ -1600,16 +1600,21 @@ const belowFold = (() => {
   // 폰처럼 세로가 긴 화면에서는 떠 있는 섬 밑으로 먼 들판만 249px(29%) 비어 보였다.
   // 마을을 키우면 폭까지 같이 커져 옆이 잘리므로, 세로만 채운다 — 절벽을 두껍게(마을 그림 쪽),
   // 그 아래로 구름바다, 맨 앞에 수풀. 절벽 밑이 이미 화면 밖이면(데스크톱) 아무것도 안 그린다.
-  const FG_MIN = 90;                                    // 이만큼은 비어야 채울 값어치가 있다
+  // 빈 자리가 이만큼도 안 되면 그리지 않는다. 여기서 딱 끊지 않고 FG_FULL 까지 서서히 짙어지게 한다 —
+  // 안드로이드는 스크롤할 때 주소창이 접히며 resize 가 오고, 그때 빈 자리가 조금 줄어든다.
+  // 예전처럼 90px 에서 잘라 버리면 그 순간 구름과 수풀이 통째로 사라져 「갑자기 없어졌다」로 보인다.
+  const FG_MIN = 24, FG_FULL = 130;
 
-  // 절벽 밑의 화면 y(px). 마을이 없거나 빈 자리가 좁으면 null
+  // 절벽 밑의 빈 자리. { top: 화면 y, band: 높이, a: 짙기 0~1 }. 자리가 없으면 null
   function underBand(){
     if (!VG || !VG.cliff) return null;
     const top = (VG.dotAt(VG.PW, VG.PD).y + VG.cliff) * HS + (view.gy || 0);
-    return H - top < FG_MIN ? null : top;
+    const band = H - top;
+    if (band < FG_MIN) return null;
+    return { top, band, a: Math.min(1, (band - FG_MIN) / (FG_FULL - FG_MIN)) };
   }
-  // 맨 앞 수풀의 등성이 — 빈 자리의 위 4분의 1쯤을 남기고 앉는다
-  function fgRidgeY(top){ return Math.max(top + (H - top) * 0.55, H - H * 0.14); }
+  // 맨 앞 수풀의 등성이 — 빈 자리의 위 절반쯤을 남기고 앉는다. 절벽을 덮지는 않는다.
+  function fgRidgeY(B){ return Math.max(B.top + 6, Math.max(B.top + B.band * 0.55, H - H * 0.14)); }
 
   // 섬 밑 구름은 옆으로 흐르기만 한다 — 프레임마다 다시 그리면 fillRect 가 1300번 는다.
   // 한 번 구워 두고 캔버스째 옮겨 붙인다. 도트 크기(S)가 바뀌면 다시 굽는다.
@@ -1631,12 +1636,12 @@ const belowFold = (() => {
   // 섬 밑을 흘러가는 구름바다 — 마을과 저 아래 들판 사이. 마을이 얼마나 높이 떠 있는지 말해 준다.
   // 위쪽은 작고 옅게(멀다), 아래쪽은 크고 희게(가깝다). 아래 겹은 수풀에 반쯤 가려 깊이가 생긴다.
   function drawUnderClouds(){
-    const top = underBand();
-    if (top == null) return;
-    const band = H - top;
+    const B = underBand();
+    if (!B) return;
+    const top = B.top, band = B.band;
     // 먼 들판을 옅은 안개로 눌러 준다 — 구름바다가 앉을 자리
     const hz = ctx.createLinearGradient(0, top, 0, H);
-    hz.addColorStop(0, 'rgba(226,238,248,0)'); hz.addColorStop(0.5, 'rgba(226,238,248,.40)'); hz.addColorStop(1, 'rgba(226,238,248,.14)');
+    hz.addColorStop(0, 'rgba(226,238,248,0)'); hz.addColorStop(0.5, 'rgba(226,238,248,' + (0.40 * B.a).toFixed(3) + ')'); hz.addColorStop(1, 'rgba(226,238,248,' + (0.14 * B.a).toFixed(3) + ')');
     ctx.fillStyle = hz; ctx.fillRect(0, top, W, band);
     [[-0.02, 0.42, 0.55, 0.55], [0.15, 0.62, 0.85, 0.85]].forEach((r, ri) => {
       const [y0, sc, alpha, sp] = r;
@@ -1645,8 +1650,8 @@ const belowFold = (() => {
         const cx = (((0.10 + i * 0.30 + prand(seed) * 0.10) + ct * 0.010 * sp) % 1.5 - 0.25) * W;
         const cy = top + band * (y0 + prand(seed + 5) * 0.08);
         if (cy > H + S * 12) continue;
-        const im = underCloud(seed, S * 7 * sc * (0.75 + prand(seed + 3) * 0.5));
-        ctx.globalAlpha = alpha;
+        const im = underCloud(seed, S * 7 * sc * (0.75 + prand(seed + 3) * 0.5) * (0.55 + B.a * 0.45));
+        ctx.globalAlpha = alpha * B.a;
         ctx.drawImage(im.cv, Math.round((cx - im.ox) / S) * S, Math.round((cy - im.oy) / S) * S);
         ctx.globalAlpha = 1;
       }
@@ -1656,9 +1661,10 @@ const belowFold = (() => {
   // 맨 앞 수풀 — 화면 아래를 덮는 가장 가까운 겹. 앞이 어두우면 마을이 더 멀어 보인다.
   // 마을보다 1.5배 빠르게 밀린다 — 가까운 것이 더 많이 움직여야 깊이가 산다.
   function drawForeground(){
-    const bandTop = underBand();
-    if (bandTop == null) return;
-    const pal = SCENE.bush, s = S, fx = panX * 1.5, baseY = fgRidgeY(bandTop);
+    const B = underBand();
+    if (!B) return;
+    ctx.globalAlpha = B.a;                               // 자리가 좁아지면 옅어진다 (한 번에 사라지지 않게)
+    const pal = SCENE.bush, s = S, fx = panX * 1.5, baseY = fgRidgeY(B);
     const ridge = x => {                                 // 등성이 높이 — 열마다 다르다
       const u = (x - fx) / s;
       return Math.round((baseY + (Math.sin(u * 0.06) * 4 + Math.sin(u * 0.19 + 1.7) * 2.5 + prand(Math.floor(u * 0.5)) * 2) * s * 0.7) / s) * s;
@@ -1700,6 +1706,7 @@ const belowFold = (() => {
       ctx.fillStyle = pal[1]; pixelCircle(ctx, x + sway, top - s * 7, s * 1.8, s);
       ctx.fillStyle = pal[0]; ctx.fillRect(Math.round((x + sway - s) / s) * s, Math.round((top - s * 8) / s) * s, s, s);
     }
+    ctx.globalAlpha = 1;
   }
 
   // 말풍선도 도트로 그린다 — 사이트의 카드와 같은 굵은 테두리와 4px 어긋난 그림자.
