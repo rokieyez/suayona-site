@@ -16,6 +16,8 @@ let Mbase = null;                              // 마지막으로 서버에 올�
 let pending = [];                              // 아직 안 올라간 행동들
 let tool = 'hand', seed = null, tab = 'bag', shopTab = 'seed', room = 'living', furnPick = null;
 let furnRot = 0, rotMode = false;      // 가구를 놓을 각도 · 놓인 것을 돌리는 중인가
+// 재배치 중일 때만 가구를 들거나 놓을 수 있다. 구경하다 잘못 눌러 가구가 가방으로 들어가곤 했다.
+let arrange = false;
 const now = () => Date.now();
 
 // ---------- 저장 ----------
@@ -3086,7 +3088,7 @@ function drawRoom(cv, r, tms){
     }
   }
   // 가구를 놓거나 돌릴 때는 칸을 보여 준다 — 마름모 격자다
-  if (tab === 'house' && (furnPick || rotMode)){
+  if (tab === 'house' && (arrange || furnPick || rotMode)){
     const dot = (x, y) => g.fillRect(Math.round(x * HS), Math.round(y * HS), Math.max(1, Math.round(2 * HS)), Math.max(1, Math.round(HS)));
     g.save(); g.globalAlpha = 0.34; g.fillStyle = '#ffffff';
     for (let y = 0; y <= Rm.h; y++){
@@ -3112,7 +3114,7 @@ function drawRoom(cv, r, tms){
 }
 function renderHouse(){
   const rb = $('#rooms'); rb.innerHTML = '';
-  Object.keys(R.ROOMS).forEach(r => rb.appendChild(btn(R.ROOMS[r].name, room === r ? 'on' : '', () => { room = r; rotMode = false; houseSig = ''; renderHouse(); })));
+  Object.keys(R.ROOMS).forEach(r => rb.appendChild(btn(R.ROOMS[r].name, room === r ? 'on' : '', () => { room = r; rotMode = false; arrange = false; furnPick = null; houseSig = ''; renderHouse(); })));
   const cz = R.cozyOf(W), lvl = R.cozyLevel(W), nxt = R.COZY_LEVELS[lvl + 1];
   $('#cozy').innerHTML = '아늑함 <span class="hearts">' + '♥'.repeat(lvl) + '♡'.repeat(Math.max(0, 5 - lvl)) + '</span> ' + cz + (nxt ? ' / ' + nxt : '') + ' · 기운 최대 ' + R.maxEnergy(W, M);
   const Rm = R.ROOMS[room];
@@ -3120,11 +3122,21 @@ function renderHouse(){
   const mineRoom = !Rm.owner || Rm.owner === key;
   const dirName = ['↑ 처음', '→ 오른쪽', '↓ 뒤로', '← 왼쪽'][furnRot];
   $('#houseHint').innerHTML = !mineRoom ? NAME[Rm.owner] + '의 방이에요. 구경만 해요.'
+    : !arrange ? '<b>재배치</b>를 누르면 가구를 놓거나 가방에 넣을 수 있어요.'
     : rotMode ? '<b>돌리기</b> 중이에요. 놓인 가구를 누르면 90도씩 돌아가요. 다시 누르면 끝나요.'
-    : furnPick ? '<b>' + R.FURNITURE[furnPick].name + '</b>을 놓을 자리를 눌러요 (' + dirName + '). 놓인 가구를 누르면 들어요.'
-    : '가방의 가구를 골라 놓아요. 놓인 가구를 누르면 들어요.';
+    : furnPick ? '<b>' + R.FURNITURE[furnPick].name + '</b>을 놓을 자리를 눌러요 (' + dirName + '). 놓인 가구를 누르면 가방에 들어가요.'
+    : '가방의 가구를 골라 놓아요. 놓인 가구를 누르면 가방에 들어가요.';
   const fb = $('#furn'); fb.innerHTML = '';
   if (mineRoom){
+    // 재배치 — 이걸 누른 뒤에만 들고 놓고 돌릴 수 있다. 끝내면 들고 있던 것도 내려놓는다
+    const ab = btn(arrange ? '✅ 재배치 끝' : '🔧 재배치', arrange ? 'on' : '', () => {
+      arrange = !arrange;
+      if (!arrange){ furnPick = null; rotMode = false; }
+      renderHouse();
+    });
+    ab.classList.add('rotbtn'); fb.appendChild(ab);
+  }
+  if (mineRoom && arrange){
     // 돌리기 — 들고 있으면 놓을 각도를, 아니면 놓인 것을 돌리는 모드를 바꾼다
     const rb = btn('🔄 ' + (furnPick ? '돌려서 놓기 ' + dirName : rotMode ? '돌리기 끝' : '돌리기'), rotMode ? 'on' : '', () => {
       if (furnPick) furnRot = (furnRot + 1) % 4;
@@ -3132,11 +3144,11 @@ function renderHouse(){
       renderHouse();
     });
     rb.classList.add('rotbtn'); fb.appendChild(rb);
+    Object.keys(M.inv).filter(k => k.startsWith('f:') && M.inv[k] > 0).forEach(k => {
+      const f = k.slice(2), b = btn('', furnPick === f ? 'on' : '', () => { furnPick = furnPick === f ? null : f; rotMode = false; renderHouse(); });
+      b.appendChild(itemIcon(k)); b.appendChild(document.createTextNode(R.FURNITURE[f].name + ' ×' + M.inv[k])); fb.appendChild(b);
+    });
   }
-  Object.keys(M.inv).filter(k => k.startsWith('f:') && M.inv[k] > 0).forEach(k => {
-    const f = k.slice(2), b = btn('', furnPick === f ? 'on' : '', () => { furnPick = furnPick === f ? null : f; rotMode = false; renderHouse(); });
-    b.appendChild(itemIcon(k)); b.appendChild(document.createTextNode(R.FURNITURE[f].name + ' ×' + M.inv[k])); fb.appendChild(b);
-  });
   if (furnPick && !(M.inv['f:' + furnPick] > 0)) furnPick = null;
   // 부엌
   const kb = $('#kitchen'); kb.innerHTML = '';
@@ -3165,6 +3177,12 @@ function onHouseTap(e){
     return;
   }
   const occ = R.occupied(W, room, tx, ty);
+  // 재배치 중이 아니면 구경만 — 가구가 가방으로 들어가 버리지 않는다
+  if (!arrange){
+    const Rm2 = R.ROOMS[room];
+    if (!Rm2.owner || Rm2.owner === key) flash('재배치를 누르면 가구를 옮길 수 있어요');
+    return;
+  }
   if (rotMode){
     if (!occ){ flash('돌릴 가구를 눌러요', true); return; }
     const r2 = act((w2, m) => R.rotateFurn(w2, m, room, occ));
