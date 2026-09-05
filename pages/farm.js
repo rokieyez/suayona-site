@@ -1655,20 +1655,38 @@ function drawDecorLive(season, t, L){
   }
 }
 // ---------- 작은 것들 ----------
+/* 반딧불이. 여름·가을 밤에만 나고, 보이는 마릿수가 곧 오늘 더 잡을 수 있는 마릿수다 —
+   보이면 잡을 수 있다는 약속이 지켜져야 아이가 헛손질을 안 한다. */
+let flies = [], fliesKey = '';
+function syncFlies(){
+  const on = W && M && R.fireflyNight(W, now());
+  const k = (W ? R.dayKey(now()) : '') + '|' + on;
+  if (fliesKey !== k){ fliesKey = k; flies = []; }
+  const n = on ? R.fireflyLeft(M, now()) : 0;
+  while (flies.length > n) flies.pop();
+  while (flies.length < n) flies.push({ sx: Math.random(), sy: Math.random(), ph: Math.random() * 10 });
+}
+function drawFireflies(t){
+  syncFlies();
+  const Wp = COLS * T, Hp = ROWS * T;
+  flies.forEach(f => {
+    f.x = (f.sx * Wp + Math.sin(t / 1500 + f.ph * 1.3) * 36 + Wp) % Wp;
+    f.y = (f.sy * Hp + Math.cos(t / 1900 + f.ph * 2.1) * 26 + Hp) % Hp;
+    const a = 0.35 + 0.65 * Math.abs(Math.sin(t / 700 + f.ph * 1.7));
+    ctx.globalAlpha = a * 0.5; px(f.x - 3, f.y - 3, 10, 10, '#9bea6e');
+    ctx.globalAlpha = a; px(f.x, f.y, 4, 4, '#ffe66d'); px(f.x + 1, f.y + 1, 2, 2, '#ffffff');
+    ctx.globalAlpha = 1;
+  });
+}
+function flyAt(tx, ty){
+  const px0 = tx * T + T / 2, py0 = ty * T + T / 2;
+  let best = -1, bd = 24;
+  flies.forEach((f, i) => { const d = Math.hypot(f.x - px0, f.y - py0); if (d < bd){ bd = d; best = i; } });
+  return best;
+}
 function drawCritters(season, t, L){
   const Wp = COLS * T, Hp = ROWS * T;
-  if (L.dark > 0.34){
-    if (season !== 'winter'){
-      for (let i = 0; i < 16; i++){
-        const sx = R.prand('ff' + i), sy = R.prand('fg' + i);
-        const x = (sx * Wp + Math.sin(t / 1500 + i * 1.3) * 36 + Wp) % Wp;
-        const y = (sy * Hp + Math.cos(t / 1900 + i * 2.1) * 26 + Hp) % Hp;
-        const a = 0.35 + 0.65 * Math.abs(Math.sin(t / 700 + i * 1.7));
-        ctx.globalAlpha = a; px(x, y, 4, 4, '#ffe66d'); ctx.globalAlpha = 1;
-      }
-    }
-    return;
-  }
+  if (L.dark > 0.34) return;      // 밤에는 반딧불이만 난다 — drawFireflies 가 따로 그린다
   if (season === 'winter') return;
   // 나비 — 봄여름, 잠자리 — 가을
   const n = season === 'autumn' ? 3 : 5;
@@ -2096,6 +2114,7 @@ function drawFarm(cvIn, tms){
     g.restore();
   }
   ctx = g;
+  drawFireflies(t);
   drawPlaceOverlay(t);
   drawFishBar(t);
 }
@@ -2155,6 +2174,16 @@ function onFarmTap(e){
   const { tx, ty } = tileAt(e.clientX, e.clientY);
   if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return;
   if (placeMode){ onPlaceTap(tx, ty); return; }
+  // 반딧불이는 무엇 위를 날든 먼저 잡힌다 — 밭 위에 있다고 놓치면 아이가 답답하다
+  const fi = flyAt(tx, ty);
+  if (fi >= 0){
+    // 누른 그 마리를 먼저 지운다. act 가 다시 그리면서 마릿수를 맞추므로,
+    // 뒤에 지우면 애먼 마리까지 사라진다. 못 잡았으면 syncFlies 가 도로 채운다.
+    flies.splice(fi, 1);
+    const r = act((w, m) => R.catchFirefly(w, m, now()));
+    if (r.ok) sfx('sparkle');
+    return;
+  }
   const id = plotAtTile(tx, ty);
   if (id){ onPlot(id); return; }
   const n = nodeAt(tx, ty);
@@ -2167,6 +2196,7 @@ function onFarmTap(e){
   if (inSpot('greenhouse', tx, ty)){ if (built('greenhouse')) openGreenhouse(); else flash('온실 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('well', tx, ty)){ flash(built('well') ? '우물이에요. 물뿌리개를 키울 수 있어요' : '우물 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('pond', tx, ty)){ startFishing(); return; }
+  if (inSpot('firepit', tx, ty)){ const r = act((w, m) => R.fireSit(w, m, now())); if (r.ok) sfx(r.both ? 'fanfare' : 'purr'); return; }
   if (inSpot('bench', tx, ty) || inSpot('swing', tx, ty)){ flash('쉬는 자리예요. 앉으면 기분이 좋아져요'); return; }
   // 동물이 있는 곳은 어디를 눌러도 동물 카드로
   if (['coop', 'barn', 'pasture', 'pethouse'].some(b => inSpot(b, tx, ty))){ openTab('duo'); return; }
@@ -2325,7 +2355,7 @@ function itemIcon(id){
     return cv;
   }
   const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; const g = cv.getContext('2d');
-  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a' }[id] || (k === 'dish' ? '#ffb3a7' : k === 'f' ? R.FURNITURE[v].c : '#ddd');
+  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', firefly: '#ffe66d' }[id] || (k === 'dish' ? '#ffb3a7' : k === 'f' ? R.FURNITURE[v].c : '#ddd');
   g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, 32, 32); g.fillStyle = col; g.fillRect(8, 8, 16, 16); g.fillStyle = '#3a3226'; g.fillRect(8, 8, 16, 2); g.fillRect(8, 22, 16, 2); g.fillRect(8, 8, 2, 16); g.fillRect(22, 8, 2, 16);
   return cv;
 }
@@ -4172,7 +4202,7 @@ function renderDuo(){
 function renderDex(){
   const box = $('#dex'); box.innerHTML = '';
   const all = R.CROP_IDS.map(c => ['crop:' + c, c]).concat(R.CROP_IDS.filter(c => R.CROPS[c].giant).map(c => ['giant:' + c, 'giant:' + c]))
-    .concat(['egg', 'bigegg', 'milk', 'goldmilk', 'wool', 'honey'].map(k => [k, k])).concat(Object.keys(R.DISHES).map(d => ['dish:' + d, 'dish:' + d]));
+    .concat(['egg', 'bigegg', 'milk', 'goldmilk', 'wool', 'honey', 'firefly'].map(k => [k, k])).concat(Object.keys(R.DISHES).map(d => ['dish:' + d, 'dish:' + d]));
   let got = 0, gold = 0;
   all.forEach(([id, dexKey]) => {
     const have = M.dex.indexOf(dexKey) >= 0; if (have) got++;
@@ -4187,7 +4217,7 @@ function renderDex(){
   });
   $('#dexCount').textContent = got + '/' + all.length + (gold ? ' · 반짝 ' + gold : '');
   const st = M.stats || {};
-  $('#stats').innerHTML = [['거둔 작물', st.harvested], ['물 준 횟수', st.watered], ['심은 씨앗', st.planted], ['판 물건', st.sold], ['보낸 선물', st.gifted], ['만든 요리', st.cooked], ['모은 재료', st.gathered], ['온 날', (M.playDays || []).length + '일']].map(x => '<div>' + x[0] + '<b>' + (x[1] || 0) + '</b></div>').join('');
+  $('#stats').innerHTML = [['거둔 작물', st.harvested], ['물 준 횟수', st.watered], ['심은 씨앗', st.planted], ['판 물건', st.sold], ['보낸 선물', st.gifted], ['만든 요리', st.cooked], ['모은 재료', st.gathered], ['낚은 물고기', st.fished], ['잡은 반딧불이', st.caught], ['온 날', (M.playDays || []).length + '일']].map(x => '<div>' + x[0] + '<b>' + (x[1] || 0) + '</b></div>').join('');
   $('#logs').innerHTML = (W.log || []).slice(0, 12).map(l => '<li><b>' + formatDate(l.t) + '</b> ' + escapeHTML(l.text).replace(/&lt;b&gt;|&lt;\/b&gt;/g, '') + '</li>').join('') || '<li>아직 일지가 없어요</li>';
 }
 

@@ -236,6 +236,7 @@ const FARM = (() => {
     fert:    { name: '비료',     sell: 0 },
     snowball:{ name: '눈덩이',   sell: 0 },
     sprinkler:{ name: '스프링클러', sell: 0 },     // 팔지는 않는다 — 밭에 놓는 물건
+    firefly: { name: '반딧불이', sell: 45 },      // 여름·가을 밤에만 날아다닌다
   };
   function itemName(id){
     const [k, v] = id.split(':');
@@ -784,6 +785,46 @@ const FARM = (() => {
     return 0;
   }
 
+  // ---------- 밤에만 있는 것 ----------
+  /* 반딧불이는 여름과 가을 밤에만 난다. 기운은 안 든다 — 잡는 재미가 상이고,
+     하루에 여섯 마리까지만 잡히니 밤마다 조금씩 모으는 일이 된다. */
+  const FIREFLY_MAX = 6;
+  const FIREFLY_SEASONS = ['summer', 'autumn'];
+  function fireflyNight(world, now){
+    return isNight(now) && FIREFLY_SEASONS.indexOf(calendar(world, now).season) >= 0;
+  }
+  function fireflyLeft(mine, now){
+    const key = dayKey(now);
+    return mine.ffDay === key ? Math.max(0, FIREFLY_MAX - (mine.ffGot || 0)) : FIREFLY_MAX;
+  }
+  function catchFirefly(world, mine, now){
+    if (!fireflyNight(world, now)) return fail('반딧불이는 여름·가을 밤에만 날아요');
+    if (fireflyLeft(mine, now) <= 0) return fail('오늘은 그만 — 나머지는 내일 또 만나요');
+    const key = dayKey(now);
+    if (mine.ffDay !== key){ mine.ffDay = key; mine.ffGot = 0; }
+    mine.ffGot++;
+    give(mine, 'firefly', 1); mine.xp += 3; bump(mine, 'caught', 1, now);
+    if (mine.dex.indexOf('firefly') < 0) mine.dex.push('firefly');
+    return okay('반딧불이를 잡았어요 ✨ (오늘 ' + mine.ffGot + '/' + FIREFLY_MAX + ')');
+  }
+  /* 모닥불 — 밤에 앉으면 기운이 돈다. 하루에 한 번씩, 둘이 같은 날 앉으면 더 따뜻하다. */
+  const FIRE_ENERGY = 12, FIRE_TOGETHER = 8;
+  function fireSit(world, mine, now){
+    if (!(world.decor && world.decor.firepit)) return fail('모닥불이 아직 없어요');
+    if (!isNight(now)) return fail('불은 밤에 피워요');
+    const key = dayKey(now);
+    world.fire = world.fire || {};
+    if (world.fire.day !== key) world.fire = { day: key, by: {} };
+    if (world.fire.by[mine.key]) return fail('오늘은 이미 앉았다 왔어요');
+    world.fire.by[mine.key] = true;
+    const both = world.fire.by.sua && world.fire.by.yona;
+    const add = FIRE_ENERGY + (both ? FIRE_TOGETHER : 0);
+    mine.energy = Math.min(maxEnergy(world, mine), mine.energy + add);
+    if (both) logAdd(world, mine.key, '둘이 나란히 모닥불 앞에서 별을 봤어요', now);
+    return okay(both ? '둘이 나란히 앉아 별을 봤어요. 기운 +' + add + ' 🔥' : '불 앞에 앉아 별을 봤어요. 기운 +' + add
+      + ' · ' + NAME[OTHER[mine.key]] + '도 앉으면 더 따뜻해요', { both: both });
+  }
+
   // ---------- 오늘의 할 일 ----------
   const MISSIONS = [
     { id: 'water5',  text: '물 다섯 번 주기',            stat: 'watered',  n: 5,  coins: 20 },
@@ -794,10 +835,12 @@ const FARM = (() => {
     { id: 'gather',  text: '나무나 돌 모으기',           stat: 'gathered', n: 2,  coins: 20 },
     { id: 'sell',    text: '상인에게 무엇이든 팔기',     stat: 'sold',     n: 1,  coins: 15 },
     { id: 'fish',    text: '연못에서 두 번 낚시하기',     stat: 'fished',   n: 2,  coins: 30 },
+    { id: 'firefly', text: '반딧불이 세 마리 잡기',       stat: 'caught',   n: 3,  coins: 35 },
   ];
   function missionOf(world, mine, now){
     const key = dayKey(now);
-    let list = MISSIONS.filter(m => (m.id !== 'pet' || (world.animals || []).length) && (m.id !== 'fish' || (world.decor && world.decor.pond)));
+    let list = MISSIONS.filter(m => (m.id !== 'pet' || (world.animals || []).length) && (m.id !== 'fish' || (world.decor && world.decor.pond))
+      && (m.id !== 'firefly' || FIREFLY_SEASONS.indexOf(calendar(world, now).season) >= 0));
     const m = list[Math.floor(prand('m' + key + mine.key) * list.length)];
     const day = mine.day && mine.day.key === key ? mine.day : { key, stats: {} };
     return { m, got: day.stats[m.stat] || 0, done: !!(day.missionDone) };
@@ -1431,10 +1474,11 @@ const FARM = (() => {
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
-    GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
+    GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, FIREFLY_MAX, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand,
-    countOf, seedsFor, plotIds, plotOpen, parseId, putSprinkler, pullSprinkler, sprinkled, sprinklerDay, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep, starOf, careNeed,
+    countOf, seedsFor, plotIds, plotOpen, parseId, putSprinkler, pullSprinkler, sprinkled, sprinklerDay,
+    fireflyNight, fireflyLeft, catchFirefly, fireSit, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep, starOf, careNeed,
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
     canPay, buildState, animalDay, babyDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,
