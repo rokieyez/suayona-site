@@ -38,8 +38,11 @@
   .peekart .house-stage{max-width:none;}
   .peekart figure.wide{margin-top:12px;}
   .peekart figure.wide .house-stage{max-width:480px;}
-  /* 두 방은 반 크기로 — 좁은 화면에서도 한 줄에 같이 보이게 */
-  .peekart .rooms2 figure{flex:1 1 0; min-width:0; max-width:165px;}
+  /* 두 방은 한 줄에 같이 두되 폭을 막지 않는다.
+     165px 으로 묶어 두었더니 방 그림(가로 224도트)이 0.74배로 줄어들면서 도트가 뭉갰다.
+     좁은 화면에서는 아예 위아래로 쌓아 한 방이 폭을 다 쓰게 한다. */
+  .peekart .rooms2 figure{flex:1 1 0; min-width:0;}
+  @media (max-width:560px){ .peekart .rooms2{flex-direction:column;} }
   /* 손님 그림은 누르는 곳이 아니다 */
   .look canvas{cursor:default; touch-action:auto;}
   .tune{margin-top:18px; padding:14px 16px; text-align:left;}
