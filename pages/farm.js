@@ -658,6 +658,24 @@ function drawAnimalAt(g, kind, X, Y, s, flip){
 // 칸마다 조금씩 다른 초록을 깔고, 그 위에 풀포기·조약돌·꽃을 흩뿌린다.
 // 같은 자리는 늘 같은 무늬가 나오도록 좌표로 난수를 만든다.
 function noise2(x, y, sc, salt){ return R.prand(salt + Math.floor(x / sc) + '_' + Math.floor(y / sc)); }
+/* 겉면에 결 한 겹 — 첫화면 마을처럼 같은 색이라도 돌은 얼룩지고 나무는 세로로 흐른다.
+   자리는 늘 같은 값에서 나오니 프레임마다 어른거리지 않는다. */
+function grainy(x, y, w, h, col, kind, salt){
+  x = Math.round(x); y = Math.round(y);
+  if (kind === 'wood'){
+    for (let i = 0; i < w; i += 2){
+      const v = R.prand(salt + '|' + i);
+      if (v > 0.76) px(x + i, y, 2, h, shade(col, -11));
+      else if (v < 0.18) px(x + i, y, 2, h, shade(col, 9));
+    }
+  } else {
+    for (let i = 0; i < w; i += 2) for (let j = 0; j < h; j += 2){
+      const v = noise2(x + i, y + j, 2, salt);
+      if (v > 0.78) px(x + i, y + j, 2, 2, shade(col, 9));
+      else if (v < 0.20) px(x + i, y + j, 2, 2, shade(col, -10));
+    }
+  }
+}
 // 얼룩을 한 겹만 쓰면 바둑판처럼 각이 진다. 성긴 겹과 촘촘한 겹을 섞으면 훨씬 자연스럽다.
 function noise2b(x, y, a, b, salt){ return noise2(x, y, a, salt) * 0.62 + noise2(x, y, b, salt + '~') * 0.38; }
 function drawGround(season){
@@ -1169,7 +1187,9 @@ function drawDecor(season, night){
     const b = spot('path'), Y = b.y * T;
     for (let x = 0; x < b.w; x++){
       const X = (b.x + x) * T;
-      px(X, Y + 10, T, 14, season === 'winter' ? '#dcd6c8' : '#e6d7b5');
+      const pc = season === 'winter' ? '#dcd6c8' : '#e6d7b5';
+      px(X, Y + 10, T, 14, pc);
+      grainy(X, Y + 10, T, 14, pc, 'stone', 'ph' + x);
       (season === 'winter' ? ['#ffffff', '#eaf6ff'] : season === 'autumn' ? ['#e8874a', '#f2c14e', '#d9603c', '#c9a8ff'] : ['#ffb7d5', '#fff3a0', '#ffffff', '#c9a8ff']).forEach((c, i) => {
         const fx = X + 4 + i * 8, fy = Y + 8 + (i % 2) * 12;
         px(fx, fy + 4, 2, 4, '#6fb567'); px(fx, fy, 2, 2, c); px(fx - 2, fy + 2, 6, 2, c); px(fx, fy + 4, 2, 2, c);
@@ -1183,7 +1203,14 @@ function drawDecor(season, night){
     px(X + 8, Y + 12, w - 16, h - 24, ice ? '#d3e6ef' : '#5aa9e6');
     px(X + 12, Y + 16, w - 28, 6, ice ? '#f0f8fc' : '#8fd0f0');
     // 돌 테두리
-    for (let i = 0; i < w - 8; i += 12){ px(X + 4 + i, Y + 4, 10, 6, STONE.mid); px(X + 4 + i, Y + 4, 10, 2, STONE.hi); px(X + 4 + i, Y + h - 12, 10, 6, STONE.low); }
+    for (let i = 0; i < w - 8; i += 12){
+      px(X + 4 + i, Y + 4, 10, 6, STONE.mid); grainy(X + 4 + i, Y + 4, 10, 6, STONE.mid, 'stone', 'pk' + i);
+      px(X + 4 + i, Y + 4, 10, 2, STONE.hi);
+      px(X + 4 + i, Y + h - 12, 10, 6, STONE.low); grainy(X + 4 + i, Y + h - 12, 10, 6, STONE.low, 'stone', 'pl' + i);
+    }
+    // 잔물결 — 물이 한 덩어리로 안 보이게
+    if (!ice) for (let i = 12; i < w - 20; i += 14) for (let j = 14; j < h - 22; j += 10)
+      if (noise2(X + i, Y + j, 3, 'pw') > 0.55) px(X + i, Y + j, 8, 2, '#7dc2ea');
     if (ice){ px(X + 14, Y + 24, 18, 2, '#ffffff'); px(X + 24, Y + 18, 2, 14, '#ffffff'); px(X + 32, Y + 32, 12, 2, '#eaf6ff'); }
     else { px(X + 16, Y + h - 28, 12, 8, '#4f9a58'); px(X + 18, Y + h - 30, 6, 2, '#6fb567'); px(X + 20, Y + h - 34, 6, 6, '#ff9ec4'); }
   }
@@ -1191,6 +1218,7 @@ function drawDecor(season, night){
     const b = spot('fountain'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
     px(X + 6, Y + h - 8, w - 12, 4, '#00000018');
     px(X + 6, Y + h - 32, w - 12, 26, STONE.mid);
+    grainy(X + 6, Y + h - 32, w - 12, 26, STONE.mid, 'stone', 'fn');
     for (let i = 0; i < w - 12; i += 12) px(X + 6 + i, Y + h - 32, 2, 26, STONE.low);
     px(X + 6, Y + h - 32, w - 12, 2, STONE.hi);
     px(X + 10, Y + h - 28, w - 20, 16, '#4f9ad6'); px(X + 10, Y + h - 28, w - 20, 4, '#8fd0f0');
@@ -1210,8 +1238,10 @@ function drawDecor(season, night){
   if (d.bench){
     const b = spot('bench'), X = b.x * T, Y = b.y * T, w = b.w * T;
     px(X + 6, Y + 28, w - 12, 2, '#00000022');
-    px(X + 6, Y + 6, w - 12, 4, WOOD.mid); px(X + 6, Y + 12, w - 12, 4, WOOD.low);      // 등받이
-    px(X + 6, Y + 18, w - 12, 6, WOOD.mid); px(X + 6, Y + 18, w - 12, 2, WOOD.hi);        // 앉는 자리
+    px(X + 6, Y + 6, w - 12, 4, WOOD.mid); grainy(X + 6, Y + 6, w - 12, 4, WOOD.mid, 'wood', 'bn1');
+    px(X + 6, Y + 12, w - 12, 4, WOOD.low); grainy(X + 6, Y + 12, w - 12, 4, WOOD.low, 'wood', 'bn2');   // 등받이
+    px(X + 6, Y + 18, w - 12, 6, WOOD.mid); grainy(X + 6, Y + 18, w - 12, 6, WOOD.mid, 'wood', 'bn3');
+    px(X + 6, Y + 18, w - 12, 2, WOOD.hi);        // 앉는 자리
     px(X + 8, Y + 6, 4, 22, WOOD.dark); px(X + w - 12, Y + 6, 4, 22, WOOD.dark);
     px(X + 14, Y + 24, 4, 6, WOOD.dark); px(X + w - 18, Y + 24, 4, 6, WOOD.dark);
   }
@@ -2322,22 +2352,88 @@ function dotFill(g){
   };
 }
 function isoEven(v){ return Math.max(2, Math.floor(v / 2) * 2); }
+/* ---- 면의 결 ----
+   첫화면 마을은 같은 색이라도 나무에 나뭇결이, 돌에 얼룩이, 천에 짜임이 있어서
+   커다란 색 덩어리로 보이지 않는다. 방과 가구도 같게 한다.
+   MAT 은 지금 칠하는 면의 재질이다 — 가구마다 한 번 정하고, 유리·쇠처럼 다른 면만 그때그때 바꾼다.
+   MATSEED 는 같은 가구가 늘 같은 결을 갖게 하는 씨앗. 결과 모서리 빛은 색이 '#' 일 때만 얹는다
+   (발밑 그림자처럼 반투명한 면에 얹으면 얼룩이 진다). */
+let MAT = 'plain', MATSEED = 'x';
+const isHex = c => typeof c === 'string' && c.charCodeAt(0) === 35;
+// 윗면 한 줄에 결을 얹는다. j 는 뒤 꼭짓점에서 내려온 줄 번호
+function texTop(q, cx, cy, j, xL, xR, col, H){
+  if (MAT === 'wood'){
+    for (let x = xL; x < xR; x += 2){
+      const v = R.prand('wt' + MATSEED + ((x - j * 2) >> 2));       // 결이 오른쪽아래로 흐른다
+      if (v > 0.82) q(cx + x, cy + j, 2, 1, shade(col, -15));
+      else if (v < 0.14) q(cx + x, cy + j, 2, 1, shade(col, 11));
+    }
+  } else if (MAT === 'cloth'){
+    if (j % 3 === 0) for (let x = xL + (j % 6 ? 0 : 2); x < xR; x += 6) q(cx + x, cy + j, 2, 1, shade(col, 10));
+  } else if (MAT === 'stone'){
+    for (let x = xL; x < xR; x += 4){
+      const v = R.prand('st' + MATSEED + (x >> 2) + '_' + (j >> 1));
+      if (v > 0.68) q(cx + x, cy + j, 4, 1, shade(col, v > 0.88 ? 13 : -13));
+    }
+  } else if (MAT === 'metal' || MAT === 'glass'){
+    if (j === Math.round(H * 0.34)) q(cx + xL, cy + j, xR - xL, 1, shade(col, 20));
+  }
+}
+// 옆면 기둥 하나에 결을 얹는다. i 는 몇 번째 기둥인가
+function texSide(q, x, y, hgt, col, i){
+  if (MAT === 'wood'){
+    const v = R.prand('ws' + MATSEED + i);
+    if (v > 0.72) q(x, y, 2, hgt, shade(col, -12));
+    else if (v < 0.16) q(x, y, 2, hgt, shade(col, 9));
+  } else if (MAT === 'cloth'){
+    for (let z = 2; z < hgt; z += 4) if ((i + z) % 8 < 4) q(x, y + z, 2, 1, shade(col, 8));
+  } else if (MAT === 'metal' || MAT === 'glass'){
+    if (i === 2 || i === 6) q(x, y, 2, hgt, shade(col, 22));        // 세로로 길게 반짝
+  } else if (MAT === 'stone'){
+    for (let z = 0; z < hgt; z += 3){
+      const v = R.prand('ss' + MATSEED + i + '_' + z);
+      if (v > 0.72) q(x, y + z, 2, 3, shade(col, v > 0.9 ? 12 : -13));
+    }
+  }
+}
 function isoTop(q, cx, cy, ew, eh, col){
   ew = isoEven(ew); eh = isoEven(eh);
-  const H = (ew + eh) / 2;
+  const H = (ew + eh) / 2, fine = isHex(col) && ew >= 8 && eh >= 8;
   for (let j = 0; j < H; j++){
     const xL = j < eh / 2 ? -2 * j - 2 : 2 * j - 2 * eh;
     const xR = j < ew / 2 ?  2 * j + 2 : 2 * ew - 2 * j;
-    if (xR > xL) q(cx + xL, cy + j, xR - xL, 1, col);
+    if (xR <= xL) continue;
+    q(cx + xL, cy + j, xR - xL, 1, col);
+    if (!fine) continue;
+    if (MAT !== 'plain') texTop(q, cx, cy, j, xL, xR, col, H);
+    // 위쪽 두 모서리는 빛을 받는다 — 한 줄만 밝게 두면 면이 서로 떨어져 보인다
+    if (j < eh / 2) q(cx + xL, cy + j, 2, 1, shade(col, 15));
+    if (j < ew / 2) q(cx + xR - 2, cy + j, 2, 1, shade(col, 15));
   }
 }
 function isoSideL(q, cx, cy, ew, eh, hgt, col){     // 왼쪽아래를 보는 옆면
   ew = isoEven(ew); eh = isoEven(eh);
-  for (let i = 0; i < ew; i += 2) q(cx - eh + i, cy + eh / 2 + i / 2, 2, hgt, col);
+  const fine = isHex(col) && hgt >= 6;
+  for (let i = 0; i < ew; i += 2){
+    const x = cx - eh + i, y = cy + eh / 2 + i / 2;
+    q(x, y, 2, hgt, col);
+    if (!fine) continue;
+    if (MAT !== 'plain') texSide(q, x, y, hgt, col, i);
+    q(x, y, 2, 1, shade(col, 14));                  // 윗모서리 빛
+    q(x, y + hgt - 2, 2, 2, shade(col, -13));       // 바닥에 닿는 쪽은 어둡다
+  }
 }
 function isoSideR(q, cx, cy, ew, eh, hgt, col){     // 오른쪽아래를 보는 옆면
   ew = isoEven(ew); eh = isoEven(eh);
-  for (let i = 0; i < eh; i += 2) q(cx + ew - i - 2, cy + ew / 2 + (i + 2) / 2, 2, hgt, col);
+  const fine = isHex(col) && hgt >= 6;
+  for (let i = 0; i < eh; i += 2){
+    const x = cx + ew - i - 2, y = cy + ew / 2 + (i + 2) / 2;
+    q(x, y, 2, hgt, col);
+    if (!fine) continue;
+    if (MAT !== 'plain') texSide(q, x, y, hgt, col, i);
+    q(x, y, 2, 1, shade(col, 12));
+    q(x, y + hgt - 2, 2, 2, shade(col, -13));
+  }
 }
 function isoBox(q, cx, cy, ew, eh, hgt, top, lf, rt){
   if (hgt > 0){ isoSideL(q, cx, cy, ew, eh, hgt, lf); isoSideR(q, cx, cy, ew, eh, hgt, rt); }
@@ -2477,6 +2573,16 @@ function drawRoomShell(g, r, L, wallItems){
     }
     wall(0, W_BASE, len, WALLH - W_BASE, shade(P.base, k));                      // 걸레받이
     wall(0, WALLH - 2, len, 2, shade(P.base, k - 26));
+    /* 종이 올 — 첫화면 마을의 재질과 같은 생각이다. 없으면 벽이 커다란 색면 한 장으로 보인다.
+       자리는 prand 로 정하니 늘 같고, 벽지를 바꿔도 결은 그대로다. */
+    for (let u = 0; u < len; u += 2) for (let v = 2; v < WALLH - 2; v += 2){
+      const g2 = R.prand('wp' + r + k + u + '_' + v);
+      if (g2 > 0.94) wall(u, v, 2, 2, 'rgba(255,255,255,0.055)');
+      else if (g2 < 0.055) wall(u, v, 2, 2, 'rgba(24,16,8,0.04)');
+    }
+    // 아래로 갈수록 조금 어둡다 — 벽에 높이가 생긴다
+    for (let v = W_MOULD; v < WALLH; v += 2)
+      wall(0, v, len, 2, 'rgba(22,15,8,' + (0.055 * (v - W_MOULD) / (WALLH - W_MOULD)).toFixed(3) + ')');
   };
   paper(wallR, LW, 0);
   paper(wallL, LH, -9);
@@ -2497,6 +2603,9 @@ function drawRoomShell(g, r, L, wallItems){
     wallR(wu + 38, wv + 16, 14, 4, '#ffffff');
   }
   wallR(wu, wv + wh - 12, ww, 12, '#7fbf6f'); wallR(wu, wv + wh - 12, ww, 2, '#9ad189');
+  // 유리에 비스듬히 비치는 빛 — 창이 유리라는 걸 알려 주는 가장 싼 표시
+  for (let i = 0; i < 10; i += 2) wallR(wu + 6 + i, wv + 4 + i, 2, 10, 'rgba(255,255,255,0.30)');
+  for (let i = 0; i < 6; i += 2) wallR(wu + 16 + i, wv + 4 + i, 2, 8, 'rgba(255,255,255,0.22)');
   wallR(wu + Math.floor(ww / 4) * 2 - 2, wv, 4, wh, '#c79b6d'); wallR(wu, wv + 18, ww, 4, '#c79b6d');
   wallR(wu - 8, wv + wh + 4, ww + 16, 4, '#a97b4f'); wallR(wu - 8, wv + wh + 4, ww + 16, 2, '#d6a878');
   [wu - 16, wu + ww + 2].forEach((cx, i) => {                                    // 커튼
@@ -2512,17 +2621,32 @@ function drawRoomShell(g, r, L, wallItems){
     wallL(du - 2, dv - 2, dw + 4, dh + 2, '#7a5230');
     wallL(du, dv, dw, dh, '#a97b4f');
     for (let i = 0; i < dh; i += 10) wallL(du, dv + i, dw, 2, '#96693f');
-    wallL(du + 4, dv + 8, dw - 8, 24, '#8a5f3a'); wallL(du + 4, dv + 40, dw - 8, 24, '#8a5f3a');
-    wallL(du + 6, dv + 10, dw - 12, 20, '#b9885a'); wallL(du + 6, dv + 42, dw - 12, 20, '#b9885a');
+    // 나뭇결 — 세로로 흐르는 가는 줄
+    for (let i = 0; i < dw; i += 2){
+      const g3 = R.prand('dr' + i);
+      if (g3 > 0.78) wallL(du + i, dv, 2, dh, '#9d7046');
+      else if (g3 < 0.16) wallL(du + i, dv, 2, dh, '#b98a5e');
+    }
+    [8, 40].forEach(o2 => {                                                    // 파인 패널 두 짝
+      wallL(du + 4, dv + o2, dw - 8, 24, '#8a5f3a');
+      wallL(du + 4, dv + o2, dw - 8, 2, '#6f4a2c');                            // 위는 그늘
+      wallL(du + 6, dv + o2 + 2, dw - 12, 20, '#b9885a');
+      wallL(du + 6, dv + o2 + 20, dw - 12, 2, '#a37146');                      // 아래는 빛
+    });
     wallL(du + dw - 8, dv + Math.round(dh / 2), 4, 4, '#ffd166');
+    wallL(du + dw - 8, dv + Math.round(dh / 2), 2, 2, '#fff0b8');
     wallL(du, dv, 2, dh, '#c79b6d');
+    wallL(du - 2, dv + dh, dw + 4, 2, 'rgba(26,18,10,0.22)');                  // 문 밑 틈
   }
   // 벽에 건 가구
   (wallItems || []).forEach(it => {
     const s = wallSlot(Rm, it.x, it.y);
+    const wl = s.side > 0 ? wallR : wallL;
     const len = (s.side > 0 ? LW : LH);
     const u = Math.min(Math.max(0, s.at * (TW / 2) - 4), len - 34);
-    paintWallItem(s.side > 0 ? wallR : wallL, u, it.f, P);
+    // 벽에서 살짝 떠 있게 — 그림자를 한 벌 먼저 깐다. 안 그러면 벽지에 인쇄된 것처럼 보인다
+    paintWallItem((uu, v, uw, vh) => wl(uu + 2, v + 3, uw, vh, 'rgba(26,18,10,0.16)'), u, it.f, P);
+    paintWallItem(wl, u, it.f, P);
   });
   // 마루 — 널이 오른쪽아래로 흐른다. 널 하나가 세로 8도트, 한 칸에 세 줄.
   const BX = Rm.w * (TW / 2), FBY = WALLH + (Rm.w + Rm.h) * (TH / 2), LY = WALLH + Rm.h * (TH / 2);
@@ -2557,6 +2681,31 @@ function drawRoomShell(g, r, L, wallItems){
       }
     }
   }
+  /* 창으로 든 볕 — 낮에만. 창 너비만큼의 빛이 오른쪽 벽에서 방 안쪽으로 비스듬히 눕는다.
+     첫화면 마을에서 가로등이 땅을 물들이는 것과 같은 몫이다 — 빛이 어디서 오는지 눈에 보인다. */
+  if (L.dark < 0.16){
+    const dep = 44;
+    for (let s2 = 0; s2 < dep; s2++){
+      const far = 1 - s2 / dep;
+      for (let u = 0; u < ww; u += 2){
+        const edge = Math.min(1, Math.min(u, ww - 2 - u) / 12);    // 가장자리는 옅게 — 자로 그은 듯한 네모가 안 되게
+        const a2 = far * edge * 0.30;
+        if (a2 < 0.02) continue;
+        const x = ox + wu + u - 2 * s2, y = WALLH + (wu + u) / 2 + s2;
+        if (inFloor(x + 1, y + 0.5)) q(x, y, 2, 1, 'rgba(255,238,178,' + a2.toFixed(3) + ')');
+      }
+    }
+  }
+  // 두 벽이 만나는 구석은 볕이 안 든다 — 바닥 쪽으로 옅게 번지는 그늘
+  for (let s2 = 0; s2 < 26; s2++){
+    const al = ((1 - s2 / 26) * 0.09).toFixed(3);
+    for (let i = 0; i < 10; i += 2){
+      const x = ox - i - 2 + s2 * 0, y = WALLH + (i + 2) / 2 + s2;
+      if (inFloor(x + 1, y + 0.5)) q(x, y, 2, 1, 'rgba(24,16,8,' + al + ')');
+      const x2 = ox + i, y2 = WALLH + i / 2 + s2;
+      if (inFloor(x2 + 1, y2 + 0.5)) q(x2, y2, 2, 1, 'rgba(24,16,8,' + al + ')');
+    }
+  }
   // 벽 밑 그림자 — 벽선을 따라 다섯 단으로 옅어진다
   for (let d = 0; d < 5; d++){
     const al = 'rgba(0,0,0,' + (0.13 - d * 0.026).toFixed(3) + ')';
@@ -2577,6 +2726,16 @@ const FURN_H = { rug: 2, bed: 24, bunk: 72, table: 28, desk: 32, chair: 38, sofa
                  wardrobe: 78, drawer: 36, tv: 46, fridge: 70, toybox: 24, cattower: 74, easel: 56,
                  beanbag: 24, tent: 56, rocker: 42, books: 20, bigplant: 60,
                  sakura: 46, fan: 52, pumpkin: 32 };
+// 가구마다의 재질 — 적지 않은 것은 나무로 친다
+const FURN_MAT = {
+  rug:'cloth', bed:'cloth', sofa:'cloth', cushion:'cloth', catbed:'cloth', beanbag:'cloth',
+  tent:'cloth', cattower:'cloth', lamp:'cloth', doll:'cloth', bear:'cloth',
+  stove:'metal', fridge:'metal', trophy:'metal', fan:'metal',
+  tank:'glass',
+  fire:'stone', pumpkin:'stone',
+  piano:'plain', tv:'plain', plant:'plain', bigplant:'plain', sakura:'plain', xmas:'plain',
+  vase:'plain', books:'plain', easel:'wood', guitar:'wood',
+};
 function furnArt(f, rot){
   const F = R.FURNITURE[f], b = R.furnBox(f, rot);
   const EW = b.w * (TW / 2), EH = b.h * (TW / 2), H = FURN_H[F.kind] || 32;
@@ -2621,6 +2780,8 @@ function drawFurnItem(g, f, rot, Rm, tx, ty, t){
    자리는 칸 방향으로 적는다 — ax 는 오른쪽아래로, ay 는 왼쪽아래로 간 가로 도트. */
 function paintFurniture(g, f, rot, A, t){
   const F = R.FURNITURE[f], c = F.c;
+  MAT = FURN_MAT[F.kind] || 'wood';                            // 이 가구를 칠하는 동안의 재질
+  MATSEED = f;
   const hi = shade(c, 24), lo = shade(c, -18), dk = shade(c, -36);
   const q = dotFill(g);
   const OX = A.EH + 1, OY = A.H + 1, E = A.EW, D = A.EH;
@@ -2634,8 +2795,11 @@ function paintFurniture(g, f, rot, A, t){
   const box = (ax, ay, ew, eh, hh, col, base) => box3(ax, ay, ew, eh, hh, shade(col, 22), col, shade(col, -34), base);
   // 앞에서 본 32×32 그림 — 인형처럼 작고 둥근 것은 이쪽이 낫다 (아이 그림과도 시점이 맞는다)
   const oq = (x, y, w, h, col) => q(CX - 16 + x, CY - 32 + y, w, h, col);
-  // 발밑 그림자
-  if (F.kind !== 'rug') isoTop(q, OX + 3, OY + 2, Math.max(4, E - 6), Math.max(4, D - 6), 'rgba(26,20,12,0.17)');
+  // 발밑 그림자 — 두 겹으로 두면 바닥에 닿은 자리가 더 짙어 물건이 떠 보이지 않는다
+  if (F.kind !== 'rug'){
+    isoTop(q, OX + 1, OY + 1, Math.max(4, E - 2), Math.max(4, D - 2), 'rgba(26,20,12,0.10)');
+    isoTop(q, OX + 5, OY + 3, Math.max(4, E - 10), Math.max(4, D - 10), 'rgba(26,20,12,0.15)');
+  }
   switch (F.kind){
     case 'rug': {
       top(0, 0, 2, E, D, lo);
@@ -2691,12 +2855,26 @@ function paintFurniture(g, f, rot, A, t){
       break;
     }
     case 'sofa': {
-      box(0, 0, E, D, 12, shade(c, -12));                                 // 밑동
-      box(2, 2, E - 4, D - 4, 8, c, 12);                                  // 앉는 자리
-      for (let a = 4; a < E - 6; a += Math.max(10, (E - 10) / 2)) box(a, 4, Math.max(8, (E - 12) / 2), D - 8, 4, hi, 20);
-      box3(0, 0, 8, D, 24, shade(c, 8), shade(c, -8), shade(c, -26), 12);  // 등받이
-      box(0, 0, E, 7, 16, shade(c, -4), 12);                              // 팔걸이 왼쪽
-      box(0, D - 7, E, 7, 16, shade(c, -14), 12);                         // 팔걸이 오른쪽
+      const AW = 7;                                                       // 팔걸이 두께
+      MAT = 'wood';                                                       // 나무 다리 넷
+      box(3, 3, 4, 4, 5, '#6f4a2c'); box(E - 7, 3, 4, 4, 5, '#6f4a2c');
+      box(3, D - 7, 4, 4, 5, '#6f4a2c'); box(E - 7, D - 7, 4, 4, 5, '#6f4a2c');
+      MAT = 'cloth';
+      box(0, 0, E, D, 9, shade(c, -16), 4);                               // 밑동
+      // 앉는 방석 둘 — 사이를 벌리고 위를 부풀린다
+      const sw = Math.max(8, isoEven((E - AW * 2 - 4) / 2));
+      for (let n = 0; n < 2; n++){
+        const a0 = AW + n * (sw + 4);
+        box(a0, AW, sw, D - AW * 2, 7, c, 13);
+        top(a0 + 2, AW + 2, 20, sw - 4, D - AW * 2 - 4, shade(c, 13));
+      }
+      box3(0, 0, 8, D, 26, shade(c, 10), shade(c, -6), shade(c, -28), 13); // 등받이
+      for (let n = 0; n < 2; n++)                                         // 등 쿠션 둘
+        box(1, AW + 1 + n * isoEven((D - AW * 2) / 2), 6, isoEven((D - AW * 2) / 2) - 2, 4, shade(c, 8), 26);
+      box(0, 0, E, AW, 15, shade(c, 2), 13);                              // 팔걸이 — 왼쪽
+      top(1, 1, 28, E - 2, AW - 2, shade(c, 16));
+      box(0, D - AW, E, AW, 15, shade(c, -12), 13);                       // 팔걸이 — 오른쪽
+      top(1, D - AW + 1, 28, E - 2, AW - 2, shade(c, 2));
       break;
     }
     case 'piano': {
@@ -2709,15 +2887,19 @@ function paintFurniture(g, f, rot, A, t){
     }
     case 'cushion': {
       box3(1, 1, E - 2, D - 2, 9, hi, c, shade(c, -22));
-      top(5, 5, 11, E - 10, D - 10, shade(c, 12));
-      top(E / 2 - 3, D / 2 - 3, 11, 6, 6, shade(c, -30));
+      top(4, 4, 11, E - 8, D - 8, shade(c, 12));                          // 부푼 가운데
+      top(8, 8, 12, E - 16, D - 16, shade(c, 20));
+      for (let a = 3; a < E - 4; a += 5) top(a, 2, 9, 2, 2, shade(c, -16));  // 가장자리 시접
+      top(E / 2 - 2, D / 2 - 2, 13, 4, 4, shade(c, -34));                 // 가운데 단추
       break;
     }
     case 'catbed': {
-      box(0, 0, E, D, 12, lo);
-      top(4, 4, 12, E - 8, D - 8, shade(c, -30));
-      box(0, 0, E, 5, 6, c, 12); box(0, D - 5, E, 5, 6, shade(c, -12), 12);
-      box(0, 0, 5, D, 6, shade(c, 10), 12); box(E - 5, 0, 5, D, 6, shade(c, -20), 12);
+      box(0, 0, E, D, 10, lo);
+      box(0, 0, E, 6, 9, c, 10); box(0, D - 6, E, 6, 9, shade(c, -12), 10);   // 두툼한 테두리
+      box(0, 0, 6, D, 9, shade(c, 10), 10); box(E - 6, 0, 6, D, 9, shade(c, -20), 10);
+      top(6, 6, 12, E - 12, D - 12, shade(c, -30));                       // 안쪽 그늘
+      top(8, 8, 13, E - 16, D - 16, '#fff6e9');                           // 깔아 둔 방석
+      top(11, 11, 14, E - 22, D - 22, '#ffffff');
       break;
     }
     case 'fire': {
@@ -2821,10 +3003,12 @@ function paintFurniture(g, f, rot, A, t){
       break;
     }
     case 'beanbag': {
-      box(0, 0, E, D, 8, shade(c, -10));
-      box(2, 2, E - 4, D - 4, 6, c, 8);
-      box(5, 5, E - 10, D - 10, 5, shade(c, 14), 14);
-      top(9, 9, 19, E - 18, D - 18, shade(c, 26));
+      box(0, 0, E, D, 7, shade(c, -14));
+      box(2, 2, E - 4, D - 4, 6, c, 7);
+      box(5, 5, E - 10, D - 10, 5, shade(c, 13), 13);
+      top(8, 8, 18, E - 16, D - 16, shade(c, 22));
+      top(11, 11, 18, E - 22, D - 22, shade(c, 30));                      // 푹 꺼진 가운데
+      for (let a = 5; a < E - 6; a += 7) top(a, 3, 7, 2, D - 6, shade(c, -9));   // 이음매
       break;
     }
     case 'tent': {
@@ -2839,7 +3023,12 @@ function paintFurniture(g, f, rot, A, t){
     }
     case 'books': {
       const bc = ['#5aa9e6', '#f2707d', '#ffd166', '#6cc7b3'];
-      for (let i = 0; i < 4; i++) box(3 + (i % 2) * 3, 3 + ((i + 1) % 2) * 3, E - 12, D - 12, 4, bc[i], i * 4);
+      for (let i = 0; i < 4; i++){
+        const a0 = 3 + (i % 2) * 3, b0 = 3 + ((i + 1) % 2) * 3;
+        box(a0, b0, E - 12, D - 12, 4, bc[i], i * 4);
+        top(a0 + 2, b0 + 2, i * 4 + 4, E - 16, D - 16, '#fff6e9');        // 책장 — 위에서 보면 종이가 보인다
+        box(a0, b0, 3, D - 12, 4, shade(bc[i], -28), i * 4);              // 책등
+      }
       break;
     }
     case 'bigplant': {
@@ -2851,10 +3040,15 @@ function paintFurniture(g, f, rot, A, t){
     }
     // ---- 앞에서 본 작은 것들 ----
     case 'lamp':
-      oq(14, 12, 4, 18, '#8a5f3a'); oq(14, 12, 2, 18, '#a97b4f');
-      oq(10, 28, 12, 4, '#6f4a2c');
-      oq(6, 2, 20, 12, c); oq(6, 2, 20, 4, shade(c, 24)); oq(6, 12, 20, 2, shade(c, -26));
-      oq(10, 14, 12, 4, '#fff3c0');
+      oq(14, 12, 4, 18, '#8a5f3a'); oq(14, 12, 2, 18, '#a97b4f');         // 기둥
+      oq(9, 27, 14, 3, '#6f4a2c'); oq(9, 27, 14, 1, '#a97b4f');           // 받침
+      oq(7, 3, 18, 11, c);                                                // 갓 — 위가 좁은 사다리꼴
+      oq(6, 6, 20, 8, c); oq(8, 2, 16, 2, shade(c, 26));
+      oq(6, 6, 3, 8, shade(c, 22)); oq(23, 6, 3, 8, shade(c, -24));
+      for (let i = 8; i < 24; i += 4) oq(i, 4, 1, 10, shade(c, -12));     // 갓의 주름
+      oq(6, 14, 20, 2, shade(c, -30));
+      oq(9, 16, 14, 3, '#fff3c0'); oq(11, 19, 10, 2, '#ffe9a8');          // 새어 나오는 빛
+      oq(13, 21, 6, 2, '#ffd979');
       break;
     case 'plant':
       oq(8, 18, 16, 12, '#c97a5a'); oq(8, 16, 16, 4, '#e09a76'); oq(8, 28, 16, 2, '#a45f45');
