@@ -2198,16 +2198,20 @@ function renderShop(){
   const cal = R.calendar(W, now()), lv = R.levelOf(M.xp);
   const buyBtn = (id, cost, ok) => btn('🪙 ' + cost, 'buy', () => { const r = act((w, m) => R.buy(w, m, id, now())); if (r.ok) sfx(r.animal ? 'fanfare' : 'pop'); if (r.animal) nameDialog(r.animal); renderShop(); }, !ok);
   if (shopTab === 'seed'){
-    $('#shopSub').innerHTML = R.SEASON_NAME[cal.season] + ' 씨앗. 흐린 것은 <b>' + NAME[R.OTHER[key]] + '의 가게</b>에만 있어요 — 선물로 받아요. 다음 계절(' + R.SEASON_NAME[R.nextSeason(cal.season)] + ') 씨앗은 미리 사 둘 수 있어요.';
+    const gh = built('greenhouse');
+    $('#shopSub').innerHTML = R.SEASON_NAME[cal.season] + ' 씨앗. 흐린 것은 <b>' + NAME[R.OTHER[key]] + '의 가게</b>에만 있어요 — 선물로 받아요. 다음 계절(' + R.SEASON_NAME[R.nextSeason(cal.season)] + ') 씨앗은 ' + (gh ? '지금도 살 수 있어요 — 온실에서 자라요.' : '구경만 해요 — 그 계절이 오면 살 수 있어요.');
     const list = R.CROP_IDS.filter(c => R.CROPS[c].seed > 0 && (R.CROPS[c].season.indexOf(cal.season) >= 0 || R.CROPS[c].season.indexOf(R.nextSeason(cal.season)) >= 0));
     list.forEach(c => {
       const C = R.CROPS[c], mineHalf = !C.half || C.half === key, lvOk = (C.lv || 1) <= lv, inSeason = C.season.indexOf(cal.season) >= 0;
-      const card = itemCard('seed:' + c, M.inv['seed:' + c] || 0, null, (!mineHalf || !lvOk ? 'locked' : '') + (W.hot === c ? ' hot' : ''));
+      // 지금 심을 수 없는 씨앗은 사지 못한다 — 온실이 있으면 아무 때나 자라니 그때만 열린다
+      const seasonOk = inSeason || C.hardy || gh;
+      const card = itemCard('seed:' + c, M.inv['seed:' + c] || 0, null, (!mineHalf || !lvOk || !seasonOk ? 'locked' : '') + (W.hot === c ? ' hot' : ''));
       const pr = document.createElement('div'); pr.className = 'pr';
       pr.innerHTML = C.hours + '시간 · 🪙 ' + C.sell + (C.yield > 1 ? '×' + C.yield : '') + (C.regrow ? ' · 또 열려요' : '') + (C.giant ? ' · <b>둘이 나란히 심으면 큰 것</b>' : '') + (C.flower ? ' · 꽃' : '') +
-        (!inSeason ? '<br>' + C.season.map(s => R.SEASON_NAME[s]).join('·') + '에 심어요' : '') + (!lvOk ? '<br>레벨 ' + C.lv + '부터' : '') + (!mineHalf ? '<br>' + NAME[C.half] + '의 가게' : '');
+        (!inSeason ? '<br>' + (gh ? '온실에서만 자라요 · ' : R.SEASON_NAME[cal.season] + '에는 못 사요 · ') + C.season.map(s => R.SEASON_NAME[s]).join('·') + '에 심어요' : '') +
+        (!lvOk ? '<br>레벨 ' + C.lv + '부터' : '') + (!mineHalf ? '<br>' + NAME[C.half] + '의 가게' : '');
       card.appendChild(pr);
-      const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('seed:' + c, C.seed, mineHalf && lvOk && M.coins >= C.seed)); card.appendChild(a); box.appendChild(card);
+      const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('seed:' + c, C.seed, mineHalf && lvOk && seasonOk && M.coins >= C.seed)); card.appendChild(a); box.appendChild(card);
     });
   } else if (shopTab === 'tool'){
     $('#shopSub').textContent = '도구가 좋아지면 한 번에 여러 칸. 밭은 넓힐수록 칸이 늘어요.';

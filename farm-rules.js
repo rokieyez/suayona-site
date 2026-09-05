@@ -928,6 +928,11 @@ const FARM = (() => {
       if (!C || !C.seed) return fail('파는 씨앗이 아니에요');
       if (C.half && C.half !== mine.key) return fail('이 씨앗은 ' + NAME[C.half] + '의 가게에만 있어요. 선물로 받아야 해요');
       if ((C.lv || 1) > levelOf(mine.xp)) return fail('농장 레벨 ' + C.lv + '부터 살 수 있어요');
+      /* 지금 심을 수 없는 씨앗은 팔지 않는다. 사 놓고 심지 못하면 동전만 버리는 셈이다.
+         온실이 있으면 어느 계절이든 자라니 그때는 열어 준다. */
+      const cal2 = calendar(world, now);
+      if (!C.hardy && C.season.indexOf(cal2.season) < 0 && !(world.buildings.greenhouse && world.buildings.greenhouse.done))
+        return fail(SEASON_NAME[cal2.season] + '에는 ' + C.name + ' 씨앗을 살 수 없어요. ' + C.season.map(s => SEASON_NAME[s]).join('·') + '에 오세요');
       if (mine.coins < C.seed) return fail('동전이 모자라요');
       mine.coins -= C.seed; give(mine, id, 1);
       return okay(C.name + ' 씨앗을 샀어요');
