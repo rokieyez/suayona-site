@@ -1265,6 +1265,33 @@ function drawDecor(season, night){
       px(rx, ry, 6, 6, c); px(rx, ry, 4, 2, shade(c, 26)); px(rx + 4, ry + 4, 2, 2, shade(c, -34));
     }
   }
+  if (d.sandbox){
+    const b = spot('sandbox'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
+    px(X + 4, Y + 6, w - 8, h - 12, '#e8d3a0');                                 // 모래
+    grainy(X + 4, Y + 6, w - 8, h - 12, '#e8d3a0', 'stone', 'sb');
+    for (let i = 0; i < w - 8; i += 12){                                        // 나무 테두리
+      px(X + 4 + i, Y + 4, 12, 4, WOOD.mid); grainy(X + 4 + i, Y + 4, 12, 4, WOOD.mid, 'wood', 'sb1' + i);
+      px(X + 4 + i, Y + h - 10, 12, 4, WOOD.low); grainy(X + 4 + i, Y + h - 10, 12, 4, WOOD.low, 'wood', 'sb2' + i);
+    }
+    px(X + 4, Y + 4, 4, h - 10, WOOD.low); px(X + w - 8, Y + 4, 4, h - 10, WOOD.low);
+    px(X + 12, Y + h - 26, 12, 12, '#f2c14e');                                  // 쌓아 둔 모래성
+    px(X + 12, Y + h - 28, 12, 3, '#ffd979'); px(X + 16, Y + h - 32, 4, 5, '#f2c14e');
+    px(X + w - 22, Y + h - 22, 8, 6, '#5aa9e6'); px(X + w - 22, Y + h - 24, 8, 2, '#8fd0f0');   // 양동이
+    px(X + w - 12, Y + h - 26, 2, 10, '#e8574f'); px(X + w - 14, Y + h - 28, 6, 3, '#e8574f'); // 삽
+  }
+  if (d.firepit){
+    const b = spot('firepit'), X = b.x * T, Y = b.y * T;
+    px(X + 6, Y + 22, 20, 4, '#00000022');
+    for (let i = 0; i < 6; i++){                                                // 둘러놓은 돌
+      const th = i / 6 * 6.283;
+      const sx = X + 14 + Math.round(Math.cos(th) * 10), sy = Y + 16 + Math.round(Math.sin(th) * 6);
+      px(sx, sy, 6, 5, STONE.mid); px(sx, sy, 6, 2, STONE.hi);
+      grainy(sx, sy, 6, 5, STONE.mid, 'stone', 'fp' + i);
+    }
+    px(X + 10, Y + 14, 12, 5, '#4a3428');                                       // 재
+    px(X + 11, Y + 9, 4, 9, WOOD.dark); px(X + 15, Y + 11, 8, 4, WOOD.low);     // 장작
+    if (night) lamp(X + 16, Y + 14, 30, '#ffb055');
+  }
   if (d.statue){
     const b = spot('statue'), X = b.x * T, Y = b.y * T, h = b.h * T;
     px(X + 4, Y + h - 6, 24, 4, '#00000018');
@@ -1554,6 +1581,17 @@ function drawDecorLive(season, t, L){
     px(cx - 6, top, 2, seatY - top, '#8a7a63'); px(cx + 6, top, 2, seatY - top, '#8a7a63');
     px(cx - 10, seatY, 20, 4, WOOD.mid); px(cx - 10, seatY, 20, 2, WOOD.hi);
     px(cx - 10, seatY + 4, 20, 2, WOOD.dark);
+  }
+  if (d.firepit && L.dark > 0.14){
+    // 불꽃만 프레임마다 — 나머지 모닥불은 바탕에 구워져 있다
+    const b = spot('firepit'), X = b.x * T, Y = b.y * T;
+    const f = Math.sin(t / 150) > 0 ? 3 : 0, f2 = Math.sin(t / 210) > 0 ? 2 : 0;
+    px(X + 11, Y + 10 - f, 10, 6, '#ff8c2e');                                   // 위로 갈수록 좁아지는 불꽃
+    px(X + 12, Y + 6 - f, 8, 5, '#ff8c2e');
+    px(X + 13, Y + 3 - f2, 6, 4, '#ffa94d');
+    px(X + 14, Y + 7 - f2, 4, 8, '#ffd166');
+    px(X + 15, Y + 11, 2, 4, '#fff3c0');
+    ctx.globalAlpha = 0.5; px(X + 10, Y + 2 - f, 3, 3, '#ffb055'); px(X + 20, Y + 4 - f2, 3, 3, '#ffb055'); ctx.globalAlpha = 1;
   }
   if (d.lantern && L.dark > 0.16){
     const b = spot('lantern'), X = b.x * T, Y = b.y * T;
@@ -2458,7 +2496,8 @@ let houseBg = null, houseSig = '';
 // 벽을 나눈 자리 — 벽 꼭대기에서 내려온 거리(도트)
 const W_MOULD = 6, W_RAIL = 66, W_WAIN = 70, W_BASE = 98;
 const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars: 1,
-                     board: 1, garland: 1, wshelf: 1, rainbow: 1 };
+                     board: 1, garland: 1, wshelf: 1, rainbow: 1,
+                     heightbar: 1, worldmap: 1, mobile: 1, wreath: 1 };
 /* 벽에 거는 것은 어느 벽에 붙나. 칸에서 뒤로 물러났을 때 더 가까운 벽에 건다.
    (y 쪽이 가까우면 오른쪽 벽, x 쪽이 가까우면 왼쪽 벽) */
 function wallSlot(Rm, x, y){
@@ -2519,6 +2558,40 @@ function paintWallItem(wall, u, f, P){
         const dip = Math.round(13 * t2 * t2);
         rc.forEach((col, i) => w(x, 18 + dip + i * 3, 2, 3, col));
       }
+      break;
+    }
+    case 'heightbar':                               // 키 재기 자 — 벽에 붙여 두고 해마다 잰다
+      w(12, 12, 8, 40, '#f7ecdd'); w(12, 12, 2, 40, '#e6d8c2');
+      for (let v = 16; v < 50; v += 4) w(14, v, v % 12 === 0 ? 7 : 4, 2, '#8a7b6e');
+      w(10, 9, 12, 4, c); w(10, 52, 12, 4, shade(c, -18));
+      w(11, 24, 10, 2, '#e8574f'); w(11, 38, 10, 2, '#5aa9e6');    // 자매 둘의 눈금
+      break;
+    case 'worldmap':
+      w(1, 12, 30, 26, '#8a6a4a'); w(3, 14, 26, 22, '#dff0f8');
+      w(3, 14, 26, 2, '#c9dce8');
+      w(6, 18, 9, 7, c); w(17, 17, 7, 5, c); w(20, 26, 7, 6, c); w(7, 28, 6, 5, c);
+      w(14, 22, 3, 3, shade(c, -20)); w(24, 21, 3, 3, shade(c, -20));
+      w(1, 10, 30, 2, '#6f4a2c');                                  // 걸어 둔 봉
+      break;
+    case 'mobile': {
+      const mc = ['#ffd166', '#ff8fb8', '#8fd9c8', '#a9c8ff'];
+      w(4, 12, 24, 2, '#8a6a4a');
+      [6, 13, 20, 25].forEach((x, i) => {
+        const dl = 7 + (i % 2) * 7;
+        w(x, 14, 2, dl, '#c9b9a4');
+        w(x - 2, 14 + dl, 6, 6, mc[i]);
+        w(x - 1, 15 + dl, 2, 2, '#ffffff');
+      });
+      break;
+    }
+    case 'wreath': {
+      const lc = ['#3f7d3c', '#4f9a58', '#356b34'];
+      for (let i = 0; i < 18; i++){                                 // 둥글게 두른 잎
+        const th = i / 18 * 6.283;
+        w(15 + Math.round(Math.cos(th) * 11), 30 + Math.round(Math.sin(th) * 11), 4, 4, lc[i % 3]);
+      }
+      [[8, 24], [22, 27], [14, 41]].forEach(pp => w(pp[0], pp[1], 3, 3, '#e8574f'));   // 열매
+      w(12, 14, 7, 5, c); w(10, 12, 11, 3, shade(c, 22));           // 리본
       break;
     }
     default:                                        // 커튼 창문
@@ -2725,7 +2798,9 @@ const FURN_H = { rug: 2, bed: 24, bunk: 72, table: 28, desk: 32, chair: 38, sofa
                  lamp: 54, plant: 46, vase: 30, doll: 34, bear: 40, guitar: 48, trophy: 32, xmas: 68,
                  wardrobe: 78, drawer: 36, tv: 46, fridge: 70, toybox: 24, cattower: 74, easel: 56,
                  beanbag: 24, tent: 56, rocker: 42, books: 20, bigplant: 60,
-                 sakura: 46, fan: 52, pumpkin: 32 };
+                 sakura: 46, fan: 52, pumpkin: 32,
+                 dollhouse: 54, slide: 44, ballpit: 18, hammock: 46, kitchen: 46,
+                 blocks: 32, dresser: 46, nightsky: 24 };
 // 가구마다의 재질 — 적지 않은 것은 나무로 친다
 const FURN_MAT = {
   rug:'cloth', bed:'cloth', sofa:'cloth', cushion:'cloth', catbed:'cloth', beanbag:'cloth',
@@ -2735,6 +2810,8 @@ const FURN_MAT = {
   fire:'stone', pumpkin:'stone',
   piano:'plain', tv:'plain', plant:'plain', bigplant:'plain', sakura:'plain', xmas:'plain',
   vase:'plain', books:'plain', easel:'wood', guitar:'wood',
+  ballpit:'plain', hammock:'cloth', kitchen:'plain', blocks:'plain', nightsky:'plain',
+  slide:'plain', dollhouse:'wood', dresser:'wood',
 };
 function furnArt(f, rot){
   const F = R.FURNITURE[f], b = R.furnBox(f, rot);
@@ -3036,6 +3113,97 @@ function paintFurniture(g, f, rot, A, t){
       box3(6, 6, E - 12, D - 12, 14, '#e09a76', '#c97a5a', '#a45f45', 6);
       top(8, 8, 20, E - 16, D - 16, '#6a4a36');                                   // 흙
       blob(CX, CY - 56, 26, 30, c, shade(c, 26), shade(c, -30), 'bp', q);
+      break;
+    }
+    /* ---- 놀 것들 ---- */
+    case 'dollhouse': {
+      box(2, 2, E - 4, D - 4, 4, '#c79b6d');                                   // 받침
+      box(3, 3, E - 6, D - 6, 15, c, 4);                                       // 아래층
+      box(5, D - 4, 5, 3, 9, '#f7e2c8', 7); box(E - 10, D - 4, 5, 3, 9, '#f7e2c8', 7);   // 아래층 창 둘
+      box(3, 3, E - 6, D - 6, 13, shade(c, 10), 19);                           // 위층
+      box(6, D - 4, 5, 3, 8, '#f7e2c8', 22); box(E - 11, D - 4, 5, 3, 8, '#f7e2c8', 22);
+      for (let i = 0; i < 5; i++)                                              // 지붕 — 계단으로 좁아진다
+        box(2 + i * 2, 2 + i * 2, E - 4 - i * 4, D - 4 - i * 4, 3, i % 2 ? '#c9524e' : '#d9605c', 32 + i * 3);
+      box(E / 2 - 2, D / 2 - 2, 4, 4, 4, '#ffd166', 47);                       // 꼭대기 깃발
+      break;
+    }
+    case 'slide': {
+      MAT = 'wood';
+      for (let i = 0; i < 4; i++) box(2, 3 + i * 4, 7, 4, 8 + i * 7, '#c79b6d');   // 오르는 계단
+      box(2, 3, 7, D - 6, 3, '#a97b4f', 29);                                       // 꼭대기 발판
+      MAT = 'plain';
+      box(9, 4, 4, D - 8, 24, shade(c, -18), 6);                                   // 미끄럼틀 옆벽
+      for (let i = 0; i < 8; i++)                                                  // 미끄러지는 판
+        box(12 + i * 4, 5, 5, D - 10, 3, shade(c, i % 2 ? 0 : 9), 28 - i * 3);
+      box(E - 12, 4, 10, D - 8, 3, shade(c, -12), 4);                              // 내려오는 끝
+      break;
+    }
+    case 'ballpit': {
+      box(0, 0, E, D, 11, shade(c, -20));                                       // 통
+      top(4, 4, 11, E - 8, D - 8, shade(c, -36));                               // 안쪽 그늘
+      // 테두리는 네 면만 — 통째로 덮으면 안에 든 공이 안 보인다
+      box(0, 0, E, 5, 4, c, 11); box(0, D - 5, E, 5, 4, shade(c, -10), 11);
+      box(0, 0, 5, D, 4, shade(c, 12), 11); box(E - 5, 0, 5, D, 4, shade(c, -18), 11);
+      const bp = ['#f2707d', '#ffd166', '#5aa9e6', '#6cc7b3', '#ffb7d5'];
+      for (let i = 0; i < 16; i++){                                             // 공 열여섯 — 테두리보다 나중에 그려 위로 올라온다
+        const a2 = 5 + Math.floor(R.prand('bp' + i) * (E - 16)), b2 = 5 + Math.floor(R.prand('bq' + i) * (D - 16));
+        box(a2, b2, 6, 6, 6, bp[i % 5], 8 + (i % 3) * 2);
+      }
+      break;
+    }
+    case 'hammock': {
+      MAT = 'wood';
+      box(2, D / 2 - 3, 6, 6, 38, '#a97b4f'); box(E - 8, D / 2 - 3, 6, 6, 38, '#a97b4f');   // 기둥 둘
+      MAT = 'cloth';
+      const seg = Math.max(4, isoEven((E - 18) / 7));
+      for (let i = 0; i < 7; i++){                                              // 축 늘어진 그물
+        const dip = Math.round(13 - Math.abs(i - 3) * 3.6);
+        box(9 + i * seg, 4, seg, D - 8, 3, i % 2 ? c : shade(c, -11), 15 + dip);
+      }
+      box(10, 6, 7, D - 12, 4, '#fff6e9', 26);                                  // 베개
+      break;
+    }
+    case 'kitchen': {
+      box(0, 0, E, D, 24, c);                                                   // 몸통
+      box(2, D - 3, E - 4, 3, 9, shade(c, -22), 4);                             // 문 두 짝
+      box(E / 2 - 1, D - 3, 2, 3, 9, shade(c, -42), 4);
+      box(0, 0, E, D, 4, '#f2e6d6', 24);                                        // 상판
+      top(3, 4, 28, 8, 8, '#a9b7c0'); top(5, 6, 28, 4, 4, '#8f9ba4');           // 싱크
+      box(E - 11, 4, 6, 6, 3, '#3a3a42', 28);                                   // 화구
+      box(E - 10, 5, 4, 4, 1, '#e8574f', 31);
+      box(1, 1, E - 2, 3, 15, shade(c, 8), 28);                                 // 뒷판
+      box(4, 2, 4, 2, 3, '#ffd166', 36); box(11, 2, 4, 2, 3, '#8fd9c8', 36);    // 걸어 둔 냄비
+      break;
+    }
+    case 'blocks': {
+      const kc = ['#f2707d', '#5aa9e6', '#ffd166', '#6cc7b3', '#c9a8ff'];
+      [[2, 2, 11], [11, 4, 8], [4, 11, 8], [8, 6, 8], [10, 10, 6]].forEach((b2, i) => {
+        box(b2[0], b2[1], b2[2], b2[2], 6, kc[i % 5], i * 5);
+        top(b2[0] + 2, b2[1] + 2, i * 5 + 6, b2[2] - 4, b2[2] - 4, shade(kc[i % 5], 20));   // 위에 파인 자리
+      });
+      break;
+    }
+    case 'dresser': {
+      box(0, 0, E, D, 20, c);                                                   // 몸통
+      for (let z = 3; z < 18; z += 7){
+        box(3, D - 2, E - 6, 2, 5, shade(c, 12), z);
+        box(E / 2 - 3, D - 2, 6, 2, 2, shade(c, -34), z + 3);                   // 손잡이
+      }
+      box(0, 0, E, D, 4, shade(c, 20), 20);                                     // 상판
+      MAT = 'plain';
+      box(2, 1, E - 4, 3, 18, shade(c, -12), 24);                               // 거울 틀
+      box(4, 1, E - 8, 2, 14, '#dff0f8', 26);                                   // 거울
+      box(5, 1, 4, 2, 9, '#ffffff', 29);
+      box(E - 9, D - 7, 4, 4, 4, '#ff8fb8', 24);                                // 올려 둔 향수
+      break;
+    }
+    case 'nightsky': {
+      box(4, 4, E - 8, D - 8, 5, '#4a4a55');                                    // 받침
+      box(6, 6, E - 12, D - 12, 11, c, 5);                                      // 몸통
+      top(7, 7, 16, E - 14, D - 14, shade(c, 24));
+      box(E / 2 - 3, D / 2 - 3, 6, 6, 4, '#fff3c0', 16);                        // 빛나는 구멍
+      [[2, 5, 20], [E - 6, 3, 23], [5, D - 4, 18], [E - 4, D - 7, 21]].forEach(pp =>
+        top(pp[0], pp[1], pp[2], 2, 2, '#fff3c0'));                             // 새어 나온 별
       break;
     }
     // ---- 앞에서 본 작은 것들 ----

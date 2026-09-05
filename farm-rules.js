@@ -328,6 +328,8 @@ const FARM = (() => {
     bench:    { name: '나무 벤치', icon: '🪑', cost: 300,  lv: 2, desc: '앉아서 쉬는 자리' },
     swing:    { name: '그네',     icon: '🎠', cost: 1200, lv: 4, desc: '바람에 살랑살랑 흔들려요' },
     arch:     { name: '장미 아치', icon: '🌹', cost: 2500, lv: 6, desc: '들어오는 길에 꽃문' },
+    sandbox:  { name: '모래놀이터', icon: '🏖️', cost: 900,  lv: 3, desc: '모래성을 쌓아 뒀어요' },
+    firepit:  { name: '모닥불',     icon: '🔥', cost: 1800, lv: 6, desc: '밤이면 타닥타닥 타올라요' },
   };
 
   // ---------- 농장 배치 ----------
@@ -356,6 +358,8 @@ const FARM = (() => {
     bench:      { name: '나무 벤치', w: 2, h: 1, x: 8, y: 15, kind: 'decor',  move: true },
     swing:      { name: '그네',     w: 2, h: 2, x: 4,  y: 14, kind: 'decor',  move: true },
     arch:       { name: '장미 아치', w: 2, h: 1, x: 18, y: 7, kind: 'decor',  move: true },
+    sandbox:    { name: '모래놀이터', w: 2, h: 2, x: 0, y: 10, kind: 'decor',  move: true },
+    firepit:    { name: '모닥불',   w: 1, h: 1, x: 11, y: 13, kind: 'decor',  move: true },
   };
   const PLACE_IDS = Object.keys(PLACE);
   function spotOf(world, id){
@@ -565,6 +569,20 @@ const FARM = (() => {
     sakura:  { name: '벚꽃 가지',   cost: 220,  w: 1, kind: 'sakura',  cozy: 2, c: '#ffc0d4', season: 'spring' },
     fan:     { name: '선풍기',      cost: 200,  w: 1, kind: 'fan',     cozy: 2, c: '#dfe8ee', season: 'summer' },
     pumpkin: { name: '호박 등',     cost: 220,  w: 1, kind: 'pumpkin', cozy: 2, c: '#ff8c3a', season: 'autumn' },
+    // 놀 것들 — 방을 놀이터로 만드는 큰 것
+    dollhouse:{ name: '인형의 집', cost: 380,  w: 1, kind: 'dollhouse', cozy: 3, c: '#ffd8c2' },
+    slide:    { name: '미끄럼틀',  cost: 520,  w: 2, kind: 'slide',   cozy: 4, c: '#ffb26b' , flat: true },
+    ballpit:  { name: '볼풀',      cost: 620,  w: 2, kind: 'ballpit', cozy: 4, c: '#8fd0f0' , flat: true },
+    hammock:  { name: '해먹',      cost: 340,  w: 2, kind: 'hammock', energy: 3, cozy: 3, c: '#a9c8ff' , flat: true },
+    kitchen:  { name: '놀이 부엌', cost: 400,  w: 1, kind: 'kitchen', cozy: 3, c: '#ffd0d8' },
+    blocks:   { name: '블록 성',   cost: 130,  w: 1, kind: 'blocks',  cozy: 2, c: '#f2707d' , flat: true },
+    dresser:  { name: '화장대',    cost: 360,  w: 1, kind: 'dresser', cozy: 3, c: '#e8c9a8' },
+    nightsky: { name: '별 프로젝터', cost: 300, w: 1, kind: 'nightsky', cozy: 3, c: '#7f8fd6' },
+    // 벽에 거는 것 넷
+    heightbar:{ name: '키 재기 자', cost: 140, w: 1, kind: 'heightbar', cozy: 2, c: '#ffb7d5' , wall: true },
+    worldmap: { name: '세계 지도',  cost: 200, w: 1, kind: 'worldmap',  cozy: 2, c: '#8fd9c8' , wall: true },
+    mobile:   { name: '별 모빌',    cost: 160, w: 1, kind: 'mobile',    cozy: 2, c: '#ffd166' , wall: true },
+    wreath:   { name: '겨울 화환',  cost: 180, w: 1, kind: 'wreath',    cozy: 2, c: '#e8574f' , wall: true, season: 'winter' },
   };
   // 방은 가로 칸 수 × 세로 칸 수. 넓히는 건 언제든 안전하다 — 이미 놓인 가구는 그대로 있다.
   const ROOMS = {
