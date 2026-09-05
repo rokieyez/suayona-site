@@ -2631,11 +2631,30 @@ function freeTile(r, prefer){
   for (let y = Rm.h - 1; y >= 0; y--) for (let x = 0; x < Rm.w; x++) if (!R.occupied(W, r, x, y)) return [x, y];
   return [0, Rm.h - 1];
 }
+/* 방 그림은 한 번만 그린다. 그런데 아직 화면에 붙기 전이면 칸 너비를 못 재어
+   fitPixelCanvas 가 물러서고, 낮은 배수(HS=2)에 그대로 머문다 — 실제로 거실이
+   576픽셀로 굳어 있었고 제 크기는 960픽셀이었다. 화면 픽셀의 예순 퍼센트만 채운 셈이라
+   도트가 뭉개져 보였다. 칸 크기가 잡히거나 바뀌면 그때 다시 그린다. */
+function watchRoomCanvas(cv, r){
+  if (cv.__roomWatch || !window.ResizeObserver) return;
+  const host = cv.parentElement;
+  if (!host) return;
+  let last = 0;
+  cv.__roomWatch = new ResizeObserver(() => {
+    const w = host.clientWidth;
+    if (!w || w === last) return;                // 같은 너비로 두 번 그리지 않는다
+    last = w;
+    drawRoom(cv, r);
+  });
+  cv.__roomWatch.observe(host);
+}
+
 function drawRoom(cv, r, tms){
   if (!cv || !W) return;
   const t = tms == null ? (window.performance ? performance.now() : Date.now()) : tms;
   const Rm = R.ROOMS[r]; if (!Rm) return;
   const aw = Rm.w * T, ah = Rm.h * T + WALLH;
+  watchRoomCanvas(cv, r);
   fitPixelCanvas(cv, aw, ah, 6);
   HS = pixScale(cv, aw, ah, 2);
   const cw = cv.width, ch = cv.height;
