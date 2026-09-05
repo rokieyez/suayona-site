@@ -1563,6 +1563,10 @@ function render(o){
   const pt = (x, y, z) => { const p = proj(x, y, z || 0); return { x: p[0], y: p[1] }; };
   const doorP = B.faceCenter('L', { x: 4.2, y: 0.2, z: 0, w: 2.5, d: 1.6, h: 34 }, 27, 16);
   const hits = HITS.slice(), ids = R ? R.ids : null, w = VS.w, h = VS.h;
+  // 이 마을의 원점을 붙잡아 둔다 — ORG 는 모듈 변수라, 뒤에 다른 render 가 오면 바뀐다.
+  // 첫화면은 한 번에 마을 하나만 쓰지만, 시험 삼아 하나 더 그렸더니 잔디가 해자로 읽혔다.
+  const ox = VS.orgX, oy = SKY;
+  const unprojHere = (x, y) => { const a = (x - ox) / TW, b = (y - oy) / TH; return [b + a, b - a]; };
   return {
     canvas, hs, w: VS.w, h: VS.h,
     lights: LIGHTS.slice(), hits,
@@ -1583,8 +1587,8 @@ function render(o){
     house: { door: { x: doorP.x, y: doorP.y, w: 8, h: 18 }, foot: pt(5.75, 1.95) },
     horizon: SKY,
     // 도트 자리 → 땅 칸. 땅 밖이면 kind 가 null
-    worldAt: (dx, dy) => { const [tx, ty] = unproj(dx, dy); return { tx, ty, kind: inPlot(tx, ty) ? kindAt(tx, ty) : null }; },
-    dotAt: (tx, ty) => pt(tx, ty),
+    worldAt: (dx, dy) => { const [tx, ty] = unprojHere(dx, dy); return { tx, ty, kind: inPlot(tx, ty) ? kindAt(tx, ty) : null }; },
+    dotAt: (tx, ty) => ({ x: ox + (tx - ty) * TW / 2, y: oy + (tx + ty) * TH / 2 }),
     kindOf: (tx, ty) => inPlot(tx, ty) ? kindAt(tx, ty) : null,
     PW, PD,
   };
