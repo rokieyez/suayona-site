@@ -148,6 +148,9 @@
   .medals div.got{border-color:#e0a72b; background:#fffbe9;}
   .medals div.can{border-color:#3f9a4b; background:#f1fbf0;}
   .medals div button{margin-left:auto;}
+  /* 오늘의 한 장 */
+  .snapwrap{text-align:center;}
+  .snapwrap canvas{width:100%; max-width:520px; height:auto; image-rendering:pixelated; border:3px solid var(--ink); background:#fff;}
   .animal .act{display:flex; gap:4px; margin-left:auto; flex-wrap:wrap;}
   .order{border:2px solid var(--ink); background:#fff; padding:8px 10px; font-size:12.5px; margin-bottom:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
   .order .pb{flex:1 1 100px; height:10px; border:2px solid var(--ink); background:#f1ede6; position:relative; min-width:80px;}
@@ -280,6 +283,7 @@
         <button type="button" data-tab="duo">👭 둘이서<span class="n" id="duoN" hidden></span></button>
         <button type="button" data-tab="dex">📖 도감·기록</button>
         <button type="button" id="placeBtn" class="placebtn">🧭 배치 바꾸기</button>
+        <button type="button" id="snapBtn" class="placebtn">📷 오늘의 한 장</button>
       </div>
 
       <div class="dot-card panel" id="tab-bag">

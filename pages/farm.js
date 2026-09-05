@@ -4307,6 +4307,78 @@ function renderMedals(){
   $('#medalCount').textContent = list.filter(m => m.got).length + '/' + list.length;
 }
 
+/* ---------- 오늘의 농장 한 장 ----------
+   지금 화면을 그대로 한 장으로 뜬다. 위에 날짜·계절·날씨를 적은 띠를 얹어
+   나중에 봐도 언제의 농장인지 알 수 있게 한다. 농장 그림에는 바깥 그림이 한 장도
+   섞이지 않으므로 캔버스가 더럽혀지지 않는다 — toBlob 이 그대로 된다. */
+function snapCanvas(){
+  const src = liveCv || $('#farmCanvas');
+  const BAR = Math.round(src.width * 0.062), PAD = Math.round(src.width * 0.012);
+  const o = document.createElement('canvas');
+  o.width = src.width + PAD * 2; o.height = src.height + BAR + PAD * 2;
+  const g = o.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.fillStyle = '#fff6e9'; g.fillRect(0, 0, o.width, o.height);
+  g.drawImage(src, PAD, BAR + PAD);
+  const cal = R.calendar(W, now()), wk = R.weatherOf(R.dayKey(now()), cal.season);
+  const WNAME = { sun: '맑음', cloud: '흐림', rain: '비', storm: '비바람', wind: '바람', snow: '눈' };
+  g.fillStyle = '#3a3226';
+  g.font = '700 ' + Math.round(BAR * 0.46) + 'px "Galmuri11", system-ui, sans-serif';
+  g.textBaseline = 'middle';
+  g.fillText('수아연아 농장 · ' + R.dayKey(now()), PAD + 4, PAD + BAR * 0.5);
+  const right = R.SEASON_ICON[cal.season] + ' ' + R.SEASON_NAME[cal.season] + ' ' + cal.year + '년째 · '
+    + (WNAME[wk] || wk) + ' · Lv ' + R.levelOf(M.xp);
+  g.textAlign = 'right';
+  g.fillText(right, o.width - PAD - 4, PAD + BAR * 0.5);
+  g.textAlign = 'left';
+  g.fillStyle = '#3a3226'; g.fillRect(0, BAR + PAD - 3, o.width, 3);
+  return o;
+}
+function openSnap(){
+  if (!W || !M){ flash('농장을 먼저 열어요', true); return; }
+  drawFarm(liveCv || $('#farmCanvas'));
+  const cv = snapCanvas();
+  const inner = $('#modalInner');
+  inner.innerHTML = '<h3 class="pixel">📷 오늘의 농장 한 장</h3>'
+    + '<p class="sub">지금 이 순간의 농장이에요. 작품으로 내면 부모님이 보고 전시실에 걸어 줘요.</p>'
+    + '<div class="snapwrap" id="snapWrap"></div>'
+    + '<div class="modal-actions"><button type="button" class="dot-btn small primary" id="snapSend">🖼 작품으로 내기</button>'
+    + '<button type="button" class="dot-btn small" id="snapClose">닫기</button></div>';
+  $('#snapWrap').appendChild(cv);
+  $('#modal').hidden = false;
+  $('#snapClose').addEventListener('click', closeModal);
+  $('#snapSend').addEventListener('click', () => sendSnap(cv, $('#snapSend')));
+}
+async function sendSnap(cv, b){
+  b.disabled = true; b.textContent = '내는 중…';
+  try {
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    if (!blob) throw new Error('그림을 만들지 못했어요');
+    const path = 'suayona/farm/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.png';
+    const up = await sb.storage.from('event-images').upload(path, blob, { contentType: 'image/png', upsert: false });
+    if (up.error) throw up.error;
+    const { data: pub } = sb.storage.from('event-images').getPublicUrl(path);
+    const { data: { user } } = await sb.auth.getUser();
+    const cal = R.calendar(W, now());
+    const { error } = await sb.from('works').insert({
+      title: '오늘의 농장 · ' + R.SEASON_NAME[cal.season] + ' ' + cal.year + '년째',
+      quote: R.dayKey(now()) + '의 수아연아 농장',
+      author: key,
+      media_type: 'image',
+      media_url: pub.publicUrl,
+      made_on: new Date().toISOString().slice(0, 10),
+      status: 'pending',
+      written_by: user.id,
+    });
+    if (error) throw error;
+    b.textContent = '냈어요!';
+    flash('오늘의 농장을 작품으로 냈어요. 부모님이 보고 전시실에 걸어 줘요');
+    setTimeout(closeModal, 900);
+  } catch (e) {
+    b.disabled = false; b.textContent = '🖼 작품으로 내기';
+    flash('내지 못했어요: ' + readableError(e), true);
+  }
+}
+
 // ---------- 배선 ----------
 function wireUI(){
   $('#farmCanvas').addEventListener('click', onFarmTap);
@@ -4324,6 +4396,7 @@ function wireUI(){
   });
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.addEventListener('click', () => openTab(b.dataset.tab)));
   $('#placeBtn').addEventListener('click', togglePlace);
+  $('#snapBtn').addEventListener('click', openSnap);
   $('#placeReset').addEventListener('click', () => { if (!confirm('배치를 처음으로 되돌릴까요?')) return; act(w => R.resetLayout(w)); placePick = null; dropLayers(); });
   $('#mailBtn').addEventListener('click', openMail);
   $('#modal').addEventListener('click', e => { if (e.target === $('#modal')) closeModal(); });
