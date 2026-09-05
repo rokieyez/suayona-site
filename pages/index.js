@@ -1578,15 +1578,6 @@ const belowFold = (() => {
       const w = data && data[0];
       if (!w) return;
       const img = new Image();
-      // 저장소 그림이 그냥 붙으면 캔버스가 cross-origin 으로 물들어 엽서를 못 뽑는다.
-      // 저장소가 Access-Control-Allow-Origin: * 를 주므로 이렇게 받으면 깨끗하게 남는다.
-      // 혹시 막히면 물들더라도 그림은 걸고, 엽서 단추만 조용히 접는다.
-      img.crossOrigin = 'anonymous';
-      img.onerror = () => {
-        const plain = new Image();
-        plain.onload = () => { easelImg = plain; easelHref = '/portfolio.html'; canvasTainted = true; syncCardHud(); kick(); };
-        plain.src = w.thumb_url || w.media_url;
-      };
       img.onload = () => {
         easelImg = img; easelHref = '/portfolio.html';
         if (w.audio_url) {
@@ -1666,54 +1657,6 @@ const belowFold = (() => {
       ctx.fillRect(x - Math.round(2 * HS), y - s, s * 2, s * 3);  // 왼쪽 끝의 작은 깃발
     });
   }
-
-  // ---- 지금 마을을 엽서 한 장으로 ----
-  // 화면에 보이는 그대로를 도트 엽서로 만들어 내려받는다. 친구에게 보낼 수 있게.
-  let canvasTainted = false;
-  const cardHud = $('#cardHud');
-  function syncCardHud(){ if (cardHud) cardHud.hidden = canvasTainted; }
-  function savePostcard(){
-    const pad = 16, capH = 52, sc = Math.min(2, 1200 / Math.max(1, W));
-    const iw = Math.round(W * sc), ih = Math.round(H * sc);
-    const o = document.createElement('canvas');
-    o.width = iw + pad * 2; o.height = ih + pad * 2 + capH;
-    const g = o.getContext('2d');
-    g.imageSmoothingEnabled = false;
-    g.fillStyle = '#fff6e9'; g.fillRect(0, 0, o.width, o.height);
-    try {
-      g.drawImage(canvas, 0, 0, canvas.width, canvas.height, pad, pad, iw, ih);
-    } catch (e) { canvasTainted = true; syncCardHud(); return false; }
-    g.strokeStyle = '#2f2a24'; g.lineWidth = 6;
-    g.strokeRect(3, 3, o.width - 6, o.height - 6);
-    g.strokeRect(pad - 2, pad - 2, iw + 4, ih + 4);
-    const d = new Date();
-    g.fillStyle = '#2f2a24';
-    g.font = '700 26px "Suayona Dot", monospace';
-    g.textBaseline = 'middle';
-    g.fillText('수아랑 연아랑', pad, pad + ih + capH / 2);
-    g.font = '700 18px "Suayona Dot", monospace';
-    const stamp = d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 · www.suayona.com';
-    g.textAlign = 'right';
-    g.fillText(stamp, o.width - pad, pad + ih + capH / 2);
-    const name = 'suayona-' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '.png';
-    try {
-      o.toBlob(b => {
-        if (!b) return;
-        const url = URL.createObjectURL(b);
-        const a = document.createElement('a');
-        a.href = url; a.download = name;
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
-      }, 'image/png');
-    } catch (e) { canvasTainted = true; syncCardHud(); return false; }
-    return true;
-  }
-  if (cardHud) cardHud.addEventListener('click', () => {
-    const ok = savePostcard();
-    sfx(ok ? 'key' : 'prop');
-    const box = { x: W / 2, y: H * 0.5, w: 0, h: 0 };
-    say(ok ? '📮 엽서를 저장했어요' : '엽서를 못 만들었어요', box);
-  });
 
   // ---- 먼저 말 걸기 ----
   // 처음 한 번은 조금 빨리(4초), 그 뒤로는 12초마다. 스크롤로 첫 화면을 벗어나면 멈춘다.

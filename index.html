@@ -312,9 +312,6 @@
   .dex-line{text-align:center; margin:14px 0 0; font-size:12px; color:var(--ink-soft);}
   .find-hud.torch{left:auto; right:14px; bottom:60px; pointer-events:auto; cursor:pointer; font-family:inherit;}
   .find-hud.torch.on{background:var(--lemon);}
-  /* 엽서 단추 — 오른쪽 세로줄의 세 번째 자리 */
-  .find-hud.card{left:auto; right:14px; bottom:98px; pointer-events:auto; cursor:pointer; font-family:inherit;}
-  .find-hud.card:active{transform:translate(2px,2px); box-shadow:2px 2px 0 rgba(47,42,36,.45);}
   /* 인터넷이 끊겼을 때 — 그리기는 미리 담아 두어서 열린다 */
   .find-hud.off{bottom:98px; background:var(--lemon); pointer-events:auto;}
   .find-hud.off a{color:inherit;}
@@ -328,7 +325,7 @@
   }
   @keyframes panSway{ 0%,100%{transform:translateX(-50%) translateX(-6px);} 50%{transform:translateX(-50%) translateX(6px);} }
   @media (prefers-reduced-motion:reduce){ .pan-hint{animation:none;} }
-  @media (max-width:400px){ .find-hud.sound, .find-hud.torch, .find-hud.card{right:10px;} }
+  @media (max-width:400px){ .find-hud.sound, .find-hud.torch{right:10px;} }
   @media (max-width:400px){ .find-hud{left:10px; bottom:18px; font-size:10px;} }
 
   /* ===== 메뉴 카드에 선 캐릭터 =====
@@ -466,8 +463,6 @@
   <button class="find-hud pixel sound" id="soundHud" type="button" aria-label="소리 켜고 끄기">🔊</button>
   <!-- 손전등은 밤에만 나온다. 낮에 켤 수 있으면 밤을 기다릴 이유가 없다. -->
   <button class="find-hud pixel torch" id="torchHud" type="button" hidden>🔦</button>
-  <!-- 지금 보이는 마을을 도트 엽서 한 장으로 저장한다 -->
-  <button class="find-hud pixel card" id="cardHud" type="button" aria-label="지금 마을을 엽서로 저장">📮</button>
   <!-- 신호가 끊기면 뜬다. 그리기는 서비스 워커가 미리 담아 두어서 그때도 열린다 -->
   <div class="find-hud pixel off" id="offHud" hidden>📴 인터넷이 없어요 — <a href="/draw.html">그리기</a>는 열려요</div>
   <!-- 폰에서 마을이 화면보다 넓다. 처음 한 번만 알려 준다 -->
