@@ -806,6 +806,7 @@ P.stone = (q, X, Y) => ellipse(q, X, Y, 4, 2, (x, y) => (x - X) + (y - Y) < -2 ?
 const PW = 14, PD = 12;                       // 땅 칸 수
 let SKY = 124;                                // 땅 뒤 꼭짓점의 y — 그릴 때 정한다
 const VS = { w: 640, h: 470, orgX: 296, labels: [], frameRects: [] };
+let CLIFF_H = 40;                             // 절벽(땅 덩어리 옆면) 두께 — 첫화면이 남는 자리만큼 늘려 준다 (폰 116, 데스크톱 40)
 let SPR = null;                               // 사이트의 스프라이트 — 그릴 때 받는다
 // 화면 도트 → 세상 칸
 function unproj(x, y){ const a = (x - ORG.x) / TW, b = (y - ORG.y) / TH; return [b + a, b - a]; }
@@ -1010,13 +1011,32 @@ function drawGround(q){
   // 절벽 — 왼앞(L)과 오른앞(R) 두 면. 위에서부터 풀 뿌리, 흙, 바위 켜
   const cliffTex = lit => (u, v) => {
     let c;
-    if (v < 2) c = '#5f9a4c';
-    else if (v < 4) c = hash(u, v, 21) < 0.5 ? '#7a5a3c' : '#5f9a4c';
-    else if (v < 14){ c = ['#8a6a4a', '#7d5f42', '#70543a'][Math.floor(hash(u >> 1, v >> 1, 22) * 3)]; if (hash(u, v, 23) < 0.06) c = '#a58a68'; }
-    else { const k = Math.floor((v - 14) / 6); c = ['#8c8478', '#7f776c', '#736b60', '#67605a', '#5a534d'][Math.min(4, k)]; if (hash(u, v, 24) < 0.05) c = shade(c, 14); if ((v - 14) % 6 === 5 && hash(u >> 2, v, 25) < 0.7) c = shade(c, -16); if (hash(u >> 3, v >> 2, 26) < 0.08) c = shade(c, -10); }
+    if (v < 2) c = '#5f9a4c';                                                    // 잔디가 넘어온 가장자리
+    else if (v < 5) c = hash(u, v, 21) < 0.5 ? '#7a5a3c' : '#5f9a4c';            // 뿌리와 흙이 섞인 켜
+    else if (v < 20){                                                             // 흙
+      c = ['#8a6a4a', '#7d5f42', '#70543a'][Math.floor(hash(u >> 1, v >> 1, 22) * 3)];
+      if (hash(u, v, 23) < 0.06) c = '#a58a68';                                   // 잔돌
+    } else {                                                                      // 바위 — 켜마다 색이 다르고, 켜 위쪽이 빛을 받는다
+      const BAND = 13, k = Math.min(5, Math.floor((v - 20) / BAND)), r = (v - 20) % BAND;
+      c = ['#958c7e', '#82796d', '#8b8072', '#736a5f', '#7c7266', '#635b52'][k];
+      if (r < 2) c = shade(c, 13);
+      if (r === BAND - 1) c = shade(c, -20);                                      // 켜 이음매 그늘
+      if (hash(u, v, 24) < 0.05) c = shade(c, 12);
+      if (hash(u >> 3, v >> 2, 26) < 0.09) c = shade(c, -9);                      // 얼룩
+      const g = u >> 4;                                                            // 세로로 난 금 — 열여섯 칸에 하나씩
+      if (hash(g, 0, 27) < 0.3 && u % 16 === Math.floor(hash(g, 1, 27) * 15)) c = shade(c, -24);
+      if (v > 28 && hash(u >> 2, v >> 3, 31) < 0.06) c = mix(c, '#5f8a4c', 0.45);  // 이끼
+    }
+    // 흙 켜에서 늘어진 뿌리 — 일곱 칸에 한 자리씩, 짧고 구불구불하게
+    const gr = Math.floor(u / 7), rl = 4 + Math.floor(hash(gr, 0, 28) * 9);
+    if (hash(gr, 3, 28) < 0.55 && v >= 4 && v < 4 + rl){
+      const ru = gr * 7 + Math.floor(hash(gr, 1, 28) * 6) + Math.round(Math.sin(v * 0.7 + gr) * 1.4);
+      if (u === ru) c = v > 4 + rl - 2 ? '#4f3722' : '#68492e';
+      if (u === ru + 1 && v > 4 + rl - 4) c = '#5a4028';
+    }
     return shade(c, lit);
   };
-  const CH = 40;
+  const CH = CLIFF_H;
   // 물이 있는 자리는 절벽 위쪽이 물빛 — 도랑의 단면
   const waterCut = (tex, isL) => (u, v, x, y) => {
     const wat = isL ? true : u < 1.2 * S;
@@ -1600,12 +1620,13 @@ function snowCaps(R, w, h){
 
 // ---------- 밖에서 부르는 문 ----------
 /* o = { w, h (도트), hs (도트 한 개의 px), orgX, orgY (땅 뒤 꼭짓점 자리, 도트), night, litP (불 켜진 창 비율 0~1),
-         sprites, pal (사이트의 도트 그림), frames: [캔버스|null, 캔버스|null], snow (지붕에 눈), env (시험용) }
+         cliff (절벽 두께, 도트 — 없으면 40), sprites, pal (사이트의 도트 그림), frames: [캔버스|null, 캔버스|null], snow (지붕에 눈), env (시험용) }
    돌려주는 것: 캔버스와, 첫화면 코드가 놀이를 얹는 데 쓰는 자리들(전부 도트 단위). */
 function render(o){
   SPR = { S: o.sprites || {}, PAL: o.pal || {} };
   NIGHT = !!o.night; LIT_P = o.litP == null ? 0.6 : o.litP; LIGHTS.length = 0; HITS.length = 0;
   VS.w = Math.max(64, Math.ceil(o.w)); VS.h = Math.max(64, Math.ceil(o.h)); VS.orgX = o.orgX; SKY = o.orgY;
+  CLIFF_H = Math.max(24, Math.min(160, Math.round(o.cliff || 40)));   // 절벽 두께 — 세로가 긴 화면일수록 두껍게
   const hs = o.hs || 1;
   let canvas = null, env = o.env, R = null;
   if (!env){
@@ -1678,6 +1699,7 @@ function render(o){
     smoke: VS.smoke || null,                    // 굴뚝 아가리 — 첫화면이 연기를 피운다
     ruler: VS.ruler || null,                    // 키 재기 기둥 — 첫화면이 두 아이 눈금을 얹는다
     horizon: SKY,
+    cliff: CLIFF_H,                             // 절벽 두께(도트) — 첫화면이 마을 아래 빈 자리를 재는 데 쓴다
     // 도트 자리 → 땅 칸. 땅 밖이면 kind 가 null
     worldAt: (dx, dy) => { const [tx, ty] = unprojHere(dx, dy); return { tx, ty, kind: inPlot(tx, ty) ? kindAt(tx, ty) : null }; },
     dotAt: (tx, ty) => ({ x: ox + (tx - ty) * TW / 2, y: oy + (tx + ty) * TH / 2 }),

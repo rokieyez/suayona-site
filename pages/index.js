@@ -151,6 +151,7 @@ const belowFold = (() => {
   let HS = 2;                                           // 마을 도트 한 개가 몇 px 인가
   let panX = 0, panMax = 0;                             // 좁은 화면에서는 마을이 화면보다 넓다 — 끌어서 본다
   const TITLE_H = 108;                                  // 헤더 아래 제목 두 줄이 차지하는 하늘 띠
+  const VILLAGE_TILES = 26;                             // 마을 땅의 가로+세로 칸 수 (14+12) — 아래 꼭짓점 자리를 재는 데 쓴다
   const tagBox = $('#heroTags');
   let nameTag = null;                                   // { text, x, y, at }
   const TAG_IN = 140, TAG_HOLD = 1700, TAG_OUT = 340;   // 뜨고 · 머물고 · 사라지고 (ms)
@@ -604,9 +605,14 @@ const belowFold = (() => {
     // 땅 뒤 꼭짓점 — 가로는 마을이 가운데, 세로는 헤더 밑에서 가장 높은 지붕(74도트)만큼 내려온 곳
     const orgY = Math.round((headerH + TITLE_H) / HS) + 74;
     const dim = NIGHT || PHASE === 'dusk';               // 저녁부터 가로등과 창에 불이 켜진다
+    // 절벽 두께 — 마을 밑에 남는 자리를 절벽이 먼저 먹는다(그림이 커져도 폭은 그대로다).
+    // 폰처럼 세로가 긴 화면에서만 두꺼워지고, 데스크톱에서는 40으로 남아 섬이 뜬 채로 끝난다.
+    const plotBottom = orgY + (VILLAGE_TILES * 24) / 2;  // 땅 뒤 꼭짓점에서 아래 꼭짓점까지 (14+12칸 × 반 칸 높이)
+    const spare = H - (plotBottom + 40) * HS;            // 지금 절벽으로도 남는 빈 자리(px)
+    const cliff = Math.max(40, Math.min(116, Math.round(40 + Math.max(0, spare) * 0.30 / HS)));
     if (VG && VG.canvas) VG.canvas.width = 0;           // 지난 마을 캔버스를 바로 놓아 준다 (크기를 바꿀 때마다 20MB 씩 쌓인다)
     VG = Village.render({
-      w: vw, h: vh, hs: HS * dpr, orgX: Math.round(vw / 2 - 24), orgY, night: dim, litP: CLOCK.litP, snow: weather.snow,
+      w: vw, h: vh, hs: HS * dpr, orgX: Math.round(vw / 2 - 24), orgY, cliff, night: dim, litP: CLOCK.litP, snow: weather.snow,
       sprites: SPRITES, pal: PAL,
       frames: hung.map(h => h ? drawingToCanvas(h) : null),
     });
@@ -1403,6 +1409,7 @@ const belowFold = (() => {
     view.gx = gx; view.gy = gy;
     if (VG) ctx.drawImage(VG.canvas, 0, 0, VG.canvas.width, VG.canvas.height, gx, gy, VG.canvas.width / VG.dpr, VG.canvas.height / VG.dpr);
     moveTags(gy);
+    drawUnderClouds();               // 섬 밑 구름바다 — 마을 그림(먼 들판) 위, 놀이보다 아래
     // 비 오면 온 화면이 한 톤 가라앉고, 안개 낀 날은 지평선에 뿌연 띠가 낀다
     if (raining()) { ctx.fillStyle = 'rgba(70,80,100,.22)'; ctx.fillRect(0, 0, W, H); }
     if (weather.fog) { ctx.fillStyle = 'rgba(232,236,240,.40)'; ctx.fillRect(0, horizon - H * 0.1, W, H * 0.24); }
@@ -1578,6 +1585,7 @@ const belowFold = (() => {
       hits.push({ kind:'prop', key:'butterfly', x: bdx + bw / 2, y: bdy, w: bw, h: bh });
     }
 
+    drawForeground();                // 맨 앞 수풀 — 아이들보다도 앞
     drawRainbow();
     drawFalling();
     drawRain();
@@ -1586,6 +1594,112 @@ const belowFold = (() => {
     drawFireflies();
     drawSplash();
     drawPops();
+  }
+
+  // ---- 마을 아래 빈 자리 채우기 ----
+  // 폰처럼 세로가 긴 화면에서는 떠 있는 섬 밑으로 먼 들판만 249px(29%) 비어 보였다.
+  // 마을을 키우면 폭까지 같이 커져 옆이 잘리므로, 세로만 채운다 — 절벽을 두껍게(마을 그림 쪽),
+  // 그 아래로 구름바다, 맨 앞에 수풀. 절벽 밑이 이미 화면 밖이면(데스크톱) 아무것도 안 그린다.
+  const FG_MIN = 90;                                    // 이만큼은 비어야 채울 값어치가 있다
+
+  // 절벽 밑의 화면 y(px). 마을이 없거나 빈 자리가 좁으면 null
+  function underBand(){
+    if (!VG || !VG.cliff) return null;
+    const top = (VG.dotAt(VG.PW, VG.PD).y + VG.cliff) * HS + (view.gy || 0);
+    return H - top < FG_MIN ? null : top;
+  }
+  // 맨 앞 수풀의 등성이 — 빈 자리의 위 4분의 1쯤을 남기고 앉는다
+  function fgRidgeY(top){ return Math.max(top + (H - top) * 0.55, H - H * 0.14); }
+
+  // 섬 밑 구름은 옆으로 흐르기만 한다 — 프레임마다 다시 그리면 fillRect 가 1300번 는다.
+  // 한 번 구워 두고 캔버스째 옮겨 붙인다. 도트 크기(S)가 바뀌면 다시 굽는다.
+  const ucBaked = new Map();
+  function underCloud(seed, scale){
+    const key = seed + ':' + Math.round(scale) + ':' + S;
+    let im = ucBaked.get(key);
+    if (im) return im;
+    const w = Math.ceil(scale * 4.6) + S * 2, h = Math.ceil(scale * 3.2) + S * 2;
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const g = cv.getContext('2d');
+    drawFluffyCloud(g, w / 2, h / 2, scale, S, seed);
+    im = { cv, ox: w / 2, oy: h / 2 };
+    if (ucBaked.size > 40) ucBaked.clear();          // 화면 크기를 이리저리 바꾸면 쌓인다
+    ucBaked.set(key, im);
+    return im;
+  }
+
+  // 섬 밑을 흘러가는 구름바다 — 마을과 저 아래 들판 사이. 마을이 얼마나 높이 떠 있는지 말해 준다.
+  // 위쪽은 작고 옅게(멀다), 아래쪽은 크고 희게(가깝다). 아래 겹은 수풀에 반쯤 가려 깊이가 생긴다.
+  function drawUnderClouds(){
+    const top = underBand();
+    if (top == null) return;
+    const band = H - top;
+    // 먼 들판을 옅은 안개로 눌러 준다 — 구름바다가 앉을 자리
+    const hz = ctx.createLinearGradient(0, top, 0, H);
+    hz.addColorStop(0, 'rgba(226,238,248,0)'); hz.addColorStop(0.5, 'rgba(226,238,248,.40)'); hz.addColorStop(1, 'rgba(226,238,248,.14)');
+    ctx.fillStyle = hz; ctx.fillRect(0, top, W, band);
+    [[-0.02, 0.42, 0.55, 0.55], [0.15, 0.62, 0.85, 0.85]].forEach((r, ri) => {
+      const [y0, sc, alpha, sp] = r;
+      for (let i = 0; i < 5; i++){
+        const seed = ri * 37 + i * 11;
+        const cx = (((0.10 + i * 0.30 + prand(seed) * 0.10) + ct * 0.010 * sp) % 1.5 - 0.25) * W;
+        const cy = top + band * (y0 + prand(seed + 5) * 0.08);
+        if (cy > H + S * 12) continue;
+        const im = underCloud(seed, S * 7 * sc * (0.75 + prand(seed + 3) * 0.5));
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(im.cv, Math.round((cx - im.ox) / S) * S, Math.round((cy - im.oy) / S) * S);
+        ctx.globalAlpha = 1;
+      }
+    });
+  }
+
+  // 맨 앞 수풀 — 화면 아래를 덮는 가장 가까운 겹. 앞이 어두우면 마을이 더 멀어 보인다.
+  // 마을보다 1.5배 빠르게 밀린다 — 가까운 것이 더 많이 움직여야 깊이가 산다.
+  function drawForeground(){
+    const bandTop = underBand();
+    if (bandTop == null) return;
+    const pal = SCENE.bush, s = S, fx = panX * 1.5, baseY = fgRidgeY(bandTop);
+    const ridge = x => {                                 // 등성이 높이 — 열마다 다르다
+      const u = (x - fx) / s;
+      return Math.round((baseY + (Math.sin(u * 0.06) * 4 + Math.sin(u * 0.19 + 1.7) * 2.5 + prand(Math.floor(u * 0.5)) * 2) * s * 0.7) / s) * s;
+    };
+    // 언덕 — 두 단계 그늘로 덩어리를 만든다. 높이가 같은 열은 한 번에 칠한다(열마다 칠하면 300번이 넘는다)
+    for (let x = -s * 2; x < W + s * 2; ){
+      const top = ridge(x);
+      let x2 = x + s;
+      while (x2 < W + s * 2 && ridge(x2) === top) x2 += s;
+      const w2 = x2 - x;
+      ctx.fillStyle = pal[4]; ctx.fillRect(x, top, w2, H - top);
+      ctx.fillStyle = pal[3]; ctx.fillRect(x, top, w2, s * 3);
+      ctx.fillStyle = pal[2]; ctx.fillRect(x, top, w2, s);
+      x = x2;
+    }
+    // 밀어 본 만큼 옆으로 흐르되 양 끝에서 감긴다 — 안 감으면 끝까지 밀었을 때 덩어리가 죄다 화면 밖으로 나간다
+    const span = W + s * 24, wrap = v => ((v % span) + span) % span - s * 12;
+    for (let i = 0; i < 8; i++){                         // 수풀 덩어리 — 등성이 위에 앉는다
+      const cx = wrap(prand(i * 5.3) * span + fx);
+      const cy = ridge(cx) + s * (1 + prand(i * 2.7) * 1.5);
+      const r = s * (5 + prand(i * 3.1) * 4);
+      ctx.fillStyle = pal[4]; pixelCircle(ctx, cx, cy + s * 1.5, r, s);
+      ctx.fillStyle = pal[3]; pixelCircle(ctx, cx, cy, r * 0.94, s);
+      ctx.fillStyle = pal[2]; pixelCircle(ctx, cx - r * 0.22, cy - r * 0.34, r * 0.52, s);
+      ctx.fillStyle = pal[1]; pixelCircle(ctx, cx - r * 0.34, cy - r * 0.5, r * 0.24, s);
+    }
+    ctx.fillStyle = pal[2];                              // 풀잎 — 등성이 위로 삐죽삐죽, 바람에 흔들린다
+    for (let i = 0; i < Math.round(W / (s * 1.6)); i++){
+      const x = Math.round(wrap(prand(i * 1.9) * span + fx) / s) * s;
+      const top = ridge(x), len = 2 + Math.floor(prand(i * 4.4) * 4);
+      const sway = Math.sin(t * 1.3 + i) * 0.7;
+      for (let k = 0; k < len; k++) ctx.fillRect(x + Math.round(sway * k) * s, top - (k + 1) * s, s, s);
+    }
+    for (let i = 0; i < 4; i++){                         // 실루엣 꽃 — 앞 겹에도 이야기가 있어야 한다
+      const x = Math.round(wrap((0.13 + i * 0.24) * span + fx) / s) * s;
+      const top = ridge(x), sway = Math.sin(t * 1.1 + i * 2) * s * 0.6;
+      ctx.fillStyle = pal[3];
+      for (let k = 0; k < 6; k++) ctx.fillRect(Math.round((x + sway * k / 6) / s) * s, top - (k + 1) * s, s, s);
+      ctx.fillStyle = pal[1]; pixelCircle(ctx, x + sway, top - s * 7, s * 1.8, s);
+      ctx.fillStyle = pal[0]; ctx.fillRect(Math.round((x + sway - s) / s) * s, Math.round((top - s * 8) / s) * s, s, s);
+    }
   }
 
   // 말풍선도 도트로 그린다 — 사이트의 카드와 같은 굵은 테두리와 4px 어긋난 그림자.
