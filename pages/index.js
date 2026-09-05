@@ -581,6 +581,46 @@ const belowFold = (() => {
   // 색을 반투명으로
   const hexA = (hex, a) => 'rgba(' + parseInt(hex.slice(1, 3), 16) + ',' + parseInt(hex.slice(3, 5), 16) + ',' + parseInt(hex.slice(5, 7), 16) + ',' + a + ')';
 
+  /* ---- 첫화면이 비추는 진짜 농장 ----
+     farm_cards() 는 손님도 부를 수 있는 요약이다(아이가 언제 왔는지 같은 것은 안 들어 있다).
+     한 번만, 그것도 화면이 다 그려진 뒤 한가할 때 부른다 — 첫 그림을 늦추지 않는다.
+     못 읽으면(손님이거나 서버가 안 되면) 이름표는 그냥 「농장」으로 남는다.
+     마을 그림 자체를 바꾸지 않은 까닭: Village.render 한 번이 이 기계에서 250ms 다.
+     밭 그림을 갈아 끼우려면 마을을 통째로 다시 그려야 해서 첫화면이 그만큼 멈춘다. */
+  let farmLive = null;
+  const FARM_SEASONS = ['spring', 'summer', 'autumn', 'winter'];
+  const FARM_SEASON_KO = { spring: '🌷 봄', summer: '🌻 여름', autumn: '🍁 가을', winter: '⛄ 겨울' };
+  function farmDayIndex(started){
+    if (!started) return null;
+    const [y, m, d] = String(started).split('-').map(Number);
+    if (!y || !m || !d) return null;
+    const a = new Date(y, m - 1, d), n = new Date();
+    return Math.max(0, Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - a) / 86400000));
+  }
+  function farmLine(c){
+    const bits = [];
+    const idx = farmDayIndex(c.started);
+    const len = Math.max(3, Number(c.seasonLen) || 7);
+    if (idx != null){
+      const si = Math.floor(idx / len);
+      bits.push(FARM_SEASON_KO[FARM_SEASONS[si % 4]] + ' ' + (Math.floor(si / 4) + 1) + '년째');
+    }
+    const crops = Number(c.crops) || 0, animals = Number(c.animals) || 0;
+    bits.push(crops ? '밭에 ' + crops + '포기' : '밭이 비었어요');
+    if (animals) bits.push('동물 ' + animals + '마리');
+    return bits.join(' · ');
+  }
+  function loadFarmLive(){
+    if (typeof sb === 'undefined' || !sb) return;
+    sb.rpc('farm_cards').then(({ data }) => {
+      if (!data || typeof data !== 'object') return;
+      farmLive = farmLine(data);
+      layoutTags();
+    }).catch(() => {});
+  }
+  if (window.requestIdleCallback) requestIdleCallback(loadFarmLive, { timeout: 3000 });
+  else setTimeout(loadFarmLive, 1200);
+
   // 마을 이름표 — 집 위에 떠 있는 메뉴. 캔버스가 아니라 링크라서 눌리고, 읽히고, 탭으로 옮겨 다닌다.
   function layoutTags(){
     if (!tagBox) return;
@@ -591,7 +631,17 @@ const belowFold = (() => {
       a.className = 'tag'; a.href = l.href; a.textContent = l.text;
       a.style.left = Math.round(l.x * HS) + 'px';
       a.style.top = Math.round(l.y * HS) + 'px';
+      // 농장 이름표만은 지금 밭 소식을 한 줄 달고 있다 — 마을이 진짜 농장을 비추도록
+      let live = null;
+      if (l.href === '/farm.html' && farmLive){
+        live = document.createElement('span'); live.className = 'live';
+        live.textContent = farmLive;                 // 서버가 준 숫자뿐이지만 글로 넣는다
+        a.appendChild(live);
+      }
       tagBox.appendChild(a);
+      /* 이름표는 아래 끝을 기준으로 위로 자란다(translate -100%). 한 줄이 늘면 그만큼 위로
+         올라가 수아를 덮는다 — 늘어난 높이만큼 도로 내려서 이름 줄은 제자리에 둔다. */
+      if (live) a.style.top = Math.round(l.y * HS) + live.offsetHeight + 3 + 'px';
     });
     moveTags(0);
   }

@@ -90,7 +90,10 @@
   .hero-tags .tag::after{content:''; position:absolute; left:50%; bottom:-12px; margin-left:-5px; border:5px solid transparent; border-top-color:#fff6e9;}
   .hero-tags .tag:hover, .hero-tags .tag:focus-visible{background:var(--coral); color:#2f2a24; border-color:#2f2a24; outline:none;}
   .hero-tags .tag:hover::after, .hero-tags .tag:focus-visible::after{border-top-color:#2f2a24;}
+  /* 농장 꼬리표에 붙는 지금 밭 소식 — 이름 아래 한 줄 */
+  .hero-tags .tag .live{display:block; font-size:11px; font-weight:400; opacity:.9; margin-top:3px; letter-spacing:.2px;}
   @media (max-width:700px){ .hero-tags .tag{font-size:13px; padding:6px 9px 5px;} }
+  @media (max-width:700px){ .hero-tags .tag .live{font-size:10px;} }
   .scroll-cue{
     position:absolute; bottom:26px; left:50%; transform:translateX(-50%); z-index:2;
     font-size:11px; color:#fff;
