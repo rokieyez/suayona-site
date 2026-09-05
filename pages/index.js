@@ -167,6 +167,8 @@ const belowFold = (() => {
     tent:       ['둥둥~', '축제다!', '표 사세요~'],
     windmill:   ['빙글빙글', '바람이 분다~'],
     well:       ['똑, 똑', '깊다~', '메아리~'],
+    lotte:      ['롯데타워'],
+    nseoul:     ['남산타워'],
     post:       ['편지 왔어요!', '우표 붙였어?'],
     gallery:    ['쉿, 전시 중', '이 그림 누가 그렸게?'],
     boat:       ['출렁', '노 저어라~'],
@@ -776,6 +778,20 @@ const belowFold = (() => {
       ctx.fillRect(Math.round(x * HS + gx), Math.round(y * HS + gy), s, s);
     }
   }
+  // 굴뚝 연기 — 마을 그림에 박지 않고 프레임마다 피워 올린다. 바람이 세면 더 옆으로 눕는다
+  function drawSmoke(gx, gy){
+    const s = VG && VG.smoke; if (!s) return;
+    const step = Math.max(1, Math.round(HS)), wind = Math.min(2, weather.wind || 1), N = 5;
+    for (let i = 0; i < N; i++){
+      const u = ((t / 3.4) + i / N) % 1;                   // 0 갓 나온 것 → 1 다 흩어진 것
+      const x = (s.x - u * 11 * wind) * HS + gx, y = (s.y - u * 26) * HS + gy;
+      ctx.globalAlpha = 0.62 * (1 - u) * (1 - u * 0.3);
+      ctx.fillStyle = i % 2 ? '#e6e6eb' : '#d2d2dc';
+      pixelCircle(ctx, x, y, (1.6 + u * 4.4) * HS, step);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // 오리 두 마리 — 다리 오른쪽 강(x 5.2~13, 물은 y 10.8~12)을 천천히 오가며 둥실거린다.
   // 다리(x 3.15~4.35)와 배(x 1.2) 쪽으로는 안 간다 — 마을 그림 위에 얹혀서, 다리 밑을 지나면 다리 위에 그려진다.
   const ducks = [
@@ -948,6 +964,7 @@ const belowFold = (() => {
 
     // 5b) 강의 오리와 천막의 연 — 마을 그림 위에서 움직인다
     if (VG && SPR2) { drawDucks(gx, gy); if (VG.kite) drawKite(gx, gy); }
+    drawSmoke(gx, gy);
 
     drawPlanted(gx, gy);
     drawSecrets(gx, gy);

@@ -901,34 +901,68 @@ function drawSky(q, W, H){
   // 화면 폭에 맞춰 늘어난다
   ridge(Math.round(-0.09 * W), Math.round(0.52 * W), 46, SKY - 6, '#b4c6dc', 1); ridge(Math.round(0.36 * W), Math.round(0.66 * W), 40, SKY - 4, '#b9cadf', 2);
   ridge(Math.round(0.09 * W), Math.round(0.47 * W), 30, SKY, '#a2b7d0', 3); ridge(Math.round(0.52 * W), Math.round(0.59 * W), 26, SKY + 2, '#a6bad2', 4);
-  // 남산타워 — 두 번째 능선 위
-  const tx = Math.round(0.23 * W), ty = SKY - 26;
-  q(tx - 2, ty - 42, 4, 24, '#cdd8e6'); q(tx - 1, ty - 58, 2, 16, '#dfe7f2'); q(tx - 1, ty - 66, 1, 8, '#ffffff');
-  q(tx - 9, ty - 20, 18, 5, '#c0cddc'); q(tx - 7, ty - 24, 14, 4, '#d3dde9'); q(tx - 11, ty - 15, 22, 3, '#b2c1d3');
-  q(tx - 3, ty - 12, 6, 12, '#c0cddc'); q(tx - 5, ty - 8, 10, 8, '#b2c1d3');
-  // 롯데타워 — 도시 오른쪽. 밑은 넓고 위로 갈수록 가늘어지는 곡선에, 꼭대기는 격자 왕관과 첨탑.
-  // 밤에는 실제 타워처럼 두 모서리 선과 왕관에 불이 들어온다
+  // 남산타워 — 두 번째 능선 위. 아래부터 팔각정 · 콘크리트 기둥 · 전망대 고리 · 빨강흰 줄무늬 안테나
+  VS.skyHits = [];
+  {
+    const lit = typeof NIGHT !== 'undefined' && NIGHT;
+    const tx = Math.round(0.325 * W), ty = SKY - 34;                             // 산 꼭대기 — 아래 봉우리를 하나 돋운다
+    // 남산 봉우리 — 타워가 설 자리를 다른 능선보다 높게 돋운다
+    for (let i = -44; i <= 44; i++){
+      const u = Math.abs(i) / 44;
+      const hh = Math.max(0, Math.round(20 * Math.pow(Math.cos(u * Math.PI / 2), 1.4) + 1.2 * Math.sin(i * 0.7)));
+      const y0 = SKY - 11 - hh;
+      q(tx + i, y0, 1, hh + 70, '#9cb1cb');
+      if (hh > 3 && hash(i, 7, 1) < 0.3) q(tx + i, y0, 1, 1, shade('#9cb1cb', 12));
+    }
+    const con = '#dfe7f2', conS = '#c4d0e0', deck = '#cdd8e6', deckS = '#aabbd0';
+    const rows = [], row = (y, x0, w, c) => { q(x0, y, w, 1, c); rows.push([y, x0, x0 + w - 1]); };
+    // 산 위 건물 — 팔각정과 앞 건물. 아래 두 줄은 산에 묻히는 주춧돌
+    for (let i = -2; i < 5; i++) row(ty - i, tx - 10 + Math.max(0, i), 20 - Math.max(0, i) * 2, i <= 0 ? '#b2c1d3' : '#c8d2e0');
+    // 기둥 — 위로 갈수록 아주 조금 가늘어진다
+    for (let i = 5; i < 30; i++){ const hw = i < 18 ? 3 : 2; row(ty - i, tx - hw, hw * 2 + 1, i % 7 === 3 ? conS : con); }
+    // 기둥 중간 고리
+    row(ty - 18, tx - 4, 9, deckS); row(ty - 19, tx - 4, 9, deck);
+    // 전망대 — 아래 챙, 몸통(창), 위 챙
+    row(ty - 30, tx - 8, 17, deckS); row(ty - 31, tx - 8, 17, deck);
+    for (let i = 32; i < 38; i++) row(ty - i, tx - 7, 15, i % 2 === 0 ? deck : deckS);
+    for (let i = 33; i < 37; i += 2) for (let x = tx - 5; x <= tx + 5; x += 2) q(x, ty - i, 1, 1, lit ? '#ffd77a' : '#8fa5c0');
+    row(ty - 38, tx - 6, 13, deckS); row(ty - 39, tx - 5, 11, deck);
+    // 목 — 전망대 위 짧은 기둥
+    for (let i = 40; i < 45; i++) row(ty - i, tx - 2, 5, con);
+    // 안테나 — 빨강흰 줄무늬
+    for (let i = 45; i < 55; i++) row(ty - i, tx - 1, 3, Math.floor((i - 45) / 3) % 2 ? '#f2f5f9' : '#d9453f');
+    // 첨탑
+    for (let i = 55; i < 60; i++) row(ty - i, tx, 1, i > 57 ? '#ffffff' : '#e8ecf2');
+    if (lit) LIGHTS.push({ x: tx, y: ty - 34, r: 9, c: '#ffe6a8' });
+    VS.skyHits.push({ key: 'nseoul', rows, x: tx, y: ty - 58, w: 17, h: 58 });
+  }
+  // 롯데타워 — 도시 오른쪽. 같은 줄에 선 건물이라 몸통 색은 뒤쪽 도시 겹과 똑같이 두고,
+  // 밤낮은 첫화면의 물들이기에 맡긴다. 꼭대기는 실제 타워처럼 두 갈래로 갈라진다.
+  // 밤에는 두 모서리 선과 갈래에 불이 들어온다
   {
     const lit = typeof NIGHT !== 'undefined' && NIGHT;
     const lx = Math.round(0.72 * W), lb = SKY + 12, lh = 100, hw0 = 8;
-    const body = lit ? '#38445e' : '#93aac6', dim = lit ? '#2e3950' : '#849dbb';
-    const rib  = lit ? '#43506c' : '#adc0d6';
+    const body = '#93a8c2', seam = '#9db1c9';                 // 도시 뒤쪽 겹과 같은 색
+    const rows = [];                                          // 줄마다 [y, 왼끝, 오른끝] — 누를 자리
     for (let i = 0; i < lh; i++){
       const t = i / lh, y = lb - i;
-      const hw = Math.round(hw0 * (1 - Math.pow(t, 1.9)));
-      const crown = t > 0.82;                                    // 격자 왕관 — 밤에 제일 밝다
-      const edge = lit ? (crown ? '#fff6dc' : '#ffdf9e') : (crown ? '#e2ecf6' : '#cfdcea');
-      if (hw <= 0){ q(lx, y, 1, 1, edge); continue; }             // 첨탑
-      q(lx - hw, y, hw * 2 + 1, 1, crown ? dim : body);
-      if (!crown && hw > 2){                                      // 세로 리브 — 유리벽 골
-        q(lx - hw + 2, y, 1, 1, rib); q(lx + hw - 2, y, 1, 1, rib);
-        if (hw > 4) q(lx, y, 1, 1, rib);
+      const hw = Math.max(1, Math.round(hw0 * (1 - Math.pow(t, 1.9))));
+      const fork = t > 0.82;                                  // 여기부터 두 갈래 — 가운데는 하늘이 보인다
+      const edge = lit ? (fork ? '#fff6dc' : '#ffdf9e') : (fork ? '#e2ecf6' : '#c7d6e6');
+      if (!fork){
+        q(lx - hw, y, hw * 2 + 1, 1, i % 9 === 8 ? seam : body);
+        if (hw > 2){ q(lx - hw + 2, y, 1, 1, seam); q(lx + hw - 2, y, 1, 1, seam); }   // 세로 리브
+        if (lit && i % 5 === 2 && hw > 2) q(lx - hw + 3, y, 1, 1, '#ffd77a');          // 창불 몇 점
+      } else {
+        const th = Math.max(1, Math.round(hw * 0.9));         // 갈래 굵기 — 가운데 틈은 좁게
+        q(lx - hw, y, th, 1, body); q(lx + hw - th + 1, y, th, 1, body);
+        if (i % 3 === 0 && th > 1){ q(lx - hw + th - 1, y, 1, 1, seam); q(lx + hw - th + 1, y, 1, 1, seam); }
       }
-      if (crown && i % 2 === 0) q(lx - hw + 1, y, Math.max(1, hw * 2 - 1), 1, lit ? '#6a6a52' : '#c3d2e2');   // 격자
-      q(lx - hw, y, 1, 1, edge); q(lx + hw, y, 1, 1, edge);       // 두 모서리 선
-      if (lit && !crown && i % 5 === 2 && hw > 2) q(lx - hw + 3, y, 1, 1, '#ffd77a');   // 창불 몇 점
+      q(lx - hw, y, 1, 1, edge); q(lx + hw, y, 1, 1, edge);   // 두 모서리 선 — 밤에 불이 들어온다
+      rows.push([y, lx - hw, lx + hw]);
     }
-    if (lit) LIGHTS.push({ x: lx, y: lb - lh + 10, r: 11, c: '#ffe6a8' });
+    if (lit) LIGHTS.push({ x: lx, y: lb - lh + 8, r: 11, c: '#ffe6a8' });
+    VS.skyHits.push({ key: 'lotte', rows, x: lx, y: lb - lh + 22, w: hw0 * 2 + 1, h: lh - 22 });
   }
   // 도시 — 두 겹, 창 점
   for (let i = 0; i < Math.ceil(W / 9.4) + 2; i++){
@@ -1139,9 +1173,9 @@ function bDiary(q){
   P.pots(q, ...proj(5.1, 1.92, 0).map(Math.round), 2, 2); P.pots(q, ...proj(5.75, 1.92, 0).map(Math.round), 1, 4);
   P.barrel(q, ...proj(4.12, 1.95, 0).map(Math.round));
   if (SPR.S.bird){ const b1 = proj(4.9, 1.0, 58).map(Math.round), b2 = proj(6.2, 1.0, 58).map(Math.round); spr(q, b1[0] - 3, b1[1] - 4, SPR.S.bird, SPR.PAL); spr(q, b2[0] - 3, b2[1] - 4, SPR.S.bird, SPR.PAL); }
-  // 연기
+  // 연기는 여기 그리지 않는다 — 첫화면이 프레임마다 피워 올린다. 굴뚝 아가리 자리만 적어 둔다
   const C0 = proj(6.24, 0.86, 68);
-  [[0, 0, 2], [-2, -5, 3], [-5, -11, 3], [-9, -18, 4]].forEach(([dx, dy, r], i) => ellipse(q, C0[0] + dx, C0[1] + dy, r, r * 0.8, i % 2 ? 'rgba(230,230,235,0.75)' : 'rgba(210,210,220,0.7)'));
+  VS.smoke = { x: C0[0], y: C0[1] };
 }
 // ---------- 축제 천막 (이벤트) ----------
 function bTent(q){
@@ -1326,6 +1360,11 @@ VS.draw = function(env){
   const q = env.q, W = VS.w, H = VS.h;
   ORG.x = VS.orgX; ORG.y = SKY;
   drawSky(q, W, H);
+  // 하늘에 그린 것은 겹을 거치지 않아 누를 자리 번호가 안 적힌다. 두 타워만 직접 적어 준다
+  if (env.mark && VS.skyHits && typeof HITS !== 'undefined') VS.skyHits.forEach(L => {
+    HITS.push({ key: L.key, x: L.x, y: L.y, w: L.w, h: L.h });
+    L.rows.forEach(([y, x0, x1]) => env.mark(x0, y, x1 - x0 + 1, 1, HITS.length));
+  });
   drawGround(q);
   drawDecals(q);
   SHADOW_Q = q;
@@ -1539,6 +1578,8 @@ function render(o){
       q: R.q,
       layer: (w, h) => new Dots(Math.ceil(w) + 2, Math.ceil(h) + 2),
       blit: (L, x, y, outline, id) => R.blit(outline ? L.outline(outline) : L, Math.round(x), Math.round(y), id),
+      // 겹 없이 바로 그린 것(하늘의 타워)에 누를 자리 번호를 적는다
+      mark: (x, y, w, h, id) => { for (let yy = Math.max(0, y); yy < Math.min(VS.h, y + h); yy++) for (let xx = Math.max(0, x); xx < Math.min(VS.w, x + w); xx++) R.ids[yy * VS.w + xx] = id; },
     };
   }
   VS.draw(env);
@@ -1591,6 +1632,7 @@ function render(o){
     frames: VS.frameRects.map(f => ({ x: f.cx, y: f.cy, w: f.w, h: f.h })),
     house: { door: { x: doorP.x, y: doorP.y, w: 8, h: 18 }, foot: pt(5.75, 1.95) },
     kite: VS.kite ? { home: VS.kite.home, anchor: VS.kite.anchor } : null,   // 연 가운데와 줄 끝(도트) — 첫화면이 흔들며 그린다
+    smoke: VS.smoke || null,                    // 굴뚝 아가리 — 첫화면이 연기를 피운다
     horizon: SKY,
     // 도트 자리 → 땅 칸. 땅 밖이면 kind 가 null
     worldAt: (dx, dy) => { const [tx, ty] = unprojHere(dx, dy); return { tx, ty, kind: inPlot(tx, ty) ? kindAt(tx, ty) : null }; },
