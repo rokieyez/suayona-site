@@ -399,20 +399,10 @@ function renderAdminArea(){
   const area = $('#adminArea');
   area.innerHTML = '';
 
-  // 홈의 「오늘의 질문」에서 넘어오면 그 질문을 제목으로 미리 채워 준다.
-  // 질문을 보고 여기까지 왔는데 빈 칸만 있으면 다시 옮겨 적어야 한다.
-  const ask = (new URLSearchParams(location.search).get('ask') || '').slice(0, 100);
-
   if (!isAdmin && !isChild) {
     const box = document.createElement('div');
     box.style.textAlign = 'center';
     box.style.marginBottom = '26px';
-    if (ask) {
-      const q = document.createElement('p');
-      q.style.cssText = 'font-size:15px; font-weight:800; margin:0 0 12px;';
-      q.textContent = '💬 ' + ask;
-      box.appendChild(q);
-    }
     const btn = document.createElement('button');
     btn.className = 'dot-btn small';
     btn.textContent = '✏️ 일기 쓰기 (수아 · 연아 · 부모)';
@@ -510,12 +500,6 @@ function renderAdminArea(){
       backBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } finally { backBtn.disabled = false; }
   });
-
-  if (ask) {
-    $('#pTitle').value = ask;
-    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    $('#pBody').focus({ preventScroll: true });
-  }
 
   $('#pSave').addEventListener('click', async () => {
     const msg = $('#pMsg'), btn = $('#pSave');

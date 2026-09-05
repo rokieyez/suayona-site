@@ -506,7 +506,23 @@ const belowFold = (() => {
       g.imageSmoothingEnabled = false;
       g.clearRect(0, 0, W, H);
     });
-    paint(() => { paintSky(); paintGround(); });
+    // 하늘은 지금 칠하고, 마을은 다음 장으로 미룬다. 마을 한 장을 그리는 데 200ms 가 걸려서
+    // (폰 375px 기준, 잰 값) 여기서 곧바로 그리면 그 200ms 동안 화면이 아예 안 뜬다.
+    // 미루면 하늘·제목·아이들이 먼저 뜨고 마을이 한 장 뒤에 채워진다 — 마을이 아직 없는
+    // 상태는 원래부터 그릴 수 있게 돼 있다(배포 직후 스크립트가 어긋나는 10분을 위해).
+    paint(() => paintSky());
+    scheduleGround();
+  }
+
+  // 크기가 여러 번 바뀌어도 마을은 한 번만 다시 그린다.
+  // 숨은 탭에서는 rAF 가 아예 안 오므로 시계로도 한 번 더 재촉한다 — 둘 중 먼저 온 쪽이 그린다.
+  let groundPend = false;
+  function scheduleGround(){
+    if (groundPend) return;
+    groundPend = true;
+    const run = () => { if (!groundPend) return; groundPend = false; paint(() => paintGround()); draw(); };
+    requestAnimationFrame(run);
+    setTimeout(run, 400);
   }
 
   function paintSky(){
@@ -1987,67 +2003,20 @@ belowFold(async () => {
   if (duels.length || relay) $('#duel').hidden = false;
 });
 
-// ================= 우리 모험단 =================
-// 두 세이브를 한 번 읽어 카드 한 장을 그린다. 지난주 보스를 같이 쓰러뜨렸는지,
-// 이번 주는 어디까지 왔는지. 규칙 파일은 안 부른다 — 필요한 숫자(보스 체력·이름)는
-// 세이브에 같이 적혀 있다.
+// ================= 올해의 카드 배경 =================
+// 「우리 모험단」 칸은 뺐지만, 도감을 채운 무대의 하늘은 올해의 카드가 여전히 쓴다.
+// 세이브 요약만 한 번 읽어 하늘 목록을 채운다.
 belowFold(async () => {
-  const cv = $('#questCard'); if (!cv || typeof SPRITES === 'undefined') return;
-  // 카드가 쓰는 칸만 받는다. 세이브 전체는 아이가 어느 날 왔는지까지 들어 있어
-  // 3.6KB 인데, 요약만 주는 함수를 부르면 1.0KB 이고 날짜도 안 딸려 온다.
+  const sel = $('#yearSky'); if (!sel) return;
   const { data } = await sb.rpc('quest_cards');
   const rows = (data || []).filter(r => r.data && r.data.lv);
   if (!rows.length) return;
-  const by = {}; rows.forEach(r => { by[r.who] = r.data; });
-  const heroes = [['sua', '수아'], ['yona', '연아']].filter(h => by[h[0]]);
-
-  // 지난주 — 둘 중 누구든 적어 둔 것이 있으면 그것. 없으면 이번 주 진행을 보여 준다.
-  const last = rows.map(r => r.data.lastWeek).filter(Boolean)[0];
-  const wkKey = rows.map(r => r.data.week && r.data.week.key).filter(Boolean).sort().pop();
-  const thisDmg = rows.reduce((a, r) => a + ((r.data.week && r.data.week.key === wkKey) ? (r.data.week.dmg || 0) : 0), 0);
-  const thisHp = rows.map(r => r.data.week && r.data.week.key === wkKey ? r.data.week.hp : 0).filter(Boolean)[0] || 0;
-  const lastDmg = rows.reduce((a, r) => a + ((r.data.lastWeek && last && r.data.lastWeek.key === last.key) ? (r.data.lastWeek.dmg || 0) : 0), 0);
-
-  const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
-  g.fillStyle = '#fff6e9'; g.fillRect(0, 0, 320, 180);
-  g.fillStyle = '#3a3226'; g.fillRect(0, 0, 320, 3); g.fillRect(0, 177, 320, 3);
-  g.textAlign = 'center'; g.fillStyle = '#3a3226';
-  g.font = '800 16px Suayona Dot, Suayona Sans, sans-serif';
-  g.fillText(last ? '지난주 우리 모험단' : '우리 모험단', 160, 28);
-  heroes.forEach((h, i) => {
-    const d = by[h[0]], x = 28 + i * 152;
-    drawSprite(g, SPRITES[h[0]], x, 46, 1);
-    g.font = '800 12px Suayona Dot, Suayona Sans, sans-serif'; g.textAlign = 'left';
-    g.fillStyle = '#3a3226'; g.fillText(h[1] + ' 레벨 ' + d.lv, x + 52, 60);
-    g.fillStyle = '#6b5f4e'; g.font = '800 10px Suayona Dot, Suayona Sans, sans-serif';
-    g.fillText('대장 ' + d.boss.filter(Boolean).length + '명 · 친구 ' + (d.friends || []).length, x + 52, 78);
-    g.fillText((d.wins || []).reduce((a, b) => a + b, 0) + '번 이김', x + 52, 94);
-  });
-  g.textAlign = 'center'; g.fillStyle = '#3a3226';
-  g.font = '800 12px Suayona Dot, Suayona Sans, sans-serif';
-  if (last){
-    const beat = last.hp && lastDmg >= last.hp;
-    g.fillText(last.name + ' — 둘이 합쳐 ' + lastDmg + ' 피해 ' + (beat ? '· 쓰러뜨렸어요!' : '· 다음 주엔 꼭'), 160, 148);
-  } else if (thisHp){
-    g.fillText('이번 주 보스 ' + Math.min(thisDmg, thisHp) + ' / ' + thisHp, 160, 148);
-  }
-  g.fillStyle = '#6b5f4e'; g.font = '800 10px Suayona Dot, Suayona Sans, sans-serif';
-  g.fillText('www.suayona.com/quest', 160, 166);
-  $('#questWeekLead').textContent = last ? '지난주 보스는 어땠을까' : '자매가 함께 쓰러뜨리는 이번 주 보스';
-  $('#questSay').textContent = thisHp
-    ? '이번 주 보스는 ' + Math.min(thisDmg, thisHp) + ' / ' + thisHp + ' — 월요일마다 새 보스가 와요.'
-    : '모험을 시작하면 여기 카드가 채워져요.';
-  $('#questWeek').hidden = false;
-
-  // 올해의 카드 배경 — 도감을 채운 무대의 하늘
   const skies = {};
-  rows.forEach(r => (r.data.dexSkies || []).forEach(s => { if (s && s.name && Array.isArray(s.sky)) skies[s.name] = s.sky; }));
-  const sel = $('#yearSky');
-  if (sel && Object.keys(skies).length){
-    window.__questSkies = skies;
-    Object.keys(skies).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n + ' 하늘'; sel.appendChild(o); });
-    sel.hidden = false;
-  }
+  rows.forEach(r => (r.data.dexSkies || []).forEach(s2 => { if (s2 && s2.name && Array.isArray(s2.sky)) skies[s2.name] = s2.sky; }));
+  if (!Object.keys(skies).length) return;
+  window.__questSkies = skies;
+  Object.keys(skies).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n + ' 하늘'; sel.appendChild(o); });
+  sel.hidden = false;
 });
 
 // ================= 얼마나 컸을까 =================
@@ -3542,48 +3511,6 @@ belowFold(async () => {
   };
 
   reset(); resize();
-})();
-
-// ================= 오늘의 질문 =================
-// 날짜로 고르므로 자매 둘이 같은 날 같은 질문을 받는다. 무작위면 새로고침마다 바뀌어
-// "오늘의" 질문이 되지 못한다.
-(function(){
-  const QUESTIONS = [
-    '오늘 제일 웃겼던 일은 뭐야?',
-    '내일 제일 하고 싶은 건?',
-    '요즘 제일 좋아하는 색깔은?',
-    '오늘 누구한테 제일 고마웠어?',
-    '지금 배우고 싶은 게 있어?',
-    '가장 웃긴 별명을 지어본다면?',
-    '오늘 먹은 것 중에 제일 맛있었던 건?',
-    '만약 하루 동안 어른이 된다면 뭘 할래?',
-    '요즘 제일 자주 듣는 노래는?',
-    '가장 가보고 싶은 곳은 어디야?',
-    '오늘 조금 속상했던 일이 있었어?',
-    '동생(언니)한테 하고 싶은 말은?',
-    '지금 제일 갖고 싶은 건 뭐야?',
-    '내가 잘하는 것 세 가지를 꼽는다면?',
-    '오늘 새로 알게 된 건 뭐야?',
-    '만약 동물이 된다면 무슨 동물?',
-    '제일 친한 친구의 좋은 점은?',
-    '커서 해보고 싶은 일이 있어?',
-    '오늘 하루를 한 단어로 하면?',
-    '최근에 제일 크게 웃은 건 언제야?',
-    '무서운 게 있다면 뭐야?',
-    '엄마 아빠한테 고마운 점 하나만?',
-    '내 방에서 제일 아끼는 물건은?',
-    '내일 날씨가 어땠으면 좋겠어?',
-    '요즘 제일 재밌게 읽은 책은?',
-    '만약 마법을 하나 쓸 수 있다면?',
-    '오늘 제일 열심히 한 일은?',
-    '주말에 뭐 하고 싶어?',
-  ];
-  const d = new Date();
-  const seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-  const q = QUESTIONS[seed % QUESTIONS.length];
-  $('#askText').textContent = q;
-  // 일기장이 이 질문을 제목으로 미리 채워 준다 (board.html 이 ask 를 읽는다)
-  $('#askGo').href = './board.html?ask=' + encodeURIComponent(q);
 })();
 
 // ================= 하단 픽셀 띠 =================
