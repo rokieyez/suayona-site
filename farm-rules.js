@@ -592,6 +592,7 @@ const FARM = (() => {
     rose:     { name: '장미 화분',     cost: 190, w: 1, kind: 'rose',      cozy: 2, c: '#ff6b7a' },
     whale:    { name: '고래 그림',     cost: 230, w: 1, kind: 'whale',     cozy: 3, c: '#5aa9e6' , wall: true },
     wlight:   { name: '벽 조명',       cost: 200, w: 1, kind: 'wlight',    cozy: 3, c: '#ffe9a8' , wall: true },
+    bigbear:  { name: '엄청 큰 곰인형', cost: 950, w: 2, kind: 'bigbear', cozy: 5, c: '#c79b6d' },
   };
   // 방은 가로 칸 수 × 세로 칸 수. 넓히는 건 언제든 안전하다 — 이미 놓인 가구는 그대로 있다.
   const ROOMS = {
