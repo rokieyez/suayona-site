@@ -900,7 +900,8 @@ function renderMenu(){
   if (!b) return;
   if (timing){
     const t = document.createElement('button'); t.type = 'button'; t.className = 'tap';
-    t.textContent = '지금!'; t.addEventListener('click', tapNow);
+    t.textContent = '지금!'; t.disabled = !timingOpen();     // 열리기 전에는 꺼 둔다
+    t.addEventListener('click', tapNow);
     m.appendChild(t); return;
   }
   const mk = (label, sub, fn, opt) => {
@@ -933,18 +934,28 @@ function renderMenu(){
 }
 
 // 타이밍 바 — 왔다 갔다 하는 표시를 칸 안에서 멈추면 강타.
+/* 공격 단추를 누른 그 손짓이 그대로 타이밍 화면으로 넘어와 저절로 눌리던 일이 있었다.
+   「지금!」 단추는 공격 단추가 있던 자리에 같은 프레임에 생기는데, 폰에서는 손을 뗀 뒤에도
+   따라오는 이벤트(뒤늦은 click, 튀는 두 번째 탭)가 새 단추로 들어간다. 친구가 먼저 달려드는
+   차례에는 기다림이 끼어 있어 안 그랬으니 「간혹」이었다.
+   그래서 열리기까지 잠깐(GRACE) 아무 것도 안 받는다 — 단추도 그동안 눌리지 않게 꺼 둔다.
+   바늘도 그때부터 움직이기 시작하니 손해 보는 시간은 없다. */
+const TAP_GRACE = 280;
 function startTiming(){
   return new Promise(resolve => {
-    timing = { t0: now(), center: 30 + Math.random() * 40, zone: st.zone, resolve, done: false };
+    const open = now() + TAP_GRACE;
+    timing = { t0: open, openAt: open, center: 30 + Math.random() * 40, zone: st.zone, resolve, done: false };
     renderMenu();
-    // 4초 안에 안 누르면 빗나간 것으로.
-    setTimeout(() => { if (timing && !timing.done) finishTiming(); }, 4000);
+    setTimeout(() => { if (timing && !timing.done) renderMenu(); }, TAP_GRACE);   // 단추를 켠다
+    // 열린 뒤 4초 안에 안 누르면 빗나간 것으로.
+    setTimeout(() => { if (timing && !timing.done) finishTiming(); }, TAP_GRACE + 4000);
   });
 }
 function markerPos(t){
-  const p = ((t - timing.t0) % 1200) / 1200;
+  const p = (Math.max(0, t - timing.t0) % 1200) / 1200;
   return p < 0.5 ? p * 200 : (1 - p) * 200;
 }
+function timingOpen(){ return !!timing && !timing.done && now() >= timing.openAt; }
 function finishTiming(){
   if (!timing || timing.done) return;
   timing.done = true;
@@ -954,10 +965,11 @@ function finishTiming(){
   setTimeout(() => { timing = null; renderMenu(); }, 350);
   res(r);
 }
-function tapNow(){ if (timing && !timing.done) finishTiming(); }
+function tapNow(){ if (timingOpen()) finishTiming(); }
 canvas.addEventListener('pointerdown', e => { e.preventDefault(); tapNow(); });
 document.addEventListener('keydown', e => {
-  if (e.key === ' ' && timing && !timing.done && !$('#battleCard').hidden){ e.preventDefault(); tapNow(); }
+  // e.repeat 을 걸러야 스페이스를 누르고 있는 동안 저절로 안 눌린다
+  if (e.key === ' ' && !e.repeat && timingOpen() && !$('#battleCard').hidden){ e.preventDefault(); tapNow(); }
 });
 
 const SAY = { perfect: '강타!', good: '명중', miss: '빗나감…', skill: '기술!' };
@@ -1659,11 +1671,12 @@ function draw(){
     const zx = bx + (timing.center - timing.zone / 2) / 100 * bw, zw = timing.zone / 100 * bw;
     ctx.fillStyle = '#ffd979'; ctx.fillRect(zx, by, zw, bh);
     ctx.fillStyle = '#ff7f8a'; ctx.fillRect(zx + zw / 4, by, zw / 2, bh);
+    const ready = !timing.done && now() < timing.openAt;      // 아직 안 받는 짧은 사이
     const pos = timing.done ? timing.pos : markerPos(t);
-    px(bx + pos / 100 * bw - 2, by - 4, 4, bh + 8, '#2f2a24');
+    px(bx + pos / 100 * bw - 2, by - 4, 4, bh + 8, ready ? '#8a7b6e' : '#2f2a24');
     ctx.font = '700 10px "Galmuri11", "Suayona Sans", sans-serif'; ctx.textAlign = 'center';
     ctx.fillStyle = A.dark ? '#fff' : '#2f2a24';
-    ctx.fillText(timing.done ? SAY[timing.result] : '칸 안에서 톡!', W / 2, by + bh + 14);
+    ctx.fillText(timing.done ? SAY[timing.result] : ready ? '준비…' : '칸 안에서 톡!', W / 2, by + bh + 14);
   }
 }
 
