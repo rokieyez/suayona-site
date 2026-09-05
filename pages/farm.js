@@ -1727,6 +1727,65 @@ function outlineBox(b, c){
   px(X, Y, w, 2, c); px(X, Y + h - 2, w, 2, c); px(X, Y, 2, h, c); px(X + w - 2, Y, 2, h, c);
   px(X + 2, Y + 2, w - 4, 2, c); px(X + 2, Y + h - 4, w - 4, 2, c);
 }
+/* ---------- 낚시 손맛 ----------
+   찌가 왔다 갔다 하는 것을 칸 안에서 멈추면 귀한 것이 문다. 모험단의 타이밍 바와 같은 규칙.
+   여는 시각(openAt)을 따로 두는 까닭은 모험단에서 겪은 그대로다 — 연못을 누른 그 손짓이
+   그대로 이어져 들어와 저절로 당겨졌다. 「움직임 줄이기」를 켠 사람에게는 바가 안 도니
+   바 없이 보통 손맛으로 친다. */
+const FISH_GRACE = 300, FISH_ZONE = 26, FISH_SPAN = 1200, FISH_LIMIT = 3800;
+let fishing = null;
+function fishOpen(){ return !!fishing && !fishing.done && performance.now() >= fishing.openAt; }
+function fishMarker(t){ const p = (Math.max(0, t - fishing.t0) % FISH_SPAN) / FISH_SPAN; return p < 0.5 ? p * 200 : (1 - p) * 200; }
+function startFishing(){
+  if (fishing) return;
+  if (R.fishLeft(M, now()) <= 0){ flash('오늘은 많이 잡았어요. 내일 또 와요', true); return; }
+  // 기운은 미리 본다 — 한 판 다 하고 나서 「기운이 없어요」 하면 억울하다
+  if ((M.energy || 0) < R.COST.fish){ flash('기운이 없어요', true); return; }
+  if (STILL){ doFish('good'); return; }
+  const open = performance.now() + FISH_GRACE;
+  fishing = { t0: open, openAt: open, center: 26 + Math.random() * 48, done: false };
+  sfx('drip'); flash('찌가 움직여요 — <b>칸 안에서 톡!</b>');
+  setTimeout(() => { if (fishing && !fishing.done) finishFishing('miss'); }, FISH_GRACE + FISH_LIMIT);
+}
+function finishFishing(force){
+  if (!fishing || fishing.done) return;
+  fishing.done = true;
+  const pos = fishMarker(performance.now()), d = Math.abs(pos - fishing.center);
+  const g = force || (d <= FISH_ZONE / 4 ? 'perfect' : d <= FISH_ZONE / 2 ? 'good' : 'miss');
+  fishing.pos = pos; fishing.grade = g;
+  sfx(g === 'perfect' ? 'sparkle' : g === 'miss' ? 'thud' : 'pop');
+  setTimeout(() => { fishing = null; doFish(g); }, 420);
+}
+function doFish(g){
+  const r = act((w, m) => R.fish(w, m, now(), g));
+  if (r.ok){
+    sfx(r.rare ? 'fanfare' : r.junk ? 'thud' : 'pop');
+    const head = g === 'perfect' ? '<b>딱 맞췄어요!</b> ' : g === 'miss' ? '늦었어요… ' : '';
+    flash(head + r.msg + ' <span style="color:var(--ink-soft);font-weight:700;">(오늘 ' + R.fishLeft(M, now()) + '번 남음)</span>');
+  }
+}
+// 연못 위에 뜨는 바. 글씨는 안 쓴다 — 농장은 도트만으로 말한다.
+function drawFishBar(t){
+  if (!fishing) return;
+  const b = spot('pond');
+  const bw = 116, bh = 10;
+  // 연못이 화면 구석에 있으면 바가 잘린다 — 안쪽으로 밀어 넣는다
+  const bx = Math.max(6, Math.min(COLS * T - bw - 6, Math.round(b.x * T + b.w * T / 2 - bw / 2)));
+  const by = Math.max(6, Math.round(b.y * T - 22));
+  const ready = !fishing.done && performance.now() < fishing.openAt;
+  px(bx - 3, by - 3, bw + 6, bh + 6, '#2f2a24');
+  px(bx, by, bw, bh, '#fff6e9');
+  const zx = bx + Math.round((fishing.center - FISH_ZONE / 2) / 100 * bw), zw = Math.round(FISH_ZONE / 100 * bw);
+  px(zx, by, zw, bh, '#ffd979');
+  px(zx + Math.round(zw / 4), by, Math.round(zw / 2), bh, '#ff7f8a');
+  const pos = fishing.done ? fishing.pos : fishMarker(performance.now());
+  px(bx + Math.round(pos / 100 * bw) - 1, by - 3, 3, bh + 6, ready ? '#8a7b6e' : '#2f2a24');
+  if (fishing.done){                                    // 결과를 한 번 반짝인다
+    const c = fishing.grade === 'perfect' ? '#ffd979' : fishing.grade === 'miss' ? '#8a7b6e' : '#8fd0c0';
+    if (Math.floor(t / 110) % 2) px(bx - 3, by - 3, bw + 6, bh + 6, c);
+  }
+}
+
 function drawPlaceOverlay(t){
   if (!placeMode) return;
   ctx.globalAlpha = 0.5;
@@ -1984,6 +2043,7 @@ function drawFarm(cvIn, tms){
   }
   ctx = g;
   drawPlaceOverlay(t);
+  drawFishBar(t);
 }
 // 어두운 쪽은 눌러 물들이고(곱하기), 밝은 쪽은 들어 올린다(스크린).
 function grade(g, cw, ch, L, k){
@@ -2037,6 +2097,7 @@ function plotAtTile(tx, ty){
 function nodeAt(tx, ty){ return Object.keys(R.NODES).find(n => R.NODES[n].x === tx && R.NODES[n].y === ty) || null; }
 function built(id){ return !!(W.buildings[id] && W.buildings[id].done); }
 function onFarmTap(e){
+  if (fishing){ if (fishOpen()) finishFishing(); return; }   // 찌가 떠 있으면 어디를 눌러도 당긴다
   const { tx, ty } = tileAt(e.clientX, e.clientY);
   if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return;
   if (placeMode){ onPlaceTap(tx, ty); return; }
@@ -2051,11 +2112,7 @@ function onFarmTap(e){
   if (inSpot('hive', tx, ty)){ const r = act((w, m) => R.takeHoney(w, m)); if (r.ok) sfx('sparkle'); return; }
   if (inSpot('greenhouse', tx, ty)){ if (built('greenhouse')) openGreenhouse(); else flash('온실 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('well', tx, ty)){ flash(built('well') ? '우물이에요. 물뿌리개를 키울 수 있어요' : '우물 터예요. 둘이서 탭에서 같이 지어요'); return; }
-  if (inSpot('pond', tx, ty)){
-    const r = act((w, m) => R.fish(w, m, now()));
-    if (r.ok){ sfx(r.rare ? 'fanfare' : r.junk ? 'thud' : 'pop'); flash(r.msg + ' <span style="color:var(--ink-soft);font-weight:700;">(오늘 ' + R.fishLeft(M, now()) + '번 남음)</span>'); }
-    return;
-  }
+  if (inSpot('pond', tx, ty)){ startFishing(); return; }
   if (inSpot('bench', tx, ty) || inSpot('swing', tx, ty)){ flash('쉬는 자리예요. 앉으면 기분이 좋아져요'); return; }
   // 동물이 있는 곳은 어디를 눌러도 동물 카드로
   if (['coop', 'barn', 'pasture', 'pethouse'].some(b => inSpot(b, tx, ty))){ openTab('duo'); return; }

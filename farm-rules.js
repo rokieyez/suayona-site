@@ -461,31 +461,52 @@ const FARM = (() => {
     eel:     { name: '장어',       sell: 200, w: 8,  c: '#5a6b52', season: ['summer', 'autumn'] },
     trout:   { name: '송어',       sell: 260, w: 6,  c: '#8fb7c9', season: ['winter', 'spring'] },
     golden:  { name: '금빛 잉어',   sell: 900, w: 2,  c: '#ffd24d' },
+    catfish: { name: '메기',       sell: 320, w: 12, c: '#4a4238', night: true },
+    moonfish:{ name: '달빛 물고기', sell: 700, w: 4,  c: '#cfd8f5', night: true },
     boot:    { name: '낡은 장화',   sell: 2,   w: 11, c: '#6b5a4a', junk: true },
   };
   const FISH_IDS = Object.keys(FISH);
   const FISH_MAX = 5;                    // 하루에 다섯 번
+  // 밤 — 농장에 등불이 켜지는 시각과 같게 본다. 밤에만 무는 물고기가 있다.
+  function isNight(now){ const h = new Date(now).getHours(); return h >= 19 || h < 6; }
   function fishLeft(mine, now){
     const key = dayKey(now);
     return FISH_MAX - (mine.fishDay === key ? (mine.fishN || 0) : 0);
   }
-  function fish(world, mine, now){
+  /* grade 는 찌를 당긴 손맛 — 'perfect' | 'good' | 'miss'.
+     칸 안에서 멈추면 귀한 것이 잘 물고 두 마리가 올라온다. 놓쳐도 빈손은 아니다 —
+     아이가 하는 놀이라, 못했다고 아무것도 안 주면 다시 안 온다. */
+  function fish(world, mine, now, grade){
     if (!(world.decor && world.decor.pond)) return fail('연못을 먼저 놓아요. 가게 꾸미기 칸에 있어요');
     if (fishLeft(mine, now) <= 0) return fail('오늘은 많이 잡았어요. 내일 또 와요');
     if (!spend(mine, 'fish')) return fail('기운이 없어요');
     const key = dayKey(now), n = mine.fishDay === key ? (mine.fishN || 0) : 0;
-    const cal = calendar(world, now);
-    const pool = FISH_IDS.filter(f => !FISH[f].season || FISH[f].season.indexOf(cal.season) >= 0);
-    const total = pool.reduce((a, f) => a + FISH[f].w, 0);
-    let r = prand('fi' + mine.key + key + n) * total, got = pool[0];
-    for (const f of pool){ r -= FISH[f].w; if (r <= 0){ got = f; break; } }
+    const cal = calendar(world, now), night = isNight(now);
+    const pool = FISH_IDS.filter(f => {
+      const F = FISH[f];
+      if (F.season && F.season.indexOf(cal.season) < 0) return false;
+      if (F.night && !night) return false;            // 달빛 물고기와 메기는 밤에만
+      return true;
+    });
+    const g = grade === 'perfect' || grade === 'miss' ? grade : 'good';
+    const rareUp = g === 'perfect' ? 5 : g === 'good' ? 1.6 : 0.6;
+    const junkUp = g === 'perfect' ? 0.15 : g === 'good' ? 0.6 : 2.2;
+    const wOf = f => { const F = FISH[f]; return Math.max(0.2, F.junk ? F.w * junkUp : (F.sell >= 200 ? F.w * rareUp : F.w)); };
+    const total = pool.reduce((a, f) => a + wOf(f), 0);
+    let r = prand('fi' + mine.key + key + n + g) * total, got = pool[0];
+    for (const f of pool){ r -= wOf(f); if (r <= 0){ got = f; break; } }
     mine.fishDay = key; mine.fishN = n + 1;
-    give(mine, 'fish:' + got, 1);
+    const cnt = g === 'perfect' && !FISH[got].junk ? 2 : 1;
+    give(mine, 'fish:' + got, cnt);
     if (mine.dex.indexOf('fish:' + got) < 0) mine.dex.push('fish:' + got);
-    mine.xp += XP.fish; bump(mine, 'fished', 1, now);
+    mine.xp += XP.fish + (g === 'perfect' ? 3 : 0); bump(mine, 'fished', 1, now);
     if (FISH[got].junk) return okay(eul(FISH[got].name) + ' 건졌어요… 물고기는 아니네요', { junk: true });
-    if (got === 'golden'){ logAdd(world, mine.key, NAME[mine.key] + '가 금빛 잉어를 낚았어요!', now); return okay('<b>금빛 잉어</b>! 아주 귀한 물고기예요', { rare: true }); }
-    return okay(eul(FISH[got].name) + ' 낚았어요');
+    const two = cnt > 1 ? ' <b>두 마리</b>나!' : '';
+    if (got === 'golden' || got === 'moonfish'){
+      logAdd(world, mine.key, NAME[mine.key] + '가 ' + eul(FISH[got].name) + ' 낚았어요!', now);
+      return okay('<b>' + FISH[got].name + '</b>! 아주 귀한 물고기예요' + two, { rare: true });
+    }
+    return okay(eul(FISH[got].name) + ' 낚았어요' + two, { perfect: g === 'perfect' });
   }
 
   // ---------- 채집 ----------
@@ -1271,7 +1292,7 @@ const FARM = (() => {
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
-    GIANT_MULT, WATER_HOURS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish,
+    GIANT_MULT, WATER_HOURS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand,
     seedsFor, plotIds, plotOpen, parseId, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep,
