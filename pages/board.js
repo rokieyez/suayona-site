@@ -342,15 +342,17 @@ function renderEditForm(p){
   return form;
 }
 
-// 아이가 올린 글은 여기 모인다. 부모가 보고 공개하거나 지운다.
+// 확인을 기다리는 글은 여기 모인다. 부모가 보고 공개하거나 지운다.
+// 아이가 손으로 쓴 일기는 이제 바로 실리므로, 여기 오는 것은 모험 일지처럼
+// 저절로 만들어진 초안과 예전에 올려 둔 글뿐이다.
 function renderPendingBox(area){
   const waiting = posts.filter(p => p.status === 'pending');
   if (!waiting.length) return;
 
   const box = document.createElement('div');
   box.className = 'pending-box dot-card';
-  box.innerHTML = '<div class="inner"><h3>⏳ 아이가 쓴 글 ' + waiting.length + '개가 기다려요</h3>' +
-    '<p class="pending-hint">공개하기를 누르기 전에는 다른 사람에게 보이지 않아요.</p></div>';
+  box.innerHTML = '<div class="inner"><h3>⏳ 확인을 기다리는 초안 ' + waiting.length + '편</h3>' +
+    '<p class="pending-hint">모험 일지처럼 저절로 남은 초안이에요. 공개하기를 누르기 전에는 다른 사람에게 보이지 않아요.</p></div>';
   const inner = box.querySelector('.inner');
 
   waiting.forEach(p => {
@@ -422,10 +424,11 @@ function renderAdminArea(){
       '<h3>✏️ 새 일기 쓰기</h3>' +
       // 아이는 자기 이름으로만 쓸 수 있고 공개 여부도 정하지 못한다 (규칙이 서버에서도 막힘).
       // 화면에서 미리 감춰야 눌렀다가 거절당하는 일이 없다.
+      // 부모 확인은 없앴다 — 올리면 그 자리에서 일기장에 실린다.
       (isChild
         ? '<div class="child-note">' + escapeHTML(me.display) +
           (typeof josa === 'function' ? josa(me.display, '이', '가') : '이(가)') + ' 쓰는 일기예요.<br>' +
-          '올리면 <b>부모님이 확인한 뒤</b> 다른 사람에게 보여요.</div>' +
+          '올리면 <b>바로</b> 일기장에 실려요.</div>' +
           '<input type="hidden" id="pAuthor" value="' + escapeHTML(me.author_key || 'sua') + '">' +
           '<input type="hidden" id="pPublic" value="true">'
         : '<label class="field">누가 쓰나요</label>' +
@@ -530,7 +533,7 @@ function renderAdminArea(){
       const { error } = await sb.from('posts').insert({
         author: $('#pAuthor').value,
         is_public: $('#pPublic').value === 'true',
-        status: isChild ? 'pending' : 'published',
+        status: 'published',   // 아이가 쓴 것도 바로 실린다 (서버 정책도 2026-09-07 에 같이 열었다)
         written_by: session ? session.user.id : null,
         title,
         body: $('#pBody').value.trim() || null,
@@ -548,7 +551,7 @@ function renderAdminArea(){
 
     btn.disabled = false;
     msg.className = 'msg ok';
-    msg.textContent = isChild ? '올렸어요! 부모님이 확인하면 보여요.' : '올렸어요!';
+    msg.textContent = '올렸어요!';
     $('#pTitle').value = ''; $('#pBody').value = ''; $('#pImage').value = '';
     $('#pWhen').value = ''; $('#pPlace').value = '';
     dropVoiceDraft(); renderComposeVoice();

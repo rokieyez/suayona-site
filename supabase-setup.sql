@@ -1343,7 +1343,11 @@ create policy "parent adds events"  on public.events for insert to authenticated
 create policy "parent edits events" on public.events for update to authenticated using ((select public.my_role()) = 'parent') with check ((select public.my_role()) = 'parent');
 create policy "parent drops events" on public.events for delete to authenticated using ((select public.my_role()) = 'parent');
 
--- posts: 부모는 다, 아이는 자기 pending 글만 — 한 정책에 or 로
+-- posts: 부모는 다, 아이는 자기 이름·자기 uid 로만 — 한 정책에 or 로
+-- (2026-09-07) 아이가 쓴 일기는 부모 확인 없이 바로 실린다. 넣을 때의 상태를 pending 하나로
+-- 못박던 것을 pending·published 둘로 넓힌 것뿐이다. pending 을 남겨 둔 것은 모험 일지 초안
+-- (quest.js) 때문 — 그건 그대로 부모가 보고 올린다. 고치기·빼기는 예전 그대로 pending 인
+-- 글만이라, 이미 실린 일기는 아이가 지우지 못한다.
 drop policy if exists "parent writes posts" on public.posts;
 drop policy if exists "child inserts own pending post" on public.posts;
 drop policy if exists "child edits own pending post" on public.posts;
@@ -1353,7 +1357,7 @@ create policy "read posts" on public.posts for select
   using ((is_public = true and status = 'published') or (select public.my_role()) = 'parent' or written_by = (select auth.uid()));
 create policy "family adds posts" on public.posts for insert to authenticated
   with check ((select public.my_role()) = 'parent'
-    or ((select public.my_role()) = 'child' and status = 'pending' and written_by = (select auth.uid()) and author = (select public.my_author_key())));
+    or ((select public.my_role()) = 'child' and status in ('pending', 'published') and written_by = (select auth.uid()) and author = (select public.my_author_key())));
 create policy "family edits posts" on public.posts for update to authenticated
   using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and written_by = (select auth.uid()) and status = 'pending'))
   with check ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and written_by = (select auth.uid()) and status = 'pending'));

@@ -1382,7 +1382,8 @@ async function lose(){
 }
 
 // 모험 일지 — 대장을 이기면 일기장에 초안 한 편. 하루 한 편만, 부모가 확인하면 일기가
-// 되어 경험치로 돌아온다. 아이 글은 원래 확인 전(pending)이라 그 규칙을 그대로 탄다.
+// 되어 경험치로 돌아온다. 손으로 쓴 일기는 2026-09-07 부터 바로 실리지만, 이건 아이가
+// 쓴 글이 아니라 저절로 만들어진 초안이라 확인 전(pending)으로 그대로 둔다.
 async function journal(foe){
   if (save.journalDay === today() || !me || !me.user_id) return;
   save.journalDay = today();
