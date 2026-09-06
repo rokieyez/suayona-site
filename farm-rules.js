@@ -1569,6 +1569,25 @@ const FARM = (() => {
     return g;
   }
   // 일기 하나에 비료 하나 — 현실 연동. 서버가 센 일기 수에서 쓴 만큼 뺀다.
+  // 모험단 원정에서 주워 온 씨앗. 모험단 저장은 「지금까지 몇 개 주웠나」만 세고,
+  // 농장은 「그중 몇 개를 가져갔나」를 제 저장에 적는다. 두 놀이가 서로의 저장에
+  // 손대지 않으므로 순서가 엇갈려도 두 번 받거나 잃을 일이 없다 — 일기→비료와 같은 꼴.
+  function seedsFromExpo(world, mine, seedsEver, now){
+    const owed = Math.max(0, Math.floor(Number(seedsEver) || 0) - (mine.expoSeeds || 0));
+    if (!owed || !world || !world.started) return [];
+    const season = calendar(world, now).season;
+    // 별열매(rare)는 뺀다 — 그건 주문을 다 채운 사람에게만 오는 씨앗이다.
+    const pool = Object.keys(CROPS).filter(c => !CROPS[c].rare && CROPS[c].season.indexOf(season) >= 0);
+    if (!pool.length) return [];
+    const got = [];
+    for (let i = 0; i < owed; i++){
+      const c = pool[Math.floor(prand('expo' + mine.key + ':' + ((mine.expoSeeds || 0) + i)) * pool.length) % pool.length];
+      give(mine, 'seed:' + c, 1);
+      got.push(c);
+    }
+    mine.expoSeeds = (mine.expoSeeds || 0) + owed;
+    return got;
+  }
   function fertFromDiaries(mine, diaries){
     const owed = Math.max(0, (diaries || 0) - (mine.fertSpent || 0));
     if (!owed) return 0;
@@ -1631,7 +1650,7 @@ const FARM = (() => {
     canPay, buildState, animalDay, babyDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,
     newWorld, newMine, fixWorld, fixMine, fixTune, logAdd, give, take, bump, markPlayed,
-    till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, moveFurn, pickUp, cook, sendGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, newDay,
+    till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, moveFurn, pickUp, cook, sendGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, seedsFromExpo, newDay,
   };
 })();
 if (typeof module !== 'undefined') module.exports = FARM;

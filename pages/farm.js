@@ -103,10 +103,17 @@ async function bootInner(){
     initReveal();
     return;
   }
-  // 세이브와 모험단 기록은 서로 안 기다려도 된다 — 나란히 부른다
-  const [ok, fr] = await Promise.all([loadRows(), sb.rpc('quest_facts', { p_who: key })]);
+  /* 세이브와 모험단 기록은 서로 안 기다려도 된다 — 나란히 부른다.
+     원정 씨앗은 모험단 저장에서 「지금까지 몇 개 주웠나」 한 숫자만 받는다.
+     세이브 통째로(1~2KB)가 아니라 그 칸만 골라 받는다 — data->expo->seedsEver. */
+  const [ok, fr, ex] = await Promise.all([
+    loadRows(),
+    sb.rpc('quest_facts', { p_who: key }),
+    sb.from('quest_saves').select('n:data->expo->seedsEver').eq('who', key).maybeSingle(),
+  ]);
   if (!ok) throw new Error('load');
   facts = fr.data || {};
+  expoSeedsEver = (ex && ex.data && Number(ex.data.n)) || 0;
   // 하루 시작 — 계절·동물·비·까마귀·기운·비료·선물. 전부 하루 한 번만 되게 짜여 있어서,
   // 다른 아이와 겹쳐 다시 하게 되어도 두 번 받지 않는다.
   const r = daily(W, M);
@@ -121,27 +128,38 @@ async function bootInner(){
   setInterval(() => { tickAll(); syncTop(); }, 30000);   // 그림은 움직이는 루프가 그린다
   startLoop($('#farmCanvas'));
 }
+let expoSeedsEver = 0;                 // 모험단 원정에서 지금까지 주워 온 씨앗 수
 function daily(w, m){
   const today = R.dayKey(now());
   let changed = false;
+  // 아침 소식은 한 줄씩 모았다가 마지막에 한 번만 건다. 부를 때마다 notice 를 부르면
+  // 뒤의 소식이 앞의 소식을 지워서, 비료나 선물이 온 날엔 날씨·동물 소식이 사라졌다.
+  const says = [];
   if (w.dayKey !== today){
     w.dayKey = today;
     const notes = R.newDay(w, m, now());
-    if (notes.length){
-      notice(notes.join(' · '));
-      // 아침 소식 중 가장 반가운 것을 소리로도 알린다 — 글을 아직 잘 못 읽는 아이를 위해
-      const joined = notes.join(' ');
-      sfx(/새끼를 낳았어요/.test(joined) ? 'chick' : /행상인/.test(joined) ? 'cart'
-        : /스프링클러/.test(joined) ? 'sprinkle' : 'prop');
-    }
+    if (notes.length) says.push(notes.join(' · '));
     changed = true;
   }
   if (R.refreshEnergy(w, m, now())) changed = true;
   const fert = R.fertFromDiaries(m, facts.diaries || 0);
-  if (fert) { notice('일기 덕분에 비료 ' + fert + '개가 생겼어요'); changed = true; }
+  if (fert) { says.push('일기 덕분에 비료 ' + fert + '개가 생겼어요'); changed = true; }
+  // 모험단 원정에서 주워 온 씨앗 — 이 계절에 심을 수 있는 것으로 온다
+  const seeds = R.seedsFromExpo(w, m, expoSeedsEver, now());
+  if (seeds.length){
+    says.push('🌱 모험단 원정에서 <b>' + seeds.map(c => R.CROPS[c].name).join(' · ') + '</b> 씨앗이 왔어요');
+    changed = true;
+  }
   const g = R.claimParentGift(m, TUNE);
-  if (g){ notice('부모님이 ' + g.coins + ' 동전을 보냈어요' + (g.note ? ' — "' + escapeHTML(g.note) + '"' : '')); changed = true; }
+  if (g){ says.push('부모님이 ' + g.coins + ' 동전을 보냈어요' + (g.note ? ' — "' + escapeHTML(g.note) + '"' : '')); changed = true; }
   if (m.lastPlay !== today){ R.markPlayed(m, now()); changed = true; }
+  if (says.length){
+    notice(says.join('<br>'));
+    // 아침 소식 중 가장 반가운 것을 소리로도 알린다 — 글을 아직 잘 못 읽는 아이를 위해
+    const joined = says.join(' ');
+    sfx(/새끼를 낳았어요/.test(joined) ? 'chick' : /원정|행상인/.test(joined) ? 'cart'
+      : /스프링클러/.test(joined) ? 'sprinkle' : 'prop');
+  }
   return { ok: changed };
 }
 function notice(html){ const n = $('#notice'); n.hidden = false; n.innerHTML = html; }
