@@ -350,25 +350,6 @@ const belowFold = (() => {
     return out;
   })();
 
-  // ---- 오늘의 숨바꼭질 ----
-  // 하루에 한 번, 연아가 마을 어딘가에 숨는다. 숨은 친구가 쓰지 않은 자리 중에서 날짜로 고르므로
-  // 자매가 같은 날 같은 자리를 뒤진다. 생일에는 숨지 않는다 — 주인공이 없으면 잔치가 안 된다.
-  const HIDE_KEY = 'sy.hide.' + DAY_SEED;
-  const HIDE_LINES = ['연아가 숨었어! 찾아 줘', '연아 어디 갔지?', '숨바꼭질 중이야'];
-  let yonaFound = false;
-  try { yonaFound = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) { /* 저장이 막힌 브라우저 — 올 때마다 새로 숨는다 */ }
-  // 자리는 처음 물어볼 때 정한다 — 생일 여부(BIRTHDAY)가 이 줄보다 아래에서 정해진다
-  let hideSpot;
-  function hideSpotOf(){
-    if (hideSpot === undefined) {
-      const used = secrets.map(x => x.spot);
-      const free = SECRET_SPOTS.filter(i => used.indexOf(i) < 0);
-      hideSpot = (BIRTHDAY || !free.length) ? -1 : free[Math.floor(prand(DAY_SEED + 11.3) * free.length)];
-    }
-    return hideSpot;
-  }
-  const hiding = () => hideSpotOf() >= 0 && !yonaFound;
-
   // ---- 밤 산책: 반딧불이 잡기 ----
   // 여름밤(또는 손전등을 켠 밤)에만 난다. 누르면 병에 담기고, 그 밤 동안 그대로 남는다.
   // 날마다 새로 태어난다 — 어제 다 잡았다고 오늘 밤이 심심하면 안 된다.
@@ -384,7 +365,6 @@ const belowFold = (() => {
     if (!all) { hud.hidden = true; return; }
     const n = secrets.filter(s => found.has(s.key)).length;
     hud.textContent = (n >= all ? '🔍 다 찾았다!' : '🔍 숨은 친구 ' + n + '/' + all) +
-                      (hiding() ? ' · 🙈 연아' : '') +
                       (caughtFlies.size ? ' · ✨' + caughtFlies.size : '') +
                       (keys.size ? ' · 🔑' + keys.size : '');
     hud.classList.toggle('done', n >= all);
@@ -1626,10 +1606,7 @@ const belowFold = (() => {
     const spot = p => ({ x: p.x * HS + gx, y: p.y * HS + gy });
     const cast = VG ? [
       { sp: SPRITES.sua,   s: castS, bob: hop1, name: '수아', at: spot(VG.chars.sua) },
-      // 숨는 날에는 광장 대신 숨는 자리에, 위 절반만 내밀고 서 있다 (레샤는 같이 안 숨는다)
-      hiding() && VG.secrets[hideSpotOf()]
-        ? { sp: SPRITES.yona, s: castS, bob: 0, name: '연아', hide: true, at: spot(VG.secrets[hideSpotOf()]) }
-        : { sp: SPRITES.yona, s: castS, bob: hop2, rider: SPRITES.fox, name: '연아', riderName: '레샤', at: spot(VG.chars.yona) },
+      { sp: SPRITES.yona, s: castS, bob: hop2, rider: SPRITES.fox, name: '연아', riderName: '레샤', at: spot(VG.chars.yona) },
       { sp: SPRITES.easel, s: castS, bob: 0, easel: true, at: spot(VG.chars.easel) },   // 이젤은 사람이 아니라 이름이 없다
       // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다닌다. 두 아이보다 앞줄에 서 있으니 맨 나중에 그린다
       { sp: SPRITES.chick, s: castS, bob: 0, roll: true, name: '상그렐라', at: spot(VG.chars.chick) },
@@ -1680,15 +1657,6 @@ const belowFold = (() => {
         hits.push({ kind:'char', name: c.name, x: cx + w / 2 + dx, y: standY - h, w: w, h: h });
       } else {
         const top = standY - h - c.bob;
-        if (c.hide) {
-          // 물건 너머로 머리만 내민 모습 — 숨은 친구와 같은 방식이다
-          ctx.save();
-          ctx.beginPath(); ctx.rect(cx, top, w, h * 0.55); ctx.clip();
-          drawSprite(ctx, c.sp, cx, top, c.s, wash(c.sp));
-          ctx.restore();
-          hits.push({ kind:'char', name: c.name, hide: true, x: cx + w / 2, y: top, w: w, h: h * 0.55 });
-          return;
-        }
         drawSprite(ctx, c.sp, cx, top, c.s, wash(c.sp));
         let headTop = top;                                 // 우산을 씌울 높이 — 머리 위 친구가 있으면 그 위
         if (BIRTHDAY && c.name === BIRTHDAY) bdayFoot = { x: cx + w + S, y: standY };
@@ -2071,16 +2039,6 @@ const belowFold = (() => {
 
   function react(hit){
     if (hit.kind === 'char') {
-      if (hit.hide) {
-        yonaFound = true;
-        try { localStorage.setItem(HIDE_KEY, '1'); } catch (e) { /* 저장이 막힌 브라우저 — 다음에 오면 또 숨어 있다 */ }
-        sfx('secret');
-        popAt(hit.x, hit.y, SPRITES.star, 9);
-        say('찾았다! 여기 숨어 있었지~', hit);
-        syncHud();
-        kick();
-        return;
-      }
       const now = performance.now();
       // 방금 다른 한 명을 눌렀으면 둘의 대화를 튼다
       if (!talk && lastTap && lastTap.name !== hit.name && now - lastTap.at < 5000) {
@@ -2400,12 +2358,12 @@ const belowFold = (() => {
     if (document.hidden || scrollY > H * 0.5) return;
     const wait = greeted ? 12000 : 4000;
     if (performance.now() - idleAt < wait) return;
-    const talkers = hits.filter(h => h.kind === 'char' && !h.hide);
+    const talkers = hits.filter(h => h.kind === 'char');
     if (!talkers.length) return;
     const who = talkers[Math.floor(Math.random() * talkers.length)];
     // 오랜만에 온 사람에게는 그 말부터. 하루 안에 다시 온 사람에게 "오랜만" 은 어색하다.
     if (talk) return;                                    // 대화 중엔 끼어들지 않는다
-    const lines = BIRTHDAY ? CONGRATS : hiding() ? HIDE_LINES : (!greeted && awayDays >= 3) ? BACK_LINES : GREET[PHASE];
+    const lines = BIRTHDAY ? CONGRATS : (!greeted && awayDays >= 3) ? BACK_LINES : GREET[PHASE];
     const memo = said['greet'] || (said['greet'] = { last:-1 });
     greeted = true;
     say(pickLine(lines, memo), who);
