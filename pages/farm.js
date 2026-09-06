@@ -2846,7 +2846,8 @@ function roomPal(r){
                             wain: '#f6e3e6', wainL: '#fff2f4', base: '#c98a98', floor: ['#c9a074', '#b78d61', '#d7b28a', '#a67c55'] };
   if (r === 'yona') return { wall: '#dbf3ec', wall2: '#c8e9df', trim: '#8ecbba', rail: '#79bba8', motif: 'star', dot: '#ffd85c', cur: '#69b8a2',
                             wain: '#e6f5f0', wainL: '#f3fbf8', base: '#7fae9e', floor: ['#c9a074', '#b78d61', '#d7b28a', '#a67c55'] };
-  return { wall: '#fff1da', wall2: '#f6e2c1', trim: '#d9b784', rail: '#c9a26d', motif: 'stripe', dot: '#e8c98a', cur: '#c98f63',
+  // 거실 커튼은 나무색(#c98f63)이었다 — 창틀·기둥과 같은 색이라 천이 아니라 덧문으로 보였다.
+  return { wall: '#fff1da', wall2: '#f6e2c1', trim: '#d9b784', rail: '#c9a26d', motif: 'stripe', dot: '#e8c98a', cur: '#9db98f',
            wain: '#f2e3c9', wainL: '#fbf1de', base: '#b08d5f', floor: ['#b78d63', '#a67c55', '#c69c72', '#966d4a'] };
 }
 // 창밖 하늘 — 농장과 같은 시계를 본다
@@ -3268,13 +3269,31 @@ function drawRoomShell(g, r, L, wallItems){
   for (let i = 0; i < 6; i += 2) wallR(wu + 16 + i, wv + 4 + i, 2, 8, 'rgba(255,255,255,0.22)');
   wallR(wu + Math.floor(ww / 4) * 2 - 2, wv, 4, wh, '#c79b6d'); wallR(wu, wv + 18, ww, 4, '#c79b6d');
   wallR(wu - 8, wv + wh + 4, ww + 16, 4, '#a97b4f'); wallR(wu - 8, wv + wh + 4, ww + 16, 2, '#d6a878');
-  [wu - 16, wu + ww + 2].forEach((cx, i) => {                                    // 커튼
-    wallR(cx, wv - 8, 14, wh + 18, P.cur);
-    wallR(cx + (i ? 8 : 0), wv - 8, 6, wh + 18, shade(P.cur, 20));
-    wallR(cx + (i ? 0 : 12), wv - 8, 2, wh + 18, shade(P.cur, -26));
-    for (let v = wv - 6; v < wv + wh + 8; v += 8) wallR(cx + 2, v, 10, 2, shade(P.cur, -16));
+  /* 커튼 — 전에는 색 띠에 가로줄만 그어서 널판처럼 보였다.
+     세로 주름(밝고 어두운 골이 번갈아), 묶어 둔 자리에서 좁아지는 허리, 물결진 아랫단,
+     그리고 위를 가리는 주름 가리개까지 넣어야 천으로 읽힌다. */
+  [wu - 16, wu + ww + 2].forEach((cx, i) => {
+    const top = wv - 8, hgt = wh + 18, tie = top + Math.round(hgt * 0.55);
+    for (let u = 0; u < 14; u += 2){
+      // 묶은 자리에서 안쪽으로 오므라든다
+      const fold = (u / 2 + (i ? 1 : 0)) % 3;
+      const c2 = fold === 0 ? shade(P.cur, 22) : fold === 1 ? P.cur : shade(P.cur, -24);
+      for (let v = top; v < top + hgt; v++){
+        const pinch = Math.abs(v - tie) < 8 ? (i ? 1 : -1) * (8 - Math.abs(v - tie)) / 4 : 0;
+        const hem = v > top + hgt - 6 ? Math.round(Math.sin((u + v) * 0.9) * 2) : 0;   // 물결진 아랫단
+        if (v > top + hgt - 6 + hem) continue;
+        wallR(cx + u + Math.round(pinch), v, 2, 1, c2);
+      }
+    }
+    wallR(cx + (i ? 0 : 2), tie - 2, 12, 4, shade(P.cur, -34));                        // 묶은 띠
+    wallR(cx + (i ? 0 : 2), tie - 2, 12, 1, shade(P.cur, 12));
   });
-  wallR(wu - 20, wv - 12, ww + 40, 4, '#8a6a4a');
+  wallR(wu - 20, wv - 12, ww + 40, 4, '#8a6a4a');                                      // 커튼봉
+  for (let u = 0; u < ww + 40; u += 6){                                                // 봉에 걸린 주름 가리개
+    wallR(wu - 20 + u, wv - 8, 4, 5, P.cur);
+    wallR(wu - 20 + u, wv - 8, 2, 5, shade(P.cur, 20));
+    wallR(wu - 20 + u + 2, wv - 3, 2, 2, shade(P.cur, -26));
+  }
   // 거실에는 왼쪽 벽에 밖으로 나가는 문이 하나
   if (r === 'living'){
     const du = Math.max(6, Math.floor((LH - 44) / 2 / 2) * 2), dw = 40, dv = W_MOULD + 4, dh = WALLH - dv - 6;
@@ -3332,6 +3351,13 @@ function drawRoomShell(g, r, L, wallItems){
       if (y + 7 < yBot && y + 7 >= yTop) q(cx, y + 7, 2, 1, shade(col, -15));
       const v = R.prand('fg' + r + k + '_' + cx);
       if (v > 0.6){ const gy = y + 2 + (Math.floor(v * 31) % 4); if (gy >= t0 && gy < t1) q(cx, gy, 2, 1, shade(col, v > 0.87 ? 10 : -9)); }
+      // 옹이 — 널 하나에 어쩌다 하나. 결만 있으면 마루가 줄무늬 천처럼 보인다
+      if (v > 0.985){
+        const ky = y + 3;
+        if (ky >= t0 && ky + 1 < t1){
+          q(cx, ky, 2, 2, shade(col, -34)); q(cx - 2, ky, 2, 1, shade(col, -20)); q(cx + 2, ky + 1, 2, 1, shade(col, -20));
+        }
+      }
     }
   }
   // 널 이음매 — 왼쪽아래로 흐르는 짧은 금. 줄마다 어긋나게 둔다.
@@ -3353,11 +3379,15 @@ function drawRoomShell(g, r, L, wallItems){
      첫화면 마을에서 가로등이 땅을 물들이는 것과 같은 몫이다 — 빛이 어디서 오는지 눈에 보인다. */
   if (L.dark < 0.16){
     const dep = 44;
+    // 창살 그림자 — 볕 안에 십자로 어두운 띠가 눕는다. 볕이 「창을 지나 왔다」는 표시다.
+    const barU = Math.floor(ww / 4) * 2 - 2;                       // 세로 창살 자리
     for (let s2 = 0; s2 < dep; s2++){
       const far = 1 - s2 / dep;
+      const barS = s2 >= Math.round(dep * 0.34) && s2 < Math.round(dep * 0.42);   // 가로 창살 그림자
       for (let u = 0; u < ww; u += 2){
         const edge = Math.min(1, Math.min(u, ww - 2 - u) / 12);    // 가장자리는 옅게 — 자로 그은 듯한 네모가 안 되게
-        const a2 = far * edge * 0.30;
+        const bar = (u >= barU && u < barU + 4) || barS;
+        const a2 = far * edge * (bar ? 0.07 : 0.34);
         if (a2 < 0.02) continue;
         const x = ox + wu + u - 2 * s2, y = WALLH + (wu + u) / 2 + s2;
         if (inFloor(x + 1, y + 0.5)) q(x, y, 2, 1, 'rgba(255,238,178,' + a2.toFixed(3) + ')');
