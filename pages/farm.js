@@ -92,17 +92,20 @@ async function bootInner(){
   await refreshAuth();
   key = isChild && me && R.NAME[me.author_key] ? me.author_key : null;
   if (!key){
-    // 손님·부모 — 요약만 주는 함수를 부른다. 가족이면 표를 직접 읽어 조금 더 보여 준다.
-    const { data } = await sb.rpc('farm_cards');
-    renderGate(data || {});
-    await renderPeekArt();
+    /* 손님·부모 — 요약(farm_cards)과 그림거리(farm_peek)를 나란히 부른다.
+       차례로 부르면 그림이 요약을 다 기다렸다 시작해서, 실제 주소에서 재 보니
+       요약 470ms 가 끝난 뒤에야 그림 67ms 가 떠났다. 둘은 서로 아무 상관이 없다. */
+    const [cards, peek] = await Promise.all([sb.rpc('farm_cards'), sb.rpc('farm_peek')]);
+    renderGate((cards && cards.data) || {});
+    renderPeekArt(peek);
     if (isAdmin) await renderTune();
     $('#gate').hidden = false;
     initReveal();
     return;
   }
-  if (!(await loadRows())) throw new Error('load');
-  const fr = await sb.rpc('quest_facts', { p_who: key });
+  // 세이브와 모험단 기록은 서로 안 기다려도 된다 — 나란히 부른다
+  const [ok, fr] = await Promise.all([loadRows(), sb.rpc('quest_facts', { p_who: key })]);
+  if (!ok) throw new Error('load');
   facts = fr.data || {};
   // 하루 시작 — 계절·동물·비·까마귀·기운·비료·선물. 전부 하루 한 번만 되게 짜여 있어서,
   // 다른 아이와 겹쳐 다시 하게 되어도 두 번 받지 않는다.
@@ -164,8 +167,8 @@ function renderGate(c){
   if (isLoggedIn) $('#gateWho').hidden = true;
 }
 // 손님에게 보여 줄 그림 — 농장 한 장과 집 안 세 칸. 우편·일지는 빼고 받는다.
-async function renderPeekArt(){
-  const { data, error } = await sb.rpc('farm_peek');
+function renderPeekArt(res){
+  const { data, error } = res || {};
   if (error || !data) return;                    // 아직 농장이 없으면 그림도 없다
   W = R.fixWorld(data, now());
   M = R.fixMine(null, 'sua');                    // 나무·바위 차례는 아이마다 달라서, 손님에겐 그냥 서 있는 모습으로
@@ -4336,14 +4339,21 @@ function renderMedals(){
    지금 화면을 그대로 한 장으로 뜬다. 위에 날짜·계절·날씨를 적은 띠를 얹어
    나중에 봐도 언제의 농장인지 알 수 있게 한다. 농장 그림에는 바깥 그림이 한 장도
    섞이지 않으므로 캔버스가 더럽혀지지 않는다 — toBlob 이 그대로 된다. */
+const SNAP_DOT = 2;                 // 한 장은 도트 하나를 두 픽셀로 — 도트 그림은 이만하면 또렷하다
 function snapCanvas(){
-  const src = liveCv || $('#farmCanvas');
-  const BAR = Math.round(src.width * 0.062), PAD = Math.round(src.width * 0.012);
+  /* 화면 캔버스를 그대로 뜨면 기기 배수(dpr)까지 곱해져 1638x1417·170KB 가 된다.
+     도트 두 배로 줄이면 1310x1133·144KB — 저장소가 1GB 뿐이고 아이가 날마다 낼 수 있으니 그만큼이 낫다.
+     줄여 그리든 새로 그리든 무게는 같지만(둘 다 144KB), 새로 그리면 도트가 정확히 두 배라
+     기기 배수와 상관없이 같은 그림이 나온다 — 두 아이가 다른 폰으로 내도 한 장이 똑같다. */
+  const W2 = R.GRID.w * T * SNAP_DOT, H2 = R.GRID.h * T * SNAP_DOT;
+  const shot = document.createElement('canvas'); shot.width = W2; shot.height = H2;
+  drawFarm(shot);
+  const BAR = Math.round(W2 * 0.062), PAD = Math.round(W2 * 0.012);
   const o = document.createElement('canvas');
-  o.width = src.width + PAD * 2; o.height = src.height + BAR + PAD * 2;
+  o.width = W2 + PAD * 2; o.height = H2 + BAR + PAD * 2;
   const g = o.getContext('2d'); g.imageSmoothingEnabled = false;
   g.fillStyle = '#fff6e9'; g.fillRect(0, 0, o.width, o.height);
-  g.drawImage(src, PAD, BAR + PAD);
+  g.drawImage(shot, PAD, BAR + PAD);
   const cal = R.calendar(W, now()), wk = R.weatherOf(R.dayKey(now()), cal.season);
   const WNAME = { sun: '맑음', cloud: '흐림', rain: '비', storm: '비바람', wind: '바람', snow: '눈' };
   g.fillStyle = '#3a3226';
@@ -4356,11 +4366,12 @@ function snapCanvas(){
   g.fillText(right, o.width - PAD - 4, PAD + BAR * 0.5);
   g.textAlign = 'left';
   g.fillStyle = '#3a3226'; g.fillRect(0, BAR + PAD - 3, o.width, 3);
+  // 배수(S)와 겹이 한 장 뜨는 사이 바뀌었다 — 화면 것을 제 배수로 되돌려 놓는다
+  dropLayers(); if (liveCv) drawFarm(liveCv);
   return o;
 }
 function openSnap(){
   if (!W || !M){ flash('농장을 먼저 열어요', true); return; }
-  drawFarm(liveCv || $('#farmCanvas'));
   const cv = snapCanvas();
   const inner = $('#modalInner');
   inner.innerHTML = '<h3 class="pixel">📷 오늘의 농장 한 장</h3>'
@@ -4378,7 +4389,9 @@ async function sendSnap(cv, b){
   try {
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
     if (!blob) throw new Error('그림을 만들지 못했어요');
-    const path = 'suayona/farm/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.png';
+    /* 저장소 정책이 이름으로 막는다 — 가족이 올릴 수 있는 자리는 suayona/doodle/ 뿐이다.
+       suayona/farm/ 으로 올리려다 아이 계정에서 통째로 막혔다. 앞머리만 붙여 구별한다. */
+    const path = 'suayona/doodle/farm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.png';
     const up = await sb.storage.from('event-images').upload(path, blob, { contentType: 'image/png', upsert: false });
     if (up.error) throw up.error;
     const { data: pub } = sb.storage.from('event-images').getPublicUrl(path);
