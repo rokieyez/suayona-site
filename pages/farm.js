@@ -3212,9 +3212,17 @@ function drawRoomShell(g, r, L, wallItems){
   // 벽에 건 가구
   (wallItems || []).forEach(it => {
     const s = wallSlot(Rm, it.x, it.y);
-    const wl = s.side > 0 ? wallR : wallL;
-    const len = (s.side > 0 ? LW : LH);
-    const u = Math.min(Math.max(0, s.at * (TW / 2) - 8), len - 42);   // 그림이 40 도트로 넓어졌다
+    let wl = s.side > 0 ? wallR : wallL;
+    let len = (s.side > 0 ? LW : LH);
+    let u = Math.min(Math.max(0, s.at * (TW / 2) - 8), len - 42);   // 그림이 40 도트로 넓어졌다
+    /* 훈장 걸이만은 어디에 놓아도 왼쪽 벽에 건다. 붙박이 창이 오른쪽 벽 한가운데를 차지하고
+       있어서, 아이가 무심코 그 자리에 놓으면 창을 통째로 덮어 버린다.
+       거실은 왼쪽 벽에도 문이 있으므로 그 문 옆으로 비켜 건다. */
+    if (it.f === 'medalcase'){
+      wl = wallL; len = LH;
+      const du = Math.max(6, Math.floor((LH - 44) / 2 / 2) * 2);      // 거실 문의 왼쪽 끝
+      u = r === 'living' ? Math.min(du + 40, LH - 42) : 0;
+    }
     // 벽에서 살짝 떠 있게 — 그림자를 한 벌 먼저 깐다. 안 그러면 벽지에 인쇄된 것처럼 보인다
     paintWallItem((uu, v, uw, vh) => wl(uu + 2, v + 3, uw, vh, 'rgba(26,18,10,0.16)'), u, it.f, P, r);
     paintWallItem(wl, u, it.f, P, r);
@@ -4275,7 +4283,11 @@ function onHouseTap(e){
   if (furnPick){
     const f = furnPick, rr = furnRot;
     const r2 = act((w2, m) => R.place(w2, m, room, f, tx, ty, rr));
-    if (r2.ok) sfx('plant');
+    if (r2.ok){
+      sfx(f === 'medalcase' ? 'medal' : 'plant');
+      // 걸이는 늘 왼쪽 벽에 걸리므로, 어디에 놓든 그 자리에 나타나는 까닭을 알려 준다
+      if (f === 'medalcase') flash('훈장 걸이는 창을 가리지 않게 <b>왼쪽 벽</b>에 걸려요');
+    }
     if (!(M.inv['f:' + f] > 0)) furnPick = null;
     renderHouse(); return;
   }
