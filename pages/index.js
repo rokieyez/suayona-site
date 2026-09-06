@@ -637,12 +637,18 @@ const belowFold = (() => {
     winter: { leaf: '#7fa88a', dark: '#5f8a70', fruit: '#eef8ff' },
   };
   let cropBaked = null, cropBakedKey = '';
-  // 이랑 54자리는 뒷줄부터 아홉씩 온다 — 앞줄이 먼저 오도록 줄 단위로 뒤집는다.
+  /* 이랑 54자리는 뒷줄부터 아홉씩 온다 — 앞줄이 먼저 오도록 줄 단위로 뒤집는다.
+     허수아비 바로 뒤 칸은 뺀다. 앞줄부터 심으므로 뒤쪽 칸이 나중에(=위에) 그려지는데,
+     그 자리가 허수아비와 겹치면 작물이 허수아비 몸을 뚫고 나온 것처럼 보인다. */
   const CROP_COLS = 9;
   function cropOrder(spots){
-    const out = [];
+    const out = [], sc = VG && VG.scare;
     for (let row = Math.ceil(spots.length / CROP_COLS) - 1; row >= 0; row--)
-      out.push.apply(out, spots.slice(row * CROP_COLS, row * CROP_COLS + CROP_COLS));
+      for (let i = row * CROP_COLS; i < row * CROP_COLS + CROP_COLS && i < spots.length; i++){
+        const p = spots[i];
+        if (sc && Math.abs(p[0] - sc[0]) < 8 && p[1] - sc[1] < 0 && p[1] - sc[1] > -34) continue;
+        out.push(p);
+      }
     return out;
   }
   function bakeCrops(){
