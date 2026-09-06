@@ -148,6 +148,13 @@
   .medals div.got{border-color:#e0a72b; background:#fffbe9;}
   .medals div.can{border-color:#3f9a4b; background:#f1fbf0;}
   .medals div button{margin-left:auto;}
+  /* 가계도 — 어미 아래로 새끼를 들여 쓴다 */
+  .tree{border:2px solid var(--ink); background:#fff; padding:8px 10px;}
+  .tree .row{display:flex; align-items:center; gap:6px; font-size:12px; padding:2px 0;}
+  .tree .row canvas{width:24px; height:24px; image-rendering:pixelated; flex:none;}
+  .tree .row .ln{color:var(--ink-soft); font-family:monospace; white-space:pre;}
+  .tree .row b.baby{background:#ffeab5; border:2px solid var(--ink); font-size:10px; padding:0 4px; font-weight:700;}
+  .tree .row .by{font-size:10px; color:var(--ink-soft);}
   /* 오늘의 한 장 */
   .snapwrap{text-align:center;}
   .snapwrap canvas{width:100%; max-width:520px; height:auto; image-rendering:pixelated; border:3px solid var(--ink); background:#fff;}
@@ -336,6 +343,11 @@
             <h3 class="pixel">동물</h3>
             <p class="sub">밥은 하루 한 번. 쓰다듬기는 둘 다 해야 마음이 자라요.</p>
             <div id="animals"></div>
+            <div id="treeBox" hidden>
+              <h3 class="pixel">가계도</h3>
+              <p class="sub">누가 누구의 새끼인지. 마음이 가득 찬 어른이 새끼를 봐요.</p>
+              <div class="tree" id="tree"></div>
+            </div>
           </div>
         </div>
       </div>

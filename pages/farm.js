@@ -127,7 +127,13 @@ function daily(w, m){
   if (w.dayKey !== today){
     w.dayKey = today;
     const notes = R.newDay(w, m, now());
-    if (notes.length) notice(notes.join(' · '));
+    if (notes.length){
+      notice(notes.join(' · '));
+      // 아침 소식 중 가장 반가운 것을 소리로도 알린다 — 글을 아직 잘 못 읽는 아이를 위해
+      const joined = notes.join(' ');
+      sfx(/새끼를 낳았어요/.test(joined) ? 'chick' : /행상인/.test(joined) ? 'cart'
+        : /스프링클러/.test(joined) ? 'sprinkle' : 'prop');
+    }
     changed = true;
   }
   if (R.refreshEnergy(w, m, now())) changed = true;
@@ -1853,7 +1859,7 @@ function startFishing(){
   if (STILL){ doFish('good'); return; }
   const open = performance.now() + FISH_GRACE;
   fishing = { t0: open, openAt: open, center: 26 + Math.random() * 48, done: false };
-  sfx('drip'); flash('찌가 움직여요 — <b>칸 안에서 톡!</b>');
+  sfx('bite'); flash('찌가 움직여요 — <b>칸 안에서 톡!</b>');
   setTimeout(() => { if (fishing && !fishing.done) finishFishing('miss'); }, FISH_GRACE + FISH_LIMIT);
 }
 function finishFishing(force){
@@ -1862,7 +1868,7 @@ function finishFishing(force){
   const pos = fishMarker(performance.now()), d = Math.abs(pos - fishing.center);
   const g = force || (d <= FISH_ZONE / 4 ? 'perfect' : d <= FISH_ZONE / 2 ? 'good' : 'miss');
   fishing.pos = pos; fishing.grade = g;
-  sfx(g === 'perfect' ? 'sparkle' : g === 'miss' ? 'thud' : 'pop');
+  sfx('reel'); sfx(g === 'perfect' ? 'sparkle' : g === 'miss' ? 'thud' : 'pop');
   setTimeout(() => { fishing = null; doFish(g); }, 420);
 }
 function doFish(g){
@@ -2220,7 +2226,7 @@ function onFarmTap(e){
     // 뒤에 지우면 애먼 마리까지 사라진다. 못 잡았으면 syncFlies 가 도로 채운다.
     flies.splice(fi, 1);
     const r = act((w, m) => R.catchFirefly(w, m, now()));
-    if (r.ok) sfx('sparkle');
+    if (r.ok) sfx('firefly');
     return;
   }
   const id = plotAtTile(tx, ty);
@@ -2235,8 +2241,8 @@ function onFarmTap(e){
   if (inSpot('greenhouse', tx, ty)){ if (built('greenhouse')) openGreenhouse(); else flash('온실 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('well', tx, ty)){ flash(built('well') ? '우물이에요. 물뿌리개를 키울 수 있어요' : '우물 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('pond', tx, ty)){ startFishing(); return; }
-  if (R.peddlerHere(W, now()) && inBox({ x: R.PEDDLER.x, y: R.PEDDLER.y, w: R.PEDDLER.w + 1, h: R.PEDDLER.h }, tx, ty)){ openPeddler(); sfx('prop'); return; }
-  if (inSpot('firepit', tx, ty)){ const r = act((w, m) => R.fireSit(w, m, now())); if (r.ok) sfx(r.both ? 'fanfare' : 'purr'); return; }
+  if (R.peddlerHere(W, now()) && inBox({ x: R.PEDDLER.x, y: R.PEDDLER.y, w: R.PEDDLER.w + 1, h: R.PEDDLER.h }, tx, ty)){ openPeddler(); sfx('cart'); return; }
+  if (inSpot('firepit', tx, ty)){ const r = act((w, m) => R.fireSit(w, m, now())); if (r.ok) sfx(r.both ? 'fanfare' : 'fire'); return; }
   if (inSpot('bench', tx, ty) || inSpot('swing', tx, ty)){ flash('쉬는 자리예요. 앉으면 기분이 좋아져요'); return; }
   // 동물이 있는 곳은 어디를 눌러도 동물 카드로
   if (['coop', 'barn', 'pasture', 'pethouse'].some(b => inSpot(b, tx, ty))){ openTab('duo', true); return; }
@@ -2279,7 +2285,7 @@ function onPlot(id){
   if (tool === 'sprk'){
     const on = (W.sprinklers || {})[id];
     const r = act((w, m) => on ? R.pullSprinkler(w, m, id) : R.putSprinkler(w, m, id));
-    if (r.ok) sfx('pop');
+    if (r.ok) sfx(on ? 'pop' : 'sprinkle');
     renderTools(); return;
   }
   // 손
@@ -4286,6 +4292,42 @@ function renderDuo(){
     act2.appendChild(btn('✏️', 'sm', () => nameDialog(a)));
     d.appendChild(act2); ab.appendChild(d);
   });
+  renderTree();
+}
+
+/* 가계도. 새끼는 태어날 때 어미의 id 를 안고 나오므로(mom), 그것만으로 나무가 선다.
+   새끼를 본 적이 없으면 칸 자체를 감춘다 — 빈 상자는 뭘 해야 하는지 알려 주지 못한다. */
+function renderTree(){
+  const box = $('#tree'), wrap = $('#treeBox');
+  if (!box || !wrap) return;
+  const list = W.animals || [];
+  if (!list.some(a => a.mom)){ wrap.hidden = true; return; }
+  wrap.hidden = false; box.innerHTML = '';
+  const kids = {};
+  list.forEach(a => { if (a.mom) (kids[a.mom] = kids[a.mom] || []).push(a); });
+  const byId = {}; list.forEach(a => { byId[a.id] = a; });
+  const row = (a, depth, last) => {
+    const d = document.createElement('div'); d.className = 'row';
+    if (depth){
+      const ln = document.createElement('span'); ln.className = 'ln';
+      ln.textContent = '   '.repeat(depth - 1) + (last ? '└─ ' : '├─ ');
+      d.appendChild(ln);
+    }
+    const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32;
+    cv.getContext('2d').imageSmoothingEnabled = false;
+    drawAnimalAt(cv.getContext('2d'), a.kind, 4, 5, 1, false, a.baby ? 2 / 3 : 1);
+    d.appendChild(cv);
+    const nm = document.createElement('span'); nm.innerHTML = '<b>' + escapeHTML(a.name) + '</b>';
+    d.appendChild(nm);
+    if (a.baby){ const t = document.createElement('b'); t.className = 'baby'; t.textContent = '🐣'; d.appendChild(t); }
+    const by = document.createElement('span'); by.className = 'by';
+    by.textContent = '♥' + (a.love || 0) + ' · ' + (NAME[a.by] || '') + '가 돌봐요';
+    d.appendChild(by);
+    box.appendChild(d);
+    (kids[a.id] || []).forEach((k, i, arr) => row(k, depth + 1, i === arr.length - 1));
+  };
+  // 어미가 없거나 어미가 사라진 아이가 뿌리다. 태어난 차례대로 세운다.
+  list.filter(a => !a.mom || !byId[a.mom]).forEach(a => row(a, 0, true));
 }
 
 // ---------- 도감 ----------
@@ -4327,7 +4369,7 @@ function renderMedals(){
     if (!m.got && m.ready){
       d.appendChild(btn('받기 🪙' + m.coins, 'sm buy', () => {
         const r = act((w, mm) => R.claimMedal(w, mm, m.id, now()));
-        if (r.ok) sfx('fanfare');
+        if (r.ok) sfx('medal');
       }));
     }
     box.appendChild(d);

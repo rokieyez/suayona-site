@@ -1153,6 +1153,17 @@ const SOUND = {
   prop:    () => tone(440, .07, 'square', .045),
   splash:  () => { tone(320, .06, 'sine', .06); tone(180, .14, 'sine', .05, .05); },
   brush:   () => tone(1200 + Math.random() * 400, .03, 'square', .025),
+  /* 농장 소리. 전에는 낚시도 반딧불이도 스프링클러도 다 「반짝」이나 「뽕」을 돌려 썼다 —
+     귀로는 다 같은 일로 들렸다. 하는 일마다 결이 다르게 지었다.
+     소리는 파일이 아니라 그 자리에서 만드는 것이라 여기 늘어도 0바이트다. */
+  bite:    () => { tone(300, .05, 'sine', .06); tone(700, .06, 'sine', .055, .05); },        // 찌가 톡
+  reel:    () => { for (let i = 0; i < 6; i++) tone(980 + i * 70, .025, 'square', .03, i * .045); },  // 줄 감기
+  sprinkle:() => { for (let i = 0; i < 8; i++) tone(1500 + Math.random() * 900, .02, 'sine', .022, i * .03); },
+  firefly: () => { tone(1568, .05, 'triangle', .05); tone(1976, .05, 'triangle', .05, .05); tone(2349, .12, 'triangle', .045, .10); },
+  cart:    () => { tone(1318, .18, 'sine', .05); tone(1760, .24, 'sine', .045, .09); },      // 수레 방울
+  chick:   () => { tone(1500, .05, 'square', .04); tone(1900, .05, 'square', .04, .06); tone(1700, .08, 'square', .04, .12); },
+  medal:   () => { tone(659, .10, 'triangle', .06); tone(988, .10, 'triangle', .06, .10); tone(1318, .30, 'triangle', .06, .20); },
+  fire:    () => { for (let i = 0; i < 5; i++) tone(90 + Math.random() * 70, .05, 'sawtooth', .03, i * .085); },
 };
 
 // 작품에 붙이는 소리. 아이가 그림마다 하나씩 고른다 (works.sfx).
