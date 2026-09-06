@@ -78,6 +78,7 @@ const QUEST = (() => {
               { sp: 'snail',    name: '느림보 달팽이', s: 5 },
               { sp: 'mushroom', name: '통통 버섯',    s: 5, elem: 'dark' } ],
       find: { sp: 'flower', name: '들꽃 한 송이' },
+      tales: ['풀숲에서 네잎클로버를 찾아왔어요', '무당벌레들과 한나절 술래잡기를 했대요', '언덕에 누워 구름 흘러가는 걸 봤대요'],
       boss:   { sp: 'fox',      name: '분홍 여우 대장', s: 4, pattern: ['charge'] } },
 
     { name: '산', dark: false, elem: 'grass',
@@ -93,6 +94,7 @@ const QUEST = (() => {
               { sp: 'stone',    name: '굴러온 돌',    s: 4, elem: 'none' },
               { sp: 'bird',     name: '산새',        s: 6 } ],
       find: { sp: 'leaf', name: '물든 잎사귀' },
+      tales: ['도토리를 한 주머니 주워 왔어요', '골짜기에서 메아리와 이야기를 했대요', '산꼭대기에서 우리 집이 보였대요'],
       boss:   { sp: 'tree',     name: '걷는 나무',    s: 4, pattern: ['charge', 'heal'] } },
 
     { name: '강', dark: false, elem: 'water',
@@ -108,6 +110,7 @@ const QUEST = (() => {
               { sp: 'log',      name: '떠내려온 통나무', s: 4, elem: 'grass' },
               { sp: 'crab',     name: '강게',        s: 4, tame: true } ],
       find: { sp: 'sprout', name: '물가의 새싹' },
+      tales: ['납작한 돌로 물수제비를 여섯 번 떴대요', '갈대밭에서 반딧불이를 만났대요', '물살에 발을 담그고 한참 있었대요'],
       boss:   { sp: 'umbrella', name: '우산 도깨비',  s: 5, pattern: ['charge', 'guard'] } },
 
     { name: '바다', dark: false, elem: 'water',
@@ -123,6 +126,7 @@ const QUEST = (() => {
               { sp: 'crab',       name: '집게 게',     s: 4 },
               { sp: 'sandcastle', name: '모래성 지킴이', s: 4, elem: 'none' } ],
       find: { sp: 'bubble', name: '몽글몽글 물거품' },
+      tales: ['파도에 밀려온 조개껍데기를 주웠어요', '모래에 커다란 성을 쌓고 왔대요', '수평선 너머로 배가 지나가는 걸 봤대요'],
       boss:   { sp: 'starfish',   name: '왕불가사리',   s: 7, pattern: ['charge', 'guard', 'heal'] } },
 
     { name: '도시', dark: true, elem: 'dark',
@@ -137,6 +141,7 @@ const QUEST = (() => {
               { sp: 'bin',  name: '쓰레기통 괴물', s: 4 },
               { sp: 'cat',  name: '골목 고양이',  s: 4, tame: true } ],
       find: { sp: 'mail', name: '떨어진 편지' },
+      tales: ['골목 고양이들과 친해졌대요', '빵집 앞에서 좋은 냄새를 실컷 맡았대요', '떨어진 편지를 우체통에 넣어 줬대요'],
       boss:   { sp: 'tower', name: '타워 로봇',   s: 4, pattern: ['charge', 'guard'] } },
 
     { name: '사막', dark: true, elem: 'fire',
@@ -151,6 +156,7 @@ const QUEST = (() => {
               { sp: 'tumble', name: '굴러풀',    s: 4, tame: true, elem: 'grass' },
               { sp: 'skull',  name: '사막 해골',  s: 4 } ],
       find: { sp: 'bud', name: '선인장 꽃봉오리' },
+      tales: ['별이 쏟아지는 밤하늘을 봤대요', '모래언덕을 미끄럼틀처럼 타고 내려왔대요', '오아시스에서 물을 실컷 마셨대요'],
       boss:   { sp: 'skull',  name: '해골 대왕',  s: 7, pattern: ['charge', 'heal'] } },
 
     { name: '화산', dark: true, elem: 'fire',
@@ -166,6 +172,7 @@ const QUEST = (() => {
               { sp: 'lavaRock', name: '용암 바위',  s: 4, elem: 'none' },
               { sp: 'skull',    name: '검은 해골',  s: 4, elem: 'dark' } ],
       find: { sp: 'rock', name: '까만 돌멩이' },
+      tales: ['뜨거운 김에 고구마를 구워 먹었대요', '까만 돌에 비친 붉은 빛이 예뻤대요', '용암이 흐르는 소리를 오래 들었대요'],
       boss:   { sp: 'volcano',  name: '화산 거인',  s: 4, pattern: ['charge', 'charge', 'guard'] } },
 
     { name: '발사기지', dark: true, elem: 'dark',
@@ -180,6 +187,7 @@ const QUEST = (() => {
               { sp: 'crate',  name: '수상한 상자',  s: 4, elem: 'none' },
               { sp: 'barrel', name: '드럼통',      s: 4, elem: 'fire' } ],
       find: { sp: 'bush', name: '발사대 옆 들풀' },
+      tales: ['로켓이 올라가는 걸 코앞에서 봤대요', '요원들이 몰래 간식을 나눠 줬대요', '커다란 나사 하나를 기념으로 받아 왔어요'],
       boss:   { sp: 'rocket', name: '로켓 로봇',    s: 4, pattern: ['charge', 'guard', 'charge'] } },
 
     { name: '우주', dark: true, elem: 'dark',
@@ -195,6 +203,7 @@ const QUEST = (() => {
               { sp: 'ufo',    name: 'UFO',       s: 4 },
               { sp: 'planet', name: '꼬마 행성',  s: 3, elem: 'none' } ],
       find: { sp: 'star', name: '별가루' },
+      tales: ['별똥별 하나를 손으로 받았대요', '무중력에서 데굴데굴 굴러 봤대요', '지구가 파랗다고 몇 번이나 말했어요'],
       boss:   { sp: 'planet', name: '행성 왕',    s: 5, pattern: ['charge', 'heal', 'guard'] } },
 
     { name: '천국', dark: false, elem: 'light',
@@ -210,6 +219,7 @@ const QUEST = (() => {
               { sp: 'harp',   name: '혼자 울리는 하프', s: 4, elem: 'none' },
               { sp: 'pillar', name: '구름 기둥',     s: 4, elem: 'none' } ],
       find: { sp: 'frame', name: '반짝이는 액자 조각' },
+      tales: ['구름 위를 폭신폭신 걸었대요', '천사들과 하프 소리에 맞춰 춤췄대요', '무지개 끝까지 가 봤대요'],
       boss:   { sp: 'star',   name: '별의 수호자',    s: 6, pattern: ['charge', 'guard', 'heal'] } },
 
     // 숨은 무대. 반년 만에 키를 다시 재서 자랐으면 이레 동안 열린다.
@@ -227,13 +237,15 @@ const QUEST = (() => {
               { sp: 'balloon',   name: '도망간 풍선', s: 6, elem: 'none' },
               { sp: 'cake',      name: '케이크 도둑', s: 4, elem: 'fire' } ],
       find: { sp: 'bench', name: '정원 벤치 조각' },
+      tales: ['빨래 사이를 뛰어다니다 혼났대요', '나비를 따라 담장을 넘었다 왔대요', '땅에 묻어 둔 보물 상자를 다시 파 봤대요'],
       boss:   { sp: 'house',     name: '걸어 다니는 우리 집', s: 3, pattern: ['charge', 'heal'] } },
   ];
   const HIDDEN_DAYS = 7;
 
   // ---------- 부모 조정판 ----------
   // 표의 'tuning' 줄 하나. 규칙 파일을 고치지 않고 난이도를 맞춘다. 범위 밖 값은 잘라 낸다.
-  const TUNE_DEFAULT = { weekHpMul: 1, giftGold: 25, foeMul: 1, cheer: '' };
+  // expoNote 는 원정 화면에 붙는 엄마 아빠의 쪽지 한 줄 — 아이 눈에는 세계가 말을 건 것이다.
+  const TUNE_DEFAULT = { weekHpMul: 1, giftGold: 25, foeMul: 1, cheer: '', expoNote: '' };
   const clamp = (v, lo, hi, d) => { v = Number(v); return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
   function fixTune(t){
     t = Object.assign({}, TUNE_DEFAULT, t || {});
@@ -242,6 +254,7 @@ const QUEST = (() => {
       giftGold:  Math.round(clamp(t.giftGold, 10, 100, 25)),
       foeMul:    Math.round(clamp(t.foeMul, 0.6, 1.4, 1) * 10) / 10,
       cheer:     String(t.cheer || '').slice(0, 60),
+      expoNote:  String(t.expoNote || '').slice(0, 60),
     };
   }
 
@@ -384,7 +397,9 @@ const QUEST = (() => {
   // 서로 묶여 버린다 — 처음에 그렇게 짰다가 시뮬레이션에서 비율이 안 맞아 찾았다.
   function friendAct(save, st, rng){
     const r = typeof rng === 'function' ? rng : Math.random;
-    const list = save.friends || [], n = list.length;
+    // 원정 나간 친구는 여기 없다 — 보낼지 데리고 싸울지가 진짜 고민이 되도록.
+    const away = ((save.expo && save.expo.sent) || []).map(e => e.who);
+    const list = (save.friends || []).filter(k => away.indexOf(k) < 0), n = list.length;
     if (!n || r() > FRIEND.chance(n)) return null;
     const who = list[Math.min(n - 1, Math.floor(r() * n))];
     const heal = r() < FRIEND.healShare;
@@ -434,6 +449,132 @@ const QUEST = (() => {
     if (r < 0.55) return { kind: 'sellPotion', potions: 1, gold: 22, say: '물약 하나만 파실래요? 후하게 쳐드릴게요.' };
     if (r < 0.8)  return { kind: 'giftGold',   gold: 25, say: '오늘은 그냥 드릴게요!' };
     return { kind: 'giftXp', xp: 35, say: '먼 곳 이야기를 들려드릴게요.' };
+  }
+
+  // ---------- 원정 ----------
+  // 직접 놀지 않는 동안에도 세계가 돌아간다. 친구가 된 상대를 무대로 내보내면
+  // 정해진 시간 뒤에 무언가를 들고 돌아온다. 설계에서 지킨 것 셋:
+  //   1) 놔둬도 잃는 것이 없다 — 작물이 시들거나 자원이 넘쳐 버려지는 벌이 없다.
+  //   2) 오래 둘수록 「시간당」은 오히려 나빠진다(2h 0.50 · 5h 0.44 · 10h 0.40).
+  //      그래서 열심히 노는 쪽이 늘 이득이고, 긴 원정은 「자고 일어나면」의 편안함일 뿐이다.
+  //   3) 나간 친구는 전투에서 안 나선다 — 누구를 보낼지가 진짜 고민이 되게.
+  const EXPO = {
+    MAX: 3,                    // 한 번에 나갈 수 있는 원정 수
+    PLANS: [
+      { h: 2,  name: '가벼운 산책',  mult: 1.0 },
+      { h: 5,  name: '한나절 원정',  mult: 2.2 },
+      { h: 10, name: '하룻밤 원정',  mult: 4.0 },
+    ],
+    DUO_MULT: 1.5,             // 자매가 같은 날 같은 무대로 보내면 — 합동 원정
+    EMPTY: 0.15,               // 빈손으로 돌아올 확률(잃는 것은 없다)
+    SEED_CHANCE: 0.35,         // 농장에 심을 씨앗을 주워 올 확률
+    SPEED_CAP: 0.6,            // 현실에서 아무리 열심히 해도 이만큼까지만 앞당긴다
+    SPEED: { run: 30, diary: 30, work: 20 },   // 분
+    LOG_MAX: 12,
+    GOLD_MUL: 1.2, XP_MUL: 0.8,
+  };
+  // 빈손으로 돌아온 날의 핑계. 아이 놀이에 상실은 넣지 않는다 — 웃긴 이유만 남는다.
+  const EXPO_EMPTY_SAY = [
+    '가는 길에 비가 와서 그냥 놀다 왔대요',
+    '낮잠이 너무 달아서 그만 자 버렸대요',
+    '길을 잃었다가 착한 아저씨를 만나 돌아왔어요',
+    '가져오던 걸 오는 길에 다 나눠 줘 버렸대요',
+  ];
+  // 같은 원정은 몇 번을 새로고침해도 같은 결과여야 한다 — 난수 대신 보낸 시각으로 셈한다.
+  function hash01(str, n){
+    let h = 2166136261 >>> 0;
+    const s2 = String(str) + '#' + (n || 0);
+    for (let i = 0; i < s2.length; i++){ h ^= s2.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return (h >>> 8) / 16777216;
+  }
+  function expoOf(save){
+    if (!save.expo || typeof save.expo !== 'object') save.expo = { sent: [], log: [], done: 0, seedsEver: 0 };
+    if (!Array.isArray(save.expo.sent)) save.expo.sent = [];
+    if (!Array.isArray(save.expo.log)) save.expo.log = [];
+    return save.expo;
+  }
+  const expoPlan = h => EXPO.PLANS.find(p => p.h === h) || EXPO.PLANS[0];
+  // 자리 수는 친구 수만큼, 최대 셋. 친구가 하나도 없으면 원정은 아직 안 열린다.
+  function expoSlots(save){ return Math.min(EXPO.MAX, (save.friends || []).length); }
+  function expoAway(save){ return expoOf(save).sent.map(e => e.who); }
+  // 현실에서 한 일이 원정을 앞당긴다 — 보낼 때의 숫자를 떠 두고 돌아올 때 견준다.
+  function expoFacts(f){
+    f = f || {};
+    return { run_best: f.run_best || 0, diaries: f.diaries || 0, works: f.works || 0 };
+  }
+  function expoSpeed(e, facts){
+    const a = e.facts || {}, f = facts || {}, why = [];
+    let mins = 0;
+    if ((f.run_best || 0) > (a.run_best || 0)){ mins += EXPO.SPEED.run; why.push('달리기 최고 기록'); }
+    const dd = Math.max(0, (f.diaries || 0) - (a.diaries || 0));
+    if (dd){ mins += dd * EXPO.SPEED.diary; why.push('일기 ' + dd + '편'); }
+    const dw = Math.max(0, (f.works || 0) - (a.works || 0));
+    if (dw){ mins += dw * EXPO.SPEED.work; why.push('작품 ' + dw + '개'); }
+    const cap = Math.round(e.hours * 60 * EXPO.SPEED_CAP);
+    return { mins: Math.min(mins, cap), capped: mins > cap, why };
+  }
+  // 남은 시간(밀리초). 0 이면 돌아왔다.
+  function expoLeft(e, facts, now){
+    const cut = expoSpeed(e, facts).mins * 60000;
+    return Math.max(0, (e.at + e.hours * 3600000 - cut) - (now == null ? Date.now() : now));
+  }
+  function expoReward(area, hours, T, duo){
+    const A = AREAS[area], tier = A.tier == null ? area : A.tier;
+    const mul = expoPlan(hours).mult * (duo ? EXPO.DUO_MULT : 1) * (A.hidden ? 2 : 1) * ((T && T.foeMul) || 1);
+    return {
+      gold: Math.round((5 + tier * 4) * EXPO.GOLD_MUL * mul),
+      xp:   Math.round((14 + tier * 12) * EXPO.XP_MUL * mul),
+    };
+  }
+  // 합동 원정 — 언니와 동생이 같은 날 같은 무대로 보냈나.
+  // 보낼 때가 아니라 돌아올 때 따진다. 보낼 때 따지면 먼저 보낸 쪽만 손해다.
+  function expoDuo(e, other){
+    if (!other) return false;
+    const o = other.expo;
+    if (!o) return false;
+    const d = dayKey(e.at);
+    const same = x => x && x.area === e.area && dayKey(x.at) === d;
+    return (o.sent || []).some(same) || (o.log || []).some(same);
+  }
+  function expoSend(save, area, who, hours, facts, now){
+    const E = expoOf(save);
+    const t = now == null ? Date.now() : now;
+    const e = { area: area, who: who, hours: hours, at: t, facts: expoFacts(facts) };
+    E.sent.push(e);
+    return e;
+  }
+  // 돌아온 원정 하나를 거둔다. 같은 원정은 늘 같은 결과다(보낸 시각으로 셈한 제비).
+  function expoClaim(save, idx, facts, T, other, now){
+    const E = expoOf(save);
+    const e = E.sent[idx];
+    if (!e) return null;
+    if (expoLeft(e, facts, now) > 0) return null;
+    E.sent.splice(idx, 1);
+    const A = AREAS[e.area], seed = e.at + ':' + e.area + ':' + e.who;
+    const duo = expoDuo(e, other);
+    const empty = hash01(seed, 1) < EXPO.EMPTY;
+    const tales = A.tales || [];
+    const out = {
+      area: e.area, who: e.who, hours: e.hours, at: e.at, duo: duo, empty: empty,
+      say: empty ? EXPO_EMPTY_SAY[Math.floor(hash01(seed, 2) * EXPO_EMPTY_SAY.length)]
+                 : (tales[Math.floor(hash01(seed, 2) * tales.length)] || ''),
+      gold: 0, xp: 0, seed: false,
+    };
+    if (!empty){
+      const r = expoReward(e.area, e.hours, T, duo);
+      out.gold = r.gold; out.xp = r.xp;
+      out.seed = hash01(seed, 3) < EXPO.SEED_CHANCE;
+      save.gold = (save.gold || 0) + r.gold;
+      save.xp = (save.xp || 0) + r.xp;
+      // 농장으로 넘길 씨앗은 「지금까지 몇 개 주워 왔나」로만 센다. 농장이 제 몫을 세고
+      // 가져가므로 이 파일은 농장 저장에 손대지 않는다 — 서로의 저장을 안 건드리는 게 요점이다.
+      if (out.seed) E.seedsEver = (E.seedsEver || 0) + 1;
+    }
+    E.done = (E.done || 0) + 1;
+    E.log.unshift({ area: e.area, who: e.who, hours: e.hours, at: e.at, d: dayKey(e.at),
+                    say: out.say, gold: out.gold, xp: out.xp, seed: out.seed, duo: duo, empty: empty });
+    if (E.log.length > EXPO.LOG_MAX) E.log.length = EXPO.LOG_MAX;
+    return out;
   }
 
   // ---------- 계절·시간 ----------
@@ -612,6 +753,8 @@ const QUEST = (() => {
       grew: null,                         // 오늘 계산해 둔 성장분 — 하루 동안 그대로 보여 준다
       friendDay: {},                      // 친구가 된 날 ('무대:번호' → 날짜)
       playDays: [],                       // 모험한 날 — 이번 주 발자국
+      // 원정 — 나가 있는 것, 지난 일지, 다녀온 횟수, 지금까지 주워 온 씨앗 수
+      expo: { sent: [], log: [], done: 0, seedsEver: 0 },
     };
   }
   // 옛 세이브에 없는 칸을 채운다. 규칙이 늘어도 예전 줄이 깨지지 않게.
@@ -630,6 +773,9 @@ const QUEST = (() => {
     if (!Array.isArray(s.weekLog)) s.weekLog = [];
     if (!Array.isArray(s.playDays)) s.playDays = [];
     if (!s.friendDay || typeof s.friendDay !== 'object') s.friendDay = {};
+    s.expo = Object.assign(n.expo, s.expo || {});
+    if (!Array.isArray(s.expo.sent)) s.expo.sent = [];
+    if (!Array.isArray(s.expo.log)) s.expo.log = [];
     s.day = Object.assign(n.day, s.day || {});
     if (!Array.isArray(s.day.foes)) s.day.foes = [];
     return s;
@@ -668,6 +814,7 @@ const QUEST = (() => {
   return {
     HEROES, AREAS, REAL, SHOP, WEEK, TUNE_DEFAULT, HIT_MULT, ELEM, STRONG, TITLES, CHEST, FRIEND, STREAK, streakMult, seasonOf, isNight, seasonBoost, MERCHANT, merchantDeal, FIND_CHANCE, tryFind, findsCount, DUO, MISSION, dailyMission,
     BOSS_SAY, BOSS_SKIP, BOSS_HEAL, BOSS_GUARD_CUT, MAX_ENERGY,
+    EXPO, EXPO_EMPTY_SAY, expoOf, expoPlan, expoSlots, expoAway, expoFacts, expoSpeed, expoLeft, expoReward, expoDuo, expoSend, expoClaim, hash01,
     WINS_FOR_BOSS, COMBO_MULT, STREAK_FOR_FANFARE, TAME_WINS, CHEER_HEAL, HIDDEN_DAYS,
     levelOf, xpForLevel, realXp, stats, foeAt, bossAt, bossAct, heroHit, foeHit, judge,
     elemMult, elemSay, skillsOf, friendAct, openChest, titlesOf, titleOf,

@@ -165,7 +165,7 @@ function refreshStats(){
   }
 }
 
-function renderAll(){ renderStatus(); renderReal(); renderToday(); renderMap(); renderShop(); renderWeek(); renderDex(); renderMission(); }
+function renderAll(){ renderStatus(); renderReal(); renderToday(); renderMap(); renderExpo(); renderShop(); renderWeek(); renderDex(); renderMission(); }
 function today(){ const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
 
 // ---------- 손님 화면 ----------
@@ -193,8 +193,8 @@ function renderHeroes(){
 // ---------- 부모 조정판 ----------
 function renderTune(){
   const c = $('#tuneCard'); c.hidden = false;
-  const w = $('#tWeek'), f = $('#tFoe'), g = $('#tGift'), ch = $('#tCheer');
-  w.value = TUNE.weekHpMul; f.value = TUNE.foeMul; g.value = TUNE.giftGold; ch.value = TUNE.cheer;
+  const w = $('#tWeek'), f = $('#tFoe'), g = $('#tGift'), ch = $('#tCheer'), ex = $('#tExpo');
+  w.value = TUNE.weekHpMul; f.value = TUNE.foeMul; g.value = TUNE.giftGold; ch.value = TUNE.cheer; ex.value = TUNE.expoNote;
   const show = () => {
     $('#tWeekV').textContent = '×' + Number(w.value).toFixed(1) + ' (' + Q.WEEK.hp(Q.weekKey(), { weekHpMul: Number(w.value) }) + ')';
     $('#tFoeV').textContent = '×' + Number(f.value).toFixed(1);
@@ -220,7 +220,7 @@ function renderTune(){
   show(); prev();
   renderUndo();
   $('#tSave').addEventListener('click', async () => {
-    const t = Q.fixTune({ weekHpMul: w.value, foeMul: f.value, giftGold: g.value, cheer: ch.value });
+    const t = Q.fixTune({ weekHpMul: w.value, foeMul: f.value, giftGold: g.value, cheer: ch.value, expoNote: ex.value });
     $('#tMsg').textContent = '저장 중…';
     const { error } = await sb.from('quest_saves').upsert({ who: 'tuning', data: t }, { onConflict: 'who' });
     $('#tMsg').textContent = error ? '안 됐어요: ' + readableError(error) : '저장했어요. 아이가 다음에 열 때부터예요.';
@@ -348,15 +348,21 @@ function renderStatus(){
   const fr = Q.friendsOf(save), fbox = $('#friends'); fbox.innerHTML = '';
   if (fr.length){
     const lab = document.createElement('span'); lab.style.cssText = 'font-size:12px;font-weight:800;margin-right:4px;';
-    const pc = Math.round(Q.FRIEND.chance(fr.length) * 100);
-    lab.textContent = '🐾 ' + fr.length + ' · ' + pc + '%';
-    lab.title = '친구 ' + fr.length + '마리 — 전투에서 ' + pc + '% 확률로 도와줘요';
+    // 원정 나간 아이는 전투에 안 나선다 — 확률도 곁에 있는 수로 센다.
+    const here = fr.filter(f => Q.expoAway(save).indexOf(f.key) < 0).length;
+    const pc = Math.round(Q.FRIEND.chance(here) * 100);
+    lab.textContent = '🐾 ' + here + (here < fr.length ? '/' + fr.length : '') + ' · ' + pc + '%';
+    lab.title = here < fr.length
+      ? '곁에 있는 친구 ' + here + '마리 (원정 ' + (fr.length - here) + '마리) — 전투에서 ' + pc + '% 확률로 도와줘요'
+      : '친구 ' + fr.length + '마리 — 전투에서 ' + pc + '% 확률로 도와줘요';
     fbox.appendChild(lab);
     fr.forEach(f => {
       const sp = SPRITES[f.sp]; if (!sp) return;
       const cv = document.createElement('canvas'); cv.width = sp[0].length * 2; cv.height = sp.length * 2;
       const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
-      cv.title = f.name + ' — 눌러 보세요';
+      const away = Q.expoAway(save).indexOf(f.key) >= 0;
+      cv.title = f.name + (away ? ' — 원정 중이에요' : ' — 눌러 보세요');
+      if (away) cv.style.opacity = '.35';
       cv.addEventListener('click', () => showFriend(f));
       drawSprite(g, sp, 0, 0, 2); fbox.appendChild(cv);
     });
@@ -633,6 +639,152 @@ function renderDex(){
 }
 
 // ---------- 가게 ----------
+// ---------- 원정 ----------
+// 직접 놀지 않는 시간에도 세계가 돌아가는 자리. 친구를 무대로 내보내고, 돌아오면 거둔다.
+// 화면은 셋으로 나뉜다 — 나가 있는 것 · 새로 보내는 자리 · 지난 일지.
+let expoTimer = 0;
+function fmtLeft(ms){
+  if (ms <= 0) return '돌아왔어요';
+  const m = Math.ceil(ms / 60000);
+  if (m < 60) return m + '분 남음';
+  return Math.floor(m / 60) + '시간 ' + (m % 60) + '분 남음';
+}
+function otherSave(){ return hero ? saves[hero.other] : null; }
+// 원정 하나의 칸. 남은 시간만 자주 바뀌므로 그 부분만 따로 갱신한다.
+function paintTrip(el, e){
+  const left = Q.expoLeft(e, facts, Date.now());
+  const sp2 = Q.expoSpeed(e, facts);
+  const all = e.hours * 3600000 - sp2.mins * 60000;
+  const el2 = el.querySelector('.sub'), bar = el.querySelector('.bar i'), btn = el.querySelector('button');
+  el.classList.toggle('back', left <= 0);
+  bar.style.width = Math.round(Math.max(0, Math.min(1, 1 - left / Math.max(1, all))) * 100) + '%';
+  el2.innerHTML = escapeHTML(Q.AREAS[e.area].name) + ' · ' + Q.expoPlan(e.hours).name + '<br>' +
+    (left <= 0 ? '<b>돌아왔어요</b>' : fmtLeft(left)) +
+    (sp2.mins ? ' · <b>' + sp2.mins + '분</b> 앞당겨졌어요 (' + escapeHTML(sp2.why.join(', ')) + (sp2.capped ? ' — 여기까지' : '') + ')' : '');
+  btn.hidden = left > 0;
+}
+function renderExpo(){
+  const card = $('#expoCard'); if (!card || !save) return;
+  const E = Q.expoOf(save), fr = Q.friendsOf(save), slots = Q.expoSlots(save);
+  $('#expoSlot').textContent = fr.length ? '자리 ' + E.sent.length + '/' + slots + ' · 다녀온 원정 ' + (E.done || 0) + '번' : '';
+  $('#expoLead').innerHTML = fr.length
+    ? '친구를 무대로 내보내면 <b>혼자서 다녀와요</b>. 나가 있는 동안엔 전투를 안 도와줘요.<br>놔둬도 잃는 건 없고, 그 사이에 일기를 쓰거나 달리기를 하면 <b>더 빨리 돌아와요</b>.'
+    : '상대를 세 번 이기면 친구가 돼요. <b>친구가 한 명이라도 생기면</b> 원정을 보낼 수 있어요.';
+
+  // 나가 있는 것
+  const out = $('#expoOut'); out.innerHTML = '';
+  E.sent.forEach((e, i) => {
+    const f = fr.filter(x => x.key === e.who)[0];
+    const el = document.createElement('div'); el.className = 'trip';
+    const sp = f && SPRITES[f.sp];
+    if (sp){
+      const cv = document.createElement('canvas'); cv.width = sp[0].length * 2; cv.height = sp.length * 2;
+      const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+      drawSprite(g, sp, 0, 0, 2); el.appendChild(cv);
+    }
+    const body = document.createElement('div'); body.className = 'body';
+    body.innerHTML = '<div class="nm">' + escapeHTML(f ? f.name : '친구') + '</div><div class="sub"></div><div class="bar"><i></i></div>';
+    const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '데리러 가기';
+    btn.addEventListener('click', () => claimExpo(e));
+    body.appendChild(btn);
+    el.appendChild(body); out.appendChild(el);
+    paintTrip(el, e);
+  });
+
+  // 새로 보내기
+  const box = $('#expoSend');
+  const free = fr.filter(f => Q.expoAway(save).indexOf(f.key) < 0);
+  box.hidden = !fr.length || E.sent.length >= slots || !free.length || !!battle;
+  if (!box.hidden){
+    const asel = $('#expoArea'), wsel = $('#expoWho');
+    const keepA = asel.value, keepW = wsel.value;
+    asel.innerHTML = ''; wsel.innerHTML = '';
+    Q.AREAS.forEach((A, i) => {
+      if (!Q.areaOpen(save, i, facts)) return;
+      const o = document.createElement('option'); o.value = String(i); o.textContent = A.name; asel.appendChild(o);
+    });
+    free.forEach(f => { const o = document.createElement('option'); o.value = f.key; o.textContent = f.name; wsel.appendChild(o); });
+    if (keepA && asel.querySelector('option[value="' + keepA + '"]')) asel.value = keepA;
+    if (keepW && wsel.querySelector('option[value="' + keepW + '"]')) wsel.value = keepW;
+    asel.onchange = renderExpoPlans;
+    renderExpoPlans();
+  }
+
+  // 엄마 아빠 쪽지 — 조정판에 적어 두면 여기에 붙는다
+  const note = $('#expoNote');
+  note.hidden = !(TUNE && TUNE.expoNote);
+  if (!note.hidden) note.innerHTML = '📮 ' + escapeHTML(TUNE.expoNote);
+
+  // 일지
+  const lg = $('#expoLog'); lg.innerHTML = '';
+  $('#expoLogH').hidden = !E.log.length;
+  E.log.forEach(x => {
+    const f = Q.AREAS[x.area], nm = friendName(x.who);
+    const el = document.createElement('div'); el.className = 'e' + (x.empty ? ' empty' : '');
+    el.innerHTML = '<b>' + escapeHTML(nm) + '</b> — ' + escapeHTML(f ? f.name : '') + (x.duo ? ' 🤝' : '') + '<br>' +
+      escapeHTML(x.say) + (x.empty ? '' : ' <em>💰' + x.gold + ' · ✨' + x.xp + (x.seed ? ' · 🌱씨앗' : '') + '</em>');
+    lg.appendChild(el);
+  });
+
+  clearInterval(expoTimer);
+  if (E.sent.length) expoTimer = setInterval(expoTick, 1000);
+}
+function friendName(k){
+  const [a, j] = String(k).split(':').map(Number);
+  return (Q.AREAS[a] && Q.AREAS[a].foes[j]) ? Q.AREAS[a].foes[j].name : '친구';
+}
+function expoTick(){
+  const out = $('#expoOut'); if (!out) return;
+  const E = Q.expoOf(save);
+  [].forEach.call(out.children, (el, i) => { if (E.sent[i]) paintTrip(el, E.sent[i]); });
+}
+function renderExpoPlans(){
+  const wrap = $('#expoPlans'); wrap.innerHTML = '';
+  const area = Number($('#expoArea').value || 0);
+  const oth = otherSave();
+  // 언니(동생)가 오늘 같은 곳으로 이미 보냈으면 합동이 된다 — 보내기 전에 알려 준다.
+  const duoHint = !!(oth && oth.expo && [].concat(oth.expo.sent || [], oth.expo.log || [])
+    .some(x => x && x.area === area && Q.dayKey(x.at) === today()));
+  Q.EXPO.PLANS.forEach(P => {
+    const r = Q.expoReward(area, P.h, TUNE, duoHint);
+    const b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = P.name + '<small>' + P.h + '시간 · 💰' + r.gold + ' · ✨' + r.xp + (duoHint ? ' · 🤝합동' : '') + '</small>';
+    b.addEventListener('click', () => sendExpo(area, $('#expoWho').value, P.h));
+    wrap.appendChild(b);
+  });
+  if (duoHint){
+    const t = document.createElement('span');
+    t.style.cssText = 'font-size:11.5px;font-weight:800;align-self:center;';
+    t.textContent = '🤝 ' + hero.call + '도 오늘 여기로 보냈어요 — 합동 원정!';
+    wrap.appendChild(t);
+  }
+}
+function sendExpo(area, who, hours){
+  if (!who) return;
+  const E = Q.expoOf(save);
+  if (E.sent.length >= Q.expoSlots(save)) return;
+  if (Q.expoAway(save).indexOf(who) >= 0) return;
+  Q.expoSend(save, area, who, hours, facts);
+  sfx('key');
+  notice('<b>' + escapeHTML(friendName(who)) + '</b>' + J2(friendName(who), '이', '가') + ' ' +
+    escapeHTML(Q.AREAS[area].name) + '으로 떠났어요 — ' + hours + '시간 뒤에 만나요');
+  renderExpo(); renderStatus(); persist(true);
+}
+function claimExpo(e){
+  const E = Q.expoOf(save), i = E.sent.indexOf(e);
+  if (i < 0) return;
+  const r = Q.expoClaim(save, i, facts, TUNE, otherSave());
+  if (!r) return;
+  sfx(r.empty ? 'thud' : 'fanfare');
+  const nm = escapeHTML(friendName(r.who));
+  notice(r.empty
+    ? '<b>' + nm + '</b>' + J2(friendName(r.who), '이', '가') + ' 빈손으로 돌아왔어요 — ' + escapeHTML(r.say)
+    : '<b>' + nm + '</b> ' + escapeHTML(r.say) + (r.duo ? ' 🤝<b>합동 원정</b>' : '') +
+      ' — 💰' + r.gold + ' · ✨' + r.xp + (r.seed ? ' · 🌱 <b>농장에 심을 씨앗</b>도 주워 왔어요' : ''));
+  refreshStats();
+  renderExpo(); renderStatus(); renderDex(); persist(true);
+}
+
 function renderShop(){
   const S = Q.SHOP, box = $('#shop');
   const gift = S.gift.gold(TUNE);
@@ -862,7 +1014,7 @@ function startBattle(foe){
   $('#battleCard').hidden = false;
   $('#bHeroName').textContent = hero.name;
   $('#bFoeName').textContent = EI(foe.elem) + ' ' + foe.name + (foe.boss ? ' (대장)' : '');
-  renderBars(); renderMenu(); renderMap(); renderShop(); renderWeek(); renderDex();
+  renderBars(); renderMenu(); renderMap(); renderExpo(); renderShop(); renderWeek(); renderDex();
   log(foe.week
     ? '<b>' + foe.name + '</b>' + J2(foe.name, '이', '가') + ' 버티고 서 있어요. 오늘 몫 ' + (Q.WEEK.swingsPerDay - save.week.swings) + '번을 때려요!'
     : '<b>' + foe.name + '</b>' + J2(foe.name, '이', '가') + ' 나타났어요! ' + EI(foe.elem) + ' ' + EN(foe.elem) + ' 속성이에요.' + (combo ? ' 💞 콤보 중!' : ''));

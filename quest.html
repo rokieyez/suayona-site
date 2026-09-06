@@ -164,6 +164,34 @@
   }
   .titles span.on{background:var(--lemon); color:var(--ink);}
 
+  /* 원정 — 직접 놀지 않는 동안 친구가 다녀오는 자리 */
+  .expo-lead{font-size:12.5px; color:var(--ink-soft); line-height:1.7; margin:0 0 10px;}
+  .expo-out{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:8px;}
+  .expo-out .trip{border:2px solid var(--ink); background:#fff; padding:8px 9px; display:flex; gap:8px; align-items:center;}
+  .expo-out .trip.back{background:var(--lemon);}
+  .expo-out .trip canvas{image-rendering:pixelated; flex:none;}
+  .expo-out .trip .body{flex:1; min-width:0;}
+  .expo-out .trip .nm{font-size:12px; font-weight:800;}
+  .expo-out .trip .sub{font-size:11px; color:var(--ink-soft); font-weight:700; margin-top:2px; line-height:1.5;}
+  .expo-out .trip .bar{height:7px; border:2px solid var(--ink); background:#fff; margin-top:5px;}
+  .expo-out .trip .bar i{display:block; height:100%; background:var(--mint);}
+  .expo-out .trip button{font:inherit; font-size:11px; font-weight:800; padding:4px 8px; border:2px solid var(--ink);
+    background:var(--coral); color:var(--ink); cursor:pointer; box-shadow:2px 2px 0 var(--ink);}
+  .expo-send{margin-top:10px; border:2px solid var(--ink); background:var(--cream); padding:10px 11px;}
+  .expo-send .row{display:flex; gap:10px; flex-wrap:wrap;}
+  .expo-send label{font-size:12px; font-weight:800; display:flex; gap:6px; align-items:center;}
+  .expo-send select{font:inherit; font-size:12px; font-weight:700; padding:4px 6px; border:2px solid var(--ink); background:#fff;}
+  .expo-plans{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  .expo-plans button{font:inherit; font-size:12px; font-weight:800; text-align:left; padding:8px 10px; cursor:pointer;
+    border:2px solid var(--ink); background:#fff; color:var(--ink); box-shadow:2px 2px 0 var(--ink);}
+  .expo-plans button small{display:block; font-size:10.5px; color:var(--ink-soft); font-weight:700; margin-top:2px;}
+  .expo-plans button:disabled{opacity:.45; cursor:not-allowed; box-shadow:none;}
+  .expo-note{margin-top:10px; border:2px dashed var(--ink); background:#fff; padding:7px 9px; font-size:12px; font-weight:700;}
+  .expo-log{display:flex; flex-direction:column; gap:5px;}
+  .expo-log .e{border-left:4px solid var(--mint); background:#fff; padding:5px 8px; font-size:11.5px; line-height:1.6;}
+  .expo-log .e.empty{border-left-color:var(--ink-soft);}
+  .expo-log .e em{font-style:normal; color:var(--ink-soft); font-weight:700;}
+
   .tune{max-width:520px; margin:18px auto 0; text-align:left; padding:14px 16px;}
   .tune label{display:block; font-size:12.5px; font-weight:800; margin-top:10px;}
   .tune label span{font-weight:700; color:var(--ink-soft); float:right;}
@@ -312,6 +340,7 @@
         <label>상대 세기 <span id="tFoeV"></span><input type="range" id="tFoe" min="0.6" max="1.4" step="0.1"></label>
         <label>오늘의 선물 금화 <span id="tGiftV"></span><input type="range" id="tGift" min="10" max="100" step="5"></label>
         <label>응원 한 줄 <span>전투 중 응원 요정이 들고 나와요</span><input type="text" id="tCheer" maxlength="60" placeholder="예: 우리 딸 최고! 천천히 해도 돼"></label>
+        <label>원정 쪽지 <span>원정 화면에 📮 로 붙어요</span><input type="text" id="tExpo" maxlength="60" placeholder="예: 오늘도 잘 다녀와. 조심조심!"></label>
         <div class="tprev" id="tunePrev"></div>
         <div class="row"><button type="button" class="dot-btn small primary" id="tSave">저장</button><span class="msg" id="tMsg" style="margin:0;"></span></div>
         <div class="undo" id="tUndo"></div>
@@ -375,6 +404,22 @@
         <div class="stage"><canvas id="qCanvas" width="640" height="400" aria-label="전투 화면"></canvas></div>
         <div class="menu" id="menu"></div>
         <div class="qlog" id="qlog" aria-live="polite"></div>
+      </div>
+
+      <div class="dot-card q-card reveal" id="expoCard" style="margin-top:14px;">
+        <h3 class="pixel">원정 <span id="expoSlot" style="font-weight:700;color:var(--ink-soft);"></span></h3>
+        <p class="expo-lead" id="expoLead"></p>
+        <div class="expo-out" id="expoOut"></div>
+        <div class="expo-send" id="expoSend" hidden>
+          <div class="row">
+            <label>어디로 <select id="expoArea"></select></label>
+            <label>누구를 <select id="expoWho"></select></label>
+          </div>
+          <div class="expo-plans" id="expoPlans"></div>
+        </div>
+        <div class="expo-note" id="expoNote" hidden></div>
+        <h3 class="pixel" id="expoLogH" hidden style="margin-top:14px;">원정 일지</h3>
+        <div class="expo-log" id="expoLog"></div>
       </div>
 
       <div class="dot-card q-card reveal" style="margin-top:14px;">
