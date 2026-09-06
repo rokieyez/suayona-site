@@ -2808,7 +2808,7 @@ function giftDialog(id, have){
   $('#gGo').addEventListener('click', () => { const n = Math.max(1, Math.min(have, Number($('#gN').value) || 1)), note = $('#gNote').value; const r = act((w, m) => R.sendGift(w, m, id, n, note, now())); if (r.ok) sfx('sparkle'); closeModal(); });
 }
 
-const SHOP_TABS = [['seed', '🌱 씨앗'], ['tool', '🔧 도구·밭'], ['animal', '🐔 동물'], ['furn', '🛋️ 가구'], ['deco', '🌼 꾸미기'], ['recipe', '📜 요리법']];
+const SHOP_TABS = [['seed', '🌱 씨앗'], ['tool', '🔧 도구·밭·재료'], ['animal', '🐔 동물'], ['furn', '🛋️ 가구'], ['deco', '🌼 꾸미기'], ['recipe', '📜 요리법']];
 function renderShop(){
   const st = $('#shoptabs'); st.innerHTML = '';
   SHOP_TABS.forEach(([k, l]) => st.appendChild(btn(l, shopTab === k ? 'on' : '', () => { shopTab = k; renderShop(); })));
@@ -2832,7 +2832,7 @@ function renderShop(){
       const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('seed:' + c, C.seed, mineHalf && lvOk && seasonOk && M.coins >= C.seed)); card.appendChild(a); box.appendChild(card);
     });
   } else if (shopTab === 'tool'){
-    $('#shopSub').textContent = '도구가 좋아지면 한 번에 여러 칸. 밭은 넓힐수록 칸이 늘어요.';
+    $('#shopSub').textContent = '도구가 좋아지면 한 번에 여러 칸. 밭은 넓힐수록 칸이 늘어요. 나무와 돌도 여기서 살 수 있어요.';
     Object.keys(R.TOOLS).forEach(t => {
       const Tt = R.TOOLS[t], cur = M.tools[t] || 0, nx = Tt.levels[cur + 1];
       const card = document.createElement('div'); card.className = 'item';
@@ -2850,6 +2850,15 @@ function renderShop(){
     const spa = document.createElement('div'); spa.className = 'act'; spa.appendChild(buyBtn('sprinkler:1', R.SPRINKLER.cost, M.coins >= R.SPRINKLER.cost && lv >= R.SPRINKLER.lv)); sp.appendChild(spa); box.appendChild(sp);
     const fc = document.createElement('div'); fc.className = 'item'; fc.innerHTML = '<div class="nm">🧪 비료</div><div class="pr">1.5배 빨리. 일기를 쓰면 공짜로 하나</div>';
     const fa = document.createElement('div'); fa.className = 'act'; fa.appendChild(buyBtn('fert:1', 30, M.coins >= 30)); fc.appendChild(fa); box.appendChild(fc);
+    // 나무·돌 — 베고 캐는 것이 하루에 몇 번뿐이라, 짓다가 한 가지가 모자라면 며칠을 기다려야 했다
+    [['wood', '🪵'], ['stone', '🪨']].forEach(([id, icon]) => {
+      const cost = R.MATERIALS[id].cost;
+      const card = itemCard(id, M.inv[id] || 0, null);
+      const pr = document.createElement('div'); pr.className = 'pr';
+      pr.textContent = icon + ' 집을 지을 때 써요 · 되팔면 🪙 ' + R.sellPrice(id, W, now()) + ' · 가진 것 ' + (M.inv[id] || 0) + '개';
+      card.appendChild(pr);
+      const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('mat:' + id, cost, M.coins >= cost)); card.appendChild(a); box.appendChild(card);
+    });
   } else if (shopTab === 'animal'){
     $('#shopSub').textContent = '닭장·외양간을 먼저 지어요(둘이서 탭). 한 곳에 네 마리까지.';
     Object.keys(R.ANIMALS).forEach(k => {
@@ -3049,10 +3058,63 @@ const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars:
                      board: 1, garland: 1, wshelf: 1, rainbow: 1,
                      heightbar: 1, worldmap: 1, mobile: 1, wreath: 1,
                      whale: 1, wlight: 1, medalcase: 1 };
-/* 벽에 거는 것은 어느 벽에 붙나. 칸에서 뒤로 물러났을 때 더 가까운 벽에 건다.
-   (y 쪽이 가까우면 오른쪽 벽, x 쪽이 가까우면 왼쪽 벽) */
+/* 옛 세이브에만 남은 규칙 — 벽에 거는 것을 바닥 칸에 두고 어느 벽인지 어림하던 방법.
+   지금은 벽 격자('w,벽,칸,단')에 걸므로, fixWorld 가 아직 못 옮긴 것만 이 길로 그린다. */
 function wallSlot(Rm, x, y){
   return (y <= x) ? { side: 1, at: x, len: Rm.w } : { side: -1, at: y, len: Rm.h };
+}
+/* 규칙 파일이 아직 옛것일 수 있다 — 두 파일 다 max-age=600 이라 배포 직후 십 분쯤은
+   한쪽만 새것일 수 있다. 그동안에는 벽 격자가 없는 것처럼 굴러가게 둔다(옛 그림 자리 그대로). */
+const HAS_WALLGRID = () => !!(R.parseWall && R.wallCols && R.hungCol && R.hang);
+const WALL_PITCH = () => R.WALL_PITCH || 44;
+const WALL_DROP = 12;              // 아래 단은 열두 도트 내려 건다
+const WALL_ROW_SPLIT = 34;         // 벽을 누른 자리가 이보다 아래면 아래 단
+// 벽 한 면의 가로 길이(도트)와, 격자 칸 하나의 왼쪽 끝
+function wallLenOf(Rm, side){ return (side ? Rm.w : Rm.h) * (TW / 2); }
+function wallU(len, cols, col){
+  const pitch = WALL_PITCH();
+  const pad = Math.max(0, Math.floor((len - cols * pitch) / 2 / 2) * 2);
+  return pad + col * pitch;
+}
+/* 벽면을 도트로 칠하는 붓. u 는 벽을 따라 간 거리(짝수), v 는 벽 꼭대기에서 내려온 거리.
+   비스듬한 벽이 2도트마다 1도트씩 내려간다. side 1=오른쪽 벽, 0=왼쪽 벽. */
+function wallPaint(g, Rm, side){
+  const ox = isoOx(Rm), q = dotFill(g);
+  return (u, v, uw, vh, c) => {
+    const u0 = Math.floor(u / 2) * 2;
+    for (let i = 0; i < uw; i += 2){
+      const uu = u0 + i;
+      if (uu < 0) continue;
+      if (side) q(ox + uu, uu / 2 + v, 2, vh, c);
+      else q(ox - uu - 2, (uu + 2) / 2 + v, 2, vh, c);
+    }
+  };
+}
+// 화면 자리 → 벽 격자. 벽의 기울기를 되돌려 u,v 를 얻고 칸과 단으로 나눈다.
+function wallPickAt(rm, Rm, px, py){
+  const ox = isoOx(Rm), side = px >= ox ? 1 : 0;
+  const u = side ? px - ox : ox - px - 2;
+  const v = py - (u + (side ? 0 : 2)) / 2;
+  const len = wallLenOf(Rm, side);
+  if (u < 0 || u >= len || v < 0 || v >= WALLH) return null;
+  const cols = R.wallCols(rm, side);
+  const col = Math.max(0, Math.min(cols - 1, Math.floor((u - wallU(len, cols, 0)) / WALL_PITCH())));
+  return { side: side, col: col, row: v >= WALL_ROW_SPLIT ? 1 : 0 };
+}
+/* 그 칸이 붙박이 창(오른쪽 벽)이나 거실 문(왼쪽 벽)을 가리나.
+   막지는 않는다 — 아이가 자리를 보고 고르는 것이고, 언제든 옮길 수 있다. 알려만 준다. */
+function wallCovers(rm, side, col){
+  const Rm = R.ROOMS[rm], len = wallLenOf(Rm, side);
+  const u = wallU(len, R.wallCols(rm, side), col);
+  if (side){
+    const wu = Math.max(6, Math.floor((len / 2 - 30) / 2) * 2);
+    return u + 40 > wu - 18 && u < wu + 78;
+  }
+  if (rm === 'living'){
+    const du = Math.max(6, Math.floor((len - 44) / 2 / 2) * 2);
+    return u + 40 > du - 2 && u < du + 42;
+  }
+  return false;
 }
 /* 벽에 거는 것. 가로 40 · 세로 6~58 안에 그린다 — 전에는 32×40 이라 그림이 굵었다.
    벽이 2도트마다 한 도트씩 내려가므로 가로 자리와 폭은 늘 짝수로 잡는다.
@@ -3385,16 +3447,7 @@ function drawRoomShell(g, r, L, wallItems){
   const q = dotFill(g);
   /* 벽면 좌표를 화면으로 옮긴다. u 는 벽을 따라 간 거리(가로 도트, 짝수),
      v 는 벽 꼭대기에서 내려온 거리. 비스듬한 벽이 2도트마다 1도트씩 내려간다. */
-  const wallAt = side => (u, v, uw, vh, c) => {
-    const u0 = Math.floor(u / 2) * 2;
-    for (let i = 0; i < uw; i += 2){
-      const uu = u0 + i;
-      if (uu < 0) continue;
-      if (side > 0) q(ox + uu, uu / 2 + v, 2, vh, c);
-      else q(ox - uu - 2, (uu + 2) / 2 + v, 2, vh, c);
-    }
-  };
-  const wallR = wallAt(1), wallL = wallAt(-1);
+  const wallR = wallPaint(g, Rm, 1), wallL = wallPaint(g, Rm, 0);
   // 벽지 한 면. k 는 밝기 — 왼쪽 벽은 빛을 등져 조금 어둡다.
   const paper = (wall, len, k) => {
     const wc = shade(P.wall, k), w2 = shade(P.wall2, k), dc = shade(P.dot, k);
@@ -3407,6 +3460,12 @@ function drawRoomShell(g, r, L, wallItems){
       if (P.motif === 'heart'){ wall(mx, v + 2, 4, 4, dc); wall(mx + 6, v + 2, 4, 4, dc); wall(mx + 2, v + 6, 6, 2, dc); wall(mx + 4, v + 8, 2, 2, dc); }
       else if (P.motif === 'star'){ wall(mx + 4, v, 2, 10, dc); wall(mx, v + 4, 10, 2, dc); wall(mx + 2, v + 2, 6, 6, dc); }
       else { wall(mx, v, 2, 12, dc); wall(mx + 6, v + 4, 2, 12, dc); }
+    }
+    /* 도배지 이음매 — 마흔여덟 도트마다 한 폭. 벽지가 한 장의 큰 무늬가 아니라
+       여러 폭을 이어 바른 것으로 읽힌다. 아주 옅게 — 눈에 띄면 줄무늬가 된다. */
+    for (let u = 48; u < len; u += 48){
+      wall(u - 2, W_MOULD, 2, W_RAIL - W_MOULD, 'rgba(24,16,8,0.05)');
+      wall(u, W_MOULD, 2, W_RAIL - W_MOULD, 'rgba(255,255,255,0.05)');
     }
     wall(0, 0, len, W_MOULD, shade(P.trim, k));                                  // 위쪽 몰딩
     wall(0, 0, len, 2, shade(P.trim, k + 26)); wall(0, W_MOULD - 2, len, 2, shade(P.trim, k - 22));
@@ -3432,6 +3491,13 @@ function drawRoomShell(g, r, L, wallItems){
   };
   paper(wallR, LW, 0);
   paper(wallL, LH, -9);
+  /* 두 벽이 만나는 모서리 — 빛이 덜 드는 자리다. 안 넣으면 두 색면이 선 하나로
+     딱 갈려서 종이를 접어 세운 것처럼 보인다. 모서리에서 멀어질수록 옅어진다. */
+  for (let i = 0; i < 26; i += 2){
+    const a = (0.16 * (1 - i / 26)).toFixed(3);
+    wallR(i, 0, 2, WALLH, 'rgba(26,18,10,' + a + ')');
+    wallL(i, 0, 2, WALLH, 'rgba(26,18,10,' + a + ')');
+  }
   // 두 벽이 만나는 구석 — 한 줄 밝게 세워 두면 모서리가 선다
   q(ox - 2, 0, 2, WALLH, 'rgba(255,250,235,0.14)');
   q(ox, 0, 2, WALLH, 'rgba(28,20,12,0.06)');
@@ -3449,6 +3515,21 @@ function drawRoomShell(g, r, L, wallItems){
     wallR(wu + 38, wv + 16, 14, 4, '#ffffff');
   }
   wallR(wu, wv + wh - 12, ww, 12, '#7fbf6f'); wallR(wu, wv + wh - 12, ww, 2, '#9ad189');
+  /* 창밖 — 하늘과 들판만 있으면 색종이 두 장이다. 먼 언덕 둘과 나무 하나, 새 두 마리를
+     넣으면 「밖」이 된다. 먼 것일수록 옅게(공기원근법). */
+  for (let i = 0; i < 22; i += 2){
+    const hgt = Math.round(5 - Math.abs(i - 10) * 0.35);
+    if (hgt > 0) wallR(wu + 4 + i, wv + wh - 12 - hgt, 2, hgt, '#a8c8a0');
+  }
+  for (let i = 0; i < 26; i += 2){
+    const hgt = Math.round(7 - Math.abs(i - 12) * 0.42);
+    if (hgt > 0) wallR(wu + 28 + i, wv + wh - 12 - hgt, 2, hgt, '#8fb98a');
+  }
+  wallR(wu + 14, wv + wh - 18, 2, 6, '#7a5230');                                // 먼 나무
+  wallR(wu + 10, wv + wh - 24, 10, 7, '#6fa869'); wallR(wu + 12, wv + wh - 24, 6, 2, '#8cc487');
+  [[44, 10], [50, 13]].forEach(([bx, by]) => {                                  // 새 두 마리
+    wallR(wu + bx, wv + by, 2, 1, '#6f7a86'); wallR(wu + bx + 2, wv + by - 1, 2, 1, '#6f7a86');
+  });
   // 유리에 비스듬히 비치는 빛 — 창이 유리라는 걸 알려 주는 가장 싼 표시
   for (let i = 0; i < 10; i += 2) wallR(wu + 6 + i, wv + 4 + i, 2, 10, 'rgba(255,255,255,0.30)');
   for (let i = 0; i < 6; i += 2) wallR(wu + 16 + i, wv + 4 + i, 2, 8, 'rgba(255,255,255,0.22)');
@@ -3502,23 +3583,18 @@ function drawRoomShell(g, r, L, wallItems){
     wallL(du, dv, 2, dh, '#c79b6d');
     wallL(du - 2, dv + dh, dw + 4, 2, 'rgba(26,18,10,0.22)');                  // 문 밑 틈
   }
-  // 벽에 건 가구
+  /* 벽에 건 가구 — 이제 벽 격자('w,벽,칸,단')에 건다. 예전에는 바닥 칸에 걸어 두고
+     그 칸에서 벽자리를 어림했다(그래서 훈장 걸이를 억지로 왼쪽 벽에 붙여 두는 예외가
+     있었다). 아이가 자리를 골라 거니 그 예외는 없앴다. */
   (wallItems || []).forEach(it => {
-    const s = wallSlot(Rm, it.x, it.y);
-    let wl = s.side > 0 ? wallR : wallL;
-    let len = (s.side > 0 ? LW : LH);
-    let u = Math.min(Math.max(0, s.at * (TW / 2) - 8), len - 42);   // 그림이 40 도트로 넓어졌다
-    /* 훈장 걸이만은 어디에 놓아도 왼쪽 벽에 건다. 붙박이 창이 오른쪽 벽 한가운데를 차지하고
-       있어서, 아이가 무심코 그 자리에 놓으면 창을 통째로 덮어 버린다.
-       거실은 왼쪽 벽에도 문이 있으므로 그 문 옆으로 비켜 건다. */
-    if (it.f === 'medalcase'){
-      wl = wallL; len = LH;
-      const du = Math.max(6, Math.floor((LH - 44) / 2 / 2) * 2);      // 거실 문의 왼쪽 끝
-      u = r === 'living' ? Math.min(du + 40, LH - 42) : 0;
-    }
+    const wl = it.side ? wallR : wallL, len = it.side ? LW : LH;
+    const u = it.col == null
+      ? Math.min(Math.max(0, it.at * (TW / 2) - 8), len - 42)          // 아직 안 옮겨진 옛 세이브
+      : wallU(len, R.wallCols(r, it.side), it.col);
+    const dv = it.row ? WALL_DROP : 0;
     // 벽에서 살짝 떠 있게 — 그림자를 한 벌 먼저 깐다. 안 그러면 벽지에 인쇄된 것처럼 보인다
-    paintWallItem((uu, v, uw, vh) => wl(uu + 2, v + 3, uw, vh, 'rgba(26,18,10,0.16)'), u, it.f, P, r);
-    paintWallItem(wl, u, it.f, P, r);
+    paintWallItem((uu, v, uw, vh) => wl(uu + 2, v + dv + 3, uw, vh, 'rgba(26,18,10,0.16)'), u, it.f, P, r);
+    paintWallItem((uu, v, uw, vh, c) => wl(uu, v + dv, uw, vh, c), u, it.f, P, r);
   });
   // 마루 — 널이 오른쪽아래로 흐른다. 널 하나가 세로 8도트, 한 칸에 세 줄.
   const BX = Rm.w * (TW / 2), FBY = WALLH + (Rm.w + Rm.h) * (TH / 2), LY = WALLH + Rm.h * (TH / 2);
@@ -3550,6 +3626,13 @@ function drawRoomShell(g, r, L, wallItems){
     const a = (x - ox) / TW, b = (y - WALLH) / TH, tx = b + a, ty = b - a;
     return tx >= 0 && ty >= 0 && tx < Rm.w && ty < Rm.h;
   };
+  /* 벽 밑 그늘 — 걸레받이가 바닥에 닿는 자리. 빛이 안 드는 좁은 띠 하나면 벽과 바닥이
+     맞물려 보인다. 없으면 바닥이 벽 뒤로 그냥 이어진 것처럼 떠 보였다. */
+  for (let i = 0; i < 10; i += 2){
+    const a = (0.14 * (1 - i / 10)).toFixed(3), c2 = 'rgba(26,18,10,' + a + ')';
+    for (let u = 0; u < LW; u += 2){ const y2 = WALLH + u / 2 + i; if (inFloor(ox + u + 1, y2 + 1)) q(ox + u, y2, 2, 2, c2); }
+    for (let u = 0; u < LH; u += 2){ const y2 = WALLH + (u + 2) / 2 + i; if (inFloor(ox - u - 1, y2 + 1)) q(ox - u - 2, y2, 2, 2, c2); }
+  }
   for (let k = 0; k < Rm.h * 3; k++){
     const col = P.floor[Math.floor(R.prand('fp' + r + k) * 4)], jc = shade(col, -26);
     for (let m = 0; m < Rm.w; m++){
@@ -4318,13 +4401,20 @@ function drawRoom(cv, r, tms){
   // 놓인 것을 벽에 거는 것과 바닥에 두는 것으로 나눈다
   const P = R.placed(W, r), wallItems = [], floorItems = [];
   Object.keys(P).forEach(k => {
-    const p = k.split(',').map(Number), it = P[k];
-    const F = R.FURNITURE[it.f]; if (!F) return;
-    (WALL_KINDS[F.kind] ? wallItems : floorItems).push({ f: it.f, r: it.r || 0, x: p[0], y: p[1] });
+    const it = P[k], F = R.FURNITURE[it.f]; if (!F) return;
+    const q = HAS_WALLGRID() ? R.parseWall(k) : null;
+    if (q){ wallItems.push({ f: it.f, side: q.side, col: q.col, row: q.row, k: k }); return; }
+    const p = k.split(',').map(Number);
+    if (WALL_KINDS[F.kind]){                                   // 아직 안 옮겨진 옛 세이브
+      const sl = wallSlot(Rm, p[0], p[1]);
+      wallItems.push({ f: it.f, side: sl.side > 0 ? 1 : 0, col: null, at: sl.at, row: 0, k: k });
+      return;
+    }
+    floorItems.push({ f: it.f, r: it.r || 0, x: p[0], y: p[1] });
   });
   // 벽에 건 것은 바탕에 함께 굽는다 — 매 칸마다 계단을 쌓느라 프레임이 무거워진다
-  wallItems.sort((a, b) => (a.x + a.y) - (b.x + b.y));
-  const wsig = wallItems.map(i => i.f + i.x + ',' + i.y).join('|');
+  wallItems.sort((a, b) => (a.side - b.side) || ((a.col == null ? a.at : a.col) - (b.col == null ? b.at : b.col)));
+  const wsig = wallItems.map(i => i.f + '@' + i.k).join('|');
   if (!houseBg) houseBg = document.createElement('canvas');
   const sig = r + '|' + cw + 'x' + ch + '|' + (L.dark > 0.42 ? 'n' : L.dark > 0.2 ? 'e' : L.dark > 0.08 ? 'd' : 'l') + '|' + wsig;
   if (houseBg.width !== cw || houseBg.height !== ch){ houseBg.width = cw; houseBg.height = ch; houseSig = ''; }
@@ -4349,8 +4439,9 @@ function drawRoom(cv, r, tms){
       glow.push({ x: isoX(Rm, it.x, it.y) * HS, y: (isoY(it.x, it.y) - 16) * HS, r: (kind === 'fire' ? 76 : 54) * HS });
   });
   wallItems.forEach(it => { if (R.FURNITURE[it.f].kind === 'stars'){
-    const s = wallSlot(Rm, it.x, it.y);
-    glow.push({ x: (ox + s.side * (s.at * (TW / 2) + 12)) * HS, y: (s.at * (TW / 2) / 2 + 34) * HS, r: 54 * HS });
+    const len = wallLenOf(Rm, it.side);
+    const u = (it.col == null ? Math.min(Math.max(0, it.at * (TW / 2) - 8), len - 42) : wallU(len, R.wallCols(r, it.side), it.col)) + 20;
+    glow.push({ x: (ox + (it.side ? u : -u)) * HS, y: (u / 2 + 30 + (it.row ? WALL_DROP : 0)) * HS, r: 54 * HS });
   } });
   // 아이와 고양이 — 앞에서 본 그림이라 레퍼런스처럼 방과 섞여도 어색하지 않다
   const keep2 = ctx; ctx = g;
@@ -4428,6 +4519,25 @@ function drawRoom(cv, r, tms){
     drawFurnItem(g, held.f, held.r, Rm, held.tx, held.ty, t);
     g.restore();
   }
+  /* 벽에 거는 것을 골랐으면 벽 격자를 보여 준다 — 어디에 걸리는지 눈으로 고르게.
+     초록은 빈 자리, 빨강은 이미 걸린 자리, 노랑은 창이나 문을 가리는 자리다. */
+  if (tab === 'house' && arrange && furnPick && R.FURNITURE[furnPick] && R.FURNITURE[furnPick].wall && HAS_WALLGRID()){
+    const rows = R.wallRowsFor(furnPick);
+    [0, 1].forEach(side => {
+      const paint = wallPaint(g, Rm, side), len = wallLenOf(Rm, side), cols = R.wallCols(room, side);
+      for (let c = 0; c < cols; c++){
+        const u = wallU(len, cols, c), taken = R.hungCol(W, room, side, c);
+        const col2 = taken ? 'rgba(255,143,143,0.75)' : wallCovers(room, side, c) ? 'rgba(255,209,102,0.75)' : 'rgba(143,217,143,0.8)';
+        // 빈 칸에는 위·아래 두 단을 다 보여 준다. 이미 걸린 칸은 걸린 높이 하나만.
+        const shown = taken ? [(R.parseWall(taken) || { row: 0 }).row] : (rows > 1 ? [0, 1] : [0]);
+        shown.forEach(row => {
+          const dv = row ? WALL_DROP : 0;
+          paint(u, 4 + dv, 40, 2, col2); paint(u, 56 + dv, 40, 2, col2);
+          paint(u, 4 + dv, 2, 54, col2); paint(u + 38, 4 + dv, 2, 54, col2);
+        });
+      }
+    });
+  }
   // 가구를 놓거나 돌릴 때는 칸을 보여 준다 — 마름모 격자다
   if (tab === 'house' && (arrange || furnPick || rotMode)){
     const dot = (x, y) => g.fillRect(Math.round(x * HS), Math.round(y * HS), Math.max(1, Math.round(2 * HS)), Math.max(1, Math.round(HS)));
@@ -4467,8 +4577,10 @@ function renderHouse(){
   $('#houseHint').innerHTML = !mineRoom ? NAME[Rm.owner] + '의 방이에요. 구경만 해요.'
     : !arrange ? '<b>재배치</b>를 누르면 가구를 놓거나 가방에 넣을 수 있어요.'
     : rotMode ? '<b>돌리기</b> 중이에요. 놓인 가구를 누르면 90도씩 돌아가요. 다시 누르면 끝나요.'
-    : furnPick ? '<b>' + R.FURNITURE[furnPick].name + '</b>을 놓을 자리를 눌러요 (' + dirName + '). 놓인 가구를 누르면 가방에 들어가요.'
-    : '놓인 가구는 <b>끌어서</b> 옮겨요. 그냥 누르면 가방에 들어가요. 가방의 가구를 고르면 놓을 수 있어요.';
+    : furnPick ? (R.FURNITURE[furnPick].wall
+        ? '<b>' + R.FURNITURE[furnPick].name + '</b>은 벽에 걸어요 — <b>벽의 초록 칸</b>을 눌러요. 위·아래 두 단이 있어요.'
+        : '<b>' + R.FURNITURE[furnPick].name + '</b>을 놓을 자리를 눌러요 (' + dirName + '). 놓인 가구를 누르면 가방에 들어가요.')
+    : '놓인 가구는 <b>끌어서</b> 옮겨요. 그냥 누르면 가방에 들어가요. 벽에 건 것은 <b>벽을 눌러</b> 집어요.';
   const fb = $('#furn'); fb.innerHTML = '';
   if (mineRoom){
     // 재배치 — 이걸 누른 뒤에만 들고 놓고 돌릴 수 있다. 끝내면 들고 있던 것도 내려놓는다
@@ -4563,11 +4675,37 @@ function onHouseUp(){
   if (r2.ok) sfx('plant');
   renderHouse();
 }
+/* 벽을 누르면 벽 격자에 걸거나 걸린 것을 집는다. 바닥과 같은 규칙이다 —
+   누른 자리에 있으면 가방으로, 비었으면 고른 것을 건다. */
+function onWallTap(sl){
+  const Rm = R.ROOMS[room];
+  if (!HAS_WALLGRID()){ flash('벽이에요. 잠시 뒤에 다시 열면 벽에도 걸 수 있어요'); return; }
+  if (Rm.owner && Rm.owner !== key){ flash(NAME[Rm.owner] + '의 방이에요'); return; }
+  if (!arrange){ flash('재배치를 누르면 벽에도 걸 수 있어요'); return; }
+  const k = R.hungCol(W, room, sl.side, sl.col);      // 한 칸에 하나뿐이라 단은 안 따진다
+  if (k){
+    const r2 = act((w2, m) => R.pickUp(w2, m, room, k));
+    if (r2.ok){ sfx('prop'); furnPick = null; }
+    renderHouse(); return;
+  }
+  if (!furnPick){ flash('가방에서 벽에 거는 것을 골라요'); return; }
+  const F = R.FURNITURE[furnPick];
+  if (!F.wall){ flash('그건 바닥에 놓는 거예요'); return; }
+  const f = furnPick;
+  const r2 = act((w2, m) => R.hang(w2, m, room, f, sl.side, sl.col, sl.row));
+  if (r2.ok){
+    sfx(f === 'medalcase' ? 'medal' : 'plant');
+    if (wallCovers(room, sl.side, sl.col)) flash('창(문)을 가리는 자리예요 — 눌러서 집어 다른 칸에 걸어도 돼요');
+  }
+  if (!(M.inv['f:' + f] > 0)) furnPick = null;
+  renderHouse();
+}
 function onHouseTap(e){
   if (grabClick){ grabClick = false; return; }
-  const p = houseTileAt(e), Rm = p.Rm, tx = p.tx, ty = p.ty, y = p.y;
+  const p = houseTileAt(e), Rm = p.Rm, tx = p.tx, ty = p.ty;
   if (tx < 0 || ty < 0 || tx >= Rm.w || ty >= Rm.h){
-    if (y < WALLH) flash('벽이에요. 가구는 바닥에 놓아요');
+    const sl = HAS_WALLGRID() ? wallPickAt(room, Rm, p.x, p.y) : null;
+    if (sl) onWallTap(sl);
     return;
   }
   const occ = R.occupied(W, room, tx, ty);
@@ -4590,7 +4728,7 @@ function onHouseTap(e){
     if (r2.ok){
       sfx(f === 'medalcase' ? 'medal' : 'plant');
       // 걸이는 늘 왼쪽 벽에 걸리므로, 어디에 놓든 그 자리에 나타나는 까닭을 알려 준다
-      if (f === 'medalcase') flash('훈장 걸이는 창을 가리지 않게 <b>왼쪽 벽</b>에 걸려요');
+
     }
     if (!(M.inv['f:' + f] > 0)) furnPick = null;
     renderHouse(); return;

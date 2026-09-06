@@ -251,6 +251,8 @@ const FARM = (() => {
     return GOODS[id] ? GOODS[id].name : id;
   }
   // 파는 값. 작물은 그날 시세가 붙는다.
+  // 가게에서 파는 재료 — 값은 되파는 값(시세 1.3배까지)보다 넉넉히 높다
+  const MATERIALS = { wood: { cost: 10 }, stone: { cost: 8 } };
   function sellPrice(id, world, now){
     const [k, v] = id.split(':');
     const mult = world ? priceMult(world, now) : 1;
@@ -678,9 +680,82 @@ const FARM = (() => {
     sua:    { name: '수아 방', w: 7, h: 5, owner: 'sua' },
     yona:   { name: '연아 방', w: 7, h: 5, owner: 'yona' },
   };
-  // 어떤 방의 어느 칸에 무엇이 있나: world.house[room]["x,y"] = { f, by, r }
+  /* 어떤 방의 어디에 무엇이 있나: world.house[room][열쇠] = { f, by, r }
+     열쇠는 두 가지다 — 바닥은 "x,y", 벽에 거는 것은 "w,벽,칸,단"(벽 0=왼쪽, 1=오른쪽). */
   // r 은 돌린 횟수 0·1·2·3 (오른쪽으로 90도씩). 없으면 0 — 예전 세이브가 그대로 열린다.
   function placed(world, room){ return (world.house && world.house[room]) || {}; }
+  /* ---- 벽 격자 ----
+     벽에 거는 것은 바닥 칸이 아니라 벽에 매단다. 열쇠는 'w,<벽>,<칸>,<단>' 이다
+     (벽 0=왼쪽, 1=오른쪽). 바닥 열쇠('3,2')와 글자 모양이 달라서 occupied() 의 숫자
+     비교에 걸리지 않는다 — 그림 한 장이 바닥 한 칸을 잡아먹던 것이 이걸로 없어진다.
+     칸 너비를 44도트로 잡은 까닭: 벽에 거는 그림이 가장 넓은 것이 40도트라, 그보다
+     넓게 띄어야 두 장이 겹치지 않는다. 단은 둘 — 아래 단은 12도트 내려 건다. */
+  const TILE_HALF = 24;                       // 칸 하나가 벽을 따라 차지하는 가로 도트(farm.js 의 TW/2)
+  const WALL_PITCH = 44, WALL_ROWS = 2;
+  const WALL_TALL = { heightbar: 1 };         // 아래 단에 걸면 허리 몰딩을 넘는 것 — 늘 윗단에만
+  function wallLen(room, side){ const R2 = ROOMS[room]; if (!R2) return 0; return (side ? R2.w : R2.h) * TILE_HALF; }
+  function wallCols(room, side){ return Math.max(1, Math.floor(wallLen(room, side) / WALL_PITCH)); }
+  function wallRowsFor(f){ const F = FURNITURE[f]; return (F && WALL_TALL[F.kind]) ? 1 : WALL_ROWS; }
+  function wallKey(side, col, row){ return 'w,' + (side ? 1 : 0) + ',' + col + ',' + row; }
+  function parseWall(k){
+    if (typeof k !== 'string' || k.charAt(0) !== 'w') return null;
+    const p = k.split(',');
+    if (p.length !== 4) return null;
+    const side = Number(p[1]), col = Number(p[2]), row = Number(p[3]);
+    if (!isFinite(side) || !isFinite(col) || !isFinite(row)) return null;
+    return { side: side ? 1 : 0, col: col, row: row };
+  }
+  function hungAt(world, room, side, col, row){
+    const P = placed(world, room);
+    for (const k in P){
+      const q = parseWall(k);
+      if (q && q.side === (side ? 1 : 0) && q.col === col && q.row === row) return k;
+    }
+    return null;
+  }
+  /* 한 칸에는 하나만 건다. 아래 단은 열두 도트만 내려 걸리므로 같은 칸의 두 단은
+     그림끼리 크게 겹친다 — 단은 「높이를 고르는 것」이지 자리를 하나 더 주는 게 아니다. */
+  function hungCol(world, room, side, col){
+    const P = placed(world, room);
+    for (const k in P){
+      const q = parseWall(k);
+      if (q && q.side === (side ? 1 : 0) && q.col === col) return k;
+    }
+    return null;
+  }
+  function canHang(world, room, f, side, col, row){
+    const R2 = ROOMS[room], F = FURNITURE[f];
+    if (!R2 || !F || !F.wall) return false;
+    if (!(col >= 0 && col < wallCols(room, side))) return false;
+    if (!(row >= 0 && row < wallRowsFor(f))) return false;
+    return !hungCol(world, room, side, col);
+  }
+  function hang(world, mine, room, f, side, col, row){
+    const R2 = ROOMS[room], F = FURNITURE[f];
+    if (!R2 || !F) return fail('놓을 수 없어요');
+    if (R2.owner && R2.owner !== mine.key) return fail('여기는 ' + NAME[R2.owner] + '의 방이에요');
+    if (!F.wall) return fail(eun(F.name) + ' 바닥에 놓는 거예요');
+    if (!(row >= 0 && row < wallRowsFor(f))) return fail(eun(F.name) + ' 길어서 윗단에만 걸려요');
+    if (!canHang(world, room, f, side, col, row)) return fail('그 자리에는 걸 수 없어요');
+    if (!take(mine, 'f:' + f)) return fail('그 가구가 없어요');
+    world.house[room][wallKey(side, col, row)] = { f: f, by: mine.key, r: 0 };
+    return okay(eul(F.name) + ' 벽에 걸었어요');
+  }
+  function moveHang(world, mine, room, k, side, col, row){
+    const R2 = ROOMS[room], P = world.house && world.house[room];
+    if (!R2 || !P || !P[k]) return fail('그 자리에 아무것도 없어요');
+    if (R2.owner && R2.owner !== mine.key) return fail('여기는 ' + NAME[R2.owner] + '의 방이에요');
+    const it = P[k], F = FURNITURE[it.f];
+    if (!F.wall) return fail(eun(F.name) + ' 벽에 건 것이 아니에요');
+    if (!(col >= 0 && col < wallCols(room, side))) return fail('벽 밖이에요');
+    if (!(row >= 0 && row < wallRowsFor(it.f))) return fail(eun(F.name) + ' 길어서 윗단에만 걸려요');
+    const nk = wallKey(side, col, row);
+    if (nk === k) return fail('제자리예요');
+    const o = hungCol(world, room, side, col);
+    if (o && o !== k) return fail('그 자리에는 다른 것이 걸려 있어요');
+    delete P[k]; P[nk] = it;
+    return okay(eul(F.name) + ' 옮겼어요');
+  }
   // 돌리면 가로세로가 바뀐다. 두 칸짜리 침대가 세로로 눕는다.
   function furnBox(f, r){
     const F = FURNITURE[f]; if (!F) return { w: 1, h: 1 };
@@ -1017,6 +1092,34 @@ const FARM = (() => {
         if (!it || !FURNITURE[it.f]){ delete P[k]; return; }        // 없어진 가구는 지운다
         it.r = FURNITURE[it.f].wall ? 0 : ((Math.round(Number(it.r) || 0) % 4) + 4) % 4;
       });
+      /* 벽에 거는 것을 바닥 칸에서 벽 격자로 옮긴다 — 한 번만 일어난다.
+         예전에는 바닥 칸에 걸어 두고 그 칸으로 벽자리를 어림했다. 그래서 그림 한 장이
+         바닥 한 칸을 잡아먹었고 높이도 못 골랐다. 보이던 자리를 되도록 지키도록
+         옛 규칙(y<=x 면 오른쪽 벽, 아니면 왼쪽 벽)으로 칸을 고르고, 그 자리가 차 있으면
+         가까운 빈 칸을 찾는다. 벽이 꽉 찼으면 그냥 두고 옛 자리 그대로 그린다. */
+      Object.keys(P).forEach(k => {
+        if (parseWall(k)) return;
+        const it = P[k], F = FURNITURE[it.f];
+        if (!F || !F.wall) return;
+        const p = k.split(',').map(Number);
+        if (!isFinite(p[0]) || !isFinite(p[1])) return;
+        // 훈장 걸이는 예전에 어디에 놓아도 왼쪽 벽에 걸렸다 — 옮길 때도 왼쪽 벽으로 간다
+        const side = F.kind === 'medalcase' ? 0 : (p[1] <= p[0] ? 1 : 0);
+        const at = side ? p[0] : p[1];
+        const cols = wallCols(r, side), rows = wallRowsFor(it.f);
+        const want = Math.max(0, Math.min(cols - 1, Math.round((at * TILE_HALF - 8) / WALL_PITCH)));
+        let put = null;
+        for (let d = 0; d < cols && !put; d++){
+          const tryCols = d === 0 ? [want] : [want + d, want - d];
+          for (let i = 0; i < tryCols.length && !put; i++){
+            const c = tryCols[i];
+            if (c < 0 || c >= cols) continue;
+            if (!hungCol(o, r, side, c)) put = wallKey(side, c, rows > 1 ? 0 : 0);
+          }
+        }
+        if (!put) return;
+        delete P[k]; P[put] = it;
+      });
     });
     if (!o.sprinklers || typeof o.sprinklers !== 'object') o.sprinklers = {};
     if (!o.mail) o.mail = { sua: [], yona: [] };
@@ -1338,6 +1441,15 @@ const FARM = (() => {
       return okay(eul(SPRINKLER.name) + ' 샀어요. 밭의 빈 칸에 놓아요');
     }
     if (k === 'fert'){ if (mine.coins < 30) return fail('동전이 모자라요'); mine.coins -= 30; give(mine, 'fert', 1); return okay('비료를 샀어요'); }
+    /* 나무와 돌 — 베고 캐는 것이 하루에 몇 번뿐이라, 집을 지을 때 한 가지가 모자라
+       며칠을 기다려야 했다. 파는 값은 GOODS 의 파는 값(나무 4·돌 3)에 시세 최대 1.3배를
+       곱한 값(5·4)보다 넉넉히 높게 잡는다 — 사서 되파는 것으로 동전이 늘면 안 된다. */
+    if (k === 'mat'){
+      const Mt = MATERIALS[v]; if (!Mt) return fail('그건 안 팔아요');
+      if (mine.coins < Mt.cost) return fail('동전이 모자라요');
+      mine.coins -= Mt.cost; give(mine, v, 1);
+      return okay(eul(GOODS[v].name) + ' 샀어요');
+    }
     if (k === 'recipe'){
       const D = DISHES[v]; if (!D) return fail('없는 요리예요');
       if (mine.recipes.indexOf(v) >= 0) return fail('이미 아는 요리예요');
@@ -1435,7 +1547,8 @@ const FARM = (() => {
     const R = ROOMS[room], F = FURNITURE[f];
     if (!R || !F) return fail('놓을 수 없어요');
     if (R.owner && R.owner !== mine.key) return fail('여기는 ' + NAME[R.owner] + '의 방이에요');
-    r = F.wall ? 0 : (((Math.round(Number(r) || 0)) % 4) + 4) % 4;   // 벽에 붙는 것은 늘 정면
+    if (F.wall) return fail(eun(F.name) + ' 벽에 거는 거예요. 벽을 눌러요');
+    r = (((Math.round(Number(r) || 0)) % 4) + 4) % 4;
     if (!canPlace(world, room, f, x, y, r)) return fail('그 자리에는 놓을 수 없어요');
     if (!take(mine, 'f:' + f)) return fail('그 가구가 없어요');
     world.house[room][x + ',' + y] = { f, by: mine.key, r };
@@ -1648,6 +1761,7 @@ const FARM = (() => {
     medalState, claimMedal, cropsInDex, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep, starOf, careNeed,
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
     canPay, buildState, animalDay, babyDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
+    MATERIALS, WALL_PITCH, WALL_ROWS, wallCols, wallRowsFor, wallKey, parseWall, hungAt, hungCol, canHang, hang, moveHang,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,
     newWorld, newMine, fixWorld, fixMine, fixTune, logAdd, give, take, bump, markPlayed,
     till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, moveFurn, pickUp, cook, sendGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, seedsFromExpo, newDay,
