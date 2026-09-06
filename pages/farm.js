@@ -789,30 +789,94 @@ function drawGround(season){
     if (season === 'winter' && R.prand('w' + tx + '_' + ty) < 0.25){
       px(X + 4 + Math.floor(R.prand('wx' + tx + '_' + ty) * 18), Y + 8 + Math.floor(R.prand('wy' + tx + '_' + ty) * 16), 6, 4, '#ffffff');
     }
+    // 떨어진 잔가지 — 나무 밑동 색이라 풀 위에서 눈에 띈다
+    if (R.prand('tw' + tx + '_' + ty) > 0.93){
+      const wx = X + 6 + Math.floor(R.prand('twx' + tx + '_' + ty) * 16), wy = Y + 10 + Math.floor(R.prand('twy' + tx + '_' + ty) * 14);
+      px(wx, wy, 10, 2, WOOD.dark); px(wx + 2, wy - 2, 4, 2, WOOD.dark); px(wx, wy, 6, 2, WOOD.low);
+    }
   }
+  /* 4) 칸을 넘는 큰 무늬 — 다녀서 흙이 드러난 자리와 클로버가 몰려 난 자리.
+     칸 단위 잔무늬만 있으면 지도가 어디를 봐도 한결같아서, 넓게 보면 초록 벽처럼 보인다.
+     가장자리는 잡음으로 갉아 내야 원이 아니라 자연스러운 얼룩이 된다. */
+  const patch = (cx, cy, rx, ry, seed, paint) => {
+    for (let y = Math.max(0, cy - ry); y < Math.min(Hp, cy + ry); y += 2)
+      for (let x = Math.max(0, cx - rx); x < Math.min(Wp, cx + rx); x += 2){
+        const nx = (x - cx) / rx, ny = (y - cy) / ry, d = nx * nx + ny * ny;
+        if (d < 0.5 + noise2(x, y, 20, seed) * 0.7) paint(x, y, d);
+      }
+  };
+  [[3.4, 6.6, 1.9, 1.2], [12.8, 3.4, 1.6, 1.0], [7.6, 14.4, 2.2, 1.1], [16.4, 12.8, 1.7, 1.3]]
+    .forEach((w, i) => patch(w[0] * T, w[1] * T, w[2] * T, w[3] * T, 'w' + i, (x, y, d) => {
+      if (d > 0.55 && R.prand('we' + x + '_' + y) > 0.45) return;          // 가장자리는 성글게 흩어진다
+      const r = R.prand('wd' + x + '_' + y);
+      if (r > 0.965){ px(x, y, 4, 2, P.rock); px(x, y + 2, 4, 2, shade(P.rock, -22)); return; }   // 드러난 조약돌
+      if (r > 0.93 && season !== 'winter'){ px(x, y, 2, 5, P.tuft[1]); px(x + 2, y - 2, 2, 7, P.tuft[0]); return; }  // 뚫고 난 풀
+      px(x, y, 2, 2, r > 0.82 ? shade(P.dry, -12) : r < 0.08 ? shade(P.dry, 10) : P.dry);
+    }));
+  if (season !== 'winter') [[5.6, 3.0, 1.6, 1.1], [15.6, 7.8, 2.0, 1.3], [10.4, 15.0, 1.8, 1.0], [1.6, 13.4, 1.4, 1.0]]
+    .forEach((w, i) => patch(w[0] * T, w[1] * T, w[2] * T, w[3] * T, 'c' + i, (x, y, d) => {
+      if (d > 0.5 && R.prand('ce' + x + '_' + y) > 0.4) return;
+      const r = R.prand('cv' + x + '_' + y);
+      if (r > 0.5) px(x, y, 2, 2, shade(P.tuft[0], r > 0.88 ? 14 : r > 0.7 ? -4 : -14));   // 클로버 잎
+    }));
 }
 // 흙길 — 집 앞에서 밭까지, 그리고 목장까지
 function drawPath(season){
   const c = season === 'winter' ? ['#dcd6c8', '#cfc7b6', '#e6e0d3'] : ['#e0cfa8', '#d2bf95', '#ece0bf'];
+  const edge = season === 'winter' ? '#c6bfae' : '#c2ac7e';        // 밟혀 다져진 가장자리
+  const P = GROUND[season];
+  /* 길은 먼저 「어느 칸을 지나는가」만 모아 두고, 그다음에 칸마다 이웃을 보고 그린다.
+     전에는 칸마다 가로 띠(y+8..y+24)만 깔아서, 세로로 내려가는 길은 띠 사이가 벌어져
+     토막토막 끊겨 보였다. 이웃이 있는 쪽으로 끝까지 채우면 모퉁이까지 이어진다. */
+  const cells = new Set();
   const lay = (x0, y0, x1, y1) => {
     const dx = Math.sign(x1 - x0), dy = Math.sign(y1 - y0);
     let x = x0, y = y0, guard = 0;
     while (guard++ < 200){
-      const X = x * T, Y = y * T;
-      px(X, Y + 8, T, 16, c[0]);
-      for (let i = 0; i < 12; i++){
-        const rr = R.prand('p' + x + '_' + y + '_' + i);
-        px(X + Math.floor(rr * (T - 8)), Y + 8 + Math.floor(R.prand('q' + x + '_' + y + '_' + i) * 14), 4, 2, c[rr > 0.5 ? 1 : 2]);
-      }
+      cells.add(x + ',' + y);
       if (x === x1 && y === y1) break;
       if (x !== x1) x += dx; else y += dy;
     }
   };
   // 집 문에서 나와 건물 사이를 지나 아래로, 그리고 가로로 길게.
   // 건물 밑으로 지나가면 길이 끊겨 보여서 빈 칸만 골라 잇는다.
-  const h = spot('house'), row = R.FIELD.y0 + R.FIELD.h + 1;
-  const way = [[h.x + 2, h.y + h.h], [h.x + 2, h.y + h.h + 2], [4, h.y + h.h + 2], [4, row], [COLS - 6, row]];
+  const hs = spot('house'), row = R.FIELD.y0 + R.FIELD.h + 1;
+  const way = [[hs.x + 2, hs.y + hs.h], [hs.x + 2, hs.y + hs.h + 2], [4, hs.y + hs.h + 2], [4, row], [COLS - 6, row]];
   for (let i = 1; i < way.length; i++) lay(way[i - 1][0], way[i - 1][1], way[i][0], way[i][1]);
+
+  const has = (x, y) => cells.has(x + ',' + y);
+  cells.forEach(k => {
+    const [x, y] = k.split(',').map(Number), X = x * T, Y = y * T;
+    const up = has(x, y - 1), dn = has(x, y + 1), lf = has(x - 1, y), rt = has(x + 1, y);
+    // 이웃이 없는 쪽은 가장자리를 칸마다 조금씩 들쭉날쭉하게 — 자로 잰 띠처럼 보이지 않게
+    const j = (t, a) => a + Math.round(R.prand(t + x + '_' + y) * 4);
+    const x0 = lf || rt ? 0 : j('pl', 5), x1 = lf || rt ? T : T - j('pr', 5);
+    const y0 = up || dn ? 0 : j('pt', 5), y1 = up || dn ? T : T - j('pb', 5);
+    px(X + x0, Y + y0, x1 - x0, y1 - y0, c[0]);
+    // 가장자리 — 흙과 풀이 서로 물리게 두 도트씩 섞는다
+    for (let i = 0; i < T; i += 2){
+      const r = R.prand('pe' + x + '_' + y + '_' + i);
+      if (!up && r > 0.42 && X + i >= X + x0 && X + i < X + x1) px(X + i, Y + y0 - 2, 2, 2, edge);
+      if (!dn && r < 0.58 && X + i >= X + x0 && X + i < X + x1) px(X + i, Y + y1, 2, 2, edge);
+      if (!lf && r > 0.5 && Y + i >= Y + y0 && Y + i < Y + y1) px(X + x0 - 2, Y + i, 2, 2, edge);
+      if (!rt && r < 0.5 && Y + i >= Y + y0 && Y + i < Y + y1) px(X + x1, Y + i, 2, 2, edge);
+    }
+    // 수레바퀴 자국 — 지나는 방향으로 두 줄
+    if (lf || rt){ px(X, Y + 12, T, 2, c[1]); px(X, Y + 20, T, 2, c[1]); }
+    if (up || dn){ px(X + 12, Y, 2, T, c[1]); px(X + 20, Y, 2, T, c[1]); }
+    // 자갈과 잔 알갱이
+    for (let i = 0; i < 10; i++){
+      const rr = R.prand('p' + x + '_' + y + '_' + i), r2 = R.prand('q' + x + '_' + y + '_' + i);
+      const gx = X + x0 + Math.floor(rr * Math.max(2, x1 - x0 - 4)), gy = Y + y0 + Math.floor(r2 * Math.max(2, y1 - y0 - 2));
+      if (rr > 0.86){ px(gx, gy, 4, 2, P.rock); px(gx, gy, 2, 2, shade(P.rock, 16)); px(gx, gy + 2, 4, 2, shade(P.rock, -22)); }
+      else px(gx, gy, 4, 2, c[rr > 0.5 ? 1 : 2]);
+    }
+    // 밟혀도 살아남은 풀 한 포기
+    if (R.prand('pg' + x + '_' + y) > 0.7 && season !== 'winter'){
+      const gx = X + x0 + 4 + Math.floor(R.prand('pgx' + x + '_' + y) * 12), gy = Y + y0 + 6 + Math.floor(R.prand('pgy' + x + '_' + y) * 10);
+      px(gx, gy + 2, 2, 5, P.tuft[1]); px(gx + 2, gy, 2, 7, P.tuft[0]);
+    }
+  });
 }
 
 // ---------- 밭 ----------
@@ -1246,10 +1310,17 @@ function drawScarecrow(){
   px(X + 8, Y + 2, 16, 4, WOOD.mid); px(X + 6, Y + 4, 20, 2, WOOD.low);
   px(X + 12, Y + 8, 2, 2, '#3a3226'); px(X + 18, Y + 8, 2, 2, '#3a3226'); px(X + 14, Y + 12, 4, 2, '#c9646b');
 }
+// 아직 안 지은 자리 — 네 귀퉁이에 말뚝을 박고 노끈을 둘러 두었다.
+// 전에는 옅은 회색 점선 상자였는데, 화면에 그늘진 네모가 떠 있는 것처럼 보였다.
 function ghost(X, Y, w, h){
-  for (let i = 0; i < w; i += 10) for (let j = 0; j < h; j += 10) px(X + i + 4, Y + j + 4, 4, 4, '#00000014');
-  px(X + 4, Y + 4, w - 8, 2, '#00000018'); px(X + 4, Y + h - 6, w - 8, 2, '#00000018');
-  px(X + 4, Y + 4, 2, h - 8, '#00000018'); px(X + w - 6, Y + 4, 2, h - 8, '#00000018');
+  for (let i = 0; i < w; i += 10) for (let j = 0; j < h; j += 10) px(X + i + 4, Y + j + 4, 4, 4, '#00000010');
+  // 노끈 — 두 도트 긋고 두 도트 쉬며 두른다
+  for (let i = 4; i < w - 6; i += 4){ px(X + i, Y + 5, 2, 2, '#e8dcc8'); px(X + i, Y + h - 7, 2, 2, '#e8dcc8'); }
+  for (let j = 4; j < h - 6; j += 4){ px(X + 5, Y + j, 2, 2, '#e8dcc8'); px(X + w - 7, Y + j, 2, 2, '#e8dcc8'); }
+  [[X + 2, Y + 2], [X + w - 8, Y + 2], [X + 2, Y + h - 12], [X + w - 8, Y + h - 12]].forEach(([sx, sy]) => {
+    px(sx + 1, sy + 10, 4, 2, '#00000022');                       // 말뚝 그림자
+    px(sx, sy, 4, 11, WOOD.dark); px(sx, sy, 2, 11, WOOD.mid); px(sx - 1, sy - 2, 6, 2, WOOD.hi);
+  });
 }
 // ---------- 꾸미개 ----------
 function drawDecor(season, night){
