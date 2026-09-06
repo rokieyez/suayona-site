@@ -2224,10 +2224,10 @@ function onFarmTap(e){
   if (id){ onPlot(id); return; }
   const n = nodeAt(tx, ty);
   if (n){ const r = act((w, m) => R.gather(w, m, n, now())); if (r.ok) sfx(R.NODES[n].kind === 'tree' ? 'thud' : R.NODES[n].kind === 'rock' ? 'prop' : 'pop'); return; }
-  if (inSpot('house', tx, ty)){ openTab('house'); sfx('house'); return; }
+  if (inSpot('house', tx, ty)){ openTab('house', true); sfx('house'); return; }
   if (inSpot('mail', tx, ty)){ openMail(); return; }
-  if (inSpot('board', tx, ty)){ openTab('duo'); return; }
-  if (inSpot('stall', tx, ty)){ openTab('shop'); return; }
+  if (inSpot('board', tx, ty)){ openTab('duo', true); return; }
+  if (inSpot('stall', tx, ty)){ openTab('shop', true); return; }
   if (inSpot('hive', tx, ty)){ const r = act((w, m) => R.takeHoney(w, m)); if (r.ok) sfx('sparkle'); return; }
   if (inSpot('greenhouse', tx, ty)){ if (built('greenhouse')) openGreenhouse(); else flash('온실 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('well', tx, ty)){ flash(built('well') ? '우물이에요. 물뿌리개를 키울 수 있어요' : '우물 터예요. 둘이서 탭에서 같이 지어요'); return; }
@@ -2236,9 +2236,9 @@ function onFarmTap(e){
   if (inSpot('firepit', tx, ty)){ const r = act((w, m) => R.fireSit(w, m, now())); if (r.ok) sfx(r.both ? 'fanfare' : 'purr'); return; }
   if (inSpot('bench', tx, ty) || inSpot('swing', tx, ty)){ flash('쉬는 자리예요. 앉으면 기분이 좋아져요'); return; }
   // 동물이 있는 곳은 어디를 눌러도 동물 카드로
-  if (['coop', 'barn', 'pasture', 'pethouse'].some(b => inSpot(b, tx, ty))){ openTab('duo'); return; }
+  if (['coop', 'barn', 'pasture', 'pethouse'].some(b => inSpot(b, tx, ty))){ openTab('duo', true); return; }
   const near = (W.animals || []).some(a => { const b = beasts && beasts.list.find(x => x.id === a.id); return b && Math.abs(b.x - (tx * T + 8)) < 14 && Math.abs(b.y - (ty * T + 12)) < 16; });
-  if (near){ openTab('duo'); return; }
+  if (near){ openTab('duo', true); return; }
   // 안 지은 건물 터를 누르면 무엇이 들어설 자리인지 알려 준다
   const site = ['pasture', 'barn', 'coop', 'pethouse', 'scarecrow'].find(b => inSpot(b, tx, ty));
   if (site) flash(R.BUILDINGS[site].name + ' 터예요. 둘이서 탭에서 같이 지어요');
@@ -2380,7 +2380,22 @@ function openPeddler(){
 }
 
 // ---------- 탭 ----------
-function openTab(t){ tab = t; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); ['bag', 'shop', 'house', 'duo', 'dex'].forEach(k => { $('#tab-' + k).hidden = k !== t; }); renderTab(); }
+/* 지도에서 집·가게·닭장을 누르면 그에 맞는 판이 열리지만, 판은 지도 한참 아래에 있어
+   아이는 아무 일도 안 일어난 줄 안다. 지도에서 온 것이면 그 판까지 데려간다.
+   탭 단추로 온 것이면 이미 그 자리이므로 화면을 흔들지 않는다. */
+function openTab(t, goTo){ tab = t; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); ['bag', 'shop', 'house', 'duo', 'dex'].forEach(k => { $('#tab-' + k).hidden = k !== t; }); renderTab(); if (goTo) scrollToPanel(); }
+/* 탭 줄이 화면 맨 위에 오도록 내린다. 머리글은 붙박이라 그만큼 빼 두지 않으면 첫 줄을 덮는다.
+   「움직임 줄이기」를 켠 사람에게는 미끄러뜨리지 않고 한 번에 옮긴다. */
+function scrollToPanel(){
+  const bar = $('#tabs'); if (!bar) return;
+  /* 머리글은 붙박이인데 아래로 밀면 스스로 숨는다. 지금 숨었는지를 보고 셈하면,
+     내려가는 사이에 도로 나타났을 때 탭 줄을 덮는다 — 늘 그 높이만큼 뺀다.
+     숨어 있었다면 그만큼 지도 끝자락이 위에 남을 뿐, 가려지는 일은 없다. */
+  const head = document.querySelector('header.site');
+  const off = head && getComputedStyle(head).position === 'fixed' ? head.offsetHeight : 0;
+  const y = window.scrollY + bar.getBoundingClientRect().top - off - 8;
+  window.scrollTo({ top: Math.max(0, Math.round(y)), behavior: STILL ? 'auto' : 'smooth' });
+}
 function renderTab(){ if (tab === 'bag') renderBag(); else if (tab === 'shop') renderShop(); else if (tab === 'house') renderHouse(); else if (tab === 'duo') renderDuo(); else renderDex(); }
 function renderAll(){ syncTop(); renderTools(); drawFarm(); renderTab(); }
 
@@ -2471,7 +2486,7 @@ function renderBag(){
     const a = document.createElement('div'); a.className = 'act';
     if (price){ a.appendChild(btn('팔기', 'sell', () => { act((w, m) => R.sell(w, m, id, 1, now())); sfx('pop'); })); if (n > 1) a.appendChild(btn('다 팔기', 'sell', () => { const k = n; act((w, m) => R.sell(w, m, id, k, now())); sfx('pop'); })); }
     if (food) a.appendChild(btn('먹기', '', () => act((w, m) => R.eat(w, m, id, now()))));
-    if (id.startsWith('f:')) a.appendChild(btn('집에 놓기', '', () => { furnPick = id.slice(2); openTab('house'); }));
+    if (id.startsWith('f:')) a.appendChild(btn('집에 놓기', '', () => { furnPick = id.slice(2); openTab('house', true); }));
     a.appendChild(btn('선물', '', () => giftDialog(id, n)));
     card.appendChild(a); box.appendChild(card);
   });
