@@ -708,11 +708,15 @@ const belowFold = (() => {
     if (!b || !b.cv) return;
     ctx.drawImage(b.cv, Math.round(b.x0 * HS + gx), Math.round(b.y0 * HS + gy));
   }
-  // 가족만 세이브를 읽을 수 있다. 세이브 통째로가 아니라 「다녀온 원정 수」 한 칸만 받는다.
+  /* 가족만 세이브를 읽을 수 있다. 세이브 통째로가 아니라 「다녀온 원정 수」 한 칸만 받는다.
+     로그인을 안 했으면 아예 묻지 않는다 — 정책에 막혀 빈 배열이 올 뿐이라, 손님이 올 때마다
+     빈손으로 오가는 왕복이 하나 늘 뿐이었다(실제 주소에서 그 호출을 보고 알았다). */
   function loadExpoRoad(){
     if (typeof sb === 'undefined' || !sb) return;
     Promise.resolve(typeof authOnce !== 'undefined' ? authOnce : null)
-      .then(() => sb.from('quest_saves').select('n:data->expo->done'))
+      .then(() => (typeof isLoggedIn !== 'undefined' && isLoggedIn)
+        ? sb.from('quest_saves').select('n:data->expo->done')
+        : { data: null })
       .then(({ data }) => {
         const n = (data || []).reduce((a, r) => a + (Number(r && r.n) || 0), 0);
         if (!n) return;

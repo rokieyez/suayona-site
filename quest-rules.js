@@ -571,7 +571,9 @@ const QUEST = (() => {
       if (out.seed) E.seedsEver = (E.seedsEver || 0) + 1;
     }
     E.done = (E.done || 0) + 1;
-    E.log.unshift({ area: e.area, who: e.who, hours: e.hours, at: e.at, d: dayKey(e.at),
+    // 날짜(d)와 길이(hours)는 안 적는다 — 날짜는 at 으로 언제든 다시 내고, 길이는 일지에 안 쓴다.
+    // 세이브가 그대로 화면으로 오가는 자리라, 안 쓰는 칸 하나가 곧 왕복 무게다.
+    E.log.unshift({ area: e.area, who: e.who, at: e.at,
                     say: out.say, gold: out.gold, xp: out.xp, seed: out.seed, duo: duo, empty: empty });
     if (E.log.length > EXPO.LOG_MAX) E.log.length = EXPO.LOG_MAX;
     return out;

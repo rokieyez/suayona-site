@@ -145,6 +145,10 @@ async function bootInner(){
   Q.growCheck(save, st, today());                    // 지난번보다 얼마나 자랐는지 — 하루 한 번만 잰다
   const other = saves[hero.other];
   combo = !!(other && other.lastPlay === today());
+  // 오래 놀지 않다가 온 날 — 돌아와 있는 원정이 있으면 맨 위에서 먼저 알린다.
+  // 원정 칸까지 내려가야 알 수 있으면, 방치형을 붙인 뜻이 반은 사라진다.
+  const back = Q.expoOf(save).sent.filter(e => Q.expoLeft(e, facts) <= 0).length;
+  if (back) setTimeout(() => notice('🎒 원정 나갔던 친구 <b>' + back + '</b>마리가 돌아와 있어요 — 아래 <b>원정</b>에서 만나요'), 0);
   $('#game').hidden = false;
   $('#lead').textContent = hero.name + '의 모험 — 현실에서 한 일이 경험치가 돼요';
   renderAll();
@@ -695,6 +699,12 @@ function renderExpo(){
   const box = $('#expoSend');
   const free = fr.filter(f => Q.expoAway(save).indexOf(f.key) < 0);
   box.hidden = !fr.length || E.sent.length >= slots || !free.length || !!battle;
+  // 보내는 칸이 그냥 사라지면 왜 없어졌는지 알 길이 없다 — 까닭을 한 줄로 남긴다.
+  const why = $('#expoWhy');
+  const reason = !fr.length ? '' : battle ? '싸우는 중에는 못 보내요'
+    : (E.sent.length >= slots || !free.length) ? '지금은 친구들이 다 나가 있어요 — 한 명이 돌아오면 또 보낼 수 있어요' : '';
+  why.hidden = !reason;
+  why.textContent = reason;
   if (!box.hidden){
     const asel = $('#expoArea'), wsel = $('#expoWho');
     const keepA = asel.value, keepW = wsel.value;
@@ -727,7 +737,9 @@ function renderExpo(){
   });
 
   clearInterval(expoTimer);
-  if (E.sent.length) expoTimer = setInterval(expoTick, 1000);
+  // 남은 시간은 「분」으로만 보여 주므로 1초마다 깨울 까닭이 없다. 열어 둔 채 두는 화면이라
+  // 초마다 깨우면 그냥 배터리를 쓴다. 10초면 「돌아왔어요」도 늦지 않게 뜬다.
+  if (E.sent.length) expoTimer = setInterval(expoTick, 10000);
 }
 function friendName(k){
   const [a, j] = String(k).split(':').map(Number);
