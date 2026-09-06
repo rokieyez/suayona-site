@@ -607,8 +607,9 @@ const belowFold = (() => {
       farmSeason = FARM_SEASONS[si % 4];
       bits.push(FARM_SEASON_KO[farmSeason] + ' ' + (Math.floor(si / 4) + 1) + '년째');
     }
-    const crops = Number(c.crops) || 0, animals = Number(c.animals) || 0;
-    bits.push(crops ? '밭에 ' + crops + '포기' : '밭이 비었어요');
+    // 포기 수는 적지 않는다 — 마을 밭에 진짜 그만큼 그려지므로, 글로 또 말하면
+    // 이름표만 두 배로 넓어져 그 그림을 도로 덮는다. 이름표는 그림이 못 하는 말만 한다.
+    const animals = Number(c.animals) || 0;
     if (animals) bits.push('동물 ' + animals + '마리');
     return bits.join(' · ');
   }
@@ -636,6 +637,14 @@ const belowFold = (() => {
     winter: { leaf: '#7fa88a', dark: '#5f8a70', fruit: '#eef8ff' },
   };
   let cropBaked = null, cropBakedKey = '';
+  // 이랑 54자리는 뒷줄부터 아홉씩 온다 — 앞줄이 먼저 오도록 줄 단위로 뒤집는다.
+  const CROP_COLS = 9;
+  function cropOrder(spots){
+    const out = [];
+    for (let row = Math.ceil(spots.length / CROP_COLS) - 1; row >= 0; row--)
+      out.push.apply(out, spots.slice(row * CROP_COLS, row * CROP_COLS + CROP_COLS));
+    return out;
+  }
   function bakeCrops(){
     if (!VG || !VG.liveCrops || !VG.plotSpots || !VG.plotSpots.length) return null;
     const n = Math.min(farmCrops, VG.plotSpots.length);
@@ -643,7 +652,9 @@ const belowFold = (() => {
     if (cropBaked && cropBakedKey === key) return cropBaked;
     cropBakedKey = key;
     if (!n){ cropBaked = { cv: null }; return cropBaked; }
-    const sp = VG.plotSpots;
+    // 이랑은 뒷줄(먼 쪽)부터 담겨 오는데, 하필 그 자리에 「농장」 이름표가 앉는다.
+    // 앞줄부터 심으면 몇 포기 안 되는 밭도 이름표에 안 가린다.
+    const sp = cropOrder(VG.plotSpots);
     const xs = sp.map(p => p[0]), ys = sp.map(p => p[1]);
     const x0 = Math.min.apply(null, xs) - 4, y0 = Math.min.apply(null, ys) - 8;
     const x1 = Math.max.apply(null, xs) + 4, y1 = Math.max.apply(null, ys) + 2;
@@ -733,20 +744,20 @@ const belowFold = (() => {
     if (!VG) return;
     VG.labels.forEach(l => {
       const a = document.createElement('a');
-      a.className = 'tag'; a.href = l.href; a.textContent = l.text;
+      a.className = 'tag'; a.href = l.href;
+      const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = l.text;
+      a.appendChild(nm);
       a.style.left = Math.round(l.x * HS) + 'px';
       a.style.top = Math.round(l.y * HS) + 'px';
-      // 농장 이름표만은 지금 밭 소식을 한 줄 달고 있다 — 마을이 진짜 농장을 비추도록
-      let live = null;
+      /* 농장 이름표만은 지금 밭 소식을 한 줄 달고 있다. 그 줄은 이름 「위」에 붙인다 —
+         이름표는 아래 끝을 기준으로 위로 자라므로(translate -100%), 밑에 달면 그 한 줄이
+         밭 위로 내려앉아 작물을 덮는다. 위에 달면 늘어난 만큼 하늘 쪽으로 자란다. */
       if (l.href === '/farm.html' && farmLive){
-        live = document.createElement('span'); live.className = 'live';
+        const live = document.createElement('span'); live.className = 'live';
         live.textContent = farmLive;                 // 서버가 준 숫자뿐이지만 글로 넣는다
-        a.appendChild(live);
+        a.insertBefore(live, nm);
       }
       tagBox.appendChild(a);
-      /* 이름표는 아래 끝을 기준으로 위로 자란다(translate -100%). 한 줄이 늘면 그만큼 위로
-         올라가 수아를 덮는다 — 늘어난 높이만큼 도로 내려서 이름 줄은 제자리에 둔다. */
-      if (live) a.style.top = Math.round(l.y * HS) + live.offsetHeight + 3 + 'px';
     });
     moveTags(0);
   }
