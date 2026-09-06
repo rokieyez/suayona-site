@@ -587,7 +587,7 @@ const belowFold = (() => {
      못 읽으면(손님이거나 서버가 안 되면) 이름표는 그냥 「농장」으로 남는다.
      마을 그림 자체를 바꾸지 않은 까닭: Village.render 한 번이 이 기계에서 250ms 다.
      밭 그림을 갈아 끼우려면 마을을 통째로 다시 그려야 해서 첫화면이 그만큼 멈춘다. */
-  let farmLive = null;
+  let farmLive = null, farmCrops = 0, farmSeason = 'spring';
   const FARM_SEASONS = ['spring', 'summer', 'autumn', 'winter'];
   const FARM_SEASON_KO = { spring: '🌷 봄', summer: '🌻 여름', autumn: '🍁 가을', winter: '⛄ 겨울' };
   function farmDayIndex(started){
@@ -603,7 +603,8 @@ const belowFold = (() => {
     const len = Math.max(3, Number(c.seasonLen) || 7);
     if (idx != null){
       const si = Math.floor(idx / len);
-      bits.push(FARM_SEASON_KO[FARM_SEASONS[si % 4]] + ' ' + (Math.floor(si / 4) + 1) + '년째');
+      farmSeason = FARM_SEASONS[si % 4];
+      bits.push(FARM_SEASON_KO[farmSeason] + ' ' + (Math.floor(si / 4) + 1) + '년째');
     }
     const crops = Number(c.crops) || 0, animals = Number(c.animals) || 0;
     bits.push(crops ? '밭에 ' + crops + '포기' : '밭이 비었어요');
@@ -615,11 +616,59 @@ const belowFold = (() => {
     sb.rpc('farm_cards').then(({ data }) => {
       if (!data || typeof data !== 'object') return;
       farmLive = farmLine(data);
+      farmCrops = Math.max(0, Number(data.crops) || 0);
+      cropBaked = null;                      // 밭이 달라졌으니 덧그림을 다시 굽는다
       layoutTags();
     }).catch(() => {});
   }
   if (window.requestIdleCallback) requestIdleCallback(loadFarmLive, { timeout: 3000 });
   else setTimeout(loadFarmLive, 1200);
+
+  /* ---- 마을 밭에 진짜 작물 심기 ----
+     새 village.js 는 밭을 맨 흙으로 굽고(liveCrops), 여기서 그 위에 얹는다.
+     마을을 통째로 다시 그리면 240ms 가 드는데, 얹는 것은 한 번 구워 두고 붙이기만 하면 된다.
+     옛 village.js 에는 liveCrops 가 없으므로 아무것도 안 얹는다 — 배포 직후 10분에도 안 겹친다. */
+  const FARM_CROP_COL = {
+    spring: { leaf: '#6fb567', dark: '#4f8f4a', fruit: '#ff9ec4' },
+    summer: { leaf: '#4f9747', dark: '#3f7d3c', fruit: '#e8463a' },
+    autumn: { leaf: '#8a9a4a', dark: '#6f7d3a', fruit: '#e8892f' },
+    winter: { leaf: '#7fa88a', dark: '#5f8a70', fruit: '#eef8ff' },
+  };
+  let cropBaked = null, cropBakedKey = '';
+  function bakeCrops(){
+    if (!VG || !VG.liveCrops || !VG.plotSpots || !VG.plotSpots.length) return null;
+    const n = Math.min(farmCrops, VG.plotSpots.length);
+    const key = n + '|' + farmSeason + '|' + HS.toFixed(2);
+    if (cropBaked && cropBakedKey === key) return cropBaked;
+    cropBakedKey = key;
+    if (!n){ cropBaked = { cv: null }; return cropBaked; }
+    const sp = VG.plotSpots;
+    const xs = sp.map(p => p[0]), ys = sp.map(p => p[1]);
+    const x0 = Math.min.apply(null, xs) - 4, y0 = Math.min.apply(null, ys) - 8;
+    const x1 = Math.max.apply(null, xs) + 4, y1 = Math.max.apply(null, ys) + 2;
+    const cv = document.createElement('canvas');
+    cv.width = Math.ceil((x1 - x0) * HS); cv.height = Math.ceil((y1 - y0) * HS);
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+    const C = FARM_CROP_COL[farmSeason] || FARM_CROP_COL.spring;
+    for (let i = 0; i < n; i++){
+      const X = (sp[i][0] - x0), Y = (sp[i][1] - y0);
+      const u = (x, y, w, h, c) => {
+        g.fillStyle = c;
+        g.fillRect(Math.round((X + x) * HS), Math.round((Y + y) * HS), Math.max(1, Math.round(w * HS)), Math.max(1, Math.round(h * HS)));
+      };
+      u(0, -4, 1, 4, C.dark);                       // 줄기
+      u(-2, -3, 2, 2, C.leaf); u(1, -3, 2, 2, C.leaf);
+      u(-1, -5, 3, 2, C.leaf);
+      if (i % 3 === 0) u(0, -6, 2, 2, C.fruit);     // 셋에 하나는 열매가 달렸다
+    }
+    cropBaked = { cv, x0, y0 };
+    return cropBaked;
+  }
+  function drawVillageCrops(gx, gy){
+    const b = bakeCrops();
+    if (!b || !b.cv) return;
+    ctx.drawImage(b.cv, Math.round(b.x0 * HS + gx), Math.round(b.y0 * HS + gy));
+  }
 
   // 마을 이름표 — 집 위에 떠 있는 메뉴. 캔버스가 아니라 링크라서 눌리고, 읽히고, 탭으로 옮겨 다닌다.
   function layoutTags(){
@@ -661,8 +710,10 @@ const belowFold = (() => {
     const spare = H - (plotBottom + 40) * HS;            // 지금 절벽으로도 남는 빈 자리(px)
     const cliff = Math.max(40, Math.min(116, Math.round(40 + Math.max(0, spare) * 0.30 / HS)));
     if (VG && VG.canvas) VG.canvas.width = 0;           // 지난 마을 캔버스를 바로 놓아 준다 (크기를 바꿀 때마다 20MB 씩 쌓인다)
+    cropBaked = null;                                  // 배수가 달라지면 밭 덧그림도 다시 굽는다
     VG = Village.render({
       w: vw, h: vh, hs: HS * dpr, orgX: Math.round(vw / 2 - 24), orgY, cliff, night: dim, litP: CLOCK.litP, snow: weather.snow,
+      liveCrops: true,                                 // 밭은 비워 두고, 진짜 농장을 보고 여기서 심는다
       sprites: SPRITES, pal: PAL,
       frames: hung.map(h => h ? drawingToCanvas(h) : null),
     });
@@ -1459,6 +1510,7 @@ const belowFold = (() => {
     view.gx = gx; view.gy = gy;
     if (VG) ctx.drawImage(VG.canvas, 0, 0, VG.canvas.width, VG.canvas.height, gx, gy, VG.canvas.width / VG.dpr, VG.canvas.height / VG.dpr);
     moveTags(gy);
+    drawVillageCrops(gx, gy);        // 마을 밭 — 지금 진짜 농장에 자라는 만큼
     drawUnderClouds();               // 섬 밑 구름바다 — 마을 그림(먼 들판) 위, 놀이보다 아래
     // 비 오면 온 화면이 한 톤 가라앉고, 안개 낀 날은 지평선에 뿌연 띠가 낀다
     if (raining()) { ctx.fillStyle = 'rgba(70,80,100,.22)'; ctx.fillRect(0, 0, W, H); }

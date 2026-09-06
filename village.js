@@ -1066,8 +1066,10 @@ function drawDecals(q){
       } else if (kind === 'dirt' && r < 0.2) q(X, Y, 2, 1, '#8a6a48');
     }
   }
-  // 밭 작물 — 이랑을 따라
-  for (let row = 0; row < 6; row++) for (let i = 0; i < 9; i++){
+  /* 밭 작물 — 이랑을 따라. VS.liveCrops 가 켜져 있으면 굽지 않고 맨 흙만 둔다.
+     첫화면이 진짜 농장을 보고 그 위에 덧그린다 — 마을을 통째로 다시 그리면 240ms 가 든다.
+     옵션을 모르는 옛 village.js 는 이 값이 없어 예전처럼 구워 낸다(배포 직후 10분의 어긋남 대비). */
+  for (let row = 0; row < 6 && !VS.liveCrops; row++) for (let i = 0; i < 9; i++){
     const tx = 5.15 + i * 0.25, ty = 8.7 + 0.2 + row * 0.35;
     const [X, Y] = proj(tx, ty, 0).map(Math.round);
     const stage = hash(row, i, 80);
@@ -1627,6 +1629,7 @@ function render(o){
   NIGHT = !!o.night; LIT_P = o.litP == null ? 0.6 : o.litP; LIGHTS.length = 0; HITS.length = 0;
   VS.w = Math.max(64, Math.ceil(o.w)); VS.h = Math.max(64, Math.ceil(o.h)); VS.orgX = o.orgX; SKY = o.orgY;
   CLIFF_H = Math.max(24, Math.min(160, Math.round(o.cliff || 40)));   // 절벽 두께 — 세로가 긴 화면일수록 두껍게
+  VS.liveCrops = !!o.liveCrops;      // 켜면 밭 작물을 굽지 않는다 — 첫화면이 진짜 농장을 덧그린다
   const hs = o.hs || 1;
   let canvas = null, env = o.env, R = null;
   if (!env){
@@ -1700,6 +1703,10 @@ function render(o){
     ruler: VS.ruler || null,                    // 키 재기 기둥 — 첫화면이 두 아이 눈금을 얹는다
     horizon: SKY,
     cliff: CLIFF_H,                             // 절벽 두께(도트) — 첫화면이 마을 아래 빈 자리를 재는 데 쓴다
+    liveCrops: !!VS.liveCrops,                  // 밭을 비워 두었나 — 첫화면은 이 값이 참일 때만 덧그린다
+    // 밭 이랑 54자리(도트). 첫화면이 여기에 진짜 농장의 작물을 얹는다
+    plotSpots: (() => { const out = []; for (let row = 0; row < 6; row++) for (let i = 0; i < 9; i++){
+      const p2 = proj(5.15 + i * 0.25, 8.9 + row * 0.35, 0); out.push([Math.round(p2[0]), Math.round(p2[1])]); } return out; })(),
     // 도트 자리 → 땅 칸. 땅 밖이면 kind 가 null
     worldAt: (dx, dy) => { const [tx, ty] = unprojHere(dx, dy); return { tx, ty, kind: inPlot(tx, ty) ? kindAt(tx, ty) : null }; },
     dotAt: (tx, ty) => ({ x: ox + (tx - ty) * TW / 2, y: oy + (tx + ty) * TH / 2 }),
