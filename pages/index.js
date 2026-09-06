@@ -588,6 +588,7 @@ const belowFold = (() => {
      마을 그림 자체를 바꾸지 않은 까닭: Village.render 한 번이 이 기계에서 250ms 다.
      밭 그림을 갈아 끼우려면 마을을 통째로 다시 그려야 해서 첫화면이 그만큼 멈춘다. */
   let farmLive = null, farmCrops = 0, farmSeason = 'spring';
+  let expoDone = 0;                          // 자매가 다녀온 원정을 합한 수 — 섬 앞 물의 디딤돌이 그만큼 놓인다
   const FARM_SEASONS = ['spring', 'summer', 'autumn', 'winter'];
   const FARM_SEASON_KO = { spring: '🌷 봄', summer: '🌻 여름', autumn: '🍁 가을', winter: '⛄ 겨울' };
   function farmDayIndex(started){
@@ -670,6 +671,57 @@ const belowFold = (() => {
     ctx.drawImage(b.cv, Math.round(b.x0 * HS + gx), Math.round(b.y0 * HS + gy));
   }
 
+  /* ---- 섬 밖으로 자라는 원정 길 ----
+     모험단에서 원정을 한 번 다녀올 때마다 물 위에 디딤돌이 하나씩 놓인다(스물넷에서 멈춘다).
+     마을 땅이 아니라 물에 둔 이유는 village.js 쪽에 적어 두었다 — 땅은 소품이 촘촘하다.
+     가족만 보인다 — 손님에게는 세이브가 안 열려서 수가 안 오고, 그러면 길도 안 놓인다.
+     밭과 같은 수법으로 한 번 구워 붙이기만 한다. */
+  let roadBaked = null, roadBakedKey = '';
+  function bakeRoad(){
+    if (!VG || !VG.roadSpots || !VG.roadSpots.length) return null;
+    const n = Math.min(expoDone, VG.roadSpots.length);
+    const key = n + '|' + HS.toFixed(2);
+    if (roadBaked && roadBakedKey === key) return roadBaked;
+    roadBakedKey = key;
+    if (!n){ roadBaked = { cv: null }; return roadBaked; }
+    const sp = VG.roadSpots.slice(0, n);
+    const xs = sp.map(p => p[0]), ys = sp.map(p => p[1]);
+    const x0 = Math.min.apply(null, xs) - 3, y0 = Math.min.apply(null, ys) - 3;
+    const x1 = Math.max.apply(null, xs) + 4, y1 = Math.max.apply(null, ys) + 3;
+    const cv = document.createElement('canvas');
+    cv.width = Math.ceil((x1 - x0) * HS); cv.height = Math.ceil((y1 - y0) * HS);
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+    sp.forEach((p, i) => {
+      const X = p[0] - x0, Y = p[1] - y0;
+      const u = (x, y, w, h, c) => {
+        g.fillStyle = c;
+        g.fillRect(Math.round((X + x) * HS), Math.round((Y + y) * HS), Math.max(1, Math.round(w * HS)), Math.max(1, Math.round(h * HS)));
+      };
+      const light = i % 2 ? '#cfc6b6' : '#c3b9a8';
+      u(-2, -1, 4, 2, light); u(-1, -2, 2, 1, '#ded5c4'); u(-2, 1, 4, 1, '#9b9280');
+    });
+    roadBaked = { cv, x0, y0 };
+    return roadBaked;
+  }
+  function drawVillageRoad(gx, gy){
+    const b = bakeRoad();
+    if (!b || !b.cv) return;
+    ctx.drawImage(b.cv, Math.round(b.x0 * HS + gx), Math.round(b.y0 * HS + gy));
+  }
+  // 가족만 세이브를 읽을 수 있다. 세이브 통째로가 아니라 「다녀온 원정 수」 한 칸만 받는다.
+  function loadExpoRoad(){
+    if (typeof sb === 'undefined' || !sb) return;
+    Promise.resolve(typeof authOnce !== 'undefined' ? authOnce : null)
+      .then(() => sb.from('quest_saves').select('n:data->expo->done'))
+      .then(({ data }) => {
+        const n = (data || []).reduce((a, r) => a + (Number(r && r.n) || 0), 0);
+        if (!n) return;
+        expoDone = n; roadBaked = null;
+      }).catch(() => {});
+  }
+  if (window.requestIdleCallback) requestIdleCallback(loadExpoRoad, { timeout: 4000 });
+  else setTimeout(loadExpoRoad, 1600);
+
   // 마을 이름표 — 집 위에 떠 있는 메뉴. 캔버스가 아니라 링크라서 눌리고, 읽히고, 탭으로 옮겨 다닌다.
   function layoutTags(){
     if (!tagBox) return;
@@ -711,6 +763,7 @@ const belowFold = (() => {
     const cliff = Math.max(40, Math.min(116, Math.round(40 + Math.max(0, spare) * 0.30 / HS)));
     if (VG && VG.canvas) VG.canvas.width = 0;           // 지난 마을 캔버스를 바로 놓아 준다 (크기를 바꿀 때마다 20MB 씩 쌓인다)
     cropBaked = null;                                  // 배수가 달라지면 밭 덧그림도 다시 굽는다
+    roadBaked = null;
     VG = Village.render({
       w: vw, h: vh, hs: HS * dpr, orgX: Math.round(vw / 2 - 24), orgY, cliff, night: dim, litP: CLOCK.litP, snow: weather.snow,
       liveCrops: true,                                 // 밭은 비워 두고, 진짜 농장을 보고 여기서 심는다
@@ -1511,6 +1564,7 @@ const belowFold = (() => {
     if (VG) ctx.drawImage(VG.canvas, 0, 0, VG.canvas.width, VG.canvas.height, gx, gy, VG.canvas.width / VG.dpr, VG.canvas.height / VG.dpr);
     moveTags(gy);
     drawVillageCrops(gx, gy);        // 마을 밭 — 지금 진짜 농장에 자라는 만큼
+    drawVillageRoad(gx, gy);         // 물 위 디딤돌 — 모험단이 다녀온 원정만큼
     drawUnderClouds();               // 섬 밑 구름바다 — 마을 그림(먼 들판) 위, 놀이보다 아래
     // 비 오면 온 화면이 한 톤 가라앉고, 안개 낀 날은 지평선에 뿌연 띠가 낀다
     if (raining()) { ctx.fillStyle = 'rgba(70,80,100,.22)'; ctx.fillRect(0, 0, W, H); }

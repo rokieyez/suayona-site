@@ -1707,6 +1707,13 @@ function render(o){
     // 밭 이랑 54자리(도트). 첫화면이 여기에 진짜 농장의 작물을 얹는다
     plotSpots: (() => { const out = []; for (let row = 0; row < 6; row++) for (let i = 0; i < 9; i++){
       const p2 = proj(5.15 + i * 0.25, 8.9 + row * 0.35, 0); out.push([Math.round(p2[0]), Math.round(p2[1])]); } return out; })(),
+    // 섬 앞 물을 건너가는 원정 길 24자리(도트). 첫화면이 다녀온 원정 수만큼 디딤돌을 놓는다.
+    // 물 위에 둔 이유: 마을 땅은 울타리·우물·간판이 촘촘해서 길을 얹으면 그 앞을 덮어 버린다.
+    // 물은 비어 있고, 마을 밖으로 뻗어 나가는 길이라는 뜻도 함께 산다.
+    // 자리는 늘 돌려준다 — 놓을지 말지는 첫화면이 정한다.
+    roadSpots: (() => { const out = []; for (let i = 0; i < 24; i++){
+      const t = i / 23, p2 = proj(11.2 - t * 8.0, 11.05 + Math.sin(t * Math.PI) * 0.5, 0);
+      out.push([Math.round(p2[0]), Math.round(p2[1])]); } return out; })(),
     // 도트 자리 → 땅 칸. 땅 밖이면 kind 가 null
     worldAt: (dx, dy) => { const [tx, ty] = unprojHere(dx, dy); return { tx, ty, kind: inPlot(tx, ty) ? kindAt(tx, ty) : null }; },
     dotAt: (tx, ty) => ({ x: ox + (tx - ty) * TW / 2, y: oy + (tx + ty) * TH / 2 }),
