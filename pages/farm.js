@@ -515,78 +515,91 @@ function walkFrame(rows, legA, legB){
   out[out.length - 2] = legB; out[out.length - 1] = legB.replace(/b/g, 'B');
   return out;
 }
-// 짧은 머리 — 연아
+// 짧은 머리 — 연아. 첫화면 히어로(pixel.js)의 버섯 단발·가운데 가르마를 그대로 옮겼다.
 const KID_SHORT = {
   down: [
-    '.....kkhhhhhhhhhhkk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...', '..khhHHHHHHHHHHHHHHhhk..',
-    '..khhHHHHhHHHHhHHHHhhk..', '..khhHHHHhHHHHhHHHHhhk..', '..khhffffhffffhffffhhk..', '..khhffffffffffffffhhk..',
-    '..khhffffffffffffffhhk..', '..khhffweffffffewffhhk..', '..khhffeeffffffeeffhhk..', '..khhffeeffffffeeffhhk..',
-    '..khhffffffffffffffhhk..', '...kffppffmmmmffppffk...', '...kfffffffmmfffffffk...', '....kkFFffffffffFFkk....',
-    '.....kkkffffffffkkk.....', '...kkccCCCCCCCCCCcckk...', '..kssccccccEcEcccccssk..', '..kssccccccEcEcccccssk..',
-    '..kssccccccEcEcccccssk..', '..kssccccccccccccccssk..', '..kssccccccccccccccssk..', '..kssnnnnnnnnnnnnnnssk..',
-    '...kkkVVVVVVVVVVVVkkk...', '.....kvvvvvvvvvvvvk.....', '.....kvvvvvVVvvvvvk.....', '.....kvvvvvVVvvvvvk.....',
-    '......kkssskkssskk......', '......kbbbbkkbbbbk......', '......kbbbbkkbbbbk......', '......kBBBBkkBBBBk......',
+    '..........kkkkkkk...........', '........kkhhhhhhhkk.........', '......kkhhhhhHhhhhhkk.......', '.....khhhHHdHHHHdHhhhk......',
+    '....khhHHHHdHHHHdHHHhhk.....', '...khhhhhhhdhhhhdhhhhhhk....', '..khhhhhhhhdhhhhdhhhhhhhk...', '..khhhhhhhfdffffdhhhhhhhk...',
+    '.khhhhhhfffdffffdffhhhhhhk..', '.khhhhhffffdffffdfffhhhhhk..', 'khhhhhhffffdffffdfffhhhhhhk.', 'khhhhhfffffffffffffffhhhhhk.',
+    'khhhhhfffffffffffffffhhhhhk.', 'khhhhhfffewffffffewffhhhhhhk', 'khhhhhfffeeffffffeeffhhhhhhk', 'khhhhhfffeeffffffeeffhhhhhhk',
+    'khhhhhfffffffffffffffhhhhhhk', 'khhhhhfppffffffffffpphhhhhhk', 'khhhhhfppfffmffmfffpphhhhhhk', 'kddddddffffffmmfffffdddddddk',
+    'kdddddFFFFFFFFFFFFFFFFdddddk', '.kkkkkFnnnnnnnnnnnnnnFkkkkk.', '.....kcnnnnnnnnnnnnnnck.....', '.....kccCCCECCCCECCCcck.....',
+    '.....kcccccEccccEccccck.....', '.....kccccCECCCCECcccck.....', '.....kccccCECCCCECcccck.....', '.....kccccCECCCCECcccck.....',
+    '.....kssnnCCCCCCCCnnssk.....', '.....kssnnnnnnnnnnnnssk.....', '......kkVVVVVVVVVVVVkk......', '.......kvvvvvkkvvvvvk.......',
+    '.......kvvvvvkkvvvvvk.......', '........ksssskkssssk........', '........ksssskkssssk........', '........kbbbbkkbbbbk........',
+    '........kbbbbkkbbbbk........', '........kBBBBkkBBBBk........',
   ],
   side: [
-    '......kkhhhhhhhhkk......', '.....khhHHHHHHHHhhk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...',
-    '...khhHHHHHHHHHHHHhhk...', '...khhHHHHHHHHHHHHhhk...', '...khhhhhhhhhhhhhhhhk...', '...khhhffffffffffffhk...',
-    '...khhhffffffffffffhk...', '...khhhffffffffweffhk...', '...khhhffffffffeeffhk...', '...khhhfffffffffffffk...',
-    '...khhhffffppffffffFk...', '....khhhfffffffmmmhk....', '....khhhfffffffmmfhk....', '.....kkhhhFFFFffhkk.....',
-    '......kkkhhhffhkkkk.....', '.....kccccccccccccck....', '.....kccccccEccsssck....', '.....kccccccEccsssck....',
-    '.....kccccccEccsssck....', '.....kcccccccccsssck....', '.....kcccccccccsssck....', '.....knnnnnnnnnsssnk....',
-    '......kVVVVVVVVVVVk.....', '......kvvvvvvvvvvvk.....', '......kvvvvvvvvvvvk.....', '......kvvvvvvvvvvvk.....',
-    '.......kkksssssskk......', '........kbbbbbbbbk......', '........kbbbbbbbbk......', '........kBBBBBBBBk......',
+    '..........kkkkkkk...........', '........kkhhhhhhhkk.........', '......kkhhhhhHhhhhhkk.......', '.....khhhHHHHHHHHHhhhk......',
+    'kkkkkhhHHHHHHHHHHHHHhhk.....', 'hhhhhhhhhhhhhhhhhhhhhhhk....', 'hhhhhhhhhhhhhhhhhhhhhhhhk...', 'hHHHhhhhhhhhhfffffffhhhhk...',
+    'hHHHhhhhhhhhfffffffffhhhhk..', 'hHHHhhhhhhhhfffffffffhhhhk..', 'hHHHhhhhhhhfffffffffffhhhhk.', 'hHHHhhhhhhhfffffffffffhhhhk.',
+    'hHHHhhhhhhhffffffffffffhhhk.', 'hHHHhhhhhhhfffffewfffffhhhhk', 'hHHHhhhhhhhfffffeefffffhhhhk', 'hHHHhhhhhhhfffffeefffffhhhhk',
+    'hHHHhhhhhhhffffffffffFfhhhhk', 'hHHHhhhhhhhffffffffppffhhhhk', 'hhhhhhhhhhhffffffmmppfhhhhhk', 'dddddddddddfffffffffffdddddk',
+    'dddddddddddFFFFFFFFFFFdddddk', 'kkkkkkknnnnnnnnnnnnnnFkkkkk.', '.....kcnnnnnnnnnnnnnnck.....', '.....kccCCCECCCCECCCcck.....',
+    '.....kcccccEccccEccccck.....', '.....kccccCECCCCECcccck.....', '.....kccccCECCCCECcccck.....', '.....kccccCECCCCECcccck.....',
+    '.....kssnnCCCCCCCCnnssk.....', '.....kssnnnnnnnnnnnnssk.....', '......kkVVVVVVVVVVVVkk......', '.......kvvvvvkkvvvvvk.......',
+    '.......kvvvvvkkvvvvvk.......', '........ksssskkssssk........', '........ksssskkssssk........', '........kbbbbkkbbbbk........',
+    '........kbbbbkkbbbbk........', '........kBBBBkkBBBBk........',
   ],
   up: [
-    '.....kkhhhhhhhhhhkk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...', '..khhHHHHHHHHHHHHHHhhk..',
-    '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..',
-    '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..',
-    '..khhHHHHHHHHHHHHHHhhk..', '...khhHHHHHHHHHHHHhhk...', '...khhhhhhhhhhhhhhhhk...', '....kkhhhhhhhhhhhhkk....',
-    '.....kkkhhhhhhhhkkk.....', '...kkccCCCCCCCCCCcckk...', '..kssccccccEcEcccccssk..', '..kssccccccEcEcccccssk..',
-    '..kssccccccEcEcccccssk..', '..kssccccccccccccccssk..', '..kssccccccccccccccssk..', '..kssnnnnnnnnnnnnnnssk..',
-    '...kkkVVVVVVVVVVVVkkk...', '.....kvvvvvvvvvvvvk.....', '.....kvvvvvVVvvvvvk.....', '.....kvvvvvVVvvvvvk.....',
-    '......kkssskkssskk......', '......kbbbbkkbbbbk......', '......kbbbbkkbbbbk......', '......kBBBBkkBBBBk......',
+    '..........kkkkkkk...........', '........kkhhhhhhhkk.........', '......kkhhhhhHhhhhhkk.......', '.....khhhHHHHHHHHHhhhk......',
+    '....khhHHHHHHHHHHHHHhhk.....', '...khhhhhhhhhhhhhhhhhhhk....', '..khhhhhhhHHHHHHHhhhhhhhk...', '..khhhhhhHHHHHHHHHhhhhhhk...',
+    '.khhhhhhHHHHHHHHHHHhhhhhhk..', '.khhhhhhHHHHHHHHHHHhhhhhhk..', 'khhhhhhhHHHHHHHHHHHhhhhhhhk.', 'khhhhhhhHHHHHHHHHHHhhhhhhhk.',
+    'khhhhhhhHHHHHHHHHHHhhhhhhhk.', 'khhhhhhhHHHHHHHHHHHhhhhhhhhk', 'khhhhhhhHHHHHHHHHHHhhhhhhhhk', 'khhhhhhhHHHHHHHHHHHhhhhhhhhk',
+    'khhhhhhhhHHHHHHHHHhhhhhhhhhk', 'khhhhhhhhhHHHHHHHhhhhhhhhhhk', 'khhhhhhhhhhhhhhhhhhhhhhhhhhk', 'khhhhhhhhhhhhhhhhhhhhhhhhhhk',
+    'kddddddddddddddddddddddddddk', 'kddddddnnnnnnnnnnnnnnddddddk', '.kkkkkcnnnnnnnnnnnnnnckkkkk.', '.....kcnnnnnnnnnnnnnnck.....',
+    '.....kcccccccccccccccck.....', '.....kccccCCCCCCCCcccck.....', '.....kccccCCCCCCCCcccck.....', '.....kccccCCCCCCCCcccck.....',
+    '.....kssnnnnnnnnnnnnssk.....', '.....kssnnnnnnnnnnnnssk.....', '......kkVVVVVVVVVVVVkk......', '.......kvvvvvkkvvvvvk.......',
+    '.......kvvvvvkkvvvvvk.......', '........ksssskkssssk........', '........ksssskkssssk........', '........kbbbbkkbbbbk........',
+    '........kbbbbkkbbbbk........', '........kBBBBkkBBBBk........',
   ],
 };
+// 긴 머리 — 수아. 히어로처럼 머리가 어깨 너머로 흘러내려 몸을 감싼다.
 const KID_LONG = {
   down: [
-    '.....kkhhhhhhhhhhkk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...', '..khhHHHHHHHHHHHHHHhhk..',
-    '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhffffffffffffffhhk..',
-    '..khhffffffffffffffhhk..', '..khhffweffffffewffhhk..', '..khhffeeffffffeeffhhk..', '..khhffeeffffffeeffhhk..',
-    '..khhffffffmmffffffhhk..', '..kkffppfffmmfffppffkk..', '.khHfffffffmmfffffffHhk.', '.khHkkFFffffffffFFkkHhk.',
-    '.khHkkkkffffffffkkkkHhk.', '.khHkCCCCCCCCCCCCCCkHhk.', '.khHsCCCCCCCCCCCCCCsHhk.', '.khHsccccccccccccccsHhk.',
-    '.khHsCCCCCCCCCCCCCCsHhk.', '..khsccccccccccccccshk..', '..khsCCCCCCCCCCCCCCshk..', '..khsccccccccccccccshk..',
-    '...khkVVVVVVVVVVVVkhk...', '....kkvvvvvvvvvvvvkk....', '.....kvvvvvVVvvvvvk.....', '.....kvvvvvVVvvvvvk.....',
-    '......kkssskkssskk......', '......kbbbbkkbbbbk......', '......kbbbbkkbbbbk......', '......kBBBBkkBBBBk......',
+    '........kkhhhhhhhkk.........', '......kkhhhhhhhhhhhkk.......', '.....khhhhhhhhhhhhhhhk......', '....khhhhhhhhHhhhhhhhhk.....',
+    '...khhhhhHHHHHHHHHhhhhhk....', '...khhhHHHHHHHHHHHHHhhhk....', '..khhhhhhhhhhhhhhhhhhhhhk...', '.khhhhhhhhfffffffhhhhhhhhk..',
+    '.khhhhhhfffffffffffhhhhhhk..', '.khhhhhfffffffffffffhhhhhk..', 'khhhhhhfffffffffffffhhhhhhk.', 'khhhhhfffffffffffffffhhhhhk.',
+    'khhhhhfffffffffffffffhhhhhk.', 'khhhhhfffewffffffewffhhhhhk.', 'khhhhhfffeeffffffeeffhhhhhhk', 'khhhhhfffeeffffffeeffhhhhhhk',
+    'khHHhhfffffffffffffffhhhHHhk', 'khHHhhfppffffffffffpphhhHHhk', 'khHHhhfppfffmffmfffpphhhHHhk', 'khHHhhhffffffmmfffffhhhhHHhk',
+    'khHHhhFFFFFFFFFFFFFFFFhhHHhk', 'khHHhhFFFFFFFFFFFFFFFFhhHHhk', 'khHHhhEEEEEEEEEEEEEEEEhhHHhk', 'khHHhhCCCCCCCCCCCCCCCChhHHhk',
+    'khHHhhcccccccccccccccchhHHhk', 'khHHhhcccccccccccccccchhHHhk', 'khHHhhCCCCCCCCCCCCCCCChhHHhk', 'khHHhhCCCCCCCCCCCCCCCChhHHhk',
+    'khhhhdssccccccccccccssdhhhhk', 'khhhhkssccccccccccccsskhhhhk', 'kddddkkkVVVVVVVVVVVVkkkddddk', 'kddddk.kvvvvvkkvvvvvk.kddddk',
+    '.kkkk..kvvvvvkkvvvvvk..kkkk.', '........ksssskkssssk........', '........ksssskkssssk........', '........kbbbbkkbbbbk........',
+    '........kbbbbkkbbbbk........', '........kBBBBkkBBBBk........',
   ],
   side: [
-    '......kkhhhhhhhhkk......', '.....khhHHHHHHHHhhk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...',
-    '...khhHHHHHHHHHHHHhhk...', '...khhHHHHHHHHHHHHhhk...', '...khhhhhhhhhhhhhhhhk...', '...khhhffffffffffffhk...',
-    '...khhhffffffffffffhk...', '...khhhffffffffweffhk...', '...khhhffffffffeeffhk...', '...khhhfffffffffffffk...',
-    '...khhhffffppffffffFk...', '...kkhhhfffffffmmmhk....', '..khHHhhfffffffmmfhk....', '..khHHhhhhFFFFffhkk.....',
-    '..khHHhkkhhhffhkkkk.....', '..khHHhCCCCCCCCCCCCk....', '..khHHhCCCCCCCCsssCk....', '..khHHhccccccccsssck....',
-    '..khHHhCCCCCCCCsssCk....', '..khHHhccccccccsssck....', '..khHHhCCCCCCCCsssCk....', '..khHHhccccccccsssck....',
-    '..khHHhVVVVVVVVVVVk.....', '..khHHhvvvvvvvvvvvk.....', '...khhhvvvvvvvvvvvk.....', '....kkkvvvvvvvvvvvk.....',
-    '.......kkksssssskk......', '........kbbbbbbbbk......', '........kbbbbbbbbk......', '........kBBBBBBBBk......',
+    '........kkhhhhhhhkk.........', '......kkhhhhhhhhhhhkk.......', '.....khhhhhhhhhhhhhhhk......', '....khhhhhhhhHhhhhhhhhk.....',
+    '...khhhhhHHHHHHHHHhhhhhk....', 'kkkkhhhHHHHHHHHHHHHHhhhk....', 'hhhhhhhhhhhhhhhhhhhhhhhhk...', 'hhhhhhhhhhhhhfffffffhhhhhk..',
+    'hhhhhhhhhhhhfffffffffhhhhk..', 'hHHHhhhhhhhhfffffffffhhhhk..', 'hHHHhhhhhhhfffffffffffhhhhk.', 'hHHHhhhhhhhfffffffffffhhhhk.',
+    'hHHHhhhhhhhffffffffffffhhhk.', 'hHHHhhhhhhhfffffewfffffhhhk.', 'hHHHhhhhhhhfffffeefffffhhhhk', 'hHHHhhhhhhhfffffeefffffhhhhk',
+    'hHHHhhhhhhhffffffffffFfhHHhk', 'hHHHhhhhhhhffffffffppffhHHhk', 'hHHHhhhhhhhffffffmmppfhhHHhk', 'hHHHhhhhhhhfffffffffffhhHHhk',
+    'hHHHhhhhhhhFFFFFFFFFFFhhHHhk', 'hHHHhhhhhhhFFFFFFFFFFFhhHHhk', 'hHHHhhEEEEEEEEEEEEEEEEhhHHhk', 'hHHHhhCCCCCCCCCCCCCCCChhHHhk',
+    'hHHHhhcccccccccccccccchhHHhk', 'hHHHhhcccccccccccccccchhHHhk', 'hHHHhhCCCCCCCCCCCCCCCChhHHhk', 'hHHHhhCCCCCCCCCCCCCCCChhHHhk',
+    'hhhhhdssccccccccccccssdhhhhk', 'hhhhhhssccccccccccccsskhhhhk', 'ddddddddVVVVVVVVVVVVkkkddddk', 'ddddddddvvvvvkkvvvvvk.kddddk',
+    'kkkkkkkkvvvvvkkvvvvvk..kkkk.', '........ksssskkssssk........', '........ksssskkssssk........', '........kbbbbkkbbbbk........',
+    '........kbbbbkkbbbbk........', '........kBBBBkkBBBBk........',
   ],
   up: [
-    '.....kkhhhhhhhhhhkk.....', '....khhHHHHHHHHHHhhk....', '...khhHHHHHHHHHHHHhhk...', '..khhHHHHHHHHHHHHHHhhk..',
-    '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..',
-    '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..', '..khhHHHHHHHHHHHHHHhhk..',
-    '..khhHHHHHHHHHHHHHHhhk..', '..kkhhHHHHHHHHHHHHhhkk..', '.khHhhhhhhhhhhhhhhhhHhk.', '.khHkkhhhhhhhhhhhhkkHhk.',
-    '.khHkkkkhhhhhhhhkkkkHhk.', '.khHkCCCCCCCCCCCCCCkHhk.', '.khHsCCCCCCCCCCCCCCsHhk.', '.khHsccccccccccccccsHhk.',
-    '.khHsCCCCCCCCCCCCCCsHhk.', '..khsccccccccccccccshk..', '..khsCCCCCCCCCCCCCCshk..', '..khsccccccccccccccshk..',
-    '...khkVVVVVVVVVVVVkhk...', '....kkvvvvvvvvvvvvkk....', '.....kvvvvvVVvvvvvk.....', '.....kvvvvvVVvvvvvk.....',
-    '......kkssskkssskk......', '......kbbbbkkbbbbk......', '......kbbbbkkbbbbk......', '......kBBBBkkBBBBk......',
+    '........kkhhhhhhhkk.........', '......kkhhhhhhhhhhhkk.......', '.....khhhhhhhhhhhhhhhk......', '....khhhhhhhhHhhhhhhhhk.....',
+    '...khhhhhHHHHHHHHHhhhhhk....', '...khhhHHHHHHHHHHHHHhhhk....', '..khhhhhhhhhhhhhhhhhhhhhk...', '.khhhhhhhhhhhhhhhhhhhhhhhk..',
+    '.khhhhhhhhhhhhhhhhhhhhhhhk..', '.khhhhhhhhhhhhhhhhhhhhhhhk..', 'khhhhhhhhhhhhhhhhhhhhhhhhhk.', 'khhhhhhhhhhhhhhhhhhhhhhhhhk.',
+    'khhhhhhhhhhhhhhhhhhhhhhhhhk.', 'khhhhhhhhhhhhhhhhhhhhhhhhhk.', 'khhhhhhhhhhhhhhhhhhhhhhhhhhk', 'khhhhhhhhhhhhhhhhhhhhhhhhhhk',
+    'khHHhhhhhhHHHHHHHhhhhhhhHHhk', 'khHHhhhhhhHHHHHHHhhhhhhhHHhk', 'khHHhhhhhHHHHHHHHHhhhhhhHHhk', 'khHHhhhhhHHHHHHHHHhhhhhhHHhk',
+    'khHHhhhhhHHHHHHHHHhhhhhhHHhk', 'khHHhhhhhHHHHHHHHHhhhhhhHHhk', 'khHHhhcchHHHHHHHHHhhcchhHHhk', 'khHHhhcchHHHHHHHHHhhcchhHHhk',
+    'khHHhhcchHHHHHHHHHhhcchhHHhk', 'khHHhhcchHHHHHHHHHhhcchhHHhk', 'khHHhhcchhHHHHHHHhhhcchhHHhk', 'khHHhhcchhHHHHHHHhhhcchhHHhk',
+    'khhhhhsshhhhHHHhhhhhsshhhhhk', 'khhhhdsshhhhhhhhhhhhssdhhhhk', 'kdddddddVVVVVVVVVVVVdddddddk', 'kdddddddvvvvvkkvvvvvdddddddk',
+    '.kkkkkkkvvvvvkkvvvvvkkkkkkk.', '........ksssskkssssk........', '........ksssskkssssk........', '........kbbbbkkbbbbk........',
+    '........kbbbbkkbbbbk........', '........kBBBBkkBBBBk........',
   ],
 };
 
 
 function kidSet(base){
   return {
-    down: [base.down, walkFrame(base.down, '.....ksssk....ksssk.....', '....kbbbbk....kbbbbk....')],
-    side: [base.side, walkFrame(base.side, '.......ksssk.ksssk......', '......kbbbbkkbbbbk......')],
-    up:   [base.up,   walkFrame(base.up,   '.....ksssk....ksssk.....', '....kbbbbk....kbbbbk....')],
+    down: [base.down, walkFrame(base.down, '.......kssssk..kssssk.......', '.......kbbbbk..kbbbbk.......')],
+    side: [base.side, walkFrame(base.side, '.......kssssk..kssssk.......', '.......kbbbbk..kbbbbk.......')],
+    up:   [base.up,   walkFrame(base.up,   '.......kssssk..kssssk.......', '.......kbbbbk..kbbbbk.......')],
   };
 }
 const KIDART = { sua: kidSet(KID_LONG), yona: kidSet(KID_SHORT) };
@@ -594,11 +607,11 @@ const KID = KIDART.yona;                       // 방 그림 등에서 기본으
 const KIDPAL = {
   // 메인 첫화면 캐릭터와 같은 색을 쓴다.
   // 수아 — 진갈색 긴 머리, 빨강·흰 줄무늬 상의, 남색 반바지, 주황 신발
-  sua:  { k: '#3a3226', h: '#3f2d23', H: '#55402f', f: '#fbdcc4', F: '#eec3a2', e: '#3a3226', w: '#ffffff',
+  sua:  { k: '#3a3226', h: '#3f2d23', H: '#634a37', d: '#2b1e17', f: '#fbdcc4', F: '#eec3a2', e: '#3a3226', w: '#ffffff',
           m: '#c9333f', p: '#ffb0b8', c: '#ea2027', C: '#fdfdfd', n: '#c2151b', E: '#ffffff',
           s: '#fbdcc4', v: '#2e3a54', V: '#41506e', b: '#e8912f', B: '#c47320' },
   // 연아 — 적갈색 단발, 노란 후드(흰 끈), 남색 반바지, 주황 신발
-  yona: { k: '#3a3226', h: '#a0562c', H: '#bd6c3a', f: '#fbdcc4', F: '#eec3a2', e: '#3a3226', w: '#ffffff',
+  yona: { k: '#3a3226', h: '#a0562c', H: '#bd6c3a', d: '#77401f', f: '#fbdcc4', F: '#eec3a2', e: '#3a3226', w: '#ffffff',
           m: '#c9333f', p: '#ffb0b8', c: '#ffe66d', C: '#fff3ae', n: '#ffc94d', E: '#ffffff',
           s: '#fbdcc4', v: '#2e3a54', V: '#41506e', b: '#e8912f', B: '#c47320' },
 };
@@ -916,10 +929,18 @@ function drawPlot(id, p, gh){
   ditherRow(X, Y, T, shade(S3[0], 15), 0.6, Y);
   // 고랑 — 갈아 놓은 결. 골 밑에 그늘을 흩뿌리면 파인 자국처럼 읽힌다
   for (let i = 4; i < T - 2; i += 6){
+    px(X + 2, Y + i - 1, T - 4, 1, shade(S3[0], 24));      // 이랑 마루에 얹힌 빛 — 골이 파인 게 아니라 흙이 솟은 것으로 읽힌다
     px(X + 2, Y + i, T - 4, 2, S3[2]);
     px(X + 2, Y + i + 2, T - 4, 2, S3[1]);
     ditherRow(X + 2, Y + i + 4, T - 4, shade(S3[0], -13), 0.42, Y + i);
   }
+  // 흙덩이 넷 — 고른 줄무늬만 있으면 흙이 아니라 골판지로 보인다
+  for (let i = 0; i < 4; i++){
+    const cx = X + 3 + Math.floor(R.prand('cl' + id + i) * (T - 8)), cy = Y + 3 + Math.floor(R.prand('cm' + id + i) * (T - 8));
+    px(cx, cy, 3, 2, shade(S3[0], -22)); px(cx, cy, 2, 1, shade(S3[0], 14));
+  }
+  // 물을 준 흙에는 젖은 윤이 두 줄
+  if (wet){ px(X + 5, Y + 7, 6, 1, shade(S3[0], 26)); px(X + T - 14, Y + T - 11, 7, 1, shade(S3[0], 26)); }
   // 흙 알갱이와 잔돌
   for (let i = 0; i < 7; i++){
     const rr = R.prand('s' + id + i), r2 = R.prand('z' + id + i);
@@ -1073,6 +1094,10 @@ function planks(X, Y, w, h, base){
   }
   for (let i = 0; i < h; i += 8){ px(X, Y + i, w, 2, shade(base, 12)); px(X, Y + i + 6, w, 2, shade(base, -16)); }
   for (let i = 12; i < w; i += 22) px(X + i, Y, 2, h, shade(base, -22));
+  // 못머리 — 널이 이어지는 자리마다 두 점. 널이 벽지가 아니라 판자로 읽힌다.
+  for (let i = 12; i < w; i += 22) for (let j = 3; j < h - 2; j += 16){
+    px(X + i - 3, Y + j, 1, 1, shade(base, -34)); px(X + i + 4, Y + j, 1, 1, shade(base, -34));
+  }
 }
 // 지붕 — 기와를 한 줄씩 어긋나게
 function roof(X, Y, w, h, base){
@@ -1086,16 +1111,28 @@ function roof(X, Y, w, h, base){
     px(rowX, Y + i, rowW, 2, tone(k));
     if (f > 0.04) ditherRow(rowX, Y + i, rowW, tone(k + 1), f, i);
     if (i % 2) ditherRow(rowX, Y + i, rowW, shade(base, -22), 0.4, i + 4);      // 기와 결
-    for (let j = (i % 2) * 8; j < rowW; j += 16) px(rowX + j, Y + i, 2, 2, shade(base, -32));
+    /* 기왓장 — 네 줄이 한 단이다. 단 아래에 그늘을 깔고 다음 단 윗머리를 밝게 두면
+       평평한 색띠가 아니라 겹쳐 인 장으로 읽힌다. 단마다 반 장씩 어긋나게 이음매를 둔다.
+       예전에는 열여섯 도트마다 어두운 네모를 찍었는데, 줄이 맞아서 격자무늬로 보였다. */
+    if (i % 4 === 3){ px(rowX, Y + i + 1, rowW, 1, shade(base, -34)); px(rowX, Y + i, rowW, 1, shade(base, 14)); }
+    const off = (Math.floor(i / 4) % 2) * 7;
+    for (let j = off; j < rowW; j += 14) px(rowX + j, Y + i, 1, 2, shade(base, -30));
   }
   px(X - h + 2, Y + h, w + h * 2 - 4, 4, shade(base, -36));
+  px(X - h + 3, Y + h + 4, w + h * 2 - 6, 1, '#00000022');                      // 처마 밑 그늘
   px(X, Y, w, 2, shade(base, 30));
+  px(X + 2, Y, w - 4, 1, shade(base, 46));                                      // 용마루
 }
 function window4(X, Y, w, h, on){
   px(X - 2, Y - 2, w + 4, h + 4, WOOD.dark);
+  px(X - 2, Y - 2, w + 4, 1, WOOD.mid);                              // 창틀 윗면 빛
   px(X, Y, w, h, on ? '#ffd98a' : '#8fc7e0');
   px(X, Y, w, Math.max(2, h / 3), on ? '#ffeec0' : '#bfe4f7');
+  // 유리에 비친 하늘 — 비스듬한 줄 하나면 유리로 읽힌다. 불이 켜지면 대신 커튼이 보인다.
+  if (on){ px(X + 1, Y + 1, 3, h - 2, '#ffb9a0'); px(X + w - 4, Y + 1, 3, h - 2, '#ffb9a0'); }
+  else for (let i = 0; i < h; i++) px(X + 1 + Math.round((h - i) * 0.7), Y + i, 2, 1, '#eaf6ff');
   px(X + w / 2 - 1, Y, 2, h, WOOD.dark); px(X, Y + h / 2 - 1, w, 2, WOOD.dark);
+  px(X - 4, Y + h + 2, w + 8, 2, WOOD.low); px(X - 4, Y + h + 2, w + 8, 1, WOOD.hi);   // 창턱
   if (on) lamp(X + w / 2, Y + h / 2, 24);
 }
 function drawHouse(night){
@@ -1125,6 +1162,31 @@ function drawHouse(night){
   window4(X + w - 44, Y + 44, 20, 18, night);
   // 화분
   px(X + 12, Y + h - 16, 10, 12, '#c97a5a'); px(X + 12, Y + h - 18, 10, 2, '#e09a76'); px(X + 14, Y + h - 26, 6, 8, '#6fb567'); px(X + 16, Y + h - 30, 4, 4, '#ff9ec4');
+  /* 여기서부터는 「집으로 보이게 하는 잔것」이다. 벽·지붕·문만 있으면 상자에 삼각형을
+     얹은 것으로 보인다. 모서리 기둥·처마 그늘·문지방이 있어야 지은 집으로 읽힌다. */
+  px(X + 10, Y + 32, 4, h - 56, WOOD.low); px(X + 10, Y + 32, 2, h - 56, WOOD.mid);      // 모서리 기둥 왼쪽
+  px(X + w - 14, Y + 32, 4, h - 56, WOOD.low); px(X + w - 12, Y + 32, 2, h - 56, WOOD.dark);
+  px(X + 10, Y + 32, w - 20, 3, '#00000018');                                            // 처마 밑 그늘
+  px(X + 12, Y + h - 34, w - 24, 2, WOOD.low);                                           // 허리 띠장
+  // 문지방과 발판
+  px(dx - 4, Y + h - 6, 28, 6, STONE.mid); px(dx - 4, Y + h - 6, 28, 2, STONE.hi);
+  px(dx + 1, Y + h - 4, 18, 3, '#b08a63'); px(dx + 3, Y + h - 4, 14, 1, '#c9a37c');
+  px(dx + 2, Y + h - 50, 16, 2, WOOD.dark);                                              // 문 위 인방
+  // 창 밑 꽃상자 둘
+  [X + 24, X + w - 44].forEach(wx => {
+    px(wx - 4, Y + 64, 28, 8, WOOD.low); px(wx - 4, Y + 64, 28, 2, WOOD.hi); px(wx - 4, Y + 70, 28, 2, WOOD.line);
+    for (let i = 0; i < 24; i += 6){ px(wx - 2 + i, Y + 60, 4, 5, '#5fa155'); px(wx - 1 + i, Y + 58, 2, 3, i % 12 ? '#ff9ec4' : '#ffe066'); }
+  });
+  // 문 옆 등 — 밤에는 켠다. 처음엔 벽 한가운데에 큼직하게 달았더니 흰 네모 한 장으로만 보였다.
+  px(dx + 27, Y + h - 60, 2, 6, WOOD.dark); px(dx + 24, Y + h - 55, 8, 2, WOOD.dark);
+  px(dx + 25, Y + h - 53, 6, 7, night ? '#ffd98a' : '#cfd6da');
+  px(dx + 25, Y + h - 53, 6, 1, night ? '#fff0c0' : '#e8eef0');
+  px(dx + 24, Y + h - 46, 8, 2, WOOD.dark);
+  if (night) lamp(dx + 28, Y + h - 50, 26);
+  // 굴뚝에 벽돌 결과 갓
+  px(X + w - 42, Y - 8, 18, 5, STONE.dark); px(X + w - 42, Y - 8, 18, 2, STONE.mid);
+  for (let i = 0; i < 16; i += 5) px(X + w - 40 + i, Y + 0, 1, 14, STONE.dark);
+  px(X + w - 40, Y + 6, 14, 1, STONE.dark);
 }
 function drawMail(){
   const b = spot('mail'), X = b.x * T, Y = b.y * T;
@@ -1133,7 +1195,13 @@ function drawMail(){
   px(X + 6, Y + 4, 20, 14, '#e0736e'); px(X + 6, Y + 4, 20, 2, '#f28f88'); px(X + 6, Y + 16, 20, 2, '#a94b4a');
   px(X + 8, Y + 8, 16, 6, '#fff1e2');
   px(X + 24, Y + 6, 4, 8, '#ffd166');
-  if (key && (W.mail[key] || []).length){ px(X + 24, Y + 2, 4, 12, '#ff5a4a'); px(X + 24, Y + 2, 4, 4, '#ff8f80'); }
+  px(X + 6, Y + 4, 2, 14, '#f7a8a2'); px(X + 6, Y + 4, 20, 1, '#ffc4bd');     // 통 왼쪽 빛과 윗면
+  px(X + 14, Y + 13, 4, 18, WOOD.line);                                        // 기둥 결
+  px(X + 10, Y + 28, 12, 3, '#6f9a5e');                                        // 기둥 밑 풀
+  if (key && (W.mail[key] || []).length){
+    px(X + 24, Y + 2, 4, 12, '#ff5a4a'); px(X + 24, Y + 2, 4, 4, '#ff8f80');
+    px(X + 9, Y + 2, 14, 5, '#fff6e9'); px(X + 9, Y + 2, 14, 1, '#ffffff'); px(X + 12, Y + 4, 8, 1, '#c9b9a2');   // 삐져나온 편지
+  }
 }
 function drawBoard(){
   const b = spot('board'), X = b.x * T, Y = b.y * T;
@@ -1143,6 +1211,12 @@ function drawBoard(){
   px(X + 6, Y + 4, 20, 16, '#fff6e9');
   px(X + 8, Y + 6, 14, 2, '#8a7a63'); px(X + 8, Y + 10, 10, 2, '#8a7a63'); px(X + 8, Y + 14, 12, 2, '#8a7a63');
   px(X + 22, Y + 12, 4, 6, '#ff9ec4');
+  px(X + 7, Y + 5, 10, 8, '#fffdf6'); px(X + 7, Y + 5, 10, 1, '#ffffff');      // 핀으로 꽂은 쪽지
+  px(X + 9, Y + 8, 6, 1, '#8a7a63'); px(X + 9, Y + 10, 4, 1, '#8a7a63');
+  px(X + 14, Y + 11, 3, 2, '#e8dcc4');                                          // 말린 귀퉁이
+  px(X + 11, Y + 4, 2, 2, '#e05545'); px(X + 23, Y + 11, 2, 2, '#4a7fb5');      // 압정 둘
+  px(X + 8, Y + 18, 4, 14, WOOD.line); px(X + 20, Y + 18, 4, 14, WOOD.line);    // 기둥 결
+  px(X + 4, Y + 20, 24, 2, WOOD.dark);                                          // 판 밑 그늘
 }
 function drawStall(cal){
   const b = spot('stall'), X = b.x * T, Y = b.y * T, w = b.w * T;
@@ -1159,7 +1233,17 @@ function drawStall(cal){
   px(X + 12, Y + 42, 4, 20, WOOD.dark); px(X + w - 16, Y + 42, 4, 20, WOOD.dark);
   // 좌판 위 물건 — 계절 색으로
   const goods = { spring: ['#ff5c6b', '#ffe066', '#8fd66c'], summer: ['#3f9a4b', '#ff5a4a', '#ffcf3d'], autumn: ['#ff9a2e', '#8a5cc7', '#e8f2c0'], winter: ['#eef8ff', '#4fa653', '#e8f4ee'] }[cal.season];
-  goods.forEach((c, i) => { const gx = X + 14 + i * 17; px(gx, Y + 22, 12, 10, c); px(gx, Y + 22, 12, 2, shade(c, 26)); px(gx + 8, Y + 28, 4, 4, shade(c, -28)); });
+  goods.forEach((c, i) => {
+    const gx = X + 14 + i * 17;
+    px(gx - 2, Y + 20, 16, 12, WOOD.dark); px(gx - 1, Y + 21, 14, 2, WOOD.hi);            // 담은 광주리
+    px(gx, Y + 22, 12, 10, c); px(gx, Y + 22, 12, 2, shade(c, 26)); px(gx + 8, Y + 28, 4, 4, shade(c, -28));
+    px(gx + 2, Y + 23, 3, 2, shade(c, 40));                                                // 윤
+    px(gx - 2, Y + 32, 16, 2, WOOD.line);
+    px(gx + 3, Y + 34, 7, 4, '#fff6e9'); px(gx + 4, Y + 35, 5, 1, '#8a7a63');              // 값 쪽지
+  });
+  // 차양 아래 물결 자락 — 곧게 자르면 천이 아니라 판으로 보인다
+  for (let i = 0; i < w - 8; i += 8){ px(X + 4 + i, Y + 18, 4, 3, '#f2857a'); px(X + 8 + i, Y + 18, 4, 2, '#fff6e9'); }
+  px(X + 4, Y + 6, w - 8, 1, '#ffffff');
   // 가게 아저씨 — 좌판에 기대선 모습. 어깨 아래는 좌판에 가린다.
   art(SHOPKEEP, X + w - 32, Y + 18, SHOPPAL, false);
 }
@@ -1174,6 +1258,14 @@ function drawWell(night){
   px(X + 6, Y + 2, 4, 14, WOOD.dark); px(X + 22, Y + 2, 4, 14, WOOD.dark);
   px(X + 4, Y - 2, 24, 6, '#e0736e'); px(X + 4, Y - 2, 24, 2, '#f28f88');
   px(X + 14, Y + 6, 4, 6, WOOD.low);
+  // 물에 비친 하늘과 테두리 그늘
+  px(X + 10, Y + 17, 5, 2, '#bfe4f7'); px(X + 8, Y + 20, 16, 2, '#3f7fb5');
+  // 두레박과 줄, 손잡이
+  px(X + 15, Y + 8, 1, 6, '#8a7a63');
+  px(X + 12, Y + 12, 8, 7, WOOD.low); px(X + 12, Y + 12, 8, 2, WOOD.hi); px(X + 12, Y + 17, 8, 2, WOOD.line);
+  px(X + 25, Y + 5, 4, 2, '#7d7269'); px(X + 27, Y + 5, 2, 6, '#7d7269');
+  // 돌 틈의 이끼
+  px(X + 5, Y + 24, 5, 3, '#6f9a5e'); px(X + 20, Y + 26, 6, 2, '#6f9a5e');
 }
 function drawGreenhouse(night){
   const b = spot('greenhouse'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
@@ -1188,6 +1280,11 @@ function drawGreenhouse(night){
   // 지붕
   roof(X + 12, Y + 8, w - 24, 16, '#dff0f8');
   px(X + 12, Y + 6, w - 24, 4, '#a9d3e8');
+  // 지붕 유리를 받치는 살 — 유리 지붕은 기와와 달리 뼈대가 보여야 유리로 읽힌다
+  for (let i = 0; i < w - 24; i += 20) px(X + 12 + i, Y + 8, 2, 16, '#8fc7e0');
+  px(X + 6, Y + 22, w - 12, 3, '#a9d3e8'); px(X + 6, Y + 22, w - 12, 1, '#eaf6ff');
+  px(X + w / 2 - 14, Y + 2, 28, 5, '#cfe6f2'); px(X + w / 2 - 14, Y + 2, 28, 1, '#ffffff');   // 용마루 환기창
+  px(X + w / 2 - 12, Y + 4, 24, 1, '#8fc7e0');
   // 안 — 화분 줄과 자라는 것들이 유리 너머로 비친다
   const shelfY = Y + h - 40;
   px(X + 12, shelfY, w - 24, 6, WOOD.low); px(X + 12, shelfY, w - 24, 2, WOOD.hi);
@@ -1200,6 +1297,18 @@ function drawGreenhouse(night){
   // 세로 골조
   for (let i = 0; i <= w - 16; i += Math.round((w - 16) / 4)) px(X + 8 + i, Y + 24, 4, h - 36, '#a9d3e8');
   px(X + 8, Y + h - 16, w - 16, 4, '#8fc7e0');
+  // 문 — 손잡이와 문틀. 들어갈 데가 없으면 유리 상자로만 보인다.
+  /* 문도 유리라 안이 비쳐야 한다. 처음엔 옅은 판으로 채웠더니 선반의 화분을
+     통째로 가려 유리집이 아니라 파란 문짝 하나로 보였다. 틀만 두른다. */
+  const gdx = X + w / 2 - 13;
+  px(gdx, Y + 30, 26, 2, '#eaf6ff'); px(gdx, Y + 32, 26, 1, '#7d9aa8');
+  px(gdx, Y + 30, 2, h - 46, '#cfe6f2'); px(gdx + 24, Y + 30, 2, h - 46, '#8fc7e0');
+  px(gdx + 12, Y + 30, 2, h - 46, '#8fc7e0');
+  px(gdx, Y + h - 18, 26, 2, '#8fc7e0');
+  px(gdx + 15, Y + h - 34, 3, 6, '#5f7d8a'); px(gdx + 8, Y + h - 34, 3, 6, '#5f7d8a');
+  // 유리에 맺힌 김 — 아래쪽 모서리에 뽀얀 얼룩
+  for (let i = 0; i < w - 20; i += 7) px(X + 10 + i, Y + h - 26 + (i % 3), 4, 4, '#ffffff30');
+  px(X + 12, Y + 26, 3, h - 42, '#ffffff55');
   if (night) lamp(X + w / 2, Y + h / 2 + 8, 26, '#cfeccf');
 }
 function drawCoop(night){
@@ -1212,6 +1321,15 @@ function drawCoop(night){
   window4(X + 10, Y + 32, 12, 10, night);
   px(X + w - 22, Y + 32, 12, 12, WOOD.low); px(X + w - 22, Y + 32, 12, 2, WOOD.hi);
   px(X + w / 2 - 16, Y + 2, 4, 10, WOOD.dark); px(X + w / 2 - 20, Y + 0, 12, 4, '#ff5a4a');
+  // 드나드는 발판 — 닭이 오르내리는 널에 미끄럼 막이 다섯
+  px(X + w / 2 - 10, Y + h - 8, 20, 10, WOOD.low); px(X + w / 2 - 10, Y + h - 8, 20, 2, WOOD.hi);
+  for (let i = 0; i < 10; i += 3) px(X + w / 2 - 10, Y + h - 6 + i * 0.8, 20, 1, WOOD.line);
+  // 문 위 차양과 알 놓는 칸
+  px(X + w / 2 - 12, Y + h - 34, 24, 3, WOOD.dark); px(X + w / 2 - 12, Y + h - 34, 24, 1, WOOD.mid);
+  px(X + 8, Y + h - 22, 14, 12, WOOD.low); px(X + 8, Y + h - 22, 14, 2, WOOD.hi); px(X + 10, Y + h - 18, 10, 6, '#e0c268');
+  px(X + 12, Y + h - 16, 4, 3, '#fff6e9'); px(X + 16, Y + h - 15, 3, 2, '#fff6e9');
+  // 홰 — 벽에 가로지른 막대
+  px(X + w - 26, Y + h - 20, 18, 2, WOOD.dark);
 }
 function drawBarn(night){
   const b = spot('barn'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
@@ -1229,8 +1347,18 @@ function drawBarn(night){
   px(dx + 4, Y + h - 44, dw - 8, 40, WOOD.mid);
   for (let i = 0; i < 40; i += 8) px(dx + 4, Y + h - 44 + i, dw - 8, 2, WOOD.low);
   px(dx + dw / 2 - 2, Y + h - 44, 4, 40, '#fff1e2');
+  // 큰 문에 대각 버팀목과 돌쩌귀 — 널만 세워 두면 문이 아니라 판이다
+  for (let i = 0; i < 18; i++){ px(dx + 5 + i, Y + h - 43 + i * 2, 2, 2, shade(WOOD.mid, -26)); px(dx + dw - 7 - i, Y + h - 43 + i * 2, 2, 2, shade(WOOD.mid, -26)); }
+  [10, 30].forEach(o => { px(dx + 3, Y + h - 46 + o, 8, 3, '#6f6a63'); px(dx + dw - 11, Y + h - 46 + o, 8, 3, '#6f6a63'); });
+  px(dx + dw / 2 - 6, Y + h - 26, 5, 3, '#6f6a63'); px(dx + dw / 2 + 1, Y + h - 26, 5, 3, '#6f6a63');
   // 다락 창
   px(X + w / 2 - 8, Y + 16, 16, 14, WOOD.line); px(X + w / 2 - 6, Y + 18, 12, 10, night ? '#ffd98a' : '#4b3527');
+  px(X + w / 2 - 6, Y + 24, 12, 4, '#e0c268'); px(X + w / 2 - 4, Y + 26, 3, 3, '#f2da8a');   // 다락에 쌓인 건초
+  px(X + w / 2 - 10, Y + 30, 20, 3, WOOD.mid); px(X + w / 2 - 10, Y + 30, 20, 1, WOOD.hi);   // 다락 도르래 받침
+  px(X + w / 2 - 1, Y + 33, 2, 5, '#6f6a63'); px(X + w / 2 - 3, Y + 38, 6, 4, WOOD.dark);
+  // 지붕 꼭대기 바람개비
+  px(X + w / 2 - 1, Y - 8, 2, 12, '#5a544d'); px(X + w / 2 - 7, Y - 6, 14, 2, '#5a544d');
+  px(X + w / 2 + 3, Y - 10, 6, 6, '#3a3226'); px(X + w / 2 + 4, Y - 9, 4, 2, '#6f6a63');
   if (night) lamp(X + w / 2, Y + 22, 28);
   if (night) window4(X + 20, Y + 48, 14, 12, true); else window4(X + 20, Y + 48, 14, 12, false);
 }
@@ -1243,6 +1371,11 @@ function drawPethouse(night){
   roof(X + 6, Y + 2, 20, 10, '#5aa9e6');
   px(X + 12, Y + 18, 10, 12, '#3a2f26');
   px(X + 10, Y + 16, 14, 2, WOOD.dark);
+  px(X + 12, Y + 26, 10, 4, '#241d17');                                   // 안쪽 어둠이 아래로 갈수록 짙다
+  px(X + 6, Y + 14, 4, 5, '#fff6e9'); px(X + 6, Y + 14, 4, 1, '#ffffff'); // 이름표
+  px(X + 24, Y + 25, 7, 5, '#8fb5cf'); px(X + 24, Y + 25, 7, 1, '#bfe0f0');  // 밥그릇
+  px(X + 25, Y + 27, 5, 2, '#5a86a8');
+  px(X + 1, Y + 27, 6, 2, '#f2ece0'); px(X + 0, Y + 26, 2, 4, '#f2ece0'); px(X + 6, Y + 26, 2, 4, '#f2ece0');  // 뼈다귀
   if (night) lamp(X + 16, Y + 22, 20);
 }
 // 목장 — 울타리 친 풀밭. 여물통과 물통, 진창 하나.
@@ -1297,6 +1430,14 @@ function drawHive(){
   for (let i = 0; i < 22; i += 6){ px(X + 6, Y + 6 + i, 20, 2, '#c99f47'); px(X + 6, Y + 8 + i, 20, 2, '#ffdd8f'); }
   px(X + 4, Y + 4, 24, 4, '#c99f47'); px(X + 4, Y + 4, 24, 2, '#ffe3a0');
   px(X + 14, Y + 24, 6, 4, '#3a2f26');
+  px(X + 10, Y + 28, 14, 3, WOOD.low); px(X + 10, Y + 28, 14, 1, WOOD.hi);      // 드나드는 발판
+  px(X + 4, Y + 30, 4, 4, WOOD.dark); px(X + 24, Y + 30, 4, 4, WOOD.dark);      // 받침 다리
+  px(X + 6, Y + 4, 20, 1, '#fff0c8');
+  // 벌 셋 — 몸 두 도트에 날개 한 도트
+  [[2, 2], [26, 10], [8, 0]].forEach((q, i) => {
+    px(X + q[0], Y + q[1], 2, 2, '#3a2f26'); px(X + q[0], Y + q[1], 1, 1, '#ffd166');
+    px(X + q[0] + (i % 2 ? -1 : 2), Y + q[1] - 1, 1, 1, '#ffffff88');
+  });
   if (W.buildings.hive && W.buildings.hive.honey){ px(X + 22, Y + 0, 8, 8, '#ffb43d'); px(X + 22, Y + 0, 4, 4, '#ffe08a'); }
 }
 function drawScarecrow(){
@@ -1309,6 +1450,17 @@ function drawScarecrow(){
   px(X + 10, Y + 4, 12, 10, '#f2da8a'); px(X + 10, Y + 4, 12, 2, '#fff0b8');
   px(X + 8, Y + 2, 16, 4, WOOD.mid); px(X + 6, Y + 4, 20, 2, WOOD.low);
   px(X + 12, Y + 8, 2, 2, '#3a3226'); px(X + 18, Y + 8, 2, 2, '#3a3226'); px(X + 14, Y + 12, 4, 2, '#c9646b');
+  // 소매 끝으로 삐져나온 짚
+  px(X + 2, Y + 17, 4, 2, '#e0c268'); px(X + 1, Y + 15, 3, 2, '#f2da8a'); px(X + 2, Y + 20, 3, 2, '#c9a94e');
+  px(X + 26, Y + 17, 4, 2, '#e0c268'); px(X + 28, Y + 15, 3, 2, '#f2da8a'); px(X + 27, Y + 20, 3, 2, '#c9a94e');
+  px(X + 13, Y + 27, 6, 3, '#e0c268'); px(X + 14, Y + 29, 4, 2, '#c9a94e');
+  // 기운 자국과 단추
+  px(X + 18, Y + 20, 5, 4, '#8a5cc7'); px(X + 18, Y + 20, 5, 1, '#a479dd');
+  px(X + 12, Y + 19, 2, 2, '#3a3226'); px(X + 12, Y + 24, 2, 2, '#3a3226');
+  // 팔에 앉은 새 — 허수아비가 무섭지 않다는 농담
+  px(X + 22, Y + 9, 5, 4, '#7d9aa8'); px(X + 22, Y + 9, 5, 1, '#a8c4d4');
+  px(X + 26, Y + 8, 3, 3, '#7d9aa8'); px(X + 28, Y + 9, 2, 1, '#ffb43d'); px(X + 27, Y + 8, 1, 1, '#2b2620');
+  px(X + 20, Y + 10, 3, 2, '#5a7a8a');
 }
 // 아직 안 지은 자리 — 네 귀퉁이에 말뚝을 박고 노끈을 둘러 두었다.
 // 전에는 옅은 회색 점선 상자였는데, 화면에 그늘진 네모가 떠 있는 것처럼 보였다.
@@ -1469,6 +1621,16 @@ function blob(cx, cy, w, h, mid, hi, lo, seed, P){
     }
   }
 }
+/* 잎 덩이 하나 — 둥근 뭉치. 잎갓 둘레에 얹어 실루엣을 울퉁불퉁하게 만든다.
+   덩이 셋만 겹치면 가장자리가 매끈해서 나무가 초록 공으로 보였다. */
+function leafClump(cx, cy, r, col, hi){
+  for (let dy = -r; dy <= r; dy++){
+    const ww = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy)) * 2);
+    if (ww < 2) continue;
+    px(cx - ww / 2, cy + dy, ww, 1, col);
+  }
+  if (hi) px(cx - r + 1, cy - r + 1, Math.max(2, r - 1), 2, hi);
+}
 // ---------- 나무·바위 ----------
 function drawNode(n, season, t){
   const N = R.NODES[n], X = N.x * T, Y = N.y * T;
@@ -1488,12 +1650,24 @@ function drawNode(n, season, t){
     px(X + 10, Y + 16, 12, 16, WOOD.dark); px(X + 10, Y + 16, 4, 16, WOOD.low);
     px(X + 12, Y + 4, 8, 16, WOOD.dark); px(X + 12, Y + 4, 2, 16, WOOD.low);
     px(X + 18, Y + 10, 2, 20, WOOD.line); px(X + 14, Y + 20, 2, 6, WOOD.line);
+    // 뿌리 — 밑동에서 땅으로 퍼지는 두 가닥. 나무가 땅에 꽂힌 막대처럼 안 보인다.
+    px(X + 2, Y + 29, 6, 3, WOOD.dark); px(X + 2, Y + 29, 4, 1, WOOD.low);
+    px(X + 24, Y + 29, 6, 3, WOOD.dark); px(X + 24, Y + 30, 4, 1, WOOD.line);
+    // 껍질 결 — 짧은 세로 금 여섯
+    for (let i = 0; i < 6; i++) px(X + 11 + (i % 3) * 4, Y + 7 + i * 4, 1, 3, WOOD.line);
     // 가지
     px(X + 4, Y + 8, 8, 2, WOOD.dark); px(X + 20, Y + 12, 8, 2, WOOD.dark);
+    px(X + 2, Y + 6, 4, 2, WOOD.line); px(X + 26, Y + 10, 4, 2, WOOD.line);
     const L = season === 'autumn' ? ['#f0a95c', '#dd7b3f', '#b85a2c']
             : season === 'winter' ? ['#b8ccbe', '#9db4a5', '#7d9488']
             : ['#8ad07a', '#63ad57', '#417c3d'];
     const s = sway;
+    /* 잎갓 — 먼저 둘레에 잎 덩이 여덟을 얹고 그 위에 큰 덩이를 덮는다.
+       순서가 반대면 덩이가 잎갓 위에 뜬 동그라미로 보인다. 이렇게 두면 덩이는
+       가장자리로만 삐져나와 실루엣을 울퉁불퉁하게 만든다. */
+    [[-18, -18, 7], [-4, -24, 8], [12, -20, 7], [23, -7, 6],
+     [-24, -4, 6], [-14, 10, 6], [3, 13, 7], [17, 8, 6]]
+      .forEach(([qx, qy, r], i) => leafClump(X + 16 + qx + s, Y - 8 + qy, r, i < 4 ? L[1] : L[2], null));
     // 잎갓 — 큰 덩이 하나에 작은 덩이 둘을 겹쳐 둥글게
     blob(X + 16 + s, Y - 28, 48, 40, L[1], L[0], L[2], 't' + N.x);
     blob(X + 4 + s, Y - 18, 24, 22, L[1], L[0], L[2], 'u' + N.x);
@@ -1504,6 +1678,11 @@ function drawNode(n, season, t){
       const rx = Math.round((R.prand('lx' + N.x + i) - 0.5) * 36), ry = Math.round(R.prand('ly' + N.x + i) * 34);
       px(X + 16 + rx + s, Y - 26 + ry, 4, 2, i % 2 ? L[2] : L[0]);
     }
+    // 잎갓 아래로 처진 잎 넷 — 아래쪽 실루엣을 마저 흐트러뜨린다
+    [[-20, 4], [-8, 10], [6, 11], [18, 5]].forEach((q, i) => {
+      px(X + 16 + q[0] + s, Y + 2 + q[1], 5, 3, L[2]);
+      px(X + 16 + q[0] + s, Y + 2 + q[1], 3, 2, i % 2 ? L[1] : L[0]);
+    });
     if (season === 'spring'){ [[-12, 4], [8, 2], [16, 16], [-6, 22], [2, 10]].forEach((q, i) => { const c = i % 2 ? '#ffd6e6' : '#ffb7d5'; px(X + 16 + q[0] + s, Y - 26 + q[1], 4, 4, c); px(X + 16 + q[0] + s, Y - 26 + q[1], 2, 2, '#fff2f7'); }); }
     if (season === 'summer'){ [[-10, 10], [10, 6], [0, 20]].forEach(q => { px(X + 16 + q[0] + s, Y - 26 + q[1], 4, 4, '#e8324a'); px(X + 16 + q[0] + s, Y - 26 + q[1], 2, 2, '#ff8a94'); }); }
     if (season === 'winter'){ px(X + 2 + s, Y - 26, 28, 4, '#ffffff'); px(X - 4 + s, Y - 16, 12, 2, '#f2f9ff'); px(X + 26 + s, Y - 18, 12, 2, '#f2f9ff'); }
@@ -1517,6 +1696,12 @@ function drawNode(n, season, t){
     px(X + 4, Y + 20, 10, 6, STONE.dark); px(X + 20, Y + 16, 6, 10, STONE.dark);
     px(X + 12, Y + 14, 6, 4, STONE.hi);
     px(X + 4, Y + 26, 24, 2, STONE.line);
+    // 면과 면 사이를 흩뿌려 섞는다 — 색 단이 계단처럼 끊겨 보이던 자리다
+    ditherRow(X + 8, Y + 13, 16, STONE.mid, 0.5, 1); ditherRow(X + 6, Y + 19, 20, STONE.dark, 0.4, 3);
+    // 금 하나와 이끼 — 돌이 회색 덩어리로만 보이지 않게
+    px(X + 14, Y + 8, 1, 10, STONE.line); px(X + 15, Y + 13, 1, 6, STONE.line);
+    px(X + 6, Y + 10, 6, 3, '#6f9a5e'); px(X + 6, Y + 10, 4, 1, '#8dbb78');
+    px(X + 20, Y + 22, 5, 2, '#6f9a5e');
     return;
   }
   if (N.kind === 'bush'){
@@ -1699,7 +1884,7 @@ function drawWalker(w, t){
   const bob = w.moving ? 0 : (Math.sin(t / 900 + w.phase) > 0.8 ? 2 : 0);
   footShade(w.x, w.y - 2, 22);
   const fl = w.dir === 'side' ? w.flip : false;
-  artOut(w.who + w.dir + f, set[f], Math.round(w.x - 12), Math.round(w.y - 32 + bob), KIDPAL[w.who], fl);
+  artOut(w.who + w.dir + f, set[f], Math.round(w.x - 14), Math.round(w.y - 38 + bob), KIDPAL[w.who], fl);
 }
 const BABY_K = 2 / 3;      // 새끼는 어른의 3분의 2 크기
 function drawBeast(a, t){
@@ -4178,7 +4363,7 @@ function drawRoom(cv, r, tms){
     const kx = isoX(Rm, sp[0], sp[1]), ky = isoY(sp[0], sp[1]) + TH / 2 + bob;
     isoTop(dotFill(g), kx, ky - 6, 14, 14, 'rgba(26,20,12,0.20)');
     const rows = blink ? A2.down[1] : A2.down[0];
-    g.drawImage(outlined(who + 'room' + (blink ? 1 : 0), rows, KIDPAL[who], false, HS), Math.round((kx - 14) * HS), Math.round((ky - 34) * HS));
+    g.drawImage(outlined(who + 'room' + (blink ? 1 : 0), rows, KIDPAL[who], false, HS), Math.round((kx - 15) * HS), Math.round((ky - 40) * HS));
   }
   const cat = floorItems.find(i => R.FURNITURE[i.f].kind === 'catbed');
   if (cat){
