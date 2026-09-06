@@ -3296,16 +3296,32 @@ belowFold(async () => {
 
   // 속도 10단계. 계속 조금씩 빨라지면 빨라지는 걸 못 느낀다. 계단으로 올리고
   // 올라갈 때 화면에 알려 준다. 한 계단이 곧 한 무대다.
-  const SPEEDS  = [160, 185, 210, 236, 262, 290, 318, 346, 375, 405];
-  const LV_SECS = 26;        // 한 계단에 머무는 시간 → 열 무대를 다 보려면 4분 20초
+  //
+  // (2026-09-07) 너무 쉬웠다. 공룡 게임을 자로 대고 다시 맞췄다 — 그쪽은 360px/s 로
+  // 시작해 2분에 걸쳐 780px/s 까지 올라가고, 600px 짜리 화면이라 가장 빠를 때 장애물을
+  // 보고 0.77초 만에 넘어야 한다. 여기 캔버스는 폰에서 327px 이라 455px/s 면 0.72초 —
+  // 거의 같은 촉박함이다(넓은 화면에서는 그만큼 여유가 있다). 계단 하나도 26초에서
+  // 18초로 줄여, 열 무대를 다 보는 데 4분 20초가 아니라 3분이 걸리게 했다.
+  const SPEEDS  = [190, 218, 246, 275, 305, 335, 366, 397, 428, 455];
+  const LV_SECS = 18;        // 한 계단에 머무는 시간 → 열 무대를 다 보려면 3분
+  // 마지막 무대에 닿아도 멈추지 않는다. 공룡 게임처럼 끝내 따라잡히도록,
+  // 초마다 조금씩 더 빨라지고 사이도 조금씩 좁아진다(각각 바닥값에서 멈춘다).
+  const OVER_ACC  = 1.2;     // 마지막 무대부터 초마다 더해지는 속도(px/s)
+  const SPD_MAX   = 560;     // 그래도 여기서 멈춘다 — 폰 화면(327px)을 0.58초에 가로지른다
+  const GAP_TIGHT = 0.0015;  // 마지막 무대부터 초마다 줄어드는 사이(초)
+  const GAP_FLOOR = 0.66;    // 사이는 여기까지만 좁아진다
 
   // 단계마다 얼마나 자주, 얼마나 길게 나오는지.
   // 처음엔 드문드문 나와서 아이가 조작을 익히고, 뒤로 갈수록 촘촘해진다.
   //   gap  = 다음 무리까지 비워 두는 시간(초) — 작을수록 자주
   //   maxN = 한 무리에 이어 붙일 조각 수 상한 → 장애물 길이 5단계
   //   gem  = 하트가 딸려 나올 확률
+  // (2026-09-07) gap 은 앞 무리가 지나간 뒤 비어 있는 시간이다. 공룡 게임은 이게
+  // 0.48초(느릴 때)~0.38초(가장 빠를 때)인데, 그쪽 점프는 0.56초로 짧고 여기 점프는
+  // 0.71~0.94초로 뜬다. 그대로 베끼면 내려서기도 전에 다음 것이 온다 —
+  // 「내려서자마자 다시 누르면 넘어간다」가 되는 선까지만 좁혔다(끝 무대 0.74초).
   const PACE = {
-    gap:  [2.6, 2.2, 1.9, 1.65, 1.45, 1.3, 1.15, 1.05, 0.95, 0.88],
+    gap:  [2.1, 1.8, 1.55, 1.35, 1.2, 1.08, 0.98, 0.88, 0.80, 0.74],
     maxN: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5],
     gem:  [0.22, 0.28, 0.34, 0.40, 0.46, 0.52, 0.58, 0.63, 0.68, 0.72],
   };
@@ -3340,8 +3356,8 @@ belowFold(async () => {
       { sp: 'pillar', s: 2, hit: [1, 1] } ],
   ];
   // 조각을 이어 붙여도 이 너비를 넘기지 않는다. 넘을 수 있어야 하기 때문이다 —
-  // 가장 빠른 405px/s 에서 140px 무리를 지나려면 0.4초가 필요한데,
-  // 제일 약한 1단 점프도 판정 높이(21px) 위에 0.57초 머문다.
+  // 제일 빠른 560px/s 에서 140px 무리를 지나는 데 0.25초가 걸리는데,
+  // 제일 약한 1단 점프도 판정 높이(21px) 위에 0.56초 머문다.
   function groupMaxW(maxN){ return Math.min(140, 30 * maxN + 12); }
 
   // 수풀이 언덕과 같은 연두라 배경에 묻혔다. 장애물만 훨씬 진한 초록으로 바꾸고,
@@ -3363,12 +3379,13 @@ belowFold(async () => {
   const STAR_CHANCE = 0.12;   // 하트가 나올 자리 중 이 비율이 별로 바뀐다
   const SHIELD_SECS = 4;      // 별을 먹으면 이만큼 안 다친다
 
-  // 목숨. 한 판에서 두 번까지 이어서 달릴 수 있다.
-  // 부딪히면 하나 깎이고 5초 동안 무적 — 그동안 반투명으로 깜빡인다.
+  // 목숨. 한 판에서 한 번까지 이어서 달릴 수 있다(2026-09-07 에 둘에서 하나로 —
+  // 세 번을 부딪혀도 안 끝나니 판이 늘어지기만 했다. 공룡 게임은 한 번이면 끝이다).
+  // 부딪히면 하나 깎이고 3초 동안 무적 — 그동안 반투명으로 깜빡인다.
   // 깎인 자리는 하트를 GEMS_PER_LIFE 개 모으면 한 칸 되돌아온다(최대 MAX_LIVES).
-  const MAX_LIVES     = 2;
-  const INVULN_SECS   = 5;
-  const GEMS_PER_LIFE = 10;
+  const MAX_LIVES     = 1;
+  const INVULN_SECS   = 3;
+  const GEMS_PER_LIFE = 14;
 
   let W = 0, H = 0, GY = 0, dpr = 1;
   let state = 'ready';                 // ready | play | over
@@ -3400,6 +3417,8 @@ belowFold(async () => {
   const spriteOf = () => SPRITES[who];
   const spriteH  = () => spriteOf().length;
   const score    = () => Math.floor(dist / 12) + hearts * 5;
+  // 마지막 무대에 들어선 뒤로 흐른 시간. 그 뒤로도 계속 빨라지고 좁아지는 데 쓴다.
+  const overSecs = () => Math.max(0, t - (SPEEDS.length - 1) * LV_SECS);
   const ceilOf   = () => GY - spriteH() - 20;
 
   function recordBest(){
@@ -3900,7 +3919,9 @@ belowFold(async () => {
   function spawn(){
     // 조각 수를 1~3 으로 이어 붙여 장애물 길이를 세 단계로 만든다.
     // 처음부터 긴 게 나오면 아이가 금방 포기하니 속도 단계에 맞춰 늘린다.
-    const pace = { gap: PACE.gap[lv], maxN: PACE.maxN[lv], gem: PACE.gem[lv] };
+    // 마지막 무대에 오래 머물수록 사이가 조금씩 좁아진다(GAP_FLOOR 에서 멈춘다)
+    const gap = Math.max(GAP_FLOOR, PACE.gap[lv] - overSecs() * GAP_TIGHT);
+    const pace = { gap: gap, maxN: PACE.maxN[lv], gem: PACE.gem[lv] };
     const n = 1 + Math.floor(Math.random() * pace.maxN);
     const cap = groupMaxW(pace.maxN);
     const pool = STAGE_PIECES[Math.min(STAGE_PIECES.length - 1, lv)];
@@ -3933,6 +3954,8 @@ belowFold(async () => {
       t += dt;
       const nl = Math.min(SPEEDS.length - 1, Math.floor(t / LV_SECS));
       if (nl !== lv){ lv = nl; spd = SPEEDS[lv]; lvFlash = 1.4; sfx('pop'); }
+      // 마지막 무대에서는 계단이 없으니 여기서 계속 조금씩 밀어 올린다
+      if (lv === SPEEDS.length - 1) spd = Math.min(SPD_MAX, SPEEDS[lv] + overSecs() * OVER_ACC);
       if (lvFlash > 0) lvFlash -= dt;
       if (lifeFlash > 0) lifeFlash -= dt;
       if (shieldFlash > 0) shieldFlash -= dt;
