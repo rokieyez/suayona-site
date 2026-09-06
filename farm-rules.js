@@ -669,6 +669,7 @@ const FARM = (() => {
     rose:     { name: '장미 화분',     cost: 190, w: 1, kind: 'rose',      cozy: 2, c: '#ff6b7a' },
     whale:    { name: '고래 그림',     cost: 230, w: 1, kind: 'whale',     cozy: 3, c: '#5aa9e6' , wall: true },
     wlight:   { name: '벽 조명',       cost: 200, w: 1, kind: 'wlight',    cozy: 3, c: '#ffe9a8' , wall: true },
+    medalcase:{ name: '훈장 걸이',     cost: 0,   w: 1, kind: 'medalcase', cozy: 4, c: '#c9a24a' , wall: true, rare: true },   // 가게에 없다 — 첫 훈장과 함께 온다
     bigbear:  { name: '엄청 큰 곰인형', cost: 950, w: 2, kind: 'bigbear', cozy: 5, c: '#c79b6d' },
   };
   // 방은 가로 칸 수 × 세로 칸 수. 넓히는 건 언제든 안전하다 — 이미 놓인 가구는 그대로 있다.
@@ -790,18 +791,18 @@ const FARM = (() => {
   /* 도감을 채우는 것 말고도 「해 본 일」에 훈장을 준다. 조건이 차면 받을 수 있고,
      받을 때 동전과 경험치를 준다 — 도감이 목록이 아니라 발자국이 되도록. */
   const MEDALS = [
-    { id: 'seedling', name: '첫 삽',       icon: '🌱', desc: '작물 다섯 가지를 거둬요',       coins: 100,  need: (w, m) => cropsInDex(m) >= 5 },
-    { id: 'farmer',   name: '밭의 주인',   icon: '🌾', desc: '작물 절반을 거둬요',           coins: 400,  need: (w, m) => cropsInDex(m) >= Math.ceil(CROP_IDS.length / 2) },
-    { id: 'master',   name: '온 밭 도감',  icon: '🏅', desc: '작물을 모두 거둬요',           coins: 1500, need: (w, m) => cropsInDex(m) >= CROP_IDS.length },
-    { id: 'shiny',    name: '반짝반짝',    icon: '✨', desc: '반짝 작물 다섯 가지를 거둬요', coins: 500,  need: (w, m) => m.dex.filter(k => k.slice(0, 5) === 'gold:').length >= 5 },
-    { id: 'angler',   name: '연못 지기',   icon: '🎣', desc: '물고기를 모두 낚아요',         coins: 800,  need: (w, m) => FISH_IDS.every(f => m.dex.indexOf('fish:' + f) >= 0) },
-    { id: 'cook',     name: '부엌 대장',   icon: '🍳', desc: '요리를 모두 만들어요',         coins: 900,  need: (w, m) => Object.keys(DISHES).every(d => m.dex.indexOf('dish:' + d) >= 0) },
-    { id: 'giant',    name: '둘이서 번쩍', icon: '🎃', desc: '큰 작물을 뽑아요',             coins: 300,  need: (w, m) => m.dex.some(k => k.slice(0, 6) === 'giant:') },
-    { id: 'bestie',   name: '마음이 가득', icon: '💗', desc: '동물의 마음을 10까지 채워요',  coins: 400,  need: (w) => (w.animals || []).some(a => (a.love || 0) >= 10) },
-    { id: 'cradle',   name: '새끼를 봤어요', icon: '🐣', desc: '동물이 새끼를 낳아요',       coins: 500,  need: (w) => (w.animals || []).some(a => a.mom) },
-    { id: 'night',    name: '반딧불이 밤', icon: '🌟', desc: '반딧불이를 스무 마리 잡아요',  coins: 300,  need: (w, m) => ((m.stats || {}).caught || 0) >= 20 },
-    { id: 'party',    name: '축제의 별',   icon: '🏆', desc: '축제에서 상을 받아요',         coins: 600,  need: (w) => Object.keys(w.festival || {}).some(k => w.festival[k].done) },
-    { id: 'hundred',  name: '백 날의 농부', icon: '📅', desc: '농장에 백 날 와요',           coins: 1000, need: (w, m) => (m.playDays || []).length >= 100 },
+    { id: 'seedling', col: '#8fd66c', name: '첫 삽',       icon: '🌱', desc: '작물 다섯 가지를 거둬요',       coins: 100,  need: (w, m) => cropsInDex(m) >= 5 },
+    { id: 'farmer', col: '#e8c46a',   name: '밭의 주인',   icon: '🌾', desc: '작물 절반을 거둬요',           coins: 400,  need: (w, m) => cropsInDex(m) >= Math.ceil(CROP_IDS.length / 2) },
+    { id: 'master', col: '#ffd25a',   name: '온 밭 도감',  icon: '🏅', desc: '작물을 모두 거둬요',           coins: 1500, need: (w, m) => cropsInDex(m) >= CROP_IDS.length },
+    { id: 'shiny', col: '#fff0a8',    name: '반짝반짝',    icon: '✨', desc: '반짝 작물 다섯 가지를 거둬요', coins: 500,  need: (w, m) => m.dex.filter(k => k.slice(0, 5) === 'gold:').length >= 5 },
+    { id: 'angler', col: '#6fb3e0',   name: '연못 지기',   icon: '🎣', desc: '물고기를 모두 낚아요',         coins: 800,  need: (w, m) => FISH_IDS.every(f => m.dex.indexOf('fish:' + f) >= 0) },
+    { id: 'cook', col: '#ff9a2e',     name: '부엌 대장',   icon: '🍳', desc: '요리를 모두 만들어요',         coins: 900,  need: (w, m) => Object.keys(DISHES).every(d => m.dex.indexOf('dish:' + d) >= 0) },
+    { id: 'giant', col: '#e8892f',    name: '둘이서 번쩍', icon: '🎃', desc: '큰 작물을 뽑아요',             coins: 300,  need: (w, m) => m.dex.some(k => k.slice(0, 6) === 'giant:') },
+    { id: 'bestie', col: '#ff7f8a',   name: '마음이 가득', icon: '💗', desc: '동물의 마음을 10까지 채워요',  coins: 400,  need: (w) => (w.animals || []).some(a => (a.love || 0) >= 10) },
+    { id: 'cradle', col: '#ffe066',   name: '새끼를 봤어요', icon: '🐣', desc: '동물이 새끼를 낳아요',       coins: 500,  need: (w) => (w.animals || []).some(a => a.mom) },
+    { id: 'night', col: '#9bea6e',    name: '반딧불이 밤', icon: '🌟', desc: '반딧불이를 스무 마리 잡아요',  coins: 300,  need: (w, m) => ((m.stats || {}).caught || 0) >= 20 },
+    { id: 'party', col: '#c9a24a',    name: '축제의 별',   icon: '🏆', desc: '축제에서 상을 받아요',         coins: 600,  need: (w) => Object.keys(w.festival || {}).some(k => w.festival[k].done) },
+    { id: 'hundred', col: '#a9c4d6',  name: '백 날의 농부', icon: '📅', desc: '농장에 백 날 와요',           coins: 1000, need: (w, m) => (m.playDays || []).length >= 100 },
   ];
   function cropsInDex(mine){
     return CROP_IDS.filter(c => mine.dex.indexOf(c) >= 0).length;
@@ -819,8 +820,12 @@ const FARM = (() => {
     if (mine.medals.indexOf(id) >= 0) return fail('이미 받은 훈장이에요');
     if (!M.need(world, mine)) return fail('아직이에요 — ' + M.desc);
     mine.medals.push(id); mine.coins += M.coins; mine.xp += 25;
+    // 첫 훈장에는 걸어 둘 자리가 따라온다 — 받은 것이 가방에만 쌓이면 자랑할 데가 없다
+    const first = mine.medals.length === 1;
+    if (first) give(mine, 'f:medalcase', 1);
     logAdd(world, mine.key, NAME[mine.key] + '가 훈장 「' + M.name + '」을 받았어요', now);
-    return okay(M.icon + ' <b>' + M.name + '</b> 훈장! ' + M.coins + ' 동전', { medal: true });
+    return okay(M.icon + ' <b>' + M.name + '</b> 훈장! ' + M.coins + ' 동전'
+      + (first ? ' · <b>훈장 걸이</b>도 왔어요. 집에 걸어요' : ''), { medal: true, first: first });
   }
 
   // ---------- 돌아다니는 행상인 ----------
@@ -852,6 +857,39 @@ const FARM = (() => {
   }
   function peddlerGot(mine, now, slot){
     return mine.pedDay === dayKey(now) && (mine.pedGot || {})[slot];
+  }
+  /* 오늘 그가 두 배로 쳐 주는 물건 하나. 열 개까지만 사 간다 —
+     끝없이 사 주면 「모아 뒀다가 오는 날 판다」가 아니라 그냥 돈 나오는 구멍이 된다.
+     날짜로 정해지므로 둘이 같은 물건을 본다. */
+  const PED_WANT_MULT = 2, PED_WANT_MAX = 10;
+  function peddlerWant(world, now){
+    if (!peddlerHere(world, now)) return null;
+    const key = dayKey(now);
+    const pool = CROP_IDS.map(c => 'crop:' + c)
+      .concat(['egg', 'bigegg', 'duckegg', 'milk', 'goldmilk', 'wool', 'honey', 'truffle', 'angora', 'downfeather', 'gem', 'berry'])
+      .concat(FISH_IDS.filter(f => !FISH[f].junk).map(f => 'fish:' + f));
+    return { id: pool[Math.floor(prand('pw' + key) * pool.length)], mult: PED_WANT_MULT, max: PED_WANT_MAX };
+  }
+  // 오늘 산 자리·판 개수는 날이 바뀌면 함께 지운다
+  function pedToday(mine, now){
+    const key = dayKey(now);
+    if (mine.pedDay !== key){ mine.pedDay = key; mine.pedGot = {}; mine.pedSold = 0; }
+  }
+  function peddlerSoldLeft(mine, now){
+    return mine.pedDay === dayKey(now) ? Math.max(0, PED_WANT_MAX - (mine.pedSold || 0)) : PED_WANT_MAX;
+  }
+  function sellToPeddler(world, mine, n, now){
+    const want = peddlerWant(world, now);
+    if (!want) return fail('행상인은 오늘 안 왔어요');
+    const left = peddlerSoldLeft(mine, now);
+    if (left <= 0) return fail('오늘 살 만큼 샀대요. 다음에 또 올게요');
+    n = Math.max(1, Math.min(Math.floor(n || 1), left));
+    if (!takeAny(mine, want.id, n)) return fail(itemName(want.id) + '이 그만큼 없어요');
+    pedToday(mine, now);
+    mine.pedSold = (mine.pedSold || 0) + n;
+    const each = sellPrice(want.id, world, now) * want.mult;
+    mine.coins += each * n; bump(mine, 'sold', n, now);
+    return okay(itemName(want.id) + ' ' + n + '개를 <b>두 배</b>로 팔았어요 — ' + (each * n) + ' 동전', { sold: true });
   }
   // 수수께끼 보따리 — 무엇이 나와도 300냥어치는 넘는다. 아이가 하는 놀이라 꽝은 두지 않았다.
   const BOX_PRIZES = [
@@ -1283,7 +1321,7 @@ const FARM = (() => {
       if (peddlerGot(mine, now, v)) return fail('오늘 몫은 이미 샀어요');
       if (mine.coins < it.cost) return fail('동전이 모자라요');
       mine.coins -= it.cost;
-      if (mine.pedDay !== dayKey(now)){ mine.pedDay = dayKey(now); mine.pedGot = {}; }
+      pedToday(mine, now);
       mine.pedGot[v] = true;
       if (it.id === 'box'){
         const P = openBox(world, mine, now);
@@ -1562,7 +1600,10 @@ const FARM = (() => {
     });
     const sprinkled_n = sprinklerDay(world, now);
     if (sprinkled_n) notes.push('스프링클러가 ' + sprinkled_n + '칸에 물을 줬어요');
-    if (peddlerHere(world, now)) notes.push('<b>행상인</b>이 수레를 끌고 왔어요');
+    if (peddlerHere(world, now)){
+      const pw = peddlerWant(world, now);
+      notes.push('<b>행상인</b>이 수레를 끌고 왔어요 — 오늘은 ' + eul(itemName(pw.id)) + ' 두 배로 사 간대요');
+    }
     if (honeyCheck(world, now)) notes.push('벌통에 꿀이 찼어요');
     if (isWet(weatherOf(key, cal.season))){
       Object.keys(world.plots).forEach(id => { const p = world.plots[id]; if (p.tilled && id[0] !== 'g'){ tickPlot(p, now, false); p.wet = Math.max(p.wet || 0, dayEndMs(now)); } });
@@ -1579,12 +1620,12 @@ const FARM = (() => {
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
-    GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, FIREFLY_MAX, PEDDLER, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
+    GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, FIREFLY_MAX, PEDDLER, PED_WANT_MULT, PED_WANT_MAX, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand,
     countOf, seedsFor, plotIds, plotOpen, parseId, putSprinkler, pullSprinkler, sprinkled, sprinklerDay,
     fireflyNight, fireflyLeft, catchFirefly, fireSit,
-    peddlerHere, peddlerStock, peddlerGot,
+    peddlerHere, peddlerStock, peddlerGot, peddlerWant, peddlerSoldLeft, sellToPeddler,
     medalState, claimMedal, cropsInDex, neighborsOf, tickPlot, stageOf, ripe, hoursLeft, wetNow, growTime, seasonSweep, starOf, careNeed,
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
     canPay, buildState, animalDay, babyDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,

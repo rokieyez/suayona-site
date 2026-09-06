@@ -2369,7 +2369,31 @@ function openPeddler(){
   const stock = R.peddlerStock(W, now());
   const inner = $('#modalInner');
   inner.innerHTML = '<h3 class="pixel">🛒 행상인</h3><p class="sub">이레에 두 번쯤 와요. 오늘 물건은 셋, 둘이 하나씩 살 수 있어요.</p>'
-    + '<div id="pedRows"></div><div class="modal-actions"><button type="button" class="dot-btn small" id="pedClose">닫기</button></div>';
+    + '<div id="pedWant"></div><div id="pedRows"></div><div class="modal-actions"><button type="button" class="dot-btn small" id="pedClose">닫기</button></div>';
+  // 오늘 그가 두 배로 사 가는 물건 — 파는 쪽이 먼저 눈에 띄어야 「모아 뒀다 판다」가 된다
+  const want = R.peddlerWant(W, now());
+  if (want){
+    const left = R.peddlerSoldLeft(M, now()), have = R.countOf(M, want.id);
+    const n = Math.min(have, left);
+    const each = R.sellPrice(want.id, W, now()) * want.mult;
+    const wb = $('#pedWant'); wb.className = 'wantrow';
+    wb.appendChild(itemIcon(want.id));
+    const tx = document.createElement('span');
+    // 「우유을」 처럼 어긋나지 않게 조사는 규칙에 맡긴다 — 이름만 굵게 하려고 조사 한 글자를 떼어 쓴다
+    const wnm = R.itemName(want.id), josa = R.eul(wnm).slice(wnm.length);
+    tx.innerHTML = '오늘은 <b>' + escapeHTML(wnm) + '</b>' + josa + ' <b>두 배</b>로 사 가요'
+      + '<br><span class="sub" style="margin:0;">한 개에 ' + each + ' 동전 · 가진 것 ' + have + '개 · 오늘 ' + left + '개까지</span>';
+    wb.appendChild(tx);
+    // 못 파는 까닭이 「없어서」인지 「오늘 몫을 다 써서」인지 구별해 준다
+    const why = left <= 0 ? '오늘 몫은 다 팔았어요' : '팔 것이 없어요';
+    const sb2 = btn(n ? '🪙 ' + n + '개 팔기' : why, 'sm buy', () => {
+      const r = act((w, m) => R.sellToPeddler(w, m, n, now()));
+      if (r.ok) sfx('cart');
+      openPeddler();
+    }, !n);
+    sb2.style.marginLeft = 'auto';
+    wb.appendChild(sb2);
+  }
   const rows = $('#pedRows');
   stock.forEach(it => {
     const got = R.peddlerGot(M, now(), it.slot);
@@ -2456,7 +2480,7 @@ function furnPreview(f){
     if (WALL_KINDS[F.kind]){
       cv.width = 42; cv.height = 54;
       const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
-      paintWallItem((u, v, uw, vh, c) => { g.fillStyle = c; g.fillRect(u + 1, v - 4, Math.max(1, uw), Math.max(1, vh)); }, 0, f, roomPal('sua'));
+      paintWallItem((u, v, uw, vh, c) => { g.fillStyle = c; g.fillRect(u + 1, v - 4, Math.max(1, uw), Math.max(1, vh)); }, 0, f, roomPal('sua'), 'sua');
     } else {
       const A = furnArt(f, 0), bm = furnBitmap(f, 0, A, 0);
       cv.width = bm.width; cv.height = bm.height;
@@ -2749,7 +2773,7 @@ const W_MOULD = 6, W_RAIL = 66, W_WAIN = 70, W_BASE = 98;
 const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars: 1,
                      board: 1, garland: 1, wshelf: 1, rainbow: 1,
                      heightbar: 1, worldmap: 1, mobile: 1, wreath: 1,
-                     whale: 1, wlight: 1 };
+                     whale: 1, wlight: 1, medalcase: 1 };
 /* 벽에 거는 것은 어느 벽에 붙나. 칸에서 뒤로 물러났을 때 더 가까운 벽에 건다.
    (y 쪽이 가까우면 오른쪽 벽, x 쪽이 가까우면 왼쪽 벽) */
 function wallSlot(Rm, x, y){
@@ -2758,7 +2782,15 @@ function wallSlot(Rm, x, y){
 /* 벽에 거는 것. 가로 40 · 세로 6~58 안에 그린다 — 전에는 32×40 이라 그림이 굵었다.
    벽이 2도트마다 한 도트씩 내려가므로 가로 자리와 폭은 늘 짝수로 잡는다.
    세로는 1도트까지 쓸 수 있어서, 테와 매트와 반사는 거기서 벌어 온다. */
-function paintWallItem(wall, u, f, P){
+/* 훈장 걸이에 걸 훈장 — 그 방 주인의 것. 거실은 둘의 것을 합친다.
+   자매의 줄(other)도 이미 읽어 두었으므로 둘 다 그릴 수 있다. 손님 화면에서는 빈 걸이가 된다. */
+function medalsOf(room){
+  const mine = (M && M.medals) || [], oth = (other && other.medals) || [];
+  if (room === 'living') return Array.from(new Set(mine.concat(oth)));
+  if (key && room === R.OTHER[key]) return oth;
+  return mine;
+}
+function paintWallItem(wall, u, f, P, room){
   const F = R.FURNITURE[f], c = F.c;
   const hi = shade(c, 24);
   const w = (x, y, ww, hh, col) => wall(u + x, y, ww, hh, col);
@@ -3005,6 +3037,30 @@ function paintWallItem(wall, u, f, P){
       for (let i = 0; i < 10; i += 2) w(8 + i, 12 + i, 2, 4, 'rgba(255,255,255,0.20)');   // 유리 반사
       break;
     }
+    case 'medalcase': {                                               // 훈장 걸이 — 받은 훈장이 하나씩 채워진다
+      const got = medalsOf(room);
+      hang(20, 3, 9);
+      w(4, 6, 32, 46, '#4a3524');                                     // 바깥 테
+      w(4, 6, 32, 2, '#6f4e33');
+      w(6, 8, 28, 42, '#3f3a52');                                     // 안쪽 융 (y 8~50)
+      w(6, 8, 28, 1, '#524b68');
+      /* 훈장 열둘을 4×3 으로. 지름을 6으로 잡았더니 옆것과 딱 붙어 한 줄 막대로 보였다 —
+         4로 줄이고 자리는 6칸씩 띄워 사이에 두 도트가 남게 했다. */
+      R.MEDALS.forEach((Md, i) => {
+        const cx = 8 + (i % 4) * 6, cy = 11 + Math.floor(i / 4) * 13;
+        if (got.indexOf(Md.id) < 0){ w(cx + 1, cy + 2, 2, 2, '#2e2a3c'); return; }   // 아직 못 받은 자리 — 빈 못
+        w(cx + 1, cy, 2, 1, shade(Md.col, -34));
+        w(cx, cy + 1, 4, 4, Md.col);
+        w(cx, cy + 1, 4, 1, shade(Md.col, 26));
+        w(cx + 1, cy + 5, 2, 1, shade(Md.col, -34));
+        w(cx, cy + 6, 2, 3, '#c9333f'); w(cx + 2, cy + 6, 2, 3, '#e0736e');          // 리본
+      });
+      // 받은 수를 밑에 눈금으로 — 글자를 못 쓰니 칸으로 센다
+      for (let i = 0; i < R.MEDALS.length; i++){
+        w(6 + i * 2, 47, 2, 1, i < got.length ? '#ffd25a' : '#2e2a3c');
+      }
+      break;
+    }
     case 'wlight': {                                                  // 벽 조명 — 따뜻한 불빛이 벽에 번진다
       // 벽에 번지는 빛부터 — 뒤에 깔아야 등이 위에 온다
       for (let i = 0; i < 7; i++){
@@ -3160,8 +3216,8 @@ function drawRoomShell(g, r, L, wallItems){
     const len = (s.side > 0 ? LW : LH);
     const u = Math.min(Math.max(0, s.at * (TW / 2) - 8), len - 42);   // 그림이 40 도트로 넓어졌다
     // 벽에서 살짝 떠 있게 — 그림자를 한 벌 먼저 깐다. 안 그러면 벽지에 인쇄된 것처럼 보인다
-    paintWallItem((uu, v, uw, vh) => wl(uu + 2, v + 3, uw, vh, 'rgba(26,18,10,0.16)'), u, it.f, P);
-    paintWallItem(wl, u, it.f, P);
+    paintWallItem((uu, v, uw, vh) => wl(uu + 2, v + 3, uw, vh, 'rgba(26,18,10,0.16)'), u, it.f, P, r);
+    paintWallItem(wl, u, it.f, P, r);
   });
   // 마루 — 널이 오른쪽아래로 흐른다. 널 하나가 세로 8도트, 한 칸에 세 줄.
   const BX = Rm.w * (TW / 2), FBY = WALLH + (Rm.w + Rm.h) * (TH / 2), LY = WALLH + Rm.h * (TH / 2);
