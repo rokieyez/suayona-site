@@ -1488,10 +1488,15 @@ function bShed(q){
 // 물건마다 겹을 하나씩 만들어 테두리를 두르고, 앞뒤 순서대로 얹는다
 function sortItems(items){
   items.forEach((it, i) => { it.i = i; it.after = []; });
-  const scr = it => { const c = [proj(it.x, it.y, 0), proj(it.x + it.w, it.y + it.d, 0), proj(it.x, it.y + it.d, 0), proj(it.x + it.w, it.y, 0), proj(it.x, it.y, it.h), proj(it.x + it.w, it.y, it.h)];
-    return { x0: Math.min(...c.map(p => p[0])) - (it.pad || 8), x1: Math.max(...c.map(p => p[0])) + (it.pad || 8), y0: Math.min(...c.map(p => p[1])) - (it.pad || 8), y1: Math.max(...c.map(p => p[1])) + 4 }; };
-  items.forEach(it => { it.bb = scr(it); });
-  const over = (a, b) => !(a.bb.x1 < b.bb.x0 || b.bb.x1 < a.bb.x0 || a.bb.y1 < b.bb.y0 || b.bb.y1 < a.bb.y0);
+  const scr = (it, pad, foot) => { const c = [proj(it.x, it.y, 0), proj(it.x + it.w, it.y + it.d, 0), proj(it.x, it.y + it.d, 0), proj(it.x + it.w, it.y, 0), proj(it.x, it.y, it.h), proj(it.x + it.w, it.y, it.h)];
+    return { x0: Math.min(...c.map(p => p[0])) - pad, x1: Math.max(...c.map(p => p[0])) + pad, y0: Math.min(...c.map(p => p[1])) - pad, y1: Math.max(...c.map(p => p[1])) + foot }; };
+  /* bb 는 그림을 담을 겹의 크기라 여백(pad)을 넉넉히 두지만, 앞뒤를 따질 때는 여백을 뺀
+     tb 로 잰다. 여백까지 넣어 재면 실제로는 떨어져 있는 둘 사이에 앞뒤 관계가 생기고,
+     그 관계가 고리를 이루면(A 뒤 B, B 뒤 C, C 뒤 A) 위상 정렬이 고리를 끊는 자리에서
+     엉뚱한 것이 앞으로 나온다. 밭 쪽문과 온실이 4px 스쳐서 오른쪽 울타리가 온실 앞으로
+     뚫고 나왔던 것이 이것이다. */
+  items.forEach(it => { it.bb = scr(it, it.pad || 8, 4); it.tb = scr(it, 0, 0); });
+  const over = (a, b) => !(a.tb.x1 < b.tb.x0 || b.tb.x1 < a.tb.x0 || a.tb.y1 < b.tb.y0 || b.tb.y1 < a.tb.y0);
   const eps = 0.02;
   for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++){
     const a = items[i], b = items[j];
