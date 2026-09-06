@@ -384,7 +384,7 @@ function ageAt(authorKey, on){
 // 로그인한 사람이 부모인지 아이인지. 예전에는 "로그인했으면 관리자"였는데,
 // 아이 계정이 생기면서 둘을 갈라야 했다. isAdmin 은 이제 "부모"라는 뜻이다.
 let isAdmin = false;     // 부모 (작품·모든 글을 다룰 수 있음)
-let isChild = false;     // 아이 (자기 글만, 그것도 확인 전까지만)
+let isChild = false;     // 아이 (일기는 바로 실리고, 그림은 부모가 보고 건다)
 let isLoggedIn = false;  // 프로필이 없어도 계정으로 들어와 있으면 참
 let me = null;           // { user_id, role, display, author_key }
 
