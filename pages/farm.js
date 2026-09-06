@@ -4400,7 +4400,11 @@ function drawRoom(cv, r, tms){
   const L = dayLight();
   // 놓인 것을 벽에 거는 것과 바닥에 두는 것으로 나눈다
   const P = R.placed(W, r), wallItems = [], floorItems = [];
+  // 끌고 있는 것 — 바닥 것과 벽에 건 것을 따로 본다. 제자리에는 안 그리고 끄는 자리에만 그린다.
+  const held = grab && !grab.wall && grab.moved && room === r ? grab : null;
+  const heldW = grab && grab.wall && grab.moved && room === r ? grab : null;
   Object.keys(P).forEach(k => {
+    if (heldW && heldW.k === k) return;
     const it = P[k], F = R.FURNITURE[it.f]; if (!F) return;
     const q = HAS_WALLGRID() ? R.parseWall(k) : null;
     if (q){ wallItems.push({ f: it.f, side: q.side, col: q.col, row: q.row, k: k }); return; }
@@ -4430,7 +4434,6 @@ function drawRoom(cv, r, tms){
   g.clearRect(0, 0, cw, ch); g.drawImage(houseBg, 0, 0);
   // 바닥에 둔 것 — 뒤(x+y 가 작은 쪽)부터 그려야 앞뒤가 맞다
   const glow = [];
-  const held = grab && grab.moved && room === r ? grab : null;      // 끌고 있는 것은 제자리에 안 그린다
   floorItems.sort((a, b) => (a.x + a.y) - (b.x + b.y) || (a.x - b.x)).forEach(it => {
     if (held && it.x === held.fx && it.y === held.fy) return;
     drawFurnItem(g, it.f, it.r, Rm, it.x, it.y, t);
@@ -4521,12 +4524,14 @@ function drawRoom(cv, r, tms){
   }
   /* 벽에 거는 것을 골랐으면 벽 격자를 보여 준다 — 어디에 걸리는지 눈으로 고르게.
      초록은 빈 자리, 빨강은 이미 걸린 자리, 노랑은 창이나 문을 가리는 자리다. */
-  if (tab === 'house' && arrange && furnPick && R.FURNITURE[furnPick] && R.FURNITURE[furnPick].wall && HAS_WALLGRID()){
-    const rows = R.wallRowsFor(furnPick);
+  const wallShow = heldW ? heldW.f : (furnPick && R.FURNITURE[furnPick] && R.FURNITURE[furnPick].wall ? furnPick : null);
+  if (tab === 'house' && arrange && wallShow && HAS_WALLGRID()){
+    const rows = R.wallRowsFor(wallShow);
     [0, 1].forEach(side => {
       const paint = wallPaint(g, Rm, side), len = wallLenOf(Rm, side), cols = R.wallCols(room, side);
       for (let c = 0; c < cols; c++){
-        const u = wallU(len, cols, c), taken = R.hungCol(W, room, side, c);
+        const u = wallU(len, cols, c);
+        const taken = heldW && heldW.k === R.hungCol(W, room, side, c) ? null : R.hungCol(W, room, side, c);
         const col2 = taken ? 'rgba(255,143,143,0.75)' : wallCovers(room, side, c) ? 'rgba(255,209,102,0.75)' : 'rgba(143,217,143,0.8)';
         // 빈 칸에는 위·아래 두 단을 다 보여 준다. 이미 걸린 칸은 걸린 높이 하나만.
         const shown = taken ? [(R.parseWall(taken) || { row: 0 }).row] : (rows > 1 ? [0, 1] : [0]);
@@ -4537,6 +4542,21 @@ function drawRoom(cv, r, tms){
         });
       }
     });
+  }
+  /* 끌고 있는 벽 물건 — 원래 자리는 옅게, 놓일 자리는 또렷하게. 바닥 가구와 같은 규칙이다. */
+  if (heldW && HAS_WALLGRID()){
+    const box = (side, col, row, c2) => {
+      const paint = wallPaint(g, Rm, side), len = wallLenOf(Rm, side);
+      const u = wallU(len, R.wallCols(r, side), col), dv = row ? WALL_DROP : 0;
+      paint(u, 4 + dv, 40, 2, c2); paint(u, 56 + dv, 40, 2, c2);
+      paint(u, 4 + dv, 2, 54, c2); paint(u + 38, 4 + dv, 2, 54, c2);
+      return { u: u, dv: dv, paint: paint };
+    };
+    box(heldW.fside, heldW.fcol, heldW.frow, 'rgba(255,255,255,0.45)');
+    const t2 = box(heldW.side, heldW.col, heldW.row, heldW.ok ? 'rgba(143,217,143,0.9)' : 'rgba(255,143,143,0.9)');
+    g.save(); g.globalAlpha = heldW.ok ? 0.9 : 0.4;
+    paintWallItem((uu, v, uw, vh, c2) => t2.paint(uu, v + t2.dv, uw, vh, c2), t2.u, heldW.f, roomPal(r), r);
+    g.restore();
   }
   // 가구를 놓거나 돌릴 때는 칸을 보여 준다 — 마름모 격자다
   if (tab === 'house' && (arrange || furnPick || rotMode)){
@@ -4580,7 +4600,7 @@ function renderHouse(){
     : furnPick ? (R.FURNITURE[furnPick].wall
         ? '<b>' + R.FURNITURE[furnPick].name + '</b>은 벽에 걸어요 — <b>벽의 초록 칸</b>을 눌러요. 위·아래 두 단이 있어요.'
         : '<b>' + R.FURNITURE[furnPick].name + '</b>을 놓을 자리를 눌러요 (' + dirName + '). 놓인 가구를 누르면 가방에 들어가요.')
-    : '놓인 가구는 <b>끌어서</b> 옮겨요. 그냥 누르면 가방에 들어가요. 벽에 건 것은 <b>벽을 눌러</b> 집어요.';
+    : '놓인 가구는 <b>끌어서</b> 옮겨요. 벽에 건 것도 <b>끌면</b> 다른 칸으로 옮겨져요. 그냥 누르면 가방에 들어가요.';
   const fb = $('#furn'); fb.innerHTML = '';
   if (mineRoom){
     // 재배치 — 이걸 누른 뒤에만 들고 놓고 돌릴 수 있다. 끝내면 들고 있던 것도 내려놓는다
@@ -4646,10 +4666,23 @@ function onHouseDown(e){
   const Rm = R.ROOMS[room];
   if (Rm.owner && Rm.owner !== key) return;             // 남의 방은 못 만진다
   const p = houseTileAt(e);
-  if (p.tx < 0 || p.ty < 0 || p.tx >= Rm.w || p.ty >= Rm.h) return;
+  const offFloor = p.tx < 0 || p.ty < 0 || p.tx >= Rm.w || p.ty >= Rm.h;
+  // 벽에 건 것도 끌어 옮긴다 — 벽 격자 위에서 칸을 옮겨 다닌다
+  if (offFloor){
+    if (!HAS_WALLGRID()) return;
+    const sl = wallPickAt(room, Rm, p.x, p.y); if (!sl) return;
+    const wk = R.hungCol(W, room, sl.side, sl.col); if (!wk) return;
+    const q = R.parseWall(wk), wit = R.placed(W, room)[wk];
+    if (!q || !wit) return;
+    grab = { wall: true, k: wk, f: wit.f, fside: q.side, fcol: q.col, frow: q.row,
+             side: q.side, col: q.col, row: q.row,
+             sx: e.clientX, sy: e.clientY, moved: false, ok: true };
+    try { $('#houseCanvas').setPointerCapture(e.pointerId); } catch (err) { /* 붙잡기는 덤이다 */ }
+    return;
+  }
   const k = R.occupied(W, room, p.tx, p.ty); if (!k) return;
   const it = R.placed(W, room)[k];
-  if (!it || R.FURNITURE[it.f].wall) return;            // 벽에 건 것은 안 끈다
+  if (!it || R.FURNITURE[it.f].wall) return;            // 벽에 건 것은 바닥 칸에 없다
   const parts = k.split(',').map(Number);
   grab = { k, f: it.f, r: it.r || 0, fx: parts[0], fy: parts[1],
            ox: p.tx - parts[0], oy: p.ty - parts[1], tx: parts[0], ty: parts[1],
@@ -4662,6 +4695,13 @@ function onHouseMove(e){
   if (!grab.moved && Math.abs(e.clientX - grab.sx) < 6 && Math.abs(e.clientY - grab.sy) < 6) return;
   grab.moved = true;
   const p = houseTileAt(e);
+  if (grab.wall){
+    const sl = wallPickAt(room, p.Rm, p.x, p.y);
+    if (sl){ grab.side = sl.side; grab.col = sl.col; grab.row = sl.row; }   // 벽을 벗어나면 마지막 칸을 지킨다
+    const o = R.hungCol(W, room, grab.side, grab.col);
+    grab.ok = (!o || o === grab.k) && grab.row < R.wallRowsFor(grab.f);
+    return;
+  }
   grab.tx = p.tx - grab.ox; grab.ty = p.ty - grab.oy;
   grab.ok = grabFits();
 }
@@ -4670,6 +4710,15 @@ function onHouseUp(){
   const gg = grab; grab = null;
   if (!gg.moved) return;                                 // 끌지 않았으면 뒤따라 오는 click 이 맡는다
   grabClick = true;                                      // 끌고 난 뒤의 click 은 삼킨다
+  if (gg.wall){
+    if (gg.side === gg.fside && gg.col === gg.fcol && gg.row === gg.frow){ renderHouse(); return; }
+    const rw = act((w2, m) => R.moveHang(w2, m, room, gg.k, gg.side, gg.col, gg.row));
+    if (rw.ok){
+      sfx('plant');
+      if (wallCovers(room, gg.side, gg.col)) flash('창(문)을 가리는 자리예요 — 다시 끌어 옮겨도 돼요');
+    }
+    renderHouse(); return;
+  }
   if (gg.tx === gg.fx && gg.ty === gg.fy){ renderHouse(); return; }
   const r2 = act((w2, m) => R.moveFurn(w2, m, room, gg.k, gg.tx, gg.ty));
   if (r2.ok) sfx('plant');
