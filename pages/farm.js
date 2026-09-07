@@ -762,14 +762,19 @@ const BEAST = {
     '..BBbbbbbbbbbbbbbbBB....', '...BbbbbbbbbbbbbbbB.....', '....BBBBBBBBBBBBBB......', '.....BBBBBBBBBBBB.......',
     '......ll....ll..........', '......ll....ll..........', '.....llll...lllll.......', '.....llll....llll.......',
   ], pal: { b: '#fffdf6', B: '#ded7c6', w: '#ffffff', k: '#ffd23f', K: '#dda429', e: '#26241f', l: '#ff9f2e', t: '#f6f0e6' } },
+  /* 젖소. 예전 것은 흰 덩이에 검은 네모 하나, 분홍 판때기 주둥이, 다리 둘이라
+     소로 안 보였다. 소답게 보이게 하는 것은 네 가지다 — **귀**, **콧구멍 있는 작은 주둥이**,
+     **모양이 제각각인 얼룩**, **네 다리와 굽**. 뿔은 상아색, 귀 안쪽은 살구색으로 두어
+     흰 몸에서 떨어져 나오게 했다. */
   cow: { w: 32, art: [
-    '................................', '............................kk..', '.......................hhhhhkk..', '......................hhhhhhkk..',
-    '.....ssss............hhhhhhhhh..', '....ssssss..........hhhhhhhhhh..', '...bbbbbbbbbbbbbbbbbhhhheehhhh..', '..bbbbbbbbbbbbbbbbbbhhhheehhhh..',
-    '.bbbbbbbbbbbbbbbbbbbhhhhhhhhhh..', 'bbbbbbbbbbbbbbbbbbbbhhhhhhhhh...', 'bbbbbbssssssbbbbbbbbnnnnnnnn....', 'bbbbbbssssssbbbbbbbbnnnnnnnn....',
-    'bbbbbbssssssbbbbbbbbnnnnnnnn....', 'bbbbbbssssssbbbbbbbbnnnnnnn.....', 'BBbbbbbbbbbbbbbbbbBB............', '.BbbbbbbbbbbbbbbbbB.............',
-    '..BBBBBBBBBBBBBBBB..............', '...BBBBBBBBBBBBBB...............', '....uu..uu......................', '....uu..........................',
-    '....ll..........................', '....ll......ll..................', '...llll....llll.................', '...llll....llll.................',
-  ], pal: { b: '#fffaf2', B: '#ded5c6', s: '#3a3226', h: '#fffaf2', k: '#c79b6d', e: '#3a3226', n: '#ffb3a7', u: '#ffc4c4', l: '#3a3226' } },
+    '.........................k...k..', '........................kkk.kkk.', '........................kkk.kkk.', '......................hhhssshhh.',
+    '.....bbbb.........EEEhhhhssshhh.', '...bbssssssbb.....EEhhhhhhsshhh.', '..bbbssssssbbbbbbbbbhhhheehhhhh.', '.bbbbbssssbbbbbbbbbbhhhheehhhhh.',
+    '.bbbbbbbbbbbbbbbbbbbhhhhhhhhhhh.', '.bbbbbbbbbbbbbbbbbbbhhhhhhhhhhh.', '.bbbbbbsssssssbbbbbbhhhnnnnnnn..', '.bbbbbsssssssssbbbbb.hhnnennen..',
+    '..bbbbsssssssssbbbbb..hnnnnnnn..', '..bbbbbsssssssbbbbbb...nnnnnn...', '.BBbbbbbbbbbbbbbbbbBB...........', '..BbbbbbbbbbbbbbbbbB............',
+    '...BBBBBBBBBBBBBBBB.............', '....BBBBBBBBBBBBBB..............', '........uuu.....................', '........uuu.....................',
+    '....ll.ll....ll.ll..............', '....ll.ll....ll.ll..............', '....LL.LL....LL.LL..............', '....LL.LL....LL.LL..............',
+  ], pal: { b: '#fffaf2', B: '#ded5c6', h: '#fffaf2', s: '#2f2a22', k: '#cbb88c', e: '#3a3226',
+            E: '#f2c9c2', n: '#ffb3a7', u: '#ffc4c4', l: '#ebe3d6', L: '#3a3226' } },
   sheep: { w: 28, art: [
     '.....wwwwwwwwwwww...........', '....wwwwwwwwwwwwww..........', '...wwwwwwwwwwwwwwww.........', '..wwwwwwwwwwwwwwwwww........',
     '.wwwwwwwwwwwwwwwwwwwhhhhh...', 'wwwwwwwwwwwwwwwwwwwwhhhhhh..', 'wwwwwwwwwwwwwwwwwwwwhheehhh.', 'wwwwwwwwwwwwwwwwwwwwhheehhhh',
