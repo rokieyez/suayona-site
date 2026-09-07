@@ -1287,9 +1287,26 @@ function openPrize(F){
   $('#prizeClose').addEventListener('click', closeModal);
 }
 // ---------- 배선 ----------
+/* 하루가 바뀌었으면 아침을 연다. daily() 는 부팅 때 한 번만 돌기 때문에, 창을 켜 둔 채
+   자정을 넘기거나 폰에서 앱을 다시 열어 화면만 되살아나면 기운도 아침 소식도 안 왔다.
+   실제로 연아의 저장 줄이 그랬다 — energyDay 는 어제인데 그날치 물주기는 오늘 것으로 쌓였다. */
+function rollIfNewDay(){
+  if (!W || !M) return;
+  const today = R.dayKey(now());
+  if (today === dayOpen) return;
+  dayOpen = today;
+  const r = daily(W, M);
+  if (r.ok){ pending.push(daily); dirty = true; persist(); }
+  tickAll();
+  renderAll();
+}
 function wireUI(){
   // 창을 덮거나 신호가 돌아오면 곧바로 올린다 (놀이 코드를 받은 뒤에만 걸린다)
-  document.addEventListener('visibilitychange', () => { if (document.hidden && (saveTimer || dirty)){ clearTimeout(saveTimer); commit(); } });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden){ if (saveTimer || dirty){ clearTimeout(saveTimer); commit(); } return; }
+    rollIfNewDay();                       // 다시 볼 때 — 밤새 덮어 뒀다 아침에 여는 길
+  });
+  window.addEventListener('pageshow', rollIfNewDay);   // 폰에서 되살아난 쪽(bfcache)은 부팅이 안 돈다
   window.addEventListener('online', () => { if (pending.length){ clearTimeout(saveTimer); commit(); } });
   const fcv = $('#farmCanvas');
   fcv.addEventListener('pointerdown', onFarmDown);

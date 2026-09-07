@@ -21,6 +21,9 @@ let sprk = 'sprinkler';                // 놓을 스프링클러 — 보통 것�
 let grab = null, grabClick = false;
 // 재배치 중일 때만 가구를 들거나 놓을 수 있다. 구경하다 잘못 눌러 가구가 가방으로 들어가곤 했다.
 let arrange = false;
+// 이 창이 「어느 날」로 열려 있는지. 자정을 넘기거나 폰에서 화면만 되살아나면
+// 부팅이 다시 안 돌아서 아침이 오지 않았다 — rollIfNewDay() 가 이걸 보고 하루를 연다.
+let dayOpen = '';
 const now = () => Date.now();
 
 // ---------- 저장 ----------
@@ -49,7 +52,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '1';
+const PLAY_V = '2';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -171,6 +174,7 @@ async function bootInner(){
   // 하루 시작 — 계절·동물·비·까마귀·기운·비료·선물. 전부 하루 한 번만 되게 짜여 있어서,
   // 다른 아이와 겹쳐 다시 하게 되어도 두 번 받지 않는다.
   const r = daily(W, M);
+  dayOpen = R.dayKey(now());
   tickAll();
   if (r.ok){ pending.push(daily); dirty = true; persist(); }
   $('#game').hidden = false;
@@ -179,7 +183,7 @@ async function bootInner(){
   wireUI();
   renderAll();
   initReveal();
-  setInterval(() => { tickAll(); syncTop(); }, 30000);   // 그림은 움직이는 루프가 그린다
+  setInterval(() => { rollIfNewDay(); tickAll(); syncTop(); }, 30000);   // 그림은 움직이는 루프가 그린다
   startLoop($('#farmCanvas'));
 }
 let expoSeedsEver = 0;                 // 모험단 원정에서 지금까지 주워 온 씨앗 수
