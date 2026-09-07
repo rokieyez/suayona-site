@@ -476,7 +476,9 @@ function fitPixelCanvas(cv, artW, artH, maxK){
   if (!(avail > 0)) return false;                      // 아직 화면에 붙지 않았다
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
   let want = avail * dpr;
-  if (want > 1600) want = 1600;                        // 너무 크면 겹을 담아 두는 값이 든다
+  // 1600 으로 막아 두면 넓은 화면(920 CSS px × dpr 2 = 1840)에서 담아 둔 그림을 늘려 그리게 되어
+  // 도트 하나가 2픽셀이 됐다 3픽셀이 됐다 한다. 2048 까지 열어 두면 그 자리에서 1:1 로 떨어진다.
+  if (want > 2048) want = 2048;                        // 너무 크면 겹을 담아 두는 값이 든다
   let k = Math.floor(want / artW);
   // 도트 하나가 화면에서 네 픽셀보다 크면 배수가 어중간할 때 자글거림이 눈에 띈다 — 정수로 못 박는다.
   // 그보다 작으면 어중간해도 안 보이므로 폭을 꽉 채우는 쪽이 낫다.
@@ -779,36 +781,64 @@ function drawAnimalAt(g, kind, X, Y, s, flip, k){
 function noise2(x, y, sc, salt){ return R.prand(salt + Math.floor(x / sc) + '_' + Math.floor(y / sc)); }
 /* 겉면에 결 한 겹 — 첫화면 마을처럼 같은 색이라도 돌은 얼룩지고 나무는 세로로 흐른다.
    자리는 늘 같은 값에서 나오니 프레임마다 어른거리지 않는다. */
+// 글자 씨앗을 숫자 하나로 접는다 — 결마다 자리가 달라지되 셈은 한 번뿐이다
+const seedMemo = {};
+function strSeed(s){
+  if (seedMemo[s] !== undefined) return seedMemo[s];
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (seedMemo[s] = h | 0);
+}
 function grainy(x, y, w, h, col, kind, salt){
   x = Math.round(x); y = Math.round(y);
   if (kind === 'wood'){
-    for (let i = 0; i < w; i += 2){
-      const v = R.prand(salt + '|' + i);
-      if (v > 0.76) px(x + i, y, 2, h, shade(col, -11));
-      else if (v < 0.18) px(x + i, y, 2, h, shade(col, 9));
+    // 나뭇결은 한 도트 폭으로 — 두 도트짜리 띠는 32도트 안에서 열여섯 줄밖에 안 되어 널빤지가 아니라 줄무늬로 보였다
+    const sn = strSeed(salt);
+    for (let i = 0; i < w; i++){
+      const v = hash2(i, 0, sn);
+      if (v > 0.80) px(x + i, y, 1, h, shade(col, -13));
+      else if (v > 0.72) px(x + i, y, 1, h, shade(col, -6));
+      else if (v < 0.14) px(x + i, y, 1, h, shade(col, 10));
     }
   } else {
-    for (let i = 0; i < w; i += 2) for (let j = 0; j < h; j += 2){
-      const v = noise2(x + i, y + j, 2, salt);
-      if (v > 0.78) px(x + i, y + j, 2, 2, shade(col, 9));
-      else if (v < 0.20) px(x + i, y + j, 2, 2, shade(col, -10));
+    const sn = strSeed(salt);
+    for (let i = 0; i < w; i++) for (let j = 0; j < h; j++){
+      const v = hash2(x + i, y + j, sn);
+      if (v > 0.82) px(x + i, y + j, 1, 1, shade(col, 10));
+      else if (v > 0.74) px(x + i, y + j, 1, 1, shade(col, 5));
+      else if (v < 0.16) px(x + i, y + j, 1, 1, shade(col, -11));
+      else if (v < 0.24) px(x + i, y + j, 1, 1, shade(col, -5));
     }
   }
 }
 // 얼룩을 한 겹만 쓰면 바둑판처럼 각이 진다. 성긴 겹과 촘촘한 겹을 섞으면 훨씬 자연스럽다.
 function noise2b(x, y, a, b, salt){ return noise2(x, y, a, salt) * 0.62 + noise2(x, y, b, salt + '~') * 0.38; }
+/* 도트 하나하나에 부르는 난수. R.prand 는 글자를 이어 붙여 셈하므로 잘게 뿌릴 때는
+   한 겹 굽는 데만 수십 밀리초가 든다 — 여기서는 정수 셈만 쓴다.
+   자리로만 정해지므로 결과는 늘 같고, 손님 화면과 로그인 화면이 똑같이 나온다. */
+function hash2(x, y, s){
+  let h = Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(y | 0, 0x85ebca6b) ^ Math.imul(s | 0, 0xc2b2ae35);
+  h ^= h >>> 15; h = Math.imul(h, 0x2545f491); h ^= h >>> 13; h = Math.imul(h, 0x27d4eb2d); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+// 칸 크기를 sc 로 묶은 얼룩. noise2 와 같은 자리에 쓰되 셈이 훨씬 싸다.
+const noise2i = (x, y, sc, s) => hash2(Math.floor(x / sc), Math.floor(y / sc), s);
 function drawGround(season){
   const P = GROUND[season], Wp = COLS * T, Hp = ROWS * T;
   // 1) 큰 얼룩 — 칸 경계를 넘어 이어지게. 이게 없으면 열여섯 칸짜리 바둑판이 눈에 띈다.
   px(0, 0, Wp, Hp, P.g[1]);
-  for (let y = 0; y < Hp; y += 8) for (let x = 0; x < Wp; x += 8){
-    const v = noise2(x, y, 54, 'a') * 0.55 + noise2(x, y, 22, 'b') * 0.3 + noise2(x, y, 10, 'c') * 0.15;
-    px(x, y, 8, 8, P.g[Math.min(3, Math.floor(v * 4))]);
-  }
-  // 2) 잔 알갱이 — 한 도트짜리. 가까이 보면 결이 산다.
+  // 얼룩 칸을 여덟 도트에서 네 도트로 줄였다 — 같은 넓이에 얼룩이 네 배라 「초록 벽」이 덜하다
   for (let y = 0; y < Hp; y += 4) for (let x = 0; x < Wp; x += 4){
-    const r = R.prand('k' + x + '_' + y);
-    if (r > 0.86) px(x, y, 2, 2, P.g[r > 0.94 ? 0 : 3]);
+    const v = noise2i(x, y, 54, 11) * 0.5 + noise2i(x, y, 22, 22) * 0.28
+            + noise2i(x, y, 10, 33) * 0.14 + noise2i(x, y, 5, 44) * 0.08;
+    const gi = Math.min(3, Math.floor(v * 4));
+    if (gi !== 1) px(x, y, 4, 4, P.g[gi]);          // 바탕이 이미 g[1] 이라 그 칸은 건너뛴다
+  }
+  // 2) 잔 알갱이 — 한 도트짜리. 두 도트로 찍던 것을 한 도트로 줄이고 수를 늘렸다.
+  for (let y = 0; y < Hp; y += 2) for (let x = 0; x < Wp; x += 2){
+    const r = hash2(x, y, 55);
+    if (r > 0.88) px(x, y, 1, 1, P.g[r > 0.95 ? 0 : 3]);
+    else if (r < 0.06) px(x + 1, y + 1, 1, 1, P.g[2]);
   }
   // 3) 칸마다 풀포기·조약돌·꽃
   for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++){
@@ -818,7 +848,9 @@ function drawGround(season){
       const rr = R.prand('t' + tx + '_' + ty + '_' + i);
       const gx = X + 2 + Math.floor(rr * (T - 8)), gy = Y + 4 + Math.floor(R.prand('u' + tx + '_' + ty + '_' + i) * (T - 12));
       const c = P.tuft[i % 2];
+      // 풀포기도 한 도트 폭 잎을 섞어 끝이 뾰족해 보이게
       px(gx, gy + 2, 2, 6, c); px(gx + 2, gy, 2, 8, shade(c, 14)); px(gx + 4, gy + 4, 2, 4, shade(c, -10));
+      px(gx + 1, gy + 1, 1, 3, shade(c, 18)); px(gx + 3, gy - 1, 1, 3, shade(c, 22)); px(gx + 5, gy + 3, 1, 2, shade(c, -18));
     }
     if (r0 > 0.93){ px(X + 12, Y + 18, 8, 4, P.rock); px(X + 12, Y + 18, 6, 2, shade(P.rock, 20)); px(X + 12, Y + 22, 8, 2, shade(P.rock, -22)); }
     const bloomP = season === 'spring' ? 0.2 : season === 'summer' ? 0.14 : season === 'autumn' ? 0.07 : 0;
@@ -847,25 +879,25 @@ function drawGround(season){
      칸 단위 잔무늬만 있으면 지도가 어디를 봐도 한결같아서, 넓게 보면 초록 벽처럼 보인다.
      가장자리는 잡음으로 갉아 내야 원이 아니라 자연스러운 얼룩이 된다. */
   const patch = (cx, cy, rx, ry, seed, paint) => {
-    for (let y = Math.max(0, cy - ry); y < Math.min(Hp, cy + ry); y += 2)
-      for (let x = Math.max(0, cx - rx); x < Math.min(Wp, cx + rx); x += 2){
+    for (let y = Math.max(0, cy - ry); y < Math.min(Hp, cy + ry); y += 1)
+      for (let x = Math.max(0, cx - rx); x < Math.min(Wp, cx + rx); x += 1){
         const nx = (x - cx) / rx, ny = (y - cy) / ry, d = nx * nx + ny * ny;
-        if (d < 0.5 + noise2(x, y, 20, seed) * 0.7) paint(x, y, d);
+        if (d < 0.5 + noise2i(x, y, 20, seed) * 0.7) paint(x, y, d);
       }
   };
   [[3.4, 6.6, 1.9, 1.2], [12.8, 3.4, 1.6, 1.0], [7.6, 14.4, 2.2, 1.1], [16.4, 12.8, 1.7, 1.3]]
-    .forEach((w, i) => patch(w[0] * T, w[1] * T, w[2] * T, w[3] * T, 'w' + i, (x, y, d) => {
-      if (d > 0.55 && R.prand('we' + x + '_' + y) > 0.45) return;          // 가장자리는 성글게 흩어진다
-      const r = R.prand('wd' + x + '_' + y);
-      if (r > 0.965){ px(x, y, 4, 2, P.rock); px(x, y + 2, 4, 2, shade(P.rock, -22)); return; }   // 드러난 조약돌
-      if (r > 0.93 && season !== 'winter'){ px(x, y, 2, 5, P.tuft[1]); px(x + 2, y - 2, 2, 7, P.tuft[0]); return; }  // 뚫고 난 풀
-      px(x, y, 2, 2, r > 0.82 ? shade(P.dry, -12) : r < 0.08 ? shade(P.dry, 10) : P.dry);
+    .forEach((w, i) => patch(w[0] * T, w[1] * T, w[2] * T, w[3] * T, 101 + i, (x, y, d) => {
+      if (d > 0.55 && hash2(x, y, 66) > 0.45) return;          // 가장자리는 성글게 흩어진다
+      const r = hash2(x, y, 77);
+      if (r > 0.9925){ px(x, y, 4, 2, P.rock); px(x, y + 2, 4, 2, shade(P.rock, -22)); return; }   // 드러난 조약돌
+      if (r > 0.985 && season !== 'winter'){ px(x, y, 2, 5, P.tuft[1]); px(x + 2, y - 2, 2, 7, P.tuft[0]); return; }  // 뚫고 난 풀
+      px(x, y, 1, 1, r > 0.86 ? shade(P.dry, -14) : r > 0.72 ? shade(P.dry, -6) : r < 0.08 ? shade(P.dry, 11) : P.dry);
     }));
   if (season !== 'winter') [[5.6, 3.0, 1.6, 1.1], [15.6, 7.8, 2.0, 1.3], [10.4, 15.0, 1.8, 1.0], [1.6, 13.4, 1.4, 1.0]]
-    .forEach((w, i) => patch(w[0] * T, w[1] * T, w[2] * T, w[3] * T, 'c' + i, (x, y, d) => {
-      if (d > 0.5 && R.prand('ce' + x + '_' + y) > 0.4) return;
-      const r = R.prand('cv' + x + '_' + y);
-      if (r > 0.5) px(x, y, 2, 2, shade(P.tuft[0], r > 0.88 ? 14 : r > 0.7 ? -4 : -14));   // 클로버 잎
+    .forEach((w, i) => patch(w[0] * T, w[1] * T, w[2] * T, w[3] * T, 201 + i, (x, y, d) => {
+      if (d > 0.5 && hash2(x, y, 88) > 0.4) return;
+      const r = hash2(x, y, 99);
+      if (r > 0.5) px(x, y, 1, 1, shade(P.tuft[0], r > 0.88 ? 16 : r > 0.7 ? -4 : -15));   // 클로버 잎
     }));
 }
 // 흙길 — 집 앞에서 밭까지, 그리고 목장까지
@@ -901,23 +933,26 @@ function drawPath(season){
     const x0 = lf || rt ? 0 : j('pl', 5), x1 = lf || rt ? T : T - j('pr', 5);
     const y0 = up || dn ? 0 : j('pt', 5), y1 = up || dn ? T : T - j('pb', 5);
     px(X + x0, Y + y0, x1 - x0, y1 - y0, c[0]);
-    // 가장자리 — 흙과 풀이 서로 물리게 두 도트씩 섞는다
-    for (let i = 0; i < T; i += 2){
-      const r = R.prand('pe' + x + '_' + y + '_' + i);
-      if (!up && r > 0.42 && X + i >= X + x0 && X + i < X + x1) px(X + i, Y + y0 - 2, 2, 2, edge);
-      if (!dn && r < 0.58 && X + i >= X + x0 && X + i < X + x1) px(X + i, Y + y1, 2, 2, edge);
-      if (!lf && r > 0.5 && Y + i >= Y + y0 && Y + i < Y + y1) px(X + x0 - 2, Y + i, 2, 2, edge);
-      if (!rt && r < 0.5 && Y + i >= Y + y0 && Y + i < Y + y1) px(X + x1, Y + i, 2, 2, edge);
+    // 가장자리 — 흙과 풀이 서로 물리게 한 도트씩 섞는다. 두 도트씩 섞던 것보다
+    // 이가 두 배로 촘촘해져 경계가 톱니가 아니라 부스러진 흙처럼 보인다.
+    for (let i = 0; i < T; i++){
+      const r = hash2(X + i, Y, 141 + (x & 7) * 8 + (y & 7));
+      const d = r > 0.72 ? 2 : 1;                                  // 들쭉날쭉한 깊이
+      if (!up && r > 0.42 && X + i >= X + x0 && X + i < X + x1) px(X + i, Y + y0 - d, 1, d, edge);
+      if (!dn && r < 0.58 && X + i >= X + x0 && X + i < X + x1) px(X + i, Y + y1, 1, d, edge);
+      if (!lf && r > 0.5 && Y + i >= Y + y0 && Y + i < Y + y1) px(X + x0 - d, Y + i, d, 1, edge);
+      if (!rt && r < 0.5 && Y + i >= Y + y0 && Y + i < Y + y1) px(X + x1, Y + i, d, 1, edge);
     }
-    // 수레바퀴 자국 — 지나는 방향으로 두 줄
-    if (lf || rt){ px(X, Y + 12, T, 2, c[1]); px(X, Y + 20, T, 2, c[1]); }
-    if (up || dn){ px(X + 12, Y, 2, T, c[1]); px(X + 20, Y, 2, T, c[1]); }
-    // 자갈과 잔 알갱이
-    for (let i = 0; i < 10; i++){
+    // 수레바퀴 자국 — 지나는 방향으로 두 줄. 아래에 밝은 한 도트를 깔아 파인 홈으로 읽히게.
+    if (lf || rt){ px(X, Y + 12, T, 2, c[1]); px(X, Y + 14, T, 1, c[2]); px(X, Y + 20, T, 2, c[1]); px(X, Y + 22, T, 1, c[2]); }
+    if (up || dn){ px(X + 12, Y, 2, T, c[1]); px(X + 14, Y, 1, T, c[2]); px(X + 20, Y, 2, T, c[1]); px(X + 22, Y, 1, T, c[2]); }
+    // 자갈과 잔 알갱이 — 수를 늘리고 크기를 줄였다
+    for (let i = 0; i < 22; i++){
       const rr = R.prand('p' + x + '_' + y + '_' + i), r2 = R.prand('q' + x + '_' + y + '_' + i);
       const gx = X + x0 + Math.floor(rr * Math.max(2, x1 - x0 - 4)), gy = Y + y0 + Math.floor(r2 * Math.max(2, y1 - y0 - 2));
-      if (rr > 0.86){ px(gx, gy, 4, 2, P.rock); px(gx, gy, 2, 2, shade(P.rock, 16)); px(gx, gy + 2, 4, 2, shade(P.rock, -22)); }
-      else px(gx, gy, 4, 2, c[rr > 0.5 ? 1 : 2]);
+      if (rr > 0.94){ px(gx, gy, 4, 2, P.rock); px(gx + 1, gy, 2, 1, shade(P.rock, 16)); px(gx, gy + 2, 4, 1, shade(P.rock, -22)); }
+      else if (rr > 0.6) px(gx, gy, 2, 1, c[1]);
+      else px(gx, gy, 1, 1, c[rr > 0.3 ? 2 : 1]);
     }
     // 밟혀도 살아남은 풀 한 포기
     if (R.prand('pg' + x + '_' + y) > 0.7 && season !== 'winter'){
@@ -955,10 +990,18 @@ function drawPlot(id, p, gh){
   px(X, Y, T, T, S3[0]);
   // 흙 얼룩 — 칸 경계를 넘어 이어지는 큰 무늬라 밭 전체가 한 장의 흙처럼 보인다.
   // 좌표로 난수를 만들므로 칸 크기가 바뀌어도 무늬는 그대로 이어진다.
-  for (let dy = 0; dy < T; dy += 4) for (let dx = 0; dx < T; dx += 4){
-    const v = noise2b(X + dx, Y + dy, 14, 6, 'so');
-    if (v > 0.64) px(X + dx, Y + dy, 4, 4, shade(S3[0], 13));
-    else if (v < 0.3) px(X + dx, Y + dy, 4, 4, shade(S3[0], -13));
+  for (let dy = 0; dy < T; dy += 2) for (let dx = 0; dx < T; dx += 2){
+    const v = noise2i(X + dx, Y + dy, 14, 121) * 0.62 + noise2i(X + dx, Y + dy, 6, 122) * 0.38;
+    if (v > 0.68) px(X + dx, Y + dy, 2, 2, shade(S3[0], 14));
+    else if (v > 0.58) px(X + dx, Y + dy, 2, 2, shade(S3[0], 7));
+    else if (v < 0.26) px(X + dx, Y + dy, 2, 2, shade(S3[0], -14));
+    else if (v < 0.36) px(X + dx, Y + dy, 2, 2, shade(S3[0], -7));
+  }
+  // 한 도트짜리 흙알 — 얼룩 위에 뿌려 두면 가까이 볼수록 흙이 부슬부슬해 보인다
+  for (let dy = 1; dy < T; dy += 2) for (let dx = 1; dx < T; dx += 2){
+    const r = hash2(X + dx, Y + dy, 131);
+    if (r > 0.9) px(X + dx, Y + dy, 1, 1, shade(S3[0], 20));
+    else if (r < 0.1) px(X + dx, Y + dy, 1, 1, shade(S3[0], -20));
   }
   // 칸 위쪽 밝은 선은 통으로 그으면 칸마다 밝은 줄이 생겨 바둑판이 된다 — 흩뿌린다
   ditherRow(X, Y, T, shade(S3[0], 15), 0.6, Y);
@@ -970,18 +1013,18 @@ function drawPlot(id, p, gh){
     ditherRow(X + 2, Y + i + 4, T - 4, shade(S3[0], -13), 0.42, Y + i);
   }
   // 흙덩이 넷 — 고른 줄무늬만 있으면 흙이 아니라 골판지로 보인다
-  for (let i = 0; i < 4; i++){
+  for (let i = 0; i < 9; i++){
     const cx = X + 3 + Math.floor(R.prand('cl' + id + i) * (T - 8)), cy = Y + 3 + Math.floor(R.prand('cm' + id + i) * (T - 8));
-    px(cx, cy, 3, 2, shade(S3[0], -22)); px(cx, cy, 2, 1, shade(S3[0], 14));
+    px(cx, cy + 1, 3, 1, shade(S3[0], -24)); px(cx + 1, cy, 2, 1, shade(S3[0], -14)); px(cx + 1, cy, 1, 1, shade(S3[0], 16));
   }
   // 물을 준 흙에는 젖은 윤이 두 줄
   if (wet){ px(X + 5, Y + 7, 6, 1, shade(S3[0], 26)); px(X + T - 14, Y + T - 11, 7, 1, shade(S3[0], 26)); }
   // 흙 알갱이와 잔돌
-  for (let i = 0; i < 7; i++){
+  for (let i = 0; i < 14; i++){
     const rr = R.prand('s' + id + i), r2 = R.prand('z' + id + i);
     const gx = X + 2 + Math.floor(rr * (T - 6)), gy = Y + 2 + Math.floor(r2 * (T - 6));
-    if (i < 2){ px(gx, gy, 4, 2, shade(S3[0], -22)); px(gx, gy - 2, 2, 2, shade(S3[0], 20)); }
-    else px(gx, gy, 2, 2, shade(S3[0], rr > .5 ? 18 : -16));
+    if (i < 2){ px(gx, gy, 4, 2, shade(S3[0], -22)); px(gx + 1, gy - 1, 2, 1, shade(S3[0], 20)); }
+    else px(gx, gy, 1, 1, shade(S3[0], rr > .5 ? 19 : -17));
   }
   if (wet){ px(X + 6, Y + 8, 4, 2, '#7fbfe066'); px(X + T - 12, Y + T - 10, 4, 2, '#7fbfe066'); }
   if (p.fert){ px(X + 4, Y + T - 6, 4, 2, '#e8dcae'); px(X + T - 10, Y + 6, 4, 2, '#e8dcae'); px(X + 14, Y + T - 12, 2, 2, '#e8dcae'); }
