@@ -1130,6 +1130,12 @@ create policy "parent writes kids" on public.kids
 alter table public.posts add column if not exists audio_url  text;
 alter table public.posts add column if not exists audio_secs smallint;
 
+-- 날씨 도장 (2026-09-07) — 일기를 올릴 때 그날 날씨를 한 번 물어 담아 둔다.
+-- {code, tmax, tmin} 한 덩어리다. code 는 WMO 날씨 코드, 온도는 그날의 최고·최저.
+-- 없어도 되는 값이라 널 허용이고, 옛 글은 그냥 비어 있다.
+alter table public.posts add column if not exists weather jsonb;
+comment on column public.posts.weather is '그날 날씨 도장 {code,tmax,tmin} — open-meteo, 서울시청 좌표. 없으면 null.';
+
 -- 작품에도 공개 여부를 둔다. 여태 작품은 전부 공개였으므로 기본값은 참.
 -- 거르는 일은 정책이 한다 — 화면 어딘가에서 조건 하나를 빠뜨려도 새지 않도록.
 alter table public.works add column if not exists is_public boolean not null default true;
