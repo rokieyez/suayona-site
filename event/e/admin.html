@@ -145,6 +145,26 @@
   .place-results .none{cursor:default; color:var(--ink-soft);}
   .place-map{height:250px; margin-top:10px; background:#dfe6e2; border:1px solid rgba(0,0,0,.15);}
   .place-tip{font-size:11.5px; color:var(--ink-soft); margin:8px 0 0; line-height:1.7;}
+  /* ----- 가본 곳에도 올리기 ----- */
+  .visit-opt{
+    margin-top:8px; border:1px solid rgba(0,0,0,.15); background:#fbf9f4; padding:9px 11px;
+  }
+  .visit-opt[hidden]{display:none;}
+  .visit-opt .vOn{
+    display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700;
+    color:var(--ink); cursor:pointer; margin:0;
+  }
+  .visit-opt .vOn input{width:auto; margin:0; flex:none;}
+  .visit-opt .vOn input:disabled + span{color:var(--ink-soft);}
+  .visit-opt .vRate{display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;}
+  .visit-opt .vRate[hidden]{display:none;}
+  .visit-opt .vStars{display:flex; gap:2px;}
+  .visit-opt .vStars button{
+    border:none; background:none; padding:0 1px; font-size:19px; line-height:1;
+    cursor:pointer; color:#d8d2c6; filter:grayscale(1); opacity:.55;
+  }
+  .visit-opt .vStars button.on{color:#f2b705; filter:none; opacity:1;}
+  .visit-opt .vNote{font-size:11.5px; color:var(--ink-soft); margin-top:6px; line-height:1.7;}
   .place-mark{
     width:22px; height:22px; border:3px solid #fff; border-radius:50%;
     background:var(--accent); box-shadow:0 1px 5px rgba(0,0,0,.4);

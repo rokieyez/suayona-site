@@ -28,6 +28,12 @@ function buildDatePanels(startDate, endDate){
   return panels;
 }
 
+// 그 판이 며칠인지 — 「가본 곳」의 다녀온 날에 쓴다
+function panelDate(id){
+  const p = CONFIG.panels.find(x => x.id === id);
+  return p ? p.dateKey : null;
+}
+
 const loginBox = $('#login-box'), adminBox = $('#admin-box');
 
 // ----- 로그인 상태에 따라 화면 전환 -----
@@ -154,6 +160,11 @@ function makePlacePicker(host, init){
     '<input type="text" class="pName" maxlength="80" placeholder="예: 부산 해운대해수욕장">' +
     '<div class="place-state"><span class="pWhere"></span>' +
       '<button type="button" class="pClear" hidden>핀 지우기</button></div>' +
+    '<div class="visit-opt" hidden>' +
+      '<label class="vOn"><input type="checkbox" class="vChk"><span class="vLabel">가본 곳에도 올리기</span></label>' +
+      '<div class="vRate" hidden><span class="vStars"></span><span class="vStarText"></span></div>' +
+      '<div class="vNote"></div>' +
+    '</div>' +
     '<button type="button" class="place-open">\uD83D\uDDFA 지도에서 고르기</button>' +
     '<div class="place-box" hidden>' +
       '<div class="place-search">' +
@@ -180,7 +191,50 @@ function makePlacePicker(host, init){
     whereEl.parentElement.classList.toggle('has', has);
     clearEl.hidden = !has;
   }
-  drawState();
+  /* 「가본 곳에도 올리기」 — 이제까지는 가볼 곳 -> 일정 한 방향뿐이었다. 나들이를 적고
+     나면 그 자리에서 별점과 함께 가본 곳 목록에 올릴 수 있게 한다. 이미 올라와 있는
+     곳이면 체크는 잠그고 별점만 고치게 둔다 — 여기서 목록에서 내려 버리면 놀란다. */
+  const optEl = q('.visit-opt'), chkEl = q('.vChk'), rateEl = q('.vRate');
+  const starsEl = q('.vStars'), starTxt = q('.vStarText'), noteEl = q('.vNote');
+  const vis = { stars: 0, known: null, seen: null };   // known: 이름이 같은 가본 곳 줄, seen: 마지막으로 살펴본 이름
+  for (let i = 1; i <= 5; i++){
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = '★'; b.dataset.n = i;
+    b.setAttribute('aria-label', i + '점');
+    b.addEventListener('click', () => { vis.stars = (vis.stars === i ? 0 : i); drawVisit(); });
+    starsEl.appendChild(b);
+  }
+  function drawVisit(){
+    const name = nameEl.value.trim();
+    optEl.hidden = !name;
+    if (!name) return;
+    const known = vis.known;
+    chkEl.disabled = !!known;
+    if (known) chkEl.checked = true;
+    q('.vLabel').textContent = known ? '이미 가본 곳에 있어요' : '가본 곳에도 올리기';
+    rateEl.hidden = !chkEl.checked;
+    Array.from(starsEl.children).forEach(b => b.classList.toggle('on', Number(b.dataset.n) <= vis.stars));
+    starTxt.textContent = vis.stars ? vis.stars + '점' : '별점은 안 줘도 돼요';
+    noteEl.textContent = known
+      ? '별점을 고치면 그 곳의 별점이 바뀌어요. 목록에서 내리는 건 「가볼 곳」 쪽에서 해요.'
+      : (chkEl.checked ? '저장할 때 「가본 곳」에 다녀온 날짜와 함께 올라가요.' : '');
+  }
+  chkEl.addEventListener('change', drawVisit);
+  /* 이름이 같은 곳이 이미 있는지 본다. 자판을 두드릴 때마다 묻지 않게 잠깐 기다린다. */
+  let lookT = 0;
+  async function lookVisit(){
+    const name = nameEl.value.trim();
+    if (!name){ vis.known = null; drawVisit(); return; }
+    const list = await loadAllPlaces();
+    const hit = list.find(x => x.name === name && x.status === 'done');
+    vis.known = hit || null;
+    // 이름이 바뀌면 별점도 그 곳의 것으로 갈아 끼운다 — 앞 곳에 준 별이 따라오면 안 된다
+    if (vis.seen !== name){ vis.stars = hit ? (hit.stars || 0) : 0; vis.seen = name; }
+    drawVisit();
+  }
+  nameEl.addEventListener('input', () => { clearTimeout(lookT); lookT = setTimeout(lookVisit, 300); });
+
+  drawState(); lookVisit();
   nameEl.addEventListener('input', drawState);
   clearEl.addEventListener('click', () => {
     st.lat = st.lng = null;
@@ -287,13 +341,15 @@ function makePlacePicker(host, init){
     // 저장할 값. 이름을 지웠으면 좌표도 같이 버린다.
     async value(onMsg){
       const name = nameEl.value.trim();
-      if (!name) return { place_name: null, place_lat: null, place_lng: null, found: null };
+      if (!name) return { place_name: null, place_lat: null, place_lng: null, found: null, visit: null };
+      // 가본 곳에 올릴지와 별점. 이미 올라와 있으면 별점만 고친다.
+      const visit = (chkEl.checked || vis.known) ? { stars: vis.stars || null, known: vis.known } : null;
       if (Number.isFinite(st.lat) && Number.isFinite(st.lng)) {
-        return { place_name: name, place_lat: st.lat, place_lng: st.lng, found: true };
+        return { place_name: name, place_lat: st.lat, place_lng: st.lng, found: true, visit };
       }
       // 손으로 안 찍었으면 예전처럼 이름으로 찾아 본다
       if (onMsg) onMsg('장소를 지도에서 찾는 중...');
-      return await resolvePlace(name);
+      return Object.assign(await resolvePlace(name), { visit });
     },
   };
 }
@@ -303,16 +359,46 @@ let addPlacePicker = null;
 /* ---------- 가볼 곳에서 고르기 ----------
    이제까지는 이벤트 -> 가볼 곳 한 방향뿐이었다. 나들이를 짜면서 「적어 둔 곳」을
    일정으로 옮길 때, 이름을 다시 치고 좌표를 다시 찾는 일이 없게 한다. */
-let WISH_PLACES = null;
+let ALL_PLACES = null;
 
-async function loadWishPlaces(){
-  if (WISH_PLACES) return WISH_PLACES;
+/* 가볼 곳 표를 통째로 한 번만 읽는다. 서른 줄 남짓이라 나눠 받을 만큼 무겁지 않고,
+   「가보고 싶은 곳 고르기」와 「이미 가본 곳인가」가 같은 목록을 나눠 쓴다. */
+async function loadAllPlaces(){
+  if (ALL_PLACES) return ALL_PLACES;
   const { data, error } = await sb.from('places')
-    .select('id, name, category, lat, lng, address, memo, status, season')
-    .eq('status', 'want')
+    .select('id, name, category, lat, lng, address, memo, status, season, stars, visited_on, event_id')
     .order('created_at', { ascending: false });
-  if (error) { console.error('가볼 곳 목록 오류:', error); return (WISH_PLACES = []); }
-  return (WISH_PLACES = data || []);
+  if (error) { console.error('가볼 곳 목록 오류:', error); return (ALL_PLACES = []); }
+  return (ALL_PLACES = data || []);
+}
+async function loadWishPlaces(){
+  return (await loadAllPlaces()).filter(p => p.status !== 'done');
+}
+
+/* 일정에 적은 장소를 「가본 곳」으로 올린다.
+   · 이름이 같은 줄이 있으면 그 줄을 고친다 — 같은 곳이 두 줄로 늘어나지 않게.
+     「가보고 싶은 곳」이던 줄이면 그대로 「다녀옴」이 된다. 원래 두 쪽을 잇는 흐름이다.
+   · 없으면 새로 넣는다. 무엇(분류)은 비워 둔다 — 가볼 곳 쪽에서 고르게.
+   되든 안 되든 저장 자체는 막지 않는다. 일정이 주인공이고 이건 덤이다. */
+async function saveVisit(placeRes, dateKey){
+  const v = placeRes && placeRes.visit;
+  if (!v || !placeRes.place_name) return '';
+  const on = dateKey ? [dateKey[0], dateKey[1] + 1, dateKey[2]]
+    .map((n, i) => i ? String(n).padStart(2, '0') : n).join('-') : null;
+  const row = {
+    status: 'done',
+    stars: v.stars || null,
+    visited_on: on,
+    event_id: CONFIG.eventSlug || null,
+  };
+  if (Number.isFinite(placeRes.place_lat)) { row.lat = placeRes.place_lat; row.lng = placeRes.place_lng; }
+  const hit = v.known || (await loadAllPlaces()).find(x => x.name === placeRes.place_name);
+  const { error } = hit
+    ? await sb.from('places').update(row).eq('id', hit.id)
+    : await sb.from('places').insert(Object.assign({ name: placeRes.place_name }, row));
+  ALL_PLACES = null;                       // 다음에 열 때 다시 읽는다
+  if (error) return ' (가본 곳에는 못 올렸어요: ' + error.message + ')';
+  return hit ? ' · 가본 곳을 고쳤어요' : ' · 가본 곳에 올렸어요';
 }
 
 const WISH_ICON = { 먹거리:'🍜', 자연:'🌳', 체험:'🎨', 숙소:'🏨' };
@@ -817,6 +903,8 @@ function renderEditForm(r){
     if (hasExtraImages) patch.extra_images = photos.extra_images;
     const { error } = await sb.from('events').update(patch).eq('id', r.id);
     if (error) { alert('저장 실패: ' + error.message); saveBtn.disabled = false; saveBtn.textContent = '저장'; return; }
+    const said = await saveVisit(placeRes, panelDate(r.panel));
+    if (said) msgEl.textContent = '저장했어요' + said;
     loadList();
   });
 
@@ -896,8 +984,9 @@ $('#addBtn').addEventListener('click', async () => {
   addBtn.disabled = false; addBtn.textContent = '추가하기';
   if (error) { msg.className = 'err'; msg.textContent = '추가 실패: ' + error.message; return; }
 
+  const said = await saveVisit(placeRes, panelDate(panel));
   msg.className = 'ok';
-  msg.textContent = '추가됐습니다!' + placeNote(placeRes) + (files.length > 1 && !hasExtraImages
+  msg.textContent = '추가됐습니다!' + placeNote(placeRes) + said + (files.length > 1 && !hasExtraImages
     ? ' (사진은 첫 장만 저장됐어요 — 위 안내의 SQL을 실행하면 여러 장이 저장됩니다)' : '');
   insertAfter = null; syncInsertNote();
   $('#addTimeFrom').value = ''; $('#addTimeTo').value = ''; $('#addTitle').value = '';
