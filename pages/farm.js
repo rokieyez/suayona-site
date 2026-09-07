@@ -413,7 +413,46 @@ function inBox(b, tx, ty){ return b && tx >= b.x && tx < b.x + b.w && ty >= b.y 
 
 // ---------- 그리기 바탕 ----------
 let ctx = null;
+/* ---- 외곽선 ----
+   스타듀 밸리 그림이 또렷한 큰 까닭은 물건마다 어두운 테가 둘려 있어서다. 테가 없으면
+   초록 잎이 초록 풀 위에 놓였을 때 서로 녹아 버린다.
+   그리는 함수를 하나하나 고쳐 테를 그리는 대신, 같은 그림을 네 방향으로 한 도트씩 밀어
+   어두운 색으로 먼저 찍고 그 위에 제 색으로 찍는다 — 픽셀 그림에서 쓰는 흔한 방법이고,
+   px 를 지나는 그림이면 무엇이든(작물·나무·집) 함수를 안 건드리고 테가 둘린다.
+   그림자와 유리처럼 비치는 색(#RRGGBBAA·rgba)은 테로 찍지 않는다 — 찍으면 검은 덩어리가 된다. */
+let inkPass = null, pxOff = null;
+const INK_DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+// 새까만 테는 만화가 된다. 물건 색보다 아주 어두운 갈색·풀색이라야 그림으로 읽힌다.
+const INK = { crop: '#2c3a22', tree: '#241a12', build: '#2a2018', beast: '#2b2119' };
+/* 나무와 바위는 매 프레임 그린다. 테를 두르면 다섯 번씩 그리게 되어 한 프레임이
+   0.6ms 에서 3.1ms 로 늘었다. 그림이 바뀌는 조건은 계절·벤 자리인지·바람에 기운 정도
+   셋뿐이라, 그걸 열쇠로 작은 캔버스에 담아 두고 다음부터는 얹기만 한다. */
+const dotBuf = {};
+function cachedDraw(key, x0, y0, w, h, draw){
+  let c = dotBuf[key];
+  if (!c){
+    c = document.createElement('canvas');
+    c.width = Math.ceil(w * S) + 2; c.height = Math.ceil(h * S) + 2;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    const keepCtx = ctx, keepOff = pxOff;
+    ctx = g; pxOff = { x: -x0, y: -y0 };
+    draw();
+    ctx = keepCtx; pxOff = keepOff;
+    dotBuf[key] = c;
+  }
+  ctx.drawImage(c, Math.round(x0 * S), Math.round(y0 * S));
+}
+function withInk(ink, draw){
+  for (let i = 0; i < INK_DIRS.length; i++){ inkPass = { c: ink, dx: INK_DIRS[i][0], dy: INK_DIRS[i][1] }; draw(); }
+  inkPass = null;
+  draw();
+}
 function pxMap(x, y, w, h, c){
+  if (inkPass){
+    if (typeof c !== 'string' || c.charAt(0) !== '#' || c.length > 7) return;   // 비치는 색은 테가 안 된다
+    x += inkPass.dx; y += inkPass.dy; c = inkPass.c;
+  }
+  if (pxOff){ x += pxOff.x; y += pxOff.y; }
   // 자리와 크기를 따로 반올림하면 이웃한 네모 사이에 틈이 생기거나 겹친다.
   // 양쪽 가장자리를 각각 반올림해 두면 배수가 1.5배 같은 값이어도 딱 맞물린다.
   const x0 = Math.round(x * S), y0 = Math.round(y * S);
@@ -463,32 +502,34 @@ function pixScale(cv, artW, artH, fallback){
 // 다만 매 장마다 다섯 번 그리면 네모 수가 다섯 배가 되므로,
 // 한 번 그려 작은 캔버스에 담아 두고 그 다음부터는 갖다 붙이기만 한다.
 const spriteBuf = {};
-const OUT_DIRS = [[-1, 0], [1, 0], [0, 1]];        // 위는 두르지 않는다 — 머리가 부어 보인다
+/* 네 방향 다 두른다. 예전에는 위를 빼고 0.4로 옅게 둘렀는데, 그러면 풀 위에 선 동물이
+   배경에 녹는다 — 스타듀 밸리 그림이 또렷한 건 테가 사방으로 또렷하기 때문이다.
+   담아 두는 그림이라 방향을 늘려도 매 프레임 값은 그대로다. */
+const OUT_DIRS = [[-1, 0], [1, 0], [0, 1], [0, -1]];
 function outlined(id, rows, pal, flip, s){
   const k = id + '|' + s + (flip ? '|f' : '');
   let c = spriteBuf[k];
   if (c) return c;
   const w = rows[0].length, h = rows.length;
   c = document.createElement('canvas');
-  c.width = (w + 2) * s; c.height = (h + 1) * s;
+  c.width = (w + 2) * s; c.height = (h + 2) * s;                 // 위아래로 한 도트씩 테가 는다
   const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
-  // 테두리는 불투명한 선이 아니라 비치는 그늘이다. 진하게 두르면 머리가 부어 보이고
-  // 스티커를 붙인 것처럼 뜬다 — 0.4 정도면 형태만 갈라 주고 굵기는 눈에 안 띈다.
-  // 세 방향을 반투명한 색으로 그대로 겹치면 겹친 자리만 두 배로 진해지므로,
-  // 먼저 불투명한 실루엣을 하나 만들고 그것을 통째로 옅게 얹는다.
-  const sil = {}; for (const key in pal) sil[key] = '#26201a';
+  // 네 방향을 반투명한 색으로 그대로 겹치면 겹친 자리만 두 배로 진해지므로,
+  // 먼저 불투명한 실루엣을 하나 만들고 그것을 통째로 얹는다.
+  // 완전한 검정은 만화가 되고, 조금 비치는 짙은 갈색이라야 그림으로 앉는다.
+  const sil = {}; for (const key in pal) sil[key] = '#241c14';
   const tmp = document.createElement('canvas'); tmp.width = c.width; tmp.height = c.height;
   const tg = tmp.getContext('2d'); tg.imageSmoothingEnabled = false;
-  for (let i = 0; i < OUT_DIRS.length; i++) drawArt(tg, rows, (1 + OUT_DIRS[i][0]) * s, OUT_DIRS[i][1] * s, s, sil, flip);
-  g.globalAlpha = 0.4; g.drawImage(tmp, 0, 0); g.globalAlpha = 1;
-  drawArt(g, rows, s, 0, s, pal, flip);
+  for (let i = 0; i < OUT_DIRS.length; i++) drawArt(tg, rows, (1 + OUT_DIRS[i][0]) * s, (1 + OUT_DIRS[i][1]) * s, s, sil, flip);
+  g.globalAlpha = 0.78; g.drawImage(tmp, 0, 0); g.globalAlpha = 1;
+  drawArt(g, rows, s, s, s, pal, flip);
   spriteBuf[k] = c;
   return c;
 }
 // 지도 좌표(도트)로, 테두리째 붙인다. k 는 크기 배수 — 새끼는 3분의 2로 그린다.
 function artOut(id, rows, mx, my, pal, flip, k){
   k = k || 1;
-  ctx.drawImage(outlined(id + (k === 1 ? '' : '@' + k), rows, pal, flip, S * k), Math.round((mx - 1) * S), Math.round(my * S));
+  ctx.drawImage(outlined(id + (k === 1 ? '' : '@' + k), rows, pal, flip, S * k), Math.round((mx - 1) * S), Math.round((my - 1) * S));
 }
 // 발밑 그림자 — 한 단이 아니라 가운데가 진한 세 단이면 바닥에 붙어 보인다
 function footShade(cx, y, w){
@@ -887,8 +928,12 @@ function noise2b(x, y, a, b, salt){ return noise2(x, y, a, salt) * 0.62 + noise2
    한 겹 굽는 데만 수십 밀리초가 든다 — 여기서는 정수 셈만 쓴다.
    자리로만 정해지므로 결과는 늘 같고, 손님 화면과 로그인 화면이 똑같이 나온다. */
 function hash2(x, y, s){
-  let h = Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(y | 0, 0x85ebca6b) ^ Math.imul(s | 0, 0xc2b2ae35);
-  h ^= h >>> 15; h = Math.imul(h, 0x2545f491); h ^= h >>> 13; h = Math.imul(h, 0x27d4eb2d); h ^= h >>> 16;
+  // x 와 y 를 XOR 로 섞으면 x^y 가 대각선을 따라 같은 값이 되어, 나무 잎에 빗금 무늬가 생겼다.
+  // 서로 다른 소수를 곱해 더한 다음 섞으면 그 대칭이 없어진다.
+  let h = Math.imul(x | 0, 0x27d4eb2d) + Math.imul(y | 0, 0x165667b1) + Math.imul(s | 0, 0x9e3779b1);
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
 }
 // 칸 크기를 sc 로 묶은 얼룩. noise2 와 같은 자리에 쓰되 셈이 훨씬 싸다.
@@ -898,22 +943,27 @@ function drawGround(season){
   // 1) 큰 얼룩 — 칸 경계를 넘어 이어지게. 이게 없으면 열여섯 칸짜리 바둑판이 눈에 띈다.
   px(0, 0, Wp, Hp, P.g[1]);
   // 얼룩 칸을 여덟 도트에서 네 도트로 줄였다 — 같은 넓이에 얼룩이 네 배라 「초록 벽」이 덜하다
-  for (let y = 0; y < Hp; y += 4) for (let x = 0; x < Wp; x += 4){
-    const v = noise2i(x, y, 54, 11) * 0.5 + noise2i(x, y, 22, 22) * 0.28
-            + noise2i(x, y, 10, 33) * 0.14 + noise2i(x, y, 5, 44) * 0.08;
-    const gi = Math.min(3, Math.floor(v * 4));
-    if (gi !== 1) px(x, y, 4, 4, P.g[gi]);          // 바탕이 이미 g[1] 이라 그 칸은 건너뛴다
+  /* 한때 네 도트 칸에 네 단계로 잘게 나눴더니 무늬가 아니라 자글거림이 됐다 — 칸을 여덟
+     도트로 되돌리고 성긴 겹에 무게를 실어 넓고 부드러운 얼룩만 남긴다.
+     가장 어두운 단계(g[3])는 바닥에 안 쓴다. 그건 풀포기 몫이다. */
+  for (let y = 0; y < Hp; y += 8) for (let x = 0; x < Wp; x += 8){
+    const v = noise2i(x, y, 64, 11) * 0.62 + noise2i(x, y, 28, 22) * 0.26 + noise2i(x, y, 13, 33) * 0.12;
+    const gi = Math.min(2, Math.floor(v * 3));
+    if (gi !== 1) px(x, y, 8, 8, P.g[gi]);          // 바탕이 이미 g[1] 이라 그 칸은 건너뛴다
   }
-  // 2) 잔 알갱이 — 한 도트짜리. 두 도트로 찍던 것을 한 도트로 줄이고 수를 늘렸다.
-  for (let y = 0; y < Hp; y += 2) for (let x = 0; x < Wp; x += 2){
+  /* 2) 잔 알갱이 — 아주 성글게. 도트마다 뿌리면 결이 아니라 「모래」가 되어 화면이 자글거린다.
+     스타듀 밸리의 잔디도 바닥은 거의 민무늬고, 눈에 드는 것은 풀포기 쪽이다. */
+  for (let y = 0; y < Hp; y += 4) for (let x = 0; x < Wp; x += 4){
     const r = hash2(x, y, 55);
-    if (r > 0.88) px(x, y, 1, 1, P.g[r > 0.95 ? 0 : 3]);
-    else if (r < 0.06) px(x + 1, y + 1, 1, 1, P.g[2]);
+    if (r > 0.93) px(x, y, 2, 2, P.g[0]);
+    else if (r < 0.05) px(x + 2, y + 2, 2, 2, P.g[2]);
   }
   // 3) 칸마다 풀포기·조약돌·꽃
   for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++){
     const X = tx * T, Y = ty * T, r0 = R.prand('g' + tx + '_' + ty);
-    const n = r0 < 0.5 ? 3 : r0 < 0.85 ? 2 : 1;
+    /* 칸마다 하나에서 셋씩 심으니 풀밭이 빽빽해 지저분했다. 절반 가까이는 아예 비워 둔다 —
+       빈 자리가 있어야 심은 자리가 눈에 든다. */
+    const n = r0 < 0.20 ? 2 : r0 < 0.56 ? 1 : 0;
     for (let i = 0; i < n; i++){
       const rr = R.prand('t' + tx + '_' + ty + '_' + i);
       const gx = X + 2 + Math.floor(rr * (T - 8)), gy = Y + 4 + Math.floor(R.prand('u' + tx + '_' + ty + '_' + i) * (T - 12));
@@ -968,13 +1018,13 @@ function drawGround(season){
       const r = hash2(x, y, 77);
       if (r > 0.9925){ px(x, y, 4, 2, P.rock); px(x, y + 2, 4, 2, shade(P.rock, -22)); return; }   // 드러난 조약돌
       if (r > 0.985 && season !== 'winter'){ px(x, y, 2, 5, P.tuft[1]); px(x + 2, y - 2, 2, 7, P.tuft[0]); return; }  // 뚫고 난 풀
-      px(x, y, 1, 1, r > 0.86 ? shade(P.dry, -14) : r > 0.72 ? shade(P.dry, -6) : r < 0.08 ? shade(P.dry, 11) : P.dry);
+      px(x, y, 1, 1, r > 0.92 ? shade(P.dry, -12) : r < 0.08 ? shade(P.dry, 9) : P.dry);
     }));
   if (season !== 'winter') [[5.6, 3.0, 1.6, 1.1], [15.6, 7.8, 2.0, 1.3], [10.4, 15.0, 1.8, 1.0], [1.6, 13.4, 1.4, 1.0]]
     .forEach((w, i) => patch(w[0] * T, w[1] * T, w[2] * T, w[3] * T, 201 + i, (x, y, d) => {
       if (d > 0.5 && hash2(x, y, 88) > 0.4) return;
       const r = hash2(x, y, 99);
-      if (r > 0.5) px(x, y, 1, 1, shade(P.tuft[0], r > 0.88 ? 16 : r > 0.7 ? -4 : -15));   // 클로버 잎
+      if (r > 0.66) px(x, y, 1, 1, shade(P.tuft[0], r > 0.9 ? 14 : -12));   // 클로버 잎
     }));
 }
 // 흙길 — 집 앞에서 밭까지, 그리고 목장까지
@@ -1074,11 +1124,11 @@ function drawPlot(id, p, gh){
     else if (v < 0.26) px(X + dx, Y + dy, 2, 2, shade(S3[0], -14));
     else if (v < 0.36) px(X + dx, Y + dy, 2, 2, shade(S3[0], -7));
   }
-  // 한 도트짜리 흙알 — 얼룩 위에 뿌려 두면 가까이 볼수록 흙이 부슬부슬해 보인다
-  for (let dy = 1; dy < T; dy += 2) for (let dx = 1; dx < T; dx += 2){
+  // 흙알 — 성글게. 도트마다 뿌리면 흙이 아니라 소금을 뿌린 것처럼 보인다.
+  for (let dy = 1; dy < T; dy += 4) for (let dx = 1; dx < T; dx += 4){
     const r = hash2(X + dx, Y + dy, 131);
-    if (r > 0.9) px(X + dx, Y + dy, 1, 1, shade(S3[0], 20));
-    else if (r < 0.1) px(X + dx, Y + dy, 1, 1, shade(S3[0], -20));
+    if (r > 0.88) px(X + dx, Y + dy, 1, 1, shade(S3[0], 16));
+    else if (r < 0.12) px(X + dx, Y + dy, 1, 1, shade(S3[0], -16));
   }
   // 칸 위쪽 밝은 선은 통으로 그으면 칸마다 밝은 줄이 생겨 바둑판이 된다 — 흩뿌린다
   ditherRow(X, Y, T, shade(S3[0], 15), 0.6, Y);
@@ -1238,7 +1288,8 @@ function ditherRect(X, Y, w, h, c, amt, P){
 // ---------- 건물 ----------
 // 밤에 불이 켜지는 자리는 여기에 모아 둔다. 바탕을 그릴 때 채우고, 어두워지면 그 위에 빛을 얹는다.
 let lamps = [];
-function lamp(x, y, r, c){ lamps.push({ x, y, r, c: c || '#ffcf7a' }); }
+// 테를 두르는 동안에는 같은 그림을 다섯 번 그리므로 등불도 다섯 번 모인다 — 마지막 한 번만 센다
+function lamp(x, y, r, c){ if (inkPass) return; lamps.push({ x, y, r, c: c || '#ffcf7a' }); }
 // 널빤지 벽 — 같은 색을 통으로 칠하지 않고 판자 결과 못 자국을 넣는다.
 function planks(X, Y, w, h, base){
   px(X, Y, w, h, base);
@@ -1766,13 +1817,14 @@ function blob(cx, cy, w, h, mid, hi, lo, seed, P){
     const lit = Math.round(ww * (0.5 - t * 0.42));
     if (lit > 2 && t < 0.6){
       px(x0 + 2, cy + r, lit, 2, hi);
-      // 밝은 데와 중간 사이를 두 도트쯤 흩뿌려 섞으면 단 경계가 안 보인다
-      if (lit + 6 <= ww) ditherRow(x0 + 2 + lit, cy + r, 4, hi, 0.5, r, P);
+      /* 밝은 데와 중간 사이를 흩뿌려 섞는다. 넉 도트씩 섞으면 그 띠가 줄마다 조금씩 밀려
+         덩이 셋이 겹칠 때 빗금 무늬로 보였다 — 두 도트로 줄이고 성글게 흩뿌린다. */
+      if (lit + 4 <= ww) ditherRow(x0 + 2 + lit, cy + r, 2, hi, 0.34, r, P);
     }
     const sh = Math.round(ww * (t - 0.45) * 0.9);
     if (sh > 2){
       px(x0 + ww - sh, cy + r, sh, 2, lo);
-      if (ww - sh - 4 >= 0) ditherRow(x0 + ww - sh - 4, cy + r, 4, lo, 0.5, r, P);
+      if (ww - sh - 2 >= 0) ditherRow(x0 + ww - sh - 2, cy + r, 2, lo, 0.34, r, P);
     }
   }
 }
@@ -2385,7 +2437,7 @@ function paintLayer(name, w, h, sig, fn){
   }
   return L.cv;
 }
-function dropLayers(){ Object.keys(layers).forEach(k => { layers[k].sig = null; }); Object.keys(spriteBuf).forEach(k => { delete spriteBuf[k]; }); Object.keys(furnCache).forEach(k => { delete furnCache[k]; }); }
+function dropLayers(){ Object.keys(layers).forEach(k => { layers[k].sig = null; }); Object.keys(spriteBuf).forEach(k => { delete spriteBuf[k]; }); Object.keys(furnCache).forEach(k => { delete furnCache[k]; }); Object.keys(dotBuf).forEach(k => { delete dotBuf[k]; }); }
 // 담아 둔 겹 넷을 한 장으로 미리 합쳐 둔다.
 // 겹을 나눈 값은 「다시 안 그리는 것」에 있지 「매번 여러 장을 얹는 것」에 있지 않다 —
 // 캔버스가 GPU 를 못 쓸 때는 전면 한 장 얹는 데만 0.28ms 가 든다.
@@ -2543,9 +2595,10 @@ function drawFarm(cvIn, tms){
     lamps = [];
     drawPasture(season);
     drawDecor(season, L.lamp);
-    drawHouse(L.lamp); drawMail(); drawBoard(); drawStall(cal);
-    drawWell(L.lamp); drawGreenhouse(L.lamp); drawCoop(L.lamp); drawBarn(L.lamp); drawPethouse(L.lamp);
-    drawHive(); drawScarecrow();
+    // 지은 것마다 테를 두른다. 울타리와 바닥 꾸밈은 빼고 — 넓게 깔린 것에 테를 두르면 격자가 보인다.
+    withInk(INK.build, () => { drawHouse(L.lamp); drawMail(); drawBoard(); drawStall(cal); });
+    withInk(INK.build, () => { drawWell(L.lamp); drawGreenhouse(L.lamp); drawCoop(L.lamp); drawBarn(L.lamp); drawPethouse(L.lamp); });
+    withInk(INK.build, () => { drawHive(); drawScarecrow(); });
   });
   // 3 밭
   paintLayer('field', cw, ch, sigField(), () => {
@@ -2559,9 +2612,9 @@ function drawFarm(cvIn, tms){
     open.forEach(id => {
       const p = W.plots[id]; if (!p || !p.crop || p.giant) return;
       const q = R.parseId(id);
-      drawCrop(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, null, sway(q.x, q.y));
+      withInk(INK.crop, () => drawCrop(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, null, sway(q.x, q.y)));
     });
-    open.forEach(id => { const p = W.plots[id]; if (p && p.giant && p.pairOf && id < p.pairOf){ const q = R.parseId(id); drawGiant(id, p, sway(q.x, q.y)); } });
+    open.forEach(id => { const p = W.plots[id]; if (p && p.giant && p.pairOf && id < p.pairOf){ const q = R.parseId(id); withInk(INK.crop, () => drawGiant(id, p, sway(q.x, q.y))); } });
   });
   // 1~3 은 거의 안 바뀌니 한 장으로 합쳐 두고, 자주 바뀌는 작물만 따로 얹는다.
   // 이러면 매 프레임 전면 그림을 세 번만 얹는다 (뒤·작물·앞).
@@ -2571,7 +2624,16 @@ function drawFarm(cvIn, tms){
   // 5 살아 있는 것 — 나무까지 함께 아래에 있는 것부터. 그래야 아이가 나무 뒤로 지나간다.
   ctx = g;
   const cast = [];
-  Object.keys(R.NODES).forEach(n => { const N = R.NODES[n]; cast.push({ y: N.y * T + 30, go: () => drawNode(n, season, t) }); });
+  // 그림 상자는 재서 잡았다 — 칸 왼쪽 위에서 왼 -17 · 위 -39 · 오른 47 · 아래 34 안에 다 든다
+  Object.keys(R.NODES).forEach(n => {
+    const N = R.NODES[n];
+    cast.push({ y: N.y * T + 30, go: () => {
+      const sway = Math.round(Math.sin(t / 900 + N.x) * (curWind + 0.8));
+      const ready = W && M ? R.nodeReady(W, M, n, now()) : true;
+      cachedDraw(n + '|' + season + '|' + (ready ? 1 : 0) + '|' + sway, N.x * T - 22, N.y * T - 44, 74, 84,
+        () => withInk(INK.tree, () => drawNode(n, season, t)));
+    } });
+  });
   Object.keys(W.sprinklers || {}).forEach(id => {
     const q = R.parseId(id), good = (W.sprinklers[id] || {}).k === 'good';
     cast.push({ y: q.y * T + 30, go: () => drawSprinkler(q.x * T, q.y * T, t, good) });
@@ -2838,7 +2900,7 @@ function openGreenhouse(){
     R.plotIds(W, 'gh').forEach(id => {
       const p = W.plots[id]; if (!p || !p.crop || p.giant) return;
       const q = R.parseId(id);
-      drawCrop(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, null, 0);
+      withInk(INK.crop, () => drawCrop(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, null, 0));
     });
     R.plotIds(W, 'gh').forEach(id => { const p = W.plots[id]; if (p && p.giant && p.pairOf && id < p.pairOf) drawGiant(id, p, 0); });
     ctx = keep; S = keepS;
