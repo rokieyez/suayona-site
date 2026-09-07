@@ -367,7 +367,7 @@ async function loadAllPlaces(){
   if (ALL_PLACES) return ALL_PLACES;
   const { data, error } = await sb.from('places')
     .select('id, name, category, lat, lng, address, memo, status, season, stars, visited_on, event_id')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }).limit(500);
   if (error) { console.error('가볼 곳 목록 오류:', error); return (ALL_PLACES = []); }
   return (ALL_PLACES = data || []);
 }
@@ -711,7 +711,7 @@ async function loadGalleryPics(){
   const { data, error } = await sb.from('gallery_media')
     .select('id, media_url, thumb_url, media_type, taken_at, location_name')
     .eq('event_id', CONFIG.eventSlug)
-    .order('id', { ascending: false });
+    .order('id', { ascending: false }).limit(300);   // 한 행사 사진이 이보다 많아지면 나눠 받아야 한다
   if (error) { console.error('갤러리 목록 오류:', error); return (GALLERY_PICS = []); }
   return (GALLERY_PICS = (data || []).filter(m => m.media_type !== 'video'));
 }

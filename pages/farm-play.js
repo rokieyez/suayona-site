@@ -958,8 +958,11 @@ function hangNow(f, sl, pic){
 async function loadMyPics(){
   if (myPics) return myPics;
   const [diary, drawn] = await Promise.all([
+    /* 공개된 일기의 그림만 건다. 방 벽은 손님 화면(farm_peek)에도 그려지므로,
+       비공개 일기의 그림을 걸면 그 그림만 공개되는 셈이 된다. */
     sb.from('posts').select('id, title, doodle, happened_on, created_at')
       .not('doodle', 'is', null).in('author', [key, 'together'])
+      .eq('is_public', true).eq('status', 'published')
       .order('created_at', { ascending: false }).limit(30),
     sb.from('doodles').select('id, theme, cells, made_on, created_at')
       .eq('author', key)
