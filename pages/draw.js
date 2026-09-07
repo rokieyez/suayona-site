@@ -400,7 +400,9 @@ window.addEventListener('online', () => flushQueue(false));
 async function putDoodle(kind, relayOf){
   if (!myKey) { alert('로그인하면 쓸 수 있어요.'); return false; }
   if (!drawnSomething()) { alert('아직 아무것도 안 그렸어요.'); return false; }
-  const row = { author: myKey, kind, n: N, cells: encode(cells), theme: MISSION };
+  // 농장 액자에 담는 것은 오늘 주제와 상관없는 자유 그림이다 — 주제를 붙이면
+  // 농장 고르는 창에 「가장 무서운 것 그리기」 같은 엉뚱한 이름이 뜬다.
+  const row = { author: myKey, kind, n: N, cells: encode(cells), theme: kind === 'room' ? null : MISSION };
   if (relayOf) row.relay_of = relayOf;
   const { error } = await sb.from('doodles').insert(row);
   if (error) {
@@ -413,12 +415,12 @@ async function putDoodle(kind, relayOf){
       return false;
     }
     setQueued(q.concat([row]));
-    markMissionDone();
+    if (kind !== 'room') markMissionDone();
     alert('인터넷이 없어서 이 그림을 기기에 담아 뒀어요. 연결되면 저절로 올라가요.');
     return false;                            // 아직 서버에 없으니 목록은 안 건드린다
   }
   sfx('fanfare');
-  markMissionDone();
+  if (kind !== 'room') markMissionDone();      // 액자에 담는 건 오늘 숙제가 아니다
   return true;
 }
 
@@ -469,6 +471,13 @@ $('#toWork').addEventListener('click', async () => {
   }
 });
 
+/* 농장 액자에 담기 — 여태 그린 그림은 이 기기 첫 화면 액자(localStorage)에만 걸렸다.
+   표에 담아 두면 농장에서 「내 그림 액자」를 벽에 걸 때 이 그림을 고를 수 있다. */
+$('#toRoom').addEventListener('click', async () => {
+  if (await putDoodle('room', null)) {
+    alert('담았어요!\n농장에서 「내 그림 액자」를 사서 벽에 걸면 이 그림을 고를 수 있어요.');
+  }
+});
 $('#toRelay').addEventListener('click', async () => {
   const from = continuing;
   if (await putDoodle('relay', from)) {
