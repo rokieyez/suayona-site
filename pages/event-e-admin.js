@@ -639,7 +639,7 @@ buildFormatBar($('#ctContent'), { fileInput: $('#ctImage') });
 const IMAGE_COMPRESS_TARGET = 3 * 1024 * 1024;   // common.js 의 IMAGE_LIMIT 과 같은 기준
 async function uploadImageWithMeta(file){
   const meta = await extractPhotoMeta(file);
-  const uploadFile = await compressImageToLimit(file, IMAGE_COMPRESS_TARGET);
+  const uploadFile = await compressImageToLimit(file, IMAGE_COMPRESS_TARGET, { capDim: 2400 });
   const path = CONFIG.eventSlug + '/' + Date.now() + '-' + uploadFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
   const { error } = await sb.storage.from('event-images').upload(path, uploadFile);
   if (error) throw error;

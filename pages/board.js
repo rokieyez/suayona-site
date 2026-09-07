@@ -612,7 +612,7 @@ function renderEditForm(p){
     try {
       if (file) {
         msg.textContent = '사진 올리는 중...';
-        const up = await uploadMedia(file, 'posts');
+        const up = await uploadMedia(file, 'posts', null, { capDim: PHOTO_CAP_DIM });
         dropped.push(image_url, thumb_url);    // 갈아치운 옛 사진은 남길 이유가 없다
         image_url = up.url; thumb_url = up.thumbUrl || null;
       } else if (removeImg && removeImg.checked) {
@@ -844,7 +844,7 @@ function renderAdminArea(){
         msg.textContent = '사진 올리는 중... (' + (i+1) + '/' + files.length + ') ' + files[i].name;
         // 있었던 날을 비웠으면 첫 사진의 촬영 날짜를 쓴다 — 지난 일을 나중에 적어도 날짜가 맞게
         if (!happened_on && i === 0) happened_on = await exifDate(files[i]);
-        const up = await uploadMedia(files[i], 'posts');
+        const up = await uploadMedia(files[i], 'posts', null, { capDim: PHOTO_CAP_DIM });
         if (i === 0 && !image_url) { image_url = up.url; thumb_url = up.thumbUrl || null; }
         else extra_images.push({ url: up.url, thumb: up.thumbUrl || null });
       }

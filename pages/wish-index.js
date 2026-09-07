@@ -227,7 +227,7 @@ $('#fillPicBtn').addEventListener('click', fillMissingPhotos);
 
 // 사진 한 장을 올린다. 원본은 눌러서 크게 볼 때를 위해 그대로 두고, 카드에는 작은 사본만.
 async function uploadPlacePhoto(file){
-  const upFile = await compressImage(file, IMAGE_LIMIT);
+  const upFile = await compressImage(file, IMAGE_LIMIT, { capDim: PHOTO_CAP_DIM });
   const safe = upFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
   const path = 'suayona/places/' + Date.now() + '-' +
     Math.random().toString(36).slice(2, 8) + '-' + safe;

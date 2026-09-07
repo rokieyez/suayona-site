@@ -65,6 +65,10 @@ const GALLERY_BUCKET = 'gallery-uploads';   // 이벤트 갤러리에 올린 사
 // 3MB 로 잡아 두면 요즘 휴대폰 사진(보통 4~5MB)이 거의 다 걸려서 긴 변 2400px 로
 // 줄어든다. 화면에서는 차이가 안 보이는데 무료 저장공간(1GB)은 두 배 넘게 간다.
 const IMAGE_LIMIT = 3 * 1024 * 1024;         // 갤러리·일기장 사진
+/* 사진의 긴 변 상한. 용량이 작아도 이 크기로 맞춘다 — 요즘 폰 사진은 4000px 이 넘는데
+   화면에서 가장 크게 보는 자리(라이트박스)도 2400px 이면 넉넉하다.
+   작품(포트폴리오)에는 안 쓴다. */
+const PHOTO_CAP_DIM = 2400;
 const PORTFOLIO_IMAGE_LIMIT = 10 * 1024 * 1024;  // 작품은 화질이 중요해서 10MB
 const VIDEO_LIMIT = 100 * 1024 * 1024;
 
@@ -576,9 +580,16 @@ function mountLoginBox(container, onChange){
 }
 
 // ---------- 이미지 압축 + 업로드 ----------
-async function compressImage(file, maxBytes){
+/* opts.capDim 을 주면 **용량이 작아도** 긴 변을 그 크기로 맞춘다.
+   재 보니 저장소 400MB 중 394.9MB 가 원본 사진이고 한 장 평균이 1.68MB 였다 —
+   3MB 아래는 손대지 않는 규칙 때문에 요즘 폰 사진이 거의 다 원본으로 올라간 것이다.
+   작품(포트폴리오)은 화질이 중요해서 capDim 을 안 준다 — 예전 그대로 10MB 넘을 때만 줄인다. */
+async function compressImage(file, maxBytes, opts){
+  opts = opts || {};
+  const capDim = opts.capDim || 0;
+  const maxDim = capDim || 2400;
   if (!file.type || !file.type.startsWith('image/')) return file;
-  if (file.size <= maxBytes) return file;
+  if (file.size <= maxBytes && !capDim) return file;
 
   const url = URL.createObjectURL(file);
   let img;
@@ -590,7 +601,8 @@ async function compressImage(file, maxBytes){
   } catch (e) { URL.revokeObjectURL(url); return file; }
 
   let w = img.naturalWidth, h = img.naturalHeight;
-  const maxDim = 2400;
+  // 용량도 안 넘고 크기도 안 넘으면 손대지 않는다 — 다시 구우면 화질과 EXIF 만 잃는다
+  if (file.size <= maxBytes && Math.max(w, h) <= capDim) { URL.revokeObjectURL(url); return file; }
   if (Math.max(w, h) > maxDim) {
     const sc = maxDim / Math.max(w, h);
     w = Math.round(w * sc); h = Math.round(h * sc);
@@ -602,6 +614,8 @@ async function compressImage(file, maxBytes){
   let q = 0.9;
   draw();
   let blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', q));
+  // 크기만 맞추려고 구운 것이 원본보다 커지면 원본이 낫다
+  if (blob && file.size <= maxBytes && blob.size >= file.size) { URL.revokeObjectURL(url); return file; }
   while (blob && blob.size > maxBytes && q > 0.4) {
     q -= 0.1;
     blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', q));
@@ -1048,7 +1062,7 @@ function validateGalleryFile(file){
 // meta: { isVideo, taken_at, location_name } — 부르는 쪽이 읽어 둔 EXIF
 async function putGalleryFile(eventSlug, file, meta){
   const isVideo = !!(meta && meta.isVideo);
-  const uploadFile = isVideo ? file : await compressImageToLimit(file, IMAGE_LIMIT);
+  const uploadFile = isVideo ? file : await compressImageToLimit(file, IMAGE_LIMIT, { capDim: PHOTO_CAP_DIM });
   const path = eventSlug + '/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '-' +
     uploadFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
   const { error: upErr } = await sb.storage.from(GALLERY_BUCKET).upload(path, uploadFile);
@@ -1346,13 +1360,14 @@ function secsLabel(n){
 }
 
 // folder 예: 'works' / 'posts'
-// imageLimit 을 주면 그 용량 기준으로 압축함 (안 주면 기본 5MB)
-async function uploadMedia(file, folder, imageLimit){
+// imageLimit 을 주면 그 용량 기준으로 압축함 (안 주면 기본 3MB)
+// opts.capDim 을 주면 용량이 작아도 긴 변을 그 크기로 맞춤 (작품은 안 준다)
+async function uploadMedia(file, folder, imageLimit, opts){
   const isVideo = file.type.startsWith('video/');
   if (isVideo && file.size > VIDEO_LIMIT) {
     throw new Error('영상은 ' + (VIDEO_LIMIT/1024/1024) + 'MB를 넘을 수 없어요.');
   }
-  const upFile = isVideo ? file : await compressImage(file, imageLimit || IMAGE_LIMIT);
+  const upFile = isVideo ? file : await compressImage(file, imageLimit || IMAGE_LIMIT, opts);
   const safe = upFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
   const path = 'suayona/' + folder + '/' + Date.now() + '-' +
     Math.random().toString(36).slice(2,8) + '-' + safe;

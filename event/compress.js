@@ -213,12 +213,16 @@ function photoMetaOverlayHTML(takenAt, locationName){
 
 // 이미지를 지정한 용량 이하로 압축(JPEG로 재인코딩). 사진 내용은 그대로 — 리사이즈/화질 조정만 함.
 // 이미지가 아니거나 이미 목표 용량 이하면 원본 파일을 그대로 반환함(불필요한 화질 손실 방지).
+/* opts.capDim 을 주면 **용량이 작아도** 긴 변을 그 크기로 맞춘다.
+   3MB 아래는 손대지 않던 규칙 때문에 요즘 폰 사진이 거의 다 원본으로 올라갔다
+   (저장소 400MB 중 394.9MB 가 원본, 한 장 평균 1.68MB). */
 async function compressImageToLimit(file, maxBytes, opts) {
   opts = opts || {};
-  const maxDim = opts.maxDim || 2400;
+  const capDim = opts.capDim || 0;
+  const maxDim = capDim || opts.maxDim || 2400;
 
   if (!file.type || !file.type.startsWith('image/')) return file;
-  if (file.size <= maxBytes) return file;
+  if (file.size <= maxBytes && !capDim) return file;
 
   let img;
   const url = URL.createObjectURL(file);
@@ -235,6 +239,8 @@ async function compressImageToLimit(file, maxBytes, opts) {
   }
 
   let width = img.naturalWidth, height = img.naturalHeight;
+  // 용량도 안 넘고 크기도 안 넘으면 손대지 않는다 — 다시 구우면 화질과 EXIF 만 잃는다
+  if (file.size <= maxBytes && Math.max(width, height) <= capDim) { URL.revokeObjectURL(url); return file; }
   if (Math.max(width, height) > maxDim) {
     const scale = maxDim / Math.max(width, height);
     width = Math.round(width * scale);
@@ -251,6 +257,8 @@ async function compressImageToLimit(file, maxBytes, opts) {
   let quality = 0.9;
   draw();
   let blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', quality));
+  // 크기만 맞추려고 구운 것이 원본보다 커지면 원본이 낫다
+  if (blob && file.size <= maxBytes && blob.size >= file.size) { URL.revokeObjectURL(url); return file; }
 
   // 화질을 낮춰가며 용량 맞추기
   while (blob && blob.size > maxBytes && quality > 0.4) {
