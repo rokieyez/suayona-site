@@ -69,6 +69,7 @@ function weatherTag(w){
 // ---------- 내 일기만 보기 ----------
 // 아이는 자기 글을 고칠 수 있게 됐는데, 여러 장 섞인 목록에서 자기 것을 찾아 내려가야 했다.
 // 로그인한 아이에게만 칩 둘을 띄우고, 고른 쪽만 그린다. 부모는 어차피 다 자기 것이라 안 띄운다.
+let composePad = null;        // 새 일기 칸의 그림판 (고치는 칸의 판은 각자 들고 있다)
 let mineOnly = false;
 const isMine = p => !!(me && me.user_id && p.written_by === me.user_id);
 // 아이가 아니게 되면(로그아웃·부모 로그인) 고른 것이 저절로 풀린다 — 안 그러면
@@ -348,6 +349,10 @@ async function stopComposeVoice(){
 // 사진이 없는 날의 자리. 도트 그림판(draw.html)과 같은 색으로 열여섯 칸을 칠해 한 장 붙인다.
 // 올리기를 누를 때까지는 이 브라우저 안에만 있다 — 목소리와 같은 얼개다.
 //
+// 판은 한 화면에 여럿 뜬다 — 새로 쓰는 칸에 하나, 고치는 카드마다 하나. 그래서 상태를
+// 모듈에 두지 않고 makePad 가 닫아 쥔다(예전엔 모듈에 뒀는데, 그러면 카드 둘을 같이
+// 열었을 때 한쪽을 그리다 다른 쪽이 지워진다). 자리 이름도 id 가 아니라 class 다.
+//
 // 색표의 정본은 pixel.js 의 DRAW_PALETTE 다. 일기장은 pixel.js 를 안 싣기 때문에
 // (그 한 벌이 gzip 18.6KB 다) 같은 값을 여기 둔다 — 색을 고칠 때는 두 곳을 같이 고친다.
 const PAD_PALETTE = [
@@ -363,13 +368,17 @@ const PAD_BG    = '#fffaf2';
 const PAD_EMPTY = -1;
 const PAD_OUT   = 48;        // 내보낼 때 한 칸의 크기 → 768px 짜리 그림
 
-let dDraft = null;           // 붙일 그림 { blob, url }
-let padCells = null;         // 그리는 중일 때의 칸들 (null 이면 안 그리는 중)
-let padColor = 4, padHist = [];
-
-function dropDoodleDraft(){
-  if (dDraft && dDraft.url) URL.revokeObjectURL(dDraft.url);
-  dDraft = null;
+// 칸 값을 글자 하나씩으로 적어 표에 담는다(posts.doodle) — 도트 그림판이 자기 그림을
+// 담아 두는 방식과 같다. 이게 있어야 나중에 「다시 그리기」가 빈 판이 아니라 그린 것에서
+// 시작한다. PNG 만 두면 색 번호를 되찾을 길이 없다.
+const padEncode = list => list.map(c => c === PAD_EMPTY ? '.' : c.toString(36)).join('');
+function padDecode(str){
+  if (!str || str.length !== PAD_N * PAD_N) return null;
+  return Array.from(str).map(ch => {
+    if (ch === '.') return PAD_EMPTY;
+    const v = parseInt(ch, 36);
+    return (v >= 0 && v < PAD_PALETTE.length) ? v : PAD_EMPTY;
+  });
 }
 
 // 격자선 없이 큼직하게 — 이대로 파일이 된다
@@ -387,25 +396,6 @@ function padToCanvas(list, px){
   return cv;
 }
 
-// 그리는 중인 판 (격자선이 있다)
-function padPaint(){
-  const cv = $('#padCanvas');
-  if (!cv || !padCells) return;
-  const g = cv.getContext('2d'), c = cv.width / PAD_N;
-  g.imageSmoothingEnabled = false;
-  g.fillStyle = PAD_BG; g.fillRect(0, 0, cv.width, cv.height);
-  for (let i = 0; i < padCells.length; i++){
-    if (padCells[i] === PAD_EMPTY) continue;
-    g.fillStyle = PAD_PALETTE[padCells[i]] || PAD_BG;
-    g.fillRect((i % PAD_N) * c, Math.floor(i / PAD_N) * c, c, c);
-  }
-  g.fillStyle = 'rgba(47,42,36,0.16)';
-  for (let i = 1; i < PAD_N; i++){
-    g.fillRect(Math.round(i * c), 0, 1, cv.height);
-    g.fillRect(0, Math.round(i * c), cv.width, 1);
-  }
-}
-
 async function uploadDoodle(blob){
   // 아이도 올릴 수 있는 자리다 (2026-09-07 에 suayona/posts/ 를 가족에게 열었다).
   const path = 'suayona/posts/doodle-' + Date.now() + '-' +
@@ -416,94 +406,141 @@ async function uploadDoodle(blob){
   return sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-function renderComposeDoodle(){
-  const box = $('#pDoodle');
-  if (!box) return;
-  let html = '<div class="pad-box">';
-  if (padCells) {
-    html += '<canvas id="padCanvas" width="256" height="256" role="img" aria-label="도트 그림판"></canvas>' +
-      '<div class="pad-colors" id="padColors"></div>' +
-      '<div class="row">' +
-        '<button type="button" class="dot-btn small" id="padUndo">되돌리기</button>' +
-        '<button type="button" class="dot-btn small" id="padClear">다 지우기</button>' +
-        '<button type="button" class="dot-btn small primary" id="padDone">이 그림 붙이기</button>' +
-        '<button type="button" class="dot-btn small" id="padCancel">그만두기</button>' +
-      '</div>' +
-      '<p class="hintline">칸을 눌러 칠해요. 맨 끝의 빗금 칸이 지우개예요.</p>';
-  } else if (dDraft) {
-    html += '<img class="pad-prev" src="' + dDraft.url + '" alt="그린 그림">' +
-      '<p class="hintline">이대로 올리면 일기에 붙어요.</p>' +
-      '<div class="row">' +
-        '<button type="button" class="dot-btn small" id="padRedo">다시 그리기</button>' +
-        '<button type="button" class="dot-btn small danger" id="padDrop">빼기</button>' +
-      '</div>';
-  } else {
-    html += '<div class="row"><button type="button" class="dot-btn small" id="padOpen">🎨 그림 그리기</button></div>' +
-      '<p class="hintline">사진이 없는 날엔 그려서 남겨요. 그린 그림이 일기의 첫 장이 돼요.</p>';
+// 그림판 하나를 box 안에 만든다.
+//   seed  — 이미 그려 둔 칸들(없으면 null). 있으면 그것부터 보여 주고, 다시 그리기도 여기서 시작한다.
+//   hint  — 판이 닫혀 있을 때 밑에 적을 한 줄
+// 그린 결과는 pad.draft({ blob, url }) 와 pad.cells(글자로 적은 칸들) 로 꺼내 간다.
+function makePad(box, seed, hint){
+  if (!box) return null;
+  const pad = { draft: null, cells: null };
+  let cells = null;                                  // 그리는 중일 때의 칸들
+  let last = seed ? seed.slice() : null;             // 판을 다시 열 때 채울 것
+  let color = 4, hist = [];
+
+  const q = sel => box.querySelector(sel);
+  const blank = () => new Array(PAD_N * PAD_N).fill(PAD_EMPTY);
+
+  function dropDraft(){
+    if (pad.draft && pad.draft.url) URL.revokeObjectURL(pad.draft.url);
+    pad.draft = null; pad.cells = null;
   }
-  html += '</div>';
-  box.innerHTML = html;
 
-  const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
-  on('#padOpen', () => { padCells = new Array(PAD_N * PAD_N).fill(PAD_EMPTY); padHist = []; renderComposeDoodle(); });
-  on('#padCancel', () => { padCells = null; renderComposeDoodle(); });
-  on('#padDrop', () => { dropDoodleDraft(); renderComposeDoodle(); });
-  on('#padRedo', () => { dropDoodleDraft(); padCells = new Array(PAD_N * PAD_N).fill(PAD_EMPTY); padHist = []; renderComposeDoodle(); });
-  on('#padClear', () => { padHist.push(padCells.slice()); padCells.fill(PAD_EMPTY); padPaint(); });
-  on('#padUndo', () => { if (padHist.length){ padCells = padHist.pop(); padPaint(); } });
-  on('#padDone', async () => {
-    if (!padCells.some(c => c !== PAD_EMPTY)) { padCells = null; renderComposeDoodle(); return; }
-    const blob = await new Promise(r => padToCanvas(padCells, PAD_OUT).toBlob(r, 'image/png'));
-    if (!blob) return;
-    dropDoodleDraft();
-    dDraft = { blob: blob, url: URL.createObjectURL(blob) };
-    padCells = null;
-    sfx('sparkle');
-    renderComposeDoodle();
-  });
+  // 그리는 중인 판 (격자선이 있다)
+  function paint(){
+    const cv = q('.padCanvas');
+    if (!cv || !cells) return;
+    const g = cv.getContext('2d'), c = cv.width / PAD_N;
+    g.imageSmoothingEnabled = false;
+    g.fillStyle = PAD_BG; g.fillRect(0, 0, cv.width, cv.height);
+    for (let i = 0; i < cells.length; i++){
+      if (cells[i] === PAD_EMPTY) continue;
+      g.fillStyle = PAD_PALETTE[cells[i]] || PAD_BG;
+      g.fillRect((i % PAD_N) * c, Math.floor(i / PAD_N) * c, c, c);
+    }
+    g.fillStyle = 'rgba(47,42,36,0.16)';
+    for (let i = 1; i < PAD_N; i++){
+      g.fillRect(Math.round(i * c), 0, 1, cv.height);
+      g.fillRect(0, Math.round(i * c), cv.width, 1);
+    }
+  }
 
-  if (!padCells) return;
+  function render(){
+    let html = '<div class="pad-box">';
+    if (cells) {
+      html += '<canvas class="padCanvas" width="256" height="256" role="img" aria-label="도트 그림판"></canvas>' +
+        '<div class="pad-colors padColors"></div>' +
+        '<div class="row">' +
+          '<button type="button" class="dot-btn small padUndo">되돌리기</button>' +
+          '<button type="button" class="dot-btn small padClear">다 지우기</button>' +
+          '<button type="button" class="dot-btn small primary padDone">이 그림 붙이기</button>' +
+          '<button type="button" class="dot-btn small padCancel">그만두기</button>' +
+        '</div>' +
+        '<p class="hintline">칸을 눌러 칠해요. 맨 끝의 빗금 칸이 지우개예요.</p>';
+    } else if (pad.draft) {
+      html += '<img class="pad-prev" src="' + pad.draft.url + '" alt="그린 그림">' +
+        '<p class="hintline">이대로 올리면 일기에 붙어요.</p>' +
+        '<div class="row">' +
+          '<button type="button" class="dot-btn small padOpen">다시 그리기</button>' +
+          '<button type="button" class="dot-btn small danger padDrop">빼기</button>' +
+        '</div>';
+    } else if (last) {
+      // 이미 붙어 있는 그림. 그린 칸들이 남아 있어서 그때 그 그림에서 이어 그린다.
+      html += '<img class="pad-prev" src="' + padToCanvas(last, 24).toDataURL('image/png') + '" alt="붙어 있는 그림">' +
+        '<div class="row"><button type="button" class="dot-btn small padOpen">🎨 다시 그리기</button></div>' +
+        '<p class="hintline">' + escapeHTML(hint || '고치면 일기의 그림도 바뀌어요.') + '</p>';
+    } else {
+      html += '<div class="row"><button type="button" class="dot-btn small padOpen">🎨 그림 그리기</button></div>' +
+        '<p class="hintline">' + escapeHTML(hint || '사진이 없는 날엔 그려서 남겨요.') + '</p>';
+    }
+    box.innerHTML = html + '</div>';
 
-  // 색 고르기 — 스물넷에 지우개 하나
-  const cols = $('#padColors');
-  PAD_PALETTE.concat([null]).forEach((hex, i) => {
-    const v = hex === null ? PAD_EMPTY : i;
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = (padColor === v ? 'on' : '') + (hex === null ? ' eraser' : '');
-    b.style.background = hex || '';
-    b.title = hex === null ? '지우개' : hex;
-    b.setAttribute('aria-label', hex === null ? '지우개' : '색 ' + (i + 1));
-    b.addEventListener('click', () => { padColor = v; renderComposeDoodle(); });
-    cols.appendChild(b);
-  });
+    const on = (sel, fn) => { const el = q(sel); if (el) el.addEventListener('click', fn); };
+    on('.padOpen', () => { cells = last ? last.slice() : blank(); hist = []; render(); });
+    on('.padCancel', () => { cells = null; render(); });
+    on('.padDrop', () => { dropDraft(); last = seed ? seed.slice() : null; render(); });
+    on('.padClear', () => { hist.push(cells.slice()); cells.fill(PAD_EMPTY); paint(); });
+    on('.padUndo', () => { if (hist.length){ cells = hist.pop(); paint(); } });
+    on('.padDone', async () => {
+      if (!cells.some(c => c !== PAD_EMPTY)) { cells = null; render(); return; }   // 빈 판은 안 붙인다
+      const blob = await new Promise(r => padToCanvas(cells, PAD_OUT).toBlob(r, 'image/png'));
+      if (!blob) return;
+      dropDraft();
+      last = cells.slice();
+      pad.cells = padEncode(cells);
+      pad.draft = { blob: blob, url: URL.createObjectURL(blob) };
+      cells = null;
+      sfx('sparkle');
+      render();
+    });
 
-  // 그리기 — 누른 채 끌면 이어서 칠한다
-  const cv = $('#padCanvas');
-  padPaint();
-  let painting = false, lastCell = -1;
-  const cellAt = e => {
-    const r = cv.getBoundingClientRect();
-    const x = Math.floor((e.clientX - r.left) / r.width * PAD_N);
-    const y = Math.floor((e.clientY - r.top) / r.height * PAD_N);
-    return (x < 0 || y < 0 || x >= PAD_N || y >= PAD_N) ? -1 : y * PAD_N + x;
-  };
-  const put = i => {
-    if (i < 0 || i === lastCell || padCells[i] === padColor) { lastCell = i; return; }
-    lastCell = i; padCells[i] = padColor; padPaint();
-  };
-  cv.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    padHist.push(padCells.slice());
-    if (padHist.length > 40) padHist.shift();
-    painting = true; lastCell = -1;
-    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 붙잡기는 덤이다 */ }
-    put(cellAt(e));
-  });
-  cv.addEventListener('pointermove', e => { if (painting) put(cellAt(e)); });
-  const stop = () => { painting = false; lastCell = -1; };
-  cv.addEventListener('pointerup', stop);
-  cv.addEventListener('pointercancel', stop);
+    if (!cells) return;
+
+    // 색 고르기 — 스물넷에 지우개 하나
+    const cols = q('.padColors');
+    PAD_PALETTE.concat([null]).forEach((hex, i) => {
+      const v = hex === null ? PAD_EMPTY : i;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = (color === v ? 'on' : '') + (hex === null ? ' eraser' : '');
+      b.style.background = hex || '';
+      b.title = hex === null ? '지우개' : hex;
+      b.setAttribute('aria-label', hex === null ? '지우개' : '색 ' + (i + 1));
+      b.addEventListener('click', () => { color = v; render(); });
+      cols.appendChild(b);
+    });
+
+    // 그리기 — 누른 채 끌면 이어서 칠한다
+    const cv = q('.padCanvas');
+    paint();
+    let painting = false, lastCell = -1;
+    const cellAt = e => {
+      const r = cv.getBoundingClientRect();
+      const x = Math.floor((e.clientX - r.left) / r.width * PAD_N);
+      const y = Math.floor((e.clientY - r.top) / r.height * PAD_N);
+      return (x < 0 || y < 0 || x >= PAD_N || y >= PAD_N) ? -1 : y * PAD_N + x;
+    };
+    const put = i => {
+      if (i < 0 || i === lastCell || cells[i] === color) { lastCell = i; return; }
+      lastCell = i; cells[i] = color; paint();
+    };
+    cv.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      hist.push(cells.slice());
+      if (hist.length > 40) hist.shift();
+      painting = true; lastCell = -1;
+      try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 붙잡기는 덤이다 */ }
+      put(cellAt(e));
+    });
+    cv.addEventListener('pointermove', e => { if (painting) put(cellAt(e)); });
+    const stop = () => { painting = false; lastCell = -1; };
+    cv.addEventListener('pointerup', stop);
+    cv.addEventListener('pointercancel', stop);
+  }
+
+  pad.render = render;
+  pad.drop = dropDraft;
+  render();
+  return pad;
 }
 
 // ---------- 기존 일기 수정 ----------
@@ -511,6 +548,7 @@ function renderEditForm(p){
   const form = document.createElement('div');
   form.className = 'edit-form';
   const sel = (v, cur) => v === cur ? ' selected' : '';
+  const canPad = !p.image_url || !!p.doodle;
   form.innerHTML =
     // 아이는 글쓰기 칸에서와 같이 이름과 공개 여부를 못 고른다 — 서버도 막으므로
     // 화면에서 미리 감춰야 저장을 눌렀다가 거절당하는 일이 없다. 값은 그대로 들고 간다.
@@ -543,11 +581,18 @@ function renderEditForm(p){
       ? '<label style="display:flex; align-items:center; gap:7px; font-size:12.5px; margin-top:8px; color:var(--ink-soft);">' +
           '<input type="checkbox" class="eRemoveImg" style="width:auto;">사진 삭제</label>'
       : '') +
+    // 그림판은 「그림 일기였거나, 아직 아무 사진도 없는 글」에만 연다. 사진이 붙은 글에
+    // 판까지 열어 두면, 그리는 순간 그 사진이 조용히 밀려난다.
+    (canPad ? '<label class="field">그림</label><div class="ePad"></div>' : '') +
     '<div class="actions" style="margin-top:16px;">' +
       '<button class="dot-btn small primary eSave">저장</button>' +
       '<button class="dot-btn small eCancel">취소</button>' +
     '</div>' +
     '<div class="msg eMsg"></div>';
+
+  // 그린 칸들이 표에 남아 있어서, 다시 그리기가 빈 판이 아니라 그때 그 그림에서 시작한다.
+  const editPad = makePad(form.querySelector('.ePad'), padDecode(p.doodle),
+    p.doodle ? '고치면 일기의 그림도 바뀌어요.' : '그리면 일기에 그림이 붙어요.');
 
   form.querySelector('.eCancel').addEventListener('click', () => render());
 
@@ -560,6 +605,7 @@ function renderEditForm(p){
     msg.className = 'msg'; msg.textContent = '저장 중...';
 
     let image_url = p.image_url || null, thumb_url = p.thumb_url || null;
+    let doodle = p.doodle || null;
     const file = form.querySelector('.eImage').files[0];
     const removeImg = form.querySelector('.eRemoveImg');
     const dropped = [];                       // 저장이 끝난 뒤 저장소에서 치울 것들
@@ -571,7 +617,13 @@ function renderEditForm(p){
         image_url = up.url; thumb_url = up.thumbUrl || null;
       } else if (removeImg && removeImg.checked) {
         dropped.push(image_url, thumb_url);
-        image_url = null; thumb_url = null;
+        image_url = null; thumb_url = null; doodle = null;   // 그림도 같이 뗀다
+      }
+      if (editPad && editPad.draft) {
+        msg.textContent = '그림 올리는 중...';
+        const url = await uploadDoodle(editPad.draft.blob);
+        dropped.push(image_url, thumb_url);      // 갈아치운 옛 그림(또는 사진)은 남길 이유가 없다
+        image_url = url; thumb_url = null; doodle = editPad.cells;
       }
       const day = form.querySelector('.eWhen').value || null;
       let weather = p.weather || null;
@@ -582,7 +634,7 @@ function renderEditForm(p){
         title,
         body: form.querySelector('.eBody').value.trim() || null,
         happened_on: day,
-        weather,
+        weather, doodle,
         place: form.querySelector('.ePlace').value.trim() || null,
         image_url, thumb_url,
       }).eq('id', p.id);
@@ -717,7 +769,7 @@ function renderAdminArea(){
   // 글쓰기 칸에 서식 도구막대 (일정표 커스텀 탭과 같은 것)
   buildFormatBar($('#pBody'), { fileInput: $('#pImage') });
   renderComposeVoice();
-  renderComposeDoodle();
+  composePad = makePad($('#pDoodle'), null, '사진이 없는 날엔 그려서 남겨요. 그린 그림이 일기의 첫 장이 돼요.');
 
   // ---------- 거꾸로 일기 ----------
   // 사진을 먼저 보여 주고 그날 이야기를 끌어낸다. 한 장을 고르자고 목록을
@@ -773,6 +825,7 @@ function renderAdminArea(){
     btn.disabled = true;
     const files = Array.from($('#pImage').files);
     let image_url = null, thumb_url = null, extra_images = [], happened_on = $('#pWhen').value || null;
+    let doodle = null;                        // 그린 칸들 — 나중에 다시 그릴 때 쓴다
     let audio_url = null, audio_secs = null;
     try {
       if (vDraft) {
@@ -780,11 +833,12 @@ function renderAdminArea(){
         audio_url = await uploadVoice(vDraft.blob, vDraft.ext);
         audio_secs = vDraft.secs;
       }
-      if (dDraft) {
+      if (composePad && composePad.draft) {
         // 그린 그림은 사본을 안 만든다 — 768px 짜리 도트라 원본이 이미 작고,
         // JPEG 사본으로 줄이면 칸 경계가 뭉개진다. 그림이 있으면 그것이 일기의 첫 장이다.
         msg.textContent = '그림 올리는 중...';
-        image_url = await uploadDoodle(dDraft.blob);
+        image_url = await uploadDoodle(composePad.draft.blob);
+        doodle = composePad.cells;
       }
       for (let i = 0; i < files.length; i++) {
         msg.textContent = '사진 올리는 중... (' + (i+1) + '/' + files.length + ') ' + files[i].name;
@@ -806,7 +860,7 @@ function renderAdminArea(){
         title,
         body: $('#pBody').value.trim() || null,
         image_url, thumb_url, extra_images,
-        audio_url, audio_secs,
+        audio_url, audio_secs, doodle,
         happened_on,
         weather,
         place: $('#pPlace').value.trim() || null,
@@ -824,7 +878,8 @@ function renderAdminArea(){
     $('#pTitle').value = ''; $('#pBody').value = ''; $('#pImage').value = '';
     $('#pWhen').value = ''; $('#pPlace').value = '';
     dropVoiceDraft(); renderComposeVoice();
-    dropDoodleDraft(); renderComposeDoodle();
+    if (composePad) composePad.drop();
+    composePad = makePad($('#pDoodle'), null, '사진이 없는 날엔 그려서 남겨요. 그린 그림이 일기의 첫 장이 돼요.');
     loadPosts();
   });
 

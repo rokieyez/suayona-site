@@ -1136,6 +1136,12 @@ alter table public.posts add column if not exists audio_secs smallint;
 alter table public.posts add column if not exists weather jsonb;
 comment on column public.posts.weather is '그날 날씨 도장 {code,tmax,tmin} — open-meteo, 서울시청 좌표. 없으면 null.';
 
+-- 그림 일기의 칸 값 (2026-09-07) — 칸마다 한 글자, '.' 은 빈 칸, 나머지는 색 번호(36진수).
+-- 그림 파일(PNG)만 두면 색 번호를 되찾을 길이 없어서 「다시 그리기」가 빈 판에서 시작한다.
+-- 열여섯 칸이라 한 줄이 256자다.
+alter table public.posts add column if not exists doodle text;
+comment on column public.posts.doodle is '그림 일기의 칸 값 — 칸마다 한 글자(''.''은 빈 칸, 나머지는 색 번호 36진수). 다시 그릴 때 이걸로 판을 채운다.';
+
 -- 작품에도 공개 여부를 둔다. 여태 작품은 전부 공개였으므로 기본값은 참.
 -- 거르는 일은 정책이 한다 — 화면 어딘가에서 조건 하나를 빠뜨려도 새지 않도록.
 alter table public.works add column if not exists is_public boolean not null default true;
