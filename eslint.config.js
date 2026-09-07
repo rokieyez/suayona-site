@@ -21,10 +21,26 @@ const globals = require('globals');
 function topLevelNames(file) {
   const src = fs.readFileSync(path.join(__dirname, file), 'utf8');
   const out = {};
-  for (const m of src.matchAll(/^(?:const|let|var|function|async function)\s+([A-Za-z_$][\w$]*)/gm)) {
+  for (const m of src.matchAll(/^(?:function|async function)\s+([A-Za-z_$][\w$]*)/gm)) {
     out[m[1]] = 'readonly';
   }
+  // `let a = 1, b = 2` 처럼 한 줄에 여럿 선언한 것도 다 잡는다 — 첫 이름만 잡으면
+  // 짝 파일에서 W·M·REV 같은 이름이 no-undef 로 울린다. 괄호 안의 쉼표는 안 센다.
+  for (const m of src.matchAll(/^(?:const|let|var)\s+([^\n]*)/gm)) {
+    let depth = 0, part = '';
+    for (const ch of m[1]) {
+      if ('([{'.includes(ch)) depth++;
+      else if (')]}'.includes(ch)) depth--;
+      if (ch === ',' && depth === 0) { addName(out, part); part = ''; continue; }
+      part += ch;
+    }
+    addName(out, part);
+  }
   return out;
+}
+function addName(out, part) {
+  const m = part.trim().match(/^([A-Za-z_$][\w$]*)/);
+  if (m) out[m[1]] = 'readonly';
 }
 const shared = Object.assign(
   {},
@@ -46,8 +62,13 @@ const vendor = {
   require: 'readonly',
 };
 
+// 농장은 두 파일이 한 벌이다 — pages/farm.js 가 손님도 받는 그림 몫,
+// pages/farm-play.js 가 로그인한 사람만 받는 놀이 몫. 둘은 같은 전역 렉시컬 환경을
+// 나눠 쓰므로 서로의 최상위 이름을 전역으로 넣어 준다.
+const farmPair = Object.assign({}, topLevelNames('pages/farm.js'), topLevelNames('pages/farm-play.js'));
+
 module.exports = [
-  { ignores: ['node_modules/**', '_*.js', 'tools/**'] },
+  { ignores: ['node_modules/**', '_*.js', 'tools/**', '_probe/**'] },
 
   // 공유 스크립트와 페이지 스크립트 — 브라우저 전역 + 우리 전역
   {
@@ -77,6 +98,12 @@ module.exports = [
       // 안 쓰는 지역 변수는 실수일 때가 많다. 최상위(전역)는 다른 파일이 쓸 수 있어 뺀다.
       'no-unused-vars': ['warn', { vars: 'local', args: 'none', caughtErrors: 'none' }],
     },
+  },
+
+  // 농장 두 짝은 서로의 이름을 쓴다
+  {
+    files: ['pages/farm.js', 'pages/farm-play.js'],
+    languageOptions: { globals: farmPair },
   },
 
   // 서비스 워커 — 전역이 다르다
