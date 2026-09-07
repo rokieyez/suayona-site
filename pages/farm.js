@@ -153,6 +153,15 @@ function daily(w, m){
   const g = R.claimParentGift(m, TUNE);
   if (g){ says.push('부모님이 ' + g.coins + ' 동전을 보냈어요' + (g.note ? ' — "' + escapeHTML(g.note) + '"' : '')); changed = true; }
   if (m.lastPlay !== today){ R.markPlayed(m, now()); changed = true; }
+  // 내일 비가 오면 오늘의 계획이 달라진다 — 스타듀밸리의 일기예보 자리다.
+  // (배포 어긋남 대비: 옛 farm-rules.js 와 짝이 되면 그냥 건너뛴다)
+  if (R.forecast){
+    const f = R.forecast(w, now());
+    if (f.wet || f.weather === 'snow') says.push('내일은 ' + f.icon + ' <b>' + f.name + '</b>' +
+      (f.wet ? ' — 아침에 밭이 저절로 촉촉해져요' : ''));
+  }
+  // 어제 한 일은 맨 앞에 — 「어제 이만큼 했지」로 하루가 시작되게
+  if (R.yesterdayNote){ const y = R.yesterdayNote(m, now()); if (y) says.unshift(y); }
   if (says.length){
     notice(says.join('<br>'));
     // 아침 소식 중 가장 반가운 것을 소리로도 알린다 — 글을 아직 잘 못 읽는 아이를 위해
@@ -260,7 +269,11 @@ function syncTop(){
   const when = h < 5 ? '한밤' : h < 7 ? '새벽' : h < 11 ? '아침' : h < 16 ? '낮' : h < 18.5 ? '해질참' : h < 20.5 ? '저녁' : '밤';
   const night = L.dark > 0.16;
   $('#cSeason').textContent = R.SEASON_ICON[cal.season] + ' ' + R.SEASON_NAME[cal.season] + ' ' + cal.dayOfSeason + '/' + cal.len + '일 · ' + cal.year + '년째';
-  const cw = $('#cWeather'); cw.textContent = R.WEATHER[wk].icon + ' ' + R.WEATHER[wk].name + ' · ' + when + (cal.lastDay ? ' · 축제!' : '');
+  const cw = $('#cWeather');
+  const fc = R.forecast ? R.forecast(W, now()) : null;
+  cw.textContent = R.WEATHER[wk].icon + ' ' + R.WEATHER[wk].name + ' · ' + when + (cal.lastDay ? ' · 축제!' : '')
+    + (fc ? ' · 내일 ' + fc.icon : '');
+  cw.title = fc ? '내일은 ' + fc.name : '';
   cw.classList.toggle('night', night);
   const mx = R.maxEnergy(W, M);
   $('#enFill').style.width = Math.round(100 * M.energy / mx) + '%'; $('#enText').textContent = M.energy + '/' + mx;
@@ -319,14 +332,15 @@ function renderTools(){
   $('#fhint').textContent = hintFor();
 }
 function hintFor(){
+  // 끌 수 있는 도구는 그 이야기를 먼저 해 준다 — 손이 아니라 눈으로 알아야 쓴다
   const cal = R.calendar(W, now());
-  if (tool === 'hoe') return '밭의 풀밭을 눌러 땅을 갈아요. 기운 1.';
-  if (tool === 'can') return '갈아 둔 땅을 눌러 물을 줘요. 스무 시간 촉촉해요. 비 오는 날은 안 줘도 돼요.';
+  if (tool === 'hoe') return '밭의 풀밭을 눌러 땅을 갈아요. 누른 채 끌면 지나간 칸마다 이어서 갈려요. 기운 1.';
+  if (tool === 'can') return '갈아 둔 땅을 눌러 물을 줘요. 누른 채 끌면 줄줄이 줘요. 스무 시간 촉촉해요. 비 오는 날은 안 줘도 돼요.';
   if (tool === 'seed') return seed ? R.CROPS[seed].name + ' — ' + R.CROPS[seed].hours + '시간이면 자라요. ' + (R.CROPS[seed].season.indexOf(cal.season) >= 0 || R.CROPS[seed].hardy ? '지금 심을 수 있어요.' : '지금은 ' + R.SEASON_NAME[cal.season] + '이라 밭에서는 안 자라요(온실은 돼요).') : '';
-  if (tool === 'fert') return '비료는 일기를 쓰면 하나씩 생겨요. 1.5배 빨리 자라요.';
+  if (tool === 'fert') return '비료는 일기를 쓰면 하나씩 생겨요. 1.5배 빨리 자라요. 끌면 줄줄이 줘요.';
   if (tool === 'pull') return '시든 작물이나 그만 키울 작물을 뽑아요. 큰 작물은 짝도 같이 뽑혀요.';
   if (tool === 'sprk') return '밭의 빈 칸을 눌러 놓아요. 아침마다 둘레 네 칸에 물을 줘요. 놓은 칸을 다시 누르면 걷어요.';
-  return '다 자란 작물·나무·바위·동물·집·우편함·게시판·가게를 눌러요.';
+  return '다 자란 작물·나무·바위·동물·집·우편함·게시판·가게를 눌러요. 밭 위를 끌면 익은 것만 줄줄이 거둬요.';
 }
 
 // ---------- 지도 ----------
@@ -2488,7 +2502,71 @@ function plotAtTile(tx, ty){
 }
 function nodeAt(tx, ty){ return Object.keys(R.NODES).find(n => R.NODES[n].x === tx && R.NODES[n].y === ty) || null; }
 function built(id){ return !!(W.buildings[id] && W.buildings[id].done); }
+/* ---------- 끌어서 이어 하기 ----------
+   스타듀밸리처럼 누른 채 밭 위를 지나가면 지나간 칸마다 이어서 한다. 톡 누르는 것은
+   예전 그대로다 — 끌지 않았으면 아무것도 안 하고 click 이 하던 일을 그대로 한다.
+   끌 때는 도구가 세 칸·아홉 칸짜리라도 한 칸씩만 한다. 아홉 칸짜리로 끌면 기운이
+   순식간에 바닥나고, 지나가지도 않은 칸이 갈려서 「내가 뭘 한 건지」를 못 읽는다.
+   폰에서는 가로로 끌어야 한다(#farmCanvas 의 touch-action:pan-y) — 세로로 끄는 것은
+   화면을 내리는 손짓으로 남겨 뒀다. 밭 한 줄은 어차피 가로다. */
+const SWEEP_TOOLS = { hoe: 1, can: 1, seed: 1, fert: 1, hand: 1 };
+const SWEEP_MSG = { hoe: '땅을 갈았어요', can: '물을 줬어요', seed: '씨앗을 심었어요',
+                    fert: '비료를 줬어요', hand: '거뒀어요' };
+let sweep = null, sweepClick = false, sweepSfxAt = 0;
+function sweepTile(id){
+  if (sweep.done[id]) return;
+  sweep.done[id] = 1;
+  if (!R.plotOpen(W, id)) return;
+  let r = null;
+  if (tool === 'hoe') r = act((w, m) => R.till(w, m, id, now()), true);
+  else if (tool === 'can') r = act((w, m) => R.water(w, m, id, now()), true);
+  else if (tool === 'seed' && seed) r = act((w, m) => R.plant(w, m, id, seed, now()), true);
+  else if (tool === 'fert') r = act((w, m) => R.fertilize(w, m, id, now()), true);
+  else if (tool === 'hand'){
+    const p = W.plots[id];
+    if (!p || !p.crop) return;
+    R.tickPlot(p, now(), false);
+    if (!p.wilted && !R.ripe(p)) return;                 // 아직 안 익은 것은 건드리지 않는다
+    r = act((w, m) => R.harvest(w, m, id, now()), true);
+  }
+  if (r && r.ok){
+    sweep.n++;
+    // 칸마다 소리를 내면 시끄럽다 — 열에 한 번쯤만 낸다
+    const t = performance.now();
+    if (t - sweepSfxAt > 110){
+      sweepSfxAt = t;
+      sfx(tool === 'can' ? 'drip' : tool === 'hoe' ? 'thud' : tool === 'seed' ? 'plant' : 'pop');
+    }
+  } else if (r && r.msg) sweep.why = r.msg;
+}
+function onFarmDown(e){
+  sweep = null;
+  if (fishing || placeMode || !SWEEP_TOOLS[tool]) return;
+  const { tx, ty } = tileAt(e.clientX, e.clientY);
+  const id = plotAtTile(tx, ty);
+  if (!id) return;                                       // 밭에서 시작할 때만
+  sweep = { id0: id, done: {}, n: 0, moved: false, why: null };
+  try { $('#farmCanvas').setPointerCapture(e.pointerId); } catch (err) { /* 붙잡기는 덤이다 */ }
+}
+function onFarmMove(e){
+  if (!sweep) return;
+  const { tx, ty } = tileAt(e.clientX, e.clientY);
+  const id = plotAtTile(tx, ty);
+  if (!id || sweep.done[id] || (id === sweep.id0 && !sweep.moved)) return;
+  if (!sweep.moved){ sweep.moved = true; sweepTile(sweep.id0); }   // 첫 칸도 이때 함께
+  sweepTile(id);
+}
+function onFarmUp(){
+  if (!sweep) return;
+  const s = sweep; sweep = null;
+  if (!s.moved) return;                                  // 톡 누른 것 — click 이 알아서 한다
+  sweepClick = true;                                     // 끌고 난 뒤 따라오는 click 은 삼킨다
+  if (s.n) flash(SWEEP_MSG[tool] + ' <b>' + s.n + '칸</b>');
+  else flash(s.why || '한 칸도 안 됐어요', true);
+}
+
 function onFarmTap(e){
+  if (sweepClick){ sweepClick = false; return; }
   if (fishing){ if (fishOpen()) finishFishing(); return; }   // 찌가 떠 있으면 어디를 눌러도 당긴다
   const { tx, ty } = tileAt(e.clientX, e.clientY);
   if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return;
@@ -5035,7 +5113,12 @@ function openPrize(F){
 
 // ---------- 배선 ----------
 function wireUI(){
-  $('#farmCanvas').addEventListener('click', onFarmTap);
+  const fcv = $('#farmCanvas');
+  fcv.addEventListener('pointerdown', onFarmDown);
+  fcv.addEventListener('pointermove', onFarmMove);
+  fcv.addEventListener('pointerup', onFarmUp);
+  fcv.addEventListener('pointercancel', () => { sweep = null; });
+  fcv.addEventListener('click', onFarmTap);
   const hc = $('#houseCanvas');
   hc.addEventListener('click', onHouseTap);
   hc.addEventListener('pointerdown', onHouseDown);

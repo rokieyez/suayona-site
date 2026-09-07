@@ -60,6 +60,15 @@ const FARM = (() => {
     return r < 0.25 ? 'rain' : r < 0.4 ? 'wind' : 'sun';   // 가을
   }
   function isWet(w){ return w === 'rain' || w === 'storm'; }
+  /* 내일 날씨. 날씨가 날짜만으로 정해지니 미리 볼 수 있다 — 스타듀밸리의 텔레비전 일기예보와
+     같은 자리다. 「내일 비가 오니 오늘은 다른 일을 하자」는 판단이 생기라고 둔다.
+     계절이 내일 바뀔 수도 있어서 달력을 내일 것으로 다시 센다. */
+  function forecast(world, now){
+    const t = (now == null ? Date.now() : now) + DAY_MS;
+    const cal = calendar(world, t), key = dayKey(t);
+    const w = weatherOf(key, cal.season);
+    return { key: key, season: cal.season, weather: w, wet: isWet(w), icon: WEATHER[w].icon, name: WEATHER[w].name };
+  }
 
   // ---------- 작물 ----------
   // hours: 다 자라는 데 걸리는 시간(물이 있는 동안만 센다). regrow: 다시 열리는 시간(있으면 여러 번 딴다).
@@ -298,8 +307,37 @@ const FARM = (() => {
   }
   function refreshEnergy(world, mine, now){
     const key = dayKey(now);
-    if (mine.energyDay !== key){ mine.energyDay = key; mine.energy = maxEnergy(world, mine); return true; }
+    if (mine.energyDay !== key){
+      rollDay(mine, key);
+      mine.energyDay = key; mine.energy = maxEnergy(world, mine); return true;
+    }
     return false;
+  }
+  /* 어제 한 일을 한 벌 남겨 둔다. 아침에 「어제는 이만큼 했어요」를 보여 주려는 것 —
+     스타듀밸리가 잠들 때 보여 주는 하루 정산과 같은 자리인데, 여기는 잠드는 순간이 없으니
+     다음에 들어온 아침에 보여 준다. 동전은 하루가 열릴 때와 닫힐 때를 재서 뺀다. */
+  function rollDay(mine, key){
+    if (mine.day && mine.day.key && mine.day.key !== key){
+      mine.day.coins1 = mine.coins;
+      mine.prevDay = mine.day;
+    }
+    mine.day = { key: key, stats: {}, coins0: mine.coins };
+  }
+  function yesterdayNote(mine, now){
+    const p = mine.prevDay;
+    if (!p || !p.stats) return '';
+    if (p.key !== dayKey(dayStartMs(dayKey(now)) - DAY_MS)) return '';    // 하루 넘게 안 왔으면 안 보여 준다
+    const s = p.stats, bits = [];
+    if (s.harvested) bits.push('수확 ' + s.harvested + '개');
+    if (s.watered)   bits.push('물 ' + s.watered + '번');
+    if (s.planted)   bits.push('씨앗 ' + s.planted + '개');
+    if (s.gathered)  bits.push('나무·돌 ' + s.gathered + '개');
+    if (s.fished)    bits.push('낚시 ' + s.fished + '번');
+    // 옛 세이브에는 하루 시작 동전이 안 적혀 있다 — 그때는 돈 이야기를 빼고 나머지만 적는다
+    const got = (typeof p.coins0 === 'number' && typeof p.coins1 === 'number') ? p.coins1 - p.coins0 : 0;
+    if (!bits.length && got <= 0) return '';
+    if (!bits.length) return '어제는 🪙 ' + got + '을 벌었어요';
+    return '어제는 ' + bits.join(' · ') + ' 했어요' + (got > 0 ? ' · 🪙 ' + got + ' 벌었어요' : '');
   }
 
   // ---------- 도구 ----------
@@ -1170,7 +1208,7 @@ const FARM = (() => {
   }
   function bump(mine, stat, n, now){
     const key = dayKey(now);
-    if (!mine.day || mine.day.key !== key) mine.day = { key, stats: {} };
+    if (!mine.day || mine.day.key !== key) rollDay(mine, key);
     mine.day.stats[stat] = (mine.day.stats[stat] || 0) + (n == null ? 1 : n);
     mine.stats[stat] = (mine.stats[stat] || 0) + (n == null ? 1 : n);
   }
@@ -1754,7 +1792,7 @@ const FARM = (() => {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
     GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, FIREFLY_MAX, PEDDLER, PED_WANT_MULT, PED_WANT_MAX, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
-    dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand,
+    dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand, forecast, yesterdayNote,
     countOf, seedsFor, plotIds, plotOpen, parseId, putSprinkler, pullSprinkler, sprinkled, sprinklerDay,
     fireflyNight, fireflyLeft, catchFirefly, fireSit,
     peddlerHere, peddlerStock, peddlerGot, peddlerWant, peddlerSoldLeft, sellToPeddler,
