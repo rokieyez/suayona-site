@@ -775,14 +775,20 @@ const BEAST = {
     '....ll.ll....ll.ll..............', '....ll.ll....ll.ll..............', '....LL.LL....LL.LL..............', '....LL.LL....LL.LL..............',
   ], pal: { b: '#fffaf2', B: '#ded5c6', h: '#fffaf2', s: '#2f2a22', k: '#cbb88c', e: '#3a3226',
             E: '#f2c9c2', n: '#ffb3a7', u: '#ffc4c4', l: '#ebe3d6', L: '#3a3226' } },
+  /* 양. 예전 것은 얼굴이 새까맣고(서퍽종) 눈만 하얘서, 흰 털뭉치에 검은 구멍이 뚫린 것처럼
+     보였다. 우리 그림책의 양은 그런 얼굴이 아니다 — 얼굴은 크림색, 눈은 까맣고 동그랗게,
+     코는 분홍, 귀는 옆으로 늘어뜨리고, 이마에는 앞머리처럼 털 한 줌.
+     털은 매끈한 타원이 아니라 위 가장자리를 울퉁불퉁하게 하고 곱슬 자국을 흩뿌려야
+     「양털」로 읽힌다. 다리도 검은 막대에서 크림색 다리에 검은 굽으로 바꿨다. */
   sheep: { w: 28, art: [
-    '.....wwwwwwwwwwww...........', '....wwwwwwwwwwwwww..........', '...wwwwwwwwwwwwwwww.........', '..wwwwwwwwwwwwwwwwww........',
-    '.wwwwwwwwwwwwwwwwwwwhhhhh...', 'wwwwwwwwwwwwwwwwwwwwhhhhhh..', 'wwwwwwwwwwwwwwwwwwwwhheehhh.', 'wwwwwwwwwwwwwwwwwwwwhheehhhh',
-    'wwwwwwwwwwwwwwwwwwwwhhhhhhhh', 'wwwwwwwwwwwwwwwwwwwwhhhhhhh.', 'wwwwwwwwwwwwwwwwwwww..hhhh..', '.wwwwwwwwwwwwwwwwww....hh...',
-    '..WWWWWWWWWWWWWWWW..........', '...WWWWWWWWWWWWWW...........', '....WWWWWWWWWWWW............', '....WWWWWWWWWWW.............',
-    '....ll......ll..............', '....ll......ll..............', '....ll......ll..............', '....ll......ll..............',
-    '...llll....llll.............', '...llll....llll.............', '............................', '............................',
-  ], pal: { w: '#fbf7f1', W: '#e0d9cf', h: '#4a4038', e: '#fff6e9', l: '#4a4038' } },
+    '............................', '...ww.www.www.ww............', '..www.wwwwww.wwwww..........', '.wwwwwwwwwwwwwwwwww.........',
+    'wwWWwwwwwwwWWwwwwww.........', '.wwwwwwWwwwwwwwWWwww........', 'wwwwWWwwwwwwWwwwwwwwWfffff..', '.wwwwwwwwWWwwwwwwWwwfffffff.',
+    'wwWwwwWwwwwwwWWwwwwwfffeefff', '.wwwwWWwwwwwwwwwWwwwfffeefff', 'wwwWwwwwwwWWwwwwwwwpppfffFFF', '.wwwwwwWWwwwwwWwwwwpp.ffFnnF',
+    'wwWWwwwwwwwWwwwwWWwwp..FFFF.', '.wwwwwWwwwwwwWWwwww.....FFF.', '..wwwwwwwWwwwwwwwww.........', '..WWWWWWWWWWWWWWWW..........',
+    '...WWWWWWWWWWWWWW...........', '....WWWWWWWWWWWW............', '....ll.ll..ll.ll............', '....ll.ll..ll.ll............',
+    '....ll.ll..ll.ll............', '....ll.ll..ll.ll............', '....LL.LL..LL.LL............', '....LL.LL..LL.LL............',
+  ], pal: { w: '#fdfaf5', W: '#e6ded2', f: '#f4e0c4', F: '#dcc39d', e: '#3d332a',
+            n: '#e8a9a2', p: '#e8b6ad', l: '#e0cdb2', L: '#4a4038' } },
   pig: { w: 28, art: [
     '............................', '............................', '...........pppppppp....hh...', '..........pppppppppp..hhhh..',
     '.....pppppppppppppppppppppp.', '....pppppppppppppppppppppppp', '...pppppppppppppppppppppppnn', '..ppppppppppppppppppppppppnn',
