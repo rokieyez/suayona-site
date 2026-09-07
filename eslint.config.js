@@ -68,7 +68,7 @@ const vendor = {
 const farmPair = Object.assign({}, topLevelNames('pages/farm.js'), topLevelNames('pages/farm-play.js'));
 
 module.exports = [
-  { ignores: ['node_modules/**', '_*.js', 'tools/**', '_probe/**'] },
+  { ignores: ['node_modules/**', '_*.js', 'tools/**'] },
 
   // 공유 스크립트와 페이지 스크립트 — 브라우저 전역 + 우리 전역
   {
