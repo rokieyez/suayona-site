@@ -3087,6 +3087,18 @@ function renderShop(){
       const pr = document.createElement('div'); pr.className = 'pr'; pr.textContent = '아늑함 +' + Fu.cozy + (Fu.energy ? ' · 기운 +' + Fu.energy : '') + (Fu.wall ? ' · 벽에 걸어요' : Fu.w > 1 ? ' · ' + Fu.w + '칸' : '') + (Fu.season ? ' · ' + R.SEASON_NAME[Fu.season] + '에만' : ''); card.appendChild(pr);
       const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('f:' + f, Fu.cost, seasonOk && M.coins >= Fu.cost)); card.appendChild(a); box.appendChild(card);
     });
+    // 방 넓히기 — 가구를 사다 보면 자리가 모자란다. 그 자리에서 방도 넓힐 수 있게 둔다.
+    if (R.roomBox) Object.keys(R.ROOMS).forEach(r => {
+      const B = R.roomBox(W, r);
+      if (B.owner && B.owner !== key) return;              // 남의 방은 넓혀 줄 수 없다
+      const nx = B.next;
+      const card = document.createElement('div'); card.className = 'item';
+      const after = nx ? { w: B.w + nx.w - R.ROOM_GROW[B.step].w, h: B.h + nx.h - R.ROOM_GROW[B.step].h } : null;
+      card.innerHTML = '<div class="nm">📐 ' + B.name + ' 넓히기</div><div class="pr">지금 ' + B.w + '×' + B.h
+        + (after ? ' → ' + after.w + '×' + after.h + ' · 레벨 ' + nx.lv + '부터' : ' · 제일 넓어요') + '</div>';
+      if (nx){ const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('room:' + r, nx.cost, M.coins >= nx.cost && lv >= nx.lv)); card.appendChild(a); }
+      box.appendChild(card);
+    });
   } else if (shopTab === 'deco'){
     $('#shopSub').textContent = '농장에 놓는 것. 혼자 사도 돼요 — 둘의 농장에 남아요.';
     Object.keys(R.DECOR).forEach(d => {
@@ -3273,6 +3285,12 @@ const WALL_DROP = 12;              // 아래 단은 열두 도트 내려 건다
 const WALL_ROW_SPLIT = 34;         // 벽을 누른 자리가 이보다 아래면 아래 단
 // 벽 한 면의 가로 길이(도트)와, 격자 칸 하나의 왼쪽 끝
 function wallLenOf(Rm, side){ return (side ? Rm.w : Rm.h) * (TW / 2); }
+/* 이 농장에서 방이 지금 몇 칸인가. 넓히기 전에는 R.ROOMS 를 곧바로 읽었는데,
+   이제 넓힌 몫이 world 에 있으므로 크기를 묻는 자리는 전부 여기를 지난다.
+   (배포 어긋남 대비: 옛 farm-rules.js 면 처음 크기를 그대로 쓴다) */
+const RM = r => (R.roomBox ? R.roomBox(W, r) : R.ROOMS[r]);
+// 벽 칸 수도 마찬가지 — 새 규칙은 world 를 먼저 받는다
+function wallColsOf(r, side){ return R.roomBox ? R.wallCols(W, r, side) : R.wallCols(r, side); }
 function wallU(len, cols, col){
   const pitch = WALL_PITCH();
   const pad = Math.max(0, Math.floor((len - cols * pitch) / 2 / 2) * 2);
@@ -3299,15 +3317,15 @@ function wallPickAt(rm, Rm, px, py){
   const v = py - (u + (side ? 0 : 2)) / 2;
   const len = wallLenOf(Rm, side);
   if (u < 0 || u >= len || v < 0 || v >= WALLH) return null;
-  const cols = R.wallCols(rm, side);
+  const cols = wallColsOf(rm, side);
   const col = Math.max(0, Math.min(cols - 1, Math.floor((u - wallU(len, cols, 0)) / WALL_PITCH())));
   return { side: side, col: col, row: v >= WALL_ROW_SPLIT ? 1 : 0 };
 }
 /* 그 칸이 붙박이 창(오른쪽 벽)이나 거실 문(왼쪽 벽)을 가리나.
    막지는 않는다 — 아이가 자리를 보고 고르는 것이고, 언제든 옮길 수 있다. 알려만 준다. */
 function wallCovers(rm, side, col){
-  const Rm = R.ROOMS[rm], len = wallLenOf(Rm, side);
-  const u = wallU(len, R.wallCols(rm, side), col);
+  const Rm = RM(rm), len = wallLenOf(Rm, side);
+  const u = wallU(len, wallColsOf(rm, side), col);
   if (side){
     const wu = Math.max(6, Math.floor((len / 2 - 30) / 2) * 2);
     return u + 40 > wu - 18 && u < wu + 78;
@@ -3643,7 +3661,7 @@ function paintWallItem(wall, u, f, P, room){
   }
 }
 function drawRoomShell(g, r, L, wallItems){
-  const Rm = R.ROOMS[r], P = roomPal(r);
+  const Rm = RM(r), P = roomPal(r);
   const A = roomArt(Rm), ox = isoOx(Rm);
   const LW = Rm.w * (TW / 2), LH = Rm.h * (TW / 2);          // 두 벽의 가로 길이
   const q = dotFill(g);
@@ -3792,7 +3810,7 @@ function drawRoomShell(g, r, L, wallItems){
     const wl = it.side ? wallR : wallL, len = it.side ? LW : LH;
     const u = it.col == null
       ? Math.min(Math.max(0, it.at * (TW / 2) - 8), len - 42)          // 아직 안 옮겨진 옛 세이브
-      : wallU(len, R.wallCols(r, it.side), it.col);
+      : wallU(len, wallColsOf(r, it.side), it.col);
     const dv = it.row ? WALL_DROP : 0;
     // 벽에서 살짝 떠 있게 — 그림자를 한 벌 먼저 깐다. 안 그러면 벽지에 인쇄된 것처럼 보인다
     paintWallItem((uu, v, uw, vh) => wl(uu + 2, v + dv + 3, uw, vh, 'rgba(26,18,10,0.16)'), u, it.f, P, r);
@@ -4558,7 +4576,7 @@ function roomKid(r){
   return R.ROOMS[r].owner;
 }
 function freeTile(r, prefer){
-  const Rm = R.ROOMS[r];
+  const Rm = RM(r);
   for (const p of prefer) if (!R.occupied(W, r, p[0], p[1])) return p;
   for (let y = Rm.h - 1; y >= 0; y--) for (let x = 0; x < Rm.w; x++) if (!R.occupied(W, r, x, y)) return [x, y];
   return [0, Rm.h - 1];
@@ -4584,7 +4602,7 @@ function watchRoomCanvas(cv, r){
 function drawRoom(cv, r, tms){
   if (!cv || !W) return;
   const t = tms == null ? (window.performance ? performance.now() : Date.now()) : tms;
-  const Rm = R.ROOMS[r]; if (!Rm) return;
+  const Rm = RM(r); if (!Rm) return;
   const A = roomArt(Rm), ox = isoOx(Rm), aw = A.w, ah = A.h;
   watchRoomCanvas(cv, r);
   const 전너비 = cv.width;
@@ -4645,7 +4663,7 @@ function drawRoom(cv, r, tms){
   });
   wallItems.forEach(it => { if (R.FURNITURE[it.f].kind === 'stars'){
     const len = wallLenOf(Rm, it.side);
-    const u = (it.col == null ? Math.min(Math.max(0, it.at * (TW / 2) - 8), len - 42) : wallU(len, R.wallCols(r, it.side), it.col)) + 20;
+    const u = (it.col == null ? Math.min(Math.max(0, it.at * (TW / 2) - 8), len - 42) : wallU(len, wallColsOf(r, it.side), it.col)) + 20;
     glow.push({ x: (ox + (it.side ? u : -u)) * HS, y: (u / 2 + 30 + (it.row ? WALL_DROP : 0)) * HS, r: 54 * HS });
   } });
   // 아이와 고양이 — 앞에서 본 그림이라 레퍼런스처럼 방과 섞여도 어색하지 않다
@@ -4730,7 +4748,7 @@ function drawRoom(cv, r, tms){
   if (tab === 'house' && arrange && wallShow && HAS_WALLGRID()){
     const rows = R.wallRowsFor(wallShow);
     [0, 1].forEach(side => {
-      const paint = wallPaint(g, Rm, side), len = wallLenOf(Rm, side), cols = R.wallCols(room, side);
+      const paint = wallPaint(g, Rm, side), len = wallLenOf(Rm, side), cols = wallColsOf(room, side);
       for (let c = 0; c < cols; c++){
         const u = wallU(len, cols, c);
         const taken = heldW && heldW.k === R.hungCol(W, room, side, c) ? null : R.hungCol(W, room, side, c);
@@ -4749,7 +4767,7 @@ function drawRoom(cv, r, tms){
   if (heldW && HAS_WALLGRID()){
     const box = (side, col, row, c2) => {
       const paint = wallPaint(g, Rm, side), len = wallLenOf(Rm, side);
-      const u = wallU(len, R.wallCols(r, side), col), dv = row ? WALL_DROP : 0;
+      const u = wallU(len, wallColsOf(r, side), col), dv = row ? WALL_DROP : 0;
       paint(u, 4 + dv, 40, 2, c2); paint(u, 56 + dv, 40, 2, c2);
       paint(u, 4 + dv, 2, 54, c2); paint(u + 38, 4 + dv, 2, 54, c2);
       return { u: u, dv: dv, paint: paint };
@@ -4790,7 +4808,7 @@ function renderHouse(){
   Object.keys(R.ROOMS).forEach(r => rb.appendChild(btn(R.ROOMS[r].name, room === r ? 'on' : '', () => { room = r; rotMode = false; arrange = false; furnPick = null; houseSig = ''; renderHouse(); })));
   const cz = R.cozyOf(W), lvl = R.cozyLevel(W), nxt = R.COZY_LEVELS[lvl + 1];
   $('#cozy').innerHTML = '아늑함 <span class="hearts">' + '♥'.repeat(lvl) + '♡'.repeat(Math.max(0, 5 - lvl)) + '</span> ' + cz + (nxt ? ' / ' + nxt : '') + ' · 기운 최대 ' + R.maxEnergy(W, M);
-  const Rm = R.ROOMS[room];
+  const Rm = RM(room);
   const hcv = $('#houseCanvas');
   hcv.style.touchAction = arrange ? 'none' : '';   // 재배치 중엔 끌어도 화면이 안 따라 움직인다
   drawRoom(hcv, room);
@@ -4804,6 +4822,23 @@ function renderHouse(){
         : '<b>' + R.FURNITURE[furnPick].name + '</b>을 놓을 자리를 눌러요 (' + dirName + '). 놓인 가구를 누르면 가방에 들어가요.')
     : '놓인 가구는 <b>끌어서</b> 옮겨요. 벽에 건 것도 <b>끌면</b> 다른 칸으로 옮겨져요. 그냥 누르면 가방에 들어가요.';
   const fb = $('#furn'); fb.innerHTML = '';
+  /* 방 넓히기 — 밭처럼 가게에도 두었지만, 방을 보고 있을 때 그 자리에서 넓히는 쪽이
+     「좁다」고 느낀 순간과 가장 가깝다. (옛 farm-rules.js 면 아예 안 그린다) */
+  if (mineRoom && R.roomBox){
+    const nx = Rm.next;
+    const lvNow = R.levelOf(M.xp);
+    const can = !!nx && M.coins >= nx.cost && lvNow >= nx.lv;
+    const label = nx ? '📐 넓히기 ' + Rm.w + '×' + Rm.h + ' → ' + (Rm.w + nx.w - R.ROOM_GROW[Rm.step].w) + '×' + (Rm.h + nx.h - R.ROOM_GROW[Rm.step].h) + ' · 🪙 ' + nx.cost
+      : '📐 ' + Rm.w + '×' + Rm.h + ' · 제일 넓어요';
+    const eb = btn(label, '', () => {
+      const r = act((w, m) => R.buy(w, m, 'room:' + room, now()));
+      if (r.ok){ sfx('prop'); houseSig = ''; }
+      renderHouse();
+    }, !can);
+    eb.classList.add('rotbtn');
+    if (nx && lvNow < nx.lv) eb.title = '농장 레벨 ' + nx.lv + '부터';
+    fb.appendChild(eb);
+  }
   if (mineRoom){
     // 재배치 — 이걸 누른 뒤에만 들고 놓고 돌릴 수 있다. 끝내면 들고 있던 것도 내려놓는다
     const ab = btn(arrange ? '✅ 재배치 끝' : '🔧 재배치', arrange ? 'on' : '', () => {
@@ -4846,14 +4881,14 @@ function renderHouse(){
 // 화면 자리 → 방의 칸. 마름모 격자라 x,y 를 따로 나누면 안 되고 두 축을 함께 되돌린다
 function houseTileAt(e){
   const cv = $('#houseCanvas'), r = cv.getBoundingClientRect(); const w = r.width || cv.width, h = r.height || cv.height;
-  const Rm = R.ROOMS[room];
+  const Rm = RM(room);
   const x = (e.clientX - r.left) / w * cv.width / HS, y = (e.clientY - r.top) / h * cv.height / HS;
   const T2 = dotTile(Rm, x, y);
   return { x, y, tx: T2.tx, ty: T2.ty, Rm };
 }
 // 지금 끌고 있는 것을 그 자리에 놓을 수 있나 — 방 밖으로 나가거나 다른 가구와 겹치면 안 된다
 function grabFits(){
-  const Rm = R.ROOMS[room], b = R.furnBox(grab.f, grab.r);
+  const Rm = RM(room), b = R.furnBox(grab.f, grab.r);
   if (grab.tx < 0 || grab.ty < 0 || grab.tx + b.w > Rm.w || grab.ty + b.h > Rm.h) return false;
   for (let i = 0; i < b.w; i++) for (let j = 0; j < b.h; j++){
     const o = R.occupied(W, room, grab.tx + i, grab.ty + j);
@@ -4865,7 +4900,7 @@ function grabFits(){
    끌지 않고 그냥 누르면 예전대로 가방에 들어간다 — 누르는 것과 끄는 것을 손이 알아서 고른다. */
 function onHouseDown(e){
   if (tab !== 'house' || !arrange || rotMode || furnPick) return;
-  const Rm = R.ROOMS[room];
+  const Rm = RM(room);
   if (Rm.owner && Rm.owner !== key) return;             // 남의 방은 못 만진다
   const p = houseTileAt(e);
   const offFloor = p.tx < 0 || p.ty < 0 || p.tx >= Rm.w || p.ty >= Rm.h;
@@ -4929,7 +4964,7 @@ function onHouseUp(){
 /* 벽을 누르면 벽 격자에 걸거나 걸린 것을 집는다. 바닥과 같은 규칙이다 —
    누른 자리에 있으면 가방으로, 비었으면 고른 것을 건다. */
 function onWallTap(sl){
-  const Rm = R.ROOMS[room];
+  const Rm = RM(room);
   if (!HAS_WALLGRID()){ flash('벽이에요. 잠시 뒤에 다시 열면 벽에도 걸 수 있어요'); return; }
   if (Rm.owner && Rm.owner !== key){ flash(NAME[Rm.owner] + '의 방이에요'); return; }
   if (!arrange){ flash('재배치를 누르면 벽에도 걸 수 있어요'); return; }
@@ -4962,7 +4997,7 @@ function onHouseTap(e){
   const occ = R.occupied(W, room, tx, ty);
   // 재배치 중이 아니면 구경만 — 가구가 가방으로 들어가 버리지 않는다
   if (!arrange){
-    const Rm2 = R.ROOMS[room];
+    const Rm2 = RM(room);
     if (!Rm2.owner || Rm2.owner === key) flash('재배치를 누르면 가구를 끌어 옮길 수 있어요');
     return;
   }

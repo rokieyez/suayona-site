@@ -744,6 +744,28 @@ const FARM = (() => {
     sua:    { name: '수아 방', w: 7, h: 5, owner: 'sua' },
     yona:   { name: '연아 방', w: 7, h: 5, owner: 'yona' },
   };
+  /* 방 넓히기 — 밭처럼 동전을 모아 두 번 넓힌다(world.rooms[방] = 0·1·2).
+     가로 둘 세로 하나씩 늘린다: 거실 9×5 → 11×6 → 13×7, 각 방 7×5 → 9×6 → 11×7.
+     가로만 늘리면 벽만 길어지고 바닥이 안 늘어 「복도」처럼 보인다.
+     값은 밭 넓히기(300·900·2500) 사이에 두되, 방은 셋이라 조금 눅게 잡았다.
+     거실은 둘이 함께 쓰는 자리라 누구든 넓힐 수 있고, 각자 방은 그 방 주인만 넓힌다. */
+  const ROOM_GROW = [
+    { w: 0, h: 0, cost: 0,    lv: 0 },
+    { w: 2, h: 1, cost: 800,  lv: 3 },
+    { w: 4, h: 2, cost: 2200, lv: 5 },
+  ];
+  function roomStep(world, room){
+    const n = (world && world.rooms && Number(world.rooms[room])) || 0;
+    return Math.max(0, Math.min(ROOM_GROW.length - 1, n));
+  }
+  /* 지금 이 농장에서 방이 몇 칸인가. ROOMS 는 처음 크기라 그대로 두고, 크기를 묻는 자리는
+     전부 이걸 지난다. world 를 안 주면 처음 크기 — 손님 화면과 배포가 어긋난 동안에 쓰인다. */
+  function roomBox(world, room){
+    const B = ROOMS[room];
+    if (!B) return null;
+    const st = roomStep(world, room), g = ROOM_GROW[st];
+    return { name: B.name, owner: B.owner, w: B.w + g.w, h: B.h + g.h, step: st, next: ROOM_GROW[st + 1] || null };
+  }
   /* 어떤 방의 어디에 무엇이 있나: world.house[room][열쇠] = { f, by, r }
      열쇠는 두 가지다 — 바닥은 "x,y", 벽에 거는 것은 "w,벽,칸,단"(벽 0=왼쪽, 1=오른쪽). */
   // r 은 돌린 횟수 0·1·2·3 (오른쪽으로 90도씩). 없으면 0 — 예전 세이브가 그대로 열린다.
@@ -757,8 +779,21 @@ const FARM = (() => {
   const TILE_HALF = 24;                       // 칸 하나가 벽을 따라 차지하는 가로 도트(farm.js 의 TW/2)
   const WALL_PITCH = 44, WALL_ROWS = 2;
   const WALL_TALL = { heightbar: 1 };         // 아래 단에 걸면 허리 몰딩을 넘는 것 — 늘 윗단에만
-  function wallLen(room, side){ const R2 = ROOMS[room]; if (!R2) return 0; return (side ? R2.w : R2.h) * TILE_HALF; }
-  function wallCols(room, side){ return Math.max(1, Math.floor(wallLen(room, side) / WALL_PITCH)); }
+  /* 배포가 어긋나는 십 분 동안 옛 pages/farm.js 는 wallCols(room, side) 로 부른다.
+     첫 자리가 글자면 그 꼴로 알아듣고 처음 크기를 쓴다 — 벽에 건 그림이 사라지지 않는다. */
+  function roomArgs(world, room, side){
+    if (typeof world === 'string') return { world: null, room: world, side: room };
+    return { world: world, room: room, side: side };
+  }
+  function wallLen(world, room, side){
+    const a = roomArgs(world, room, side), B = roomBox(a.world, a.room);
+    if (!B) return 0;
+    return (a.side ? B.w : B.h) * TILE_HALF;
+  }
+  function wallCols(world, room, side){
+    const a = roomArgs(world, room, side);
+    return Math.max(1, Math.floor(wallLen(a.world, a.room, a.side) / WALL_PITCH));
+  }
   function wallRowsFor(f){ const F = FURNITURE[f]; return (F && WALL_TALL[F.kind]) ? 1 : WALL_ROWS; }
   function wallKey(side, col, row){ return 'w,' + (side ? 1 : 0) + ',' + col + ',' + row; }
   function parseWall(k){
@@ -790,7 +825,7 @@ const FARM = (() => {
   function canHang(world, room, f, side, col, row){
     const R2 = ROOMS[room], F = FURNITURE[f];
     if (!R2 || !F || !F.wall) return false;
-    if (!(col >= 0 && col < wallCols(room, side))) return false;
+    if (!(col >= 0 && col < wallCols(world, room, side))) return false;
     if (!(row >= 0 && row < wallRowsFor(f))) return false;
     return !hungCol(world, room, side, col);
   }
@@ -811,7 +846,7 @@ const FARM = (() => {
     if (R2.owner && R2.owner !== mine.key) return fail('여기는 ' + NAME[R2.owner] + '의 방이에요');
     const it = P[k], F = FURNITURE[it.f];
     if (!F.wall) return fail(eun(F.name) + ' 벽에 건 것이 아니에요');
-    if (!(col >= 0 && col < wallCols(room, side))) return fail('벽 밖이에요');
+    if (!(col >= 0 && col < wallCols(world, room, side))) return fail('벽 밖이에요');
     if (!(row >= 0 && row < wallRowsFor(it.f))) return fail(eun(F.name) + ' 길어서 윗단에만 걸려요');
     const nk = wallKey(side, col, row);
     if (nk === k) return fail('제자리예요');
@@ -836,7 +871,7 @@ const FARM = (() => {
     return null;
   }
   function canPlace(world, room, f, x, y, r){
-    const R = ROOMS[room], F = FURNITURE[f];
+    const R = roomBox(world, room), F = FURNITURE[f];
     if (!R || !F) return false;
     const b = furnBox(f, r);
     if (x < 0 || y < 0 || x + b.w > R.w || y + b.h > R.h) return false;
@@ -1118,7 +1153,7 @@ const FARM = (() => {
   function newWorld(now){
     return {
       v: 1, started: dayKey(now), seasonLen: SEASON_LEN_DEFAULT, seasonIndex: 0,
-      expand: 0, plots: {}, buildings: {}, animals: [], layout: {}, decor: {}, sprinklers: {},
+      expand: 0, rooms: {}, plots: {}, buildings: {}, animals: [], layout: {}, decor: {}, sprinklers: {},
       house: { living: {}, sua: { '0,0': { f: 'bed1', r: 0 } }, yona: { '0,0': { f: 'bed1', r: 0 } } },
       orders: {}, festival: {}, mail: { sua: [], yona: [] }, log: [], seen: {},
     };
@@ -1145,6 +1180,12 @@ const FARM = (() => {
       L.x = Math.max(0, Math.min(GRID.w - P.w, Math.round(L.x)));
       L.y = Math.max(0, Math.min(GRID.h - P.h, Math.round(L.y)));
     });
+    // 넓힌 방 — 숫자만 남기고 0~2 안으로 맞춘다. 옛 세이브에는 아예 없다.
+    if (!o.rooms || typeof o.rooms !== 'object') o.rooms = {};
+    Object.keys(o.rooms).forEach(r => {
+      if (!ROOMS[r]) { delete o.rooms[r]; return; }
+      o.rooms[r] = Math.max(0, Math.min(ROOM_GROW.length - 1, Math.round(Number(o.rooms[r]) || 0)));
+    });
     if (!Array.isArray(o.animals)) o.animals = [];
     if (!Array.isArray(o.log)) o.log = [];
     if (!o.house) o.house = base.house;
@@ -1170,7 +1211,7 @@ const FARM = (() => {
         // 훈장 걸이는 예전에 어디에 놓아도 왼쪽 벽에 걸렸다 — 옮길 때도 왼쪽 벽으로 간다
         const side = F.kind === 'medalcase' ? 0 : (p[1] <= p[0] ? 1 : 0);
         const at = side ? p[0] : p[1];
-        const cols = wallCols(r, side), rows = wallRowsFor(it.f);
+        const cols = wallCols(o, r, side), rows = wallRowsFor(it.f);
         const want = Math.max(0, Math.min(cols - 1, Math.round((at * TILE_HALF - 8) / WALL_PITCH)));
         let put = null;
         for (let d = 0; d < cols && !put; d++){
@@ -1528,6 +1569,21 @@ const FARM = (() => {
       mine.coins -= cost; mine.recipes.push(v);
       return okay(D.name + ' 만드는 법을 배웠어요');
     }
+    if (k === 'room'){
+      const B = roomBox(world, v);
+      if (!B) return fail('없는 방이에요');
+      if (B.owner && B.owner !== mine.key) return fail('여기는 ' + NAME[B.owner] + '의 방이에요');
+      const nx = B.next;
+      if (!nx) return fail(B.name + '은 이미 제일 넓어요');
+      if (levelOf(mine.xp) < nx.lv) return fail('농장 레벨 ' + nx.lv + '부터');
+      if (mine.coins < nx.cost) return fail('동전이 모자라요');
+      mine.coins -= nx.cost;
+      if (!world.rooms) world.rooms = {};
+      world.rooms[v] = B.step + 1;
+      mine.xp += XP.expand;
+      const after = roomBox(world, v);
+      return okay(B.name + '이 ' + after.w + '×' + after.h + '으로 넓어졌어요');
+    }
     if (k === 'expand'){
       const nx = EXPANSIONS[(world.expand || 0) + 1];
       if (!nx) return fail('밭이 이미 제일 넓어요');
@@ -1833,6 +1889,7 @@ const FARM = (() => {
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
     canPay, buildState, animalDay, babyDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
     MATERIALS, WALL_PITCH, WALL_ROWS, wallCols, wallRowsFor, wallKey, parseWall, hungAt, hungCol, canHang, hang, moveHang,
+    ROOM_GROW, roomStep, roomBox,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,
     newWorld, newMine, fixWorld, fixMine, fixTune, logAdd, give, take, bump, markPlayed,
     till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, moveFurn, pickUp, cook, sendGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, seedsFromExpo, newDay,
