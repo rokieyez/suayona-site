@@ -66,9 +66,11 @@ const vendor = {
 // 전역 렉시컬 환경을 나눠 쓴다(고전 스크립트다). 그래서 서로의 최상위 이름을 전역으로
 // 넣어 줘야 no-undef 가 헛울지 않는다.
 //   · farm.js(손님도 받는 그림) ↔ farm-play.js(로그인해야 받는 놀이)
+//   · farm-rules.js(표와 셈) ↔ farm-rules-play.js(심기·거두기 같은 놀이 규칙)
 //   · index.js(첫 화면) ↔ run.js(화면 아래 달리기 게임)
 const pairs = [
   { files: ['pages/farm.js', 'pages/farm-play.js'] },
+  { files: ['farm-rules.js', 'farm-rules-play.js'] },
   { files: ['pages/index.js', 'pages/run.js'] },
 ].map(p => ({
   files: p.files,
@@ -80,7 +82,7 @@ module.exports = [
 
   // 공유 스크립트와 페이지 스크립트 — 브라우저 전역 + 우리 전역
   {
-    files: ['common.js', 'pixel.js', 'village.js', 'event/compress.js', 'pages/**/*.js', 'farm-rules.js', 'quest-rules.js'],
+    files: ['common.js', 'pixel.js', 'village.js', 'event/compress.js', 'pages/**/*.js', 'farm-rules.js', 'farm-rules-play.js', 'quest-rules.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'script',

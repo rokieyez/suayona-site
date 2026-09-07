@@ -44,8 +44,8 @@ async function loadRows(){
   const o = rows.find(r => r.who === R.OTHER[key]); other = o ? R.fixMine(o.data, R.OTHER[key]) : null;
   return true;
 }
-/* 놀이 화면 코드(가게·집 조작·도감·저장)는 로그인한 사람만 받는다 — 손님은 그림만 보므로
-   gzip 27KB 를 안 받는다. 고전 스크립트라 이 파일의 최상위 let/const 를 그대로 나눠 쓴다
+/* 놀이 코드(가게·집 조작·도감·저장 + 심기·거두기·사기 같은 규칙)는 로그인한 사람만
+   받는다 — 손님은 그림만 보므로 gzip 48KB(화면 28 + 규칙 19)를 안 받는다. 고전 스크립트라 이 파일의 최상위 let/const 를 그대로 나눠 쓴다
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
@@ -53,13 +53,15 @@ const PLAY_V = '1';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
-  playing = new Promise((ok, no) => {
+  const one = src => new Promise((ok, no) => {
     const el = document.createElement('script');
-    el.src = '/pages/farm-play.js?v=' + PLAY_V;
+    el.src = src + '?v=' + PLAY_V;
     el.onload = () => ok(true);
     el.onerror = () => no(new Error('놀이 코드를 못 받았어요'));
     document.head.appendChild(el);
   });
+  // 규칙이 먼저, 화면이 그 뒤. 규칙 쪽이 FARM 에 till·buy… 를 얹은 다음이라야 한다.
+  playing = one('/farm-rules-play.js').then(() => one('/pages/farm-play.js'));
   return playing;
 }
 async function boot(){
@@ -2752,7 +2754,8 @@ function wallSlot(Rm, x, y){
 }
 /* 규칙 파일이 아직 옛것일 수 있다 — 두 파일 다 max-age=600 이라 배포 직후 십 분쯤은
    한쪽만 새것일 수 있다. 그동안에는 벽 격자가 없는 것처럼 굴러가게 둔다(옛 그림 자리 그대로). */
-const HAS_WALLGRID = () => !!(R.parseWall && R.wallCols && R.hungCol && R.hang);
+// 손님도 방을 보므로 손님 몫 규칙에 있는 이름만 본다 — hang 은 놀이 쪽에 있어 여기서 보면 안 된다
+const HAS_WALLGRID = () => !!(R.parseWall && R.wallCols && R.hungCol);
 const WALL_PITCH = () => R.WALL_PITCH || 44;
 const WALL_DROP = 12;              // 아래 단은 열두 도트 내려 건다
 const WALL_ROW_SPLIT = 34;         // 벽을 누른 자리가 이보다 아래면 아래 단
