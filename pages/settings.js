@@ -168,7 +168,9 @@ $('#bornSave').addEventListener('click', saveBorn);
 // 부모가 놓치는 것들. 개수만 서버에서 받아 온다 — 알맹이는 각 페이지에서 본다.
 // 자매 우체통은 세지 않는다. 아이들끼리의 자리라 부모에게 열지 않기로 했다.
 const DIGEST_ROWS = [
-  { k:'posts',    icon:'📖', label:'아이가 쓴 일기가 기다려요',   href:'/board.html',     unit:'개' },
+  // 아이가 손으로 쓴 일기는 바로 실린다(2026-09-07). 여기 세어지는 것은 모험 일지처럼
+  // 저절로 남은 초안뿐이라, 「아이가 쓴 일기」라고 부르면 부모가 헷갈린다.
+  { k:'posts',    icon:'📖', label:'확인을 기다리는 일기 초안',   href:'/board.html',     unit:'편' },
   { k:'works',    icon:'🖼', label:'아이가 낸 그림이 기다려요',   href:'/portfolio.html', unit:'점' },
   { k:'capsules', icon:'⏳', label:'오늘 열리는 1년 편지가 있어요', href:'/#capsule',       unit:'통' },
   { k:'messages', icon:'💌', label:'이번 주에 온 편지',           href:'/contact.html',   unit:'통' },

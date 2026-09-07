@@ -3842,7 +3842,7 @@ belowFold(async () => {
       Math.round(gm.y + Math.sin(t * 5 + gm.p) * 3), 3));
     drawPlayer();
 
-    // 목숨 — 점수 왼쪽에 하트 두 칸. 깎인 칸은 투명하게 남겨 둔다.
+    // 목숨 — 점수 왼쪽에 하트 MAX_LIVES 칸(지금은 한 칸). 깎인 칸은 투명하게 남겨 둔다.
     for (let i = 0; i < MAX_LIVES; i++){
       const on = i < lives;
       ctx.globalAlpha = on ? (lifeFlash > 0 && Math.floor(t * 10) % 2 ? 0.4 : 1) : 0.22;
