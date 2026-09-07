@@ -74,6 +74,9 @@ async function boot(){
    지난 사흘과 앞으로 사흘을 함께 받는다: 지난 날은 하루가 늦게 열렸을 때, 앞날은 일기예보에 쓴다.
    신호가 없거나 4초가 넘으면 그냥 포기한다 — 그러면 규칙이 날짜로 날씨를 지어낸다. */
 const SKY_KEEP = 'suayona.farm.sky';
+/* 담아 둔 것의 판. 받아 오는 것이 늘면 올린다 — 안 그러면 해 시각을 넣기 전에 담긴 것이
+   그날 내내 그대로 쓰여서, 새로 넣은 값만 하루 종일 비어 있다. */
+const SKY_V = 2;
 function skyFromCode(code, wind){
   if (code >= 95) return 'storm';                                        // 천둥
   if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
@@ -81,13 +84,25 @@ function skyFromCode(code, wind){
   if (wind >= 28) return 'wind';                                         // 하루 최대 바람 28km/h 넘으면 바람 부는 날
   return 'sun';
 }
-async function loadSky(){
-  const today = R.dayKey(now());
+// 담아 둔 것을 그 자리에서 읽는다(안 기다린다). 하루치는 아침에 정해지면 그대로 간다 —
+// 낮에 다시 물어 날씨가 바뀌면 이미 준 물이 헛것이 된다.
+function keptSky(){
   try {
     const kept = JSON.parse(localStorage.getItem(SKY_KEEP) || 'null');
-    // 하루치는 아침에 정해지면 그대로 간다 — 낮에 다시 물어 날씨가 바뀌면 이미 준 물이 헛것이 된다
-    if (kept && kept.day === today && kept.map) return { map: kept.map, sun: kept.sun || {} };
-  } catch (e) { /* 담아 둔 게 깨졌으면 그냥 다시 받는다 */ }
+    if (kept && kept.v === SKY_V && kept.day === R.dayKey(now()) && kept.map) return { map: kept.map, sun: kept.sun || {} };
+  } catch (e) { /* 담아 둔 게 깨졌으면 없는 셈 친다 */ }
+  return null;
+}
+function useSky(s){
+  if (!s || !R.setSky) return false;
+  R.setSky(s.map);
+  if (R.setSun) R.setSun(s.sun);
+  return true;
+}
+async function loadSky(){
+  const today = R.dayKey(now());
+  const kept = keptSky();
+  if (kept) return kept;
   const at = R.SKY_AT || { lat: 37.5340, lng: 127.0823 };
   const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + at.lat + '&longitude=' + at.lng +
     '&daily=weather_code,wind_speed_10m_max,sunrise,sunset&timezone=Asia%2FSeoul&past_days=3&forecast_days=4';
@@ -105,7 +120,7 @@ async function loadSky(){
       if (d.sunrise && d.sunset) sun[day] = { rise: hourOf(d.sunrise[i]), set: hourOf(d.sunset[i]) };
     });
     const got = { map: map, sun: sun };
-    try { localStorage.setItem(SKY_KEEP, JSON.stringify({ day: today, map: map, sun: sun })); } catch (e) { /* 자리가 없어도 오늘 날씨는 이미 손에 있다 */ }
+    try { localStorage.setItem(SKY_KEEP, JSON.stringify({ v: SKY_V, day: today, map: map, sun: sun })); } catch (e) { /* 자리가 없어도 오늘 날씨는 이미 손에 있다 */ }
     return got;
   } catch (e) { return null; }
   finally { clearTimeout(timer); }
@@ -119,9 +134,16 @@ async function bootInner(){
     /* 손님·부모 — 요약(farm_cards)과 그림거리(farm_peek)를 나란히 부른다.
        차례로 부르면 그림이 요약을 다 기다렸다 시작해서, 실제 주소에서 재 보니
        요약 470ms 가 끝난 뒤에야 그림 67ms 가 떠났다. 둘은 서로 아무 상관이 없다. */
+    /* 손님 화면도 진짜 하늘을 쓴다. 안 넣으면 규칙이 날짜로 날씨를 지어내서, 맑은 날에도
+       손님 화면에 비가 내렸다(2026-09-07 확인: 진짜는 맑음인데 그림은 비).
+       그렇다고 그림을 붙잡지는 않는다 — 담아 둔 것은 그 자리에서 넣고(공짜), 없어서
+       받아 와야 할 때는 안 기다린다. 날씨는 판마다 다시 읽으므로 늦게 와도 다음 판에 든다. */
+    const sky = R.setSky ? loadSky() : null;
+    useSky(keptSky());
     const [cards, peek] = await Promise.all([sb.rpc('farm_cards'), sb.rpc('farm_peek')]);
     renderGate((cards && cards.data) || {});
     renderPeekArt(peek);
+    if (sky) sky.then(useSky).catch(() => { /* 못 받아 오면 규칙이 날짜로 지어낸다 */ });
     if (isAdmin){ await loadPlay(); await renderTune(); }
     $('#gate').hidden = false;
     initReveal();
@@ -139,9 +161,9 @@ async function bootInner(){
   ]);
   if (!ok) throw new Error('load');
   await play;                            // 여기서부터는 놀이 코드의 함수를 부른다
-  // 하루를 열기 전에 넣어야 한다 — 비 온 날 밭이 젖는 것도 이 표를 보고 정해진다
-  if (skyMap && R.setSky) R.setSky(skyMap.map);
-  if (skyMap && R.setSun) R.setSun(skyMap.sun);
+  // 하루를 열기 전에 넣어야 한다 — 비 온 날 밭이 젖는 것도 이 표를 보고 정해진다.
+  // 아이 쪽은 여기서 기다리는 게 맞다. daily() 가 이 값을 보고 물을 준다.
+  useSky(skyMap);
   facts = fr.data || {};
   expoSeedsEver = (ex && ex.data && Number(ex.data.n)) || 0;
   // 하루 시작 — 계절·동물·비·까마귀·기운·비료·선물. 전부 하루 한 번만 되게 짜여 있어서,
