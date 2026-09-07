@@ -8,6 +8,8 @@
      모드로 표시」처럼 스위치를 직접 켠 경우는 못 막는다 — 웨일에서 확인했다. -->
 <meta name="color-scheme" content="light">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
+<!-- 일기를 올릴 때 그날 날씨를 한 번 물어본다 -->
+<link rel="preconnect" href="https://api.open-meteo.com">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -50,6 +52,10 @@
   .back-photo p{margin:8px 0 0; font-size:12.5px; color:var(--ink-soft); text-align:center;}
   .back-photo .ask{font-weight:800; color:var(--ink); margin-top:4px;}
   .tag.pending{background:var(--lemon); color:var(--ink);}
+  .tag.weather{background:var(--sky-soft); color:var(--ink);}
+  /* 전체 / 내 일기 */
+  .post-filter{display:flex; gap:8px; justify-content:center; margin:0 0 20px;}
+  .post-filter .dot-btn.on{background:var(--ink); color:var(--cream);}
   .child-note{border:var(--px) solid var(--ink); background:var(--sky-soft); color:var(--ink);
     padding:11px 13px; font-size:13px; line-height:1.7; margin-bottom:6px;}
   .pending-box{max-width:520px; margin:0 auto 26px;}
@@ -71,15 +77,28 @@
   .posts{max-width:640px; margin:0 auto;}
 
   /* 목소리 일기 */
-  .voice-box{border:var(--px) solid var(--ink); background:var(--cream);
+  .voice-box, .pad-box{border:var(--px) solid var(--ink); background:var(--cream);
     padding:12px 14px; display:flex; flex-direction:column; gap:8px;}
-  .voice-box .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .voice-box .row, .pad-box .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .pad-box .hintline{margin:0; font-size:12px; color:var(--ink-soft); line-height:1.6;}
   .voice-box audio{width:100%; height:34px;}
   .voice-box .hintline{margin:0; font-size:12px; color:var(--ink-soft); line-height:1.6;}
   .voice-box .timer{font-size:13px; font-weight:900; display:inline-flex;
     align-items:center; gap:6px;}
   .voice-box .rec-dot{width:9px; height:9px; background:var(--coral);
     border:2px solid var(--ink); display:inline-block;}
+  /* 그림 일기 — 열여섯 칸 도트 그림판 */
+  #padCanvas{display:block; width:100%; max-width:288px; margin:0 auto; touch-action:none;
+    image-rendering:pixelated; border:2px solid var(--ink); background:#fffaf2; cursor:crosshair;}
+  .pad-colors{display:grid; grid-template-columns:repeat(13, 1fr); gap:3px;
+    max-width:288px; margin:0 auto;}
+  .pad-colors button{height:20px; border:2px solid var(--ink); padding:0; cursor:pointer;}
+  .pad-colors button.on{outline:3px solid var(--coral); outline-offset:1px;}
+  /* 지우개는 색이 없으니 빗금으로 알린다 */
+  .pad-colors button.eraser{background:repeating-linear-gradient(45deg,
+    #fffaf2 0 4px, #a2988a 4px 8px);}
+  .pad-prev{display:block; width:100%; max-width:288px; margin:0 auto;
+    image-rendering:pixelated; border:2px solid var(--ink);}
   .post audio{width:100%; height:36px; margin-top:10px;}
   .post .voice-lab{display:block; margin-top:10px; font-size:12px; font-weight:800;
     color:var(--ink-soft);}
@@ -96,6 +115,9 @@
     </div>
 
     <div id="adminArea"></div>
+
+    <!-- 아이가 로그인했을 때만 뜨는 칩 둘 (전체 / 내 일기) -->
+    <div class="post-filter" id="postFilter" hidden></div>
 
     <div class="posts" id="posts"></div>
     <div class="more-box" id="moreBox" hidden>

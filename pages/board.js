@@ -18,8 +18,89 @@ async function exifDate(file){
   } catch (e) { return null; }
 }
 
+// ---------- 날씨 도장 ----------
+// 그날 날씨를 일기에 찍어 준다. 열쇠 없이 좌표만 주면 되는 open-meteo 를 쓰고, 자리는
+// 첫 화면 마을과 같은 서울시청이다(pages/index.js 의 WEATHER_AT 과 같은 값).
+// 최근 것은 예보 API 에 past_days 를 붙여 받고, 두 달이 넘은 날은 기록 보관 API 로 간다.
+// 실패하면 도장 없이 그냥 저장된다 — 날씨는 덤이지, 일기를 막을 이유가 아니다.
+const W_AT = 'latitude=37.5665&longitude=126.978' +
+  '&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FSeoul';
+const W_FACE = [
+  [0, 0, '☀️', '맑음'],      [1, 2, '🌤', '구름 조금'], [3, 3, '☁️', '흐림'],
+  [45, 48, '🌫', '안개'],    [51, 57, '🌦', '이슬비'],  [61, 67, '🌧', '비'],
+  [71, 77, '❄️', '눈'],      [80, 82, '🌦', '소나기'],  [85, 86, '🌨', '눈 소나기'],
+  [95, 99, '⛈', '천둥번개'],
+];
+// 오늘 날짜를 이 자리 시각으로. toISOString 은 협정시라 자정 넘어 쓰면 어제가 된다.
+function todayISO(){
+  const d = new Date(), p2 = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+}
+function weatherFace(code){
+  for (const f of W_FACE) if (code >= f[0] && code <= f[1]) return f;
+  return null;
+}
+async function weatherOn(day){
+  if (!day) return null;
+  const days = Math.round((Date.now() - new Date(day + 'T12:00:00+09:00').getTime()) / 86400000);
+  if (days < 0 || days > 3650) return null;            // 아직 안 온 날, 또는 너무 옛날
+  const url = days <= 60
+    ? 'https://api.open-meteo.com/v1/forecast?' + W_AT +
+      '&past_days=' + Math.min(92, days + 1) + '&forecast_days=1'
+    : 'https://archive-api.open-meteo.com/v1/archive?' + W_AT +
+      '&start_date=' + day + '&end_date=' + day;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 4000);    // 날씨 때문에 저장이 늦어지면 안 된다
+  try {
+    const j = await (await fetch(url, { signal: ac.signal })).json();
+    const d = j.daily || {}, i = (d.time || []).indexOf(day);
+    if (i < 0 || typeof d.weather_code[i] !== 'number') return null;
+    return { code: d.weather_code[i], tmax: d.temperature_2m_max[i], tmin: d.temperature_2m_min[i] };
+  } catch (e) { return null; } finally { clearTimeout(timer); }
+}
+function weatherTag(w){
+  if (!w || typeof w.code !== 'number') return '';
+  const f = weatherFace(w.code);
+  if (!f) return '';
+  const t = [w.tmax, w.tmin].filter(v => typeof v === 'number').map(v => Math.round(v) + '°').join(' · ');
+  return '<span class="tag weather">' + f[2] + ' ' + escapeHTML(f[3]) + (t ? ' ' + t : '') + '</span> ';
+}
+
+// ---------- 내 일기만 보기 ----------
+// 아이는 자기 글을 고칠 수 있게 됐는데, 여러 장 섞인 목록에서 자기 것을 찾아 내려가야 했다.
+// 로그인한 아이에게만 칩 둘을 띄우고, 고른 쪽만 그린다. 부모는 어차피 다 자기 것이라 안 띄운다.
+let mineOnly = false;
+const isMine = p => !!(me && me.user_id && p.written_by === me.user_id);
+// 아이가 아니게 되면(로그아웃·부모 로그인) 고른 것이 저절로 풀린다 — 안 그러면
+// 부모 화면이 「내 일기」에 갇힌 채로 남고 칩은 숨어서 되돌릴 길이 없다.
+const mineView = () => mineOnly && isChild;
+function shownPosts(){ return mineView() ? posts.filter(isMine) : posts; }
+
 function photoPosts(){
-  return posts.filter(p => photosOf(p).length);
+  return shownPosts().filter(p => photosOf(p).length);
+}
+
+// 칩 둘. 그릴 때마다 다시 세는데, 글이 수십 장이라 세는 값이 싸다.
+function syncFilter(){
+  const bar = $('#postFilter');
+  if (!bar) return;
+  const n = posts.filter(isMine).length;
+  if (!isChild || !n){ bar.hidden = true; bar.innerHTML = ''; return; }
+  bar.hidden = false;
+  bar.innerHTML = '';
+  [['전체 ' + posts.length, false], ['내 일기 ' + n, true]].forEach(pair => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'dot-btn small' + (mineOnly === pair[1] ? ' on' : '');
+    b.textContent = pair[0];
+    b.setAttribute('aria-pressed', String(mineOnly === pair[1]));
+    b.addEventListener('click', () => {
+      if (mineOnly === pair[1]) return;
+      mineOnly = pair[1]; shownCount = PAGE; sfx('pop'); render();
+      $('#posts').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    bar.appendChild(b);
+  });
 }
 
 async function loadPosts(){
@@ -54,10 +135,13 @@ let shownCount = PAGE;
 
 function render(){
   const list = $('#posts');
+  const shown = shownPosts();
   list.innerHTML = '';
-  $('#empty').style.display = posts.length ? 'none' : 'block';
+  $('#empty').style.display = shown.length ? 'none' : 'block';
+  $('#empty').textContent = mineView() ? '아직 내가 쓴 일기가 없어요' : '아직 쓴 일기가 없어요';
+  syncFilter();
 
-  posts.slice(0, shownCount).forEach(p => {
+  shown.slice(0, shownCount).forEach(p => {
     const el = document.createElement('article');
     el.className = 'post dot-card reveal';
     el.id = 'post-' + p.id;      // 작품에서 "그날의 일기"로 바로 건너올 수 있도록
@@ -67,6 +151,7 @@ function render(){
       '<div class="meta">' +
         '<span class="tag ' + escapeHTML(p.author) + '">' + (AUTHORS[p.author] || '같이') + '</span> ' +
         (p.status === 'pending' ? '<span class="tag pending">⏳ 확인 기다림</span> ' : '') +
+        weatherTag(p.weather) +
         (p.is_public === false ? '<span class="tag private">🔒 비공개</span> ' : '') +
         // 있었던 날이 적혀 있으면 그것을 보여준다. 쓴 날은 그 뒤에 작게.
         escapeHTML(formatDate(p.happened_on || p.created_at)) +
@@ -107,7 +192,7 @@ function render(){
     });
 
     // 부모는 모든 글, 아이는 자기가 쓴 글에만 단추가 붙는다 (서버 정책도 같은 선이다)
-    const mineToEdit = isChild && me && p.written_by && p.written_by === me.user_id;
+    const mineToEdit = isChild && isMine(p);
     if (isAdmin || mineToEdit) {
       const actions = document.createElement('div');
       actions.className = 'actions';
@@ -167,13 +252,13 @@ function render(){
 function syncMore(){
   const box = $('#moreBox');
   if (!box) return;
-  const 남음 = posts.length - shownCount;
+  const 남음 = shownPosts().length - shownCount;
   box.hidden = 남음 <= 0;
   if (남음 > 0) $('#moreBtn').textContent = '더보기 (' + 남음 + '개 남음)';
 }
 
 function showMore(){
-  if (posts.length <= shownCount) return;
+  if (shownPosts().length <= shownCount) return;
   shownCount += PAGE;
   render();
 }
@@ -259,6 +344,168 @@ async function stopComposeVoice(){
   renderComposeVoice();
 }
 
+// ---------- 그림 일기 ----------
+// 사진이 없는 날의 자리. 도트 그림판(draw.html)과 같은 색으로 열여섯 칸을 칠해 한 장 붙인다.
+// 올리기를 누를 때까지는 이 브라우저 안에만 있다 — 목소리와 같은 얼개다.
+//
+// 색표의 정본은 pixel.js 의 DRAW_PALETTE 다. 일기장은 pixel.js 를 안 싣기 때문에
+// (그 한 벌이 gzip 18.6KB 다) 같은 값을 여기 둔다 — 색을 고칠 때는 두 곳을 같이 고친다.
+const PAD_PALETTE = [
+  '#2f2a24', '#6f6558', '#a2988a', '#ffffff',
+  '#ff7f8a', '#ff9aa2', '#ffb7d5', '#c0392b',
+  '#e8912f', '#ffd979', '#fff3a0', '#f7b733',
+  '#6cc7b3', '#8fd9c8', '#6fb567', '#3f7d3c',
+  '#8ec9ee', '#5aa9e6', '#2e3a54', '#b9a3d6',
+  '#c79b6d', '#8a5f3a', '#fbdcc4', '#ffe0c4',
+];
+const PAD_N     = 16;        // 한 변의 칸 수
+const PAD_BG    = '#fffaf2';
+const PAD_EMPTY = -1;
+const PAD_OUT   = 48;        // 내보낼 때 한 칸의 크기 → 768px 짜리 그림
+
+let dDraft = null;           // 붙일 그림 { blob, url }
+let padCells = null;         // 그리는 중일 때의 칸들 (null 이면 안 그리는 중)
+let padColor = 4, padHist = [];
+
+function dropDoodleDraft(){
+  if (dDraft && dDraft.url) URL.revokeObjectURL(dDraft.url);
+  dDraft = null;
+}
+
+// 격자선 없이 큼직하게 — 이대로 파일이 된다
+function padToCanvas(list, px){
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = PAD_N * px;
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = PAD_BG; g.fillRect(0, 0, cv.width, cv.height);
+  for (let i = 0; i < list.length; i++){
+    if (list[i] === PAD_EMPTY) continue;
+    g.fillStyle = PAD_PALETTE[list[i]] || PAD_BG;
+    g.fillRect((i % PAD_N) * px, Math.floor(i / PAD_N) * px, px, px);
+  }
+  return cv;
+}
+
+// 그리는 중인 판 (격자선이 있다)
+function padPaint(){
+  const cv = $('#padCanvas');
+  if (!cv || !padCells) return;
+  const g = cv.getContext('2d'), c = cv.width / PAD_N;
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = PAD_BG; g.fillRect(0, 0, cv.width, cv.height);
+  for (let i = 0; i < padCells.length; i++){
+    if (padCells[i] === PAD_EMPTY) continue;
+    g.fillStyle = PAD_PALETTE[padCells[i]] || PAD_BG;
+    g.fillRect((i % PAD_N) * c, Math.floor(i / PAD_N) * c, c, c);
+  }
+  g.fillStyle = 'rgba(47,42,36,0.16)';
+  for (let i = 1; i < PAD_N; i++){
+    g.fillRect(Math.round(i * c), 0, 1, cv.height);
+    g.fillRect(0, Math.round(i * c), cv.width, 1);
+  }
+}
+
+async function uploadDoodle(blob){
+  // 아이도 올릴 수 있는 자리다 (2026-09-07 에 suayona/posts/ 를 가족에게 열었다).
+  const path = 'suayona/posts/doodle-' + Date.now() + '-' +
+    Math.random().toString(36).slice(2, 8) + '.png';
+  const file = new File([blob], path.split('/').pop(), { type: 'image/png' });
+  const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, file);
+  if (error) throw new Error('그림 올리기 실패: ' + error.message);
+  return sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+function renderComposeDoodle(){
+  const box = $('#pDoodle');
+  if (!box) return;
+  let html = '<div class="pad-box">';
+  if (padCells) {
+    html += '<canvas id="padCanvas" width="256" height="256" role="img" aria-label="도트 그림판"></canvas>' +
+      '<div class="pad-colors" id="padColors"></div>' +
+      '<div class="row">' +
+        '<button type="button" class="dot-btn small" id="padUndo">되돌리기</button>' +
+        '<button type="button" class="dot-btn small" id="padClear">다 지우기</button>' +
+        '<button type="button" class="dot-btn small primary" id="padDone">이 그림 붙이기</button>' +
+        '<button type="button" class="dot-btn small" id="padCancel">그만두기</button>' +
+      '</div>' +
+      '<p class="hintline">칸을 눌러 칠해요. 맨 끝의 빗금 칸이 지우개예요.</p>';
+  } else if (dDraft) {
+    html += '<img class="pad-prev" src="' + dDraft.url + '" alt="그린 그림">' +
+      '<p class="hintline">이대로 올리면 일기에 붙어요.</p>' +
+      '<div class="row">' +
+        '<button type="button" class="dot-btn small" id="padRedo">다시 그리기</button>' +
+        '<button type="button" class="dot-btn small danger" id="padDrop">빼기</button>' +
+      '</div>';
+  } else {
+    html += '<div class="row"><button type="button" class="dot-btn small" id="padOpen">🎨 그림 그리기</button></div>' +
+      '<p class="hintline">사진이 없는 날엔 그려서 남겨요. 그린 그림이 일기의 첫 장이 돼요.</p>';
+  }
+  html += '</div>';
+  box.innerHTML = html;
+
+  const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
+  on('#padOpen', () => { padCells = new Array(PAD_N * PAD_N).fill(PAD_EMPTY); padHist = []; renderComposeDoodle(); });
+  on('#padCancel', () => { padCells = null; renderComposeDoodle(); });
+  on('#padDrop', () => { dropDoodleDraft(); renderComposeDoodle(); });
+  on('#padRedo', () => { dropDoodleDraft(); padCells = new Array(PAD_N * PAD_N).fill(PAD_EMPTY); padHist = []; renderComposeDoodle(); });
+  on('#padClear', () => { padHist.push(padCells.slice()); padCells.fill(PAD_EMPTY); padPaint(); });
+  on('#padUndo', () => { if (padHist.length){ padCells = padHist.pop(); padPaint(); } });
+  on('#padDone', async () => {
+    if (!padCells.some(c => c !== PAD_EMPTY)) { padCells = null; renderComposeDoodle(); return; }
+    const blob = await new Promise(r => padToCanvas(padCells, PAD_OUT).toBlob(r, 'image/png'));
+    if (!blob) return;
+    dropDoodleDraft();
+    dDraft = { blob: blob, url: URL.createObjectURL(blob) };
+    padCells = null;
+    sfx('sparkle');
+    renderComposeDoodle();
+  });
+
+  if (!padCells) return;
+
+  // 색 고르기 — 스물넷에 지우개 하나
+  const cols = $('#padColors');
+  PAD_PALETTE.concat([null]).forEach((hex, i) => {
+    const v = hex === null ? PAD_EMPTY : i;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = (padColor === v ? 'on' : '') + (hex === null ? ' eraser' : '');
+    b.style.background = hex || '';
+    b.title = hex === null ? '지우개' : hex;
+    b.setAttribute('aria-label', hex === null ? '지우개' : '색 ' + (i + 1));
+    b.addEventListener('click', () => { padColor = v; renderComposeDoodle(); });
+    cols.appendChild(b);
+  });
+
+  // 그리기 — 누른 채 끌면 이어서 칠한다
+  const cv = $('#padCanvas');
+  padPaint();
+  let painting = false, lastCell = -1;
+  const cellAt = e => {
+    const r = cv.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) / r.width * PAD_N);
+    const y = Math.floor((e.clientY - r.top) / r.height * PAD_N);
+    return (x < 0 || y < 0 || x >= PAD_N || y >= PAD_N) ? -1 : y * PAD_N + x;
+  };
+  const put = i => {
+    if (i < 0 || i === lastCell || padCells[i] === padColor) { lastCell = i; return; }
+    lastCell = i; padCells[i] = padColor; padPaint();
+  };
+  cv.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    padHist.push(padCells.slice());
+    if (padHist.length > 40) padHist.shift();
+    painting = true; lastCell = -1;
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 붙잡기는 덤이다 */ }
+    put(cellAt(e));
+  });
+  cv.addEventListener('pointermove', e => { if (painting) put(cellAt(e)); });
+  const stop = () => { painting = false; lastCell = -1; };
+  cv.addEventListener('pointerup', stop);
+  cv.addEventListener('pointercancel', stop);
+}
+
 // ---------- 기존 일기 수정 ----------
 function renderEditForm(p){
   const form = document.createElement('div');
@@ -326,12 +573,16 @@ function renderEditForm(p){
         dropped.push(image_url, thumb_url);
         image_url = null; thumb_url = null;
       }
+      const day = form.querySelector('.eWhen').value || null;
+      let weather = p.weather || null;
+      if (!weather || day !== (p.happened_on || null)) weather = await weatherOn(day || todayISO());
       const { error } = await sb.from('posts').update({
         author: form.querySelector('.eAuthor').value,
         is_public: form.querySelector('.ePublic').value === 'true',
         title,
         body: form.querySelector('.eBody').value.trim() || null,
-        happened_on: form.querySelector('.eWhen').value || null,
+        happened_on: day,
+        weather,
         place: form.querySelector('.ePlace').value.trim() || null,
         image_url, thumb_url,
       }).eq('id', p.id);
@@ -456,6 +707,7 @@ function renderAdminArea(){
       '</div>' +
       '<label class="field">내용</label><textarea id="pBody" placeholder="자유롭게 적어보세요"></textarea>' +
       '<label class="field">목소리 (선택)</label><div id="pVoice"></div>' +
+      '<label class="field">그림 (선택)</label><div id="pDoodle"></div>' +
       '<label class="field">사진 (선택 · 여러 장 가능)</label><input type="file" id="pImage" accept="image/*" multiple>' +
       '<button class="dot-btn primary" id="pSave" style="width:100%; margin-top:18px;">올리기</button>' +
       '<div class="msg" id="pMsg"></div>' +
@@ -465,6 +717,7 @@ function renderAdminArea(){
   // 글쓰기 칸에 서식 도구막대 (일정표 커스텀 탭과 같은 것)
   buildFormatBar($('#pBody'), { fileInput: $('#pImage') });
   renderComposeVoice();
+  renderComposeDoodle();
 
   // ---------- 거꾸로 일기 ----------
   // 사진을 먼저 보여 주고 그날 이야기를 끌어낸다. 한 장을 고르자고 목록을
@@ -527,14 +780,22 @@ function renderAdminArea(){
         audio_url = await uploadVoice(vDraft.blob, vDraft.ext);
         audio_secs = vDraft.secs;
       }
+      if (dDraft) {
+        // 그린 그림은 사본을 안 만든다 — 768px 짜리 도트라 원본이 이미 작고,
+        // JPEG 사본으로 줄이면 칸 경계가 뭉개진다. 그림이 있으면 그것이 일기의 첫 장이다.
+        msg.textContent = '그림 올리는 중...';
+        image_url = await uploadDoodle(dDraft.blob);
+      }
       for (let i = 0; i < files.length; i++) {
         msg.textContent = '사진 올리는 중... (' + (i+1) + '/' + files.length + ') ' + files[i].name;
         // 있었던 날을 비웠으면 첫 사진의 촬영 날짜를 쓴다 — 지난 일을 나중에 적어도 날짜가 맞게
         if (!happened_on && i === 0) happened_on = await exifDate(files[i]);
         const up = await uploadMedia(files[i], 'posts');
-        if (i === 0) { image_url = up.url; thumb_url = up.thumbUrl || null; }
+        if (i === 0 && !image_url) { image_url = up.url; thumb_url = up.thumbUrl || null; }
         else extra_images.push({ url: up.url, thumb: up.thumbUrl || null });
       }
+      msg.textContent = '날씨 보는 중...';
+      const weather = await weatherOn(happened_on || todayISO());
       msg.textContent = '저장 중...';
       const { data: { session } } = await sb.auth.getSession();
       const { error } = await sb.from('posts').insert({
@@ -547,6 +808,7 @@ function renderAdminArea(){
         image_url, thumb_url, extra_images,
         audio_url, audio_secs,
         happened_on,
+        weather,
         place: $('#pPlace').value.trim() || null,
       });
       if (error) throw error;
@@ -562,6 +824,7 @@ function renderAdminArea(){
     $('#pTitle').value = ''; $('#pBody').value = ''; $('#pImage').value = '';
     $('#pWhen').value = ''; $('#pPlace').value = '';
     dropVoiceDraft(); renderComposeVoice();
+    dropDoodleDraft(); renderComposeDoodle();
     loadPosts();
   });
 
