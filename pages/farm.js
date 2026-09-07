@@ -87,6 +87,40 @@ async function boot(){
     initReveal();
   }
 }
+/* 진짜 하늘 받아 오기 — 대한민국 서울 자양동. 열쇠 없이 좌표만 주면 되는 open-meteo 를 쓴다.
+   지난 사흘과 앞으로 사흘을 함께 받는다: 지난 날은 하루가 늦게 열렸을 때, 앞날은 일기예보에 쓴다.
+   신호가 없거나 4초가 넘으면 그냥 포기한다 — 그러면 규칙이 날짜로 날씨를 지어낸다. */
+const SKY_KEEP = 'suayona.farm.sky';
+function skyFromCode(code, wind){
+  if (code >= 95) return 'storm';                                        // 천둥
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return 'rain';
+  if (wind >= 28) return 'wind';                                         // 하루 최대 바람 28km/h 넘으면 바람 부는 날
+  return 'sun';
+}
+async function loadSky(){
+  const today = R.dayKey(now());
+  try {
+    const kept = JSON.parse(localStorage.getItem(SKY_KEEP) || 'null');
+    // 하루치는 아침에 정해지면 그대로 간다 — 낮에 다시 물어 날씨가 바뀌면 이미 준 물이 헛것이 된다
+    if (kept && kept.day === today && kept.map) return kept.map;
+  } catch (e) { /* 담아 둔 게 깨졌으면 그냥 다시 받는다 */ }
+  const at = R.SKY_AT || { lat: 37.5340, lng: 127.0823 };
+  const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + at.lat + '&longitude=' + at.lng +
+    '&daily=weather_code,wind_speed_10m_max&timezone=Asia%2FSeoul&past_days=3&forecast_days=4';
+  const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 4000);
+  try {
+    const res = await fetch(url, { signal: ac.signal });
+    const j = await res.json();
+    const d = j && j.daily;
+    if (!d || !d.time || !d.weather_code) return null;
+    const map = {};
+    d.time.forEach((day, i) => { map[day] = skyFromCode(d.weather_code[i], (d.wind_speed_10m_max && d.wind_speed_10m_max[i]) || 0); });
+    try { localStorage.setItem(SKY_KEEP, JSON.stringify({ day: today, map: map })); } catch (e) { /* 자리가 없어도 오늘 날씨는 이미 손에 있다 */ }
+    return map;
+  } catch (e) { return null; }
+  finally { clearTimeout(timer); }
+}
 async function bootInner(){
   // supabase 스크립트가 안 내려온 채(전파 없음·차단) 손님 화면을 그리면 「아직 시작 전」처럼 보여서 속는다.
   if (sb.offline) throw new Error('offline');
@@ -107,12 +141,15 @@ async function bootInner(){
   /* 세이브와 모험단 기록은 서로 안 기다려도 된다 — 나란히 부른다.
      원정 씨앗은 모험단 저장에서 「지금까지 몇 개 주웠나」 한 숫자만 받는다.
      세이브 통째로(1~2KB)가 아니라 그 칸만 골라 받는다 — data->expo->seedsEver. */
-  const [ok, fr, ex] = await Promise.all([
+  const [ok, fr, ex, skyMap] = await Promise.all([
     loadRows(),
     sb.rpc('quest_facts', { p_who: key }),
     sb.from('quest_saves').select('n:data->expo->seedsEver').eq('who', key).maybeSingle(),
+    R.setSky ? loadSky() : null,          // 배포 어긋남 대비: 옛 farm-rules.js 면 그냥 건너뛴다
   ]);
   if (!ok) throw new Error('load');
+  // 하루를 열기 전에 넣어야 한다 — 비 온 날 밭이 젖는 것도 이 표를 보고 정해진다
+  if (skyMap && R.setSky) R.setSky(skyMap);
   facts = fr.data || {};
   expoSeedsEver = (ex && ex.data && Number(ex.data.n)) || 0;
   // 하루 시작 — 계절·동물·비·까마귀·기운·비료·선물. 전부 하루 한 번만 되게 짜여 있어서,
@@ -274,7 +311,9 @@ function syncTop(){
   const fc = R.forecast ? R.forecast(W, now()) : null;
   cw.textContent = R.WEATHER[wk].icon + ' ' + R.WEATHER[wk].name + ' · ' + when + (cal.lastDay ? ' · 축제!' : '')
     + (fc ? ' · 내일 ' + fc.icon : '');
-  cw.title = fc ? '내일은 ' + fc.name : '';
+  // 진짜 자양동 날씨를 받아 온 날은 그렇다고 알려 준다 — 창밖과 화면이 같다는 걸 알아야 재밌다
+  const real = R.skyOf ? R.skyOf(R.dayKey(now())) : null;
+  cw.title = (real ? '서울 자양동 오늘 날씨예요' + (fc ? ' · ' : '') : '') + (fc ? '내일은 ' + fc.name : '');
   cw.classList.toggle('night', night);
   const mx = R.maxEnergy(W, M);
   $('#enFill').style.width = Math.round(100 * M.energy / mx) + '%'; $('#enText').textContent = M.energy + '/' + mx;

@@ -391,9 +391,10 @@ const belowFold = (() => {
   });
 
   // ---- 진짜 날씨 ----
-  // open-meteo 는 열쇠 없이 좌표만 주면 된다. 풍경에 남산타워가 있으니 서울시청으로 둔다.
+  // open-meteo 는 열쇠 없이 좌표만 주면 된다. 우리가 사는 서울 자양동으로 둔다 —
+  // 창밖에 비가 오면 첫 화면 마을에도 비가 와야 아이가 둘을 잇는다.
   // 실패하면 조용히 계절 기본값으로 — 날씨는 덤이다.
-  const WEATHER_AT = { lat: 37.5665, lng: 126.9780 };
+  const WEATHER_AT = { lat: 37.5340, lng: 127.0823 };   // 우리가 사는 서울 자양동
   const weather = { rain:false, snow:false, fog:false, wind:1 };
   let shower = 0;                                        // 해를 열 번 누르면 오는 소나기가 끝나는 시각
   // 소나기가 그친 뒤 30초 동안 뜨는 무지개.

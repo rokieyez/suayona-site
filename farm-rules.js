@@ -52,7 +52,17 @@ const FARM = (() => {
     snow:  { name: '눈',    icon: '🌨️' },
     wind:  { name: '바람',  icon: '🍃' },
   };
+  /* 진짜 하늘 — 대한민국 서울 자양동 기준. 페이지가 open-meteo 에서 받아다 setSky 로
+     넣어 주면, 그날 농장 날씨는 지어내지 않고 밖에 실제로 내리는 것을 그대로 쓴다.
+     「오늘 비 왔지?」가 농장에서도 비여야 아이가 창밖과 화면을 잇는다.
+     못 받아 오면(신호가 없거나 표에 없는 날짜) 지금까지처럼 날짜로 지어낸다. */
+  const SKY_AT = { lat: 37.5340, lng: 127.0823, name: '서울 자양동' };
+  let sky = {};
+  function setSky(map){ sky = (map && typeof map === 'object') ? map : {}; }
+  function skyOf(key){ const w = sky[key]; return WEATHER[w] ? w : null; }
   function weatherOf(key, season){
+    const real = skyOf(key);
+    if (real) return real;
     const r = prand('w' + key);
     if (season === 'winter') return r < 0.45 ? 'snow' : 'sun';
     if (season === 'spring') return r < 0.35 ? 'rain' : 'sun';
@@ -1815,6 +1825,7 @@ const FARM = (() => {
     GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, SPRINKLER2, SPRINKLERS, sprinklerOf, ringOf, FIREFLY_MAX, PEDDLER, PED_WANT_MULT, PED_WANT_MAX, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand, forecast, yesterdayNote,
+    SKY_AT, setSky, skyOf,
     countOf, seedsFor, plotIds, plotOpen, parseId, putSprinkler, pullSprinkler, sprinkled, sprinklerDay,
     fireflyNight, fireflyLeft, catchFirefly, fireSit,
     peddlerHere, peddlerStock, peddlerGot, peddlerWant, peddlerSoldLeft, sellToPeddler,

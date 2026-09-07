@@ -20,10 +20,10 @@ async function exifDate(file){
 
 // ---------- 날씨 도장 ----------
 // 그날 날씨를 일기에 찍어 준다. 열쇠 없이 좌표만 주면 되는 open-meteo 를 쓰고, 자리는
-// 첫 화면 마을과 같은 서울시청이다(pages/index.js 의 WEATHER_AT 과 같은 값).
+// 우리가 사는 대한민국 서울 자양동이다(pages/index.js 의 WEATHER_AT · farm-rules.js 의 SKY_AT 과 같은 값).
 // 최근 것은 예보 API 에 past_days 를 붙여 받고, 두 달이 넘은 날은 기록 보관 API 로 간다.
 // 실패하면 도장 없이 그냥 저장된다 — 날씨는 덤이지, 일기를 막을 이유가 아니다.
-const W_AT = 'latitude=37.5665&longitude=126.978' +
+const W_AT = 'latitude=37.534&longitude=127.0823' +
   '&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FSeoul';
 const W_FACE = [
   [0, 0, '☀️', '맑음'],      [1, 2, '🌤', '구름 조금'], [3, 3, '☁️', '흐림'],
