@@ -750,13 +750,18 @@ const BEAST = {
     '..BBbbbbbbbbbbbbbbbbBB..', '...BbbbbbbbbbbbbbbbbB...', '....BBBBBBBBBBBBBBBB....', '.....BBBBBBBBBBBBBB.....',
     '......ll......ll........', '......ll......ll........', '.....llll....llll.......', '.....llll....llll.......',
   ], pal: { b: '#fffaf2', B: '#e3d9c8', r: '#ff5a4a', k: '#ff9f2e', e: '#3a3226', l: '#ffb43d', t: '#efe8db' } },
+  /* 흰오리(북경오리). 예전에는 머리가 초록인 청둥오리였다.
+     머리를 몸과 다른 흰색으로 칠했더니 흰 모자를 쓴 것처럼 보여서, 머리도 몸과 같은
+     흰색(b)으로 이어 붙였다 — 흰오리는 머리와 몸이 원래 한 색이고, 어디가 머리인지는
+     눈과 부리가 알려 준다. 꼭대기만 순백(w)으로 빛을 받고, 턱밑 한 칸만 크림색 그늘(B).
+     부리는 노랑(k)에 아랫면만 짙은 노랑(K). */
   duck: { w: 24, art: [
-    '...............hhhh.....', '..............hhhhhh....', '.............hhhhhhhh...', '............hhhhhhhhhh..',
-    '............hhhhhhhheek.', '............hhhhhhhheekk', '...tt.......hhhhhhhhkkkk', '..tttt......hhhhhhhhkkk.',
-    '.tbbbbbbbbbbbbbbbbhh....', 'ttbbbbbbbbbbbbbbbbhh....', 'ttbbbbbbbbbbbbbbbbbb....', '.tbbbbbbbbbbbbbbbbbb....',
+    '...............wwww.....', '..............wwwwwb....', '.............wwwwwwbb...', '............wwwwwwbbbb..',
+    '............wwwwwbbbeek.', '............wwwwbbbbeekk', '...tt.......bwwbbbbbkkkk', '..tttt......bbwbbbbBKKK.',
+    '.tbbbbbbbbbbbbbbbbbb....', 'ttbbbbbbbbbbbbbbbbbb....', 'ttbbbbbbbbbbbbbbbbbb....', '.tbbbbbbbbbbbbbbbbbb....',
     '..BBbbbbbbbbbbbbbbBB....', '...BbbbbbbbbbbbbbbB.....', '....BBBBBBBBBBBBBB......', '.....BBBBBBBBBBBB.......',
     '......ll....ll..........', '......ll....ll..........', '.....llll...lllll.......', '.....llll....llll.......',
-  ], pal: { b: '#fffdf6', B: '#ded7c6', h: '#2f7d5e', k: '#ffb43d', e: '#26241f', l: '#ff9f2e', t: '#f3ece0' } },
+  ], pal: { b: '#fffdf6', B: '#ded7c6', w: '#ffffff', k: '#ffd23f', K: '#dda429', e: '#26241f', l: '#ff9f2e', t: '#f6f0e6' } },
   cow: { w: 32, art: [
     '................................', '............................kk..', '.......................hhhhhkk..', '......................hhhhhhkk..',
     '.....ssss............hhhhhhhhh..', '....ssssss..........hhhhhhhhhh..', '...bbbbbbbbbbbbbbbbbhhhheehhhh..', '..bbbbbbbbbbbbbbbbbbhhhheehhhh..',
