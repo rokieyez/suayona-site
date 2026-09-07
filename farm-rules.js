@@ -227,7 +227,7 @@ const FARM = (() => {
   const MATERIALS = { wood: { cost: 10 }, stone: { cost: 8 } };
 
   // ---------- 기운 ----------
-  const ENERGY_BASE = 40;
+  const ENERGY_BASE = 60;
   const COST = { till: 1, water: 1, harvest: 1, chop: 2, mine: 2, plant: 0, fert: 0, feed: 1, pet: 0, cook: 1, forage: 1, fish: 1 };
   /* 어제 한 일을 한 벌 남겨 둔다. 아침에 「어제는 이만큼 했어요」를 보여 주려는 것 —
      스타듀밸리가 잠들 때 보여 주는 하루 정산과 같은 자리인데, 여기는 잠드는 순간이 없으니
