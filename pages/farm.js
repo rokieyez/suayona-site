@@ -615,38 +615,15 @@ function lightAt(h){
    가장 어두운 단계는 그늘, 가장 밝은 단계는 빛 받은 자리로 뜻을 줬다.
    ink 는 외곽선 색 — 풀포기·돌·꽃에 두르면 배경에서 떨어져 나와 물체로 읽힌다. */
 const GROUND = {
-  spring: { g: ['#aee0a2', '#9fd696', '#8ec98a', '#7ab97c'], tuft: ['#4f9350', '#31703f'], ink: '#24513a',
+  spring: { g: ['#aee0a2', '#9fd696', '#8ec98a', '#7ab97c'], tuft: ['#6fb567', '#5da05a'], ink: '#24513a',
             dry: '#cbbd8c', bloom: ['#ffb7d5', '#fff3a0', '#ffffff', '#c9a8ff', '#ff9aa2'], rock: '#c2bab0' },
-  summer: { g: ['#9bd685', '#8bcb7b', '#7abd72', '#68ad68'], tuft: ['#3f8a4a', '#256237'], ink: '#1c4a31',
+  summer: { g: ['#9bd685', '#8bcb7b', '#7abd72', '#68ad68'], tuft: ['#579e54', '#468a46'], ink: '#1c4a31',
             dry: '#c8b184', bloom: ['#ffd166', '#ff9ec4', '#ffffff', '#ffe066'], rock: '#c2bab0' },
-  autumn: { g: ['#ddcb87', '#d0bd7c', '#c2ad70', '#b29d64'], tuft: ['#8a6f42', '#5e4a2c'], ink: '#4a3822',
+  autumn: { g: ['#ddcb87', '#d0bd7c', '#c2ad70', '#b29d64'], tuft: ['#9c8a4f', '#87763f'], ink: '#4a3822',
             dry: '#b49a6a', bloom: ['#e8874a', '#d9603c', '#f2c14e', '#c96b3a'], rock: '#bfb5a8' },
-  winter: { g: ['#f7fbfc', '#ecf3f6', '#e0e9ee', '#d2dee5'], tuft: ['#b9cbd6', '#8ea6b6'], ink: '#6d8798',
+  winter: { g: ['#f7fbfc', '#ecf3f6', '#e0e9ee', '#d2dee5'], tuft: ['#c8d6dc', '#b3c3cb'], ink: '#6d8798',
             dry: '#d5dee1', bloom: ['#ffffff', '#eaf6ff'], rock: '#cdd6da' },
 };
-/* 풀포기 — 난수로 흩뿌리는 대신 손으로 그린 다섯 장을 섞어 깐다. 스타듀 밸리가 하는 방식이다.
-   한 글자가 한 도트: · 빈칸 / o 어두운 잎 / x 보통 잎 / + 밝은 잎 / # 외곽선.
-   난수 알갱이는 「모래」로 보이지만, 이렇게 모양을 가진 덩어리는 「풀」로 읽힌다. */
-const TUFTS = [
-  ['··+··', '··x··', '·#x#·', '·#X#·', '·#X#·', '#XX+#', '#xX+#'],
-  ['+···+', 'x···x', '#x·+#', '#x·X#', '·#xX#', '·#X+#', '··##·'],
-  ['··+·+', '·#x·x', '·#x#x', '#xX#X', '#xX+#', '·#X+#', '··#+#'],
-  ['+···+', '#x··x', '#x·#x', '#X·#X', '#X#X+', '·#XX#', '··#+#'],
-  ['··+··', '·+x+·', '·#x#·', '#xX+#', '#xX+#', '·#X+#', '··#·#'],
-];
-// 글자 한 장을 도트로 찍는다. 빛은 늘 왼쪽 위에서 온다 — 밝은 잎이 오른쪽에 오게 그렸다.
-function paintTuft(X, Y, art, base, ink, k){
-  const dark = shade(base, -22), mid = base, lite = shade(base, 26);
-  for (let j = 0; j < art.length; j++){
-    const row = art[j];
-    for (let i = 0; i < row.length; i++){
-      const ch = row.charAt(i);
-      if (ch === '·') continue;
-      const c = ch === '#' ? ink : ch === 'o' ? dark : ch === '+' ? lite : ch === 'X' ? mid : shade(base, -10);
-      px(X + i * k, Y + j * k, k, k, c);
-    }
-  }
-}
 const SOIL = { wet: ['#6d4c30', '#7d5a3c', '#5a3f28'], dry: ['#b5885c', '#c49a6d', '#9f7550'] };
 const WOOD = { hi: '#d6a878', mid: '#c79b6d', low: '#a97b4f', dark: '#8a5f3a', line: '#6f4a2c' };
 const STONE = { hi: '#d5cec5', mid: '#c2bab0', low: '#a49c92', dark: '#857d75', line: '#665f59' };
@@ -961,16 +938,14 @@ function drawGround(season){
   // 3) 칸마다 풀포기·조약돌·꽃
   for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++){
     const X = tx * T, Y = ty * T, r0 = R.prand('g' + tx + '_' + ty);
-    /* 칸마다 하나에서 셋씩 심으니 풀밭이 빽빽해 지저분했다. 절반 가까이는 아예 비워 둔다 —
-       빈 자리가 있어야 심은 자리가 눈에 든다. */
-    const n = r0 < 0.20 ? 2 : r0 < 0.56 ? 1 : 0;
+    const n = r0 < 0.5 ? 3 : r0 < 0.85 ? 2 : 1;
     for (let i = 0; i < n; i++){
       const rr = R.prand('t' + tx + '_' + ty + '_' + i);
       const gx = X + 2 + Math.floor(rr * (T - 8)), gy = Y + 4 + Math.floor(R.prand('u' + tx + '_' + ty + '_' + i) * (T - 12));
       const c = P.tuft[i % 2];
-      // 손으로 그린 다섯 장 중 하나를 골라 두 도트 크기로 찍는다 — 난수 알갱이와 달리 모양이 있다
-      const art = TUFTS[Math.floor(R.prand('tk' + tx + '_' + ty + '_' + i) * TUFTS.length)];
-      paintTuft(gx, gy - (art.length - 5) * 2, art, c, P.ink, 2);
+      /* 손으로 그린 잎(테 두른 5×7 글자판)으로 바꿔 봤다가 되돌렸다 — 테 두른 잎이 칸마다
+         서니 풀밭이 지저분했다. 테는 나무·작물·동물·집처럼 「하나씩 눈에 드는 것」에만 둔다. */
+      px(gx, gy + 2, 2, 6, c); px(gx + 2, gy, 2, 8, shade(c, 14)); px(gx + 4, gy + 4, 2, 4, shade(c, -10));
     }
     // 조약돌 — 외곽선을 두르고 빛을 왼쪽 위에 얹으면 「회색 네모」가 아니라 돌이 된다
     if (r0 > 0.93){
