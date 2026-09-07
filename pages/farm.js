@@ -569,12 +569,43 @@ function lightAt(h){
 
 // ---------- 색 ----------
 // 계절마다 풀·흙·꽃 색을 여러 단계로 둔다. 단계가 많을수록 도트가 덜 밋밋하다.
+/* 땅 색. 예전에는 네 단계의 밝기 폭이 255 중 30(12%)뿐이라, 도트를 아무리 잘게 뿌려도
+   「초록 벽」으로 보였다 — 색이 서로 거의 같으면 결이 안 보인다. 폭을 세 배 가까이 벌리고
+   가장 어두운 단계는 그늘, 가장 밝은 단계는 빛 받은 자리로 뜻을 줬다.
+   ink 는 외곽선 색 — 풀포기·돌·꽃에 두르면 배경에서 떨어져 나와 물체로 읽힌다. */
 const GROUND = {
-  spring: { g: ['#a9dca1', '#9fd69a', '#94cf90', '#88c786'], tuft: ['#6fb567', '#5da05a'], dry: '#cbbd8c', bloom: ['#ffb7d5', '#fff3a0', '#ffffff', '#c9a8ff', '#ff9aa2'], rock: '#c2bab0' },
-  summer: { g: ['#93d189', '#88c980', '#7cc077', '#6fb56d'], tuft: ['#579e54', '#468a46'], dry: '#c8b184', bloom: ['#ffd166', '#ff9ec4', '#ffffff', '#ffe066'], rock: '#c2bab0' },
-  autumn: { g: ['#d5c68a', '#cbbb7e', '#c0af73', '#b3a267'], tuft: ['#9c8a4f', '#87763f'], dry: '#b49a6a', bloom: ['#e8874a', '#d9603c', '#f2c14e', '#c96b3a'], rock: '#bfb5a8' },
-  winter: { g: ['#f2f7f8', '#eaf1f4', '#e1eaee', '#d7e2e8'], tuft: ['#c8d6dc', '#b3c3cb'], dry: '#d5dee1', bloom: ['#ffffff', '#eaf6ff'], rock: '#cdd6da' },
+  spring: { g: ['#aee0a2', '#9fd696', '#8ec98a', '#7ab97c'], tuft: ['#4f9350', '#31703f'], ink: '#24513a',
+            dry: '#cbbd8c', bloom: ['#ffb7d5', '#fff3a0', '#ffffff', '#c9a8ff', '#ff9aa2'], rock: '#c2bab0' },
+  summer: { g: ['#9bd685', '#8bcb7b', '#7abd72', '#68ad68'], tuft: ['#3f8a4a', '#256237'], ink: '#1c4a31',
+            dry: '#c8b184', bloom: ['#ffd166', '#ff9ec4', '#ffffff', '#ffe066'], rock: '#c2bab0' },
+  autumn: { g: ['#ddcb87', '#d0bd7c', '#c2ad70', '#b29d64'], tuft: ['#8a6f42', '#5e4a2c'], ink: '#4a3822',
+            dry: '#b49a6a', bloom: ['#e8874a', '#d9603c', '#f2c14e', '#c96b3a'], rock: '#bfb5a8' },
+  winter: { g: ['#f7fbfc', '#ecf3f6', '#e0e9ee', '#d2dee5'], tuft: ['#b9cbd6', '#8ea6b6'], ink: '#6d8798',
+            dry: '#d5dee1', bloom: ['#ffffff', '#eaf6ff'], rock: '#cdd6da' },
 };
+/* 풀포기 — 난수로 흩뿌리는 대신 손으로 그린 다섯 장을 섞어 깐다. 스타듀 밸리가 하는 방식이다.
+   한 글자가 한 도트: · 빈칸 / o 어두운 잎 / x 보통 잎 / + 밝은 잎 / # 외곽선.
+   난수 알갱이는 「모래」로 보이지만, 이렇게 모양을 가진 덩어리는 「풀」로 읽힌다. */
+const TUFTS = [
+  ['··+··', '··x··', '·#x#·', '·#X#·', '·#X#·', '#XX+#', '#xX+#'],
+  ['+···+', 'x···x', '#x·+#', '#x·X#', '·#xX#', '·#X+#', '··##·'],
+  ['··+·+', '·#x·x', '·#x#x', '#xX#X', '#xX+#', '·#X+#', '··#+#'],
+  ['+···+', '#x··x', '#x·#x', '#X·#X', '#X#X+', '·#XX#', '··#+#'],
+  ['··+··', '·+x+·', '·#x#·', '#xX+#', '#xX+#', '·#X+#', '··#·#'],
+];
+// 글자 한 장을 도트로 찍는다. 빛은 늘 왼쪽 위에서 온다 — 밝은 잎이 오른쪽에 오게 그렸다.
+function paintTuft(X, Y, art, base, ink, k){
+  const dark = shade(base, -22), mid = base, lite = shade(base, 26);
+  for (let j = 0; j < art.length; j++){
+    const row = art[j];
+    for (let i = 0; i < row.length; i++){
+      const ch = row.charAt(i);
+      if (ch === '·') continue;
+      const c = ch === '#' ? ink : ch === 'o' ? dark : ch === '+' ? lite : ch === 'X' ? mid : shade(base, -10);
+      px(X + i * k, Y + j * k, k, k, c);
+    }
+  }
+}
 const SOIL = { wet: ['#6d4c30', '#7d5a3c', '#5a3f28'], dry: ['#b5885c', '#c49a6d', '#9f7550'] };
 const WOOD = { hi: '#d6a878', mid: '#c79b6d', low: '#a97b4f', dark: '#8a5f3a', line: '#6f4a2c' };
 const STONE = { hi: '#d5cec5', mid: '#c2bab0', low: '#a49c92', dark: '#857d75', line: '#665f59' };
@@ -887,18 +918,25 @@ function drawGround(season){
       const rr = R.prand('t' + tx + '_' + ty + '_' + i);
       const gx = X + 2 + Math.floor(rr * (T - 8)), gy = Y + 4 + Math.floor(R.prand('u' + tx + '_' + ty + '_' + i) * (T - 12));
       const c = P.tuft[i % 2];
-      // 풀포기도 한 도트 폭 잎을 섞어 끝이 뾰족해 보이게
-      px(gx, gy + 2, 2, 6, c); px(gx + 2, gy, 2, 8, shade(c, 14)); px(gx + 4, gy + 4, 2, 4, shade(c, -10));
-      px(gx + 1, gy + 1, 1, 3, shade(c, 18)); px(gx + 3, gy - 1, 1, 3, shade(c, 22)); px(gx + 5, gy + 3, 1, 2, shade(c, -18));
+      // 손으로 그린 다섯 장 중 하나를 골라 두 도트 크기로 찍는다 — 난수 알갱이와 달리 모양이 있다
+      const art = TUFTS[Math.floor(R.prand('tk' + tx + '_' + ty + '_' + i) * TUFTS.length)];
+      paintTuft(gx, gy - (art.length - 5) * 2, art, c, P.ink, 2);
     }
-    if (r0 > 0.93){ px(X + 12, Y + 18, 8, 4, P.rock); px(X + 12, Y + 18, 6, 2, shade(P.rock, 20)); px(X + 12, Y + 22, 8, 2, shade(P.rock, -22)); }
+    // 조약돌 — 외곽선을 두르고 빛을 왼쪽 위에 얹으면 「회색 네모」가 아니라 돌이 된다
+    if (r0 > 0.93){
+      px(X + 11, Y + 17, 10, 8, P.ink);
+      px(X + 12, Y + 18, 8, 5, P.rock);
+      px(X + 12, Y + 18, 5, 2, shade(P.rock, 22));
+      px(X + 13, Y + 21, 7, 2, shade(P.rock, -26));
+    }
     const bloomP = season === 'spring' ? 0.2 : season === 'summer' ? 0.14 : season === 'autumn' ? 0.07 : 0;
     if (R.prand('f' + tx + '_' + ty) < bloomP){
       const c = P.bloom[Math.floor(R.prand('fc' + tx + '_' + ty) * P.bloom.length)];
       const fx = X + 8 + Math.floor(R.prand('fx' + tx + '_' + ty) * 14), fy = Y + 10 + Math.floor(R.prand('fy' + tx + '_' + ty) * 12);
-      px(fx, fy + 4, 2, 6, P.tuft[1]);
+      px(fx, fy + 4, 2, 6, P.tuft[1]); px(fx + 2, fy + 5, 1, 4, P.ink);      // 줄기와 그 그늘
+      px(fx - 1, fy - 1, 4, 2, P.ink); px(fx - 3, fy + 1, 8, 2, P.ink); px(fx - 1, fy + 3, 4, 4, P.ink);
       px(fx, fy, 2, 2, c); px(fx - 2, fy + 2, 6, 2, c); px(fx, fy + 4, 2, 2, c);
-      px(fx, fy + 2, 2, 2, '#fff6c0');
+      px(fx, fy + 2, 2, 2, '#fff6c0'); px(fx, fy + 2, 1, 1, '#ffffff');
     }
     if (season === 'autumn' && R.prand('l' + tx + '_' + ty) < 0.16){
       const lx = X + 6 + Math.floor(R.prand('lx' + tx + '_' + ty) * 18), ly = Y + 6 + Math.floor(R.prand('ly' + tx + '_' + ty) * 18);
