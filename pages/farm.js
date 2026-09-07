@@ -2798,16 +2798,21 @@ const PAD_PALETTE = [
   '#8ec9ee', '#5aa9e6', '#2e3a54', '#b9a3d6',
   '#c79b6d', '#8a5f3a', '#fbdcc4', '#ffe0c4',
 ];
-const PAD_N = 16, PAD_BG = '#fffaf2', PAD_EMPTY = -1;
+const PAD_BG = '#fffaf2', PAD_EMPTY = -1;
 // 가게 카드에는 아직 담긴 그림이 없다 — 대신 본보기 하나를 넣어 둔다(해·집·풀밭)
 const PAD_SAMPLE = '.................999.............999.............999...................................................777............77777..........7777777..........lllll...........l3l3l...........lllll...........ll0ll...........ll0ll.....eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+/* 한 변이 16·24·32 인 그림을 다 받는다 — 일기의 그림판은 16칸이고 도트 그리기는
+   셋 중에 고른다. 담는 방식은 같아서 길이만 보고 한 변을 알아낸다. */
 function padDecode(str){
-  if (!str || str.length !== PAD_N * PAD_N) return null;
-  return Array.from(str).map(ch => {
+  const n = R.picSide ? R.picSide(str) : (str && str.length === 256 ? 16 : 0);
+  if (!n) return null;
+  const cells = Array.from(str).map(ch => {
     if (ch === '.') return PAD_EMPTY;
     const v = parseInt(ch, 36);
     return (v >= 0 && v < PAD_PALETTE.length) ? v : PAD_EMPTY;
   });
+  cells.n = n;
+  return cells;
 }
 function paintWallItem(wall, u, f, P, room, pic){
   const F = R.FURNITURE[f], c = F.c;
@@ -2840,6 +2845,9 @@ function paintWallItem(wall, u, f, P, room, pic){
     }
     case 'mypic': {                                                  // 내 그림 액자 — 일기에 그린 그림이 들어간다
       const cells = padDecode(pic) || padDecode(PAD_SAMPLE);
+      /* 종이는 32도트다. 16칸이면 한 칸이 두 도트로 꽉 차고, 24·32칸이면 한 도트씩
+         놓고 가운데에 앉힌다 — 32를 24로 나누면 칸마다 폭이 달라져 그림이 일그러진다. */
+      const cn = cells.n, cpx = cn === 16 ? 2 : 1, cw = cn * cpx, co = Math.round((32 - cw) / 2);
       hang(20, 3, 9);
       w(1, 8, 38, 40, '#5a3c26');                                    // 바깥 테
       w(1, 8, 38, 2, '#a97b4f'); w(1, 46, 38, 2, '#3f2a1a');
@@ -2849,7 +2857,7 @@ function paintWallItem(wall, u, f, P, room, pic){
       w(4, 12, 32, 32, PAD_BG);                                      // 그림 종이 — 한 칸이 두 도트다
       for (let i = 0; i < cells.length; i++){
         if (cells[i] === PAD_EMPTY) continue;
-        w(4 + (i % PAD_N) * 2, 12 + Math.floor(i / PAD_N) * 2, 2, 2, PAD_PALETTE[cells[i]] || PAD_BG);
+        w(4 + co + (i % cn) * cpx, 12 + co + Math.floor(i / cn) * cpx, cpx, cpx, PAD_PALETTE[cells[i]] || PAD_BG);
       }
       for (let i = 0; i < 10; i += 2) w(4 + i, 12 + i, 2, 4, 'rgba(255,255,255,0.20)');    // 유리 반사
       break;

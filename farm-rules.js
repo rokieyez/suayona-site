@@ -844,7 +844,16 @@ const FARM = (() => {
     return !hungCol(world, room, side, col);
   }
   // 그림 액자에 담는 그림은 칸 글자열 — 16×16 이라 256글자여야 한다
-  function okPic(pic){ return typeof pic === 'string' && pic.length === 256 && /^[.0-9a-z]+$/.test(pic); }
+  /* 액자에 담는 도트 그림. 일기의 그림판은 16칸이고 도트 그리기(draw.html)는 16·24·32칸을
+     고를 수 있다 — 담는 방식은 셋 다 같다(빈 칸은 '.', 나머지는 색 번호 36진수 한 글자).
+     그래서 한 변이 16·24·32 인 것만 받는다. */
+  const PIC_N = [16, 24, 32];
+  function picSide(pic){
+    if (typeof pic !== 'string' || !/^[.0-9a-z]*$/.test(pic)) return 0;
+    const n = PIC_N.find(k => k * k === pic.length);
+    return n || 0;
+  }
+  function okPic(pic){ return picSide(pic) > 0; }
   function hang(world, mine, room, f, side, col, row, pic){
     const R2 = ROOMS[room], F = FURNITURE[f];
     if (!R2 || !F) return fail('놓을 수 없어요');
@@ -1937,7 +1946,7 @@ const FARM = (() => {
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
     canPay, buildState, animalDay, babyDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
     MATERIALS, WALL_PITCH, WALL_ROWS, wallCols, wallRowsFor, wallKey, parseWall, hungAt, hungCol, canHang, hang, moveHang,
-    ROOM_GROW, roomStep, roomBox, okPic,
+    ROOM_GROW, roomStep, roomBox, okPic, picSide, PIC_N,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,
     newWorld, newMine, fixWorld, fixMine, fixTune, logAdd, give, take, bump, markPlayed,
     till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, moveFurn, pickUp, cook, sendGift, sendNote, buyGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, seedsFromExpo, newDay,

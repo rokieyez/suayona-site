@@ -952,33 +952,48 @@ function hangNow(f, sl, pic){
   if (!(M.inv['f:' + f] > 0)) furnPick = null;
   renderHouse();
 }
+/* 걸 수 있는 그림은 두 곳에서 온다 — 그림 일기에 붙인 그림(posts.doodle, 16칸)과
+   도트 그리기에 저장한 그림(doodles.cells, 16·24·32칸). 담는 방식이 같아서 한 줄로
+   묶어 최근 것부터 보여 준다. 한 판에 여러 번 걸 수 있으니 표는 한 번만 읽는다. */
 async function loadMyPics(){
   if (myPics) return myPics;
-  const { data, error } = await sb.from('posts')
-    .select('id, title, doodle, happened_on, created_at')
-    .not('doodle', 'is', null)
-    .in('author', [key, 'together'])
-    .order('created_at', { ascending: false }).limit(30);
-  if (error) throw error;
-  myPics = (data || []).filter(q => R.okPic(q.doodle));
+  const [diary, drawn] = await Promise.all([
+    sb.from('posts').select('id, title, doodle, happened_on, created_at')
+      .not('doodle', 'is', null).in('author', [key, 'together'])
+      .order('created_at', { ascending: false }).limit(30),
+    sb.from('doodles').select('id, theme, cells, made_on, created_at')
+      .eq('author', key)
+      .order('created_at', { ascending: false }).limit(30),
+  ]);
+  if (diary.error) throw diary.error;
+  const list = (diary.data || []).map(q => ({
+    pic: q.doodle, when: q.happened_on || String(q.created_at || '').slice(0, 10), what: q.title || '일기', at: q.created_at,
+  }));
+  // 도트 그리기 표가 없거나 막혀 있어도 일기 그림은 보여 준다
+  if (!drawn.error) (drawn.data || []).forEach(q => list.push({
+    pic: q.cells, when: q.made_on || String(q.created_at || '').slice(0, 10), what: q.theme || '그리기', at: q.created_at,
+  }));
+  myPics = list.filter(q => R.okPic(q.pic)).sort((a, b) => String(b.at).localeCompare(String(a.at)));
   return myPics;
 }
-function padThumb(str, px){
+function padThumb(str){
   const cells = padDecode(str);
+  const n = cells ? cells.n : 16;
   const cv = document.createElement('canvas');
-  cv.width = cv.height = PAD_N * px;
+  cv.width = cv.height = 64;                       // 칸 수가 달라도 카드 크기는 같게
+  const px = 64 / n;
   const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
   g.fillStyle = PAD_BG; g.fillRect(0, 0, cv.width, cv.height);
   if (cells) for (let i = 0; i < cells.length; i++){
     if (cells[i] === PAD_EMPTY) continue;
     g.fillStyle = PAD_PALETTE[cells[i]] || PAD_BG;
-    g.fillRect((i % PAD_N) * px, Math.floor(i / PAD_N) * px, px, px);
+    g.fillRect((i % n) * px, Math.floor(i / n) * px, px, px);
   }
   return cv;
 }
 function openPicPick(then){
   $('#modalInner').innerHTML = '<h3 class="pixel">어떤 그림을 걸까요</h3>'
-    + '<p class="msg" style="margin:0 0 8px;">그림 일기에 그린 그림이 액자에 들어가요.</p>'
+    + '<p class="msg" style="margin:0 0 8px;">그림 일기에 붙인 그림과 도트 그리기에 저장한 그림이 다 나와요.</p>'
     + '<div class="picrows" id="picRows">불러오는 중...</div>'
     + '<div class="modal-actions"><button type="button" class="dot-btn small" id="picClose">닫기</button></div>';
   $('#modal').hidden = false;
@@ -986,15 +1001,15 @@ function openPicPick(then){
   loadMyPics().then(list => {
     const box = $('#picRows'); if (!box) return;
     box.innerHTML = '';
-    if (!list.length){ box.textContent = '아직 그린 그림이 없어요. 그림 일기에서 먼저 그려요.'; return; }
+    if (!list.length){ box.textContent = '아직 그린 그림이 없어요. 도트 그리기나 그림 일기에서 먼저 그려요.'; return; }
     list.forEach(q => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'picpick';
-      b.appendChild(padThumb(q.doodle, 4));
+      b.appendChild(padThumb(q.pic));
       const cap = document.createElement('span');
-      cap.textContent = (q.happened_on || String(q.created_at || '').slice(0, 10)) + (q.title ? ' ' + q.title : '');
+      cap.textContent = q.when + ' ' + q.what;
       b.appendChild(cap);
-      b.addEventListener('click', () => { closeModal(); then(q.doodle); });
+      b.addEventListener('click', () => { closeModal(); then(q.pic); });
       box.appendChild(b);
     });
   }).catch(e => {

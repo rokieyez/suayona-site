@@ -62,10 +62,18 @@ const vendor = {
   require: 'readonly',
 };
 
-// 농장은 두 파일이 한 벌이다 — pages/farm.js 가 손님도 받는 그림 몫,
-// pages/farm-play.js 가 로그인한 사람만 받는 놀이 몫. 둘은 같은 전역 렉시컬 환경을
-// 나눠 쓰므로 서로의 최상위 이름을 전역으로 넣어 준다.
-const farmPair = Object.assign({}, topLevelNames('pages/farm.js'), topLevelNames('pages/farm-play.js'));
+// 늦게 받아 오는 짝 파일들. 한 쪽이 늘 먼저 돌고 다른 쪽이 뒤에 붙는데, 둘은 같은
+// 전역 렉시컬 환경을 나눠 쓴다(고전 스크립트다). 그래서 서로의 최상위 이름을 전역으로
+// 넣어 줘야 no-undef 가 헛울지 않는다.
+//   · farm.js(손님도 받는 그림) ↔ farm-play.js(로그인해야 받는 놀이)
+//   · index.js(첫 화면) ↔ run.js(화면 아래 달리기 게임)
+const pairs = [
+  { files: ['pages/farm.js', 'pages/farm-play.js'] },
+  { files: ['pages/index.js', 'pages/run.js'] },
+].map(p => ({
+  files: p.files,
+  languageOptions: { globals: Object.assign({}, ...p.files.map(topLevelNames)) },
+}));
 
 module.exports = [
   { ignores: ['node_modules/**', '_*.js', 'tools/**'] },
@@ -100,11 +108,8 @@ module.exports = [
     },
   },
 
-  // 농장 두 짝은 서로의 이름을 쓴다
-  {
-    files: ['pages/farm.js', 'pages/farm-play.js'],
-    languageOptions: { globals: farmPair },
-  },
+  // 늦게 받는 짝들은 서로의 이름을 쓴다
+  ...pairs,
 
   // 서비스 워커 — 전역이 다르다
   {
