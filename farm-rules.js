@@ -1767,6 +1767,31 @@ const FARM = (() => {
     bump(mine, 'gifted', 1, now); logAdd(world, mine.key, NAME[mine.key] + '가 ' + NAME[to] + '에게 ' + itemName(id) + ' ' + n + '개를 보냈어요', now);
     return okay(NAME[to] + '의 우편함에 넣었어요');
   }
+  /* 쪽지 — 물건 없이 한 마디만 보낸다. 우편함이 열두 통까지라, 쪽지로 다 채우면
+     선물이 밀려난다. 그래서 하루 다섯 통까지만. */
+  const NOTE_MAX = 60, NOTE_A_DAY = 5;
+  function sendNote(world, mine, note, now){
+    const txt = String(note == null ? '' : note).trim().slice(0, NOTE_MAX);
+    if (!txt) return fail('쓸 말을 적어요');
+    const to = OTHER[mine.key];
+    const box = world.mail[to] || (world.mail[to] = []);
+    const today = dayKey(now);
+    const sent = box.filter(g => g.id === 'note' && g.from === mine.key && dayKey(g.t) === today).length;
+    if (sent >= NOTE_A_DAY) return fail('오늘 쪽지는 ' + NOTE_A_DAY + '통까지 보냈어요. 내일 또 보내요');
+    box.push({ id: 'note', n: 1, from: mine.key, note: txt, t: now });
+    if (box.length > 12) box.splice(0, box.length - 12);
+    logAdd(world, mine.key, NAME[mine.key] + '가 ' + NAME[to] + '에게 쪽지를 보냈어요', now);
+    return okay(NAME[to] + '의 우편함에 쪽지를 넣었어요');
+  }
+  /* 사서 바로 보내기 — 「반씩 나눠 가진 씨앗」은 제 가게에서 사서 건네야 상대가 심는다.
+     사고 가방에서 다시 찾아 보내는 두 걸음을 한 걸음으로 줄인다. */
+  function buyGift(world, mine, id, note, now){
+    const r = buy(world, mine, id, now);
+    if (!r.ok) return r;
+    const g = sendGift(world, mine, id, 1, note, now);
+    if (!g.ok){ give(mine, id, 1); return g; }        // 못 보내면 되돌린다 — buy 가 이미 줬으니
+    return okay(itemName(id) + ' 하나를 사서 ' + NAME[OTHER[mine.key]] + '의 우편함에 넣었어요');
+  }
   function fillOrder(world, mine, o, n, now){
     const p = world.orders[o.id] || (world.orders[o.id] = { got: 0, by: {}, done: false });
     if (p.done) return fail('이미 채운 주문이에요');
@@ -1815,9 +1840,12 @@ const FARM = (() => {
     if (!box.length) return fail('우편함이 비었어요');
     const got = box.splice(0, box.length);
     let coins = 0;
-    got.forEach(g => { if (g.id === 'coins') coins += g.n; else give(mine, g.id, g.n); });
+    got.forEach(g => { if (g.id === 'coins') coins += g.n; else if (g.id !== 'note') give(mine, g.id, g.n); });
     mine.coins += coins;
-    return okay(got.map(g => (g.id === 'coins' ? g.n + ' 동전' : itemName(g.id) + ' ' + g.n + '개')).join(', ') + '를 받았어요', { got });
+    const things = got.filter(g => g.id !== 'note');
+    const notes = got.length - things.length;
+    const said = things.map(g => (g.id === 'coins' ? g.n + ' 동전' : itemName(g.id) + ' ' + g.n + '개')).join(', ');
+    return okay((things.length ? said + '를 받았어요' : '') + (notes ? (things.length ? ' · ' : '') + '쪽지 ' + notes + '통을 읽었어요' : ''), { got });
   }
   // 부모가 보낸 선물(조정판 줄) — 같은 번호는 한 번만 받는다.
   function claimParentGift(mine, tune){
@@ -1912,7 +1940,7 @@ const FARM = (() => {
     ROOM_GROW, roomStep, roomBox, okPic,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,
     newWorld, newMine, fixWorld, fixMine, fixTune, logAdd, give, take, bump, markPlayed,
-    till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, moveFurn, pickUp, cook, sendGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, seedsFromExpo, newDay,
+    till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, moveFurn, pickUp, cook, sendGift, sendNote, buyGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, seedsFromExpo, newDay,
   };
 })();
 if (typeof module !== 'undefined') module.exports = FARM;

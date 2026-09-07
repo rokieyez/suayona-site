@@ -2981,14 +2981,32 @@ function closeModal(){ $('#modal').hidden = true; }
 function openMail(){
   const box = W.mail[key] || [];
   const inner = $('#modalInner');
+  const who = g => g.from === 'festival' ? '축제' : g.from === 'board' ? '게시판' : NAME[g.from] || '';
   inner.innerHTML = '<h3 class="pixel">우편함</h3>' + (box.length ? box.map(g =>
-    '<div class="mailrow"><b>' + (g.id === 'coins' ? '🪙 ' + g.n + ' 동전' : escapeHTML(R.itemName(g.id)) + ' ' + g.n + '개') + '</b>' +
-    '<span class="from">' + (g.from === 'festival' ? '축제' : g.from === 'board' ? '게시판' : NAME[g.from] || '') + (g.note ? ' · "' + escapeHTML(g.note) + '"' : '') + '</span></div>').join('') :
-    '<p class="msg">비었어요. ' + NAME[R.OTHER[key]] + '가 선물을 보내면 여기로 와요.</p>') +
-    '<div class="modal-actions">' + (box.length ? '<button type="button" class="dot-btn small primary" id="mailTake">다 받기</button>' : '') + '<button type="button" class="dot-btn small" id="mailClose">닫기</button></div>';
+    '<div class="mailrow"><b>' + (g.id === 'note' ? '💌 쪽지' : g.id === 'coins' ? '🪙 ' + g.n + ' 동전' : escapeHTML(R.itemName(g.id)) + ' ' + g.n + '개') + '</b>' +
+    '<span class="from">' + who(g) + (g.note ? ' · "' + escapeHTML(g.note) + '"' : '') + '</span></div>').join('') :
+    '<p class="msg">비었어요. ' + NAME[R.OTHER[key]] + '가 선물이나 쪽지를 보내면 여기로 와요.</p>') +
+    '<div class="modal-actions"><button type="button" class="dot-btn small" id="mailNote">✏️ 쪽지 쓰기</button>'
+    + (box.length ? '<button type="button" class="dot-btn small primary" id="mailTake">다 받기</button>' : '')
+    + '<button type="button" class="dot-btn small" id="mailClose">닫기</button></div>';
   $('#modal').hidden = false;
   $('#mailClose').addEventListener('click', closeModal);
+  $('#mailNote').addEventListener('click', noteDialog);
   const t = $('#mailTake'); if (t) t.addEventListener('click', () => { const r = act((w, m) => R.openMail(w, m)); if (r.ok) sfx('fanfare'); closeModal(); });
+}
+/* 쪽지 — 물건 없이 한 마디만. 선물 창과 같은 모양이라 아이가 헷갈리지 않는다. */
+function noteDialog(){
+  $('#modalInner').innerHTML = '<h3 class="pixel">' + NAME[R.OTHER[key]] + '에게 쪽지</h3>'
+    + '<p class="msg" style="margin:0;">한 마디만 적어 보내요. 하루에 다섯 통까지요.</p>'
+    + '<input type="text" id="nText" maxlength="60" placeholder="예: 오늘 딸기 심었어!">'
+    + '<div class="modal-actions"><button type="button" class="dot-btn small" id="nCancel">취소</button>'
+    + '<button type="button" class="dot-btn small primary" id="nGo">보내기</button></div>';
+  $('#modal').hidden = false;
+  const go = () => { const r = act((w, m) => R.sendNote(w, m, $('#nText').value, now())); if (r.ok) sfx('sparkle'); closeModal(); };
+  $('#nCancel').addEventListener('click', closeModal);
+  $('#nGo').addEventListener('click', go);
+  $('#nText').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  $('#nText').focus();
 }
 
 /* 행상인 창. 세 자리는 날짜로 정해지므로 둘이 같은 물건을 본다.
@@ -3183,7 +3201,17 @@ function renderShop(){
         (!inSeason ? '<br>' + (gh ? '온실에서만 자라요 · ' : R.SEASON_NAME[cal.season] + '에는 못 사요 · ') + C.season.map(s => R.SEASON_NAME[s]).join('·') + '에 심어요' : '') +
         (!lvOk ? '<br>레벨 ' + C.lv + '부터' : '') + (!mineHalf ? '<br>' + NAME[C.half] + '의 가게' : '');
       card.appendChild(pr);
-      const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('seed:' + c, C.seed, mineHalf && lvOk && seasonOk && M.coins >= C.seed)); card.appendChild(a); box.appendChild(card);
+      const a = document.createElement('div'); a.className = 'act';
+      const canBuy = mineHalf && lvOk && seasonOk && M.coins >= C.seed;
+      a.appendChild(buyBtn('seed:' + c, C.seed, canBuy));
+      /* 「반씩 나눠 가진 씨앗」은 제 가게에서 사서 건네야 상대가 심는다 —
+         사고 가방에서 다시 찾아 보내는 두 걸음을 한 걸음으로 줄인다. */
+      if (C.half === key) a.appendChild(btn('🎁 사서 보내기', 'buy', () => {
+        const r = act((w, m) => R.buyGift(w, m, 'seed:' + c, '', now()));
+        if (r.ok) sfx('sparkle');
+        renderShop();
+      }, !canBuy));
+      card.appendChild(a); box.appendChild(card);
     });
   } else if (shopTab === 'tool'){
     $('#shopSub').textContent = '도구가 좋아지면 한 번에 여러 칸. 밭은 넓힐수록 칸이 늘어요. 나무와 돌도 여기서 살 수 있어요.';
