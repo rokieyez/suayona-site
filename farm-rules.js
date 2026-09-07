@@ -144,8 +144,13 @@ const FARM = (() => {
   ];
   const GH = { w: 4, h: 3 };     // 온실 안 12칸
   /* 스프링클러. 밭 한 칸을 차지하고, 아침마다 둘레 네 칸에 물을 준다.
-     그 칸에는 심을 수 없다 — 한 칸을 내주고 네 칸의 손을 던다. */
-  const SPRINKLER = { name: '스프링클러', cost: 1500, lv: 5, reach: 4 };
+     그 칸에는 심을 수 없다 — 한 칸을 내주고 네 칸의 손을 던다.
+     좋은 것은 모서리까지 여덟 칸(스타듀밸리의 품질 스프링클러 자리). 값은 밭을 한 번 더
+     넓히는 값(2500)보다 조금 비싸게 뒀다 — 「넓힐까, 손을 덜까」가 고민이 되라고. */
+  const SPRINKLER  = { name: '스프링클러',      cost: 1500, lv: 5, reach: 4, item: 'sprinkler' };
+  const SPRINKLER2 = { name: '좋은 스프링클러', cost: 3500, lv: 6, reach: 8, item: 'sprinkler2' };
+  const SPRINKLERS = { sprinkler: SPRINKLER, sprinkler2: SPRINKLER2 };
+  const sprinklerOf = s => (s && s.k === 'good') ? SPRINKLER2 : SPRINKLER;
   function plotIds(world, area){
     const out = [];
     if (area === 'gh'){
@@ -161,6 +166,16 @@ const FARM = (() => {
     return plotIds(world, 'field').indexOf(id) >= 0;
   }
   function parseId(id){ const s = id[0] === 'g' ? id.slice(1) : id; const [x, y] = s.split(',').map(Number); return { x, y, gh: id[0] === 'g' }; }
+  // 모서리까지 여덟 칸 — 좋은 스프링클러가 적시는 자리
+  function ringOf(id){
+    const p = parseId(id), pre = p.gh ? 'g' : '';
+    const out = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){
+      if (!dx && !dy) continue;
+      out.push(pre + (p.x + dx) + ',' + (p.y + dy));
+    }
+    return out;
+  }
   function neighborsOf(id){
     const p = parseId(id), pre = p.gh ? 'g' : '';
     return [[1, 0], [-1, 0], [0, 1], [0, -1]].map(d => pre + (p.x + d[0]) + ',' + (p.y + d[1]));
@@ -245,6 +260,7 @@ const FARM = (() => {
     fert:    { name: '비료',     sell: 0 },
     snowball:{ name: '눈덩이',   sell: 0 },
     sprinkler:{ name: '스프링클러', sell: 0 },     // 팔지는 않는다 — 밭에 놓는 물건
+    sprinkler2:{ name: '좋은 스프링클러', sell: 0 },
     firefly: { name: '반딧불이', sell: 45 },      // 여름·가을 밤에만 날아다닌다
     box:     { name: '수수께끼 보따리', sell: 0 },  // 행상인에게서만. 사면 그 자리에서 풀린다
   };
@@ -1285,28 +1301,33 @@ const FARM = (() => {
     return okay('물을 줬어요');
   }
   // 스프링클러를 밭 한 칸에 놓는다. 온실은 늘 촉촉하니 받지 않는다.
-  function putSprinkler(world, mine, id){
+  function putSprinkler(world, mine, id, item){
+    const S = SPRINKLERS[item] || SPRINKLER;
     if (id[0] === 'g') return fail('온실은 물을 안 줘도 돼요');
     if (!plotOpen(world, id)) return fail('밭이 아니에요');
     world.sprinklers = world.sprinklers || {};
     if (world.sprinklers[id]) return fail('여기 이미 있어요');
     const p = world.plots[id];
     if (p && p.crop) return fail('심어 둔 칸에는 못 놓아요');
-    if (!take(mine, 'sprinkler')) return fail('스프링클러가 없어요');
-    world.sprinklers[id] = { by: mine.key };
-    return okay(eul(SPRINKLER.name) + ' 놓았어요. 아침마다 둘레 네 칸을 적셔요');
+    if (!take(mine, S.item)) return fail(S.name + '가 없어요');
+    const put = { by: mine.key };
+    if (S.item === 'sprinkler2') put.k = 'good';        // 없으면 보통 것 — 옛 세이브가 그대로 산다
+    world.sprinklers[id] = put;
+    return okay(eul(S.name) + ' 놓았어요. 아침마다 둘레 ' + S.reach + '칸을 적셔요');
   }
   function pullSprinkler(world, mine, id){
     if (!world.sprinklers || !world.sprinklers[id]) return fail('여기 스프링클러가 없어요');
+    const S = sprinklerOf(world.sprinklers[id]);
     delete world.sprinklers[id];
-    give(mine, 'sprinkler', 1);
-    return okay('스프링클러를 걷었어요');
+    give(mine, S.item, 1);
+    return okay(eul(S.name) + ' 걷었어요');
   }
   // 스프링클러가 적시는 칸 — 자기 칸은 빼고 둘레 넷. 밭 밖은 셈에서 뺀다.
   function sprinkled(world){
     const out = {};
     Object.keys(world.sprinklers || {}).forEach(id => {
-      neighborsOf(id).forEach(n => { if (plotOpen(world, n) && !(world.sprinklers || {})[n]) out[n] = true; });
+      const around = sprinklerOf(world.sprinklers[id]).reach >= 8 ? ringOf(id) : neighborsOf(id);
+      around.forEach(n => { if (plotOpen(world, n) && !(world.sprinklers || {})[n]) out[n] = true; });
     });
     return Object.keys(out);
   }
@@ -1472,11 +1493,12 @@ const FARM = (() => {
       give(mine, it.id, it.n);
       return okay(eul(itemName(it.id)) + (it.n > 1 ? ' ' + it.n + '개를' : '') + ' 샀어요');
     }
-    if (k === 'sprinkler'){
-      if (levelOf(mine.xp) < SPRINKLER.lv) return fail('농장 레벨 ' + SPRINKLER.lv + '부터 살 수 있어요');
-      if (mine.coins < SPRINKLER.cost) return fail('동전이 모자라요');
-      mine.coins -= SPRINKLER.cost; give(mine, 'sprinkler', 1);
-      return okay(eul(SPRINKLER.name) + ' 샀어요. 밭의 빈 칸에 놓아요');
+    if (k === 'sprinkler' || k === 'sprinkler2'){
+      const S = SPRINKLERS[k];
+      if (levelOf(mine.xp) < S.lv) return fail('농장 레벨 ' + S.lv + '부터 살 수 있어요');
+      if (mine.coins < S.cost) return fail('동전이 모자라요');
+      mine.coins -= S.cost; give(mine, S.item, 1);
+      return okay(eul(S.name) + ' 샀어요. 밭의 빈 칸에 놓아요');
     }
     if (k === 'fert'){ if (mine.coins < 30) return fail('동전이 모자라요'); mine.coins -= 30; give(mine, 'fert', 1); return okay('비료를 샀어요'); }
     /* 나무와 돌 — 베고 캐는 것이 하루에 몇 번뿐이라, 집을 지을 때 한 가지가 모자라
@@ -1790,7 +1812,7 @@ const FARM = (() => {
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
-    GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, FIREFLY_MAX, PEDDLER, PED_WANT_MULT, PED_WANT_MAX, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
+    GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, SPRINKLER2, SPRINKLERS, sprinklerOf, ringOf, FIREFLY_MAX, PEDDLER, PED_WANT_MULT, PED_WANT_MAX, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand, forecast, yesterdayNote,
     countOf, seedsFor, plotIds, plotOpen, parseId, putSprinkler, pullSprinkler, sprinkled, sprinklerDay,

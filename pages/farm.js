@@ -17,6 +17,7 @@ let pending = [];                              // 아직 안 올라간 행동들
 let tool = 'hand', seed = null, tab = 'bag', shopTab = 'seed', room = 'living', furnPick = null;
 let furnRot = 0, rotMode = false;      // 가구를 놓을 각도 · 놓인 것을 돌리는 중인가
 // 끌어 옮기는 중인 가구. 누른 채 끌면 여기 담기고, 손을 떼면 그 칸으로 옮긴다.
+let sprk = 'sprinkler';                // 놓을 스프링클러 — 보통 것과 좋은 것
 let grab = null, grabClick = false;
 // 재배치 중일 때만 가구를 들거나 놓을 수 있다. 구경하다 잘못 눌러 가구가 가방으로 들어가곤 했다.
 let arrange = false;
@@ -300,8 +301,9 @@ const TOOLS = [
   { id: 'seed', icon: '🌱', name: '씨앗',      sub: () => seed ? R.CROPS[seed].name : '골라요' },
   { id: 'fert', icon: '🧪', name: '비료',      sub: () => (M.inv.fert || 0) + '개' },
   { id: 'pull', icon: '🪴', name: '뽑기',      sub: '시든 것 · 그만 키우기' },
-  { id: 'sprk', icon: '⛲', name: '스프링클러', sub: () => (M.inv.sprinkler || 0) + '개',
-    when: () => (M.inv.sprinkler || 0) > 0 || Object.keys(W.sprinklers || {}).length > 0 },
+  { id: 'sprk', icon: '⛲', name: '스프링클러',
+    sub: () => ((M.inv.sprinkler || 0) + (M.inv.sprinkler2 || 0)) + '개',
+    when: () => (M.inv.sprinkler || 0) > 0 || (M.inv.sprinkler2 || 0) > 0 || Object.keys(W.sprinklers || {}).length > 0 },
 ];
 function renderTools(){
   const box = $('#tools'); box.innerHTML = '';
@@ -313,7 +315,23 @@ function renderTools(){
     b.addEventListener('click', () => { tool = t.id; sfx('prop'); renderTools(); });
     box.appendChild(b);
   });
-  const sr = $('#seedRow'); sr.hidden = tool !== 'seed';
+  const sr = $('#seedRow'); sr.hidden = tool !== 'seed' && tool !== 'sprk';
+  if (tool === 'sprk'){
+    // 두 가지를 다 가졌을 때만 고르는 줄이 뜬다 — 하나뿐이면 고를 것이 없다
+    const kinds = ['sprinkler', 'sprinkler2'].filter(k => (M.inv[k] || 0) > 0);
+    if (!R.SPRINKLERS || kinds.length < 2){ sr.hidden = true; if (kinds.length === 1) sprk = kinds[0]; }
+    else {
+      if (kinds.indexOf(sprk) < 0) sprk = kinds[0];
+      sr.innerHTML = '';
+      kinds.forEach(k => {
+        const b = document.createElement('button'); b.type = 'button';
+        b.className = sprk === k ? 'on' : '';
+        b.textContent = R.SPRINKLERS[k].name + ' ' + M.inv[k] + ' (둘레 ' + R.SPRINKLERS[k].reach + '칸)';
+        b.addEventListener('click', () => { sprk = k; renderTools(); });
+        sr.appendChild(b);
+      });
+    }
+  }
   if (tool === 'seed'){
     sr.innerHTML = '';
     const have = Object.keys(M.inv).filter(k => k.startsWith('seed:') && M.inv[k] > 0);
@@ -339,7 +357,10 @@ function hintFor(){
   if (tool === 'seed') return seed ? R.CROPS[seed].name + ' — ' + R.CROPS[seed].hours + '시간이면 자라요. ' + (R.CROPS[seed].season.indexOf(cal.season) >= 0 || R.CROPS[seed].hardy ? '지금 심을 수 있어요.' : '지금은 ' + R.SEASON_NAME[cal.season] + '이라 밭에서는 안 자라요(온실은 돼요).') : '';
   if (tool === 'fert') return '비료는 일기를 쓰면 하나씩 생겨요. 1.5배 빨리 자라요. 끌면 줄줄이 줘요.';
   if (tool === 'pull') return '시든 작물이나 그만 키울 작물을 뽑아요. 큰 작물은 짝도 같이 뽑혀요.';
-  if (tool === 'sprk') return '밭의 빈 칸을 눌러 놓아요. 아침마다 둘레 네 칸에 물을 줘요. 놓은 칸을 다시 누르면 걷어요.';
+  if (tool === 'sprk'){
+    const S = (R.SPRINKLERS && R.SPRINKLERS[sprk]) || R.SPRINKLER;
+    return '밭의 빈 칸을 눌러 놓아요. 아침마다 둘레 ' + S.reach + '칸에 물을 줘요. 놓은 칸을 다시 누르면 걷어요.';
+  }
   return '다 자란 작물·나무·바위·동물·집·우편함·게시판·가게를 눌러요. 밭 위를 끌면 익은 것만 줄줄이 거둬요.';
 }
 
@@ -1918,9 +1939,14 @@ function drawBeast(a, t){
 /* 스프링클러. 쇠기둥에 놋쇠 머리를 얹고 네 갈래 물줄기가 돌아간다.
    흙과 색이 겹치지 않게 기둥은 회색 쇠로, 머리는 진한 놋쇠로 두고 둘레에 짙은 선을 두른다.
    물방울은 각도로 자리를 잡으므로 칸 크기가 달라져도 같은 모양이 나온다. */
-function drawSprinkler(X, Y, t){
+// good 이면 좋은 스프링클러 — 놋쇠가 아니라 은빛이고, 물줄기가 여덟 갈래로 더 멀리 간다.
+// 밭에서 둘을 한눈에 가려야 해서 색과 갈래 수를 둘 다 바꿨다(색만으로는 작아서 안 보인다).
+function drawSprinkler(X, Y, t, good){
   const cx = X + T / 2, base = Y + T - 6;
   const INK = '#2b2620';
+  const BRASS = good
+    ? { a: '#c9d6e0', b: '#e8f2f8', c: '#b0c2d0', d: '#dfeaf2' }
+    : { a: '#c79a4e', b: '#e8c274', c: '#b9924a', d: '#e6c274' };
   // 젖은 흙 자국과 그림자
   px(cx - 11, base - 1, 22, 4, '#00000018');
   px(cx - 8, base - 1, 16, 3, '#5d4a35');
@@ -1934,22 +1960,23 @@ function drawSprinkler(X, Y, t){
   px(cx + 1, base - 18, 2, 14, '#7b756d');
   // 놋쇠 머리 — 아래가 넓은 종 모양
   px(cx - 9, base - 22, 18, 5, INK);
-  px(cx - 8, base - 21, 16, 3, '#c79a4e');
-  px(cx - 8, base - 21, 16, 1, '#e8c274');
+  px(cx - 8, base - 21, 16, 3, BRASS.a);
+  px(cx - 8, base - 21, 16, 1, BRASS.b);
   px(cx - 6, base - 26, 12, 5, INK);
-  px(cx - 5, base - 25, 10, 4, '#b9924a');
-  px(cx - 5, base - 25, 10, 1, '#e6c274');
+  px(cx - 5, base - 25, 10, 4, BRASS.c);
+  px(cx - 5, base - 25, 10, 1, BRASS.d);
   px(cx - 2, base - 29, 4, 4, INK);
-  px(cx - 1, base - 28, 2, 3, '#d9b463');
-  // 네 갈래 물줄기 — 한 바퀴 도는 데 2.4초
+  px(cx - 1, base - 28, 2, 3, good ? '#cfe0ec' : '#d9b463');
+  // 물줄기 — 한 바퀴 도는 데 2.4초. 좋은 것은 여덟 갈래로 더 멀리 뿌린다.
   const spin = (t % 2400) / 2400 * Math.PI * 2;
-  for (let i = 0; i < 4; i++){
-    const a = spin + i * Math.PI / 2;
+  const arms = good ? 8 : 4;
+  for (let i = 0; i < arms; i++){
+    const a = spin + i * Math.PI * 2 / arms;
     // 앞뒤로 곧장 뻗은 줄기는 기둥에 그대로 겹쳐 지저분해진다 — 옆으로 벌어진 것만 그린다
     if (Math.abs(Math.cos(a)) < 0.36) continue;
     // 머리에서 나와 땅으로 떨어지는 길 — 멀어질수록 낮아지고, 앞뒤로도 조금 벌어진다
-    for (let d = 1; d <= 4; d++){
-      const r = 4 + d * 4;
+    for (let d = 1; d <= (good ? 5 : 4); d++){
+      const r = 4 + d * (good ? 5 : 4);
       const hgt = Math.max(0, 20 - d * 5) + Math.round(Math.sin(Math.PI * d / 5) * 3);
       const dx = Math.round(Math.cos(a) * r * 1.15), dy = Math.round(Math.sin(a) * r * 0.32);
       const c = d === 1 ? '#eaf6ff' : d >= 4 ? '#6fb3e0' : '#a8d7f5';
@@ -2425,7 +2452,10 @@ function drawFarm(cvIn, tms){
   ctx = g;
   const cast = [];
   Object.keys(R.NODES).forEach(n => { const N = R.NODES[n]; cast.push({ y: N.y * T + 30, go: () => drawNode(n, season, t) }); });
-  Object.keys(W.sprinklers || {}).forEach(id => { const q = R.parseId(id); cast.push({ y: q.y * T + 30, go: () => drawSprinkler(q.x * T, q.y * T, t) }); });
+  Object.keys(W.sprinklers || {}).forEach(id => {
+    const q = R.parseId(id), good = (W.sprinklers[id] || {}).k === 'good';
+    cast.push({ y: q.y * T + 30, go: () => drawSprinkler(q.x * T, q.y * T, t, good) });
+  });
   if (R.peddlerHere(W, now())) cast.push({ y: R.PEDDLER.y * T + 30, go: () => drawPeddler(t) });
   if (walkers) walkers.forEach(w => cast.push({ y: w.y, go: () => drawWalker(w, t) }));
   if (beasts) beasts.list.forEach(a => cast.push({ y: a.y, go: () => drawBeast(a, t) }));
@@ -2636,7 +2666,7 @@ function onPlot(id){
   if (tool === 'pull'){ const p = W.plots[id]; if (p && p.crop && !p.wilted && !confirm(R.CROPS[p.crop].name + '을 정말 뽑을까요?')) return; act((w, m) => R.clear(w, m, id)); return; }
   if (tool === 'sprk'){
     const on = (W.sprinklers || {})[id];
-    const r = act((w, m) => on ? R.pullSprinkler(w, m, id) : R.putSprinkler(w, m, id));
+    const r = act((w, m) => on ? R.pullSprinkler(w, m, id) : R.putSprinkler(w, m, id, sprk));
     if (r.ok) sfx(on ? 'pop' : 'sprinkle');
     renderTools(); return;
   }
@@ -2655,7 +2685,10 @@ function onPlot(id){
       + (p.by !== key ? ' · ' + NAME[p.by] + '가 심었어요' : ''));
     return;
   }
-  if ((W.sprinklers || {})[id]){ flash('스프링클러예요. 아침마다 둘레 네 칸에 물을 줘요'); return; }
+  if ((W.sprinklers || {})[id]){
+    const S = R.sprinklerOf ? R.sprinklerOf(W.sprinklers[id]) : R.SPRINKLER;
+    flash(S.name + '예요. 아침마다 둘레 ' + S.reach + '칸에 물을 줘요'); return;
+  }
   flash(p && p.tilled ? '갈아 둔 땅이에요. 씨앗을 골라 심어요' : '괭이로 갈면 심을 수 있어요');
 }
 // 도구가 여러 칸을 다루면 하나라도 되면 성공으로 친다. 실패 이유는 마지막 것만.
@@ -2817,7 +2850,7 @@ function itemIcon(id){
     return cv;
   }
   const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; const g = cv.getContext('2d');
-  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', firefly: '#ffe66d' }[id] || (k === 'dish' ? '#ffb3a7' : k === 'f' ? R.FURNITURE[v].c : '#ddd');
+  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', sprinkler2: '#c9d6e0', firefly: '#ffe66d' }[id] || (k === 'dish' ? '#ffb3a7' : k === 'f' ? R.FURNITURE[v].c : '#ddd');
   g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, 32, 32); g.fillStyle = col; g.fillRect(8, 8, 16, 16); g.fillStyle = '#3a3226'; g.fillRect(8, 8, 16, 2); g.fillRect(8, 22, 16, 2); g.fillRect(8, 8, 2, 16); g.fillRect(22, 8, 2, 16);
   return cv;
 }
@@ -2926,6 +2959,15 @@ function renderShop(){
     const sp = document.createElement('div'); sp.className = 'item';
     sp.innerHTML = '<div class="nm">⛲ ' + R.SPRINKLER.name + '</div><div class="pr">밭 한 칸을 차지하고, 아침마다 둘레 네 칸에 물을 줘요 · 레벨 ' + R.SPRINKLER.lv + '부터 · 가진 것 ' + (M.inv.sprinkler || 0) + '개</div>';
     const spa = document.createElement('div'); spa.className = 'act'; spa.appendChild(buyBtn('sprinkler:1', R.SPRINKLER.cost, M.coins >= R.SPRINKLER.cost && lv >= R.SPRINKLER.lv)); sp.appendChild(spa); box.appendChild(sp);
+    // 좋은 스프링클러 — 옛 farm-rules.js 와 짝이 되면 아예 안 그린다
+    if (R.SPRINKLER2){
+      const S2 = R.SPRINKLER2;
+      const sp2 = document.createElement('div'); sp2.className = 'item';
+      sp2.innerHTML = '<div class="nm">⛲ ' + S2.name + '</div><div class="pr">모서리까지 <b>여덟 칸</b>을 적셔요. 한 칸으로 여덟 칸의 손을 던 셈이에요 · 레벨 ' + S2.lv + '부터 · 가진 것 ' + (M.inv.sprinkler2 || 0) + '개</div>';
+      const sp2a = document.createElement('div'); sp2a.className = 'act';
+      sp2a.appendChild(buyBtn('sprinkler2:1', S2.cost, M.coins >= S2.cost && lv >= S2.lv));
+      sp2.appendChild(sp2a); box.appendChild(sp2);
+    }
     const fc = document.createElement('div'); fc.className = 'item'; fc.innerHTML = '<div class="nm">🧪 비료</div><div class="pr">1.5배 빨리. 일기를 쓰면 공짜로 하나</div>';
     const fa = document.createElement('div'); fa.className = 'act'; fa.appendChild(buyBtn('fert:1', 30, M.coins >= 30)); fc.appendChild(fa); box.appendChild(fc);
     // 나무·돌 — 베고 캐는 것이 하루에 몇 번뿐이라, 짓다가 한 가지가 모자라면 며칠을 기다려야 했다
