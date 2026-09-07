@@ -145,6 +145,33 @@
   .place-results .none{cursor:default; color:var(--ink-soft);}
   .place-map{height:250px; margin-top:10px; background:#dfe6e2; border:1px solid rgba(0,0,0,.15);}
   .place-tip{font-size:11.5px; color:var(--ink-soft); margin:8px 0 0; line-height:1.7;}
+  /* ----- 갤러리에서 사진 고르기 ----- */
+  .gal-open{
+    margin-top:8px; width:100%; padding:9px 12px; border:1px solid rgba(0,0,0,.15);
+    background:#fff; color:var(--ink); font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .gal-open:hover{background:rgba(0,0,0,.04);}
+  .gal-box{margin-top:8px; border:1px solid rgba(0,0,0,.15); padding:10px; background:#fff;}
+  .gal-box[hidden]{display:none;}
+  .gal-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(72px, 1fr));
+    gap:6px; max-height:260px; overflow-y:auto;
+  }
+  .gal-grid button{
+    position:relative; padding:0; border:2px solid transparent; background:none;
+    cursor:pointer; aspect-ratio:1; overflow:hidden;
+  }
+  .gal-grid button img{width:100%; height:100%; object-fit:cover; display:block;}
+  .gal-grid button.on{border-color:var(--accent);}
+  .gal-grid button.on::after{
+    content:'✓'; position:absolute; right:2px; top:1px; color:#fff; font-size:13px;
+    font-weight:700; text-shadow:0 0 3px rgba(0,0,0,.8);
+  }
+  .gal-grid button.had{opacity:.4; cursor:default;}
+  .gal-grid button.had::after{content:'붙어 있음'; right:2px; top:2px; font-size:9.5px;}
+  .gal-grid .none{grid-column:1/-1; color:var(--ink-soft); font-size:12.5px; padding:6px 2px;}
+  .gal-tip{font-size:11.5px; color:var(--ink-soft); margin:8px 0 0; line-height:1.7;}
+
   /* ----- 가본 곳에도 올리기 ----- */
   .visit-opt{
     margin-top:8px; border:1px solid rgba(0,0,0,.15); background:#fbf9f4; padding:9px 11px;
@@ -342,6 +369,7 @@
         문장 속에 섞어 쓴 주소는 글자 그대로 남습니다.</div>
       <label>사진 첨부 (선택 · 여러 장 가능)</label>
       <input type="file" id="addImage" accept="image/*" multiple>
+      <div id="addGallery"></div>
       <div class="btn-row"><button class="btn" id="addBtn">추가하기</button></div>
       <div id="add-msg"></div>
     </div>

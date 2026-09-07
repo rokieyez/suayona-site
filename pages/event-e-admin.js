@@ -354,7 +354,7 @@ function makePlacePicker(host, init){
   };
 }
 
-let addPlacePicker = null;
+let addPlacePicker = null, addGallery = null;
 
 /* ---------- 가볼 곳에서 고르기 ----------
    이제까지는 이벤트 -> 가볼 곳 한 방향뿐이었다. 나들이를 짜면서 「적어 둔 곳」을
@@ -469,6 +469,7 @@ async function refreshAuthUI(){
     fillPanelSelect();
     fillMetaForm();
     if (!addPlacePicker) addPlacePicker = makePlacePicker($('#addPlaceField'));
+    if (!addGallery) addGallery = makeGalleryPick($('#addGallery'), []);
     const tf = $('#addTimeFrom'), tt = $('#addTimeTo');
     if (tf && !tf.options.length) {
       tf.innerHTML = timeOptionsHTML();
@@ -699,6 +700,76 @@ function splitPhotos(shots){
   };
 }
 
+/* ---------- 갤러리에서 사진 고르기 ----------
+   일정에 붙이는 사진은 여태 「새로 올리기」뿐이었다. 그런데 같은 사진이 이 행사
+   갤러리에 이미 올라와 있는 일이 잦다 — 그때는 주소만 가져다 쓰면 된다.
+   갤러리 파일은 gallery-uploads 버킷이고 일정 사진은 event-images 라, 일정을 지워도
+   removeStored 가 버킷이 다른 주소는 걸러 낸다. 갤러리는 안 깨진다. */
+let GALLERY_PICS = null;
+async function loadGalleryPics(){
+  if (GALLERY_PICS) return GALLERY_PICS;
+  const { data, error } = await sb.from('gallery_media')
+    .select('id, media_url, thumb_url, media_type, taken_at, location_name')
+    .eq('event_id', CONFIG.eventSlug)
+    .order('id', { ascending: false });
+  if (error) { console.error('갤러리 목록 오류:', error); return (GALLERY_PICS = []); }
+  return (GALLERY_PICS = (data || []).filter(m => m.media_type !== 'video'));
+}
+
+/* host 안에 「갤러리에서 고르기」를 만든다. picked() 로 고른 사진을 받는다.
+   already 에 든 주소는 이미 붙어 있는 것이라 잠근다 — 고르면 같은 사진이 두 장이 된다. */
+function makeGalleryPick(host, already){
+  host.innerHTML =
+    '<button type="button" class="gal-open">\uD83D\uDDBC 갤러리에서 고르기</button>' +
+    '<div class="gal-box" hidden><div class="gal-grid"></div><p class="gal-tip"></p></div>';
+  const boxEl = host.querySelector('.gal-box'), gridEl = host.querySelector('.gal-grid');
+  const tipEl = host.querySelector('.gal-tip'), openEl = host.querySelector('.gal-open');
+  const has = new Set(already || []);
+  const chosen = [];
+  function drawTip(){
+    tipEl.textContent = chosen.length
+      ? '고른 사진 ' + chosen.length + '장 — 저장하면 이 일정에 붙어요.' +
+        (hasExtraImages ? '' : ' (지금은 한 장만 저장돼요)')
+      : '누르면 골라져요. 갤러리 파일은 그대로 두고 주소만 가져다 씁니다.';
+    openEl.textContent = chosen.length
+      ? '\uD83D\uDDBC 갤러리에서 고르기 (' + chosen.length + '장)'
+      : '\uD83D\uDDBC 갤러리에서 고르기';
+  }
+  openEl.addEventListener('click', async () => {
+    if (!boxEl.hidden) { boxEl.hidden = true; return; }
+    boxEl.hidden = false;
+    if (gridEl.dataset.ready) return;
+    gridEl.innerHTML = '<div class="none">불러오는 중…</div>';
+    const list = await loadGalleryPics();
+    gridEl.dataset.ready = '1';
+    if (!list.length) { gridEl.innerHTML = '<div class="none">이 행사 갤러리에 사진이 아직 없어요.</div>'; return; }
+    gridEl.innerHTML = '';
+    list.forEach(m => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const had = has.has(m.media_url);
+      if (had) b.className = 'had';
+      b.title = m.location_name || '';
+      const img = document.createElement('img');
+      img.loading = 'lazy'; img.decoding = 'async'; img.alt = '갤러리 사진';
+      img.src = m.thumb_url || m.media_url;
+      b.appendChild(img);
+      if (!had) b.addEventListener('click', () => {
+        const at = chosen.findIndex(c => c.url === m.media_url);
+        if (at >= 0) chosen.splice(at, 1);
+        else chosen.push({ url: m.media_url, thumb: m.thumb_url || null,
+                           taken_at: m.taken_at || null, location_name: m.location_name || null });
+        b.classList.toggle('on', at < 0);
+        drawTip();
+      });
+      gridEl.appendChild(b);
+    });
+    drawTip();
+  });
+  drawTip();
+  return { picked: () => chosen.slice() };
+}
+
 // ----- 목록 불러오기 -----
 async function loadList(){
   const listEl = $('#list');
@@ -846,6 +917,7 @@ function renderEditForm(r){
           '<input type="checkbox" class="eDrop" style="width:auto;">이 사진 삭제</label>' +
       '</div>').join('') +
     '<input type="file" class="eImage" accept="image/*" multiple>' +
+    '<div class="eGallery"></div>' +
     '<div class="btn-row"><button class="btn saveBtn">저장</button><button class="btn ghost cancelBtn">취소</button></div>' +
     '<div class="add-msg"></div>';
 
@@ -862,6 +934,7 @@ function renderEditForm(r){
   const editPlacePicker = makePlacePicker(form.querySelector('.ePlaceField'), {
     name: r.place_name || '', lat: r.place_lat, lng: r.place_lng,
   });
+  const editGallery = makeGalleryPick(form.querySelector('.eGallery'), existing.map(sh => sh.url));
 
   form.querySelector('.cancelBtn').addEventListener('click', loadList);
 
@@ -880,6 +953,8 @@ function renderEditForm(r){
     // 체크된 사진을 빼고, 새로 고른 사진을 뒤에 붙임
     const dropped = Array.from(form.querySelectorAll('.ePhoto')).map(el => el.querySelector('.eDrop').checked);
     let shots = existing.filter((_, i) => !dropped[i]);
+    // 갤러리에서 고른 것은 올릴 게 없다 — 주소만 붙인다. 이미 있는 주소는 건너뛴다.
+    editGallery.picked().forEach(g => { if (!shots.some(sh => sh.url === g.url)) shots.push(g); });
     try {
       if (files.length) {
         const room = hasExtraImages ? files.length : Math.max(0, 1 - shots.length);
@@ -927,18 +1002,21 @@ $('#addBtn').addEventListener('click', async () => {
   addBtn.disabled = true; addBtn.textContent = '추가 중...';
 
   let photos = { image_url: null, taken_at: null, location_name: null, extra_images: [] };
+  // 갤러리에서 고른 것이 앞, 새로 올리는 것이 뒤. 갤러리 것은 올릴 게 없다 — 주소만 붙인다.
+  let shots = addGallery ? addGallery.picked() : [];
   if (files.length) {
     try {
-      const shots = await uploadManyWithMeta(
-        hasExtraImages ? files : files.slice(0, 1),      // 컬럼이 없으면 첫 장만 저장
-        (i, n, name) => { msg.className = ''; msg.textContent = '사진 올리는 중... (' + i + '/' + n + ') ' + name; });
-      photos = splitPhotos(shots);
+      shots = shots.concat(await uploadManyWithMeta(
+        hasExtraImages ? files : files.slice(0, Math.max(0, 1 - shots.length)),
+        (i, n, name) => { msg.className = ''; msg.textContent = '사진 올리는 중... (' + i + '/' + n + ') ' + name; }));
     } catch (err) {
       msg.className = 'err'; msg.textContent = '이미지 업로드 실패: ' + err.message;
       addBtn.disabled = false; addBtn.textContent = '추가하기';
       return;
     }
   }
+  if (!hasExtraImages) shots = shots.slice(0, 1);
+  if (shots.length) photos = splitPhotos(shots);
 
   const placeRes = await addPlacePicker.value(t => { msg.className = ''; msg.textContent = t; });
 
@@ -992,6 +1070,7 @@ $('#addBtn').addEventListener('click', async () => {
   $('#addTimeFrom').value = ''; $('#addTimeTo').value = ''; $('#addTitle').value = '';
   $('#addDetail').value = ''; $('#addImage').value = '';
   addPlacePicker = makePlacePicker($('#addPlaceField'));   // 장소 칸도 비운다
+  addGallery = makeGalleryPick($('#addGallery'), []);      // 고른 갤러리 사진도 비운다
   loadList();
 });
 
