@@ -60,6 +60,16 @@ const FARM = (() => {
   let sky = {};
   function setSky(map){ sky = (map && typeof map === 'object') ? map : {}; }
   function skyOf(key){ const w = sky[key]; return WEATHER[w] ? w : null; }
+  /* 해 뜨고 지는 시각도 같은 자리에서 받아 둔다(자양동 기준, 시각은 시간 단위 실수).
+     농장 하루의 빛은 지금까지 시각이 박혀 있었다 — 겨울에도 일곱 시에 밝아졌다.
+     진짜 시각을 알면 겨울엔 다섯 시에 저물고 여름엔 여덟 시까지 환하다. */
+  let sun = {};
+  function setSun(map){ sun = (map && typeof map === 'object') ? map : {}; }
+  function sunOf(key){
+    const s2 = sun[key];
+    if (!s2 || !(s2.rise > 0) || !(s2.set > s2.rise) || !(s2.set < 24)) return null;
+    return s2;
+  }
   function weatherOf(key, season){
     const real = skyOf(key);
     if (real) return real;
@@ -1881,7 +1891,7 @@ const FARM = (() => {
     GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, SPRINKLER2, SPRINKLERS, sprinklerOf, ringOf, FIREFLY_MAX, PEDDLER, PED_WANT_MULT, PED_WANT_MAX, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, fishLeft, fish, isNight,
     spotOf, thingHere, thingsOn, placeBlocked, moveThing, resetLayout,
     dayKey, dayStartMs, dayEndMs, daysBetween, calendar, nextSeason, weatherOf, isWet, prand, forecast, yesterdayNote,
-    SKY_AT, setSky, skyOf,
+    SKY_AT, setSky, skyOf, setSun, sunOf,
     countOf, seedsFor, plotIds, plotOpen, parseId, putSprinkler, pullSprinkler, sprinkled, sprinklerDay,
     fireflyNight, fireflyLeft, catchFirefly, fireSit,
     peddlerHere, peddlerStock, peddlerGot, peddlerWant, peddlerSoldLeft, sellToPeddler,

@@ -103,21 +103,27 @@ async function loadSky(){
   try {
     const kept = JSON.parse(localStorage.getItem(SKY_KEEP) || 'null');
     // 하루치는 아침에 정해지면 그대로 간다 — 낮에 다시 물어 날씨가 바뀌면 이미 준 물이 헛것이 된다
-    if (kept && kept.day === today && kept.map) return kept.map;
+    if (kept && kept.day === today && kept.map) return { map: kept.map, sun: kept.sun || {} };
   } catch (e) { /* 담아 둔 게 깨졌으면 그냥 다시 받는다 */ }
   const at = R.SKY_AT || { lat: 37.5340, lng: 127.0823 };
   const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + at.lat + '&longitude=' + at.lng +
-    '&daily=weather_code,wind_speed_10m_max&timezone=Asia%2FSeoul&past_days=3&forecast_days=4';
+    '&daily=weather_code,wind_speed_10m_max,sunrise,sunset&timezone=Asia%2FSeoul&past_days=3&forecast_days=4';
   const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 4000);
   try {
     const res = await fetch(url, { signal: ac.signal });
     const j = await res.json();
     const d = j && j.daily;
     if (!d || !d.time || !d.weather_code) return null;
-    const map = {};
-    d.time.forEach((day, i) => { map[day] = skyFromCode(d.weather_code[i], (d.wind_speed_10m_max && d.wind_speed_10m_max[i]) || 0); });
-    try { localStorage.setItem(SKY_KEEP, JSON.stringify({ day: today, map: map })); } catch (e) { /* 자리가 없어도 오늘 날씨는 이미 손에 있다 */ }
-    return map;
+    const map = {}, sun = {};
+    // "2026-09-07T06:12" 에서 시각만 실수로 뽑는다
+    const hourOf = t => { const m = /T(\d\d):(\d\d)/.exec(t || ''); return m ? Number(m[1]) + Number(m[2]) / 60 : 0; };
+    d.time.forEach((day, i) => {
+      map[day] = skyFromCode(d.weather_code[i], (d.wind_speed_10m_max && d.wind_speed_10m_max[i]) || 0);
+      if (d.sunrise && d.sunset) sun[day] = { rise: hourOf(d.sunrise[i]), set: hourOf(d.sunset[i]) };
+    });
+    const got = { map: map, sun: sun };
+    try { localStorage.setItem(SKY_KEEP, JSON.stringify({ day: today, map: map, sun: sun })); } catch (e) { /* 자리가 없어도 오늘 날씨는 이미 손에 있다 */ }
+    return got;
   } catch (e) { return null; }
   finally { clearTimeout(timer); }
 }
@@ -149,7 +155,8 @@ async function bootInner(){
   ]);
   if (!ok) throw new Error('load');
   // 하루를 열기 전에 넣어야 한다 — 비 온 날 밭이 젖는 것도 이 표를 보고 정해진다
-  if (skyMap && R.setSky) R.setSky(skyMap);
+  if (skyMap && R.setSky) R.setSky(skyMap.map);
+  if (skyMap && R.setSun) R.setSun(skyMap.sun);
   facts = fr.data || {};
   expoSeedsEver = (ex && ex.data && Number(ex.data.n)) || 0;
   // 하루 시작 — 계절·동물·비·까마귀·기운·비료·선물. 전부 하루 한 번만 되게 짜여 있어서,
@@ -597,9 +604,21 @@ const SKY = [
   { h: 22.5, dark: .60, c: '#141a46', lift: '#080d22' },
   { h: 24,   dark: .60, c: '#141a46', lift: '#080d22' },
 ];
+/* SKY 표에 박혀 있는 해 뜨고 지는 시각. 표를 이 두 점에 맞춰 늘였다 줄였다 한다. */
+const SUN_REF = { rise: 7.0, set: 19.0 };
+/* 진짜 시각을 SKY 표의 시각으로 옮긴다. 밤 → 낮 → 밤 세 도막을 각각 늘리므로
+   해 뜨는 순간과 지는 순간이 늘 표의 같은 자리(노을 빛)에 놓인다.
+   시각을 못 받아 왔으면 그대로 둔다 — 지금까지처럼 일곱 시에 밝아진다. */
+function skyHour(h){
+  const s = R.sunOf ? R.sunOf(R.dayKey(now())) : null;
+  if (!s) return h;
+  if (h < s.rise) return h / s.rise * SUN_REF.rise;
+  if (h < s.set) return SUN_REF.rise + (h - s.rise) / (s.set - s.rise) * (SUN_REF.set - SUN_REF.rise);
+  return SUN_REF.set + (h - s.set) / (24 - s.set) * (24 - SUN_REF.set);
+}
 function dayLight(){
   const d = new Date(), h = d.getHours() + d.getMinutes() / 60;
-  return lightAt(h);
+  return lightAt(skyHour(h));
 }
 function lightAt(h){
   let i = 0; while (i < SKY.length - 2 && SKY[i + 1].h <= h) i++;
