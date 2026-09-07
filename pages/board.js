@@ -106,7 +106,9 @@ function render(){
       });
     });
 
-    if (isAdmin) {
+    // 부모는 모든 글, 아이는 자기가 쓴 글에만 단추가 붙는다 (서버 정책도 같은 선이다)
+    const mineToEdit = isChild && me && p.written_by && p.written_by === me.user_id;
+    if (isAdmin || mineToEdit) {
       const actions = document.createElement('div');
       actions.className = 'actions';
 
@@ -263,17 +265,22 @@ function renderEditForm(p){
   form.className = 'edit-form';
   const sel = (v, cur) => v === cur ? ' selected' : '';
   form.innerHTML =
-    '<label class="field">누가 쓰나요</label>' +
-    '<select class="eAuthor" aria-label="누가 쓰나요">' +
-      '<option value="sua"' + sel('sua', p.author) + '>수아</option>' +
-      '<option value="yona"' + sel('yona', p.author) + '>연아</option>' +
-      '<option value="together"' + sel('together', p.author) + '>같이</option>' +
-    '</select>' +
-    '<label class="field">공개 설정</label>' +
-    '<select class="ePublic" aria-label="공개 설정">' +
-      '<option value="true"' + (p.is_public !== false ? ' selected' : '') + '>🌏 공개 — 누구나 볼 수 있어요</option>' +
-      '<option value="false"' + (p.is_public === false ? ' selected' : '') + '>🔒 비공개 — 로그인해야 볼 수 있어요</option>' +
-    '</select>' +
+    // 아이는 글쓰기 칸에서와 같이 이름과 공개 여부를 못 고른다 — 서버도 막으므로
+    // 화면에서 미리 감춰야 저장을 눌렀다가 거절당하는 일이 없다. 값은 그대로 들고 간다.
+    (isAdmin
+      ? '<label class="field">누가 쓰나요</label>' +
+        '<select class="eAuthor" aria-label="누가 쓰나요">' +
+          '<option value="sua"' + sel('sua', p.author) + '>수아</option>' +
+          '<option value="yona"' + sel('yona', p.author) + '>연아</option>' +
+          '<option value="together"' + sel('together', p.author) + '>같이</option>' +
+        '</select>' +
+        '<label class="field">공개 설정</label>' +
+        '<select class="ePublic" aria-label="공개 설정">' +
+          '<option value="true"' + (p.is_public !== false ? ' selected' : '') + '>🌏 공개 — 누구나 볼 수 있어요</option>' +
+          '<option value="false"' + (p.is_public === false ? ' selected' : '') + '>🔒 비공개 — 로그인해야 볼 수 있어요</option>' +
+        '</select>'
+      : '<input type="hidden" class="eAuthor" value="' + escapeHTML(p.author) + '">' +
+        '<input type="hidden" class="ePublic" value="' + (p.is_public === false ? 'false' : 'true') + '">') +
     '<label class="field">제목</label><input type="text" class="eTitle" value="' + escapeHTML(p.title) + '">' +
     '<div class="row2">' +
       '<div><label class="field">있었던 날</label><input type="date" class="eWhen" value="' +
@@ -428,7 +435,7 @@ function renderAdminArea(){
       (isChild
         ? '<div class="child-note">' + escapeHTML(me.display) +
           (typeof josa === 'function' ? josa(me.display, '이', '가') : '이(가)') + ' 쓰는 일기예요.<br>' +
-          '올리면 <b>바로</b> 일기장에 실려요.</div>' +
+          '올리면 <b>바로</b> 일기장에 실려요. 잘못 쓴 건 <b>수정</b>이나 <b>삭제</b>로 고쳐요.</div>' +
           '<input type="hidden" id="pAuthor" value="' + escapeHTML(me.author_key || 'sua') + '">' +
           '<input type="hidden" id="pPublic" value="true">'
         : '<label class="field">누가 쓰나요</label>' +

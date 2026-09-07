@@ -1346,8 +1346,10 @@ create policy "parent drops events" on public.events for delete to authenticated
 -- posts: 부모는 다, 아이는 자기 이름·자기 uid 로만 — 한 정책에 or 로
 -- (2026-09-07) 아이가 쓴 일기는 부모 확인 없이 바로 실린다. 넣을 때의 상태를 pending 하나로
 -- 못박던 것을 pending·published 둘로 넓힌 것뿐이다. pending 을 남겨 둔 것은 모험 일지 초안
--- (quest.js) 때문 — 그건 그대로 부모가 보고 올린다. 고치기·빼기는 예전 그대로 pending 인
--- 글만이라, 이미 실린 일기는 아이가 지우지 못한다.
+-- (quest.js) 때문 — 그건 그대로 부모가 보고 올린다.
+-- (2026-09-07, 뒤이어) 고치기·빼기에서도 status = 'pending' 을 뗐다. 아이는 「자기가 쓴 글」
+-- 이면 실린 뒤에도 고치고 지운다. 대신 with check 에 author = my_author_key() 를 더해,
+-- 고치면서 동생 이름으로 넘기거나 남의 것으로 만들지는 못하게 했다.
 drop policy if exists "parent writes posts" on public.posts;
 drop policy if exists "child inserts own pending post" on public.posts;
 drop policy if exists "child edits own pending post" on public.posts;
@@ -1359,10 +1361,24 @@ create policy "family adds posts" on public.posts for insert to authenticated
   with check ((select public.my_role()) = 'parent'
     or ((select public.my_role()) = 'child' and status in ('pending', 'published') and written_by = (select auth.uid()) and author = (select public.my_author_key())));
 create policy "family edits posts" on public.posts for update to authenticated
-  using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and written_by = (select auth.uid()) and status = 'pending'))
-  with check ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and written_by = (select auth.uid()) and status = 'pending'));
+  using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and written_by = (select auth.uid())))
+  with check ((select public.my_role()) = 'parent'
+    or ((select public.my_role()) = 'child' and written_by = (select auth.uid())
+        and author = (select public.my_author_key()) and status in ('pending', 'published')));
 create policy "family drops posts" on public.posts for delete to authenticated
-  using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and written_by = (select auth.uid()) and status = 'pending'));
+  using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and written_by = (select auth.uid())));
+
+-- 저장소(storage.objects): 일기 사진 자리를 가족에게 연다 (2026-09-07)
+-- 정책이 파일 이름 앞머리로 걸려 있어서, 아이는 suayona/posts/ 에 못 올리고 있었다 —
+-- 아이가 일기에 사진을 붙이면 그 자리에서 실패했다는 뜻이다. 사본(.thumb.jpg)도 같은 자리다.
+-- 지우기는 「자기가 올린 것」만, 그것도 일기가 쓰는 두 자리(posts·voice)로 좁혀 열었다.
+create policy "family uploads post photos" on storage.objects for insert to authenticated
+  with check (bucket_id = 'event-images' and (select public.my_role()) is not null
+    and name like 'suayona/posts/%');
+create policy "family drops own post files" on storage.objects for delete to authenticated
+  using (bucket_id = 'event-images' and (select public.my_role()) is not null
+    and owner = (select auth.uid())
+    and (name like 'suayona/posts/%' or name like 'suayona/voice/%'));
 -- works 도 같은 꼴 (아이는 image 인 pending 작품만 내고 뺄 수 있고, 고치는 건 부모만).
 -- profiles 는 읽기 정책 둘을 하나로: (select my_role()) = 'parent' or user_id = (select auth.uid()).
 -- quest_saves 는 insert 둘(아이 자기 것 / 부모 tuning)·update 둘을 각각 하나로 합쳤다.
