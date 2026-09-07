@@ -1942,7 +1942,7 @@ function drawNode(n, season, t){
 // ---------- 움직임 ----------
 // 아이와 동물은 저마다 갈 곳을 하나 정해 그리로 걸어간다. 닿으면 잠깐 쉬었다가 새로 정한다.
 // 자리는 규칙이 아니라 화면의 것이다 — 세이브에 적지 않는다.
-let walkers = null, beasts = null, curWind = 0.6;
+let walkers = null, beasts = null, dolls = null, curWind = 0.6;
 function walkableTile(tx, ty){
   if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS - 1) return false;   // 맨 아랫줄은 앞쪽 수풀에 가린다
   const FB = R.FIELD_BOX;
@@ -2043,6 +2043,14 @@ function ensureActors(){
   }
   const list = W.animals || [];
   const ids = list.map(a => a.id).join(',');
+  // 방에 놓인 인형이 바뀌면 다시 세운다
+  const dsig = walkers.map(w => dollsOf(w.who).join('+')).join('|');
+  if (!dolls || dolls.sig !== dsig){
+    dolls = { sig: dsig, list: [] };
+    walkers.forEach((w, wi) => dollsOf(w.who).forEach((kind, di) => {
+      dolls.list.push({ kind: kind, wi: wi, di: di, x: w.x, y: w.y, flip: false, phase: Math.random() * 6, moving: false });
+    }));
+  }
   if (!beasts || beasts.ids !== ids){
     beasts = { ids, list: list.map((a, i) => {
       const p = yardPoint(a.kind) || { x: T * 4, y: T * 9 };
@@ -2095,6 +2103,17 @@ function stepActors(dt, t){
     a.x += dx / d * s; a.y += dy / d * s; a.moving = true; a.phase += s / 4.8;
     if (Math.abs(dx) > 0.8) a.flip = dx < 0;
   });
+  const dollSp = 26 * dt / 1000;
+  if (dolls) dolls.list.forEach(d => {
+    const w = walkers[d.wi]; if (!w) return;
+    const back = Math.min(w.trail.length - 1, 30 + d.di * 12);      // 강아지(14)보다 뒤에서
+    const q = back >= 0 ? w.trail[w.trail.length - 1 - back] : { x: w.x, y: w.y };
+    const tx = q.x + (d.di % 2 ? 15 : -15), ty = q.y + 5;
+    const dx = tx - d.x, dy = ty - d.y, dd = Math.sqrt(dx * dx + dy * dy);
+    if (dd < 9){ d.moving = false; return; }
+    d.x += dx / dd * dollSp; d.y += dy / dd * dollSp; d.moving = true; d.phase += dollSp / 5.2;
+    if (Math.abs(dx) > 0.8) d.flip = dx < 0;
+  });
 }
 function drawWalker(w, t){
   const A = KIDART[w.who] || KIDART.yona, set = A[w.dir] || A.down, f = w.moving ? (Math.floor(w.phase) % 2) : 0;
@@ -2102,6 +2121,37 @@ function drawWalker(w, t){
   footShade(w.x, w.y - 2, 22);
   const fl = w.dir === 'side' ? w.flip : false;
   artOut(w.who + w.dir + f, set[f], Math.round(w.x - 14), Math.round(w.y - 38 + bob), KIDPAL[w.who], fl);
+}
+/* 방에 놓아 둔 인형이 농장까지 따라 나온다. 소개 페이지에 「좋아하는 것 — 레샤, 상그렐라」라고
+   적혀 있는데 정작 농장에서는 방에 놓는 가구일 뿐이었다. 강아지가 아이 발자국을 따라 걷는
+   코드를 그대로 쓰되, 더 뒤에서 종종 따라온다. */
+const DOLLS = {
+  fox: { w: 16, art: [
+    '.pp..........pp.', 'pppp........pppp', 'pcpp.pppppp.ppcp', 'pcppppppppppppcp',
+    '.pcppppppppppcp.', '..ppcccppcccpp..', '..pceecppceecp..', '..pceecppceecp..',
+    '..pccccppccccp..', '...ccccnncccc...', '....cccnnccc....', '....pppppppp....',
+    '..pppccccccppp..', '..pppccccccppp..', '..pppccccccppp..', '....pppppppp....',
+    '....ppp..ppp....', '....ppp..ppp....',
+  ], pal: { p: '#f0cfc9', c: '#f9f2e8', e: '#2b2622', n: '#9c5b2a' } },
+  sangre: { w: 16, art: [
+    '......bbbb......', '....bbbbbbbb....', '...bbbbbbbbbb...', '..bbbbbbbbbbbb..',
+    '..bbbbbbbbbbbb..', '.bbbbbbbbbbbbbb.', '.bbbeebbbbeebbb.', '.bbbeebbbbeesss.',
+    '.bbbbbbkkbbbsss.', '.bbbbbbKKbbbsss.', '..bbbbbbbbbbsss.', '..ssssssssssss..',
+    '...ssssssssss...', '.....ssssss.....', '....KK....KK....', '....KK....KK....',
+  ], pal: { b: '#fff6e9', s: '#e6d9c4', e: '#3a3226', k: '#ffc94d', K: '#d9a72e' } },
+};
+// 그 아이가 제 방에 놓아 둔 인형들 (거실 것은 둘이 함께 쓰는 것이라 안 따라 나온다)
+function dollsOf(who){
+  const P = (W.house && W.house[who]) || {};
+  const out = [];
+  Object.keys(P).forEach(k => { const f = P[k] && P[k].f; if (DOLLS[f] && out.indexOf(f) < 0) out.push(f); });
+  return out;
+}
+function drawDoll(d, t){
+  const D = DOLLS[d.kind]; if (!D) return;
+  const bob = d.moving ? (Math.floor(d.phase) % 2) : (Math.sin(t / 1000 + d.phase) > 0.75 ? 1 : 0);
+  footShade(d.x, d.y - 2, D.w - 5);
+  artOut('doll' + d.kind, D.art, Math.round(d.x - D.w / 2), Math.round(d.y - D.art.length + bob), D.pal, d.flip);
 }
 const BABY_K = 2 / 3;      // 새끼는 어른의 3분의 2 크기
 function drawBeast(a, t){
@@ -2651,6 +2701,7 @@ function drawFarm(cvIn, tms){
   if (R.peddlerHere(W, now())) cast.push({ y: R.PEDDLER.y * T + 30, go: () => drawPeddler(t) });
   if (walkers) walkers.forEach(w => cast.push({ y: w.y, go: () => drawWalker(w, t) }));
   if (beasts) beasts.list.forEach(a => cast.push({ y: a.y, go: () => drawBeast(a, t) }));
+  if (dolls) dolls.list.forEach(d => cast.push({ y: d.y, go: () => drawDoll(d, t) }));
   cast.sort((a, b) => a.y - b.y).forEach(c => c.go());
   // 6 앞겹
   g.drawImage(paintLayer('front', cw, ch, sigFront(season), () => drawFront(season)), 0, 0);
