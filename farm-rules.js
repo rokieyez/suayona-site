@@ -746,6 +746,10 @@ const FARM = (() => {
     whale:    { name: '고래 그림',     cost: 230, w: 1, kind: 'whale',     cozy: 3, c: '#5aa9e6' , wall: true },
     wlight:   { name: '벽 조명',       cost: 200, w: 1, kind: 'wlight',    cozy: 3, c: '#ffe9a8' , wall: true },
     medalcase:{ name: '훈장 걸이',     cost: 0,   w: 1, kind: 'medalcase', cozy: 4, c: '#c9a24a' , wall: true, rare: true },   // 가게에 없다 — 첫 훈장과 함께 온다
+    /* 내 그림 액자 — 그림 일기에 그린 그림을 골라 담는다. 고른 그림은 칸 글자열 그대로
+       집 정보에 얹는다(`pic`). 256글자라 세이브가 눈에 띄게 무거워지지 않고,
+       손님 화면도 따로 부르는 것 없이 그대로 그린다. */
+    mypic:    { name: '내 그림 액자',   cost: 150, w: 1, kind: 'mypic',     cozy: 4, c: '#e6d3ae' , wall: true, pic: true },
     bigbear:  { name: '엄청 큰 곰인형', cost: 950, w: 2, kind: 'bigbear', cozy: 5, c: '#c79b6d' },
   };
   // 방은 가로 칸 수 × 세로 칸 수. 넓히는 건 언제든 안전하다 — 이미 놓인 가구는 그대로 있다.
@@ -839,15 +843,20 @@ const FARM = (() => {
     if (!(row >= 0 && row < wallRowsFor(f))) return false;
     return !hungCol(world, room, side, col);
   }
-  function hang(world, mine, room, f, side, col, row){
+  // 그림 액자에 담는 그림은 칸 글자열 — 16×16 이라 256글자여야 한다
+  function okPic(pic){ return typeof pic === 'string' && pic.length === 256 && /^[.0-9a-z]+$/.test(pic); }
+  function hang(world, mine, room, f, side, col, row, pic){
     const R2 = ROOMS[room], F = FURNITURE[f];
     if (!R2 || !F) return fail('놓을 수 없어요');
     if (R2.owner && R2.owner !== mine.key) return fail('여기는 ' + NAME[R2.owner] + '의 방이에요');
     if (!F.wall) return fail(eun(F.name) + ' 바닥에 놓는 거예요');
     if (!(row >= 0 && row < wallRowsFor(f))) return fail(eun(F.name) + ' 길어서 윗단에만 걸려요');
     if (!canHang(world, room, f, side, col, row)) return fail('그 자리에는 걸 수 없어요');
+    if (F.pic && !okPic(pic)) return fail('담을 그림을 먼저 골라요');
     if (!take(mine, 'f:' + f)) return fail('그 가구가 없어요');
-    world.house[room][wallKey(side, col, row)] = { f: f, by: mine.key, r: 0 };
+    const it = { f: f, by: mine.key, r: 0 };
+    if (F.pic) it.pic = pic;
+    world.house[room][wallKey(side, col, row)] = it;
     return okay(eul(F.name) + ' 벽에 걸었어요');
   }
   function moveHang(world, mine, room, k, side, col, row){
@@ -1205,6 +1214,7 @@ const FARM = (() => {
       Object.keys(P).forEach(k => {
         const it = P[k];
         if (!it || !FURNITURE[it.f]){ delete P[k]; return; }        // 없어진 가구는 지운다
+        if (FURNITURE[it.f].pic){ if (!okPic(it.pic)) delete P[k]; } else if (it.pic) delete it.pic;
         it.r = FURNITURE[it.f].wall ? 0 : ((Math.round(Number(it.r) || 0) % 4) + 4) % 4;
       });
       /* 벽에 거는 것을 바닥 칸에서 벽 격자로 옮긴다 — 한 번만 일어난다.
@@ -1899,7 +1909,7 @@ const FARM = (() => {
     itemName, sellPrice, priceMult, hotCrop, foodOf, maxEnergy, refreshEnergy, toolN, toolTargets,
     canPay, buildState, animalDay, babyDay, nodeReady, placed, occupied, canPlace, furnBox, bestOf, cozyOf, cozyLevel, canCook,
     MATERIALS, WALL_PITCH, WALL_ROWS, wallCols, wallRowsFor, wallKey, parseWall, hungAt, hungCol, canHang, hang, moveHang,
-    ROOM_GROW, roomStep, roomBox,
+    ROOM_GROW, roomStep, roomBox, okPic,
     weekKey, ordersOf, orderProgress, festivalOpen, festivalKey, festivalWorth, missionOf, levelOf, xpForLevel, eul, ee, eun,
     newWorld, newMine, fixWorld, fixMine, fixTune, logAdd, give, take, bump, markPlayed,
     till, plant, water, fertilize, harvest, clear, gather, buy, sell, eat, contribute, feed, pet, collect, rename, takeHoney, place, rotateFurn, moveFurn, pickUp, cook, sendGift, openMail: openMailAll, fillOrder, donate, claimParentGift, fertFromDiaries, seedsFromExpo, newDay,

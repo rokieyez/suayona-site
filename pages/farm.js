@@ -3429,7 +3429,7 @@ function skyColors(L){
 let houseBg = null, houseSig = '';
 // 벽을 나눈 자리 — 벽 꼭대기에서 내려온 거리(도트)
 const W_MOULD = 6, W_RAIL = 66, W_WAIN = 70, W_BASE = 98;
-const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars: 1,
+const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars: 1, mypic: 1,
                      board: 1, garland: 1, wshelf: 1, rainbow: 1,
                      heightbar: 1, worldmap: 1, mobile: 1, wreath: 1,
                      whale: 1, wlight: 1, medalcase: 1 };
@@ -3508,7 +3508,29 @@ function medalsOf(room){
   if (key && room === R.OTHER[key]) return oth;
   return mine;
 }
-function paintWallItem(wall, u, f, P, room){
+/* 그림 일기(pages/board.js)에 그린 도트 그림을 액자에 담는다. 색표의 정본은 pixel.js 의
+   DRAW_PALETTE 이고, 일기장이 그 값을 한 벌 베껴 두었다. 농장도 pixel.js 를 안 싣기 때문에
+   여기 또 한 벌 둔다 — 색을 고칠 때는 세 곳(pixel.js · board.js · 여기)을 같이 고친다. */
+const PAD_PALETTE = [
+  '#2f2a24', '#6f6558', '#a2988a', '#ffffff',
+  '#ff7f8a', '#ff9aa2', '#ffb7d5', '#c0392b',
+  '#e8912f', '#ffd979', '#fff3a0', '#f7b733',
+  '#6cc7b3', '#8fd9c8', '#6fb567', '#3f7d3c',
+  '#8ec9ee', '#5aa9e6', '#2e3a54', '#b9a3d6',
+  '#c79b6d', '#8a5f3a', '#fbdcc4', '#ffe0c4',
+];
+const PAD_N = 16, PAD_BG = '#fffaf2', PAD_EMPTY = -1;
+// 가게 카드에는 아직 담긴 그림이 없다 — 대신 본보기 하나를 넣어 둔다(해·집·풀밭)
+const PAD_SAMPLE = '.................999.............999.............999...................................................777............77777..........7777777..........lllll...........l3l3l...........lllll...........ll0ll...........ll0ll.....eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+function padDecode(str){
+  if (!str || str.length !== PAD_N * PAD_N) return null;
+  return Array.from(str).map(ch => {
+    if (ch === '.') return PAD_EMPTY;
+    const v = parseInt(ch, 36);
+    return (v >= 0 && v < PAD_PALETTE.length) ? v : PAD_EMPTY;
+  });
+}
+function paintWallItem(wall, u, f, P, room, pic){
   const F = R.FURNITURE[f], c = F.c;
   const hi = shade(c, 24);
   const w = (x, y, ww, hh, col) => wall(u + x, y, ww, hh, col);
@@ -3535,6 +3557,22 @@ function paintWallItem(wall, u, f, P, room){
       w(12, 21, 10, 6, '#4f9a58'); w(14, 20, 6, 2, '#6fb567');
       for (let i = 0; i < 10; i += 2) w(12 + i, 16 + i, 2, 4, 'rgba(255,255,255,0.20)');   // 유리 반사
       w(12, 34, 16, 1, 'rgba(26,18,10,0.20)');
+      break;
+    }
+    case 'mypic': {                                                  // 내 그림 액자 — 일기에 그린 그림이 들어간다
+      const cells = padDecode(pic) || padDecode(PAD_SAMPLE);
+      hang(20, 3, 9);
+      w(1, 8, 38, 40, '#5a3c26');                                    // 바깥 테
+      w(1, 8, 38, 2, '#a97b4f'); w(1, 46, 38, 2, '#3f2a1a');
+      w(1, 8, 2, 40, '#8a5f3a'); w(37, 8, 2, 40, '#3f2a1a');
+      w(3, 10, 34, 36, c);                                           // 안쪽 테
+      w(3, 10, 34, 2, shade(c, 18)); w(3, 44, 34, 2, shade(c, -18));
+      w(4, 12, 32, 32, PAD_BG);                                      // 그림 종이 — 한 칸이 두 도트다
+      for (let i = 0; i < cells.length; i++){
+        if (cells[i] === PAD_EMPTY) continue;
+        w(4 + (i % PAD_N) * 2, 12 + Math.floor(i / PAD_N) * 2, 2, 2, PAD_PALETTE[cells[i]] || PAD_BG);
+      }
+      for (let i = 0; i < 10; i += 2) w(4 + i, 12 + i, 2, 4, 'rgba(255,255,255,0.20)');    // 유리 반사
       break;
     }
     case 'poster': {
@@ -3974,8 +4012,8 @@ function drawRoomShell(g, r, L, wallItems){
       : wallU(len, wallColsOf(r, it.side), it.col);
     const dv = it.row ? WALL_DROP : 0;
     // 벽에서 살짝 떠 있게 — 그림자를 한 벌 먼저 깐다. 안 그러면 벽지에 인쇄된 것처럼 보인다
-    paintWallItem((uu, v, uw, vh) => wl(uu + 2, v + dv + 3, uw, vh, 'rgba(26,18,10,0.16)'), u, it.f, P, r);
-    paintWallItem((uu, v, uw, vh, c) => wl(uu, v + dv, uw, vh, c), u, it.f, P, r);
+    paintWallItem((uu, v, uw, vh) => wl(uu + 2, v + dv + 3, uw, vh, 'rgba(26,18,10,0.16)'), u, it.f, P, r, it.pic);
+    paintWallItem((uu, v, uw, vh, c) => wl(uu, v + dv, uw, vh, c), u, it.f, P, r, it.pic);
   });
   // 마루 — 널이 오른쪽아래로 흐른다. 널 하나가 세로 8도트, 한 칸에 세 줄.
   const BX = Rm.w * (TW / 2), FBY = WALLH + (Rm.w + Rm.h) * (TH / 2), LY = WALLH + Rm.h * (TH / 2);
@@ -4961,7 +4999,7 @@ function drawRoom(cv, r, tms){
     box(heldW.fside, heldW.fcol, heldW.frow, 'rgba(255,255,255,0.45)');
     const t2 = box(heldW.side, heldW.col, heldW.row, heldW.ok ? 'rgba(143,217,143,0.9)' : 'rgba(255,143,143,0.9)');
     g.save(); g.globalAlpha = heldW.ok ? 0.9 : 0.4;
-    paintWallItem((uu, v, uw, vh, c2) => t2.paint(uu, v + t2.dv, uw, vh, c2), t2.u, heldW.f, roomPal(r), r);
+    paintWallItem((uu, v, uw, vh, c2) => t2.paint(uu, v + t2.dv, uw, vh, c2), t2.u, heldW.f, roomPal(r), r, heldW.pic);
     g.restore();
   }
   // 가구를 놓거나 돌릴 때는 칸을 보여 준다 — 마름모 격자다
@@ -5097,7 +5135,7 @@ function onHouseDown(e){
     const wk = R.hungCol(W, room, sl.side, sl.col); if (!wk) return;
     const q = R.parseWall(wk), wit = R.placed(W, room)[wk];
     if (!q || !wit) return;
-    grab = { wall: true, k: wk, f: wit.f, fside: q.side, fcol: q.col, frow: q.row,
+    grab = { wall: true, k: wk, f: wit.f, pic: wit.pic, fside: q.side, fcol: q.col, frow: q.row,
              side: q.side, col: q.col, row: q.row,
              sx: e.clientX, sy: e.clientY, moved: false, ok: true };
     try { $('#houseCanvas').setPointerCapture(e.pointerId); } catch (err) { /* 붙잡기는 덤이다 */ }
@@ -5164,13 +5202,70 @@ function onWallTap(sl){
   const F = R.FURNITURE[furnPick];
   if (!F.wall){ flash('그건 바닥에 놓는 거예요'); return; }
   const f = furnPick;
-  const r2 = act((w2, m) => R.hang(w2, m, room, f, sl.side, sl.col, sl.row));
+  if (F.pic){ openPicPick(pic => hangNow(f, sl, pic)); return; }    // 담을 그림부터 고른다
+  hangNow(f, sl, null);
+}
+function hangNow(f, sl, pic){
+  const r2 = act((w2, m) => R.hang(w2, m, room, f, sl.side, sl.col, sl.row, pic));
   if (r2.ok){
     sfx(f === 'medalcase' ? 'medal' : 'plant');
     if (wallCovers(room, sl.side, sl.col)) flash('창(문)을 가리는 자리예요 — 눌러서 집어 다른 칸에 걸어도 돼요');
   }
   if (!(M.inv['f:' + f] > 0)) furnPick = null;
   renderHouse();
+}
+/* 일기에 그린 도트 그림 목록 — 한 판에 여러 번 걸 수 있으니 표는 한 번만 읽는다.
+   「같이」로 쓴 일기의 그림도 제 그림으로 친다. */
+let myPics = null;
+async function loadMyPics(){
+  if (myPics) return myPics;
+  const { data, error } = await sb.from('posts')
+    .select('id, title, doodle, happened_on, created_at')
+    .not('doodle', 'is', null)
+    .in('author', [key, 'together'])
+    .order('created_at', { ascending: false }).limit(30);
+  if (error) throw error;
+  myPics = (data || []).filter(q => R.okPic(q.doodle));
+  return myPics;
+}
+function padThumb(str, px){
+  const cells = padDecode(str);
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = PAD_N * px;
+  const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.fillStyle = PAD_BG; g.fillRect(0, 0, cv.width, cv.height);
+  if (cells) for (let i = 0; i < cells.length; i++){
+    if (cells[i] === PAD_EMPTY) continue;
+    g.fillStyle = PAD_PALETTE[cells[i]] || PAD_BG;
+    g.fillRect((i % PAD_N) * px, Math.floor(i / PAD_N) * px, px, px);
+  }
+  return cv;
+}
+function openPicPick(then){
+  $('#modalInner').innerHTML = '<h3 class="pixel">어떤 그림을 걸까요</h3>'
+    + '<p class="msg" style="margin:0 0 8px;">그림 일기에 그린 그림이 액자에 들어가요.</p>'
+    + '<div class="picrows" id="picRows">불러오는 중...</div>'
+    + '<div class="modal-actions"><button type="button" class="dot-btn small" id="picClose">닫기</button></div>';
+  $('#modal').hidden = false;
+  $('#picClose').addEventListener('click', closeModal);
+  loadMyPics().then(list => {
+    const box = $('#picRows'); if (!box) return;
+    box.innerHTML = '';
+    if (!list.length){ box.textContent = '아직 그린 그림이 없어요. 그림 일기에서 먼저 그려요.'; return; }
+    list.forEach(q => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'picpick';
+      b.appendChild(padThumb(q.doodle, 4));
+      const cap = document.createElement('span');
+      cap.textContent = (q.happened_on || String(q.created_at || '').slice(0, 10)) + (q.title ? ' ' + q.title : '');
+      b.appendChild(cap);
+      b.addEventListener('click', () => { closeModal(); then(q.doodle); });
+      box.appendChild(b);
+    });
+  }).catch(e => {
+    const box = $('#picRows');
+    if (box) box.textContent = '그림을 못 불러왔어요: ' + ((e && e.message) || e);
+  });
 }
 function onHouseTap(e){
   if (grabClick){ grabClick = false; return; }
