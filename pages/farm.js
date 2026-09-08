@@ -3599,6 +3599,52 @@ function drawRoomShell(g, r, L, wallItems){
 let furnBuf = null;
 // 불꽃이 흔들리는 것만 매번 다시 그리고, 나머지는 한 번 그려 담아 둔다
 const FURN_ANIM = { fire: 1, stove: 1 };
+/* 방 안에서 빛을 내는 가구. c 는 빛 색(그 가구의 불빛 색), r 은 번지는 반지름(도트),
+   dy 는 빛의 가운데를 발자국 가운데에서 얼마나 올릴지, flick 은 흔들림의 갈래.
+   밤에는 방을 통째로 어둡게 물들이므로(grade) 불빛도 같이 죽는다 — 그래서 물들인 뒤에
+   (1) 색깔대로 빛을 번지게 얹고 (2) 가구에서 빛나는 부분만 다시 그린다. */
+const ROOM_LIGHT = {
+  lamp:     { c: '#ffe9a8', r: 54, dy: -16 },
+  fire:     { c: '#ff9a3a', r: 76, dy: -16, flick: 'fire' },
+  stove:    { c: '#ff9a3a', r: 56, dy: -14, flick: 'fire' },
+  xmas:     { c: '#ffd979', r: 54, dy: -16, flick: 'twinkle' },
+  pumpkin:  { c: '#ff8c3a', r: 44, dy: -10, flick: 'fire' },
+  nightsky: { c: '#8f9fe6', r: 78, dy: -6,  flick: 'breathe' },
+  tank:     { c: '#8ec9ee', r: 40, dy: -10, flick: 'breathe' },
+  tv:       { c: '#bfe8ff', r: 46, dy: -14, flick: 'tv' },
+  stars:    { c: '#ffe680', r: 54, wall: true, flick: 'twinkle' },
+  wlight:   { c: '#ffe9a8', r: 50, wall: true },
+  mobile:   { c: '#ffd166', r: 28, wall: true, flick: 'breathe' },
+};
+// 그 가구에서 「빛나는 색」들. 그리는 코드가 shade() 로 만든 변형까지 같이 넣어 둔다.
+const LIT_BASE = {
+  lamp: ['#ffe9a8', '#fff3c0', '#ffd979'], fire: ['#ff8c2e', '#ffd166', '#fff3c0'], stove: ['#ff8c2e', '#ffd166'],
+  xmas: ['#ffd979', '#f2707d', '#5aa9e6', '#ffd166'], nightsky: ['#fff3c0'], tank: ['#8fd0f0', '#5aa9e6'],
+  tv: ['#9fd8f0', '#e8f6ff'], stars: ['#ffe680', '#fff6d0'], wlight: ['#ffe9a8', '#fff3c0', '#ffd979'],
+  mobile: ['#ffd166', '#ff8fb8', '#8fd9c8', '#a9c8ff', '#c9a8ff', '#ffffff'],
+};
+const litSets = {};
+function litSet(kind){
+  if (litSets[kind]) return litSets[kind];
+  const set = new Set();
+  (LIT_BASE[kind] || []).forEach(c => { set.add(c); [22, 24, 26, 14, -10, -12, -18, -30, -34].forEach(k => set.add(shade(c, k))); });
+  return (litSets[kind] = set);
+}
+// 호박 등은 거꾸로다 — 파 놓은 얼굴 구멍이 빛난다
+function litColor(kind, col){
+  if (kind === 'pumpkin') return col === '#3a2a20' ? '#ffd166' : null;
+  if (typeof col !== 'string') return null;
+  if (col.indexOf('rgba(') === 0) return (kind === 'tank' && col.indexOf('150,215,245') > 0) || (kind === 'wlight' && col.indexOf('255,225,150') > 0) ? col : null;
+  return litSet(kind).has(col) ? col : null;
+}
+function flickOf(kind, t){
+  const f = (ROOM_LIGHT[kind] || {}).flick;
+  if (f === 'fire') return 0.78 + 0.14 * Math.sin(t / 90) + 0.08 * Math.sin(t / 37);
+  if (f === 'twinkle') return 0.72 + 0.28 * Math.abs(Math.sin(t / 420));
+  if (f === 'breathe') return 0.8 + 0.2 * Math.sin(t / 1400);
+  if (f === 'tv') return Math.sin(t / 130) > 0 ? 1 : 0.78;
+  return 1;
+}
 const furnCache = {};
 // 가구가 위로 솟는 높이(도트)
 const FURN_H = { rug: 2, bed: 24, bunk: 72, table: 28, desk: 32, chair: 38, sofa: 36, piano: 48,
@@ -3631,10 +3677,10 @@ function furnArt(f, rot){
   // 테두리가 잘리지 않게 사방으로 한 도트씩 여백을 둔다
   return { EW, EH, H, w: EW + EH + 2, h: H + (EW + EH) / 2 + 2 };
 }
-function furnBitmap(f, rot, A, t){
+function furnBitmap(f, rot, A, t, lit){
   const bw = Math.round(A.w * HS), bh = Math.round(A.h * HS);
   const anim = FURN_ANIM[R.FURNITURE[f].kind];
-  const key = f + '|' + (rot % 2) + '|' + HS;
+  const key = f + '|' + (rot % 2) + '|' + HS + (lit ? '|lit' : '');
   if (!anim){
     const hit = furnCache[key];
     if (hit && hit.width === bw && hit.height === bh) return hit;
@@ -3643,7 +3689,8 @@ function furnBitmap(f, rot, A, t){
   if (cv.width !== bw || cv.height !== bh){ cv.width = bw; cv.height = bh; }
   const b = cv.getContext('2d'); b.imageSmoothingEnabled = false;
   b.clearRect(0, 0, bw, bh);
-  paintFurniture(b, f, rot, A, t);
+  paintFurniture(b, f, rot, A, t, lit);
+  if (lit){ if (!anim) furnCache[key] = cv; return cv; }          // 빛나는 부분만 — 테는 두르지 않는다
   /* 어두운 테두리 한 도트 — Unpacking 이 또렷하게 읽히는 가장 큰 까닭이다.
      실루엣을 네 방향으로 한 도트씩 밀어 밑에 깔면 가구마다 윤곽이 선다. */
   const ol = document.createElement('canvas'); ol.width = bw; ol.height = bh;
@@ -3658,21 +3705,22 @@ function furnBitmap(f, rot, A, t){
   if (!anim) furnCache[key] = cv;
   return cv;
 }
-function drawFurnItem(g, f, rot, Rm, tx, ty, t){
+function drawFurnItem(g, f, rot, Rm, tx, ty, t, lit){
   const F = R.FURNITURE[f]; if (!F) return;
-  const A = furnArt(f, rot), bm = furnBitmap(f, rot, A, t);
+  const A = furnArt(f, rot), bm = furnBitmap(f, rot, A, t, lit);
   g.save(); g.imageSmoothingEnabled = false;
   g.drawImage(bm, Math.round((isoX(Rm, tx, ty) - A.EH - 1) * HS), Math.round((isoY(tx, ty) - A.H - 1) * HS));
   g.restore();
 }
 /* 가구 그리기. 발자국 마름모의 뒤 꼭짓점이 (A.EH, A.H) 에 온다.
    자리는 칸 방향으로 적는다 — ax 는 오른쪽아래로, ay 는 왼쪽아래로 간 가로 도트. */
-function paintFurniture(g, f, rot, A, t){
+function paintFurniture(g, f, rot, A, t, lit){
   const F = R.FURNITURE[f], c = F.c;
   MAT = FURN_MAT[F.kind] || 'wood';                            // 이 가구를 칠하는 동안의 재질
   MATSEED = f;
   const hi = shade(c, 24), lo = shade(c, -18), dk = shade(c, -36);
-  const q = dotFill(g);
+  // lit 이면 빛나는 색만 찍는다 — 같은 그리기 코드를 두 번 쓰되 두 번째는 거른다
+  const q0 = dotFill(g), q = lit ? ((x, y, w, h, col) => { const lc = litColor(F.kind, col); if (lc) q0(x, y, w, h, lc); }) : q0;
   const OX = A.EH + 1, OY = A.H + 1, E = A.EW, D = A.EH;
   const CX = OX + (E - D) / 2, CY = OY + (E + D) / 4;         // 발자국 한가운데(바닥)
   const P = (ax, ay, up) => [OX + ax - ay, OY + (ax + ay) / 2 - (up || 0)];
@@ -4373,19 +4421,26 @@ function drawRoom(cv, r, tms){
   const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, cw, ch); g.drawImage(houseBg, 0, 0);
   // 바닥에 둔 것 — 뒤(x+y 가 작은 쪽)부터 그려야 앞뒤가 맞다
-  const glow = [];
+  const glow = [], lit = [];
   floorItems.sort((a, b) => (a.x + a.y) - (b.x + b.y) || (a.x - b.x)).forEach(it => {
     if (held && it.x === held.fx && it.y === held.fy) return;
     drawFurnItem(g, it.f, it.r, Rm, it.x, it.y, t);
-    const kind = R.FURNITURE[it.f].kind;
-    if (kind === 'lamp' || kind === 'fire' || kind === 'stove' || kind === 'xmas')
-      glow.push({ x: isoX(Rm, it.x, it.y) * HS, y: (isoY(it.x, it.y) - 16) * HS, r: (kind === 'fire' ? 76 : 54) * HS });
+    const kind = R.FURNITURE[it.f].kind, LT = ROOM_LIGHT[kind];
+    if (LT && !LT.wall){
+      glow.push({ x: isoX(Rm, it.x, it.y) * HS, y: (isoY(it.x, it.y) + LT.dy) * HS, r: LT.r * HS, c: LT.c, kind });
+      lit.push(it);
+    }
   });
-  wallItems.forEach(it => { if (R.FURNITURE[it.f].kind === 'stars'){
+  const litWall = [];
+  wallItems.forEach(it => {
+    const kind = R.FURNITURE[it.f].kind, LT = ROOM_LIGHT[kind];
+    if (!LT || !LT.wall) return;
     const len = wallLenOf(Rm, it.side);
-    const u = (it.col == null ? Math.min(Math.max(0, it.at * (TW / 2) - 8), len - 42) : wallU(len, wallColsOf(r, it.side), it.col)) + 20;
-    glow.push({ x: (ox + (it.side ? u : -u)) * HS, y: (u / 2 + 30 + (it.row ? WALL_DROP : 0)) * HS, r: 54 * HS });
-  } });
+    const u0 = it.col == null ? Math.min(Math.max(0, it.at * (TW / 2) - 8), len - 42) : wallU(len, wallColsOf(r, it.side), it.col);
+    const u = u0 + 20;
+    glow.push({ x: (ox + (it.side ? u : -u)) * HS, y: (u / 2 + 30 + (it.row ? WALL_DROP : 0)) * HS, r: LT.r * HS, c: LT.c, kind });
+    litWall.push({ it, u0, kind });
+  });
   // 아이와 고양이 — 앞에서 본 그림이라 레퍼런스처럼 방과 섞여도 어색하지 않다
   const keep2 = ctx; ctx = g;
   const who = roomKid(r);
@@ -4409,16 +4464,28 @@ function drawRoom(cv, r, tms){
   // 빛 — 방도 농장과 같은 표로 물들인다. 안쪽은 조금 덜 어둡게.
   if (L.dark > 0.06) grade(g, cw, ch, L, 0.82);
   if (L.dark > 0.12 && glow.length){
+    // 빛 번짐 — 가구마다 제 불빛 색으로. 불은 흔들리고, 별은 깜박이고, 프로젝터는 숨 쉰다.
     g.save(); g.globalCompositeOperation = 'lighter';
     const power = Math.min(1, L.dark * 1.9);
+    const hexA = (h, a) => { const n = parseInt(h.slice(1), 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a.toFixed(2) + ')'; };
     glow.forEach(l => {
+      const k = power * flickOf(l.kind, t);
       const rg = g.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-      rg.addColorStop(0, 'rgba(255,206,122,' + (power * 0.55).toFixed(2) + ')');
-      rg.addColorStop(0.5, 'rgba(255,190,110,' + (power * 0.2).toFixed(2) + ')');
-      rg.addColorStop(1, 'rgba(255,190,110,0)');
+      rg.addColorStop(0, hexA(l.c, k * 0.55)); rg.addColorStop(0.5, hexA(l.c, k * 0.2)); rg.addColorStop(1, hexA(l.c, 0));
       g.fillStyle = rg; g.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
     });
     g.restore();
+    // 가구의 빛나는 부분을 물들이기 전 색으로 다시 — 갓·불꽃·화면·구멍이 밤에 진짜로 켜져 보인다
+    lit.forEach(it => { g.save(); g.globalAlpha = 0.55 + 0.45 * flickOf(R.FURNITURE[it.f].kind, t); drawFurnItem(g, it.f, it.r, Rm, it.x, it.y, t, true); g.restore(); });
+    if (litWall.length){
+      const wlR = wallPaint(g, Rm, 1), wlL = wallPaint(g, Rm, 0), Pw = roomPal(r);
+      litWall.forEach(({ it, u0, kind }) => {
+        const wl = it.side ? wlR : wlL, dv = it.row ? WALL_DROP : 0;
+        g.save(); g.globalAlpha = 0.55 + 0.45 * flickOf(kind, t);
+        paintWallItem((uu, v, uw, vh, c) => { const lc = litColor(kind, c); if (lc) wl(uu, v + dv, uw, vh, lc); }, u0, it.f, Pw, r, it.pic);
+        g.restore();
+      });
+    }
   }
   // 낮에는 창으로 빛이 비스듬히 들어온다 — 먼지가 반짝
   if (L.dark < 0.12){

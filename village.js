@@ -836,7 +836,13 @@ P.lanterns = (q, a, b, cols) => {
     const t = i / (n * 3), sag = Math.sin(t * Math.PI) * 5;
     const x = Math.round(a[0] + (b[0] - a[0]) * t), y = Math.round(a[1] + (b[1] - a[1]) * t + sag);
     if (prev) lineDots(q, prev, [x, y], '#5a4a3a'); prev = [x, y];
-    if (i % 3 === 1){ const c = cols[Math.floor(i / 3) % cols.length]; q(x, y + 1, 1, 2, '#5a4a3a'); ellipse(q, x, y + 6, 3, 3.5, (px, py) => px < x - 1 ? shade(c, 26) : px > x + 1 ? shade(c, -22) : c); q(x - 1, y + 3, 3, 1, '#3a2a1e'); q(x - 1, y + 9, 3, 1, '#3a2a1e'); }
+    if (i % 3 === 1){
+      const c = cols[Math.floor(i / 3) % cols.length];
+      q(x, y + 1, 1, 2, '#5a4a3a'); ellipse(q, x, y + 6, 3, 3.5, (px, py) => px < x - 1 ? shade(c, 26) : px > x + 1 ? shade(c, -22) : c);
+      q(x - 1, y + 3, 3, 1, '#3a2a1e'); q(x - 1, y + 9, 3, 1, '#3a2a1e');
+      // 밤에는 종이등이 안에서 켜진다 — 가운데가 희게 밝고, 제 색 빛이 둘레에 번진다 (첫화면이 LIGHTS 를 얹는다)
+      if (NIGHT){ q(x - 1, y + 5, 3, 3, shade(c, 46)); q(x, y + 5, 1, 2, '#fff6e0'); LIGHTS.push({ x, y: y + 6, r: 10, c }); }
+    }
   }
 };
 // 지붕창 — 앞 경사면 위에 얹는 작은 집. main 은 벽 상자, rise/over/drop 는 그 지붕 값
