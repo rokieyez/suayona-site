@@ -379,6 +379,23 @@ function footShade(cx, y, w){
   px(cx - w / 2 + 4, y + 2, w - 8, 2, '#00000014');
 }
 
+// ---------- 줌 상태의 손짓 ----------
+/* 농장 캔버스는 가로 끌기를 코드가 받는다(touch-action:pan-y pinch-zoom — 밭 이어서 하기).
+   그런데 두 손가락으로 벌려 놓은 뒤에는 한 손가락 가로 끌기가 「화면 옮기기」여야 하는데,
+   같은 규칙 때문에 브라우저가 못 받아 줌 상태에서 좌우로 움직일 길이 없었다.
+   배율이 1을 넘으면 가로 끌기도 브라우저에 돌려준다(manipulation). 그동안 밭 이어서 하기는
+   쉬지만 톡 누르기는 그대로 된다. 다시 1로 돌아오면 원래 규칙으로. */
+function syncFarmTouch(){
+  const cv = document.getElementById('farmCanvas');
+  const vv = window.visualViewport;
+  if (!cv || !vv) return;
+  cv.style.touchAction = vv.scale > 1.02 ? 'manipulation' : '';
+}
+if (window.visualViewport){
+  window.visualViewport.addEventListener('resize', syncFarmTouch);
+  syncFarmTouch();
+}
+
 // ---------- 도트 크기 맞추기 ----------
 // 지금까지는 캔버스 뒷면을 960x768 로 고정해 두고 CSS 가 늘였다 줄였다 했다.
 // 그러면 도트 하나가 5.6픽셀 같은 어중간한 크기가 되어, 어떤 줄은 5픽셀 어떤 줄은 6픽셀로
