@@ -297,6 +297,8 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
 .gal-thumb img, .gal-thumb video{width:100%; height:100%; object-fit:cover;}
 .gal-cap{margin-top:8px; font-size:12.5px; font-weight:700; line-height:1.45;}
 .gal-sub{margin-top:2px; font-size:11px; color:var(--ink-soft);}
+/* 작품 목록의 「그때 몇 살」 — 가족이 로그인했을 때만 붙는다 */
+.gal-age{display:inline-block; margin-left:4px; padding:1px 5px; border:1.5px solid var(--ink-soft); border-radius:6px; font-size:10px; color:var(--ink-soft);}
 .gal-del, .gal-edit{
   position:absolute; top:4px; width:26px; height:26px; z-index:2;
   border:2px solid var(--ink); background:#fff; cursor:pointer;

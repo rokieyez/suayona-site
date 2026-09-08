@@ -1,6 +1,9 @@
 import io, re, sys, gzip, json
 
 SRC = 'farm-rules.js'
+# 주의: 이 도구는 「가르기 전」 한 덩어리 파일을 읽는다. 이미 갈라진 뒤에는 표(DECOR·PLACE…)는
+# farm-rules.js 에, 행동(till·buy…)은 farm-rules-play.js 에 바로 고친다. 다시 돌리려면
+# 두 파일을 하나로 합친 것을 SRC 자리에 둬야 한다(놀이 쪽의 __inner 풀기 줄과 FARM 얹기는 빼고).
 # 손님 몫이 부르는 것들 — 재서 나온 목록에 없지만 여기 남겨야 한다.
 # fixWorld → hungCol·okPic·wallKey·wallRowsFor, okPic → picSide, MEDALS 표 → cropsInDex,
 # 손님 화면의 반딧불이 → fireflyLeft (손님도 M 을 만들어 두므로 여름·가을 밤에 실제로 불린다)

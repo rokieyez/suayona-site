@@ -6,6 +6,12 @@ buildChrome('portfolio');
 buildBackdrop('portfolio');   // 배경 픽셀 겹 (common.js)
 
 const AUTHORS = Object.assign({}, HERO_NAMES, { together:'같이' });   // 정본은 common.js
+// 「그때 몇 살」. 로그인한 가족에게만 생일이 오므로 손님에게는 빈 문자열이다.
+// 「같이」 만든 것은 둘의 나이를 나란히 — 「수아 7살 · 연아 5살」.
+function agesOf(author, on){
+  if (author !== 'together') return ageAt(author, on);
+  return ['sua', 'yona'].map(k => { const a = ageAt(k, on); return a ? HERO_NAMES[k] + ' ' + a : ''; }).filter(Boolean).join(' · ');
+}
 let works = [], filter = 'all', yearFilter = 'all';
 const lightbox = createLightbox();
 
@@ -83,6 +89,7 @@ function render(){
       '<div class="gal-sub">' +
         '<span class="tag ' + escapeHTML(w.author) + '">' + (AUTHORS[w.author] || '같이') + '</span>' +
         (w.made_on ? escapeHTML(formatDate(w.made_on)) : '') +
+        (agesOf(w.author, w.made_on) ? ' <span class="gal-age">' + escapeHTML(agesOf(w.author, w.made_on)) + '</span>' : '') +
       '</div>';
 
     card.addEventListener('click', () => openWork(list, i));
@@ -696,7 +703,7 @@ function renderWork(){
   const flat = w.media_type !== 'youtube' && w.media_type !== 'video';
   const canFlip = flat && !!(w.quote || w.description || isAdmin);
   const when = w.made_on ? formatDate(w.made_on) : '';
-  const age = ageAt(w.author, w.made_on);      // 로그인한 가족에게만 나온다
+  const age = agesOf(w.author, w.made_on);     // 로그인한 가족에게만 나온다 · 「같이」는 둘 다
   const back =
     '<div class="face back">' +
       '<div class="bk-eye">뒷면</div>' +

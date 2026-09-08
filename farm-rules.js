@@ -266,6 +266,13 @@ const FARM = (() => {
     arch:     { name: '장미 아치', icon: '🌹', cost: 2500, lv: 6, desc: '들어오는 길에 꽃문' },
     sandbox:  { name: '모래놀이터', icon: '🏖️', cost: 900,  lv: 3, desc: '모래성을 쌓아 뒀어요' },
     firepit:  { name: '모닥불',     icon: '🔥', cost: 1800, lv: 6, desc: '밤이면 타닥타닥 타올라요' },
+    sign:     { name: '농장 팻말',   icon: '🪧', cost: 200,  lv: 1, desc: '문 앞에 세우는 나무 팻말' },
+    clothesline: { name: '빨랫줄',  icon: '👕', cost: 300,  lv: 2, desc: '빨래가 바람에 펄럭여요' },
+    flowerbed: { name: '꽃밭',      icon: '🌷', cost: 350,  lv: 2, desc: '계절마다 다른 꽃이 피어요' },
+    birdhouse: { name: '새집',      icon: '🐦', cost: 600,  lv: 3, desc: '작은 새가 놀러 와요' },
+    flag:     { name: '깃발',       icon: '🚩', cost: 700,  lv: 4, desc: '바람 부는 날엔 힘차게 나부껴요' },
+    wagon:    { name: '수레',       icon: '🛒', cost: 1000, lv: 4, desc: '가을엔 호박을 가득 실어요' },
+    windmill: { name: '풍차',       icon: '🌀', cost: 3000, lv: 6, desc: '날개가 빙글빙글 돌아가요' },
   };
 
   // ---------- 농장 배치 ----------
@@ -296,6 +303,13 @@ const FARM = (() => {
     arch:       { name: '장미 아치', w: 2, h: 1, x: 18, y: 7, kind: 'decor',  move: true },
     sandbox:    { name: '모래놀이터', w: 2, h: 2, x: 0, y: 10, kind: 'decor',  move: true },
     firepit:    { name: '모닥불',   w: 1, h: 1, x: 11, y: 13, kind: 'decor',  move: true },
+    sign:       { name: '농장 팻말', w: 1, h: 1, x: 6,  y: 0,  kind: 'decor',  move: true },
+    clothesline:{ name: '빨랫줄',   w: 2, h: 1, x: 0,  y: 12, kind: 'decor',  move: true },
+    flowerbed:  { name: '꽃밭',     w: 2, h: 1, x: 10, y: 9,  kind: 'decor',  move: true },
+    birdhouse:  { name: '새집',     w: 1, h: 1, x: 12, y: 0,  kind: 'decor',  move: true },
+    flag:       { name: '깃발',     w: 1, h: 1, x: 19, y: 0,  kind: 'decor',  move: true },
+    wagon:      { name: '수레',     w: 2, h: 1, x: 2,  y: 14, kind: 'decor',  move: true },
+    windmill:   { name: '풍차',     w: 2, h: 2, x: 16, y: 8,  kind: 'decor',  move: true },
   };
   const PLACE_IDS = Object.keys(PLACE);
   function spotOf(world, id){

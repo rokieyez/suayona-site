@@ -311,6 +311,9 @@ function onFarmTap(e){
   }
   const id = plotAtTile(tx, ty);
   if (id){ onPlot(id); return; }
+  // 아이·인형·동물을 누르면 한마디. 밭보다는 뒤, 건물보다는 앞 — 우리 안의 동물도 말을 한다.
+  const q = pixAt(e.clientX, e.clientY), hit = actorAt(q.x, q.y);
+  if (hit){ speak(hit); return; }
   const n = nodeAt(tx, ty);
   if (n){ const r = act((w, m) => R.gather(w, m, n, now())); if (r.ok) sfx(R.NODES[n].kind === 'tree' ? 'thud' : R.NODES[n].kind === 'rock' ? 'prop' : 'pop'); return; }
   if (inSpot('house', tx, ty)){ openTab('house', true); sfx('house'); return; }
@@ -331,6 +334,78 @@ function onFarmTap(e){
   // 안 지은 건물 터를 누르면 무엇이 들어설 자리인지 알려 준다
   const site = ['pasture', 'barn', 'coop', 'pethouse', 'scarecrow'].find(b => inSpot(b, tx, ty));
   if (site) flash(R.BUILDINGS[site].name + ' 터예요. 둘이서 탭에서 같이 지어요');
+}
+// ---------- 말풍선 ----------
+// 누른 도트 자리에 누가 서 있나. 그림이 발끝(x, y)에서 위로 그려지므로 그 높이만큼 위를 본다.
+function actorAt(x, y){
+  const inBox = (cx, foot, w, h) => Math.abs(x - cx) <= w / 2 + 2 && y >= foot - h - 2 && y <= foot + 3;
+  if (walkers) for (const w of walkers) if (inBox(w.x, w.y, 28, 38)) return { kind: 'kid', o: w };
+  if (dolls) for (const d of dolls.list){ const D = DOLLS[d.kind]; if (D && inBox(d.x, d.y, D.w, D.art.length)) return { kind: 'doll', o: d }; }
+  if (beasts) for (const a of beasts.list){
+    const B = BEAST[a.kind] || BEAST.chicken, rec = (W.animals || []).find(r => r.id === a.id), k = rec && rec.baby ? BABY_K : 1;
+    if (inBox(a.x, a.y, B.w * k, B.art.length * k)) return { kind: 'beast', o: a, rec };
+  }
+  return null;
+}
+function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+/* 어울리는 말을 고른다 — 늘 하는 말 몇 마디에, 지금 맞는 말(계절·날씨·밤·기운·거둘 것·
+   배고픈 동물…)을 얹어서 그중 하나. 소개 페이지의 「좋아하는 것·한마디」에서 말투를 가져왔다. */
+function linesForKid(who){
+  const cal = R.calendar(W, now()), wk = R.weatherOf(R.dayKey(now()), cal.season), L = dayLight();
+  const me = who === key, call = who === 'yona' ? '언니' : '연아야';
+  const pool = who === 'sua'
+    ? ['오늘은 뭐 심을까?', '피아노 치고 올게 🎹', '이 농장 이야기를 글로 써 볼까', '시간이 너무 빠르다 ㅠㅠ', '새 캐릭터가 떠올랐어!', call + ', 같이 거두자!']
+    : ['상그상그~', '레샤 어디 갔지?', '만화 그리고 싶다 ✏️', '시원배게 베고 눕고 싶어', '이거 그림으로 그려야지', call + ', 물 다 줬어?'];
+  if (cal.season === 'spring') pool.push('꽃 냄새 난다 🌸');
+  if (cal.season === 'summer') pool.push('덥다~ 수박 먹고 싶어 🍉');
+  if (cal.season === 'autumn') pool.push('낙엽 밟는 소리 좋아 🍂');
+  if (cal.season === 'winter') pool.push('손 시려… 호호 ❄️');
+  if (wk === 'rain' || wk === 'storm') pool.push('비 오니까 오늘은 물 안 줘도 돼!');
+  if (wk === 'snow') pool.push('눈이다! 눈사람 만들자 ⛄');
+  if (wk === 'wind') pool.push('바람 세다~ 모자 잡아!');
+  if (L.dark > 0.4) pool.push('별이 많다 ✨', '졸려…');
+  if (me && M.energy <= 10) pool.push('기운이 없어… 뭐 좀 먹자');
+  if (me && M.energy >= R.maxEnergy(W, M)) pool.push('오늘은 힘이 넘쳐!');
+  if (me && M.coins < 20) pool.push('동전이 다 떨어졌어… 뭐 팔까');
+  const ripe = Object.keys(W.plots).filter(id => W.plots[id].crop && R.ripe(W.plots[id], now())).length;
+  if (ripe) pool.push('거둘 게 ' + ripe + '개나 있어!');
+  const hungry = (W.animals || []).filter(a => a.fedDay !== R.dayKey(now()));
+  if (hungry.length) pool.push(hungry[0].name + ' 밥 줘야 해');
+  if (W.hot && R.CROPS[W.hot]) pool.push('오늘은 ' + R.CROPS[W.hot].name + '가 인기래!');
+  if (!me) pool.push(NAME[key] + (who === 'yona' ? ' 언니, 왔어?' : '야, 왔어?'));
+  return pool;
+}
+function linesForDoll(kind){
+  return kind === 'fox'
+    ? ['연아 기다리는 중…', '(꼬리 살랑살랑)', '나도 농부야!', '폭신폭신~', '햇볕 좋다']
+    : ['상그상그~', '구름 같지? ☁️', '꼬옥 안아 줘', '여기가 제일 좋아', '같이 놀자'];
+}
+function linesForBeast(a, rec){
+  const today = R.dayKey(now()), name = (rec && rec.name) || R.ANIMALS[a.kind].name;
+  const cry = { chicken: '꼬꼬댁!', duck: '꽥꽥!', cow: '음매~', sheep: '매에~', pig: '꿀꿀', rabbit: '(코 씰룩씰룩)', dog: '멍멍! 산책 가자', cat: '야옹… (하품)' }[a.kind] || '…';
+  const lc = name.charCodeAt(name.length - 1), jong = lc >= 0xac00 && lc <= 0xd7a3 && (lc - 0xac00) % 28 !== 0;   // 받침이 있으면 「이에요」
+  const pool = [cry, cry, name + (jong ? '이에요' : '예요')];
+  if (rec){
+    if (rec.baby) pool.push('엄마 어디 있어?', '(아장아장)');
+    if (rec.fedDay === today) pool.push('밥 먹었어요 😊', '배불러~');
+    else pool.push('배고파요…', '밥 주세요!');
+    if ((rec.love || 0) >= 5) pool.push(NAME[rec.by] + ' 좋아 💗');
+    if (rec.ready) pool.push('선물이 있어요!');
+    if (a.kind === 'dog' || a.kind === 'cat') pool.push('뭐 주워 왔어요!');
+  }
+  return pool;
+}
+function speak(hit){
+  const t = performance.now();
+  let text, x, y, id;
+  if (hit.kind === 'kid'){ text = pick(linesForKid(hit.o.who)); x = hit.o.x; y = hit.o.y - 38; id = 'k' + hit.o.who; }
+  else if (hit.kind === 'doll'){ text = pick(linesForDoll(hit.o.kind)); x = hit.o.x; y = hit.o.y - DOLLS[hit.o.kind].art.length; id = 'd' + hit.o.kind; }
+  else {
+    const B = BEAST[hit.o.kind] || BEAST.chicken, k = hit.rec && hit.rec.baby ? BABY_K : 1;
+    text = pick(linesForBeast(hit.o, hit.rec)); x = hit.o.x; y = hit.o.y - B.art.length * k; id = 'b' + hit.o.id;
+  }
+  bubbleAt(id, x, y, text, t);
+  sfx('pop');
 }
 // ---------- 배치 바꾸기 ----------
 function togglePlace(){

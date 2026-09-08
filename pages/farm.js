@@ -52,7 +52,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '2';
+const PLAY_V = '3';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -1646,6 +1646,83 @@ function drawDecor(season, night){
     px(sx - 6, sy + 2, 4, 4, '#ffe9a8'); px(sx + 4, sy + 10, 4, 4, '#e8b74a');
     if (night) lamp(sx, sy + 8, 22, '#ffe6a0');
   }
+  if (d.sign){
+    // 나무 팻말. 글자는 도트로 못 쓰니 하트 하나 — 「우리 농장」이라는 뜻
+    const b = spot('sign'), X = b.x * T, Y = b.y * T;
+    px(X + 10, Y + 28, 12, 2, '#00000022');
+    px(X + 14, Y + 14, 4, 16, WOOD.dark); px(X + 14, Y + 14, 2, 16, WOOD.low);
+    px(X + 4, Y + 4, 24, 12, WOOD.mid); grainy(X + 4, Y + 4, 24, 12, WOOD.mid, 'wood', 'sg');
+    px(X + 4, Y + 4, 24, 2, WOOD.hi); px(X + 4, Y + 14, 24, 2, WOOD.dark);
+    px(X + 4, Y + 4, 2, 12, WOOD.dark); px(X + 26, Y + 4, 2, 12, WOOD.dark);
+    px(X + 12, Y + 7, 2, 2, '#e8506a'); px(X + 18, Y + 7, 2, 2, '#e8506a');
+    px(X + 10, Y + 9, 12, 2, '#e8506a'); px(X + 12, Y + 11, 8, 2, '#e8506a'); px(X + 14, Y + 13, 4, 1, '#e8506a');
+  }
+  if (d.flowerbed){
+    const b = spot('flowerbed'), X = b.x * T, Y = b.y * T, w = b.w * T;
+    px(X + 4, Y + 28, w - 8, 2, '#00000022');
+    px(X + 2, Y + 12, w - 4, 16, WOOD.low); grainy(X + 2, Y + 12, w - 4, 16, WOOD.low, 'wood', 'fb');   // 나무 상자
+    px(X + 2, Y + 12, w - 4, 2, WOOD.hi); px(X + 2, Y + 26, w - 4, 2, WOOD.dark);
+    px(X + 4, Y + 14, w - 8, 8, season === 'winter' ? '#f0f6fb' : '#6b4a32');                            // 흙 · 겨울엔 눈
+    if (season !== 'winter'){
+      const cs = season === 'spring' ? ['#ffb7d5', '#fff3a0', '#ffffff', '#c9a8ff', '#ff8fb0']
+        : season === 'summer' ? ['#ff6b6b', '#ffd24d', '#ff9f43', '#f8f0a0', '#ff6b6b']
+        : ['#e8874a', '#f2c14e', '#d9603c', '#c9a8ff', '#b5651d'];
+      for (let i = 0; i < 7; i++){
+        const fx = X + 5 + i * 8, up = 2 + Math.floor(R.prand('fw' + i) * 5);
+        px(fx + 2, Y + 14 - up + 4, 2, up + 2, '#5f9c55');
+        const c = cs[i % cs.length];
+        px(fx + 2, Y + 10 - up, 2, 2, c); px(fx, Y + 12 - up, 6, 2, c); px(fx + 2, Y + 14 - up, 2, 2, c);
+        px(fx + 2, Y + 12 - up, 2, 2, shade(c, 40));
+      }
+    } else { px(X + 8, Y + 12, 6, 3, '#ffffff'); px(X + w - 18, Y + 11, 8, 3, '#ffffff'); }
+  }
+  if (d.clothesline){
+    // 기둥만 바탕에. 줄과 빨래는 바람에 흔들리니 움직이는 겹에서 그린다.
+    const b = spot('clothesline'), X = b.x * T, Y = b.y * T, w = b.w * T;
+    px(X + 4, Y + 28, 8, 2, '#00000022'); px(X + w - 12, Y + 28, 8, 2, '#00000022');
+    px(X + 6, Y + 4, 4, 26, WOOD.dark); px(X + 6, Y + 4, 2, 26, WOOD.low);
+    px(X + w - 10, Y + 4, 4, 26, WOOD.dark); px(X + w - 10, Y + 4, 2, 26, WOOD.low);
+    px(X + 4, Y + 2, 8, 3, WOOD.mid); px(X + w - 12, Y + 2, 8, 3, WOOD.mid);
+  }
+  if (d.birdhouse){
+    const b = spot('birdhouse'), X = b.x * T, Y = b.y * T;
+    px(X + 12, Y + 28, 8, 2, '#00000022');
+    px(X + 15, Y + 14, 2, 16, WOOD.dark);
+    px(X + 8, Y + 6, 16, 10, '#e8b06a'); px(X + 8, Y + 6, 16, 2, '#f5cf8f'); px(X + 8, Y + 14, 16, 2, '#b8813f');
+    px(X + 6, Y + 2, 20, 4, '#c94f4f'); px(X + 8, Y, 16, 2, '#c94f4f'); px(X + 6, Y + 2, 20, 1, '#e8756f');    // 지붕
+    px(X + 14, Y + 8, 4, 4, '#3a2a1e'); px(X + 13, Y + 13, 6, 1, WOOD.dark);                                    // 구멍 · 횃대
+  }
+  if (d.flag){
+    const b = spot('flag'), X = b.x * T, Y = b.y * T;
+    px(X + 12, Y + 30, 8, 2, '#00000022');
+    px(X + 14, Y + 2, 3, 30, '#8a8a8a'); px(X + 14, Y + 2, 1, 30, '#c4c4c4');
+    px(X + 13, Y, 5, 3, '#ffd25a');
+  }
+  if (d.wagon){
+    const b = spot('wagon'), X = b.x * T, Y = b.y * T, w = b.w * T;
+    px(X + 4, Y + 28, w - 8, 2, '#00000022');
+    px(X + 6, Y + 10, w - 12, 14, WOOD.mid); grainy(X + 6, Y + 10, w - 12, 14, WOOD.mid, 'wood', 'wg');   // 짐칸
+    px(X + 6, Y + 10, w - 12, 2, WOOD.hi); px(X + 6, Y + 22, w - 12, 2, WOOD.dark);
+    for (let i = 0; i < w - 12; i += 10) px(X + 6 + i, Y + 10, 2, 14, WOOD.dark);
+    px(X + 2, Y + 16, 6, 2, WOOD.dark);                                                                    // 손잡이
+    [X + 12, X + w - 18].forEach(wx => { px(wx, Y + 20, 8, 8, '#3a2a1e'); px(wx + 2, Y + 22, 4, 4, '#8a7a63'); });   // 바퀴
+    if (season === 'autumn'){
+      [[10, '#f28c28'], [22, '#e0761c'], [34, '#f28c28']].forEach(([ox, c]) => { px(X + ox, Y + 4, 10, 8, c); px(X + ox + 2, Y + 4, 6, 2, shade(c, 36)); px(X + ox + 4, Y + 2, 2, 2, '#5f9c55'); });
+    } else if (season === 'winter'){ px(X + 8, Y + 6, w - 16, 5, '#ffffff'); px(X + 10, Y + 4, w - 20, 2, '#ffffff'); }
+    else { px(X + 8, Y + 4, w - 16, 7, '#e8c46a'); px(X + 10, Y + 2, w - 20, 2, '#f2d98a'); grainy(X + 8, Y + 4, w - 16, 7, '#e8c46a', 'wood', 'hay'); }   // 건초
+  }
+  if (d.windmill){
+    // 탑만 바탕에. 날개는 움직이는 겹에서 돈다.
+    const b = spot('windmill'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
+    px(X + 12, Y + h - 6, w - 24, 4, '#00000022');
+    px(X + 18, Y + 16, w - 36, h - 20, STONE.mid); grainy(X + 18, Y + 16, w - 36, h - 20, STONE.mid, 'stone', 'wm');
+    px(X + 18, Y + 16, 3, h - 20, STONE.hi); px(X + w - 21, Y + 16, 3, h - 20, STONE.low);
+    px(X + 14, Y + 8, w - 28, 10, '#c94f4f'); px(X + 16, Y + 4, w - 32, 4, '#c94f4f'); px(X + 14, Y + 8, w - 28, 2, '#e8756f');   // 지붕
+    px(X + w / 2 - 4, Y + h - 18, 8, 14, WOOD.dark); px(X + w / 2 - 4, Y + h - 18, 8, 2, WOOD.low);                          // 문
+    px(X + w / 2 - 6, Y + 22, 12, 6, WOOD.dark);                                                                              // 창
+    px(X + w / 2 - 4, Y + 23, 8, 4, night ? '#ffe9a8' : '#8fd0f0');
+    if (night) lamp(X + w / 2, Y + 25, 16, '#ffc46a');
+  }
 }
 // 둥근 잎 덩어리 — 줄마다 너비를 달리해 네모로 보이지 않게 한다.
 // 왼쪽 위는 빛을 받고 오른쪽 아래는 그늘이 진다. 도트 그림에서 이 두 줄이 입체를 만든다.
@@ -1777,6 +1854,11 @@ function drawNode(n, season, t){
 // 아이와 동물은 저마다 갈 곳을 하나 정해 그리로 걸어간다. 닿으면 잠깐 쉬었다가 새로 정한다.
 // 자리는 규칙이 아니라 화면의 것이다 — 세이브에 적지 않는다.
 let walkers = null, beasts = null, dolls = null, curWind = 0.6;
+/* 말풍선. 아이·인형·동물을 누르면 한마디가 머리 위에 떴다가 사라진다.
+   말은 놀이 쪽(farm-play.js 의 speak)이 고르고, 여기는 자리와 그림만 맡는다.
+   한 사람에 한 개 — 같은 아이를 다시 누르면 앞 말이 바뀐다. */
+let bubbles = [];
+const BUBBLE_INK = '#3a3226', BUBBLE_BG = '#fffaf2', BUBBLE_MAX_W = 104;   // 말풍선 폭 상한(도트)
 function walkableTile(tx, ty){
   if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS - 1) return false;   // 맨 아랫줄은 앞쪽 수풀에 가린다
   const FB = R.FIELD_BOX;
@@ -1987,6 +2069,52 @@ function drawDoll(d, t){
   footShade(d.x, d.y - 2, D.w - 5);
   artOut('doll' + d.kind, D.art, Math.round(d.x - D.w / 2), Math.round(d.y - D.art.length + bob), D.pal, d.flip);
 }
+function bubbleAt(id, x, y, text, t){
+  bubbles = bubbles.filter(o => o.id !== id);
+  bubbles.push({ id, x, y, text, at: t, until: t + 2400 + text.length * 70 });
+}
+// 글을 도트 폭에 맞춰 줄로 나눈다 — 한글은 글자 사이 어디서든 끊어도 읽힌다
+function bubbleLines(text, maxW){
+  const out = []; let line = '';
+  for (const ch of text){
+    if (ctx.measureText(line + ch).width / S > maxW && line){
+      const sp = line.lastIndexOf(' ');                       // 띄어쓰기가 있으면 거기서 — 「해바라기 어/때」가 안 되게
+      if (sp > 0){ out.push(line.slice(0, sp)); line = line.slice(sp + 1) + ch; }
+      else { out.push(line); line = ch; }
+    } else line += ch;
+  }
+  if (line) out.push(line);
+  return out.slice(0, 3);
+}
+function drawBubbles(t){
+  if (!bubbles.length) return;
+  bubbles = bubbles.filter(o => o.until > t);
+  ctx.font = 'bold ' + Math.round(8 * S) + "px 'Suayona Dot', 'Suayona Sans', system-ui, sans-serif";
+  ctx.textBaseline = 'top';
+  const placed = [];                                     // 나란히 선 둘의 말풍선이 겹치면 뒤 것을 위로 올린다
+  bubbles.forEach(o => {
+    const lines = bubbleLines(o.text, BUBBLE_MAX_W - 8);
+    const lw = Math.max(...lines.map(l => ctx.measureText(l).width / S));
+    const w = Math.ceil(lw) + 8, h = lines.length * 10 + 6;
+    // 튀어나오는 첫 순간 조금 아래서 올라오고, 끝날 때 옅어진다
+    const in_ = Math.min(1, (t - o.at) / 140), out = Math.min(1, (o.until - t) / 320);
+    const x = Math.round(Math.max(2, Math.min(COLS * T - w - 2, o.x - w / 2)));
+    let y = Math.round(Math.max(2, o.y - h - 5 + (1 - in_) * 3));
+    placed.forEach(b => { if (x < b.x + b.w && x + w > b.x && y < b.y + b.h + 6 && y + h > b.y) y = Math.max(2, b.y - h - 3); });
+    placed.push({ x, y, w, h });
+    ctx.globalAlpha = Math.min(in_, out);
+    px(x + 1, y, w - 2, h, BUBBLE_INK); px(x, y + 1, w, h - 2, BUBBLE_INK);           // 테(모서리 한 도트 깎음)
+    px(x + 1, y + 1, w - 2, h - 2, BUBBLE_BG);
+    const tx = Math.round(Math.max(x + 4, Math.min(x + w - 8, o.x - 2)));              // 꼬리는 말하는 이를 가리킨다
+    px(tx - 1, y + h - 1, 6, 1, BUBBLE_BG); px(tx - 2, y + h - 1, 8, 1, BUBBLE_INK); px(tx - 1, y + h - 1, 6, 1, BUBBLE_BG);
+    px(tx, y + h, 4, 2, BUBBLE_BG); px(tx - 1, y + h, 1, 2, BUBBLE_INK); px(tx + 4, y + h, 1, 2, BUBBLE_INK);
+    px(tx + 1, y + h + 2, 2, 2, BUBBLE_BG); px(tx, y + h + 2, 1, 2, BUBBLE_INK); px(tx + 3, y + h + 2, 1, 2, BUBBLE_INK);
+    px(tx + 1, y + h + 4, 2, 1, BUBBLE_INK);
+    ctx.fillStyle = BUBBLE_INK;
+    lines.forEach((l, i) => ctx.fillText(l, Math.round((x + 4) * S), Math.round((y + 4 + i * 10) * S)));
+    ctx.globalAlpha = 1;
+  });
+}
 const BABY_K = 2 / 3;      // 새끼는 어른의 3분의 2 크기
 function drawBeast(a, t){
   const B = BEAST[a.kind] || BEAST.chicken;
@@ -2077,6 +2205,51 @@ function drawDecorLive(season, t, L){
     const b = spot('lantern'), X = b.x * T, Y = b.y * T;
     const f = Math.sin(t / 190) > 0 ? 2 : 0;
     px(X + 12, Y + 8 - f, 8, 6, '#fff3c0'); px(X + 14, Y + 6 - f, 4, 2, '#ffffff');
+  }
+  if (d.clothesline){
+    // 줄과 빨래 셋 — 바람이 셀수록 더 크게, 빨래마다 조금씩 다르게 흔들린다
+    const b = spot('clothesline'), X = b.x * T, Y = b.y * T, w = b.w * T;
+    px(X + 10, Y + 6, w - 20, 1, '#6b5d4a');
+    [['#ffb7d5', 10, 8], ['#5aa9e6', 8, 10], ['#ffffff', 9, 7]].forEach(([c, cw2, ch2], i) => {
+      const sx = X + 12 + i * 12, a = Math.round(Math.sin(t / (520 + i * 90) + i) * (1 + curWind * 0.9));
+      px(sx, Y + 7, cw2, 2, '#c9c1b0');                                        // 집게
+      px(sx + a, Y + 9, cw2, ch2, c); px(sx + a, Y + 9, cw2, 2, shade(c, 28)); px(sx + a + cw2 - 2, Y + 11, 2, ch2 - 2, shade(c, -30));
+    });
+  }
+  if (d.birdhouse){
+    // 새는 가끔 온다 — 스무 초에 열두 초쯤 횃대에 앉아 있다
+    const b = spot('birdhouse'), X = b.x * T, Y = b.y * T;
+    const cyc = (t / 1000) % 20;
+    if (cyc < 12 && L.dark < 0.5){
+      const hop = Math.sin(t / 260) > 0.6 ? 1 : 0, fl = Math.sin(t / 3000) > 0;
+      const bx = X + 15 + (fl ? 3 : 0), by = Y + 8 - hop;
+      px(bx - 1, by + 1, 5, 3, '#5aa9e6'); px(bx + (fl ? -1 : 3), by, 3, 3, '#7dc2ea');   // 몸 · 머리
+      px(bx + (fl ? -2 : 5), by + 1, 1, 1, '#ffb347');                                    // 부리
+      px(bx + (fl ? 4 : -1), by + 2, 2, 2, '#4f8fc4');                                    // 꼬리
+    }
+  }
+  if (d.flag){
+    // 깃발 — 줄마다 조금씩 어긋나게 그리면 천이 흐르는 것처럼 보인다
+    const b = spot('flag'), X = b.x * T, Y = b.y * T;
+    const k = 0.6 + curWind * 0.5;
+    for (let r = 0; r < 10; r++){
+      const off = Math.round(Math.sin(t / 240 + r * 0.55) * k);
+      px(X + 17 + off, Y + 3 + r, 12 - Math.floor(r / 4), 1, r < 5 ? '#ffb7d5' : '#fff3a0');
+    }
+  }
+  if (d.windmill){
+    // 날개 넷. 바람이 셀수록 빨리 돈다 — 네모 조각을 각도 따라 늘어놓아 도트 느낌을 지킨다
+    const b = spot('windmill'), X = b.x * T, Y = b.y * T, w = b.w * T;
+    const cx = X + w / 2, cy = Y + 14, ang = t / (2600 / (0.6 + curWind * 0.55));
+    for (let i = 0; i < 4; i++){
+      const a = ang + i * Math.PI / 2, dx = Math.cos(a), dy = Math.sin(a);
+      for (let s2 = 4; s2 <= 22; s2 += 3){
+        const bw = s2 > 8 ? 4 : 2;
+        px(Math.round(cx + dx * s2 - bw / 2), Math.round(cy + dy * s2 - bw / 2), bw, bw, s2 > 8 ? '#f5efe0' : WOOD.dark);
+        if (s2 > 8) px(Math.round(cx + dx * s2 - bw / 2), Math.round(cy + dy * s2 - bw / 2), bw, 1, WOOD.low);
+      }
+    }
+    px(cx - 2, cy - 2, 4, 4, WOOD.dark); px(cx - 1, cy - 1, 2, 2, '#c4c4c4');
   }
 }
 // ---------- 작은 것들 ----------
@@ -2528,6 +2701,7 @@ function drawFarm(cvIn, tms){
   ctx = g;
   drawFireflies(t);
   drawPlaceOverlay(t);
+  drawBubbles(t);
   drawFishBar(t);
 }
 // 어두운 쪽은 눌러 물들이고(곱하기), 밝은 쪽은 들어 올린다(스크린).
@@ -2573,6 +2747,12 @@ function tileAt(clientX, clientY){
   const w = r.width || cv.width, h = r.height || cv.height;
   const x = (clientX - r.left) / w * cv.width / S, y = (clientY - r.top) / h * cv.height / S;
   return { tx: Math.floor(x / T), ty: Math.floor(y / T) };
+}
+// 누른 자리를 도트 좌표로 — 칸이 아니라 그림 위 어디를 눌렀는지 봐야 할 때(캐릭터)
+function pixAt(clientX, clientY){
+  const cv = liveCv || $('#farmCanvas'), r = cv.getBoundingClientRect();
+  const w = r.width || cv.width, h = r.height || cv.height;
+  return { x: (clientX - r.left) / w * cv.width / S, y: (clientY - r.top) / h * cv.height / S };
 }
 function plotAtTile(tx, ty){
   const F = R.FIELD;
