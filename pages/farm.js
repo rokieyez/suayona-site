@@ -2925,6 +2925,7 @@ function skyColors(L){
   return { top: '#8ec9ee', bot: '#cfe9fa', star: false };
 }
 let houseBg = null, houseSig = '';
+let litLayer = null;                   // 밤에 불 켜진 부분만 모으는 겹 — 방 크기대로 다시 쓴다
 // 벽을 나눈 자리 — 벽 꼭대기에서 내려온 거리(도트)
 const W_MOULD = 6, W_RAIL = 66, W_WAIN = 70, W_BASE = 98;
 const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars: 1, mypic: 1,
@@ -3635,7 +3636,9 @@ function litColor(kind, col){
   if (kind === 'pumpkin') return col === '#3a2a20' ? '#ffd166' : null;
   if (typeof col !== 'string') return null;
   if (col.indexOf('rgba(') === 0) return (kind === 'tank' && col.indexOf('150,215,245') > 0) || (kind === 'wlight' && col.indexOf('255,225,150') > 0) ? col : null;
-  return litSet(kind).has(col) ? col : null;
+  if (!litSet(kind).has(col)) return null;
+  if (kind === 'tank') return col === '#8fd0f0' ? 'rgba(143,208,240,0.55)' : 'rgba(90,169,230,0.55)';   // 유리는 비쳐야 한다
+  return col;
 }
 function flickOf(kind, t){
   const f = (ROOM_LIGHT[kind] || {}).flick;
@@ -3720,7 +3723,14 @@ function paintFurniture(g, f, rot, A, t, lit){
   MATSEED = f;
   const hi = shade(c, 24), lo = shade(c, -18), dk = shade(c, -36);
   // lit 이면 빛나는 색만 찍는다 — 같은 그리기 코드를 두 번 쓰되 두 번째는 거른다
-  const q0 = dotFill(g), q = lit ? ((x, y, w, h, col) => { const lc = litColor(F.kind, col); if (lc) q0(x, y, w, h, lc); }) : q0;
+  /* lit 이면 빛나는 색만 찍고, 나머지는 그 자리를 **지운다**(destination-out). 그래야 뚜껑·받침이
+     가리던 유리가 겹 위에서 뚫고 나오지 않는다 — 어항이 앞뒤 없이 통째로 빛나던 까닭이 이것이었다. */
+  const q0 = dotFill(g);
+  const q = lit ? ((x, y, w, h, col) => {
+    const lc = litColor(F.kind, col);
+    if (lc){ q0(x, y, w, h, lc); return; }
+    g.save(); g.globalCompositeOperation = 'destination-out'; q0(x, y, w, h, '#000000'); g.restore();
+  }) : q0;
   const OX = A.EH + 1, OY = A.H + 1, E = A.EW, D = A.EH;
   const CX = OX + (E - D) / 2, CY = OY + (E + D) / 4;         // 발자국 한가운데(바닥)
   const P = (ax, ay, up) => [OX + ax - ay, OY + (ax + ay) / 2 - (up || 0)];
@@ -4421,25 +4431,56 @@ function drawRoom(cv, r, tms){
   const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, cw, ch); g.drawImage(houseBg, 0, 0);
   // 바닥에 둔 것 — 뒤(x+y 가 작은 쪽)부터 그려야 앞뒤가 맞다
-  const glow = [], lit = [];
+  /* 밤이면 「불 켜진 부분」을 따로 한 겹(litLayer)에 모은다. 벽 것 → 바닥 것 → 아이·고양이 순서로,
+     빛나는 가구는 빛나는 색만 그리고 그 앞에 오는 것들은 같은 자리를 지운다(destination-out).
+     그래서 물들인 뒤 이 겹을 얹어도 앞에 선 것이 뒤의 불빛을 가린다 — 어항이 탁자를 뚫고 보이지 않는다. */
+  const glow = [], night = L.dark > 0.12;
+  let lg = null;
+  if (night){
+    if (!litLayer) litLayer = document.createElement('canvas');
+    if (litLayer.width !== cw || litLayer.height !== ch){ litLayer.width = cw; litLayer.height = ch; }
+    lg = litLayer.getContext('2d'); lg.imageSmoothingEnabled = false; lg.clearRect(0, 0, cw, ch);
+  }
+  let litUsed = false;
+  if (lg){
+    const wlR = wallPaint(lg, Rm, 1), wlL = wallPaint(lg, Rm, 0), Pw = roomPal(r);
+    wallItems.forEach(it => {
+      const kind = R.FURNITURE[it.f].kind, LT = ROOM_LIGHT[kind];
+      const len = wallLenOf(Rm, it.side);
+      const u0 = it.col == null ? Math.min(Math.max(0, it.at * (TW / 2) - 8), len - 42) : wallU(len, wallColsOf(r, it.side), it.col);
+      const wl = it.side ? wlR : wlL, dv = it.row ? WALL_DROP : 0;
+      if (LT && LT.wall){
+        const u = u0 + 20;
+        glow.push({ x: (ox + (it.side ? u : -u)) * HS, y: (u / 2 + 30 + dv) * HS, r: LT.r * HS, c: LT.c, kind });
+        lg.save(); lg.globalAlpha = 0.55 + 0.45 * flickOf(kind, t);
+        paintWallItem((uu, v, uw, vh, c) => {
+          const lc = litColor(kind, c);
+          if (lc){ wl(uu, v + dv, uw, vh, lc); return; }
+          lg.save(); lg.globalCompositeOperation = 'destination-out'; wl(uu, v + dv, uw, vh, '#000000'); lg.restore();
+        }, u0, it.f, Pw, r, it.pic);
+        lg.restore(); litUsed = true;
+      } else if (litUsed){
+        lg.save(); lg.globalCompositeOperation = 'destination-out';
+        paintWallItem((uu, v, uw, vh) => wl(uu, v + dv, uw, vh, '#000000'), u0, it.f, Pw, r, it.pic);
+        lg.restore();
+      }
+    });
+  }
   floorItems.sort((a, b) => (a.x + a.y) - (b.x + b.y) || (a.x - b.x)).forEach(it => {
     if (held && it.x === held.fx && it.y === held.fy) return;
     drawFurnItem(g, it.f, it.r, Rm, it.x, it.y, t);
+    if (!lg) return;
     const kind = R.FURNITURE[it.f].kind, LT = ROOM_LIGHT[kind];
     if (LT && !LT.wall){
       glow.push({ x: isoX(Rm, it.x, it.y) * HS, y: (isoY(it.x, it.y) + LT.dy) * HS, r: LT.r * HS, c: LT.c, kind });
-      lit.push(it);
+      lg.save(); lg.globalAlpha = 0.55 + 0.45 * flickOf(kind, t);
+      drawFurnItem(lg, it.f, it.r, Rm, it.x, it.y, t, true);
+      lg.restore(); litUsed = true;
+    } else if (litUsed){
+      lg.save(); lg.globalCompositeOperation = 'destination-out';
+      drawFurnItem(lg, it.f, it.r, Rm, it.x, it.y, t);
+      lg.restore();
     }
-  });
-  const litWall = [];
-  wallItems.forEach(it => {
-    const kind = R.FURNITURE[it.f].kind, LT = ROOM_LIGHT[kind];
-    if (!LT || !LT.wall) return;
-    const len = wallLenOf(Rm, it.side);
-    const u0 = it.col == null ? Math.min(Math.max(0, it.at * (TW / 2) - 8), len - 42) : wallU(len, wallColsOf(r, it.side), it.col);
-    const u = u0 + 20;
-    glow.push({ x: (ox + (it.side ? u : -u)) * HS, y: (u / 2 + 30 + (it.row ? WALL_DROP : 0)) * HS, r: LT.r * HS, c: LT.c, kind });
-    litWall.push({ it, u0, kind });
   });
   // 아이와 고양이 — 앞에서 본 그림이라 레퍼런스처럼 방과 섞여도 어색하지 않다
   const keep2 = ctx; ctx = g;
@@ -4452,13 +4493,16 @@ function drawRoom(cv, r, tms){
     const kx = isoX(Rm, sp[0], sp[1]), ky = isoY(sp[0], sp[1]) + TH / 2 + bob;
     isoTop(dotFill(g), kx, ky - 6, 14, 14, 'rgba(26,20,12,0.20)');
     const rows = blink ? A2.down[1] : A2.down[0];
-    g.drawImage(outlined(who + 'room' + (blink ? 1 : 0), rows, KIDPAL[who], false, HS), Math.round((kx - 15) * HS), Math.round((ky - 40) * HS));
+    const kb = outlined(who + 'room' + (blink ? 1 : 0), rows, KIDPAL[who], false, HS), kxp = Math.round((kx - 15) * HS), kyp = Math.round((ky - 40) * HS);
+    g.drawImage(kb, kxp, kyp);
+    if (lg && litUsed){ lg.save(); lg.globalCompositeOperation = 'destination-out'; lg.drawImage(kb, kxp, kyp); lg.restore(); }
   }
   const cat = floorItems.find(i => R.FURNITURE[i.f].kind === 'catbed');
   if (cat){
     const wag = Math.sin(t / 700) > 0 ? 0 : 2;
-    g.drawImage(outlined('bcat', BEAST.cat.art, BEAST.cat.pal, false, HS),
-      Math.round((isoX(Rm, cat.x, cat.y) - 14) * HS), Math.round((isoY(cat.x, cat.y) - 4 - wag) * HS));
+    const cb = outlined('bcat', BEAST.cat.art, BEAST.cat.pal, false, HS), cxp = Math.round((isoX(Rm, cat.x, cat.y) - 14) * HS), cyp = Math.round((isoY(cat.x, cat.y) - 4 - wag) * HS);
+    g.drawImage(cb, cxp, cyp);
+    if (lg && litUsed){ lg.save(); lg.globalCompositeOperation = 'destination-out'; lg.drawImage(cb, cxp, cyp); lg.restore(); }
   }
   ctx = keep2;
   // 빛 — 방도 농장과 같은 표로 물들인다. 안쪽은 조금 덜 어둡게.
@@ -4475,17 +4519,8 @@ function drawRoom(cv, r, tms){
       g.fillStyle = rg; g.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
     });
     g.restore();
-    // 가구의 빛나는 부분을 물들이기 전 색으로 다시 — 갓·불꽃·화면·구멍이 밤에 진짜로 켜져 보인다
-    lit.forEach(it => { g.save(); g.globalAlpha = 0.55 + 0.45 * flickOf(R.FURNITURE[it.f].kind, t); drawFurnItem(g, it.f, it.r, Rm, it.x, it.y, t, true); g.restore(); });
-    if (litWall.length){
-      const wlR = wallPaint(g, Rm, 1), wlL = wallPaint(g, Rm, 0), Pw = roomPal(r);
-      litWall.forEach(({ it, u0, kind }) => {
-        const wl = it.side ? wlR : wlL, dv = it.row ? WALL_DROP : 0;
-        g.save(); g.globalAlpha = 0.55 + 0.45 * flickOf(kind, t);
-        paintWallItem((uu, v, uw, vh, c) => { const lc = litColor(kind, c); if (lc) wl(uu, v + dv, uw, vh, lc); }, u0, it.f, Pw, r, it.pic);
-        g.restore();
-      });
-    }
+    // 가구의 빛나는 부분 — 앞뒤 순서대로 모아 둔 겹을 한 장으로 얹는다
+    if (litUsed) g.drawImage(litLayer, 0, 0);
   }
   // 낮에는 창으로 빛이 비스듬히 들어온다 — 먼지가 반짝
   if (L.dark < 0.12){
