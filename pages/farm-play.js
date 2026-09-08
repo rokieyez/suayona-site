@@ -1382,6 +1382,8 @@ function wireUI(){
     rollIfNewDay();                       // 다시 볼 때 — 밤새 덮어 뒀다 아침에 여는 길
   });
   window.addEventListener('pageshow', rollIfNewDay);   // 폰에서 되살아난 쪽(bfcache)은 부팅이 안 돈다
+  // 말풍선 글꼴을 미리 받아 둔다 — 안 그러면 첫 말풍선만 다른 글꼴로 나온다
+  if (document.fonts && document.fonts.load) document.fonts.load("bold 12px 'Suayona Dot'").catch(() => {});
   window.addEventListener('online', () => { if (pending.length){ clearTimeout(saveTimer); commit(); } });
   const fcv = $('#farmCanvas');
   fcv.addEventListener('pointerdown', onFarmDown);
