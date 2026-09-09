@@ -851,7 +851,9 @@ function renderHouse(){
   $('#cozy').innerHTML = '아늑함 <span class="hearts">' + '♥'.repeat(lvl) + '♡'.repeat(Math.max(0, 5 - lvl)) + '</span> ' + cz + (nxt ? ' / ' + nxt : '') + ' · 기운 최대 ' + R.maxEnergy(W, M);
   const Rm = RM(room);
   const hcv = $('#houseCanvas');
-  hcv.style.touchAction = arrange ? 'none' : '';   // 재배치 중엔 끌어도 화면이 안 따라 움직인다
+  // 재배치 중엔 한 손가락으로 끌어도 화면이 안 따라 움직인다(가구를 옮긴다). 두 손가락으로
+  // 벌리는 것은 열어 둔다 — none 이면 핀치 줌까지 막힌다
+  hcv.style.touchAction = arrange ? 'pinch-zoom' : '';
   drawRoom(hcv, room);
   const mineRoom = !Rm.owner || Rm.owner === key;
   const dirName = ['↑ 처음', '→ 오른쪽', '↓ 뒤로', '← 왼쪽'][furnRot];

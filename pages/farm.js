@@ -2783,7 +2783,7 @@ function built(id){ return !!(W.buildings[id] && W.buildings[id].done); }
    예전 그대로다 — 끌지 않았으면 아무것도 안 하고 click 이 하던 일을 그대로 한다.
    끌 때는 도구가 세 칸·아홉 칸짜리라도 한 칸씩만 한다. 아홉 칸짜리로 끌면 기운이
    순식간에 바닥나고, 지나가지도 않은 칸이 갈려서 「내가 뭘 한 건지」를 못 읽는다.
-   폰에서는 가로로 끌어야 한다(#farmCanvas 의 touch-action:pan-y) — 세로로 끄는 것은
+   폰에서는 가로로 끌어야 한다(#farmCanvas 의 touch-action:pan-y pinch-zoom) — 세로로 끄는 것은
    화면을 내리는 손짓으로 남겨 뒀다. 밭 한 줄은 어차피 가로다. */
 const SWEEP_TOOLS = { hoe: 1, can: 1, seed: 1, fert: 1, hand: 1 };
 const SWEEP_MSG = { hoe: '땅을 갈았어요', can: '물을 줬어요', seed: '씨앗을 심었어요',
