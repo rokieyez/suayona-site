@@ -365,6 +365,12 @@ const FARM = (() => {
     golden:  { name: '금빛 잉어',   sell: 900, w: 2,  c: '#ffd24d' },
     catfish: { name: '메기',       sell: 320, w: 12, c: '#4a4238', night: true },
     moonfish:{ name: '달빛 물고기', sell: 700, w: 4,  c: '#cfd8f5', night: true },
+    // 계절마다 다른 것이 물게 — 한 계절에 새 물고기 하나씩은 있어야 「다음 계절엔 뭐가 나오나」가 생긴다
+    shrimp:  { name: '새우',       sell: 45,  w: 20, c: '#f2a58c', shape: 'shrimp' },
+    sweetfish:{ name: '은어',      sell: 150, w: 9,  c: '#c7d9d4', season: ['summer'] },
+    crayfish:{ name: '가재',       sell: 70,  w: 12, c: '#b9533e', season: ['summer', 'autumn'], shape: 'shrimp' },
+    smelt:   { name: '빙어',       sell: 90,  w: 14, c: '#dfe8ef', season: ['winter'] },
+    puffer:  { name: '복어',       sell: 380, w: 5,  c: '#e8d8a0', season: ['autumn', 'winter'] },
     boot:    { name: '낡은 장화',   sell: 2,   w: 11, c: '#6b5a4a', junk: true },
   };
   const FISH_IDS = Object.keys(FISH);
@@ -604,6 +610,15 @@ const FARM = (() => {
     risotto: { name: '송로 리조또',  need: { 'truffle': 1, 'milk': 1, 'crop:onion': 1 }, sell: 760, food: 16, lv: 3 },
     stew:    { name: '매운탕',      need: { 'fish:crucian': 1, 'crop:radish': 1, 'crop:pepper': 1 }, sell: 430, food: 13, lv: 2 },
     sushi:   { name: '연어초밥',    need: { 'fish:trout': 1, 'crop:cucumber': 1 },                sell: 640, food: 15, lv: 3 },
+    // 낚이는 물고기마다 쓰일 데가 하나씩 — 잉어·장어·메기는 그동안 팔 수만 있었다
+    shrimprice: { name: '새우볶음밥', need: { 'fish:shrimp': 2, 'crop:onion': 1, 'egg': 1 },   sell: 380, food: 12, lv: 2 },
+    ayu:     { name: '은어 소금구이', need: { 'fish:sweetfish': 2 },                             sell: 400, food: 11, lv: 2 },
+    crayfish:{ name: '가재찜',       need: { 'fish:crayfish': 2, 'crop:pepper': 1 },            sell: 360, food: 10, lv: 2 },
+    carpsteam:{ name: '잉어찜',      need: { 'fish:carp': 1, 'crop:radish': 1, 'crop:pepper': 1 }, sell: 400, food: 12, lv: 3 },
+    smeltfry:{ name: '빙어튀김',     need: { 'fish:smelt': 3, 'egg': 1 },                       sell: 450, food: 12, lv: 3 },
+    catstew: { name: '메기 매운탕',  need: { 'fish:catfish': 1, 'crop:radish': 1, 'crop:pepper': 2 }, sell: 520, food: 14, lv: 3 },
+    eelbowl: { name: '장어덮밥',     need: { 'fish:eel': 1, 'egg': 1 },                         sell: 560, food: 15, lv: 3 },
+    pufferstew:{ name: '복어탕',     need: { 'fish:puffer': 1, 'crop:radish': 1, 'crop:onion': 1 }, sell: 900, food: 17, lv: 4 },
     pickle:  { name: '오이지',       need: { 'crop:cucumber': 3, 'crop:pepper': 1 },   sell: 210, food: 7,  lv: 1 },
     starpie: { name: '별열매 파이',   need: { 'crop:star': 1, 'egg': 1, 'milk': 1 },    sell: 1200, food: 20, lv: 4 },
   };

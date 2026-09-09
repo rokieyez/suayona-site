@@ -621,7 +621,14 @@ function itemIcon(id){
     P(0, 0, 16, 16, '#bfe4f7'); P(0, 0, 16, 5, '#d7eefb');
     const F = R.FISH[v] || { c: '#a9c4d6' };
     if (v === 'boot'){ P(4, 6, 6, 8, F.c); P(4, 12, 9, 2, shade(F.c, -22)); P(5, 5, 4, 2, shade(F.c, 20)); }
-    else {
+    else if (F.shape === 'shrimp'){                          // 새우·가재 — 머리는 오른쪽, 등이 굽어 꼬리가 왼쪽 아래
+      P(9, 5, 4, 5, F.c); P(6, 4, 4, 4, F.c); P(4, 5, 3, 4, F.c); P(2, 7, 3, 3, F.c);
+      P(1, 9, 3, 2, shade(F.c, -12));                                        // 꼬리 부채
+      P(7, 4, 5, 1, shade(F.c, 26)); P(4, 8, 8, 1, shade(F.c, -24));         // 등 빛 · 배 그늘
+      P(10, 10, 1, 2, shade(F.c, -12)); P(8, 8, 1, 2, shade(F.c, -12)); P(6, 9, 1, 2, shade(F.c, -12));   // 다리
+      P(13, 2, 1, 3, shade(F.c, -30)); P(11, 3, 1, 2, shade(F.c, -30));      // 더듬이
+      P(11, 6, 1, 1, '#2a2a2a');
+    } else {
       P(3, 6, 9, 5, F.c); P(3, 7, 7, 2, shade(F.c, 26)); P(6, 9, 6, 2, shade(F.c, -26));
       P(11, 5, 3, 2, F.c); P(11, 10, 3, 2, F.c); P(12, 6, 2, 5, shade(F.c, -18));
       P(2, 7, 1, 1, '#2a2a2a'); P(5, 5, 3, 1, shade(F.c, 30));
@@ -816,10 +823,26 @@ function renderShop(){
       const Dd = R.DISHES[d], know = M.recipes.indexOf(d) >= 0, lvOk = Dd.lv <= lv;
       const card = itemCard('dish:' + d, null, null, know || !lvOk ? 'locked' : '');
       const pr = document.createElement('div'); pr.className = 'pr'; pr.textContent = Object.keys(Dd.need).map(k => R.itemName(k) + ' ' + Dd.need[k]).join(' + ') + ' · 🪙 ' + Dd.sell + ' · ⚡ ' + Dd.food + (know ? ' · 알아요' : !lvOk ? ' · 레벨 ' + Dd.lv + '부터' : ''); card.appendChild(pr);
+      const fh = fishHint(Dd.need);
+      if (fh){ const h = document.createElement('div'); h.className = 'pr'; h.textContent = '🎣 ' + fh; card.appendChild(h); }
       if (!know && lvOk){ const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('recipe:' + d, Dd.sell, M.coins >= Dd.sell)); card.appendChild(a); }
       box.appendChild(card);
     });
   }
+}
+/* 요리법 카드의 생선 안내. 요리법은 레벨 2·3부터 보이는데 생선은 연못(레벨 5·2000코인)이
+   있어야 낚이므로, 아이 눈에는 「어디서도 못 구하는 재료」다. 어디서 언제 나는지 한 줄 적는다. */
+function fishHint(need){
+  const fs = Object.keys(need).filter(k => k.indexOf('fish:') === 0);
+  if (!fs.length) return '';
+  const pond = !!(W.decor && W.decor.pond);
+  return fs.map(k => {
+    const F = R.FISH[k.slice(5)]; if (!F) return '';
+    const when = [F.season ? F.season.map(sn => R.SEASON_NAME[sn]).join('·') : '', F.night ? '밤' : ''].filter(Boolean).join(' ');
+    const at = when ? when + '에 ' : '';
+    return R.eun(F.name) + ' ' + (pond ? at + '연못에서 낚아요'
+      : '연못을 놓으면 ' + at + '낚을 수 있어요 (가게 꾸미기 · 레벨 ' + R.DECOR.pond.lv + ')');
+  }).filter(Boolean).join(' · ');
 }
 function nameDialog(a){
   const inner = $('#modalInner');
@@ -914,6 +937,9 @@ function renderHouse(){
       const Dd = R.DISHES[d], ok = R.canCook(M, d);
       const card = itemCard('dish:' + d, M.inv['dish:' + d] || 0, null, ok ? '' : 'locked');
       const pr = document.createElement('div'); pr.className = 'pr'; pr.textContent = Object.keys(Dd.need).map(k => R.itemName(k) + ' ' + Dd.need[k] + '(' + R.countOf(M, k) + ')').join(' + '); card.appendChild(pr);
+      // 생선이 하나도 없을 때만 — 있으면 어디서 났는지 이미 안다
+      const fh = ok ? '' : fishHint(Object.keys(Dd.need).filter(k => k.indexOf('fish:') === 0 && !R.countOf(M, k)).reduce((o, k) => { o[k] = 1; return o; }, {}));
+      if (fh){ const h = document.createElement('div'); h.className = 'pr'; h.textContent = '🎣 ' + fh; card.appendChild(h); }
       const a = document.createElement('div'); a.className = 'act'; a.appendChild(btn('만들기', 'buy', () => { const r = act((w, m) => R.cook(w, m, d, now())); if (r.ok) sfx('sparkle'); }, !ok)); card.appendChild(a); grid.appendChild(card);
     });
     kb.appendChild(grid);
