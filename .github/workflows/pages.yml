@@ -1,0 +1,39 @@
+# 사이트를 GitHub Pages 로 올린다.
+#
+# 예전에는 Pages 의 기본 방식(레거시·Jekyll)으로 올렸는데, 저장소를 잠깐 비공개로
+# 바꿨다가 되돌린 뒤로 그 빌드가 0ms 만에 「Page build failed」로만 죽고 까닭을
+# 알려 주지 않았다. 이 길은 실제 빌드 기록이 남아 무엇이 잘못됐는지 볼 수 있다.
+#
+# 이 사이트는 빌드가 없다 — 저장소의 파일을 그대로 올리기만 한다(path: '.').
+# 사용자 지정 도메인은 저장소의 CNAME 파일이 그대로 따라 올라가 유지된다.
+name: 사이트 올리기
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:        # 손으로도 한 번 돌릴 수 있게
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 올리는 중에 또 밀어 넣어도 앞의 것을 끊지 않는다 — 반쯤 올라간 사이트가 남으면 안 된다
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deployment
+        uses: actions/deploy-pages@v4
