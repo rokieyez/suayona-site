@@ -326,6 +326,16 @@ function makePlacePicker(host, init){
   q('.pQuery').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); find(); } });
 
   return {
+    isEmpty(){ return !nameEl.value.trim(); },
+    /* 비어 있을 때만 채운다 — 손으로 적어 둔 것을 말없이 덮으면 안 된다.
+       여기서 lookVisit() 은 부르지 않는다. 저장 직전에 부르면 「가본 곳」 확인이
+       늦게 끝나면서 사람이 누르지도 않은 별점이 딸려 올라갈 수 있다. */
+    fillName(name){
+      if (!name || nameEl.value.trim()) return false;
+      nameEl.value = String(name).slice(0, 80);
+      drawState();
+      return true;
+    },
     // 저장할 값. 이름을 지웠으면 좌표도 같이 버린다.
     async value(onMsg){
       const name = nameEl.value.trim();
@@ -979,11 +989,71 @@ function renderEditForm(r){
   return form;
 }
 
+/* ---------- 사진을 보고 시간·장소 채우기 ----------
+   갤러리에서 고른 사진에는 찍은 시각(taken_at)이 들어 있다. 시간이나 장소를 안 고르고
+   저장하면 그것으로 채운다 — 안 채우면 지금까지처럼 빈 채로 저장된다.
+
+   30분 단위로 맞추는 이유: 이미 손으로 적어 둔 일정 열 줄을 사진 시각과 맞대어 보니
+   08:27→08:30, 13:05→13:00, 17:27→17:30, 20:13→20:00 … 열 줄이 모두 **30분 반올림**
+   이었다. 사람이 하던 그대로다. */
+const AUTO_TIME_STEP = 30;
+const NEAR_PLACE_MIN = 90;          // 「가까운 시각」으로 볼 사이. 이보다 멀면 딴 곳이다
+
+/* new Date(null) 은 오류가 아니라 1970년 0시다. 찍은 시각이 없는 사진(갤러리는 없으면
+   null 을 넣는다)을 그대로 넘기면 「09:00」 이 채워진다 — 값이 있는지부터 본다. */
+function clockOf(iso){
+  if (!iso) return null;
+  const d = new Date(iso);
+  return isNaN(d) ? null : d;
+}
+function minutesOf(d){ return d.getHours() * 60 + d.getMinutes(); }
+function hhmm(min){
+  const m = Math.max(0, Math.min(24 * 60 - TIME_STEP, min));
+  return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+}
+function roundClock(d){ return hhmm(Math.round(minutesOf(d) / AUTO_TIME_STEP) * AUTO_TIME_STEP); }
+
+/* 고른 사진들의 찍은 시각. 여러 장이면 처음과 끝으로 한 칸을 만든다.
+   날이 다른 사진이 섞였으면 첫 장만 쓴다 — 「09:00-21:00」 같은 것은 일정이 아니다. */
+function timeFromShots(shots){
+  const times = shots.map(s => clockOf(s.taken_at)).filter(Boolean).sort((a, b) => a - b);
+  if (!times.length) return null;
+  const a = times[0], b = times[times.length - 1];
+  const sameDay = a.toDateString() === b.toDateString();
+  const from = roundClock(a);
+  const to = (sameDay && roundClock(b) !== from) ? roundClock(b) : '';
+  return { from, to, at: a };
+}
+
+/* 사진에 찍힌 곳이 없을 때(요즘 폰은 브라우저에 넘기며 위치를 지운다) 쓰는 뒷길:
+   같은 날 판에서 **찍은 시각이 가장 가까운** 일정의 장소를 가져온다. */
+async function placeNearPhoto(panel, when){
+  const { data, error } = await sb.from('events')
+    .select('title, time, place_name, taken_at')
+    .eq('event_id', CONFIG.eventSlug).eq('panel', panel)
+    .not('place_name', 'is', null);
+  if (error || !data || !data.length) return null;
+  const target = minutesOf(when);
+  let best = null;
+  data.forEach(r => {
+    if (!r.place_name) return;
+    const d = clockOf(r.taken_at);
+    const rowMin = d ? minutesOf(d) : (() => {
+      const t = parseTimeText(r.time).from;
+      return t ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) : null;
+    })();
+    if (rowMin == null) return;
+    const gap = Math.abs(rowMin - target);
+    if (gap <= NEAR_PLACE_MIN && (!best || gap < best.gap)) best = { gap, place: r.place_name, title: r.title };
+  });
+  return best;
+}
+
 // ----- 새 일정 추가 -----
 $('#addBtn').addEventListener('click', async () => {
   const addBtn = $('#addBtn');
   const panel = $('#addPanel').value;
-  const time = timeTextOf($('#addTimeFrom').value, $('#addTimeTo').value);
+  let time = timeTextOf($('#addTimeFrom').value, $('#addTimeTo').value);
   const title = $('#addTitle').value.trim();
   const detail = $('#addDetail').value.trim();
   const files = Array.from($('#addImage').files);
@@ -1010,6 +1080,25 @@ $('#addBtn').addEventListener('click', async () => {
   }
   if (!hasExtraImages) shots = shots.slice(0, 1);
   if (shots.length) photos = splitPhotos(shots);
+
+  // 시간·장소를 안 골랐으면 사진이 아는 것으로 채운다
+  const autoFilled = [];
+  if (shots.length) {
+    const t = time ? null : timeFromShots(shots);
+    if (t) { time = timeTextOf(t.from, t.to); autoFilled.push('시간 ' + time); }
+    if (addPlacePicker.isEmpty()) {
+      const own = shots.map(s => s.location_name).find(Boolean);
+      if (own && addPlacePicker.fillName(own)) {
+        autoFilled.push('장소 ' + own + ' (사진에 찍힌 곳)');
+      } else {
+        const when = (t || timeFromShots(shots) || {}).at;
+        const near = when ? await placeNearPhoto(panel, when) : null;
+        if (near && addPlacePicker.fillName(near.place)) {
+          autoFilled.push('장소 ' + near.place + ' (시각이 가까운 「' + near.title + '」과 같은 곳)');
+        }
+      }
+    }
+  }
 
   const placeRes = await addPlacePicker.value(t => { msg.className = ''; msg.textContent = t; });
 
@@ -1057,7 +1146,9 @@ $('#addBtn').addEventListener('click', async () => {
 
   const said = await saveVisit(placeRes, panelDate(panel));
   msg.className = 'ok';
-  msg.textContent = '추가됐습니다!' + placeNote(placeRes) + said + (files.length > 1 && !hasExtraImages
+  msg.textContent = '추가됐습니다!' +
+    (autoFilled.length ? ' 사진을 보고 채웠어요 — ' + autoFilled.join(' · ') + '.' : '') +
+    placeNote(placeRes) + said + (files.length > 1 && !hasExtraImages
     ? ' (사진은 첫 장만 저장됐어요 — 위 안내의 SQL을 실행하면 여러 장이 저장됩니다)' : '');
   insertAfter = null; syncInsertNote();
   $('#addTimeFrom').value = ''; $('#addTimeTo').value = ''; $('#addTitle').value = '';
