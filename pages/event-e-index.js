@@ -1351,9 +1351,6 @@ function renderLightboxAt(index){
   const multi = galleryItems.length > 1;
   lightboxPrevBtn.hidden = !multi;
   lightboxNextBtn.hidden = !multi;
-  const play = $('#lightboxPlay');
-  if (play) play.hidden = !multi;      // 한 장짜리에 슬라이드쇼는 우습다
-  queueSlide();                        // 슬라이드쇼 중이면 다음 장을 예약
 }
 
 // 사진을 크게 띄우면 뒤로가기 자리를 하나 만들어 둔다. 손전화에서 창을 닫는
@@ -1367,7 +1364,6 @@ function openLightbox(index){
 }
 // 화면만 정리한다. 뒤로가기 자리는 부르는 쪽이 맡는다.
 function closeLightboxView(){
-  stopSlideshow();
   $('#lightbox').classList.remove('open');
   const img = $('#lightboxImg'), vid = $('#lightboxVideo');
   img.src = ''; vid.pause(); vid.src = '';
@@ -1385,32 +1381,6 @@ window.addEventListener('popstate', () => {
   if ($('#lightbox').classList.contains('open')) closeLightboxView();
 });
 
-// ----- 슬라이드쇼 -----
-// 여행 하나에 사진이 백 장 가까이 쌓인다. 소파에서 다 같이 볼 때
-// 백 번 넘기지 않아도 되게. 사진은 4초씩, 영상은 끝나면 넘어간다.
-const SLIDESHOW_MS = 4000;
-let slideshowOn = false, slideshowTimer = null;
-function queueSlide(){
-  clearTimeout(slideshowTimer);
-  if (!slideshowOn) return;
-  const it = galleryItems[lightboxIndex];
-  const vid = $('#lightboxVideo');
-  if (it && it.media_type === 'video') {
-    vid.onended = () => { vid.onended = null; if (slideshowOn) showNextMedia(); };
-    vid.play().catch(() => {     // 자동재생이 막히면 영상도 사진처럼 시간으로 넘긴다
-      slideshowTimer = setTimeout(() => { if (slideshowOn) showNextMedia(); }, SLIDESHOW_MS);
-    });
-  } else {
-    slideshowTimer = setTimeout(() => { if (slideshowOn) showNextMedia(); }, SLIDESHOW_MS);
-  }
-}
-function stopSlideshow(){
-  slideshowOn = false;
-  clearTimeout(slideshowTimer);
-  $('#lightboxVideo').onended = null;
-  const b = $('#lightboxPlay');
-  if (b) b.textContent = '▶ 슬라이드쇼';
-}
 function showPrevMedia(){ resetManualZoom(); renderLightboxAt((lightboxIndex - 1 + galleryItems.length) % galleryItems.length); }
 function showNextMedia(){ resetManualZoom(); renderLightboxAt((lightboxIndex + 1) % galleryItems.length); }
 
@@ -1444,13 +1414,6 @@ function setupLightboxInteractions(){
   lightboxPrevBtn = $('#lightboxPrev'); lightboxNextBtn = $('#lightboxNext');
   $('#lightbox').addEventListener('click', (e) => { if (e.target.id === 'lightbox') closeLightbox(); });
   $('#lightboxClose').addEventListener('click', (e) => { e.stopPropagation(); closeLightbox(); });
-  $('#lightboxPlay').addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (slideshowOn) { stopSlideshow(); return; }
-    slideshowOn = true;
-    $('#lightboxPlay').textContent = '⏸ 멈추기';
-    queueSlide();
-  });
   lightboxPrevBtn.addEventListener('click', (e) => { e.stopPropagation(); showPrevMedia(); });
   lightboxNextBtn.addEventListener('click', (e) => { e.stopPropagation(); showNextMedia(); });
 
