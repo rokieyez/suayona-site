@@ -64,11 +64,15 @@ const GALLERY_BUCKET = 'gallery-uploads';   // 이벤트 갤러리에 올린 사
 // 사진은 이 용량을 넘을 때만 압축함 (넘지 않으면 원본 그대로 올라감).
 // 3MB 로 잡아 두면 요즘 휴대폰 사진(보통 4~5MB)이 거의 다 걸려서 긴 변 2400px 로
 // 줄어든다. 화면에서는 차이가 안 보이는데 무료 저장공간(1GB)은 두 배 넘게 간다.
-const IMAGE_LIMIT = 3 * 1024 * 1024;         // 갤러리·일기장 사진
+const IMAGE_LIMIT = 3 * 1024 * 1024;         // 갤러리 사진 (일기장은 아래 POST_IMAGE_LIMIT)
 /* 사진의 긴 변 상한. 용량이 작아도 이 크기로 맞춘다 — 요즘 폰 사진은 4000px 이 넘는데
    화면에서 가장 크게 보는 자리(라이트박스)도 2400px 이면 넉넉하다.
    작품(포트폴리오)에는 안 쓴다. */
 const PHOTO_CAP_DIM = 2400;
+/* 일기장은 더 낮게 잡는다. 일기 사진은 눌러서 크게 볼 때 **원본이 그대로** 내려가는데,
+   3MB 짜리가 붙으면 밖에서 일기 한 장 보는 데 3MB 를 쓴다. 긴 변은 그대로 2400px 이고
+   굽는 질만 낮아지므로 화면에서는 차이가 안 보인다. */
+const POST_IMAGE_LIMIT = 1.5 * 1024 * 1024;      // 일기장 첨부 — 눌러서 보는 원본도 이 안
 const PORTFOLIO_IMAGE_LIMIT = 10 * 1024 * 1024;  // 작품은 화질이 중요해서 10MB
 const VIDEO_LIMIT = 100 * 1024 * 1024;
 
@@ -1551,6 +1555,40 @@ function metersBetween(a, b){
 function isoToDateKey(iso){
   const [y,m,d] = iso.split('-').map(Number);
   return [y, m-1, d];
+}
+
+// 행사 날짜 판(탭) 만들기 — 시작일이 d1, 그 다음 날이 d2 … 로 이어진다.
+// 행사 쪽 세 화면이 같은 규칙을 써야 해서 여기에 둔다.
+//
+// pad 를 주면 기간 앞뒤로 그만큼 날을 더 만든다. 하루 일찍 내려간 날, 돌아온
+// 다음 날처럼 기간에서 삐져나온 일정을 적으라고 열어 두는 자리다.
+//
+// 앞에 붙는 날은 d1 보다 앞이라 번호를 물려받을 수 없다. 그래서 dm1(하루 전),
+// dm2(이틀 전) 처럼 따로 이름을 준다 — 앞날부터 d1 로 다시 번호를 매기면
+// 이미 저장된 일정의 판 이름이 통째로 밀려서 날짜가 어긋난다.
+// 뒤에 붙는 날은 번호가 그냥 이어지므로(d5, d6 …) 겹칠 일이 없다.
+//
+// extra: true 인 판은 원래 기간 밖이다 — 비어 있으면 감추는 데 쓴다.
+const PANEL_PAD_DAYS = 3;
+
+function buildDayPanels(startDate, endDate, pad){
+  const n = Math.max(0, pad | 0);
+  const key = d => [d.getFullYear(), d.getMonth(), d.getDate()];
+  const panels = [];
+
+  for (let k = n; k >= 1; k--) {
+    panels.push({ id: 'dm' + k, extra: true,
+                  dateKey: key(new Date(startDate[0], startDate[1], startDate[2] - k)) });
+  }
+
+  const cur  = new Date(startDate[0], startDate[1], startDate[2]);
+  const last = new Date(endDate[0], endDate[1], endDate[2]);           // 원래 마지막 날
+  const end  = new Date(endDate[0], endDate[1], endDate[2] + n);
+  for (let i = 1; cur <= end; i++) {
+    panels.push({ id: 'd' + i, dateKey: key(cur), extra: cur > last });
+    cur.setDate(cur.getDate() + 1);
+  }
+  return panels;
 }
 
 function escapeHTML(s){

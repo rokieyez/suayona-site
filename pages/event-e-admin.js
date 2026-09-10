@@ -14,19 +14,7 @@ function formatDateLabel(dateKey){
   const [y,m,d] = dateKey;
   return (m+1) + '/' + d + ' ' + WEEKDAY[new Date(y,m,d).getDay()];
 }
-// isoToDateKey 는 common.js 에 있다 (행사 세 쪽이 똑같은 것을 갖고 있었다).
-function buildDatePanels(startDate, endDate){
-  const panels = [];
-  let cur = new Date(startDate[0], startDate[1], startDate[2]);
-  const end = new Date(endDate[0], endDate[1], endDate[2]);
-  let i = 1;
-  while (cur <= end) {
-    panels.push({ id: 'd' + i, dateKey: [cur.getFullYear(), cur.getMonth(), cur.getDate()] });
-    cur.setDate(cur.getDate() + 1);
-    i++;
-  }
-  return panels;
-}
+// isoToDateKey·buildDayPanels 는 common.js 에 있다 (행사 세 쪽이 똑같은 것을 갖고 있었다).
 
 // 그 판이 며칠인지 — 「가본 곳」의 다녀온 날에 쓴다
 function panelDate(id){
@@ -510,6 +498,10 @@ function fillPanelSelect(){
     if (insertAfter && insertAfter.panel !== sel.value) { insertAfter = null; syncInsertNote(); }
   });
   sel.innerHTML = CONFIG.panels.map(p => '<option value="' + p.id + '">' + p.label + '</option>').join('');
+  // 목록 맨 위는 이제 기간 밖 날짜(사흘 전)다. 처음 열었을 때 고르고 있어야 하는 것은
+  // 어디까지나 행사 첫날이므로 거기로 맞춰 둔다.
+  const 첫날 = CONFIG.panels.find(p => !p.extra);
+  if (첫날) sel.value = 첫날.id;
 }
 
 
@@ -787,6 +779,7 @@ async function loadList(){
   listEl.innerHTML = '';
   CONFIG.panels.forEach(p => {
     const rows = byPanel[p.id] || [];
+    if (p.extra && !rows.length) return;      // 기간 밖 날짜는 적어 넣은 게 있을 때만
     const group = document.createElement('div');
     group.className = 'panel-group';
     group.innerHTML = '<h3>' + p.label + '</h3>';
@@ -1165,8 +1158,12 @@ $('#retrofitBtn').addEventListener('click', async () => {
 
   EVENT_META = data;
   applyAdminTitle();
-  CONFIG.panels = buildDatePanels(isoToDateKey(data.start_date), isoToDateKey(data.end_date));
-  CONFIG.panels.forEach(p => { if (!p.label) p.label = formatDateLabel(p.dateKey); });
+  // 기간 앞뒤로 사흘씩 더 만든다 — 하루 일찍 출발한 날, 돌아온 다음 날에도 일정을 적을 수 있게.
+  CONFIG.panels = buildDayPanels(isoToDateKey(data.start_date), isoToDateKey(data.end_date), PANEL_PAD_DAYS);
+  CONFIG.panels.forEach(p => {
+    // 기간 밖 날짜는 이름에 적어 둔다 — 8/5~8/8 행사에서 8/2 를 무심코 고르는 일을 막는다
+    if (!p.label) p.label = formatDateLabel(p.dateKey) + (p.extra ? ' (기간 밖)' : '');
+  });
 
   refreshAuthUI();
 })();

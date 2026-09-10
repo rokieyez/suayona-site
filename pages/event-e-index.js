@@ -41,17 +41,9 @@ function formatDateRangeText(s, e){
   const f = d => (d[1]+1) + '. ' + d[2] + '(' + WEEKDAY[new Date(d[0],d[1],d[2]).getDay()] + ')';
   return s[0] + '. ' + f(s) + ' ~ ' + f(e);
 }
-// isoToDateKey 는 common.js 에 있다 (행사 세 쪽이 똑같은 것을 갖고 있었다).
-function buildDatePanels(startDate, endDate){
-  const panels = [];
-  let cur = new Date(startDate[0], startDate[1], startDate[2]);
-  const end = new Date(endDate[0], endDate[1], endDate[2]);
-  let i = 1;
-  while (cur <= end) {
-    panels.push({ id: 'd' + i, dateKey: [cur.getFullYear(), cur.getMonth(), cur.getDate()] });
-    cur.setDate(cur.getDate() + 1);
-    i++;
-  }
+// isoToDateKey·buildDayPanels 는 common.js 에 있다 (행사 세 쪽이 똑같은 것을 갖고 있었다).
+function buildDatePanels(startDate, endDate, pad){
+  const panels = buildDayPanels(startDate, endDate, pad);
   panels.push({ id: 'gallery', label: '📷 갤러리', dateKey: null });
   return panels;
 }
@@ -626,15 +618,17 @@ async function fetchScheduleRows(){
 // 내용이 없는 날짜는 탭이 사라지므로, 관리자에게는 일정을 넣으러 갈 링크를 따로 보여줌
 function showAdminAddLink(byPanel){
   if (!isAdmin) return;
-  const total = CONFIG.startDate && CONFIG.endDate
-    ? buildDatePanels(CONFIG.startDate, CONFIG.endDate).filter(p => p.dateKey).length : 0;
-  const shown = CONFIG.panels.filter(p => p.dateKey).length;
-  if (shown >= total) return;                       // 모든 날짜가 이미 보이면 굳이 안 띄움
+  if (!CONFIG.startDate || !CONFIG.endDate) return;
+  // 세는 것은 원래 행사 기간뿐이다. 기간 밖 사흘은 비어 있는 게 정상이라 숨겨졌다고 하지 않는다.
+  const 보이는판 = new Set(CONFIG.panels.map(p => p.id));
+  const hidden = buildDatePanels(CONFIG.startDate, CONFIG.endDate)
+    .filter(p => p.dateKey && !보이는판.has(p.id)).length;
+  if (!hidden) return;                              // 모든 날짜가 이미 보이면 굳이 안 띄움
 
   const note = document.createElement('div');
   note.style.cssText = 'text-align:center; margin:-6px 0 16px; font-size:12.5px; color:var(--ink-soft);';
   note.innerHTML =
-    '내용이 없는 날짜 ' + (total - shown) + '일은 탭에서 숨겨졌어요 · ' +
+    '내용이 없는 날짜 ' + hidden + '일은 탭에서 숨겨졌어요 · ' +
     '<a href="./admin.html?slug=' + encodeURIComponent(CONFIG.eventSlug) + '" ' +
     'style="color:var(--accent); font-weight:700;">일정 추가하기</a>';
   tabsEl.insertAdjacentElement('afterend', note);
@@ -997,7 +991,7 @@ const COVER_MAX = 3;         // 일정에 붙일 대표 사진 수
 // 찾으려면 거르기 전의 전체 날짜 목록이 필요하다.
 function panelIdForDate(d){
   if (!CONFIG.startDate || !CONFIG.endDate) return null;
-  const all = buildDatePanels(CONFIG.startDate, CONFIG.endDate);
+  const all = buildDatePanels(CONFIG.startDate, CONFIG.endDate, PANEL_PAD_DAYS);
   for (const p of all) {
     if (!p.dateKey) continue;
     const [y, m, dd] = p.dateKey;
@@ -1128,7 +1122,10 @@ async function openScheduleProposal(){
   inside.forEach(sh => (byPanel[sh.panel] = byPanel[sh.panel] || []).push(sh));
 
   proposals = [];
-  Object.keys(byPanel).sort().forEach(pid => {
+  // 판 이름을 글자 순으로 세우면 dm1(하루 전)이 맨 뒤로 가고 d10 이 d2 앞에 선다.
+  // 날짜 판을 만든 차례가 곧 날짜 차례이므로 그것을 쓴다.
+  const 판차례 = buildDatePanels(CONFIG.startDate, CONFIG.endDate, PANEL_PAD_DAYS).map(p => p.id);
+  Object.keys(byPanel).sort((a, b) => 판차례.indexOf(a) - 판차례.indexOf(b)).forEach(pid => {
     clusterShots(byPanel[pid]).forEach(g => {
       const covers = pickCovers(g);
       const from = roundClock(g[0].t), to = roundClock(g[g.length - 1].t);
@@ -1162,7 +1159,7 @@ async function openScheduleProposal(){
 
 function renderProposal(notes){
   const dayLabel = pid => {
-    const p = buildDatePanels(CONFIG.startDate, CONFIG.endDate).find(x => x.id === pid);
+    const p = buildDatePanels(CONFIG.startDate, CONFIG.endDate, PANEL_PAD_DAYS).find(x => x.id === pid);
     return p && p.dateKey ? formatDateLabel(p.dateKey) : pid;
   };
 
@@ -1574,7 +1571,8 @@ function isPageZoomed(){
   CONFIG.startDate = isoToDateKey(data.start_date);
   CONFIG.endDate = isoToDateKey(data.end_date);
   CONFIG.dateRangeText = data.date_range_text || formatDateRangeText(CONFIG.startDate, CONFIG.endDate);
-  CONFIG.panels = buildDatePanels(CONFIG.startDate, CONFIG.endDate);
+  // 관리자가 기간 앞뒤 사흘에 넣어 둔 일정도 받아 준다. 빈 날은 아래에서 걸러진다.
+  CONFIG.panels = buildDatePanels(CONFIG.startDate, CONFIG.endDate, PANEL_PAD_DAYS);
   if (data.icon) $('#logoIcon').textContent = data.icon;
 
   applyHeaderText();
@@ -1586,6 +1584,10 @@ function isPageZoomed(){
   if (byPanel) {
     CONFIG.panels = CONFIG.panels.filter(p =>
       !p.dateKey || (byPanel[p.id] && byPanel[p.id].length));
+  } else {
+    // 불러오기에 실패하면 기간 안 날짜는 그대로 두되(빈 화면보다 낫다), 기간 밖은 감춘다 —
+    // 안 그러면 있지도 않은 날짜 탭 여섯 개가 늘 붙는다.
+    CONFIG.panels = CONFIG.panels.filter(p => !p.extra);
   }
   CONFIG.panels.forEach(p => { if (p.dateKey) PANEL_DATE[p.id] = p.dateKey; });
 
