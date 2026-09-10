@@ -62,16 +62,33 @@ async function fetchRegistryEvents(){
   if (!isAdmin) q = q.eq('is_public', true);
   const { data, error } = await q;
   if (error) { console.error('이벤트 목록 로딩 오류:', error); return []; }
-  return data
-    .filter(r => !legacySlugs.has(r.event_id))
+  const rows = data.filter(r => !legacySlugs.has(r.event_id));
+
+  /* 기간 밖 날짜(하루 일찍 내려간 날 같은 것)에 적어 둔 일정이 있는지 본다.
+     있으면 카드의 기간을 그만큼 넓힌다 — 적어 뒀는데 카드에 안 나오면 빠뜨린 줄 안다.
+     한 번에 물어 온다(행사 수만큼 묻지 않는다). 못 읽어도 예전 글자로 그냥 간다. */
+  const withRows = {};
+  const slugs = rows.map(r => r.event_id);
+  if (slugs.length) {
+    const { data: pr } = await sb.from('events').select('event_id, panel').in('event_id', slugs);
+    (pr || []).forEach(x => {
+      (withRows[x.event_id] = withRows[x.event_id] || new Set()).add(x.panel);
+    });
+  }
+
+  return rows
     .map(r => {
       const startDate = isoToDateKey(r.start_date), endDate = isoToDateKey(r.end_date);
+      const eff = shownRange(startDate, endDate, withRows[r.event_id]);
       return {
         slug: r.event_id,
         orgName: r.org_name || r.event_id,
         eventName: r.event_name || '',
-        dateRangeText: r.date_range_text || formatDateRangeText(startDate, endDate),
-        startDate, endDate,
+        // 넓어졌으면 새로 짓고, 아니면 적혀 있던 글자를 그대로 쓴다
+        dateRangeText: eff.changed
+          ? formatDateRangeText(eff.startDate, eff.endDate)
+          : (r.date_range_text || formatDateRangeText(startDate, endDate)),
+        startDate: eff.startDate, endDate: eff.endDate,
         icon: r.icon || '📍',
         href: '/event/e/?slug=' + encodeURIComponent(r.event_id),
         isRegistry: true,

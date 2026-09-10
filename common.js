@@ -1591,6 +1591,25 @@ function buildDayPanels(startDate, endDate, pad){
   return panels;
 }
 
+/* 보이는 기간. 기간 밖(여분) 날짜에 적어 둔 일정이 있으면 그만큼 넓혀서 돌려준다.
+   하루 일찍 내려간 날을 적어 두면 카드와 머리글의 「8. 5 ~ 8. 8」도 「8. 4 ~ 8. 8」이 된다.
+
+   **판 이름(d1·dm1…)은 건드리지 않는다.** 시작일을 옮겨 번호를 다시 매기면 이미 저장된
+   일정의 판 이름이 통째로 한 칸씩 밀려 날짜가 어긋난다(buildDayPanels 의 설명 참고).
+   그래서 여기서 넓히는 것은 **보여 주는 글자뿐**이고, 저장된 것은 그대로다. */
+function shownRange(startDate, endDate, panelIdsWithRows){
+  const have = new Set(panelIdsWithRows || []);
+  const cmp = (a, b) => (a[0] - b[0]) || (a[1] - b[1]) || (a[2] - b[2]);
+  let s = startDate, e = endDate;
+  if (!s || !e) return { startDate: s, endDate: e, changed: false };
+  buildDayPanels(s, e, PANEL_PAD_DAYS).forEach(p => {
+    if (!p.extra || !p.dateKey || !have.has(p.id)) return;
+    if (cmp(p.dateKey, s) < 0) s = p.dateKey;
+    if (cmp(p.dateKey, e) > 0) e = p.dateKey;
+  });
+  return { startDate: s, endDate: e, changed: s !== startDate || e !== endDate };
+}
+
 function escapeHTML(s){
   return String(s == null ? '' : s).normalize('NFC')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')

@@ -1584,6 +1584,12 @@ function isPageZoomed(){
   if (byPanel) {
     CONFIG.panels = CONFIG.panels.filter(p =>
       !p.dateKey || (byPanel[p.id] && byPanel[p.id].length));
+    // 기간 밖에 적어 둔 날이 있으면 머리글의 기간도 그만큼 넓힌다 (목록 카드와 같은 규칙)
+    const eff = shownRange(CONFIG.startDate, CONFIG.endDate, Object.keys(byPanel));
+    if (eff.changed) {
+      CONFIG.dateRangeText = formatDateRangeText(eff.startDate, eff.endDate);
+      applyHeaderText();
+    }
   } else {
     // 불러오기에 실패하면 기간 안 날짜는 그대로 두되(빈 화면보다 낫다), 기간 밖은 감춘다 —
     // 안 그러면 있지도 않은 날짜 탭 여섯 개가 늘 붙는다.
