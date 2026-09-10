@@ -1358,6 +1358,122 @@ async function uploadVoice(blob, ext){
   return sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
+/* ---------- 목소리 재생 고치기 ----------
+   MediaRecorder 가 만든 webm 은 소리 조각마다 「이건 몇 초 지점의 소리인가」를 적어 둔다.
+   그런데 크롬이 그 값을 컴퓨터의 소리 장치 시계에서 가져오는 바람에, 장치가 이미 두 시간쯤
+   돌아가고 있었으면 조각들이 「7583초 지점」으로 적혀 나온다. 2026-09-10 「또비료」 일기가
+   그랬다 — 재생기는 2시간 6분짜리로 읽고, 처음부터 틀면 0.12초만 소리가 나고 그 뒤로는
+   두 시간 내내 조용했다. 소리 자체는 5.46초로 멀쩡히 들어 있었다.
+
+   고치는 법: 소리를 직접 풀어 내면(decodeAudioData) 그 시각표를 아예 안 본다. 풀어 낸 것을
+   WAV 로 다시 담아 재생기에 끼워 주면 길이도 소리도 제대로 나온다.
+   녹음할 때 잰 길이(audio_secs)를 갖고 있으므로, 그것과 견주어 **이상할 때만** 고친다 —
+   멀쩡한 것은 예전 그대로 두어 괜히 다시 받지 않는다. */
+const VOICE_BAD_SLACK = 5;          // 잰 길이보다 이만큼 넘게 길면 시각표가 깨진 것으로 본다
+
+function voiceLooksBroken(dur, secs){
+  if (!(dur > 0) || !isFinite(dur)) return true;      // 길이를 모르겠다고 할 때도 고친다
+  if (!secs) return dur > 3600;                       // 잰 길이가 없으면 한 시간 넘는 것만 의심
+  return dur > secs * 2 + VOICE_BAD_SLACK;
+}
+
+// AudioBuffer -> WAV(16비트 한 줄). rate 를 주면 그만큼으로 줄여 담는다 — 말소리는 24kHz 면 넉넉하다.
+function wavFromAudioBuffer(ab, rate){
+  const src = ab.numberOfChannels > 1
+    ? (() => {                                        // 여러 줄이면 한 줄로 섞는다
+        const a = ab.getChannelData(0), b = ab.getChannelData(1), out = new Float32Array(a.length);
+        for (let i = 0; i < a.length; i++) out[i] = (a[i] + b[i]) / 2;
+        return out;
+      })()
+    : ab.getChannelData(0);
+  const outRate = Math.min(rate || ab.sampleRate, ab.sampleRate);
+  const n = Math.max(1, Math.round(src.length * outRate / ab.sampleRate));
+  const pcm = new Int16Array(n);
+  for (let i = 0; i < n; i++){
+    // 사이값은 앞뒤를 곧게 이어 고른다 — 말소리에는 이 정도면 충분하다
+    const t = i * (ab.sampleRate / outRate), j = Math.floor(t), f = t - j;
+    const v = src[j] + (src[j + 1] === undefined ? 0 : (src[j + 1] - src[j]) * f);
+    pcm[i] = Math.max(-1, Math.min(1, v)) * 32767;
+  }
+  const buf = new ArrayBuffer(44 + pcm.length * 2), dv = new DataView(buf);
+  const str = (at, t) => { for (let i = 0; i < t.length; i++) dv.setUint8(at + i, t.charCodeAt(i)); };
+  str(0, 'RIFF'); dv.setUint32(4, 36 + pcm.length * 2, true); str(8, 'WAVE');
+  str(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, outRate, true); dv.setUint32(28, outRate * 2, true);
+  dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+  str(36, 'data'); dv.setUint32(40, pcm.length * 2, true);
+  new Int16Array(buf, 44).set(pcm);
+  return { blob: new Blob([buf], { type: 'audio/wav' }), secs: n / outRate };
+}
+
+// 주소에서 받아 풀어 낸 뒤 WAV 로 다시 담는다. 시각표가 깨져 있어도 소리는 그대로 나온다.
+async function repairVoice(url, rate){
+  const res = await fetch(url, { mode: 'cors' });
+  if (!res.ok) throw new Error('목소리를 받지 못했어요 (HTTP ' + res.status + ')');
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ac = new AC();
+  try {
+    const ab = await ac.decodeAudioData(await res.arrayBuffer());
+    return wavFromAudioBuffer(ab, rate);
+  } finally { try { ac.close(); } catch (e) { /* 이미 닫혔으면 그만이다 */ } }
+}
+
+/* 목소리 재생기 하나를 붙인다. 길이가 이상하면 조용히 고쳐서 갈아 끼운다.
+   fix 를 주면(부모만) 저장된 파일까지 고쳐 담는 단추가 함께 붙는다.
+   fix = { table, id, onDone } — 그 줄의 audio_url 을 새 주소로 바꾼다. */
+function mountVoice(host, url, secs, fix){
+  host.innerHTML = '';
+  const au = document.createElement('audio');
+  au.controls = true; au.preload = 'metadata'; au.src = url;
+  const note = document.createElement('div');
+  note.className = 'voice-note'; note.hidden = true;
+  host.appendChild(au); host.appendChild(note);
+
+  let repaired = null;                                   // 고쳐 담은 것 { blob, secs }
+  async function check(){
+    if (!voiceLooksBroken(au.duration, secs)) return;
+    note.hidden = false;
+    note.textContent = '재생기가 길이를 잘못 읽었어요 — 고쳐서 트는 중…';
+    try {
+      repaired = await repairVoice(url);
+      const at = au.currentTime, was = !au.paused;
+      au.src = URL.createObjectURL(repaired.blob);
+      au.load();
+      if (was) { au.currentTime = at; au.play().catch(() => {}); }
+      note.textContent = '길이가 잘못 적힌 녹음이라 고쳐서 틀어요 (' + secsLabel(repaired.secs) + ')';
+      if (fix && isAdmin) addFixBtn();
+    } catch (e) {
+      note.textContent = '고치지 못했어요: ' + e.message;
+    }
+  }
+  function addFixBtn(){
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'dot-btn small'; b.textContent = '저장된 파일도 고쳐 담기';
+    b.addEventListener('click', async () => {
+      b.disabled = true; b.textContent = '고치는 중…';
+      try {
+        // 올리는 것은 24kHz 한 줄로 줄여 담는다 — 말소리는 그대로고 자리는 훨씬 덜 든다
+        const small = await repairVoice(url, 24000);
+        const newUrl = await uploadVoice(small.blob, 'wav');
+        const { error } = await sb.from(fix.table)
+          .update({ audio_url: newUrl, audio_secs: Math.round(small.secs) }).eq('id', fix.id);
+        if (error) throw error;
+        b.textContent = '고쳤어요 — 새로고침하면 보여요';
+        // 옛 파일은 지우지 않는다. 되돌릴 자리를 남겨 둔다.
+        if (fix.onDone) fix.onDone(newUrl);
+      } catch (e) {
+        b.disabled = false; b.textContent = '다시 해보기';
+        note.textContent = '고쳐 담지 못했어요: ' + e.message;
+      }
+    });
+    note.appendChild(document.createElement('br'));
+    note.appendChild(b);
+  }
+  au.addEventListener('loadedmetadata', check, { once: true });
+  if (au.readyState >= 1) check();
+  return au;
+}
+
 function secsLabel(n){
   const s = Math.max(0, Math.round(n || 0));
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');

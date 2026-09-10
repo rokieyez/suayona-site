@@ -177,8 +177,12 @@ async function loadInbox(){
         (m.contact ? ' · ' + escapeHTML(m.contact) : '') +
         ' · ' + escapeHTML(formatDate(m.created_at)) +
       '</div>' +
-      (m.voice_url ? '<audio controls preload="none" src="' + escapeHTML(m.voice_url) + '" style="width:100%; margin:8px 0;"></audio>' : '') +
+      (m.voice_url ? '<div class="msg-voice" style="margin:8px 0;"></div>' : '') +
       '<div class="body">' + escapeHTML(m.body) + '</div>';
+    /* 목소리 재생기. 길이가 잘못 적힌 녹음이면 mountVoice 가 고쳐서 튼다 — common.js 참고.
+       편지는 남이 보낸 것이라 저장된 파일까지 고치지는 않는다(듣기만 고친다). */
+    const mv = el.querySelector('.msg-voice');
+    if (mv && m.voice_url) mountVoice(mv, m.voice_url, null);
     const actions = document.createElement('div');
     actions.className = 'actions';
     const del = document.createElement('button');

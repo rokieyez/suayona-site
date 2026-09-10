@@ -166,13 +166,21 @@ function render(){
       (p.audio_url
         ? '<span class="voice-lab">🎙 목소리로 남긴 일기' +
           (p.audio_secs ? ' · ' + secsLabel(p.audio_secs) : '') + '</span>' +
-          '<audio controls preload="none" src="' + escapeHTML(p.audio_url) + '"></audio>'
+          '<div class="post-voice"></div>'
         : '') +
       // 화면 폭이 300px 남짓인데 원본은 3000px 이 넘는다. 사본이 있으면 그것만 받는다.
       // 크게 볼 때 쓸 원본 주소는 data-full 에 따로 달아 둔다.
       photosOf(p).map(ph => '<img class="post-img" src="' + escapeHTML(ph.thumb || ph.url) +
         '" data-full="' + escapeHTML(ph.url) +
         '" loading="lazy" alt="' + escapeHTML(p.title) + '">').join('');
+
+    /* 목소리 재생기. 길이가 잘못 적힌 녹음이면 mountVoice 가 알아서 고쳐서 튼다
+       (2026-09-10 「또비료」 일기가 2시간 6분짜리로 읽혔다 — common.js 의 설명 참고).
+       부모에게는 저장된 파일까지 고쳐 담는 단추가 함께 붙는다. */
+    const vbox = el.querySelector('.post-voice');
+    if (vbox && p.audio_url){
+      mountVoice(vbox, p.audio_url, p.audio_secs, { table: 'posts', id: p.id });
+    }
 
     // 첨부 사진을 누르면 라이트박스로 크게 보기 (사진 있는 글끼리 앞뒤로 넘어감)
     // 사진을 누르면 라이트박스. 글 하나에 여러 장이면 그 안에서 넘어가고,

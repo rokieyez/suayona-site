@@ -579,7 +579,7 @@ function renderVoice(w){
       '<p class="hintline">최대 ' + VOICE_MAX_SECS + '초까지 담겨요. "이건 뭐 그린 거야?" 하고 물어보세요.</p>';
   } else {
     if (w.audio_url) {
-      html += '<audio controls preload="none" src="' + escapeHTML(w.audio_url) + '"></audio>';
+      html += '<div class="work-voice"></div>';        // mountVoice 가 채운다 (아래)
       if (w.audio_secs) html += '<p class="hintline">' + secsLabel(w.audio_secs) + '</p>';
     }
     if (isAdmin) {
@@ -597,6 +597,9 @@ function renderVoice(w){
   }
   html += '<div class="msg" id="vMsg"></div></div>';
   box.innerHTML = html;
+  /* 목소리 재생기. 길이가 잘못 적힌 녹음이면 mountVoice 가 고쳐서 튼다 — common.js 참고 */
+  const vb = box.querySelector('.work-voice');
+  if (vb && w.audio_url) mountVoice(vb, w.audio_url, w.audio_secs, { table: 'works', id: w.id });
   wireVoice(w);
 }
 
