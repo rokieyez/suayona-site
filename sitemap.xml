@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 검색에 내놓는 쪽은 첫 화면 하나다. 다른 쪽은 noindex 라 여기 넣지 않는다. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://www.suayona.com/</loc>
+    <lastmod>2026-09-11</lastmod>
+  </url>
+</urlset>
