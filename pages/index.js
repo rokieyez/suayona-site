@@ -2733,86 +2733,213 @@ belowFold(async () => {
       return;
     }
 
+    // ---- 문틀 기둥이 세로 자, 오른쪽으로 시간이 흐른다 ----
+    // 예전 그림은 잰 값마다 가로 막대를 끝까지 그었다. 막대 길이에는 뜻이 없고 시간이
+    // 안 보여서, 「얼마나 컸나」(10개월에 11cm)가 그림 어디에도 없었다. 그리고 가까운
+    // 날에 잰 연아 눈금 넷이 한데 몰려 글씨가 막대 위에 겹쳤다.
+    //
+    // 화면의 실제 픽셀 수로 그린다 — 늘려 보이면 도트 선과 도트 글씨가 번진다.
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const u = dpr;                                        // css 1px 이 몇 픽셀인지
+    // 넓은 화면에서 옆으로 퍼지면 선이 누워 「얼마나 빨리 컸나」가 안 보인다 — 620 에서 묶는다
+    const Wc = Math.floor(Math.min(620, roomCss()));
+    const Hc = Math.round(Math.min(420, Math.max(280, Wc * 0.62)));
+    cv.width = Math.round(Wc * u); cv.height = Math.round(Hc * u);
+    cv.style.width = Wc + 'px';
     const g = cv.getContext('2d');
     g.imageSmoothingEnabled = false;
-    const W = cv.width, H = cv.height, S = 4;
-    // 좁은 화면에서는 이 그림이 절반 크기로 줄어 앉는다 — 11px 글씨가 6px 이 돼 안 읽힌다.
-    // 줄어든 만큼 글씨와 자리를 키워서, 화면에 찍히는 크기는 어디서나 비슷하게 만든다.
-    const shown = cv.getBoundingClientRect().width || W;
-    const k = Math.max(1, Math.min(2, W / shown));
-    const FS = Math.round(11 * k);
+    const W = cv.width, H = cv.height;
+    const P = n => Math.round(n * u);                     // css px → 캔버스 픽셀
+    // 도트 글씨는 11px 격자로 그린 글꼴이라 11 의 정수배일 때 가장 또렷하다
+    const DOT = 11 * Math.max(1, Math.round(u));
+    const dotFont = (w) => w + ' ' + DOT + "px 'Suayona Dot', 'Suayona Sans', sans-serif";
     g.clearRect(0, 0, W, H);
-
-    // 문틀 — 도트로 굵게
-    g.fillStyle = '#c79b6d';
-    g.fillRect(0, 0, S * 4, H); g.fillRect(W - S * 4, 0, S * 4, H);
-    g.fillStyle = '#a97b4f';
-    g.fillRect(S * 3, 0, S, H); g.fillRect(W - S * 4, 0, S, H);
-    g.fillStyle = '#fff6e9';
-    g.fillRect(S * 4, 0, W - S * 8, H);
+    g.fillStyle = '#fff6e9'; g.fillRect(0, 0, W, H);
 
     const K2 = KINDS[kind];
-    const lo = Math.floor(Math.min(...data.map(r => Number(r.cm))) / K2.step) * K2.step - K2.step / 2;
-    const hi = Math.ceil(Math.max(...data.map(r => Number(r.cm))) / K2.step) * K2.step + K2.step / 2;
-    const y = cm => Math.round((H - S * 6) * (hi - cm) / (hi - lo) / S) * S + S * 3;
+    const vals = data.map(r => Number(r.cm));
+    const pad = K2.step * 0.6;
+    const lo = Math.floor((Math.min(...vals) - pad) / (K2.step / 2)) * (K2.step / 2);
+    const hi = Math.ceil((Math.max(...vals) + pad) / (K2.step / 2)) * (K2.step / 2);
+    const day = s => new Date(String(s).slice(0, 10) + 'T00:00:00').getTime();
+    const DAY = 864e5;
+    let t0 = Math.min(...data.map(r => day(r.measured_on))) - 20 * DAY;
+    let t1 = Math.max(...data.map(r => day(r.measured_on))) + 20 * DAY;
+    if (t1 - t0 < 90 * DAY) { const m = (t0 + t1) / 2; t0 = m - 45 * DAY; t1 = m + 45 * DAY; }
 
-    // 종류에 맞는 간격으로 가로줄. 눈금 글씨는 줄 왼쪽 끝에 두고, 눈금 막대는 그 오른쪽에서
-    // 시작한다 — 예전에는 막대가 글씨 위를 지나가 「140cm」이 반쯤 지워졌다.
-    const AX = Math.round(S * 16 * k);
-    g.font = '600 ' + FS + 'px Suayona Sans, Pretendard, sans-serif';
-    for (let c = Math.ceil(lo / K2.step) * K2.step; c <= hi; c += K2.step) {
-      g.fillStyle = 'rgba(47,42,36,.18)';
-      g.fillRect(AX, y(c), W - S * 5 - AX, 1);
-      g.fillStyle = 'rgba(47,42,36,.55)';
-      g.fillText(c + K2.unit, S * 2, y(c) + Math.round(FS * 0.36));
+    // 자리: 왼쪽 기둥 | 그래프 | 오른쪽에 지금 키로 선 아이
+    // 캐릭터 도트 크기(정수여야 또렷하다). 넓을 때는 한 단계 키운다.
+    const ss = Math.max(1, Math.round(u * (Wc >= 520 ? 1.5 : 1)));
+    const POST = P(40), X0 = POST + P(14), X1 = W - Math.max(P(60), 42 * ss + P(18));
+    const Y0 = P(18), Y1 = H - P(28);
+    const y = v => Math.round(Y1 - (v - lo) / (hi - lo) * (Y1 - Y0));
+    const x = t => Math.round(X0 + (t - t0) / (t1 - t0) * (X1 - X0));
+    const perCm = (Y1 - Y0) / (hi - lo) / u;              // 1 단위가 css 몇 px 인지
+
+    // 문틀 기둥 — 결이 보이게 몇 줄 긋고, 오른쪽 모서리에 칼로 새긴 눈금
+    g.fillStyle = '#c79b6d'; g.fillRect(0, 0, POST, H);
+    g.fillStyle = '#d9b489'; g.fillRect(0, 0, P(3), H);
+    g.fillStyle = '#a97b4f'; g.fillRect(POST - P(3), 0, P(3), H);
+    g.fillStyle = '#bd9163';
+    for (let i = 0; i < 9; i++) {                         // 나뭇결: 늘 같은 자리에 나오게 i 로만 정한다
+      const gx = P(5 + (i * 7) % 16), gy = Math.round(H * ((i * 37) % 100) / 100);
+      g.fillRect(gx, gy, P(2), P(14 + (i * 5) % 18));
+    }
+    const minorStep = K2.step / 10 * (perCm * K2.step / 10 >= 3 ? 1 : 5);
+    const labelStep = (hi - lo) / K2.step > 6 ? K2.step * 2 : K2.step;
+    g.font = dotFont('400'); g.textBaseline = 'middle'; g.textAlign = 'center';
+    const eq = (a, b) => Math.abs(a - b) < 1e-6;
+    for (let v = Math.ceil(lo / minorStep) * minorStep; v <= hi + 1e-6; v += minorStep) {
+      const yy = y(v);
+      const major = eq(v / (K2.step / 2), Math.round(v / (K2.step / 2)));
+      const labeled = eq(v / labelStep, Math.round(v / labelStep));
+      g.fillStyle = '#5a3d22';
+      const len = labeled ? P(10) : major ? P(7) : P(4);
+      g.fillRect(POST - P(3) - len, yy, len, Math.max(1, P(1)));
+      if (labeled) {
+        g.fillText(String(Math.round(v * 10) / 10), Math.round((POST - P(13)) / 2) + P(1), yy);
+        // 벽에는 옅은 점선 — 눈으로 따라가라고
+        g.fillStyle = 'rgba(47,42,36,.13)';
+        for (let xx = POST + P(4); xx < X1 + P(8); xx += P(6)) g.fillRect(xx, yy, P(3), Math.max(1, P(1)));
+      }
+    }
+    g.fillStyle = '#5a3d22'; g.textAlign = 'center'; g.textBaseline = 'top';
+    g.fillText(K2.unit, Math.round((POST - P(3)) / 2), Y1 + P(14));   // 달 글씨와 같은 줄
+
+    // 바닥 줄과 달 눈금. 달 간격은 글씨가 안 겹치는 가장 촘촘한 것으로 고른다.
+    g.fillStyle = 'rgba(47,42,36,.35)';
+    g.fillRect(POST, Y1 + P(8), X1 - POST + P(8), Math.max(1, P(1)));
+    const perMonth = (X1 - X0) / ((t1 - t0) / (30.44 * DAY)) / u;
+    const every = [1, 2, 3, 4, 6, 12].find(n => perMonth * n >= 46) || 12;
+    const d0 = new Date(t0); d0.setDate(1); d0.setMonth(d0.getMonth() + 1);
+    g.textBaseline = 'top';
+    for (const d = d0; d.getTime() <= t1; d.setMonth(d.getMonth() + 1)) {
+      if (d.getMonth() % every) continue;
+      const xx = x(d.getTime());
+      g.fillStyle = 'rgba(47,42,36,.35)';
+      g.fillRect(xx, Y1 + P(8), Math.max(1, P(1)), P(4));
+      g.fillStyle = '#6f6558';
+      g.fillText(String(d.getFullYear()).slice(2) + '.' + String(d.getMonth() + 1).padStart(2, '0'), xx, Y1 + P(14));
     }
 
-    // 사람마다 눈금 — 도트 네모 하나와 날짜.
-    // 가까운 날에 잰 값은 줄 사이가 좁아 글씨끼리 겹쳤다(3cm 차이 = 18px, 글씨는 11px+막대 8px).
-    // 그래서 글씨만 위아래로 밀어 띄우고, 밀린 만큼 가는 선으로 제 줄과 이어 준다.
+    // 아이마다 선과 점
+    const TEXT = { sua: '#c03a4b', yona: '#237a67' };       // 종이색 위에서 읽히는 진한 쪽
     const byWho = {};
     data.forEach(r => (byWho[r.who] = byWho[r.who] || []).push(r));
-    const marks = [];
-    Object.keys(byWho).forEach((who, wi) => {
-      byWho[who].forEach(r => marks.push({
-        who, wi, col: COLORS[who] || '#ffd979', cm: Number(r.cm),
-        on: String(r.measured_on), y: y(Number(r.cm)),
-      }));
-    });
-    marks.sort((a, b) => a.y - b.y);
-    const GAP = Math.round(S * 4 * k);                  // 글씨 한 줄이 차지하는 최소 높이
-    let last = -1e9;
-    marks.forEach(m => { m.ty = Math.max(m.y - S * 2, last + GAP); last = m.ty; });
-    const spill = last - (H - S * 2);                   // 아래로 넘치면 통째로 끌어올린다
-    if (spill > 0) marks.forEach(m => { m.ty -= spill; });
-
-    // 막대를 먼저 다 긋고, 글씨는 그 위에 올린다 — 순서를 섞으면 나중 막대가 앞 글씨를 지운다.
-    marks.forEach(m => {
-      const x0 = AX + S * 2 + m.wi * S * 3 * k;
-      m.x0 = x0;
-      g.fillStyle = m.col;
-      g.fillRect(x0, m.y - S, W - S * 5 - x0, S * 2);
-    });
-    g.font = '800 ' + FS + 'px Suayona Sans, Pretendard, sans-serif';
-    marks.forEach(m => {
-      const drift = m.ty - (m.y - S * 2);
-      if (Math.abs(drift) > 2){                         // 글씨가 제 줄에서 떨어졌으면 이어 준다
-        g.fillStyle = 'rgba(47,42,36,.4)';
-        g.fillRect(m.x0 + 1, Math.min(m.ty + 2, m.y - S), 1, Math.abs(drift));
+    const who = Object.keys(byWho);
+    const boxes = [];                                     // 이미 앉힌 글씨 자리 — 겹치면 뒤의 것을 뺀다
+    const free = (bx, by, bw, bh) => !boxes.some(b => bx < b[0] + b[2] && bx + bw > b[0] && by < b[1] + b[3] && by + bh > b[1]);
+    const put = (text, cx, cy, color, weight, must) => {
+      g.font = dotFont(weight);
+      const w = g.measureText(text).width, h = DOT;
+      const bx = Math.round(cx - w / 2) - P(2), by = Math.round(cy - h / 2) - P(1);
+      if (!must && !free(bx, by, w + P(4), h + P(2))) return false;
+      boxes.push([bx, by, w + P(4), h + P(2)]);
+      g.fillStyle = 'rgba(255,246,233,.9)'; g.fillRect(bx, by, w + P(4), h + P(2));
+      g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(text, Math.round(cx), Math.round(cy));
+      return true;
+    };
+    const D = Math.max(2, P(2));                          // 선의 도트 한 알
+    const dotLine = (ax, ay, bx, by) => {
+      const n = Math.max(1, Math.ceil(Math.max(Math.abs(bx - ax), Math.abs(by - ay)) / (D / 2)));
+      for (let i = 0; i <= n; i++) {
+        g.fillRect(Math.round((ax + (bx - ax) * i / n) / D) * D - Math.floor(D / 2),
+                   Math.round((ay + (by - ay) * i / n) / D) * D - Math.floor(D / 2), D, D);
       }
-      // 눈금이 촘촘하면 글씨가 어느 막대 위에든 앉게 된다. 밑에 종이색 판을 깔아
-      // 막대가 글자를 가로지르지 않게 한다.
-      const label = heroName(m.who) + ' ' + m.cm + K2.unit + ' (' + m.on.slice(2, 7).replace('-', '.') + ')';
-      const tw = g.measureText(label).width;
-      g.fillStyle = '#fff6e9';
-      g.fillRect(m.x0 + 2, m.ty - FS + 1, tw + 5, FS + 3);
-      g.fillStyle = '#2f2a24';
-      g.fillText(label, m.x0 + 4, m.ty);
+    };
+    const fmt = v => String(Math.round(v * 10) / 10);
+    const pts = {};
+    who.forEach(w => {
+      pts[w] = byWho[w].map(r => ({ x: x(day(r.measured_on)), y: y(Number(r.cm)), v: Number(r.cm), on: r.measured_on }));
+      const col = COLORS[w] || '#ffd979';
+      g.fillStyle = col;
+      const ps = pts[w];
+      for (let i = 1; i < ps.length; i++) dotLine(ps[i - 1].x, ps[i - 1].y, ps[i].x, ps[i].y);
+      // 마지막으로 잰 뒤로는 점선으로 오른쪽 아이까지 — 「그 뒤로는 아직 안 쟀어요」
+      const last = ps[ps.length - 1];
+      for (let xx = last.x + P(8); xx < X1 + P(10); xx += P(6)) g.fillRect(xx, last.y - Math.floor(D / 2), P(3), D);
+    });
+    // 점은 선을 다 그은 뒤에 — 다른 아이 선이 점을 지우지 않게
+    who.forEach(w => {
+      const col = COLORS[w] || '#ffd979';
+      pts[w].forEach((p, i, ps) => {
+        const r = P(i === ps.length - 1 ? 5 : 4);
+        g.fillStyle = '#2f2a24'; g.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+        g.fillStyle = col; g.fillRect(p.x - r + P(2), p.y - r + P(2), r * 2 - P(4), r * 2 - P(4));
+        boxes.push([p.x - r, p.y - r, r * 2, r * 2]);
+      });
     });
 
-    $('#growthLegend').innerHTML = Object.keys(byWho).map(who =>
-      '<span><i style="background:' + (COLORS[who] || '#ffd979') + '"></i>' + escapeHTML(heroName(who)) +
-      ' · ' + byWho[who].length + '번 쟀어요</span>').join('');
+    // 오른쪽에 지금 키로 선 아이. 둘이 가까우면 위아래로 밀어 띄운다.
+    const SPR = { sua: SPRITES.sua, yona: SPRITES.yona };
+    const stand = who.map(w => {
+      const ps = pts[w], last = ps[ps.length - 1];
+      const sp = SPR[w];
+      const h = (sp ? sp.length * ss : 0) + DOT + P(4);
+      return { w, last, sp, h, cy: last.y };
+    }).sort((a, b) => a.cy - b.cy);
+    let floorY = -1e9;
+    stand.forEach(s => { s.top = Math.max(s.cy - s.h / 2, floorY + P(4)); floorY = s.top + s.h; });
+    const over = floorY - (H - P(2));
+    if (over > 0) stand.forEach(s => { s.top -= over; });
+    stand.forEach(s => {
+      const cx = Math.round((X1 + P(8) + W) / 2);
+      put(fmt(s.last.v) + K2.unit, cx, s.top + DOT / 2, TEXT[s.w] || '#2f2a24', '700', true);
+      if (s.sp) drawSprite(g, s.sp, Math.round(cx - s.sp[0].length * ss / 2), Math.round(s.top + DOT + P(4)), ss);
+    });
+
+    // 점마다 잰 값, 점 사이에는 그만큼 자란 것. 자리가 모자라면 자란 것부터 뺀다.
+    who.forEach(w => {
+      pts[w].forEach((p, i, ps) => {
+        if (i === ps.length - 1) return;                  // 마지막 값은 오른쪽 아이 머리 위에 있다
+        put(fmt(p.v), p.x, p.y - P(13), '#6f6558', '400', false) ||
+          put(fmt(p.v), p.x, p.y + P(13), '#6f6558', '400', false);
+      });
+    });
+    who.forEach(w => {
+      const ps = pts[w];
+      for (let i = 1; i < ps.length; i++) {
+        const dv = ps[i].v - ps[i - 1].v;
+        if (Math.abs(dv) < 0.05 || ps[i].x - ps[i - 1].x < P(26)) continue;
+        const mx = (ps[i].x + ps[i - 1].x) / 2, my = (ps[i].y + ps[i - 1].y) / 2;
+        const t = (dv > 0 ? '+' : '') + fmt(dv);
+        put(t, mx, my + P(12), TEXT[w] || '#2f2a24', '700', false) ||
+          put(t, mx, my - P(12), TEXT[w] || '#2f2a24', '700', false);
+      }
+    });
+
+    // 설명줄은 문장으로 — 「수아 162cm · 10개월 동안 11cm 컸어요」
+    const span = (a, b) => {
+      const m = Math.round((day(b) - day(a)) / (30.44 * DAY));
+      return m >= 12 ? Math.floor(m / 12) + '년' + (m % 12 ? ' ' + (m % 12) + '개월' : '') : m >= 1 ? m + '개월' : '며칠';
+    };
+    const grew = kind === 'weight' ? ['늘었어요', '줄었어요'] : ['컸어요', '줄었어요'];
+    const lines = who.map(w => {
+      const ps = byWho[w], a = ps[0], b = ps[ps.length - 1];
+      const dv = Number(b.cm) - Number(a.cm);
+      const say = ps.length < 2 ? '처음 쟀어요'
+        : Math.abs(dv) < 0.05 ? span(a.measured_on, b.measured_on) + ' 동안 그대로예요'
+        : span(a.measured_on, b.measured_on) + ' 동안 ' + fmt(Math.abs(dv)) + K2.unit + ' ' + (dv > 0 ? grew[0] : grew[1]);
+      return { w, head: heroName(w) + ' ' + fmt(Number(b.cm)) + K2.unit, say };
+    });
+    $('#growthLegend').innerHTML = lines.map(l =>
+      '<span><i style="background:' + (COLORS[l.w] || '#ffd979') + '"></i><b>' + escapeHTML(l.head) + '</b> · ' + escapeHTML(l.say) + '</span>').join('');
+    // 화면 읽기에는 그림 대신 같은 문장을 들려준다
+    cv.setAttribute('aria-label', K2.label + ' 그래프. ' + lines.map(l => l.head + ', ' + l.say).join('. '));
+  }
+
+  // CSS 폭을 캔버스 픽셀과 딱 맞추려고 폭을 직접 적는다. 쓸 수 있는 폭은 잠깐 풀고 잰다.
+  function roomCss(){
+    const was = cv.style.width;
+    cv.style.width = '';
+    const w = cv.getBoundingClientRect().width;
+    cv.style.width = was;
+    return w || 560;                                      // 창이 안 그려지는 곳에서도 그림은 나오게
+  }
+  // 도트 글씨가 아직 안 왔으면 받고 나서 한 번 더 그린다(캔버스는 글꼴을 스스로 부르지 않는다)
+  if (document.fonts && document.fonts.load) {
+    document.fonts.load("11px 'Suayona Dot'").then(() => { if (rows.length) draw(); }).catch(() => {});
   }
 
   let redraw = 0;

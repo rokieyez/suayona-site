@@ -293,6 +293,8 @@
   .duel-cell .who{display:block; margin-top:8px; font-size:12px; font-weight:800;}
   .growth-card, .map-card{padding:16px; text-align:center;}
   .growth-card canvas, .map-card canvas{width:100%; height:auto; image-rendering:pixelated; display:block;}
+  /* 성장 그래프는 넓은 화면에서 620px 로 묶는다(스크립트가 폭을 픽셀에 맞춰 적는다) */
+  .growth-card canvas{max-width:620px; margin:0 auto;}
   .growth-legend, .map-legend{
     display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:12px;
     font-size:12px; font-weight:800; color:var(--ink-soft);
@@ -712,7 +714,9 @@
       <button type="button" data-kind="weight">몸무게</button>
     </div>
     <div class="dot-card growth-card reveal">
-      <canvas id="growthCanvas" width="560" height="320"></canvas>
+      <!-- 크기는 스크립트가 화면 픽셀에 맞춰 다시 정한다 -->
+      <canvas id="growthCanvas" width="560" height="347" role="img"
+              aria-label="얼마나 컸는지 보여 주는 그래프"></canvas>
       <div class="growth-legend" id="growthLegend"></div>
     </div>
     <!-- 부모로 로그인했을 때만 나온다 -->
