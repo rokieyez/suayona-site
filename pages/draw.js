@@ -305,7 +305,7 @@ const DAY_SEED = Number(TODAY.replace(/-/g, ''));
 const MISSION = MISSIONS[DAY_SEED % MISSIONS.length];
 $('#missionText').textContent = MISSION;
 
-// 오늘 미션을 해냈는지는 이 기기에 적어 둔다. 출석 도장과 같은 방식.
+// 오늘 미션을 해냈는지는 이 기기(localStorage)에만 적어 둔다 — 서버에는 안 남긴다.
 const MISSION_KEY = 'sy.mission.' + TODAY;
 function markMissionDone(){
   try { localStorage.setItem(MISSION_KEY, '1'); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }

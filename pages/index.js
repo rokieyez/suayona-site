@@ -2482,19 +2482,13 @@ $$('canvas[data-char]').forEach(cv => {
   }
 
   // ---- 올해의 우리 카드 ----
-  // 서버 숫자와 이 브라우저에만 있는 것(도감·도장·최고 점수)을 한 장에 모은다.
+  // 서버 숫자와 이 브라우저에만 있는 것(도감·최고 점수)을 한 장에 모은다.
   // 그림은 캔버스로 그려서 그대로 PNG 로 내려받는다 — 서버를 더 부르지 않는다.
   const yBtn = $('#yearBtn'), yCard = $('#yearCard'), ySave = $('#yearSave');
   if (yBtn && yCard) yBtn.addEventListener('click', () => {
     const get = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } };
-    let dexN = 0, stamps = 0;
+    let dexN = 0;
     try { dexN = (JSON.parse(localStorage.getItem('sy.dex') || '[]') || []).length; } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
-    // 출석 도장은 sy.stamps 에 날짜 문자열로 쌓이고 최근 70일치만 남는다.
-    // 그래서 「올해 몇 번」이 아니라 「최근 며칠」이다.
-    try {
-      const st = JSON.parse(localStorage.getItem('sy.stamps') || '[]');
-      stamps = Array.isArray(st) ? st.length : 0;
-    } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
     const best = Math.max(0, parseInt(get('sy.run.best', '0'), 10) || 0);
     const year = new Date().getFullYear();
 
@@ -2523,7 +2517,6 @@ $$('canvas[data-char]').forEach(cv => {
       ['작품', nums.works + '점'],   ['일기', nums.posts + '편'],
       ['사진', nums.photos + '장'],  ['나들이', nums.events + '번'],
       ['도감', dexN + '/' + nums.works], ['달리기', best + '점'],
-      ['최근 출석', stamps + '일'],
     ];
     rows.forEach((r, i) => {
       const x = 62 + (i % 2) * 132, y = 68 + Math.floor(i / 2) * 22;
@@ -2569,56 +2562,6 @@ $$('canvas[data-char]').forEach(cv => {
   }, { threshold: 0.4 });
   $$('[data-count]').forEach(el => io.observe(el));
 })().catch(() => {});
-
-// ================= 출석 도장 =================
-// 이번 달 달력에 들어온 날마다 도장이 찍힌다. 이 브라우저에만 남는다 —
-// 자매가 각자 자기 것을 모으는 편이 맞고, 남의 출석은 세어 봐야 재미가 없다.
-(function(){
-  const grid = $('#stampGrid'); if (!grid) return;
-  const KEY = 'sy.stamps';
-  let days = [];
-  try { days = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
-
-  const now = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const today = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
-  if (days.indexOf(today) < 0) {
-    days.push(today);
-    // 두 달치만 남긴다. 몇 년을 모으면 저장 칸만 차지하고 화면에는 안 나온다.
-    days = days.slice(-70);
-    try { localStorage.setItem(KEY, JSON.stringify(days)); } catch (e) { /* 저장이 막힌 브라우저(사생활 모드·용량 초과) — 없이도 돌아간다 */ }
-  }
-  const set = new Set(days);
-
-  const y = now.getFullYear(), m = now.getMonth();
-  const first = new Date(y, m, 1).getDay();          // 0=일
-  const last = new Date(y, m + 1, 0).getDate();
-  $('#stampMonth').textContent = y + '년 ' + (m + 1) + '월';
-
-  let html = '';
-  for (let i = 0; i < first; i++) html += '<div class="stamp-cell pad"></div>';
-  for (let d = 1; d <= last; d++) {
-    const key = y + '-' + pad(m + 1) + '-' + pad(d);
-    const on = set.has(key), isToday = key === today;
-    // 도장이 찍힌 날도 날짜는 남는다 — 별로 갈아 치우면 며칠인지 알 수가 없다.
-    html += '<div class="stamp-cell' + (on ? ' on' : '') + (isToday ? ' today' : '') +
-            '" title="' + (m + 1) + '월 ' + d + '일' + (on ? ' · 다녀감' : '') + '">' + d +
-            (on ? '<span class="st">⭐</span>' : '') + '</div>';
-  }
-  grid.innerHTML = html;
-
-  // 오늘부터 거꾸로 며칠이나 이어졌나
-  let streak = 0;
-  for (let i = 0; ; i++) {
-    const dt = new Date(y, m, now.getDate() - i);
-    const key = dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
-    if (!set.has(key)) break;
-    streak++;
-  }
-  $('#stampSay').textContent = streak >= 2
-    ? streak + '일째 이어서 왔어요! 내일도 오면 ' + (streak + 1) + '일'
-    : '들어올 때마다 오늘 칸에 도장이 찍혀요';
-})();
 
 // ================= 오늘의 대결 · 이어그리기 =================
 // 그리기에서 같은 주제로 각자 그린 것을 나란히 건다.

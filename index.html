@@ -164,23 +164,6 @@
   .find-hud.sound{left:auto; right:14px; pointer-events:auto; cursor:pointer; font-family:inherit;}
   .find-hud.sound:active{transform:translate(2px,2px); box-shadow:2px 2px 0 rgba(47,42,36,.45);}
   .find-hud.sound.off{opacity:.55;}
-  .stamp-card{padding:16px; max-width:474px; margin-left:auto; margin-right:auto;}
-  .stamp-head{font-size:13px; margin-bottom:10px;}
-  /* 넓은 화면에서 칸이 135px 까지 부풀어 달력 한 장이 620px 을 먹었다 — 폭을 묶는다.
-     요일 머리글도 없어서 1일이 무슨 요일인지 셀 수가 없었다. */
-  .stamp-wd, .stamp-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;
-    max-width:430px; margin-left:auto; margin-right:auto;}
-  .stamp-wd{margin-bottom:5px; font-size:10.5px; font-weight:800; text-align:center; color:var(--ink-soft);}
-  .stamp-wd .sun{color:#a94438;}
-  .stamp-wd .sat{color:#3f6690;}
-  .stamp-cell{
-    position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center;
-    border:2px solid rgba(47,42,36,.18); font-size:12px; color:var(--ink-soft);
-  }
-  .stamp-cell .st{position:absolute; right:1px; top:0; font-size:10px; line-height:1.2;}
-  .stamp-cell.on{background:var(--lemon); border-color:var(--ink); color:var(--ink); font-weight:800;}
-  .stamp-cell.today{border-color:var(--coral); border-width:3px;}
-  .stamp-cell.pad{border:none;}
   /* 도감 막대 · 올해 카드 */
   .dex-bar{
     display:flex; flex-wrap:wrap; gap:2px; justify-content:center;
@@ -365,14 +348,14 @@
      제목 하나만 남는 셈이라 스크롤이 끝없이 길어진다. 앞 구간의 아래 여백을 빼서
      한 칸(72px)으로 맞춘다.
      ※ 목록을 고칠 때는 마지막(#capsule) 앞까지 전부 들어 있는지 볼 것. 나중에
-        #stamp 를 사이에 끼우면서 이 목록에 안 넣는 바람에, 메뉴↔그리기와
-        도장↔숫자만 144px 로 벌어져 있었다. */
-  #menu, #draw-cta, #run, #stamp, #counts, #duel, #growth, #map, #quiz{padding-bottom:0;}
+        구간을 끼우면서 이 목록에 안 넣는 바람에, 메뉴↔그리기와
+        도장↔숫자만 144px 로 벌어진 적이 있다(그 출석 도장 구간은 2026-09-11 에 뺐다). */
+  #menu, #draw-cta, #run, #counts, #duel, #growth, #map, #quiz{padding-bottom:0;}
 
   /* 메뉴 아래로는 구간이 여섯 개가 연달아 온다. 한 칸을 72px 로 두면 화면마다
      제목 하나씩만 보여서 스크롤이 길다. 이 줄부터는 52px 로 좁힌다 —
      구간이 나뉘어 보이기에는 충분하고, 다음 것이 화면 끝에 걸쳐 보인다. */
-  #draw-cta, #run, #stamp, #counts, #duel, #growth, #map, #quiz, #capsule{padding-top:52px;}
+  #draw-cta, #run, #counts, #duel, #growth, #map, #quiz, #capsule{padding-top:52px;}
 
   /* ===== 사진 퀴즈 ===== */
   .quiz-card{max-width:560px; margin:0 auto; overflow:hidden;}
@@ -631,23 +614,6 @@
         </div>
         <ol id="runTopList"></ol>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- 출석 도장. 서버에 안 남긴다 — 이 브라우저에만 찍힌다.
-     자매가 각자 자기 폰에서 자기 도장을 모으는 편이 맞다. -->
-<section class="section-pad" id="stamp">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow pixel">STAMP</span>
-      <h2>출석 도장</h2>
-      <p id="stampSay">들어올 때마다 오늘 칸에 도장이 찍혀요</p>
-    </div>
-    <div class="dot-card stamp-card reveal">
-      <div class="stamp-head pixel" id="stampMonth"></div>
-      <div class="stamp-wd" aria-hidden="true"><span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span></div>
-      <div class="stamp-grid" id="stampGrid"></div>
     </div>
   </div>
 </section>
