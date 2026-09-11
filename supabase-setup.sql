@@ -1235,6 +1235,12 @@ create table if not exists public.farm_saves (
 );
 alter table public.farm_saves enable row level security;
 
+-- 농장 되돌리기(2026-09-04 같은 날 붙임). 모험단(quest_saves)과 같은 모양이다 —
+-- 그날 첫 저장 때 「그날 아침의 세이브」를 한 벌만 담아 두고, 부모만 그 자리로 되돌린다.
+-- 담는 것은 farm_commit 이, 되돌리는 것은 farm_restore 가 한다(아래).
+alter table public.farm_saves add column if not exists prev     jsonb;
+alter table public.farm_saves add column if not exists prev_day date;
+
 -- 가족만 읽는다. 아이가 언제 왔는지(playDays·lastPlay)가 들어 있어서다. 손님은 farm_cards().
 drop policy if exists "family reads farm" on public.farm_saves;
 create policy "family reads farm" on public.farm_saves for select
@@ -1254,6 +1260,9 @@ create policy "parent resets farm" on public.farm_saves for delete
 -- 아이는 이 함수로만 쓴다. 농장 줄과 제 줄을 한 번에, 한 트랜잭션으로.
 -- p_rev 가 지금 농장 줄의 rev 와 다르면 아무것도 안 쓰고 -1 을 돌려준다(다른 아이가 먼저 썼다).
 -- 아이 줄에 직접 쓰는 정책은 일부러 없다 — 콘솔에서 동전을 적어 넣는 길을 막는다.
+-- 서울 날짜로 그날 처음 쓰는 저장이면, 덮어쓰기 전에 지금 것을 prev 로 밀어 둔다(두 줄 다).
+-- 이 부분이 빠지면 prev 가 영영 비어서 부모 조정판의 「그날 아침으로 되돌리기」가
+-- 오류 없이 「되돌릴 것이 아직 없어요」만 보인다. (본문은 서버 pg_get_functiondef 그대로)
 create or replace function public.farm_commit(p_world jsonb, p_rev integer, p_mine jsonb)
 returns integer
 language plpgsql
@@ -1263,6 +1272,7 @@ as $$
 declare
   k text := public.my_author_key();
   r integer;
+  today date := (now() at time zone 'Asia/Seoul')::date;
 begin
   if public.my_role() is distinct from 'child' or k not in ('sua', 'yona') then
     raise exception '수아나 연아만 농장을 가꿀 수 있어요';
@@ -1275,20 +1285,72 @@ begin
      or coalesce((p_mine->>'energy')::numeric, 0) not between 0 and 99 then
     raise exception '말이 안 되는 값이에요';
   end if;
+
+  -- 하루에 한 번, 그날 처음 저장할 때만 지금 것을 prev 로 밀어 둔다.
+  -- 매번 밀면 「되돌리기」가 한 수 전으로만 가서 쓸모가 없다.
   insert into public.farm_saves (who, data, rev) values ('farm', p_world, 1)
     on conflict (who) do update
-      set data = excluded.data, rev = farm_saves.rev + 1, updated_at = now()
+      set prev     = case when farm_saves.prev_day is distinct from today
+                          then farm_saves.data else farm_saves.prev end,
+          prev_day = case when farm_saves.prev_day is distinct from today
+                          then today else farm_saves.prev_day end,
+          data = excluded.data, rev = farm_saves.rev + 1, updated_at = now()
       where farm_saves.rev = p_rev
     returning rev into r;
   if r is null then return -1; end if;
+
   insert into public.farm_saves (who, data, rev) values (k, p_mine, 1)
     on conflict (who) do update
-      set data = excluded.data, rev = farm_saves.rev + 1, updated_at = now();
+      set prev     = case when farm_saves.prev_day is distinct from today
+                          then farm_saves.data else farm_saves.prev end,
+          prev_day = case when farm_saves.prev_day is distinct from today
+                          then today else farm_saves.prev_day end,
+          data = excluded.data, rev = farm_saves.rev + 1, updated_at = now();
   return r;
 end;
 $$;
 revoke all on function public.farm_commit(jsonb, integer, jsonb) from public;
 grant execute on function public.farm_commit(jsonb, integer, jsonb) to authenticated;
+
+-- 부모만 되돌린다. 밭(world)과 두 아이의 지갑을 한꺼번에 그날 아침으로 —
+-- 밭만 되돌리면 이미 판 돈은 남아서 앞뒤가 안 맞는다.
+-- rev 를 올려 두므로 열려 있던 아이 화면은 다음 저장 때 겹침(-1)을 받고 새 농장을 다시 읽는다.
+create or replace function public.farm_restore()
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare n int;
+begin
+  if public.my_role() is distinct from 'parent' then
+    raise exception '부모만 되돌릴 수 있어요';
+  end if;
+  update farm_saves
+     set data = prev, rev = rev + 1, updated_at = now()
+   where prev is not null;
+  get diagnostics n = row_count;
+  return n > 0;
+end $$;
+revoke all on function public.farm_restore() from public;
+grant execute on function public.farm_restore() to authenticated;
+
+-- 되돌릴 것이 있는지, 언제 것인지만 알려 준다(세이브 알맹이는 주지 않는다).
+-- 부모가 아니면 빈 목록이다. 조정판(pages/farm-play.js renderUndo)이 단추를 켤지 이걸로 정한다.
+create or replace function public.farm_restore_info()
+returns table(who text, prev_day date, has_prev boolean)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select f.who, f.prev_day, f.prev is not null
+    from farm_saves f
+   where public.my_role() = 'parent'
+   order by f.who
+$$;
+revoke all on function public.farm_restore_info() from public;
+grant execute on function public.farm_restore_info() to authenticated;
 
 -- 손님 카드 — 농장이 어디까지 컸는지만. 날짜·가방·우편은 안 나간다.
 create or replace function public.farm_cards()
