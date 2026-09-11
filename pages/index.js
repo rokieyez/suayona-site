@@ -565,13 +565,14 @@ const belowFold = (() => {
   /* ---- 첫화면이 비추는 진짜 농장 ----
      farm_cards() 는 손님도 부를 수 있는 요약이다(아이가 언제 왔는지 같은 것은 안 들어 있다).
      한 번만, 그것도 화면이 다 그려진 뒤 한가할 때 부른다 — 첫 그림을 늦추지 않는다.
-     못 읽으면(손님이거나 서버가 안 되면) 이름표는 그냥 「농장」으로 남는다.
+     읽은 것은 밭 그림(작물 포기 수와 계절 색)에만 쓴다. 이름표는 늘 「농장」 한 단어다 —
+     예전에는 이름 위에 「🌻 여름 1년째 · 동물 3마리」를 한 줄 달았는데, 첫 화면에서는
+     이름만 보이면 된다고 해서 뺐다(2026-09-11). 밭 소식은 농장에 들어가면 나온다.
      마을 그림 자체를 바꾸지 않은 까닭: Village.render 한 번이 이 기계에서 250ms 다.
      밭 그림을 갈아 끼우려면 마을을 통째로 다시 그려야 해서 첫화면이 그만큼 멈춘다. */
-  let farmLive = null, farmCrops = 0, farmSeason = 'spring';
+  let farmCrops = 0, farmSeason = 'spring';
   let expoDone = 0;                          // 자매가 다녀온 원정을 합한 수 — 섬 앞 물의 디딤돌이 그만큼 놓인다
   const FARM_SEASONS = ['spring', 'summer', 'autumn', 'winter'];
-  const FARM_SEASON_KO = { spring: '🌷 봄', summer: '🌻 여름', autumn: '🍁 가을', winter: '⛄ 겨울' };
   function farmDayIndex(started){
     if (!started) return null;
     const [y, m, d] = String(started).split('-').map(Number);
@@ -579,29 +580,21 @@ const belowFold = (() => {
     const a = new Date(y, m - 1, d), n = new Date();
     return Math.max(0, Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - a) / 86400000));
   }
-  function farmLine(c){
-    const bits = [];
+  // 지금 계절 — 밭에 얹는 작물 색이 계절을 따른다
+  function farmSeasonOf(c){
     const idx = farmDayIndex(c.started);
+    if (idx == null) return farmSeason;
     const len = Math.max(3, Number(c.seasonLen) || 7);
-    if (idx != null){
-      const si = Math.floor(idx / len);
-      farmSeason = FARM_SEASONS[si % 4];
-      bits.push(FARM_SEASON_KO[farmSeason] + ' ' + (Math.floor(si / 4) + 1) + '년째');
-    }
-    // 포기 수는 적지 않는다 — 마을 밭에 진짜 그만큼 그려지므로, 글로 또 말하면
-    // 이름표만 두 배로 넓어져 그 그림을 도로 덮는다. 이름표는 그림이 못 하는 말만 한다.
-    const animals = Number(c.animals) || 0;
-    if (animals) bits.push('동물 ' + animals + '마리');
-    return bits.join(' · ');
+    return FARM_SEASONS[Math.floor(idx / len) % 4];
   }
   function loadFarmLive(){
     if (typeof sb === 'undefined' || !sb) return;
     sb.rpc('farm_cards').then(({ data }) => {
       if (!data || typeof data !== 'object') return;
-      farmLive = farmLine(data);
+      farmSeason = farmSeasonOf(data);
       farmCrops = Math.max(0, Number(data.crops) || 0);
       cropBaked = null;                      // 밭이 달라졌으니 덧그림을 다시 굽는다
-      layoutTags();
+      draw();                                // 한 장만 — 움직임을 줄인 화면에서는 다음 장이 안 온다
     }).catch(() => {});
   }
   if (window.requestIdleCallback) requestIdleCallback(loadFarmLive, { timeout: 3000 });
@@ -736,14 +729,6 @@ const belowFold = (() => {
       a.appendChild(nm);
       a.style.left = Math.round(l.x * HS) + 'px';
       a.style.top = Math.round(l.y * HS) + 'px';
-      /* 농장 이름표만은 지금 밭 소식을 한 줄 달고 있다. 그 줄은 이름 「위」에 붙인다 —
-         이름표는 아래 끝을 기준으로 위로 자라므로(translate -100%), 밑에 달면 그 한 줄이
-         밭 위로 내려앉아 작물을 덮는다. 위에 달면 늘어난 만큼 하늘 쪽으로 자란다. */
-      if (l.href === '/farm.html' && farmLive){
-        const live = document.createElement('span'); live.className = 'live';
-        live.textContent = farmLive;                 // 서버가 준 숫자뿐이지만 글로 넣는다
-        a.insertBefore(live, nm);
-      }
       tagBox.appendChild(a);
     });
     moveTags(0);
