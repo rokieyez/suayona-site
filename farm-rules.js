@@ -170,6 +170,19 @@ const FARM = (() => {
 
   // 한 칸의 상태: { tilled, crop, by, plantedAt, progress(ms), wet(until ms), tick(마지막으로 센 때), fert, giant, wilted, picks }
   // 물이 있는 동안만 progress 가 는다. 마지막으로 센 때(tick)부터 지금까지 중 젖어 있던 만큼만 더한다.
+  //
+  // 시드는 것은 「심은 지 일주일」 하나뿐이다(현실 시간, 계절과 상관없다 — 2026-09-11).
+  // 예전에는 계절이 바뀌는 날 제철이 아닌 작물이 한꺼번에 시들었다. 한 계절이 7일이라,
+  // 전날 심은 감자까지 봄이 끝나는 날 모두 시들어 너무 빨리 죽는다는 말을 들었다.
+  // 온실 칸과 별열매(hardy)는 예전처럼 시들지 않는다.
+  const CROP_LIFE_DAYS = 7;
+  function ages(plot, gh){ const C = CROPS[plot.crop]; return !gh && !!plot.plantedAt && !(C && C.hardy); }
+  function lifeEnd(plot){ return plot.plantedAt + CROP_LIFE_DAYS * DAY_MS; }
+  // 시들 때까지 남은 시간(ms). 안 시드는 칸이면 Infinity.
+  function lifeLeft(plot, now, gh){
+    if (!plot || !plot.crop || plot.wilted) return 0;
+    return ages(plot, gh) ? Math.max(0, lifeEnd(plot) - now) : Infinity;
+  }
   function growTime(plot){
     const C = CROPS[plot.crop];
     let h = C.hours * H;
@@ -178,11 +191,14 @@ const FARM = (() => {
   }
   function tickPlot(plot, now, gh){
     if (!plot || !plot.crop || plot.wilted) return;
+    const old = ages(plot, gh);
+    const until = old ? Math.min(now, lifeEnd(plot)) : now;   // 시든 뒤로는 자라지 않는다
     const from = plot.tick || plot.plantedAt || now;
     const wetUntil = gh && GH_ALWAYS_WET ? Infinity : (plot.wet || 0);
-    const grew = Math.max(0, Math.min(now, wetUntil) - from);
+    const grew = Math.max(0, Math.min(until, wetUntil) - from);
     plot.progress = (plot.progress || 0) + grew * (plot.fert ? FERT_SPEED : 1);
     plot.tick = now;
+    if (old && now >= lifeEnd(plot)) plot.wilted = true;
   }
   function stageOf(plot){
     if (!plot || !plot.crop) return -1;
@@ -843,7 +859,7 @@ const FARM = (() => {
     plotIds, parseId,
     fireflyNight, fireflyLeft,
     peddlerHere,
-    cropsInDex, tickPlot, stageOf, wetNow, growTime,
+    cropsInDex, tickPlot, stageOf, wetNow, growTime, lifeLeft, CROP_LIFE_DAYS,
     nodeReady, placed, occupied, furnBox,
     MATERIALS, WALL_PITCH, WALL_ROWS, wallCols, wallRowsFor, wallKey, parseWall, hungCol,
     ROOM_GROW, roomStep, roomBox, okPic, picSide, PIC_N,

@@ -54,20 +54,13 @@
     if (plot.fert) st++;
     return Math.min(3, st);
   }
-  // 계절이 바뀌면 그 계절에 안 맞는 작물은 시든다. 온실 안과 별열매는 예외.
+  // 계절이 바뀐 것만 적어 둔다. 작물은 이제 계절 때문에 시들지 않는다 — 심은 지 일주일이
+  // 지나야 시든다(tickPlot). seasonIndex 를 계속 맞춰 두는 까닭: 배포가 어긋난 10분 동안
+  // 옛 규칙 파일이 돌더라도, 이 값이 맞아 있으면 옛 규칙이 계절을 핑계로 밭을 시들게 하지 않는다.
   function seasonSweep(world, now){
     const cal = calendar(world, now);
-    if (world.seasonIndex === cal.seasonIndex) return 0;
-    world.seasonIndex = cal.seasonIndex;
-    let n = 0;
-    Object.keys(world.plots).forEach(id => {
-      const p = world.plots[id];
-      if (!p.crop || id[0] === 'g') return;
-      const C = CROPS[p.crop];
-      if (C.hardy || C.season.indexOf(cal.season) >= 0) return;
-      p.wilted = true; n++;
-    });
-    return n;
+    if (world.seasonIndex !== cal.seasonIndex) world.seasonIndex = cal.seasonIndex;
+    return 0;
   }
   function itemName(id){
     const [k, v] = id.split(':');
@@ -663,7 +656,7 @@
     const C = CROPS[p.crop], gh = id[0] === 'g';
     if (p.wilted){
       Object.assign(p, { crop: null, wilted: false, fert: false, giant: false, pairOf: null });
-      return okay(eul('시든 ' + C.name) + ' 뽑았어요');
+      return okay(eul('심은 지 일주일이 지나 시든 ' + C.name) + ' 뽑았어요');
     }
     tickPlot(p, now, gh);
     if (!ripe(p)) return fail(ee(C.name) + ' 아직 덜 자랐어요 (' + Math.ceil(hoursLeft(p, now)) + '시간)');
@@ -1108,8 +1101,7 @@
   function newDay(world, mine, now){
     const notes = [];
     const cal = calendar(world, now), key = dayKey(now);
-    const wilted = seasonSweep(world, now);
-    if (wilted) notes.push(SEASON_NAME[cal.season] + '이 와서 작물 ' + wilted + '개가 시들었어요');
+    seasonSweep(world, now);
     const made = animalDay(world, now);
     if (made.length) notes.push(made.map(a => a.name).join(', ') + '이 무언가 남겼어요');
     const babies = babyDay(world, now);

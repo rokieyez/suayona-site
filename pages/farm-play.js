@@ -455,6 +455,7 @@ function onPlot(id){
     flash(C.name + (p.giant ? '(큰 것)' : '') + ' <b>' + stars + '</b> — ' + Math.ceil(R.hoursLeft(p, now())) + '시간 더. '
       + (R.wetNow(p, now(), gh) ? '촉촉해요' : '<b>물이 말랐어요</b>')
       + (st < 3 ? ' · ' + (!gh && (p.care || 0) < need ? '물 ' + (need - (p.care || 0)) + '번 더' : '비료를 주면 반짝!') : ' · <b>반짝 작물이 돼요</b>')
+      + lifeNote(p, gh)
       + (p.by !== key ? ' · ' + NAME[p.by] + '가 심었어요' : ''));
     return;
   }
@@ -463,6 +464,15 @@ function onPlot(id){
     flash(S.name + '예요. 아침마다 둘레 ' + S.reach + '칸에 물을 줘요'); return;
   }
   flash(p && p.tilled ? '갈아 둔 땅이에요. 씨앗을 골라 심어요' : '괭이로 갈면 심을 수 있어요');
+}
+// 심은 지 일주일이면 시든다 — 사흘 안으로 들어오면 알려 준다. 온실·별열매는 안 시든다.
+// 옛 규칙 파일(lifeLeft 가 없는 것)과 짝이 된 10분 동안은 아무 말도 안 붙인다.
+function lifeNote(p, gh){
+  if (typeof R.lifeLeft !== 'function') return '';
+  const left = R.lifeLeft(p, now(), gh);
+  if (!isFinite(left) || left > 3 * 86400000) return '';
+  const h = Math.ceil(left / 3600000);
+  return ' · <b>' + (h <= 24 ? h + '시간 뒤 시들어요' : Math.ceil(h / 24) + '일 뒤 시들어요') + '</b>';
 }
 // 도구가 여러 칸을 다루면 하나라도 되면 성공으로 친다. 실패 이유는 마지막 것만.
 function multi(id, n, fn, okMsg){
