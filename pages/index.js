@@ -2865,106 +2865,260 @@ belowFold(async () => {
 });
 
 // ================= 다녀온 곳 =================
-// 일정에 적힌 좌표가 어느 도(道)에 드는지 세어, 다녀온 곳만 색으로 칠한다.
+// 일정에 적힌 좌표가 어느 시·군에 드는지 세어, 다녀온 곳만 색으로 칠한다.
+//
+// 예전에는 도(道) 여덟 묶음이라 여행 다섯 번에 지도의 절반 넘게 칠해졌다. 지금은 시·군
+// 167곳이다. 자료(map/korea-sig.js, gzip 38 KB)는 이 자리가 다가올 때만 받는다 —
+// 첫 화면에서 나가는 사람에게는 필요 없는 무게라서다. 자료를 만드는 법은 map/build.py.
+//
+// 자료에는 두 가지가 들어 있다. 그림 격자(칸 5 km)는 그리는 데만 쓰고, 좌표가 어느
+// 시·군인지는 경계선으로 가린다. 격자로 가리면 경계 근처가 옆 시·군으로 가서, 홍천
+// 여행이 춘천으로 칠해졌었다.
+const KOREA_SIG_V = '1';
+function loadKoreaSig(){
+  if (typeof KOREA_SIG !== 'undefined') return Promise.resolve(true);
+  return new Promise(res => {
+    const el = document.createElement('script');
+    el.src = '/map/korea-sig.js?v=' + KOREA_SIG_V;
+    el.onload = () => res(typeof KOREA_SIG !== 'undefined');
+    el.onerror = () => res(false);
+    document.head.appendChild(el);
+  });
+}
+
+// 격자를 풀어 칸마다 시·군 번호(1부터, 바다는 0)를 담는다. 한 칸 = 글자 둘(번호, 길이).
+function koreaSigGrid(K){
+  const g = new Uint8Array(K.cols * K.rows);
+  let at = 0;
+  for (let i = 0; i < K.grid.length; i += 2) {
+    const v = K.grid.charCodeAt(i) - 48, n = K.grid.charCodeAt(i + 1) - 48;
+    g.fill(v, at, at + n); at += n;
+  }
+  return g;
+}
+
+// 경계선을 풀어 시·군마다 선분 목록과 상자를 만든다. 선은 구글 폴리라인 부호다.
+function koreaSigShapes(K){
+  const arcs = K.arcs.map(str => {
+    const pts = []; let i = 0, x = 0, y = 0;
+    const next = () => {
+      let r = 0, sh = 0, b;
+      do { b = str.charCodeAt(i++) - 63; r |= (b & 31) << sh; sh += 5; } while (b >= 32);
+      return (r & 1) ? ~(r >> 1) : (r >> 1);
+    };
+    while (i < str.length) { x += next(); y += next(); pts.push(x * K.quant, y * K.quant); }
+    return pts;                                          // [경도, 위도, 경도, 위도 …]
+  });
+  return K.units.map(list => {
+    let x0 = 999, y0 = 999, x1 = -999, y1 = -999;
+    list.forEach(a => {
+      const p = arcs[a];
+      for (let j = 0; j < p.length; j += 2) {
+        if (p[j] < x0) x0 = p[j]; if (p[j] > x1) x1 = p[j];
+        if (p[j + 1] < y0) y0 = p[j + 1]; if (p[j + 1] > y1) y1 = p[j + 1];
+      }
+    });
+    return { arcs: list.map(a => arcs[a]), box: [x0, y0, x1, y1] };
+  });
+}
+
+// 위경도 한 점 → 시·군 번호(1부터), 모르면 0.
+// 선을 오른쪽으로 긋는 반직선이 몇 번 건너는지 홀짝으로 본다. 한 시·군 안의 구 사이
+// 선은 자료를 만들 때 이미 지웠다. 어느 선 안에도 안 드는 점(해변, 자료에서 뺀 작은 섬)은
+// 8 km 안에서 가장 가까운 선의 시·군으로 붙인다 — 함덕 해변 일정이 그렇게 제주시가 된다.
+function koreaSigAt(K, shapes, lat, lng){
+  if (!(lat > 0) || !(lng > 0)) return 0;
+  for (let u = 0; u < shapes.length; u++) {
+    const b = shapes[u].box;
+    if (lng < b[0] || lng > b[2] || lat < b[1] || lat > b[3]) continue;
+    let inside = false;
+    shapes[u].arcs.forEach(p => {
+      for (let j = 0; j + 3 < p.length; j += 2) {
+        const ya = p[j + 1], yb = p[j + 3];
+        if ((ya > lat) !== (yb > lat) &&
+            lng < (p[j + 2] - p[j]) * (lat - ya) / (yb - ya) + p[j]) inside = !inside;
+      }
+    });
+    if (inside) return u + 1;
+  }
+  const m = K.nearKm / 111, kx = K.kx;
+  let best = 0, bestD = m;
+  for (let u = 0; u < shapes.length; u++) {
+    const b = shapes[u].box;
+    if (lng < b[0] - m / kx || lng > b[2] + m / kx || lat < b[1] - m || lat > b[3] + m) continue;
+    shapes[u].arcs.forEach(p => {
+      for (let j = 0; j + 3 < p.length; j += 2) {
+        const ax = p[j] * kx, ay = p[j + 1], dx = p[j + 2] * kx - ax, dy = p[j + 3] - ay;
+        const px = lng * kx;
+        const t = (dx || dy) ? Math.max(0, Math.min(1, ((px - ax) * dx + (lat - ay) * dy) / (dx * dx + dy * dy))) : 0;
+        const d = Math.hypot(px - ax - t * dx, lat - ay - t * dy);
+        if (d < bestD) { bestD = d; best = u + 1; }
+      }
+    });
+  }
+  return best;
+}
+
 belowFold(async () => {
   const cv = $('#koreaCanvas');
-  if (!cv || typeof KOREA === 'undefined') return;      // 옛 pixel.js 와 짝이 되면 조용히 접는다
+  if (!cv) return;
   // 다녀온 곳은 일정의 좌표에서, 가볼 곳은 places 에서 온다. 둘을 한 지도에 얹으면
   // 「어디를 갔고 어디가 남았나」에 더해 「다음에 어디로 갈 참인가」까지 보인다.
-  const [{ data }, { data: wish }] = await Promise.all([
+  const [ok, { data }, { data: wish }] = await Promise.all([
+    loadKoreaSig(),
     sb.from('events')
       .select('event_id, place_lat, place_lng')
       .not('place_lat', 'is', null)
-      .limit(2000),                                    // 좌표 있는 일정만 — 지금 28개, 난간일 뿐
+      .limit(2000),                                    // 좌표 있는 일정만 — 지금 35개, 난간일 뿐
     sb.from('places')
       .select('lat, lng')
       .eq('status', 'want')
       .not('lat', 'is', null)
       .limit(2000),
   ]);
-  const been = new Map();                               // 지역 → 다녀온 이벤트 수
-  const evOf = new Map();                               // 지역 → 그곳 이벤트 아이디들
+  if (!ok) return;                                      // 자료를 못 받았으면 자리를 통째로 접는다
+  const K = KOREA_SIG;
+  const grid = koreaSigGrid(K);
+  const shapes = koreaSigShapes(K);
+  const cols = K.cols, rows = K.rows;
+
+  const been = new Map();                               // 시·군 번호 → 다녀온 일정 좌표 수
+  const evOf = new Map();                               // 시·군 번호 → 그곳 이벤트 아이디들
   (data || []).forEach(r => {
-    const k = koreaRegionAt(Number(r.place_lat), Number(r.place_lng));
+    const k = koreaSigAt(K, shapes, Number(r.place_lat), Number(r.place_lng));
     if (!k) return;
     been.set(k, (been.get(k) || 0) + 1);
     if (!evOf.has(k)) evOf.set(k, []);
     if (evOf.get(k).indexOf(r.event_id) < 0) evOf.get(k).push(r.event_id);
   });
-
-  const willGo = new Map();                             // 지역 → 적어 둔 가볼 곳 수
+  const willGo = new Map();                             // 시·군 번호 → 적어 둔 가볼 곳 수
   (wish || []).forEach(r => {
-    const k = koreaRegionAt(Number(r.lat), Number(r.lng));
-    if (!k) return;
-    willGo.set(k, (willGo.get(k) || 0) + 1);
+    const k = koreaSigAt(K, shapes, Number(r.lat), Number(r.lng));
+    if (k) willGo.set(k, (willGo.get(k) || 0) + 1);
   });
   const 가볼곳수 = (wish || []).length;
 
-  const g = cv.getContext('2d');
-  g.imageSmoothingEnabled = false;
-  const cols = KOREA[0].length, rows = KOREA.length;
-  const s = Math.floor(Math.min(cv.width / cols, cv.height / rows));
-  const ox = Math.floor((cv.width - cols * s) / 2);
-  const oy = Math.floor((cv.height - rows * s) / 2);
-  g.clearRect(0, 0, cv.width, cv.height);
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const ch = KOREA[r][c];
-      if (ch === '.') continue;
-      // 다녀온 곳이 먼저다. 가 본 지역에 가볼 곳이 더 있어도 색은 민트로 둔다 —
-      // 이 지도가 답하는 첫 물음은 「어디를 다녀왔나」이기 때문이다.
-      g.fillStyle = been.has(ch) ? '#6cc7b3'
-                  : willGo.has(ch) ? '#ffd979'
-                  : '#e3ddd2';
-      g.fillRect(ox + c * s, oy + r * s, s - 1, s - 1);
+  // 부를 이름. 광역시는 그 이름만(「부산」), 나머지는 도를 붙인다(「강원 고성군」과
+  // 「경남 고성군」이 따로 있다). 이름표에서는 도로 묶으니 끝의 시·군을 뗀다.
+  const fullName = k => K.sido[k - 1] ? K.sido[k - 1] + ' ' + K.names[k - 1] : K.names[k - 1];
+  const shortName = k => K.sido[k - 1] ? K.names[k - 1].replace(/[시군]$/, '') : K.names[k - 1];
+  // 도 경계는 조금 더 진하게 긋는다. 광역시는 제 이름이 곧 제 시도다.
+  const provOf = k => K.sido[k - 1] || K.names[k - 1];
+
+  // 캔버스를 화면의 실제 픽셀 수로 맞춘다. 칸이 5~6 픽셀이라 늘려 그리면 사이 줄이
+  // 네 줄에 하나씩 사라져 얼룩이 진다. 그래서 늘리지 않고 칸 하나를 정수 픽셀로 그린다.
+  // CSS 폭도 칸의 정수배로 맞춘다 — 폭 100% 로 두면 876 픽셀짜리를 920 에 늘려 보여서
+  // 스무 줄에 한 줄꼴로 두 겹이 됐다. 쓸 수 있는 폭은 잠깐 폭 지정을 풀고 잰다.
+  $('#map').hidden = false;                             // 숨긴 채로는 폭을 잴 수 없다
+  let s = 0, gap = 1, ox = 0, oy = 0;
+  const dprNow = () => Math.min(window.devicePixelRatio || 1, 3);
+  function roomCss(){
+    const was = cv.style.width;
+    cv.style.width = '';
+    const w = cv.clientWidth;
+    cv.style.width = was;
+    return w || 440;                                    // 창이 안 그려지는 곳에서도 그림은 나오게
+  }
+  function draw(){
+    const dpr = dprNow();
+    s = Math.max(3, Math.floor(roomCss() * dpr / cols));
+    gap = s >= 9 ? 2 : 1;
+    cv.width = cols * s; cv.height = rows * s;
+    cv.style.width = (cols * s / dpr) + 'px';
+    ox = 0; oy = 0;
+    const g = cv.getContext('2d');
+    g.clearRect(0, 0, cv.width, cv.height);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const k = grid[r * cols + c];
+        if (!k) continue;
+        // 다녀온 곳이 먼저다. 가 본 곳에 가볼 곳이 더 있어도 색은 민트로 둔다 —
+        // 이 지도가 답하는 첫 물음은 「어디를 다녀왔나」이기 때문이다.
+        g.fillStyle = been.has(k) ? '#6cc7b3' : willGo.has(k) ? '#ffd979' : '#e3ddd2';
+        g.fillRect(c * s, r * s, s - gap, s - gap);
+        // 오른쪽·아래 칸이 다른 시·군이면 그 사이 틈을 경계선으로 칠한다
+        const kr = c + 1 < cols ? grid[r * cols + c + 1] : 0;
+        const kd = r + 1 < rows ? grid[(r + 1) * cols + c] : 0;
+        if (kr && kr !== k) {
+          g.fillStyle = provOf(kr) !== provOf(k) ? '#8d8272' : '#c4b9a7';
+          g.fillRect(c * s + s - gap, r * s, gap, s);
+        }
+        if (kd && kd !== k) {
+          g.fillStyle = provOf(kd) !== provOf(k) ? '#8d8272' : '#c4b9a7';
+          g.fillRect(c * s, r * s + s - gap, s, gap);
+        }
+      }
     }
   }
+  draw();
+  let resizeT = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeT);
+    resizeT = setTimeout(() => { if (Math.max(3, Math.floor(roomCss() * dprNow() / cols)) !== s) draw(); }, 150);
+  });
 
-  const names = Object.keys(KOREA_NAMES);
-  const gone = names.filter(k => been.has(k));
-  const 갈곳지역 = names.filter(k => !been.has(k) && willGo.has(k));
+  const total = K.names.length;
+  const gone = [];
+  for (let k = 1; k <= total; k++) if (been.has(k)) gone.push(k);
+  const 갈곳 = [];
+  for (let k = 1; k <= total; k++) if (!been.has(k) && willGo.has(k)) 갈곳.push(k);
+  // 도별로 묶어 「경남 부산·기장」처럼. 도 순서는 위에서 아래로.
+  const LEGEND_ORDER = ['경기', '강원', '충북', '충남', '전북', '경북', '전남', '경남', '제주'];
+  const byLegend = list => LEGEND_ORDER
+    .map(L => {
+      const here = list.filter(k => K.legend[k - 1] === L);
+      return here.length ? L + ' ' + here.map(shortName).join('·') : '';
+    })
+    .filter(Boolean).join(', ');
   $('#mapCount').textContent = (gone.length
-      ? '여덟 군데 중 ' + gone.length + '곳에 다녀왔어요'
+      ? '시·군 ' + total + '곳 중 ' + gone.length + '곳에 다녀왔어요'
       : '아직 지도가 비어 있어요') +
     (가볼곳수 ? ' · 가볼 곳 ' + 가볼곳수 + '군데를 적어 뒀어요' : '');
   $('#mapLegend').innerHTML =
     '<span><i style="background:#6cc7b3"></i>다녀온 곳 — ' +
-      (gone.map(k => KOREA_NAMES[k]).join(', ') || '아직 없음') + '</span>' +
-    (갈곳지역.length
-      ? '<span><i style="background:#ffd979"></i>가볼 곳을 적어 둔 데 — ' +
-        갈곳지역.map(k => KOREA_NAMES[k]).join(', ') + '</span>'
+      escapeHTML(byLegend(gone) || '아직 없음') + '</span>' +
+    (갈곳.length
+      ? '<span><i style="background:#ffd979"></i>가볼 곳을 적어 둔 데 — ' + escapeHTML(byLegend(갈곳)) + '</span>'
       : '') +
     '<span><i style="background:#e3ddd2"></i>아직 안 가 본 곳</span>';
+
   // 색칠된 곳을 누르면 그때 사진을 한 장만 떠 온다. 누르기 전엔 서버를 안 부른다.
+  // 칸이 작아 한 칸짜리 시(구리·오산 …)는 손가락으로 딱 맞히기 어렵다 — 누른 칸이
+  // 안 가 본 곳이면 바로 옆 칸까지 둘러보고 다녀온 곳을 잡는다.
   const shot = $('#mapShot');
   const shotCache = new Map();
   cv.addEventListener('click', async e => {
-    const r = cv.getBoundingClientRect();
-    const c = Math.floor(((e.clientX - r.left) * cv.width / r.width - ox) / s);
-    const rr = Math.floor(((e.clientY - r.top) * cv.height / r.height - oy) / s);
-    if (rr < 0 || rr >= rows || c < 0 || c >= cols) return;
-    const ch = KOREA[rr][c];
-    if (ch === '.' || !been.has(ch)) return;
+    const rect = cv.getBoundingClientRect();
+    const c0 = Math.floor(((e.clientX - rect.left) * cv.width / rect.width - ox) / s);
+    const r0 = Math.floor(((e.clientY - rect.top) * cv.height / rect.height - oy) / s);
+    let k = 0;
+    for (let d = 0; d <= 1 && !k; d++) {
+      for (let r = r0 - d; r <= r0 + d && !k; r++) {
+        for (let c = c0 - d; c <= c0 + d && !k; c++) {
+          if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
+          const v = grid[r * cols + c];
+          if (v && been.has(v)) k = v;
+        }
+      }
+    }
+    if (!k) return;
 
     shot.hidden = false;
-    if (shotCache.has(ch)) { shot.innerHTML = shotCache.get(ch); return; }
-    shot.innerHTML = '<p class="cap">' + escapeHTML(KOREA_NAMES[ch]) + ' 사진을 찾는 중…</p>';
-    const ids = evOf.get(ch) || [];
+    if (shotCache.has(k)) { shot.innerHTML = shotCache.get(k); return; }
+    shot.innerHTML = '<p class="cap">' + escapeHTML(fullName(k)) + ' 사진을 찾는 중…</p>';
     const { data: pics } = await sb.from('gallery_media')
       .select('thumb_url, media_url, event_id')
-      .in('event_id', ids).limit(1);
+      .in('event_id', evOf.get(k) || []).limit(1);
     const pic = (pics || [])[0];
     const html = pic
       ? '<img src="' + escapeHTML(pic.thumb_url || pic.media_url) + '" alt="" ' +
         'loading="lazy" decoding="async">' +
-        '<p class="cap">' + escapeHTML(KOREA_NAMES[ch]) + ' · ' +
-        (been.get(ch)) + '번 다녀왔어요</p>'
-      : '<p class="cap">' + escapeHTML(KOREA_NAMES[ch]) + ' — 아직 올린 사진이 없어요</p>';
-    shotCache.set(ch, html);
+        // 횟수는 여행(이벤트) 수로 센다. 일정 좌표 줄로 세면 제주 여행 한 번이 「20번」이 됐다.
+        '<p class="cap">' + escapeHTML(fullName(k)) + ' · ' + (evOf.get(k) || []).length + '번 다녀왔어요</p>'
+      : '<p class="cap">' + escapeHTML(fullName(k)) + ' — 아직 올린 사진이 없어요</p>';
+    shotCache.set(k, html);
     shot.innerHTML = html;
   });
-
-  $('#map').hidden = false;
 });
 
 // ================= 여긴 어디였을까? =================

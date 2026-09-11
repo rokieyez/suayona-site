@@ -58,6 +58,7 @@ const vendor = {
   kakao: 'readonly',      // 카카오 지도 SDK
   exifr: 'readonly',      // event/compress.js 가 늦게 싣는다
   qrcode: 'readonly',     // portfolio 가 늦게 싣는다
+  KOREA_SIG: 'readonly',  // map/korea-sig.js — 첫 화면이 지도 자리에서 늦게 싣는다(map/build.py 가 굽는다)
   module: 'writable',     // farm-rules / quest-rules 가 node 에서도 돌게 한다
   require: 'readonly',
 };
@@ -78,7 +79,7 @@ const pairs = [
 }));
 
 module.exports = [
-  { ignores: ['node_modules/**', '_*.js', 'tools/**'] },
+  { ignores: ['node_modules/**', '_*.js', 'tools/**', 'map/korea-sig.js'] },   // 구운 자료 파일은 검사할 게 없다
 
   // 공유 스크립트와 페이지 스크립트 — 브라우저 전역 + 우리 전역
   {

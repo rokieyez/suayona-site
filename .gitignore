@@ -14,3 +14,7 @@ node_modules/
 # 내려받은 백업 — 아이들 사진과 비공개 글이 들어 있다.
 # 이 저장소는 깃허브 페이지로 그대로 공개되므로 절대 올리면 안 된다.
 backup/
+
+# 지도를 구울 때만 쓰는 시군구 경계 원본(540 KB). 사이트에는 구운 map/korea-sig.js 만 간다.
+# 받는 곳은 map/build.py 맨 위에 적어 두었다.
+map/sigungu.topo.json
