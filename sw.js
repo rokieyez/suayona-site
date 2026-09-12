@@ -9,10 +9,11 @@
 const CACHE = 'suayona-v2';
 const OFFLINE = '/offline.html';
 
-// 그리기와 지뢰찾기는 신호가 없어도 열려야 한다 — 서버를 한 번도 안 부르는 놀이라,
-// 지하철에서도 그대로 된다. 그래서 한 번도 안 들른 사람에게도 미리 담아 둔다.
-// 하나라도 없으면 addAll 은 통째로 실패하므로 한 장씩 담고 실패는 넘긴다.
+// 그리기·지뢰찾기·한 번 눌러 뛰기는 신호가 없어도 열려야 한다 — 달리는 동안 서버를 안 부르는
+// 놀이라 지하철에서도 그대로 된다(순위표만 신호가 있을 때 읽는다). 그래서 한 번도 안 들른
+// 사람에게도 미리 담아 둔다. 하나라도 없으면 addAll 은 통째로 실패하므로 한 장씩 담고 실패는 넘긴다.
 const PRECACHE = [OFFLINE, '/draw.html', '/pages/draw.js', '/mine.html', '/pages/mine.js',
+                  '/games.html', '/pages/games.js', '/run.html', '/pages/run-page.js', '/pages/run.js',
                   '/pixel.js', '/common.js', '/style.css'];
 
 // 담아 둘 수 있는 최대 벌수. 캐시는 주소가 한 글자만 달라도 다른 자리를 차지하는데,

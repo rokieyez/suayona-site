@@ -163,7 +163,8 @@ const MENU = [
   { href: '/contact.html',  label: '편지쓰기',  key: 'contact' },
   // 그리기는 메뉴에 두지 않는다 — 첫 화면의 「그리러 가기」로 충분하고, 항목이
   // 일곱이면 좁은 화면에서 한 줄이 넘친다.
-  { href: '/quest.html',    label: '수아연아 모험단', key: 'quest' },
+  // 놀이는 한 자리에 모았다 — 한 번 눌러 뛰기·지뢰찾기·모험단 (2026-09-12)
+  { href: '/games.html',    label: '게임',      key: 'games' },
   { href: '/farm.html',     label: '수아연아 농장',   key: 'farm' },
 ];
 

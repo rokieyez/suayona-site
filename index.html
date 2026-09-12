@@ -216,61 +216,6 @@
   .relay-note span{font-size:12.5px; font-weight:800;}
 
 
-  /* 원버튼 달리기 */
-  .run-card{padding:0; overflow:hidden;}
-  .run-stage{position:relative; display:block; width:100%; line-height:0;}
-  #runCanvas{
-    display:block; width:100%; height:190px; touch-action:manipulation;
-    cursor:pointer; background:#a8d8f2; image-rendering:pixelated;
-  }
-  #runCanvas:focus-visible{outline:3px solid var(--ink); outline-offset:-3px;}
-  .run-bar{
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    padding:10px 12px; border-top:3px solid var(--ink); background:var(--cream);
-  }
-  .run-bar .run-hint{font-size:12px; font-weight:800; color:var(--ink-soft); margin-left:auto;}
-  .run-who{display:flex; gap:6px;}
-  /* 손가락으로 누르는 칸이 29px 밖에 안 됐다 — 작은 화면에서 32px 아래는 잘 안 눌린다 */
-  .run-who button{
-    font:inherit; font-size:12px; font-weight:800; cursor:pointer;
-    min-height:34px; padding:6px 12px; border:2px solid var(--ink); border-radius:0;
-    background:var(--cream); color:var(--ink);
-  }
-  .run-who button.on{background:var(--ink); color:var(--cream);}
-  .run-save{
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    padding:10px 12px; border-top:3px solid var(--ink); background:#fff6e9;
-  }
-  .run-save input{
-    font:inherit; font-size:13px; font-weight:800; width:104px;
-    padding:6px 8px; border:2px solid var(--ink); background:#fff; color:var(--ink);
-  }
-  .run-save .run-msg{font-size:12px; font-weight:800; color:var(--ink-soft);}
-  .run-save .run-msg.err{color:#c0392b;}
-  .run-top{padding:12px; border-top:3px solid var(--ink); background:var(--cream);}
-  .run-top-head{
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    font-size:12px; font-weight:800; margin-bottom:8px; color:var(--ink-soft);
-  }
-  .run-top-head .when{display:flex; gap:4px; margin-left:auto;}
-  .run-top-head .when button{
-    font:inherit; font-size:11px; font-weight:800; cursor:pointer;
-    padding:3px 9px; border:2px solid var(--ink); background:var(--cream); color:var(--ink);
-  }
-  .run-top-head .when button.on{background:var(--ink); color:var(--cream);}
-  .run-top ol{margin:0; padding:0; list-style:none; display:grid; gap:3px;}
-  .run-top li{
-    display:flex; align-items:baseline; gap:8px;
-    font-size:13px; font-weight:800; padding:3px 6px;
-  }
-  .run-top li:nth-child(odd){background:#fff6e9;}
-  .run-top li .rk{width:26px; color:var(--ink-soft); font-variant-numeric:tabular-nums;}
-  .run-top li .nm{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .run-top li .sc{font-variant-numeric:tabular-nums;}
-  .run-top li.me{background:var(--lemon);}
-  @media (max-width:560px){
-    .run-bar .run-hint{width:100%; margin-left:0;}
-  }
   .cap-video{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0 4px;}
   .cap-video video{width:100%; max-width:240px; border:2px solid var(--ink); display:block;}
   .cap-vstate{font-size:12px; font-weight:800; color:var(--ink-soft);}
@@ -358,12 +303,12 @@
      ※ 목록을 고칠 때는 마지막(#capsule) 앞까지 전부 들어 있는지 볼 것. 나중에
         구간을 끼우면서 이 목록에 안 넣는 바람에, 메뉴↔그리기와
         도장↔숫자만 144px 로 벌어진 적이 있다(그 출석 도장 구간은 2026-09-11 에 뺐다). */
-  #menu, #draw-cta, #run, #counts, #duel, #growth, #map, #quiz{padding-bottom:0;}
+  #menu, #draw-cta, #counts, #duel, #growth, #map, #quiz{padding-bottom:0;}
 
   /* 메뉴 아래로는 구간이 여섯 개가 연달아 온다. 한 칸을 72px 로 두면 화면마다
      제목 하나씩만 보여서 스크롤이 길다. 이 줄부터는 52px 로 좁힌다 —
      구간이 나뉘어 보이기에는 충분하고, 다음 것이 화면 끝에 걸쳐 보인다. */
-  #draw-cta, #run, #counts, #duel, #growth, #map, #quiz, #capsule{padding-top:52px;}
+  #draw-cta, #counts, #duel, #growth, #map, #quiz, #capsule{padding-top:52px;}
 
   /* ===== 사진 퀴즈 ===== */
   .quiz-card{max-width:560px; margin:0 auto; overflow:hidden;}
@@ -573,6 +518,15 @@
         <p>마을 밭에서 지뢰를 피해 땅을 여는 도트 지뢰찾기. 초급·중급·고급과 깃발·물음표·화음까지 그대로예요.</p>
         <span class="go pixel">찾으러 가기 →</span>
       </a>
+
+      <a class="dot-card menu-card reveal" href="./run.html">
+        <canvas class="who" data-char="squirrel" aria-hidden="true"></canvas>
+        <span class="num pixel">08</span>
+        <canvas data-icon="rocket" width="48" height="48"></canvas>
+        <h3>한 번 눌러 뛰기</h3>
+        <p>화면을 톡 누르면 폴짝. 목숨은 하나, 18초마다 배경이 바뀌어요 — 들판에서 천국까지 열 곳.</p>
+        <span class="go pixel">뛰러 가기 →</span>
+      </a>
     </div>
   </div>
 </section>
@@ -588,48 +542,6 @@
         <h2>도트로 그려볼까?</h2>
         <p>이 사이트에 쓰인 색으로 한 칸씩 찍어서 그림을 그려요.<br>다 그리면 그림 파일로 저장할 수 있어요.</p>
         <a class="dot-btn primary" href="./draw.html">그리러 가기 →</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 원버튼 달리기. 서버를 전혀 쓰지 않는다 — 최고 점수도 이 브라우저에만 남는다.
-     화면 밖으로 나가거나 탭이 가려지면 스스로 멈춘다(배터리). -->
-<section class="section-pad" id="run">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow pixel">ONE TAP</span>
-      <h2>한 번 눌러 뛰기</h2>
-      <p>화면을 톡 누르면 폴짝. 목숨은 하나, 18초마다 배경이 바뀌어요 — 들판에서 천국까지 열 곳. 열 곳을 다 지나도 계속 빨라져요</p>
-    </div>
-    <div class="dot-card run-card reveal">
-      <div class="run-stage">
-        <canvas id="runCanvas" tabindex="0" role="application"
-                aria-label="한 번 눌러 뛰기 게임. 스페이스바나 화면을 누르면 점프합니다."></canvas>
-      </div>
-      <div class="run-bar">
-        <div class="run-who" id="runWho">
-          <button type="button" data-who="sua" class="on">수아로</button>
-          <button type="button" data-who="yona">연아로</button>
-        </div>
-        <button type="button" class="dot-btn small" id="runReset" hidden
-                title="이 브라우저에 저장된 BEST 만 지웁니다. 명예의 전당은 그대로예요.">최고 기록 지우기</button>
-        <span class="run-hint">스페이스바 또는 화면 누르기 · 누르는 시간에 따라 점프가 4단계 · 하트 14개를 모으면 목숨 한 칸 회복</span>
-      </div>
-      <div class="run-save" id="runSave" hidden>
-        <input id="runName" maxlength="8" placeholder="이름" autocomplete="off">
-        <button type="button" class="dot-btn small primary" id="runSend">기록 남기기</button>
-        <span class="run-msg" id="runMsg"></span>
-      </div>
-      <div class="run-top" id="runTop" hidden>
-        <div class="run-top-head pixel">
-          <span>명예의 전당 · 10위까지</span>
-          <span class="when" id="runWhen">
-            <button type="button" data-when="all" class="on">전체</button>
-            <button type="button" data-when="week">이번 주</button>
-          </span>
-        </div>
-        <ol id="runTopList"></ol>
       </div>
     </div>
   </div>

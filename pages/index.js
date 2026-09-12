@@ -3442,29 +3442,6 @@ belowFold(async () => {
   await Promise.all([loadOpened(), loadLocked()]);
 });
 
-// ================= 한 번 눌러 뛰기 =================
-/* 게임 알맹이는 pages/run.js 에 있다. gzip 16.1KB — 첫 화면 자바스크립트의 21% 인데
-   화면 한참 아래에 있어, 스크롤도 안 하고 나가는 사람에게는 통째로 낭비였다.
-   자리가 다가오면(600px 앞) 받아 온다. 관찰자가 없거나 그 전에 손이 닿으면 그때 받는다.
-   ?v 는 배포가 어긋나도 새 index.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const RUN_V = '1';
-(function(){
-  const cv = document.getElementById('runCanvas');
-  if (!cv) return;
-  let got = false;
-  function grab(){
-    if (got) return;
-    got = true;
-    const el = document.createElement('script');
-    el.src = '/pages/run.js?v=' + RUN_V;
-    document.head.appendChild(el);
-  }
-  ['pointerdown', 'focus', 'keydown'].forEach(e => cv.addEventListener(e, grab, { once: true }));
-  if (!('IntersectionObserver' in window)){ grab(); return; }
-  const io = new IntersectionObserver(es => { if (es[0].isIntersecting){ io.disconnect(); grab(); } }, { rootMargin: '600px' });
-  io.observe(cv);
-})();
-
 // ================= 하단 픽셀 띠 =================
 (function(){
   const cv = $('#stripCanvas'); const ctx = cv.getContext('2d');

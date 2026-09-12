@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="robots" content="noindex, nofollow">
+<title>한 번 눌러 뛰기 · 수아랑 연아랑</title>
+<meta name="description" content="화면을 톡 누르면 폴짝. 목숨은 하나, 18초마다 배경이 바뀌는 도트 달리기.">
+
+<link rel="preload" href="/fonts/PretendardVariable.subset.woff2" as="font" type="font/woff2" crossorigin>
+<link href="/fonts/dot.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .run-wrap{max-width:780px;}
+  /* 원버튼 달리기 */
+  .run-card{padding:0; overflow:hidden;}
+  .run-stage{position:relative; display:block; width:100%; line-height:0;}
+  #runCanvas{
+    display:block; width:100%; height:190px; touch-action:manipulation;
+    cursor:pointer; background:#a8d8f2; image-rendering:pixelated;
+  }
+  #runCanvas:focus-visible{outline:3px solid var(--ink); outline-offset:-3px;}
+  .run-bar{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:10px 12px; border-top:3px solid var(--ink); background:var(--cream);
+  }
+  .run-bar .run-hint{font-size:12px; font-weight:800; color:var(--ink-soft); margin-left:auto;}
+  .run-who{display:flex; gap:6px;}
+  /* 손가락으로 누르는 칸이 29px 밖에 안 됐다 — 작은 화면에서 32px 아래는 잘 안 눌린다 */
+  .run-who button{
+    font:inherit; font-size:12px; font-weight:800; cursor:pointer;
+    min-height:34px; padding:6px 12px; border:2px solid var(--ink); border-radius:0;
+    background:var(--cream); color:var(--ink);
+  }
+  .run-who button.on{background:var(--ink); color:var(--cream);}
+  .run-save{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:10px 12px; border-top:3px solid var(--ink); background:#fff6e9;
+  }
+  .run-save input{
+    font:inherit; font-size:13px; font-weight:800; width:104px;
+    padding:6px 8px; border:2px solid var(--ink); background:#fff; color:var(--ink);
+  }
+  .run-save .run-msg{font-size:12px; font-weight:800; color:var(--ink-soft);}
+  .run-save .run-msg.err{color:#c0392b;}
+  .run-top{padding:12px; border-top:3px solid var(--ink); background:var(--cream);}
+  .run-top-head{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    font-size:12px; font-weight:800; margin-bottom:8px; color:var(--ink-soft);
+  }
+  .run-top-head .when{display:flex; gap:4px; margin-left:auto;}
+  .run-top-head .when button{
+    font:inherit; font-size:11px; font-weight:800; cursor:pointer;
+    padding:3px 9px; border:2px solid var(--ink); background:var(--cream); color:var(--ink);
+  }
+  .run-top-head .when button.on{background:var(--ink); color:var(--cream);}
+  .run-top ol{margin:0; padding:0; list-style:none; display:grid; gap:3px;}
+  .run-top li{
+    display:flex; align-items:baseline; gap:8px;
+    font-size:13px; font-weight:800; padding:3px 6px;
+  }
+  .run-top li:nth-child(odd){background:#fff6e9;}
+  .run-top li .rk{width:26px; color:var(--ink-soft); font-variant-numeric:tabular-nums;}
+  .run-top li .nm{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .run-top li .sc{font-variant-numeric:tabular-nums;}
+  .run-top li.me{background:var(--lemon);}
+  @media (max-width:560px){
+    .run-bar .run-hint{width:100%; margin-left:0;}
+  }
+</style>
+</head>
+<body>
+
+<!-- 원버튼 달리기. 서버를 전혀 쓰지 않는다 — 최고 점수도 이 브라우저에만 남는다.
+     화면 밖으로 나가거나 탭이 가려지면 스스로 멈춘다(배터리). -->
+<section class="page-top section-pad" id="run">
+  <div class="wrap run-wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">ONE TAP</span>
+      <h1>한 번 눌러 뛰기</h1>
+      <p>화면을 톡 누르면 폴짝. 목숨은 하나, 18초마다 배경이 바뀌어요 — 들판에서 천국까지 열 곳. 열 곳을 다 지나도 계속 빨라져요</p>
+    </div>
+    <div class="dot-card run-card reveal">
+      <div class="run-stage">
+        <canvas id="runCanvas" tabindex="0" role="application"
+                aria-label="한 번 눌러 뛰기 게임. 스페이스바나 화면을 누르면 점프합니다."></canvas>
+      </div>
+      <div class="run-bar">
+        <div class="run-who" id="runWho">
+          <button type="button" data-who="sua" class="on">수아로</button>
+          <button type="button" data-who="yona">연아로</button>
+        </div>
+        <button type="button" class="dot-btn small" id="runReset" hidden
+                title="이 브라우저에 저장된 BEST 만 지웁니다. 명예의 전당은 그대로예요.">최고 기록 지우기</button>
+        <span class="run-hint">스페이스바 또는 화면 누르기 · 누르는 시간에 따라 점프가 4단계 · 하트 14개를 모으면 목숨 한 칸 회복</span>
+      </div>
+      <div class="run-save" id="runSave" hidden>
+        <input id="runName" maxlength="8" placeholder="이름" autocomplete="off">
+        <button type="button" class="dot-btn small primary" id="runSend">기록 남기기</button>
+        <span class="run-msg" id="runMsg"></span>
+      </div>
+      <div class="run-top" id="runTop" hidden>
+        <div class="run-top-head pixel">
+          <span>명예의 전당 · 10위까지</span>
+          <span class="when" id="runWhen">
+            <button type="button" data-when="all" class="on">전체</button>
+            <button type="button" data-when="week">이번 주</button>
+          </span>
+        </div>
+        <ol id="runTopList"></ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        onerror="window.__sbFailed=1"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script src="/pages/run-page.js"></script>
+<script src="/pages/run.js"></script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 // 파일로 빼 둔 이유: 문법 검사(node --check / eslint)가 되고, 에디터가 참조를 따라갈 수 있다.
 // 싣는 순서는 그대로다 — supabase → (compress) → pixel → common → 이 파일.
 
-buildChrome('quest');
+buildChrome('games');   // 머리글의 「게임」 자리에 있는 놀이다
 
 // 규칙은 quest-rules.js 에 있다. 여기는 화면과 순서만.
 const Q = QUEST;
