@@ -991,356 +991,705 @@ async function openGearPick(){
 // =====================================================================
 //  내 방 — 중세 전사의 방
 // =====================================================================
-// ===== 방 꾸미기 그림 (16×16 도트) =====
-// 여기서만 쓰는 팔레트다 — 중세 방의 돌·쇠·나무·천 빛깔이라 site 팔레트와 겹치지 않는다.
-// h 는 아이 색(수아 코랄 · 연아 민트)으로 그때그때 바뀐다.
+/* 방은 농장의 아이 방과 같은 눈높이로 — 비스듬히 내려다보는 아이소메트릭이다.
+   칸 하나는 가로 56 · 세로 28 도트. 벽 둘이 가운데에서 만나고, 바닥은 6×4 칸.
+   그림은 400×260 으로 그려 800×520 판에 두 배로 올린다. */
 const RPAL = {
-  k: '#2f2a24', n: '#5f3f26', W: '#8a5f3a', w: '#c79b6d',
-  K: '#5d6675', I: '#9aa4b2', i: '#dfe6ec',
-  G: '#e0a93b', g: '#ffd979',
-  r: '#d4504a', R: '#9e3a36', b: '#4a7fd4', B: '#2f57a0',
-  c: '#fff3dc', f: '#ff9d3b', F: '#ffe066', s: '#e8c86a', l: '#6fb567',
+  k: '#241f1a', h: null, H: null,                       // h·H 는 아이 색으로 그때그때
+  n: '#5a3a22', N: '#7a4f2d', W: '#8a5f3a', w: '#c79b6d', e: '#e8cda3',
+  j: '#3f4653', J: '#5d6675', I: '#9aa4b2', i: '#cfd6de', d: '#f2f6fa',
+  G: '#b9812c', g: '#e0a93b', y: '#ffd979', Y: '#fff0b8',
+  R: '#7e2b28', r: '#b8423c', q: '#d4504a', Q: '#e8746a',
+  B: '#23407a', b: '#3a63b0', v: '#5b86d6',
+  c: '#f4e6c8', C: '#fff8e8', t: '#d8c49a',
+  f: '#ff9d3b', F: '#ffd24a', x: '#ffeea8', o: '#e0561f',
+  s: '#e8c86a', S: '#c7a44a', l: '#6fb567', L: '#4b8a46',
+  p: '#8b867c', P: '#6f6a60', z: '#a8a296',
 };
+// 빛깔 한 칸을 밝게·어둡게 — 돌과 나무의 결을 내는 데 쓴다
+function shade(hex, d){
+  const n = parseInt(hex.slice(1), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+    .map(v => Math.max(0, Math.min(255, v + d)));
+  return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+}
 const ROOM_ART = {
   torch: [
-    '................',
-    '.......F........',
-    '......FfF.......',
-    '.....FfffF......',
-    '.....ffFff......',
-    '.....fFFFf......',
-    '......fff.......',
-    '.......f........',
-    '......nWn.......',
-    '......nWn.......',
-    '.....KIIIK......',
-    '......KKK.......',
-    '................',
-    '................',
-    '................',
-    '................',
+    '........................',
+    '..........xx............',
+    '.........xFFx...........',
+    '........xFFFFx..........',
+    '........fFxxFf..........',
+    '.......ofFFFFfo.........',
+    '.......offFFffo.........',
+    '........offffo..........',
+    '.........offo...........',
+    '..........ff............',
+    '.........jWWj...........',
+    '.........jWWj...........',
+    '........jIIIIj..........',
+    '.......jIddIIIj.........',
+    '.......jIIIIIIj.........',
+    '........jIIIIj..........',
+    '.........jIIj...........',
+    '..........jj............',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
   ],
   shield: [
-    '................',
-    '...IIIIIIIIII...',
-    '...IhhhhhhhhI...',
-    '...IhhhiihhhI...',
-    '...IhhiiiihhI...',
-    '...IhhhiihhhI...',
-    '...IhhhhhhhhI...',
-    '...IhhhhhhhhI...',
-    '....IhhhhhhI....',
-    '....IhhhhhhI....',
-    '.....IhhhhI.....',
-    '......IhhI......',
-    '.......II.......',
-    '................',
-    '................',
-    '................',
+    '........................',
+    '.......IIIIIIIIII.......',
+    '......IdIIIIIIIIdI......',
+    '.....IdhhhhhhhhhhdI.....',
+    '.....Idhhhhhhhhhh.I.....',
+    '.....IhhhhCChhhhhhI.....',
+    '.....IhhhhCChhhhhhI.....',
+    '.....IhhCCCCCChhhhI.....',
+    '.....IhhCCCCCChhhhI.....',
+    '.....IhhhhCChhhhhhI.....',
+    '.....IhhhhCChhhhhhI.....',
+    '.....IhhhhhhhhhhhhI.....',
+    '.....IhhhhhhhhhhhhI.....',
+    '......IhhhhhhhhhhI......',
+    '......IhhhhhhhhhhI......',
+    '.......IhhhhhhhhI.......',
+    '........IhhhhhhI........',
+    '.........IhhhhI.........',
+    '..........IhhI..........',
+    '...........II...........',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
   ],
   banner: [
-    '................',
-    '..nnnnnnnnnnnn..',
-    '..nhhhhhhhhhhn..',
-    '...hhhhhhhhhh...',
-    '...hhhhhhhhhh...',
-    '...hhhhhgghhh...',
-    '...hhhhgggghhh..',
-    '...hhhgggggghh..',
-    '...hhhhgggghhh..',
-    '...hhhhhgghhh...',
-    '...hhhhhhhhhh...',
-    '...hhhhhhhhhh...',
-    '...hhhhhhhhhh...',
-    '....hh.hh.hh....',
-    '.....h...h......',
-    '................',
+    '........................',
+    '....jIIIIIIIIIIIIIIj....',
+    '....jddddddddddddddj....',
+    '.....hhhhhhhhhhhhhh.....',
+    '.....hhhhhhhhhhhhhh.....',
+    '.....hhhhhhhhhhhhhh.....',
+    '.....hhhhhhyyhhhhhh.....',
+    '.....hhhhhyyyyhhhhh.....',
+    '.....hhhyyyYYyyyhhh.....',
+    '.....hhhhyyyyyyhhhh.....',
+    '.....hhhhyyyyyyhhhh.....',
+    '.....hhhyyyhhyyyhhh.....',
+    '.....hhyyhhhhhhyyhh.....',
+    '.....hhhhhhhhhhhhhh.....',
+    '.....hhhhhhhhhhhhhh.....',
+    '.....hhhhhhhhhhhhhh.....',
+    '.....hhhhhhhhhhhhhh.....',
+    '.....hhhhhhhhhhhhhh.....',
+    '.....hhhhhhhhhhhhhh.....',
+    '.....hhhh.hhhh.hhhh.....',
+    '.....hhh...hh...hhh.....',
+    '.....hh.....h.....hh....',
+    '........................',
+    '........................',
   ],
   swords: [
-    '................',
-    '..i..........i..',
-    '..Ii........iI..',
-    '...Ii......iI...',
-    '....Ii....iI....',
-    '.....Ii..iI.....',
-    '......IiiI......',
-    '.....GGiiGG.....',
-    '......IiiI......',
-    '.....Ii..iI.....',
-    '....Ii....iI....',
-    '...Ii......iI...',
-    '..WW........WW..',
-    '..Wn........nW..',
-    '................',
-    '................',
+    '........................',
+    '..d..................d..',
+    '..Id................dI..',
+    '...Id..............dI...',
+    '....Id............dI....',
+    '.....Id..........dI.....',
+    '......Id........dI......',
+    '.......Id......dI.......',
+    '........Id....dI........',
+    '.........Id..dI.........',
+    '..........IddI..........',
+    '.........GgIIgG.........',
+    '........GyygggyyG.......',
+    '.........GgIIgG.........',
+    '..........IddI..........',
+    '.........Id..dI.........',
+    '........Id....dI........',
+    '.......Id......dI.......',
+    '......Id........dI......',
+    '.....nW............Wn...',
+    '.....nW............Wn...',
+    '.....GG............GG...',
+    '........................',
+    '........................',
   ],
   medals: [
-    '.......ii.......',
-    '.......ii.......',
-    '..WWWWWWWWWWWW..',
-    '..WccccccccccW..',
-    '..Wc........cW..',
-    '..Wc........cW..',
-    '..Wc........cW..',
-    '..Wc........cW..',
-    '..Wc........cW..',
-    '..Wc........cW..',
-    '..Wc........cW..',
-    '..WccccccccccW..',
-    '..WWWWWWWWWWWW..',
-    '................',
-    '................',
-    '................',
+    '...........ii...........',
+    '...........ii...........',
+    '....nnnnnnnnnnnnnnnn....',
+    '....nWWWWWWWWWWWWWWn....',
+    '....nWCCCCCCCCCCCCWn....',
+    '....nWCttttttttttCWn....',
+    '....nWCt........tCWn....',
+    '....nWCt........tCWn....',
+    '....nWCt........tCWn....',
+    '....nWCt........tCWn....',
+    '....nWCt........tCWn....',
+    '....nWCt........tCWn....',
+    '....nWCt........tCWn....',
+    '....nWCt........tCWn....',
+    '....nWCttttttttttCWn....',
+    '....nWCCCCCCCCCCCCWn....',
+    '....nWWWWWWWWWWWWWWn....',
+    '....nnnnnnnnnnnnnnnn....',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
   ],
   barrel: [
-    '................',
-    '................',
-    '................',
-    '.....wwwwww.....',
-    '....wWWWWWWw....',
-    '...wWWWWWWWWw...',
-    '...KKKKKKKKKK...',
-    '...wWWWWWWWWw...',
-    '...wWWWWWWWWw...',
-    '...KKKKKKKKKK...',
-    '...wWWWWWWWWw...',
-    '....wWWWWWWw....',
-    '.....nnnnnn.....',
-    '................',
-    '................',
-    '................',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '.......WWWWWWWWWW.......',
+    '......WwwwwwwwwwwW......',
+    '.....WweeeeeeeeewwW.....',
+    '....NwwWWWWWWWWWwwwN....',
+    '....jjjjjjjjjjjjjjjj....',
+    '....JIIIIIIIIIIIIIIJ....',
+    '...NwWWWWWWWWWWWWWWwN...',
+    '...NwWWWWWWWWWWWWWWwN...',
+    '...NwWWWWWWWWWWWWWWwN...',
+    '....jjjjjjjjjjjjjjjj....',
+    '....JIIIIIIIIIIIIIIJ....',
+    '....NwWWWWWWWWWWWWwN....',
+    '....NwWWWWWWWWWWWWwN....',
+    '.....NWWWWWWWWWWWWN.....',
+    '.....jjjjjjjjjjjjjj.....',
+    '.....JIIIIIIIIIIIIJ.....',
+    '......nnnnnnnnnnnn......',
+    '.......kkkkkkkkkk.......',
+    '........................',
+    '........................',
   ],
   books: [
-    '................',
-    '..WWWWWWWWWWWW..',
-    '..WrrbbrggbbrW..',
-    '..WrrbbrggbbrW..',
-    '..WnnnnnnnnnnW..',
-    '..WbbrrbbrrggW..',
-    '..WbbrrbbrrggW..',
-    '..WnnnnnnnnnnW..',
-    '..WggbbrrbbrrW..',
-    '..WggbbrrbbrrW..',
-    '..WnnnnnnnnnnW..',
-    '..Wrrggbbrrb.W..',
-    '..Wrrggbbrrb.W..',
-    '..WWWWWWWWWWWW..',
-    '................',
-    '................',
+    '..nnnnnnnnnnnnnnnnnnnn..',
+    '..nWWWWWWWWWWWWWWWWWWn..',
+    '..nWqqbbrCCyyllvvqqbWWn.',
+    '..nWqqbbrCCyyllvvqqbWWn.',
+    '..nWqqbbrCCyyllvvqqbWWn.',
+    '..nWqqbbrCCyyllvvqqbWWn.',
+    '..nnnnnnnnnnnnnnnnnnnnn.',
+    '..nWbbllqqvvCCyybbrrWWn.',
+    '..nWbbllqqvvCCyybbrrWWn.',
+    '..nWbbllqqvvCCyybbrrWWn.',
+    '..nWbbllqqvvCCyybbrrWWn.',
+    '..nnnnnnnnnnnnnnnnnnnnn.',
+    '..nWyyCCvvbbqqllrrbbWWn.',
+    '..nWyyCCvvbbqqllrrbbWWn.',
+    '..nWyyCCvvbbqqllrrbbWWn.',
+    '..nWyyCCvvbbqqllrrbbWWn.',
+    '..nnnnnnnnnnnnnnnnnnnnn.',
+    '..nWllvvyyCCbbqqrr..WWn.',
+    '..nWllvvyyCCbbqqrr..WWn.',
+    '..nWllvvyyCCbbqqrr..WWn.',
+    '..nWllvvyyCCbbqqrr..WWn.',
+    '..nWWWWWWWWWWWWWWWWWWWn.',
+    '..nnnnnnnnnnnnnnnnnnnnn.',
+    '........................',
   ],
   rack: [
-    '................',
-    '.......i........',
-    '......iIi.......',
-    '.....i.I.i......',
-    '.......I........',
-    '...i...I...i....',
-    '..iIi..I..iIi...',
-    '...I...I...I....',
-    '...I...I...I....',
-    '..GGG.GGG.GGG...',
-    '...W...W...W....',
-    '...W...W...W....',
-    '..wWWWWWWWWWw...',
-    '..nnnnnnnnnnn...',
-    '................',
-    '................',
+    '..........dd............',
+    '.........dIId...........',
+    '.........dIId...........',
+    '..ii.....dIId......dd...',
+    '.iIIi....dIId.....dIId..',
+    '.iIIi....dIId....dIIIId.',
+    '..II.....dIId.....dIId..',
+    '..II......II.......II...',
+    '..II......II.......II...',
+    '..II......II.......II...',
+    '..GG......GG.......GG...',
+    '..WW......WW.......WW...',
+    '..NN......NN.......NN...',
+    '..NN......NN.......NN...',
+    '..NN......NN.......NN...',
+    '.NNNN....NNNN.....NNNN..',
+    '..WW......WW.......WW...',
+    '.wWWWWWWWWWWWWWWWWWWWw..',
+    '.WWWWWWWWWWWWWWWWWWWWW..',
+    '.nnnnnnnnnnnnnnnnnnnnn..',
+    '..W.................W...',
+    '..n.................n...',
+    '........................',
+    '........................',
   ],
   armor: [
-    '................',
-    '......iiii......',
-    '.....iIIIIi.....',
-    '.....iIkkIi.....',
-    '.....iIIIIi.....',
-    '....IihhhhiI....',
-    '...IiihhhhiiI...',
-    '...Ii.hhhh.iI...',
-    '......IIII......',
-    '......IiiI......',
-    '.....Ii..iI.....',
-    '.....Ii..iI.....',
-    '....wWWWWWWw....',
-    '....nnnnnnnn....',
-    '................',
-    '................',
+    '..........qq............',
+    '.........qqqq...........',
+    '........qIIIIq..........',
+    '.......dIIIIIId.........',
+    '.......dIkkkkId.........',
+    '.......dIIIIIId.........',
+    '........dIIIId..........',
+    '.....IIddIIIIddII.......',
+    '....IdIIhhhhhhIIdI......',
+    '....IdIhhhhhhhhIdI......',
+    '....IdIhhhCChhhIdI......',
+    '....IIIhhhCChhhIII......',
+    '.....IIhhhhhhhhII.......',
+    '......IIhhhhhhII........',
+    '.......IIIIIIII.........',
+    '........IIddII..........',
+    '........II..II..........',
+    '.......dI....Id.........',
+    '.......II....II.........',
+    '......wWWWWWWWWw........',
+    '......WWWWWWWWWW........',
+    '......nnnnnnnnnn........',
+    '........................',
+    '........................',
   ],
   hearth: [
-    '................',
-    '.IIIIIIIIIIIIII.',
-    '.IKKKKKKKKKKKKI.',
-    '.II..........II.',
-    '.II.kkkkkkkk.II.',
-    '.II.kkkkkkkk.II.',
-    '.II.kkk..kkk.II.',
-    '.II.kk.FF.kk.II.',
-    '.II.k.FffF.k.II.',
-    '.II.k.ffff.k.II.',
-    '.II.kWffffWk.II.',
-    '.II.knWWWWnk.II.',
-    '.IKKKKKKKKKKKKI.',
-    '.IIIIIIIIIIIIII.',
-    '................',
-    '................',
+    '..zzzzzzzzzzzzzzzzzzzz..',
+    '..pppppppppppppppppppp..',
+    '..PPPPPPPPPPPPPPPPPPPP..',
+    '..zp................pz..',
+    '..zp..kkkkkkkkkkkk..pz..',
+    '..zp.kkkkkkkkkkkkkk.pz..',
+    '..zp.kkkkkkkkkkkkkk.pz..',
+    '..pz.kkkkkkkkkkkkkk.zp..',
+    '..pz.kkkkk.xx.kkkkk.zp..',
+    '..pz.kkkk.xFFx.kkkk.zp..',
+    '..pz.kkk.xFFFFx.kkk.zp..',
+    '..pz.kk.ofFFFFfo.kk.zp..',
+    '..pz.k.oofFFFFfoo.k.zp..',
+    '..pz.k.ooffFFffoo.k.zp..',
+    '..pz.k.NooffffooN.k.zp..',
+    '..pz.kNNWoooooWNN.k.zp..',
+    '..zp.kNWWWnnnnWWWN..pz..',
+    '..zp................pz..',
+    '..PPPPPPPPPPPPPPPPPPPP..',
+    '..pppppppppppppppppppp..',
+    '..zzzzzzzzzzzzzzzzzzzz..',
+    '..PPPPPPPPPPPPPPPPPPPP..',
+    '........................',
+    '........................',
   ],
   table: [
-    '................',
-    '................',
-    '................',
-    '........c.......',
-    '.......cFc......',
-    '.......ccc......',
-    '.......ccc......',
-    '......GgggG.....',
-    '..wwwwwwwwwwww..',
-    '..WWWWWWWWWWWW..',
-    '..nnnnnnnnnnnn..',
-    '...W........W...',
-    '...W........W...',
-    '...n........n...',
-    '................',
-    '................',
+    '........................',
+    '........................',
+    '..........x.............',
+    '.........xFx............',
+    '.........xFx............',
+    '..........f.............',
+    '.........CCC............',
+    '.........CCC......ll....',
+    '.........CCC.....lqql...',
+    '........GyyyG....qqqq...',
+    '.........ttt......qq....',
+    '..wwwwwwwwwwwwwwwwwwww..',
+    '..eeeeeeeeeeeeeeeeeeee..',
+    '..WWWWWWWWWWWWWWWWWWWW..',
+    '..nnnnnnnnnnnnnnnnnnnn..',
+    '...WW..............WW...',
+    '...WW..............WW...',
+    '...WN..............NW...',
+    '...WN....WWWWWW....NW...',
+    '...WN..............NW...',
+    '...nn..............nn...',
+    '...nn..............nn...',
+    '........................',
+    '........................',
   ],
   chest: [
-    '................',
-    '................',
-    '................',
-    '....GGGGGGGG....',
-    '...GWWWWWWWWG...',
-    '...GWwwwwwwWG...',
-    '...GGGGGGGGGG...',
-    '...GWWWgWWWWG...',
-    '...GWWWgWWWWG...',
-    '...GWwwGgwwwG...',
-    '...GWWWgWWWWG...',
-    '...GWWWWWWWWG...',
-    '...GGGGGGGGGG...',
-    '....nnnnnnnn....',
-    '................',
-    '................',
+    '........................',
+    '........................',
+    '........................',
+    '.......GGGGGGGGGG.......',
+    '.....GGwwwwwwwwwwGG.....',
+    '....GweeeeeeeeeeeewG....',
+    '...GwWWWWWWWWWWWWWWwG...',
+    '...GwWWWWWWWWWWWWWWwG...',
+    '...GGGGGGGGGGGGGGGGGG...',
+    '...gyyyyyyyyyyyyyyyyg...',
+    '...GwWWWWWGyyGWWWWWwG...',
+    '...GwWWWWWGykGWWWWWwG...',
+    '...GwWWWWWGyyGWWWWWwG...',
+    '...GwWWWWWWWWWWWWWWwG...',
+    '...GwWWWWWWWWWWWWWWwG...',
+    '...GwWWWWWWWWWWWWWWwG...',
+    '...GGGGGGGGGGGGGGGGGG...',
+    '...gyyyyyyyyyyyyyyyyg...',
+    '...nnnnnnnnnnnnnnnnnn...',
+    '...kkkkkkkkkkkkkkkkkk...',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
   ],
   bed: [
-    '................',
-    '................',
-    '..nn............',
-    '..nn............',
-    '..nnc...........',
-    '..nncc..........',
-    '..nncccchhhhhhh.',
-    '..nnsssshhhhhhh.',
-    '..nnssssssssss..',
-    '..WWWWWWWWWWWWW.',
-    '..nnnnnnnnnnnnn.',
-    '..W...........W.',
-    '..n...........n.',
-    '................',
-    '................',
-    '................',
+    '........................',
+    '..nnnn..................',
+    '..nWWn..................',
+    '..nWWn..................',
+    '..nWWn..................',
+    '..nWWnCCC...............',
+    '..nWWCCCCC..............',
+    '..nWWCCCCChhhhhhhhhhhh..',
+    '..nWWCCCCChhhhhhhhhhhh..',
+    '..nWWsssssHHHHHHHHHHHH..',
+    '..nWWsssssssssssssssss..',
+    '..nWWSSSSSSSSSSSSSSSSS..',
+    '..wwwwwwwwwwwwwwwwwwww..',
+    '..WWWWWWWWWWWWWWWWWWWW..',
+    '..nnnnnnnnnnnnnnnnnnnn..',
+    '..WW................WW..',
+    '..WN................NW..',
+    '..nn................nn..',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
   ],
   throne: [
-    '................',
-    '......gGg.......',
-    '.....GgggG......',
-    '....WWWWWWW.....',
-    '....WrrrrrW.....',
-    '....WrRRRrW.....',
-    '....WrrrrrW.....',
-    '..WWWrrrrrWWW...',
-    '..WWWrrrrrWWW...',
-    '..WWWWWWWWWWW...',
-    '..nnnWWWWWnnn...',
-    '.....W...W......',
-    '.....W...W......',
-    '.....n...n......',
-    '................',
-    '................',
+    '..........yy............',
+    '.........yYYy...........',
+    '........GyyyyG..........',
+    '.......GgggggggG........',
+    '......nWWWWWWWWWWn......',
+    '......nWqqqqqqqqWn......',
+    '......nWqQQQQQQqWn......',
+    '......nWqQrrrrQqWn......',
+    '......nWqQrRRrQqWn......',
+    '......nWqQrrrrQqWn......',
+    '......nWqQQQQQQqWn......',
+    '......nWqqqqqqqqWn......',
+    '....nnWWqqqqqqqqWWnn....',
+    '....nWWWqqqqqqqqWWWn....',
+    '....nWWWqqqqqqqqWWWn....',
+    '....nWWWWWWWWWWWWWWn....',
+    '....nnnnWWWWWWWWnnnn....',
+    '.......nWWWWWWWWn.......',
+    '.......nnnnnnnnnn.......',
+    '.......WW......WW.......',
+    '.......WN......NW.......',
+    '.......nn......nn.......',
+    '........................',
+    '........................',
   ],
+};
+
+/* ---- 아이소메트릭 상자 ---- 농장 아이 방과 같은 생각이다. 바닥에 놓는 가구는 납작한 그림이
+   아니라 상자를 쌓아 만든다 — 윗면이 보여야 비스듬히 내려다보는 방으로 읽힌다.
+   기준점 (cx, cy) 는 물건이 선 자리의 한가운데(바닥)이고, 높이 H 는 거기서 위로 센다.
+   hw·hh 는 발자국 마름모의 반지름(가로·세로). */
+function isoTopD(g, cx, cy, hw, hh, col){
+  g.fillStyle = col;
+  for (let k = -hh; k < hh; k++){
+    const w = Math.round(hw * (1 - Math.abs(k + 0.5) / hh));
+    if (w <= 0) continue;
+    g.fillRect(Math.round(cx - w), Math.round(cy + k), w * 2, 1);
+  }
+}
+function isoBandD(g, cx, cy, hw, hh, H, left, right, up){
+  const base = cy - (up || 0);
+  for (let dx = -hw; dx < hw; dx++){
+    const edge = base + Math.round((hw - Math.abs(dx)) * (hh / hw));
+    g.fillStyle = dx < 0 ? left : right;
+    g.fillRect(Math.round(cx + dx), Math.round(edge - H), 1, H);
+  }
+}
+function isoBoxD(g, cx, cy, hw, hh, H, top, left, right, up){
+  const base = cy - (up || 0);
+  for (let dx = -hw; dx < hw; dx++){
+    const edge = base + Math.round((hw - Math.abs(dx)) * (hh / hw));   // 앞 두 면의 아랫선
+    g.fillStyle = dx < 0 ? left : right;
+    g.fillRect(Math.round(cx + dx), Math.round(edge - H), 1, H);
+  }
+  isoTopD(g, cx, base - H, hw, hh, top);
+}
+// 바닥 물건마다의 그리는 법. 납작한 도트로는 아이소메트릭이 안 나오는 것들만 여기 있다.
+const ROOM_PAINT = {
+  barrel(g, cx, cy, color){
+    const W = RPAL.W;
+    isoBoxD(g, cx, cy, 12, 6, 24, RPAL.e, shade(W, 12), shade(W, -24), 0);
+    [6, 17].forEach(up => isoBandD(g, cx, cy, 12, 6, 3, RPAL.I, RPAL.J, up));   // 쇠 테 — 윗면은 없다
+    isoTopD(g, cx, cy - 24, 12, 6, shade(RPAL.e, -10));
+    isoTopD(g, cx, cy - 24, 7, 3, shade(RPAL.e, 10));
+    g.fillStyle = RPAL.n; g.fillRect(cx - 1, cy - 25, 2, 2);
+  },
+  table(g, cx, cy, color){
+    const W = RPAL.W, n = RPAL.n;
+    [[-18, 0], [18, 0], [0, 9]].forEach(p => {                          // 다리 셋 (뒤 하나는 가려진다)
+      g.fillStyle = p[0] < 0 ? shade(W, -6) : shade(W, -24);
+      g.fillRect(Math.round(cx + p[0] - 2), Math.round(cy + p[1] - 20), 4, 20);
+      g.fillStyle = n; g.fillRect(Math.round(cx + p[0] - 2), Math.round(cy + p[1] - 2), 4, 2);
+    });
+    isoBoxD(g, cx, cy, 22, 11, 4, RPAL.e, shade(W, 6), shade(W, -26), 20);
+    // 촛대와 사과 한 알
+    g.fillStyle = RPAL.G; g.fillRect(cx - 9, cy - 28, 5, 2);
+    g.fillStyle = RPAL.g; g.fillRect(cx - 8, cy - 33, 3, 5);
+    g.fillStyle = RPAL.C; g.fillRect(cx - 8, cy - 36, 3, 3);
+    g.fillStyle = RPAL.F; g.fillRect(cx - 7, cy - 39, 1, 3);
+    g.fillStyle = RPAL.x; g.fillRect(cx - 7, cy - 40, 1, 1);
+    g.fillStyle = RPAL.q; g.fillRect(cx + 7, cy - 29, 5, 5);
+    g.fillStyle = RPAL.l; g.fillRect(cx + 9, cy - 31, 2, 2);
+  },
+  chest(g, cx, cy, color){
+    const W = RPAL.W, G = RPAL.G, g2 = RPAL.g;
+    isoBoxD(g, cx, cy, 15, 8, 12, shade(W, 8), shade(W, 4), shade(W, -26), 0);
+    isoBoxD(g, cx, cy, 15, 8, 6, RPAL.e, shade(W, 14), shade(W, -18), 12);
+    // 금 테 — 앞 두 면을 가로지른다
+    [0, 12].forEach(up => {
+      for (let dx = -15; dx < 15; dx++){
+        const edge = cy - up + Math.round((15 - Math.abs(dx)) * (8 / 15));
+        g.fillStyle = dx < 0 ? g2 : G;
+        g.fillRect(Math.round(cx + dx), Math.round(edge - 2), 1, 2);
+      }
+    });
+    g.fillStyle = G; g.fillRect(cx - 2, cy - 13, 4, 6);
+    g.fillStyle = g2; g.fillRect(cx - 1, cy - 12, 2, 4);
+    g.fillStyle = RPAL.k; g.fillRect(cx, cy - 11, 1, 2);
+  },
+  bed(g, cx, cy, color){
+    const W = RPAL.W;
+    // 머리판 — 뒤쪽(왼쪽 꼭짓점)에 먼저 세운다
+    isoBoxD(g, cx - 20, cy - 10, 5, 3, 20, shade(W, 12), shade(W, 8), shade(W, -22), 0);
+    isoBoxD(g, cx, cy, 24, 12, 6, shade(W, 8), shade(W, 4), shade(W, -26), 0);    // 침대 틀
+    isoTopD(g, cx, cy - 6, 22, 11, RPAL.s);                                        // 짚 요
+    // 이불 — 발치(앞 절반)를 덮는다
+    for (let k = 0; k < 11; k++){
+      const w = Math.round(22 * (1 - k / 11));
+      if (w <= 0) continue;
+      g.fillStyle = k < 7 ? color : shade(color, -34);
+      g.fillRect(Math.round(cx - w), Math.round(cy - 6 + k), w * 2, 1);
+    }
+    for (let k = 0; k < 5; k++){                                                   // 이불 자락 한 겹
+      const w = Math.round(22 * (1 - k / 11));
+      g.fillStyle = shade(color, 14);
+      g.fillRect(Math.round(cx - w), Math.round(cy - 7 + k), w * 2, 1);
+    }
+    isoBoxD(g, cx - 13, cy - 7, 7, 4, 4, RPAL.C, RPAL.C, shade(RPAL.C, -22), 6);   // 베개
+  },
+  throne(g, cx, cy, color){
+    const W = RPAL.W, q = RPAL.q;
+    // 등받이 — 뒤에 있으므로 먼저
+    isoBoxD(g, cx, cy - 5, 13, 5, 38, shade(W, 12), shade(W, 8), shade(W, -24), 0);
+    for (let k = 0; k < 22; k++){                                                  // 붉은 천
+      g.fillStyle = k < 18 ? q : RPAL.R;
+      g.fillRect(cx - 8, cy - 40 + k, 16, 1);
+    }
+    g.fillStyle = RPAL.g; g.fillRect(cx - 10, cy - 46, 20, 3);                     // 금 테두리
+    g.fillStyle = RPAL.y; g.fillRect(cx - 3, cy - 50, 2, 4);
+    g.fillStyle = RPAL.y; g.fillRect(cx + 1, cy - 50, 2, 4);
+    g.fillStyle = RPAL.Y; g.fillRect(cx - 1, cy - 51, 2, 2);
+    isoBoxD(g, cx, cy, 14, 7, 13, shade(W, 8), shade(W, 4), shade(W, -26), 0);     // 앉는 자리
+    isoTopD(g, cx, cy - 13, 12, 6, q);
+    isoTopD(g, cx, cy - 13, 7, 3, RPAL.Q);
+    [-11, 11].forEach(dx => isoBoxD(g, cx + dx, cy - 1, 4, 2, 9, shade(W, 12), shade(W, 6), shade(W, -22), 13));
+  },
 };
 
 let roomPick = null;                    // 트레이에서 고른 물건 (놓을 차례)
 let roomG = null;
+const RW = 400, RH = 260;               // 그리는 좌표
+const TW = 56, TH = 28;                 // 칸 하나
+const FX = 172, FY = 116;               // 0,0 칸의 한가운데
+const WALLH = 96;                       // 벽 높이
+const CORNER = { x: FX, y: FY - TH / 2 };            // 두 벽이 바닥에서 만나는 점
+const WTOP = CORNER.y - WALLH;                       // 벽 꼭대기(모서리 쪽)
+const LWr = 6 * (TW / 2), LWl = 4 * (TW / 2);        // 오른쪽·왼쪽 벽의 가로 길이
 function roomCtx(){
   if (roomG) return roomG;
   const cv = $('#roomCanvas'); if (!cv) return null;
   roomG = cv.getContext('2d');
   roomG.imageSmoothingEnabled = false;
-  roomG.setTransform(2, 0, 0, 2, 0, 0);   // 640×400 판에 320×200 로 그린다 — 전투 화면과 같은 꼴
+  roomG.setTransform(2, 0, 0, 2, 0, 0);
   return roomG;
 }
-// 16×16 도트 하나를 그린다. h 는 아이 색으로 바꿔 칠한다.
-function drawArt(g, art, x, y, s, heroColor){
-  for (let r = 0; r < art.length; r++){
-    const row = art[r];
-    for (let c = 0; c < row.length; c++){
-      const ch = row[c];
+/* 도트 하나를 그린다. skew 가 0 이 아니면 오른쪽으로 갈수록 내려가거나(0.5) 올라간다(-0.5) —
+   벽에 건 것이 벽면에 붙어 보이게 하는 기울기다. 바닥에 세우는 것은 0. */
+function drawArt(g, art, x, y, s, hero, skew){
+  const heroDark = shade(hero, -34);
+  for (let c = 0; c < art[0].length; c++){
+    const dy = skew ? Math.round(c * s * skew) : 0;
+    for (let r = 0; r < art.length; r++){
+      const ch = art[r][c];
       if (ch === '.') continue;
-      g.fillStyle = ch === 'h' ? heroColor : RPAL[ch];
+      g.fillStyle = ch === 'h' ? hero : ch === 'H' ? heroDark : RPAL[ch];
       if (!g.fillStyle) continue;
-      g.fillRect(x + c * s, y + r * s, s, s);
+      g.fillRect(x + c * s, y + r * s + dy, s, s);
     }
   }
 }
-const RW = 320, RH = 200, RFLOOR = 104;   // 방 화면 크기와 바닥이 시작되는 높이
-function drawRoom(){
-  const g = roomCtx(); if (!g) return;
-  const R = Q.roomOf(save), color = hero.color;
-  // ---- 돌벽 ----
-  g.fillStyle = '#6f6a60'; g.fillRect(0, 0, RW, RFLOOR);
-  for (let y = 0; y < RFLOOR; y += 12){
-    const off = (y / 12) % 2 ? 20 : 0;
-    g.fillStyle = '#7b7569';
-    for (let x = -40 + off; x < RW; x += 40) g.fillRect(x + 1, y + 1, 38, 10);
-    g.fillStyle = '#5d5950'; g.fillRect(0, y + 11, RW, 1);
+// 마름모 한 칸 — 두 줄씩 그려 도트 느낌을 지킨다
+function isoTile(g, cx, cy, color, inset){
+  const half = TW / 2 - (inset || 0);
+  g.fillStyle = color;
+  for (let k = 0; k < TH / 2; k++){
+    const hw = (k < TH / 4 ? (k + 1) : (TH / 2 - k)) * 4 - (inset || 0);
+    if (hw <= 0) continue;
+    const hh = Math.min(hw, half);
+    g.fillRect(Math.round(cx - hh), Math.round(cy - TH / 2 + k * 2), Math.round(hh * 2), 2);
   }
-  // 벽 아래 굽도리와 바닥
-  g.fillStyle = '#4f4b43'; g.fillRect(0, RFLOOR - 4, RW, 4);
-  g.fillStyle = '#8a5f3a'; g.fillRect(0, RFLOOR, RW, RH - RFLOOR);
-  for (let y = RFLOOR + 6; y < RH; y += 10){
-    g.fillStyle = '#7a5230'; g.fillRect(0, y, RW, 2);
-  }
-  // 널판 이음새 — 물건 한가운데를 지나면 막대처럼 보여서, 자리 사이로 비켜 긋고 옅게 둔다
-  g.fillStyle = '#96693c';
-  for (let x = 25; x < RW; x += 53) g.fillRect(x, RFLOOR, 1, RH - RFLOOR);
-  // ---- 빈 자리 표시 ----
-  Q.ROOM_SLOTS.forEach(sl => {
-    if (R.at[sl.id]) return;
-    const on = roomPick && Q.RI[roomPick] && Q.RI[roomPick].where === sl.where;
-    g.fillStyle = on ? 'rgba(255,217,121,.85)' : 'rgba(255,255,255,.22)';
-    const L = on ? 10 : 5, S = Q.ROOM_CELL;
-    [[0, 0, L, 2], [0, 0, 2, L], [S - L, 0, L, 2], [S - 2, 0, 2, L],
-     [0, S - 2, L, 2], [0, S - L, 2, L], [S - L, S - 2, L, 2], [S - 2, S - L, 2, L]]
-      .forEach(r => g.fillRect(sl.x + r[0], sl.y + r[1], r[2], r[3]));
-  });
-  // ---- 놓인 것 — 안쪽 줄부터 (앞줄이 앞에 와야 방에 깊이가 생긴다) ----
-  const order = { wall: 0, back: 1, front: 2 };
-  Q.ROOM_SLOTS.slice().sort((a, b) => order[a.where] - order[b.where]).forEach(sl => {
-    const id = R.at[sl.id]; if (!id) return;
-    const art = ROOM_ART[id]; if (!art) return;
-    // 바닥에 서는 것은 그림자를 깐다
-    if (sl.where !== 'wall'){
-      g.fillStyle = 'rgba(47,42,36,.22)';
-      g.fillRect(sl.x + 6, sl.y + Q.ROOM_CELL - 5, Q.ROOM_CELL - 12, 4);
-    }
-    drawArt(g, art, sl.x, sl.y, 3, color);
-    // 훈장 걸이에는 지금까지 받은 칭호 수만큼 훈장이 걸린다 (넷까지)
-    if (id === 'medals'){
-      const n = Math.min(4, Q.titlesOf(save, st).length);
-      const spot = [[5, 4], [10, 4], [5, 9], [10, 9]];
-      for (let i = 0; i < n; i++){
-        const [cx, cy] = spot[i];
-        g.fillStyle = RPAL.G; g.fillRect(sl.x + cx * 3 - 3, sl.y + cy * 3 - 3, 9, 9);
-        g.fillStyle = RPAL.g; g.fillRect(sl.x + cx * 3 - 1, sl.y + cy * 3 - 1, 5, 5);
+}
+function tileXY(i, j){ return { x: FX + (i - j) * (TW / 2), y: FY + (i + j) * (TH / 2) }; }
+// 벽면의 (u, v) 를 화면 좌표로. side 1 = 오른쪽 벽, 0 = 왼쪽 벽.
+function wallXY(side, u, v){
+  return { x: side ? CORNER.x + u : CORNER.x - u - 2, y: WTOP + v + u / 2 };
+}
+/* 방의 껍데기(벽·바닥·양탄자)는 한 번만 그려 두고 그 뒤로는 베껴 쓴다.
+   벽 한 겹이 6천 번 넘는 칠이라, 물건을 하나 옮길 때마다 다시 칠하면 폰에서 느껴진다.
+   농장의 마을·밭과 같은 방법이다. */
+let roomShell = null;
+function roomShellCv(color){
+  if (roomShell) return roomShell;
+  const c = document.createElement('canvas');
+  c.width = RW * 2; c.height = RH * 2;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.setTransform(2, 0, 0, 2, 0, 0);
+  g.fillStyle = '#1c1814'; g.fillRect(0, 0, RW, RH);
+  paintShell(g, color);
+  roomShell = c;
+  return c;
+}
+function paintShell(g, color){
+  // ---- 벽 둘 ----
+  [1, 0].forEach(side => {
+    const len = side ? LWr : LWl, dim = side ? 0 : -14;       // 왼쪽 벽은 빛을 등져 어둡다
+    for (let u = 0; u < len; u += 2){
+      for (let v = 0; v < WALLH; v += 2){
+        const bx = Math.floor((u + (Math.floor(v / 14) % 2 ? 14 : 0)) / 28), by = Math.floor(v / 14);
+        const t = Math.floor(prandRoom(side + ':' + bx + ':' + by) * 5) - 2;     // 돌마다 조금씩 다른 빛깔
+        let c = shade('#7d786d', t * 6 + dim);
+        if (v % 14 < 2 || (u + (by % 2 ? 14 : 0)) % 28 < 2) c = shade('#57534b', dim);   // 줄눈
+        if (v < 6) c = shade('#9a9488', dim);                                    // 꼭대기 갓돌
+        if (v >= WALLH - 8) c = shade('#4f4b43', dim);                           // 굽도리
+        const p = wallXY(side, u, v);
+        g.fillStyle = c; g.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
       }
     }
   });
+  // 두 벽이 만나는 모서리는 빛이 덜 든다
+  for (let i = 0; i < 10; i += 2){
+    const a = (0.22 * (1 - i / 10)).toFixed(3);
+    for (let v = 0; v < WALLH; v += 2){
+      const pr = wallXY(1, i, v), pl = wallXY(0, i, v);
+      g.fillStyle = 'rgba(20,14,8,' + a + ')';
+      g.fillRect(Math.round(pr.x), Math.round(pr.y), 2, 2);
+      g.fillRect(Math.round(pl.x), Math.round(pl.y), 2, 2);
+    }
+  }
+  // ---- 바닥 ----
+  for (let j = 0; j <= 3; j++) for (let i = 0; i <= 5; i++){
+    const p = tileXY(i, j);
+    isoTile(g, p.x, p.y, '#3f3b35', 0);                                  // 줄눈이 되는 바탕
+    const t = Math.floor(prandRoom('f' + i + ':' + j) * 5) - 2;
+    isoTile(g, p.x, p.y, shade('#8b867c', t * 7 + (j * -3)), 2);         // 안쪽일수록 조금 어둡게
+  }
+  // ---- 양탄자 ---- 아이 색. 방이 돌바닥뿐이면 허전하다.
+  const rug = tileXY(2.5, 1.5);
+  for (let k = -21; k <= 21; k++){
+    const hw = Math.round((1 - Math.abs(k) / 22) * 84);
+    if (hw <= 0) continue;
+    const edge = Math.abs(k) > 17;
+    g.fillStyle = edge ? shade(color, -60) : shade(color, -28);
+    g.fillRect(Math.round(rug.x - hw), Math.round(rug.y + k * 2), hw * 2, 2);
+    if (!edge && Math.abs(k) < 9){
+      const hw2 = Math.round((1 - Math.abs(k) / 9) * 34);
+      g.fillStyle = shade(color, 10);
+      g.fillRect(Math.round(rug.x - hw2), Math.round(rug.y + k * 2), hw2 * 2, 2);
+    }
+  }
+}
+function drawRoom(){
+  const g = roomCtx(); if (!g) return;
+  const R = Q.roomOf(save), color = hero.color;
+  g.clearRect(0, 0, RW, RH);
+  g.drawImage(roomShellCv(color), 0, 0, RW, RH);
+  // ---- 빈 자리 ----
+  Q.ROOM_SLOTS.forEach(sl => {
+    if (R.at[sl.id]) return;
+    const on = roomPick && Q.RI[roomPick] && Q.RI[roomPick].where === sl.where;
+    if (sl.where === 'wall'){
+      // 벽면 위의 네 귀퉁이 — 벽이 기울어 있으므로 가로줄도 같이 기울여 긋는다
+      g.fillStyle = on ? 'rgba(255,217,121,.8)' : 'rgba(255,255,255,.16)';
+      const S = 48, L = on ? 12 : 6, sk = sl.side === 'r' ? 0.5 : -0.5;
+      const hline = (c0, c1, rr) => { for (let c = c0; c < c1; c += 2) g.fillRect(sl.x + c, sl.y + rr + Math.round(c * sk), 2, 2); };
+      const vline = (c, r0, len) => g.fillRect(sl.x + c, sl.y + r0 + Math.round(c * sk), 2, len);
+      hline(0, L, 0); hline(S - L, S, 0); hline(0, L, S - 2); hline(S - L, S, S - 2);
+      vline(0, 0, L); vline(0, S - L, L); vline(S - 2, 0, L); vline(S - 2, S - L, L);
+    } else {
+      isoTile(g, sl.x + 24, sl.y + 42, on ? 'rgba(255,217,121,.7)' : 'rgba(255,255,255,.13)', 6);
+    }
+  });
+  // ---- 놓인 것 ---- 벽부터, 바닥은 뒤에서 앞으로
+  const lamps = [];
+  const put = sl => {
+    const id = R.at[sl.id]; if (!id) return;
+    const art = ROOM_ART[id];
+    if (!art && !ROOM_PAINT[id]) return;
+    if (sl.where !== 'wall'){                                  // 바닥에 지는 그림자
+      isoTile(g, sl.x + 24, sl.y + 43, 'rgba(20,14,8,.30)', 10);
+    }
+    if (sl.where !== 'wall' && ROOM_PAINT[id]) ROOM_PAINT[id](g, sl.x + 24, sl.y + 44, color);
+    else drawArt(g, art, sl.x, sl.y, 2, color, sl.where === 'wall' ? (sl.side === 'r' ? 0.5 : -0.5) : 0);
+    if (id === 'medals'){                                      // 받은 칭호만큼 훈장이 걸린다
+      const n = Math.min(6, Q.titlesOf(save, st).length);
+      const sk = sl.side === 'r' ? 0.5 : -0.5;
+      for (let m = 0; m < n; m++){
+        const cx = 8 + (m % 3) * 7, cy = 8 + Math.floor(m / 3) * 7;
+        const dy = Math.round(cx * 2 * sk);
+        g.fillStyle = RPAL.G; g.fillRect(sl.x + cx * 2, sl.y + cy * 2 + dy, 8, 8);
+        g.fillStyle = RPAL.y; g.fillRect(sl.x + cx * 2 + 2, sl.y + cy * 2 + 2 + dy, 4, 4);
+        g.fillStyle = RPAL.q; g.fillRect(sl.x + cx * 2 + 2, sl.y + cy * 2 + 8 + dy, 4, 4);
+      }
+    }
+    if (id === 'torch') lamps.push([sl.x + 24, sl.y + 14, 70]);
+    if (id === 'hearth') lamps.push([sl.x + 24, sl.y + 28, 88]);
+    if (id === 'table') lamps.push([sl.x + 20, sl.y + 10, 46]);
+  };
+  Q.ROOM_SLOTS.filter(sl => sl.where === 'wall').forEach(put);
+  Q.ROOM_SLOTS.filter(sl => sl.where !== 'wall').sort((a, b) => a.y - b.y).forEach(put);
+  // ---- 빛 ---- 불이 있는 것 둘레만 따뜻해진다. 없으면 방이 서늘하다.
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  lamps.forEach(L => {
+    const grd = g.createRadialGradient(L[0], L[1], 0, L[0], L[1], L[2]);
+    grd.addColorStop(0, 'rgba(255,190,90,0.30)');
+    grd.addColorStop(0.5, 'rgba(255,160,60,0.12)');
+    grd.addColorStop(1, 'rgba(255,150,50,0)');
+    g.fillStyle = grd; g.fillRect(L[0] - L[2], L[1] - L[2], L[2] * 2, L[2] * 2);
+  });
+  g.restore();
+  // 가장자리는 어둡게 — 방이 한 덩어리로 모인다
+  const vig = g.createRadialGradient(RW / 2, RH / 2, 60, RW / 2, RH / 2, 250);
+  vig.addColorStop(0, 'rgba(10,6,2,0)');
+  vig.addColorStop(1, 'rgba(10,6,2,0.45)');
+  g.fillStyle = vig; g.fillRect(0, 0, RW, RH);
+}
+// 늘 같은 자리에 같은 결이 나오도록 — 자리 이름에서 0~1 사이 수 하나
+function prandRoom(k){
+  let h = 2166136261;
+  for (let i = 0; i < k.length; i++){ h ^= k.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return ((h >>> 0) % 10007) / 10007;
 }
 /* 방 화면을 누르면 — 고른 것이 있으면 놓고, 없으면 그 자리 것을 집는다.
-   자리는 320×200 좌표라, 눌린 곳을 그 좌표로 되돌려 셈한다. */
+   앞에 그려진 것이 이긴다(뒤에서 앞으로 그리므로 거꾸로 훑는다). */
 function roomHit(e){
   const cv = $('#roomCanvas'); const r = cv.getBoundingClientRect();
   const x = (e.clientX - r.left) / r.width * RW, y = (e.clientY - r.top) / r.height * RH;
-  const S = Q.ROOM_CELL;
-  return Q.ROOM_SLOTS.filter(sl => x >= sl.x && x < sl.x + S && y >= sl.y && y < sl.y + S)[0] || null;
+  const list = Q.ROOM_SLOTS.slice().sort((a, b) => (a.where === 'wall' ? -1 : 1) - (b.where === 'wall' ? -1 : 1) || a.y - b.y);
+  for (let i = list.length - 1; i >= 0; i--){
+    const sl = list[i];
+    const dy = sl.where === 'wall' ? 0 : 0;
+    if (x >= sl.x && x < sl.x + 48 && y >= sl.y + dy && y < sl.y + 48 + dy) return sl;
+  }
+  return null;
 }
+
 function roomSay(t){ const el = $('#roomMsg'); if (el) el.textContent = t; }
 function renderRoom(){
   const box = $('#roomTray'); if (!box) return;

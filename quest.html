@@ -139,7 +139,7 @@
   /* 내 방 — 돌벽과 나무 바닥의 중세 전사 방. 농장 집과는 아주 다른 곳이다. */
   .room-stage{line-height:0; border:3px solid var(--ink); background:#6f6a60;}
   #roomCanvas{
-    display:block; width:100%; aspect-ratio:320/200; image-rendering:pixelated;
+    display:block; width:100%; aspect-ratio:400/260; image-rendering:pixelated;
     cursor:pointer; touch-action:manipulation;
     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
   }
@@ -484,7 +484,7 @@
       <div class="dot-card q-card reveal" id="roomCard" style="margin-top:14px;">
         <h3 class="pixel">내 방 <span id="roomRank" style="font-weight:700;color:var(--ink-soft);font-size:12px;"></span></h3>
         <p class="msg" style="margin:0 0 8px;">금화로 사서 벽에 걸고 바닥에 놓아요. 놓인 것을 눌러 집으면 자리를 옮길 수 있어요.</p>
-        <div class="room-stage"><canvas id="roomCanvas" width="640" height="400"
+        <div class="room-stage"><canvas id="roomCanvas" width="800" height="520"
              aria-label="내 방. 아래에서 물건을 고르고 방의 빈자리를 눌러 놓아요."></canvas></div>
         <button type="button" class="dot-btn small" id="roomRest" hidden></button>
         <div class="msg" id="roomMsg"></div>

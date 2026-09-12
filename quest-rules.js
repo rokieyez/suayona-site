@@ -705,17 +705,27 @@ const QUEST = (() => {
      중세 전사 방이고, 거는 것과 세우는 것의 자리가 정해져 있다. 금화로 사고, 산 것은
      자리를 옮겨 가며 놓는다(팔지는 않는다 — 아이가 실수로 판 것을 아쉬워하지 않게).
      짚 침대만 쓸모가 있다: 하루 한 번 여관 값 없이 체력을 채운다. 나머지는 순전히 꾸미기다.
-     자리는 격자가 아니라 좌표로 적는다 — 벽에 거는 줄, 안쪽 줄, 앞줄이 서로 높이가 달라야
-     방이 납작해 보이지 않기 때문이다. 좌표는 320×200 화면 기준. */
+     방은 농장 아이 방처럼 비스듬히 내려다보는 아이소메트릭이다. 자리는 격자 계산이 아니라
+     좌표로 박아 둔다 — 벽에 거는 줄, 벽을 따라 세우는 줄, 양탄자 위 앞줄. 좌표는 400×260 기준이고
+     한 자리는 48칸이다(그림은 24×24 도트를 두 배로 그린다). */
   const ROOM_SLOTS = [
-    { id: 'w1', where: 'wall', x: 18,  y: 22 }, { id: 'w2', where: 'wall', x: 78,  y: 22 },
-    { id: 'w3', where: 'wall', x: 138, y: 22 }, { id: 'w4', where: 'wall', x: 198, y: 22 },
-    { id: 'w5', where: 'wall', x: 258, y: 22 },
-    { id: 'b1', where: 'back', x: 14,  y: 92 }, { id: 'b2', where: 'back', x: 74,  y: 92 },
-    { id: 'b3', where: 'back', x: 134, y: 92 }, { id: 'b4', where: 'back', x: 194, y: 92 },
-    { id: 'b5', where: 'back', x: 254, y: 92 },
-    { id: 'f1', where: 'front', x: 34,  y: 142 }, { id: 'f2', where: 'front', x: 104, y: 142 },
-    { id: 'f3', where: 'front', x: 174, y: 142 }, { id: 'f4', where: 'front', x: 244, y: 142 },
+    // 벽에 거는 자리 — 오른쪽 벽 셋, 왼쪽 벽 둘. side 는 그림을 벽면 기울기에 맞추는 데 쓴다.
+    { id: 'w1', where: 'wall', side: 'r', x: 188, y: 40 },
+    { id: 'w2', where: 'wall', side: 'r', x: 236, y: 64 },
+    { id: 'w3', where: 'wall', side: 'r', x: 284, y: 88 },
+    { id: 'w4', where: 'wall', side: 'l', x: 108, y: 40 },
+    { id: 'w5', where: 'wall', side: 'l', x: 60,  y: 64 },
+    // 벽을 따라 세우는 줄 — 오른쪽 벽 앞 셋, 왼쪽 벽 앞 둘
+    { id: 'b1', where: 'back',  x: 176, y: 88 },
+    { id: 'b2', where: 'back',  x: 204, y: 102 },
+    { id: 'b3', where: 'back',  x: 232, y: 116 },
+    { id: 'b4', where: 'back',  x: 120, y: 88 },
+    { id: 'b5', where: 'back',  x: 92,  y: 102 },
+    // 양탄자 위 넷 — 한 칸씩 띄워 마름모로 놓는다(붙여 놓으면 서로 가린다)
+    { id: 'f1', where: 'front', x: 148, y: 102 },
+    { id: 'f2', where: 'front', x: 204, y: 130 },
+    { id: 'f3', where: 'front', x: 92,  y: 130 },
+    { id: 'f4', where: 'front', x: 148, y: 158 },
   ];
   const ROOM_CELL = 48;                       // 자리 한 칸의 크기(그림도 이 크기로 그린다)
   const ROOM_ITEMS = [
