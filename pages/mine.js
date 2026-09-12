@@ -326,11 +326,22 @@ function sizeBoard(){
   cv.style.width = Math.round(w / dpr) + 'px';
   baked = null;
 }
+/* 누르고 있는 칸은 살짝 아래로 가라앉는다 — 손끝이 닿았다는 느낌이 나야 한다.
+   위로 비는 자리는 그림자로 메우고, 타일은 그만큼 아래를 잘라 그린다(옆 칸을 안 밟게).
+   가라앉는 깊이는 도트 한 칸 — 화면이 커져 칸이 커져도 같은 비율로 보인다. */
+function sinkPx(){ return Math.max(1, Math.round(dot * 0.8)); }
 function paint(){
   const cv = mCv(); if (!cv) return;
   const g = cv.getContext('2d');
   const B = bake(), pad = 2 * dot;
   g.imageSmoothingEnabled = false;
+  const pressI = (press && !press.moved && !dead && !won) ? press.i : -1;
+  const sink = sinkPx();
+  // 한 칸을 그리는 법 — 눌린 칸이면 아래로 밀고 그만큼 아랫단을 자른다
+  const put = (img, x, y, dy) => {
+    if (!dy){ g.drawImage(img, x, y); return; }
+    g.drawImage(img, 0, 0, CS, CS - dy, x, y + dy, CS, CS - dy);
+  };
   // 나무 테두리 — 마을 울타리 색
   g.fillStyle = '#8a5f3a'; g.fillRect(0, 0, cv.width, cv.height);
   g.fillStyle = '#c79b6d'; g.fillRect(0, 0, cv.width, dot); g.fillRect(0, 0, dot, cv.height);
@@ -339,13 +350,16 @@ function paint(){
     const x = pad + (i % cols) * CS, y = pad + (((i / cols) | 0)) * CS;
     const v = Math.floor(mhash(i % cols, (i / cols) | 0, 5) * 4);
     const s = state[i];
+    const dy = i === pressI ? sink : 0;
+    // 눌려 비는 자리 — 잔디 칸은 그늘진 잔디, 판 칸은 그늘진 흙. 검은 줄이 아니라 흙벽처럼 보이게
+    if (dy){ g.fillStyle = s === 1 ? '#7d5f3f' : '#52803f'; g.fillRect(x, y, CS, dy); }
     if (s === 1){
-      g.drawImage(B.open[v], x, y);
-      if (near[i]) g.drawImage(B.num[near[i]], x, y);
+      put(B.open[v], x, y, dy);
+      if (near[i]) put(B.num[near[i]], x, y, dy);
     } else {
-      g.drawImage(B.closed[v], x, y);
-      if (s === 2 && !(dead && !mine[i])) g.drawImage(B.flag, x, y);
-      if (s === 3) g.drawImage(B.q, x, y);
+      put(B.closed[v], x, y, dy);
+      if (s === 2 && !(dead && !mine[i])) put(B.flag, x, y, dy);
+      if (s === 3) put(B.q, x, y, dy);
     }
     // 끝난 판에서는 지뢰를 보여 준다 — 이겼으면 꽃으로
     if (won && mine[i]) g.drawImage(B.flower, x, y);
@@ -377,20 +391,23 @@ function wire(){
     const i = cellAt(e); if (i < 0) return;
     keyMode = false;
     press = { i, t: Date.now(), moved: false, btn: e.button, both: e.buttons === 3 };
+    paint();                                   // 눌린 칸이 곧바로 내려앉게
     // 길게 누르면 깃발 — 손가락으로 노는 아이에게는 이 길이 오른쪽 단추다
     clearTimeout(longT);
     longT = setTimeout(() => {
       if (press && press.i === i && !press.moved){ markAt(i); press = null; sfxSafe('pop'); after(); }
     }, 420);
   });
-  cv.addEventListener('pointermove', e => { if (press && cellAt(e) !== press.i) press.moved = true; });
-  cv.addEventListener('pointercancel', () => { clearTimeout(longT); press = null; });
+  cv.addEventListener('pointermove', e => {
+    if (press && !press.moved && cellAt(e) !== press.i){ press.moved = true; paint(); }
+  });
+  cv.addEventListener('pointercancel', () => { clearTimeout(longT); press = null; paint(); });
   cv.addEventListener('pointerup', e => {
     clearTimeout(longT);
     const p = press; press = null;
     if (!p) return;
     const i = cellAt(e);
-    if (i < 0 || i !== p.i || p.moved) return;
+    if (i < 0 || i !== p.i || p.moved){ paint(); return; }   // 손을 떼면 칸이 다시 올라온다
     const now = Date.now();
     const dbl = i === lastCell && now - lastTap < 320;
     lastTap = now; lastCell = i;
