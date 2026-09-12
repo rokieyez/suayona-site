@@ -454,3 +454,5 @@ function sfxSafe(k){ try { if (typeof sfx === 'function') sfx(k); } catch (e) { 
 
 wire();
 reset();
+// 다른 쪽과 같은 등장 효과 — 이걸 안 부르면 .reveal 칸이 opacity:0 그대로 남아 화면이 텅 빈다
+initReveal();
