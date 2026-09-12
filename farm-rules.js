@@ -171,13 +171,18 @@ const FARM = (() => {
   // 한 칸의 상태: { tilled, crop, by, plantedAt, progress(ms), wet(until ms), tick(마지막으로 센 때), fert, giant, wilted, picks }
   // 물이 있는 동안만 progress 가 는다. 마지막으로 센 때(tick)부터 지금까지 중 젖어 있던 만큼만 더한다.
   //
-  // 시드는 것은 「심은 지 일주일」 하나뿐이다(현실 시간, 계절과 상관없다 — 2026-09-11).
+  // 시드는 것은 「일주일」 하나뿐이다(현실 시간, 계절과 상관없다 — 2026-09-11).
+  // 또 열리는 작물은 마지막으로 딴 때부터, 나머지는 심은 때부터 센다(2026-09-12).
   // 예전에는 계절이 바뀌는 날 제철이 아닌 작물이 한꺼번에 시들었다. 한 계절이 7일이라,
   // 전날 심은 감자까지 봄이 끝나는 날 모두 시들어 너무 빨리 죽는다는 말을 들었다.
   // 온실 칸과 별열매(hardy)는 예전처럼 시들지 않는다.
   const CROP_LIFE_DAYS = 7;
   function ages(plot, gh){ const C = CROPS[plot.crop]; return !gh && !!plot.plantedAt && !(C && C.hardy); }
-  function lifeEnd(plot){ return plot.plantedAt + CROP_LIFE_DAYS * DAY_MS; }
+  /* 일주일을 어디서부터 세는가 — 또 열리는 작물(토마토·딸기…)은 딸 때마다 새로 센다.
+     돌보며 계속 따 먹는 밭이 「심은 날」만 보고 죽어 버리면 아이가 억울하다.
+     한 번도 안 딴 칸과 한 번 따면 끝인 작물은 심은 날부터 그대로. */
+  function lifeFrom(plot){ return plot.pickedAt || plot.plantedAt; }
+  function lifeEnd(plot){ return lifeFrom(plot) + CROP_LIFE_DAYS * DAY_MS; }
   // 시들 때까지 남은 시간(ms). 안 시드는 칸이면 Infinity.
   function lifeLeft(plot, now, gh){
     if (!plot || !plot.crop || plot.wilted) return 0;
@@ -801,6 +806,13 @@ const FARM = (() => {
       });
     });
     if (!o.sprinklers || typeof o.sprinklers !== 'object') o.sprinklers = {};
+    /* 「딴 날부터 일주일」로 바꾸기 전에 이미 따 먹던 칸에는 딴 때가 안 적혀 있다.
+       심은 날로 세면 규칙을 바꾼 그날 우수수 시들어 버리므로, 그런 칸만 한 번
+       지금으로 적어 준다 — 규칙이 바뀐 날부터 다시 일주일. 한 번 적히면 안 건드린다. */
+    Object.keys(o.plots).forEach(id => {
+      const p = o.plots[id];
+      if (p && p.crop && (p.picks || 0) > 0 && !p.pickedAt) p.pickedAt = now;
+    });
     if (!o.mail) o.mail = { sua: [], yona: [] };
     if (!o.started) o.started = dayKey(now);
     return o;
@@ -859,7 +871,7 @@ const FARM = (() => {
     plotIds, parseId,
     fireflyNight, fireflyLeft,
     peddlerHere,
-    cropsInDex, tickPlot, stageOf, wetNow, growTime, lifeLeft, CROP_LIFE_DAYS,
+    cropsInDex, tickPlot, stageOf, wetNow, growTime, lifeLeft, lifeFrom, CROP_LIFE_DAYS,
     nodeReady, placed, occupied, furnBox,
     MATERIALS, WALL_PITCH, WALL_ROWS, wallCols, wallRowsFor, wallKey, parseWall, hungCol,
     ROOM_GROW, roomStep, roomBox, okPic, picSide, PIC_N,

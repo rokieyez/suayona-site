@@ -54,7 +54,7 @@
     if (plot.fert) st++;
     return Math.min(3, st);
   }
-  // 계절이 바뀐 것만 적어 둔다. 작물은 이제 계절 때문에 시들지 않는다 — 심은 지 일주일이
+  // 계절이 바뀐 것만 적어 둔다. 작물은 이제 계절 때문에 시들지 않는다 — 일주일이
   // 지나야 시든다(tickPlot). seasonIndex 를 계속 맞춰 두는 까닭: 배포가 어긋난 10분 동안
   // 옛 규칙 파일이 돌더라도, 이 값이 맞아 있으면 옛 규칙이 계절을 핑계로 밭을 시들게 하지 않는다.
   function seasonSweep(world, now){
@@ -567,7 +567,7 @@
     const cal = calendar(world, now), gh = id[0] === 'g';
     if (!gh && !C.hardy && C.season.indexOf(cal.season) < 0) return fail(eun(C.name) + ' ' + SEASON_NAME[cal.season] + '에 자라지 않아요');
     if (!take(mine, 'seed:' + crop)) return fail(C.name + ' 씨앗이 없어요');
-    Object.assign(p, { crop, by: mine.key, plantedAt: now, tick: now, progress: 0, picks: 0, wilted: false, giant: false });
+    Object.assign(p, { crop, by: mine.key, plantedAt: now, tick: now, progress: 0, picks: 0, pickedAt: 0, wilted: false, giant: false });
     delete p.wet;
     p.care = 0;                                        // 새로 심으면 별도 처음부터
     mine.xp += XP.plant; bump(mine, 'planted', 1, now);
@@ -656,7 +656,7 @@
     const C = CROPS[p.crop], gh = id[0] === 'g';
     if (p.wilted){
       Object.assign(p, { crop: null, wilted: false, fert: false, giant: false, pairOf: null });
-      return okay(eul('심은 지 일주일이 지나 시든 ' + C.name) + ' 뽑았어요');
+      return okay(eul(((p.pickedAt ? '딴 지' : '심은 지') + ' 일주일이 지나 시든 ') + C.name) + ' 뽑았어요');
     }
     tickPlot(p, now, gh);
     if (!ripe(p)) return fail(ee(C.name) + ' 아직 덜 자랐어요 (' + Math.ceil(hoursLeft(p, now)) + '시간)');
@@ -692,6 +692,7 @@
       p.picks = (p.picks || 0) + 1;
       p.progress = growTime(p) - C.regrow * H;         // 다시 열릴 때까지
       p.tick = now; p.care = 0;                        // 다음 열매는 다시 돌봐야 한다
+      p.pickedAt = now;                                // 시들기까지 일주일도 여기서 다시 센다
       return okay(say + ' 또 열려요', { n, star });
     }
     Object.assign(p, { crop: null, fert: false, progress: 0, care: 0 });
