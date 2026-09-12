@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<!-- 검색에 걸리지 않게 한다. robots.txt 로 크롤링을 막아 버리면 수집기가 이 줄을
+     읽지도 못해서, 남이 걸어 둔 링크를 타고 주소만 검색결과에 남을 수 있다.
+     그래서 들어와서 읽게 두되, 읽고 나서 빼 가라고 여기서 말한다. -->
+<meta name="robots" content="noindex, nofollow">
+<title>지뢰찾기 · 수아랑 연아랑</title>
+<meta name="description" content="마을 밭에서 지뢰를 피해 땅을 여는 도트 지뢰찾기. 초급·중급·고급과 깃발·물음표·화음까지 그대로 있어요.">
+
+<link rel="preload" href="/fonts/PretendardVariable.subset.woff2" as="font" type="font/woff2" crossorigin>
+<link href="/fonts/dot.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .mine-wrap{max-width:780px;}
+  /* 난이도 — 그리기 쪽 칸 고르기와 같은 모양 */
+  .levels{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:14px;}
+  .levels button{
+    font:inherit; font-size:13px; font-weight:800; cursor:pointer; padding:7px 14px;
+    border:2px solid var(--ink); background:var(--cream); color:var(--ink);
+  }
+  .levels button.on{background:var(--ink); color:var(--cream);}
+  .levels button small{display:block; font-size:10.5px; font-weight:700; opacity:.75;}
+  .levels button.on small{opacity:.85;}
+
+  /* 판 위의 계기 — 남은 지뢰, 시간, 다시 하기 */
+  .hud{
+    display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;
+    margin-bottom:12px;
+  }
+  .hud .gauge{
+    min-width:92px; text-align:center; padding:6px 10px; border:2px solid var(--ink);
+    background:#2f2a24; color:var(--lemon); font-size:15px; letter-spacing:.06em;
+  }
+  .hud .gauge span{font-size:10px; display:block; color:#bdb29c; letter-spacing:.1em;}
+  .mine-card{padding:14px; text-align:center;}
+  /* 고급(30칸)은 좁은 화면에서 폭을 넘는다 — 판만 옆으로 밀리게 한다 */
+  .board-box{overflow-x:auto; overflow-y:hidden; padding-bottom:4px;}
+  #mineBoard{
+    image-rendering:pixelated; display:block; margin:0 auto; cursor:pointer;
+    touch-action:manipulation;                   /* 두 번 누르기(화음)가 확대로 새지 않게 */
+  }
+  #mineBoard:focus-visible{outline:3px solid var(--coral); outline-offset:3px;}
+  .msg{margin-top:12px; font-size:13.5px; font-weight:800; min-height:22px;}
+  .msg .sub{display:block; font-size:11.5px; font-weight:700; color:var(--ink-soft); margin-top:4px;}
+  .best{margin-top:6px; font-size:12px; color:var(--ink-soft); font-weight:800;}
+
+  /* 규칙 — 아이가 처음 열었을 때 읽을 것. 접어 두고 눌러서 편다. */
+  .rules{margin-top:18px; padding:14px 16px; text-align:left;}
+  .rules summary{font-weight:800; font-size:13.5px; cursor:pointer;}
+  .rules ul{margin:10px 0 0; padding-left:18px; font-size:13px; line-height:1.9; color:var(--ink-soft);}
+  .rules b{color:var(--ink);}
+  @media (max-width:520px){
+    .hud .gauge{min-width:78px; font-size:13px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- page-top 이 있어야 초록 배지가 다른 쪽과 같은 높이(헤더 아래 18px)에 온다 -->
+<section class="page-top section-pad">
+  <div class="wrap mine-wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">MINE</span>
+      <h1>지뢰찾기</h1>
+      <p>마을 밭에서 지뢰를 밟지 않고 땅을 다 열어요</p>
+    </div>
+
+    <div class="levels" id="levels"></div>
+
+    <div class="dot-card mine-card reveal">
+      <div class="hud">
+        <div class="gauge pixel"><span>남은 지뢰</span><b id="mLeft">10</b></div>
+        <button class="dot-btn small primary" id="mNew" type="button">새 판</button>
+        <button class="dot-btn small" id="mFlagMode" type="button" aria-pressed="false">🚩 깃발 모드</button>
+        <button class="dot-btn small" id="mSound" type="button" aria-label="소리 켜고 끄기">🔊</button>
+        <div class="gauge pixel"><span>시간</span><b id="mTime">0</b></div>
+      </div>
+
+      <div class="board-box">
+        <!-- 크기는 스크립트가 난이도와 화면 폭에 맞춰 정한다 -->
+        <canvas id="mineBoard" width="504" height="504" tabindex="0" role="img"
+                aria-label="지뢰찾기 판. 화살표로 칸을 옮기고 엔터로 열어요. F 를 누르면 깃발이 꽂혀요."></canvas>
+      </div>
+
+      <p class="msg" id="mMsg">아무 칸이나 눌러 시작해요 — 첫 칸에는 지뢰가 없어요</p>
+      <p class="best" id="mBest"></p>
+    </div>
+
+    <details class="dot-card rules reveal">
+      <summary>어떻게 하는 놀이인가요?</summary>
+      <ul>
+        <li>숫자는 <b>그 칸 둘레 여덟 칸에 숨은 지뢰 수</b>예요. 숫자를 보고 어디가 지뢰인지 알아내요.</li>
+        <li>지뢰가 아닌 칸을 <b>모두 열면 이겨요.</b> 지뢰를 열면 그 자리에서 끝나요.</li>
+        <li><b>첫 칸에는 지뢰가 없어요.</b> 둘레도 비워 두어서 처음에 한 번에 넓게 열려요.</li>
+        <li>지뢰라고 생각하는 칸에는 <b>깃발</b>을 꽂아요 — 오른쪽 단추, 길게 누르기, 또는 깃발 모드.</li>
+        <li>깃발을 한 번 더 꽂으면 <b>물음표</b>가 돼요. 「여기 같기도 한데」 할 때 써요.</li>
+        <li>숫자 둘레에 깃발을 다 꽂았으면 그 <b>숫자를 두 번 누르면 둘레가 한꺼번에</b> 열려요(화음).
+            깃발이 틀린 자리면 그대로 끝나니 조심해요.</li>
+        <li>열쇠판으로도 놀 수 있어요 — 화살표로 옮기고, 엔터는 열기, <b>F</b> 는 깃발이에요.</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        onerror="window.__sbFailed=1"></script>
+<script src="./pixel.js"></script>
+<script src="./common.js"></script>
+<script src="/pages/mine.js"></script>
+</body>
+</html>
