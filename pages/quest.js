@@ -25,6 +25,7 @@ const SRC = {
   hrt:    { n: '마음',   c: '#f7a8bf', p: 'vert' },
   armor:  { n: '갑옷',   c: '#6cc7b3', p: 'diag' },
   height: { n: '키',     c: '#6fb567', p: 'solid' },
+  amu:    { n: '장신구', c: '#c9b6e8', p: 'diag' },
 };
 // 색만으로 나누면 색을 가려내기 어려운 눈에는 한 덩어리로 보인다 — 무늬를 함께 넣는다.
 function fillOf(k){
@@ -145,6 +146,15 @@ async function bootInner(){
   Q.growCheck(save, st, today());                    // 지난번보다 얼마나 자랐는지 — 하루 한 번만 잰다
   const other = saves[hero.other];
   combo = !!(other && other.lastPlay === today());
+  /* 자매가 내놓은 금화를 여기서 받는다 — 상대 줄은 못 고치니 받는 쪽이 가져간다.
+     번호를 적어 두어 두 번 받지 않는다. 받자마자 한 번 저장해 둔다(못 받은 채 닫히면 안 되니). */
+  const giftGold = Q.claimGifts(save, other);
+  if (giftGold){
+    persist(true);
+    const nm = Q.HEROES[hero.other].name;
+    setTimeout(() => notice('💌 ' + nm + '가 보낸 금화 <b>' + giftGold + '</b>개를 받았어요!'), 0);
+    sfx('key');
+  }
   // 오래 놀지 않다가 온 날 — 돌아와 있는 원정이 있으면 맨 위에서 먼저 알린다.
   // 원정 칸까지 내려가야 알 수 있으면, 방치형을 붙인 뜻이 반은 사라진다.
   const back = Q.expoOf(save).sent.filter(e => Q.expoLeft(e, facts) <= 0).length;
@@ -335,7 +345,8 @@ function renderStatus(){
   $('#bag').innerHTML = [
     ['💰', save.gold, '금화'], ['🧪', save.potions, '물약'], ['🎨', paintLeft(), '물감'],
     ['🗡', '+' + save.weapon, '무기'], ['🛡', '+' + save.armor, '갑옷'], ['🎁', (save.chests || 0), '상자'],
-  ].map(b => '<span title="' + b[2] + '" aria-label="' + b[2] + ' ' + b[1] + '"><em>' + b[0] + '</em>' + b[1] + '</span>').join('');
+  ].concat(Q.amuletOf(save) ? [[Q.amuletOf(save).icon, '', Q.amuletOf(save).name + ' — ' + Q.amuletOf(save).say]] : [])
+   .map(b => '<span title="' + b[2] + '" aria-label="' + b[2] + ' ' + b[1] + '"><em>' + b[0] + '</em>' + b[1] + '</span>').join('');
   // 배운 기술과 아직 못 배운 기술 — 레벨이 오를 이유가 눈에 보여야 한다.
   // 기술 — 이름 옆 작은 칸이 드는 기운이다. 잠긴 기술은 열쇠와 레벨만.
   const skChip = (ic, nm, cost, cls, tip) =>
@@ -816,6 +827,13 @@ function renderShop(){
     { id: 'gift', t: '🎁 오늘의 선물', d: save.lastGift === today() ? '오늘 건 받았어요. 내일 또!' : '하루 한 번 · 💰' + gift + ' · 🧪' + S.gift.potions + ' · ❤️ 가득',
       can: save.lastGift !== today(),
       do(){ save.lastGift = today(); save.gold += gift; save.potions = Math.min(S.potion.max, save.potions + S.gift.potions); save.hp = st.maxHp; return '선물을 받았어요!'; } },
+    { id: 'seedbag', t: '🌱 농장 씨앗 주머니', d: '💰' + S.seedbag.price + ' · 농장 가방에 제철 씨앗 하나'
+        + ((save.bought && save.bought.seedbag) ? ' (지금까지 ' + save.bought.seedbag + '개)' : ''),
+      can: save.gold >= S.seedbag.price,
+      do(){ save.gold -= S.seedbag.price;
+            save.expo.seedsEver = (save.expo.seedsEver || 0) + 1;
+            save.bought.seedbag = (save.bought.seedbag || 0) + 1;
+            return '씨앗을 샀어요. 다음에 농장을 열면 가방에 들어와 있어요.'; } },
     { id: 'gear', t: '🎨 장비에 그림 넣기', d: (save.weapon || save.armor) ? '그리기에서 그린 도트를 무기·갑옷에 붙여요' : '무기나 갑옷을 먼저 강화해요',
       can: !!(save.weapon || save.armor),
       do(){ openGearPick(); return ''; } },
@@ -836,6 +854,74 @@ function renderShop(){
     box.appendChild(b);
   });
   renderGearNow();
+  renderAmulets();
+  renderSend();
+}
+
+/* ---------- 장신구 ----------
+   금화로만 사는 칸. 한 번 사면 팔지 않고, 찰 수 있는 건 하나뿐이라 누르면 바꿔 찬다. */
+function renderAmulets(){
+  const box = $('#amuBox'); if (!box) return;
+  const now = Q.amuletOf(save);
+  $('#amuNow').textContent = now ? '지금 ' + now.icon + ' ' + now.name + ' — ' + now.say
+                                 : '하나만 찰 수 있어요. 산 것은 눌러서 바꿔 차요';
+  box.innerHTML = '';
+  Q.AMULETS.forEach(a => {
+    const own = Q.hasAmulet(save, a.id), on = save.amulet === a.id;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = on ? 'on' : (own ? 'own' : '');
+    b.disabled = !!battle || (!own && save.gold < a.price);
+    b.innerHTML = a.icon + ' ' + a.name + (on ? ' <em style="font-style:normal">· 차는 중</em>' : '') +
+      '<small>' + a.say + ' · ' + (own ? (on ? '누르면 벗어요' : '누르면 차요') : '💰' + a.price) + '</small>';
+    b.addEventListener('click', () => {
+      let say;
+      if (!own){
+        save.gold -= a.price; save.amulets.push(a.id); save.amulet = a.id;
+        say = a.name + J2(a.name, '을', '를') + ' 샀어요. 바로 찼어요.'; sfx('key');
+      } else {
+        save.amulet = on ? '' : a.id;
+        say = a.name + J2(a.name, '을', '를') + (on ? ' 벗었어요.' : ' 찼어요.'); sfx('pop');
+      }
+      refreshStats();
+      if (save.hp > st.maxHp) save.hp = st.maxHp;
+      $('#shopMsg').textContent = say;
+      renderStatus(); renderShop(); persist();
+    });
+    box.appendChild(b);
+  });
+}
+
+/* ---------- 자매에게 금화 보내기 ----------
+   제 줄에만 적을 수 있으니 「보낸다」가 아니라 「내놓는다」 — 상대가 제 화면을 열 때 가져간다.
+   그래서 여기서는 「기다리는 중」과 「받아 갔어요」를 나눠 보여 준다. */
+function renderSend(){
+  const box = $('#sendBox'); if (!box) return;
+  const other = otherSave(), name = Q.HEROES[hero.other].name;
+  $('#sendWho').textContent = hero.call + ' ' + name + '에게 — 다음에 ' + name + '가 모험단을 열 때 받아요';
+  box.innerHTML = '';
+  const lb = document.createElement('span');
+  lb.className = 'lb'; lb.textContent = '💰 ' + save.gold + ' 중에서';
+  box.appendChild(lb);
+  [100, 300, 500].forEach(n => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = n + ' 보내기';
+    b.disabled = !!battle || save.gold < n;
+    b.addEventListener('click', () => {
+      const g = Q.sendGold(save, n, today());
+      if (!g) return;
+      sfx('key');
+      $('#shopMsg').textContent = name + '에게 금화 ' + n + '개를 보냈어요.';
+      renderStatus(); renderShop(); persist(true);
+    });
+    box.appendChild(b);
+  });
+  // 내가 내놓은 것 — 상대가 받아 갔는지는 상대 줄의 gotGifts 로 안다
+  const got = (other && other.gotGifts) || [];
+  const mine = (save.outbox || []).slice().reverse().slice(0, 4);
+  $('#sendOut').innerHTML = mine.length
+    ? mine.map(g => '💰' + g.gold + ' · ' + g.day + ' — ' + (got.indexOf(g.id) >= 0 ? '받아 갔어요 ✔' : '기다리는 중')).join('<br>')
+    : '';
 }
 function upgradeLabel(w){
   const S = Q.SHOP.upgrade;
@@ -1189,7 +1275,9 @@ async function act(kind){
     b.energy -= s.cost;
     sfx(s.sfx);
     const em = Q.elemMult(s.elem, b.foe.elem);
-    await hitFoe(Q.heroHit(st, 'skill', null, s.mult * em * (combo ? Q.COMBO_MULT : 1)), 'skill', s, em);
+    // 별 조각(장신구)은 기술에만 붙는다 — 보통 공격까지 세지면 타이밍을 맞추는 재미가 줄어든다
+    const shard = 1 + Q.amuEff(save, 'skill');
+    await hitFoe(Q.heroHit(st, 'skill', null, s.mult * em * shard * (combo ? Q.COMBO_MULT : 1)), 'skill', s, em);
     missionTick('skill');
     // 합체기는 둘의 마음을 합친 만큼 체력도 조금 돌려준다
     if (s.heal && !b.week){
@@ -1310,10 +1398,13 @@ async function foeTurn(){
 async function win(){
   const b = battle, foe = b.foe, A = Q.AREAS[foe.area];
   sfx('fanfare');
-  save.gold += foe.gold; save.xp += foe.xp; save.fights++;
+  // 금화 주머니(장신구) — 싸워서 얻는 금화와 상자에서 나오는 금화에 붙는다
+  const purse = 1 + Q.amuEff(save, 'gold');
+  const gotGold = Math.round(foe.gold * purse);
+  save.gold += gotGold; save.xp += foe.xp; save.fights++;
   // 오늘의 모험 카드가 읽을 하루치 — 이긴 상대와 벌어들인 것.
   const dl = Q.dayLog(save, today());
-  dl.gold += foe.gold; dl.xp += foe.xp;
+  dl.gold += gotGold; dl.xp += foe.xp;
   if (!foe.week){
     dl.wins++;
     if (foe.boss) dl.boss++;
@@ -1344,16 +1435,16 @@ async function win(){
       }
     }
   }
-  log('<b>이겼어요!</b> 경험치 +' + foe.xp + ' · 금화 +' + foe.gold + (A.hidden ? ' (두 배!)' : '') + extra);
+  log('<b>이겼어요!</b> 경험치 +' + foe.xp + ' · 금화 +' + gotGold + (A.hidden ? ' (두 배!)' : '') + extra);
   refreshStats();
   renderBars();
   await wait(1200);
 
   // 보물 상자 — 대장은 늘, 일반 상대는 가끔.
-  if (Math.random() < Q.CHEST.chance(foe.boss)){
+  if (Math.random() < Q.CHEST.chance(foe.boss) + Q.amuEff(save, 'chest')){
     const c = Q.openChest(foe);
     const mult = Q.streakMult(save.streak);
-    if (c.gold) c.gold = Math.round(c.gold * mult);
+    if (c.gold) c.gold = Math.round(c.gold * mult * purse);   // 주머니는 금화에만 붙는다
     if (c.xp) c.xp = Math.round(c.xp * mult);
     save.chests = (save.chests || 0) + 1;
     if (c.gold) save.gold += c.gold;

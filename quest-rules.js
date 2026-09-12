@@ -295,10 +295,11 @@ const QUEST = (() => {
     const fromDiary  = Math.min(30, (f.diaries || 0) * 2);
     const fromHeight = f.height ? Math.min(40, Math.max(0, Math.round((f.height - 100) / 2))) : 0;
     const weapon = save.weapon || 0, armor = save.armor || 0;
+    const amuAgi = amuEff(save, 'agi'), amuHp = amuEff(save, 'hp');   // 장신구 — 금화로만 사는 칸
     const str = 4 + 2 * (lv - 1) + fromWorks + weapon * 3;
-    const agi = 2 + (lv - 1) + fromRun;
+    const agi = 2 + (lv - 1) + fromRun + amuAgi;
     const hrt = 4 + 2 * (lv - 1) + fromDiary;
-    const maxHp = 28 + hrt * 3 + armor * 8 + fromHeight;
+    const maxHp = 28 + hrt * 3 + armor * 8 + fromHeight + amuHp;
     return {
       lv, xp, next: xpForLevel(lv + 1), prev: xpForLevel(lv),
       str, agi, hrt, maxHp, weapon, armor,
@@ -307,9 +308,9 @@ const QUEST = (() => {
       guardHeal: Math.ceil(hrt * 0.5),
       parts: {
         str: { base: 4, lv: 2 * (lv - 1), works: fromWorks, weapon: weapon * 3 },
-        agi: { base: 2, lv: lv - 1, run: fromRun },
+        agi: { base: 2, lv: lv - 1, run: fromRun, amu: amuAgi },
         hrt: { base: 4, lv: 2 * (lv - 1), diary: fromDiary },
-        hp:  { base: 28, hrt: hrt * 3, armor: armor * 8, height: fromHeight },
+        hp:  { base: 28, hrt: hrt * 3, armor: armor * 8, height: fromHeight, amu: amuHp },
         xp:  { fights: save.xp || 0, real: realXp(f) },
       },
     };
@@ -516,7 +517,8 @@ const QUEST = (() => {
   // 남은 시간(밀리초). 0 이면 돌아왔다.
   function expoLeft(e, facts, now){
     const cut = expoSpeed(e, facts).mins * 60000;
-    return Math.max(0, (e.at + e.hours * 3600000 - cut) - (now == null ? Date.now() : now));
+    const span = e.hours * 3600000 * (1 - (e.bell || 0));    // 친구 방울을 차고 보냈으면 그만큼 짧다
+    return Math.max(0, (e.at + span - cut) - (now == null ? Date.now() : now));
   }
   function expoReward(area, hours, T, duo){
     const A = AREAS[area], tier = A.tier == null ? area : A.tier;
@@ -539,7 +541,10 @@ const QUEST = (() => {
   function expoSend(save, area, who, hours, facts, now){
     const E = expoOf(save);
     const t = now == null ? Date.now() : now;
+    // 방울(장신구)은 보낼 때 차고 있어야 한다 — 떠난 뒤에 사도 그 아이는 이미 길 위다.
     const e = { area: area, who: who, hours: hours, at: t, facts: expoFacts(facts) };
+    const bell = amuEff(save, 'bell');
+    if (bell) e.bell = bell;
     E.sent.push(e);
     return e;
   }
@@ -630,6 +635,58 @@ const QUEST = (() => {
   function titlesOf(save, st){ return TITLES.filter(t => { try { return t.ok(save, st); } catch (e) { return false; } }); }
   function titleOf(save, st){ const e = titlesOf(save, st); return e.length ? e[e.length - 1] : null; }
 
+  // ---------- 장신구 ----------
+  /* 금화가 쓸 데 없이 쌓인다는 말에서 나온 칸(2026-09-12). 무기·갑옷은 물감(작품 수)이
+     있어야 올라가는데 물감은 현실에서 그림을 그려야 생긴다. 그래서 실컷 싸워 모은
+     금화만으로 살 것이 없었다 — 연아는 2,954 금화를 쥐고 살 것이 없었다.
+     장신구는 금화만 받는다. 여섯을 다 사면 2,850 — 쌓인 것을 거의 다 쓰는 값이다.
+     찰 수 있는 건 하나뿐이라, 다 사고 나서도 「오늘은 무엇을 찰까」가 남는다. */
+  const AMULETS = [
+    { id: 'clover', icon: '🍀', name: '네잎클로버',   price: 150, say: '보물 상자가 더 자주 열려요',        chest: 0.12 },
+    { id: 'scarf',  icon: '🧣', name: '포근한 목도리', price: 250, say: '최대 체력 +12',                    hp: 12 },
+    { id: 'shoes',  icon: '👟', name: '바람 신발',     price: 350, say: '재빠름 +4 — 타이밍 칸이 넓어져요',  agi: 4 },
+    { id: 'purse',  icon: '💰', name: '금화 주머니',   price: 500, say: '싸워서 얻는 금화 +20%',            gold: 0.2 },
+    { id: 'shard',  icon: '✨', name: '별 조각',      price: 700, say: '기술의 힘 +15%',                   skill: 0.15 },
+    { id: 'bell',   icon: '🔔', name: '친구 방울',     price: 900, say: '원정이 20% 빨라져요 (보낼 때 차고 있어야 해요)', bell: 0.2 },
+  ];
+  const AMU = {};
+  AMULETS.forEach(a => { AMU[a.id] = a; });
+  function amuletOf(save){ return (save && save.amulet && AMU[save.amulet]) || null; }
+  function amuEff(save, k){ const a = amuletOf(save); return (a && a[k]) || 0; }
+  function hasAmulet(save, id){ return ((save && save.amulets) || []).indexOf(id) >= 0; }
+
+  // ---------- 자매에게 금화 보내기 ----------
+  /* 표의 규칙상 아이는 제 줄만 고칠 수 있다. 그래서 「보낸다」가 아니라 「내놓는다」로 짠다 —
+     보내는 쪽은 제 줄의 outbox 에 적고, 받는 쪽은 제가 열 때 상대 줄을 읽어 가져간다
+     (세이브는 서로 읽을 수 있다). 농장의 선물 통로와 같은 꼴이고, 번호(id)로 한 번만 받는다. */
+  const SEND = { step: 100, max: 900, keep: 8 };
+  function sendGold(save, n, day){
+    n = Math.floor(Number(n) || 0);
+    if (n < SEND.step || n > SEND.max || (save.gold || 0) < n) return null;
+    if (!Array.isArray(save.outbox)) save.outbox = [];
+    save.gold -= n;
+    const gift = { id: day + ':' + Date.now().toString(36), gold: n, day: day };
+    save.outbox.push(gift);
+    if (save.outbox.length > SEND.keep) save.outbox = save.outbox.slice(-SEND.keep);
+    return gift;
+  }
+  // 상대 줄에서 아직 안 받은 것만 골라 준다.
+  function giftsWaiting(save, other){
+    const got = (save && save.gotGifts) || [];
+    return (((other && other.outbox) || [])).filter(g => g && g.id && got.indexOf(g.id) < 0);
+  }
+  // 받는다 — 받은 번호를 적어 두어 두 번 받지 않는다. 번호는 최근 것만 남긴다.
+  function claimGifts(save, other){
+    const list = giftsWaiting(save, other);
+    if (!list.length) return 0;
+    if (!Array.isArray(save.gotGifts)) save.gotGifts = [];
+    let sum = 0;
+    list.forEach(g => { sum += Math.max(0, Math.floor(Number(g.gold) || 0)); save.gotGifts.push(g.id); });
+    if (save.gotGifts.length > SEND.keep * 2) save.gotGifts = save.gotGifts.slice(-SEND.keep * 2);
+    save.gold = (save.gold || 0) + sum;
+    return sum;
+  }
+
   // ---------- 가게 ----------
   const SHOP = {
     potion:  { price: 15, max: 9, heal: 0.45 },
@@ -637,6 +694,10 @@ const QUEST = (() => {
     upgrade: { max: 5, gold: w => 30 + w * 30, paint: w => w + 1 },
     gift:    { gold: T => (T && T.giftGold) || TUNE_DEFAULT.giftGold, potions: 1 },
     lose:    { goldKeep: 0.8 },           // 쓰러지면 금화의 80% 만 남는다
+    /* 금화로 사는 농장 씨앗. 원정에서 주워 오는 씨앗과 같은 통로를 쓴다 —
+       모험단은 「지금까지 몇 개」만 세고 농장이 「그중 몇 개를 가져갔나」를 제 저장에 적는다.
+       그래서 여기서 숫자 하나만 올리면 아이가 다음에 농장을 열 때 제철 씨앗이 가방에 들어온다. */
+    seedbag: { price: 300 },
   };
 
   // ---------- 이번 주 보스 ----------
@@ -757,6 +818,11 @@ const QUEST = (() => {
       playDays: [],                       // 모험한 날 — 이번 주 발자국
       // 원정 — 나가 있는 것, 지난 일지, 다녀온 횟수, 지금까지 주워 온 씨앗 수
       expo: { sent: [], log: [], done: 0, seedsEver: 0 },
+      amulet: '',                         // 지금 차고 있는 장신구 (하나만)
+      amulets: [],                        // 사 둔 장신구 — 산 것은 팔지 않고 바꿔 찬다
+      outbox: [],                         // 자매에게 내놓은 금화 — 상대가 열 때 가져간다
+      gotGifts: [],                       // 이미 받은 선물 번호 — 두 번 받지 않게
+      bought: { seedbag: 0 },             // 금화로 산 농장 씨앗 주머니 수 — 가게에 보여 준다
     };
   }
   // 옛 세이브에 없는 칸을 채운다. 규칙이 늘어도 예전 줄이 깨지지 않게.
@@ -774,6 +840,11 @@ const QUEST = (() => {
     if (!s.met || typeof s.met !== 'object') s.met = {};
     if (!Array.isArray(s.weekLog)) s.weekLog = [];
     if (!Array.isArray(s.playDays)) s.playDays = [];
+    if (!Array.isArray(s.amulets)) s.amulets = [];
+    if (!Array.isArray(s.outbox)) s.outbox = [];
+    if (!Array.isArray(s.gotGifts)) s.gotGifts = [];
+    if (!AMU[s.amulet]) s.amulet = '';
+    s.bought = Object.assign({ seedbag: 0 }, s.bought || {});
     if (!s.friendDay || typeof s.friendDay !== 'object') s.friendDay = {};
     s.expo = Object.assign(n.expo, s.expo || {});
     if (!Array.isArray(s.expo.sent)) s.expo.sent = [];
@@ -814,7 +885,8 @@ const QUEST = (() => {
   }
 
   return {
-    HEROES, AREAS, REAL, SHOP, WEEK, TUNE_DEFAULT, HIT_MULT, ELEM, STRONG, TITLES, CHEST, FRIEND, STREAK, streakMult, seasonOf, isNight, seasonBoost, MERCHANT, merchantDeal, FIND_CHANCE, tryFind, findsCount, DUO, MISSION, dailyMission,
+    HEROES, AREAS, REAL, SHOP, WEEK, TUNE_DEFAULT, HIT_MULT, ELEM, STRONG, TITLES, CHEST, FRIEND, STREAK, streakMult,
+    AMULETS, AMU, amuletOf, amuEff, hasAmulet, SEND, sendGold, giftsWaiting, claimGifts, seasonOf, isNight, seasonBoost, MERCHANT, merchantDeal, FIND_CHANCE, tryFind, findsCount, DUO, MISSION, dailyMission,
     BOSS_SAY, BOSS_SKIP, BOSS_HEAL, BOSS_GUARD_CUT, MAX_ENERGY,
     EXPO, EXPO_EMPTY_SAY, expoOf, expoPlan, expoSlots, expoAway, expoFacts, expoSpeed, expoLeft, expoReward, expoDuo, expoSend, expoClaim, hash01,
     WINS_FOR_BOSS, COMBO_MULT, STREAK_FOR_FANFARE, TAME_WINS, CHEER_HEAL, HIDDEN_DAYS,
