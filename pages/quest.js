@@ -161,6 +161,7 @@ async function bootInner(){
   if (back) setTimeout(() => notice('🎒 원정 나갔던 친구 <b>' + back + '</b>마리가 돌아와 있어요 — 아래 <b>원정</b>에서 만나요'), 0);
   $('#game').hidden = false;
   $('#lead').textContent = hero.name + '의 모험 — 현실에서 한 일이 경험치가 돼요';
+  wireRoom();                                        // 방은 한 번만 이어 둔다
   renderAll();
   initReveal();
 }
@@ -179,7 +180,7 @@ function refreshStats(){
   }
 }
 
-function renderAll(){ renderStatus(); renderReal(); renderToday(); renderMap(); renderExpo(); renderShop(); renderWeek(); renderDex(); renderMission(); }
+function renderAll(){ renderStatus(); renderReal(); renderToday(); renderMap(); renderExpo(); renderShop(); renderWeek(); renderDex(); renderMission(); renderRoom(); }
 function today(){ const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
 
 // ---------- 손님 화면 ----------
@@ -985,6 +986,437 @@ async function openGearPick(){
   });
   const close = document.createElement('button'); close.type = 'button'; close.textContent = '닫기';
   close.addEventListener('click', () => { box.hidden = true; }); box.appendChild(close);
+}
+
+// =====================================================================
+//  내 방 — 중세 전사의 방
+// =====================================================================
+// ===== 방 꾸미기 그림 (16×16 도트) =====
+// 여기서만 쓰는 팔레트다 — 중세 방의 돌·쇠·나무·천 빛깔이라 site 팔레트와 겹치지 않는다.
+// h 는 아이 색(수아 코랄 · 연아 민트)으로 그때그때 바뀐다.
+const RPAL = {
+  k: '#2f2a24', n: '#5f3f26', W: '#8a5f3a', w: '#c79b6d',
+  K: '#5d6675', I: '#9aa4b2', i: '#dfe6ec',
+  G: '#e0a93b', g: '#ffd979',
+  r: '#d4504a', R: '#9e3a36', b: '#4a7fd4', B: '#2f57a0',
+  c: '#fff3dc', f: '#ff9d3b', F: '#ffe066', s: '#e8c86a', l: '#6fb567',
+};
+const ROOM_ART = {
+  torch: [
+    '................',
+    '.......F........',
+    '......FfF.......',
+    '.....FfffF......',
+    '.....ffFff......',
+    '.....fFFFf......',
+    '......fff.......',
+    '.......f........',
+    '......nWn.......',
+    '......nWn.......',
+    '.....KIIIK......',
+    '......KKK.......',
+    '................',
+    '................',
+    '................',
+    '................',
+  ],
+  shield: [
+    '................',
+    '...IIIIIIIIII...',
+    '...IhhhhhhhhI...',
+    '...IhhhiihhhI...',
+    '...IhhiiiihhI...',
+    '...IhhhiihhhI...',
+    '...IhhhhhhhhI...',
+    '...IhhhhhhhhI...',
+    '....IhhhhhhI....',
+    '....IhhhhhhI....',
+    '.....IhhhhI.....',
+    '......IhhI......',
+    '.......II.......',
+    '................',
+    '................',
+    '................',
+  ],
+  banner: [
+    '................',
+    '..nnnnnnnnnnnn..',
+    '..nhhhhhhhhhhn..',
+    '...hhhhhhhhhh...',
+    '...hhhhhhhhhh...',
+    '...hhhhhgghhh...',
+    '...hhhhgggghhh..',
+    '...hhhgggggghh..',
+    '...hhhhgggghhh..',
+    '...hhhhhgghhh...',
+    '...hhhhhhhhhh...',
+    '...hhhhhhhhhh...',
+    '...hhhhhhhhhh...',
+    '....hh.hh.hh....',
+    '.....h...h......',
+    '................',
+  ],
+  swords: [
+    '................',
+    '..i..........i..',
+    '..Ii........iI..',
+    '...Ii......iI...',
+    '....Ii....iI....',
+    '.....Ii..iI.....',
+    '......IiiI......',
+    '.....GGiiGG.....',
+    '......IiiI......',
+    '.....Ii..iI.....',
+    '....Ii....iI....',
+    '...Ii......iI...',
+    '..WW........WW..',
+    '..Wn........nW..',
+    '................',
+    '................',
+  ],
+  medals: [
+    '.......ii.......',
+    '.......ii.......',
+    '..WWWWWWWWWWWW..',
+    '..WccccccccccW..',
+    '..Wc........cW..',
+    '..Wc........cW..',
+    '..Wc........cW..',
+    '..Wc........cW..',
+    '..Wc........cW..',
+    '..Wc........cW..',
+    '..Wc........cW..',
+    '..WccccccccccW..',
+    '..WWWWWWWWWWWW..',
+    '................',
+    '................',
+    '................',
+  ],
+  barrel: [
+    '................',
+    '................',
+    '................',
+    '.....wwwwww.....',
+    '....wWWWWWWw....',
+    '...wWWWWWWWWw...',
+    '...KKKKKKKKKK...',
+    '...wWWWWWWWWw...',
+    '...wWWWWWWWWw...',
+    '...KKKKKKKKKK...',
+    '...wWWWWWWWWw...',
+    '....wWWWWWWw....',
+    '.....nnnnnn.....',
+    '................',
+    '................',
+    '................',
+  ],
+  books: [
+    '................',
+    '..WWWWWWWWWWWW..',
+    '..WrrbbrggbbrW..',
+    '..WrrbbrggbbrW..',
+    '..WnnnnnnnnnnW..',
+    '..WbbrrbbrrggW..',
+    '..WbbrrbbrrggW..',
+    '..WnnnnnnnnnnW..',
+    '..WggbbrrbbrrW..',
+    '..WggbbrrbbrrW..',
+    '..WnnnnnnnnnnW..',
+    '..Wrrggbbrrb.W..',
+    '..Wrrggbbrrb.W..',
+    '..WWWWWWWWWWWW..',
+    '................',
+    '................',
+  ],
+  rack: [
+    '................',
+    '.......i........',
+    '......iIi.......',
+    '.....i.I.i......',
+    '.......I........',
+    '...i...I...i....',
+    '..iIi..I..iIi...',
+    '...I...I...I....',
+    '...I...I...I....',
+    '..GGG.GGG.GGG...',
+    '...W...W...W....',
+    '...W...W...W....',
+    '..wWWWWWWWWWw...',
+    '..nnnnnnnnnnn...',
+    '................',
+    '................',
+  ],
+  armor: [
+    '................',
+    '......iiii......',
+    '.....iIIIIi.....',
+    '.....iIkkIi.....',
+    '.....iIIIIi.....',
+    '....IihhhhiI....',
+    '...IiihhhhiiI...',
+    '...Ii.hhhh.iI...',
+    '......IIII......',
+    '......IiiI......',
+    '.....Ii..iI.....',
+    '.....Ii..iI.....',
+    '....wWWWWWWw....',
+    '....nnnnnnnn....',
+    '................',
+    '................',
+  ],
+  hearth: [
+    '................',
+    '.IIIIIIIIIIIIII.',
+    '.IKKKKKKKKKKKKI.',
+    '.II..........II.',
+    '.II.kkkkkkkk.II.',
+    '.II.kkkkkkkk.II.',
+    '.II.kkk..kkk.II.',
+    '.II.kk.FF.kk.II.',
+    '.II.k.FffF.k.II.',
+    '.II.k.ffff.k.II.',
+    '.II.kWffffWk.II.',
+    '.II.knWWWWnk.II.',
+    '.IKKKKKKKKKKKKI.',
+    '.IIIIIIIIIIIIII.',
+    '................',
+    '................',
+  ],
+  table: [
+    '................',
+    '................',
+    '................',
+    '........c.......',
+    '.......cFc......',
+    '.......ccc......',
+    '.......ccc......',
+    '......GgggG.....',
+    '..wwwwwwwwwwww..',
+    '..WWWWWWWWWWWW..',
+    '..nnnnnnnnnnnn..',
+    '...W........W...',
+    '...W........W...',
+    '...n........n...',
+    '................',
+    '................',
+  ],
+  chest: [
+    '................',
+    '................',
+    '................',
+    '....GGGGGGGG....',
+    '...GWWWWWWWWG...',
+    '...GWwwwwwwWG...',
+    '...GGGGGGGGGG...',
+    '...GWWWgWWWWG...',
+    '...GWWWgWWWWG...',
+    '...GWwwGgwwwG...',
+    '...GWWWgWWWWG...',
+    '...GWWWWWWWWG...',
+    '...GGGGGGGGGG...',
+    '....nnnnnnnn....',
+    '................',
+    '................',
+  ],
+  bed: [
+    '................',
+    '................',
+    '..nn............',
+    '..nn............',
+    '..nnc...........',
+    '..nncc..........',
+    '..nncccchhhhhhh.',
+    '..nnsssshhhhhhh.',
+    '..nnssssssssss..',
+    '..WWWWWWWWWWWWW.',
+    '..nnnnnnnnnnnnn.',
+    '..W...........W.',
+    '..n...........n.',
+    '................',
+    '................',
+    '................',
+  ],
+  throne: [
+    '................',
+    '......gGg.......',
+    '.....GgggG......',
+    '....WWWWWWW.....',
+    '....WrrrrrW.....',
+    '....WrRRRrW.....',
+    '....WrrrrrW.....',
+    '..WWWrrrrrWWW...',
+    '..WWWrrrrrWWW...',
+    '..WWWWWWWWWWW...',
+    '..nnnWWWWWnnn...',
+    '.....W...W......',
+    '.....W...W......',
+    '.....n...n......',
+    '................',
+    '................',
+  ],
+};
+
+let roomPick = null;                    // 트레이에서 고른 물건 (놓을 차례)
+let roomG = null;
+function roomCtx(){
+  if (roomG) return roomG;
+  const cv = $('#roomCanvas'); if (!cv) return null;
+  roomG = cv.getContext('2d');
+  roomG.imageSmoothingEnabled = false;
+  roomG.setTransform(2, 0, 0, 2, 0, 0);   // 640×400 판에 320×200 로 그린다 — 전투 화면과 같은 꼴
+  return roomG;
+}
+// 16×16 도트 하나를 그린다. h 는 아이 색으로 바꿔 칠한다.
+function drawArt(g, art, x, y, s, heroColor){
+  for (let r = 0; r < art.length; r++){
+    const row = art[r];
+    for (let c = 0; c < row.length; c++){
+      const ch = row[c];
+      if (ch === '.') continue;
+      g.fillStyle = ch === 'h' ? heroColor : RPAL[ch];
+      if (!g.fillStyle) continue;
+      g.fillRect(x + c * s, y + r * s, s, s);
+    }
+  }
+}
+const RW = 320, RH = 200, RFLOOR = 104;   // 방 화면 크기와 바닥이 시작되는 높이
+function drawRoom(){
+  const g = roomCtx(); if (!g) return;
+  const R = Q.roomOf(save), color = hero.color;
+  // ---- 돌벽 ----
+  g.fillStyle = '#6f6a60'; g.fillRect(0, 0, RW, RFLOOR);
+  for (let y = 0; y < RFLOOR; y += 12){
+    const off = (y / 12) % 2 ? 20 : 0;
+    g.fillStyle = '#7b7569';
+    for (let x = -40 + off; x < RW; x += 40) g.fillRect(x + 1, y + 1, 38, 10);
+    g.fillStyle = '#5d5950'; g.fillRect(0, y + 11, RW, 1);
+  }
+  // 벽 아래 굽도리와 바닥
+  g.fillStyle = '#4f4b43'; g.fillRect(0, RFLOOR - 4, RW, 4);
+  g.fillStyle = '#8a5f3a'; g.fillRect(0, RFLOOR, RW, RH - RFLOOR);
+  for (let y = RFLOOR + 6; y < RH; y += 10){
+    g.fillStyle = '#7a5230'; g.fillRect(0, y, RW, 2);
+  }
+  // 널판 이음새 — 물건 한가운데를 지나면 막대처럼 보여서, 자리 사이로 비켜 긋고 옅게 둔다
+  g.fillStyle = '#96693c';
+  for (let x = 25; x < RW; x += 53) g.fillRect(x, RFLOOR, 1, RH - RFLOOR);
+  // ---- 빈 자리 표시 ----
+  Q.ROOM_SLOTS.forEach(sl => {
+    if (R.at[sl.id]) return;
+    const on = roomPick && Q.RI[roomPick] && Q.RI[roomPick].where === sl.where;
+    g.fillStyle = on ? 'rgba(255,217,121,.85)' : 'rgba(255,255,255,.22)';
+    const L = on ? 10 : 5, S = Q.ROOM_CELL;
+    [[0, 0, L, 2], [0, 0, 2, L], [S - L, 0, L, 2], [S - 2, 0, 2, L],
+     [0, S - 2, L, 2], [0, S - L, 2, L], [S - L, S - 2, L, 2], [S - 2, S - L, 2, L]]
+      .forEach(r => g.fillRect(sl.x + r[0], sl.y + r[1], r[2], r[3]));
+  });
+  // ---- 놓인 것 — 안쪽 줄부터 (앞줄이 앞에 와야 방에 깊이가 생긴다) ----
+  const order = { wall: 0, back: 1, front: 2 };
+  Q.ROOM_SLOTS.slice().sort((a, b) => order[a.where] - order[b.where]).forEach(sl => {
+    const id = R.at[sl.id]; if (!id) return;
+    const art = ROOM_ART[id]; if (!art) return;
+    // 바닥에 서는 것은 그림자를 깐다
+    if (sl.where !== 'wall'){
+      g.fillStyle = 'rgba(47,42,36,.22)';
+      g.fillRect(sl.x + 6, sl.y + Q.ROOM_CELL - 5, Q.ROOM_CELL - 12, 4);
+    }
+    drawArt(g, art, sl.x, sl.y, 3, color);
+    // 훈장 걸이에는 지금까지 받은 칭호 수만큼 훈장이 걸린다 (넷까지)
+    if (id === 'medals'){
+      const n = Math.min(4, Q.titlesOf(save, st).length);
+      const spot = [[5, 4], [10, 4], [5, 9], [10, 9]];
+      for (let i = 0; i < n; i++){
+        const [cx, cy] = spot[i];
+        g.fillStyle = RPAL.G; g.fillRect(sl.x + cx * 3 - 3, sl.y + cy * 3 - 3, 9, 9);
+        g.fillStyle = RPAL.g; g.fillRect(sl.x + cx * 3 - 1, sl.y + cy * 3 - 1, 5, 5);
+      }
+    }
+  });
+}
+/* 방 화면을 누르면 — 고른 것이 있으면 놓고, 없으면 그 자리 것을 집는다.
+   자리는 320×200 좌표라, 눌린 곳을 그 좌표로 되돌려 셈한다. */
+function roomHit(e){
+  const cv = $('#roomCanvas'); const r = cv.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width * RW, y = (e.clientY - r.top) / r.height * RH;
+  const S = Q.ROOM_CELL;
+  return Q.ROOM_SLOTS.filter(sl => x >= sl.x && x < sl.x + S && y >= sl.y && y < sl.y + S)[0] || null;
+}
+function roomSay(t){ const el = $('#roomMsg'); if (el) el.textContent = t; }
+function renderRoom(){
+  const box = $('#roomTray'); if (!box) return;
+  Q.roomOf(save);                       // 옛 세이브면 여기서 방 칸이 생긴다
+  const rank = Q.roomRank(save);
+  $('#roomRank').textContent = '🏰 ' + rank.name + ' · 꾸민 값 ' + Q.roomScore(save);
+  // 트레이 — 산 것은 「놓기」, 안 산 것은 값이 붙는다
+  box.innerHTML = '';
+  Q.ROOM_ITEMS.forEach(it => {
+    const own = Q.roomHas(save, it.id), put = Q.roomSlotOf(save, it.id);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = (roomPick === it.id ? 'pick ' : '') + (put ? 'put' : own ? 'own' : '');
+    b.disabled = !!battle || (!own && save.gold < it.price);
+    b.innerHTML = it.icon + ' ' + it.name +
+      '<small>' + (own ? (put ? '놓여 있어요 · 눌러서 옮기기' : '눌러서 자리 고르기') : '💰' + it.price) + '</small>';
+    b.addEventListener('click', () => {
+      if (!own){
+        if (!Q.roomBuy(save, it.id)) return;
+        sfx('key'); roomPick = it.id;
+        roomSay(it.name + J2(it.name, '을', '를') + ' 샀어요. ' +
+          (it.where === 'wall' ? '벽' : it.where === 'back' ? '안쪽' : '앞') + ' 자리를 골라 놓아요.');
+      } else {
+        roomPick = roomPick === it.id ? null : it.id;
+        sfx('pop');
+        roomSay(roomPick ? '자리를 눌러 놓아요 — ' + it.say : '');
+      }
+      renderStatus(); renderRoom(); drawRoom(); renderShop(); persist();
+    });
+    box.appendChild(b);
+  });
+  // 짚 침대에서 쉬기
+  const rest = $('#roomRest');
+  const canRest = Q.roomCanRest(save, today());
+  rest.hidden = !Q.roomSlotOf(save, 'bed');
+  rest.disabled = !canRest || !!battle || save.hp >= st.maxHp;
+  rest.textContent = canRest ? '🛏 짚 침대에서 쉬기 (공짜)' : '🛏 오늘은 벌써 쉬었어요';
+  drawRoom();
+}
+function wireRoom(){
+  const cv = $('#roomCanvas'); if (!cv) return;
+  cv.addEventListener('click', e => {
+    if (battle) return;
+    const sl = roomHit(e);
+    if (!sl){ roomPick = null; renderRoom(); return; }
+    const R = Q.roomOf(save);
+    if (roomPick){
+      const it = Q.RI[roomPick];
+      if (it.where !== sl.where){
+        roomSay(it.name + J2(it.name, '은', '는') + ' ' +
+          (it.where === 'wall' ? '벽에 거는' : it.where === 'back' ? '안쪽 줄에 세우는' : '앞줄에 놓는') + ' 것이에요.');
+        return;
+      }
+      const had = R.at[sl.id];
+      Q.roomPut(save, roomPick, sl.id);
+      sfx('pop');
+      roomSay(it.name + J2(it.name, '을', '를') + ' 놓았어요.' + (had ? ' (' + Q.RI[had].name + J2(Q.RI[had].name, '은', '는') + ' 가방으로)' : ''));
+      roomPick = null;
+    } else if (R.at[sl.id]){
+      const it = Q.RI[R.at[sl.id]];
+      Q.roomTake(save, sl.id); sfx('pop');
+      roomSay(it.name + J2(it.name, '을', '를') + ' 집었어요. 놓을 자리를 눌러요.');
+      roomPick = it.id;
+    } else {
+      roomSay('아래에서 놓을 것을 먼저 골라요.');
+    }
+    renderStatus(); renderRoom(); renderShop(); persist();
+  });
+  $('#roomRest').addEventListener('click', () => {
+    if (!Q.roomCanRest(save, today())) return;
+    Q.roomOf(save).rest = today();
+    save.hp = st.maxHp;
+    sfx('sparkle');
+    roomSay('짚 침대에서 푹 쉬었어요. 체력이 가득 찼어요.');
+    renderStatus(); renderRoom(); persist();
+  });
 }
 
 // ---------- 이번 주 보스 ----------

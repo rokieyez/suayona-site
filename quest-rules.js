@@ -700,6 +700,102 @@ const QUEST = (() => {
     seedbag: { price: 300 },
   };
 
+  // ---------- 내 방 ----------
+  /* 모험가의 방(2026-09-12). 농장의 집 꾸미기와는 아주 다른 곳이다 — 여긴 돌벽과 나무 바닥의
+     중세 전사 방이고, 거는 것과 세우는 것의 자리가 정해져 있다. 금화로 사고, 산 것은
+     자리를 옮겨 가며 놓는다(팔지는 않는다 — 아이가 실수로 판 것을 아쉬워하지 않게).
+     짚 침대만 쓸모가 있다: 하루 한 번 여관 값 없이 체력을 채운다. 나머지는 순전히 꾸미기다.
+     자리는 격자가 아니라 좌표로 적는다 — 벽에 거는 줄, 안쪽 줄, 앞줄이 서로 높이가 달라야
+     방이 납작해 보이지 않기 때문이다. 좌표는 320×200 화면 기준. */
+  const ROOM_SLOTS = [
+    { id: 'w1', where: 'wall', x: 18,  y: 22 }, { id: 'w2', where: 'wall', x: 78,  y: 22 },
+    { id: 'w3', where: 'wall', x: 138, y: 22 }, { id: 'w4', where: 'wall', x: 198, y: 22 },
+    { id: 'w5', where: 'wall', x: 258, y: 22 },
+    { id: 'b1', where: 'back', x: 14,  y: 92 }, { id: 'b2', where: 'back', x: 74,  y: 92 },
+    { id: 'b3', where: 'back', x: 134, y: 92 }, { id: 'b4', where: 'back', x: 194, y: 92 },
+    { id: 'b5', where: 'back', x: 254, y: 92 },
+    { id: 'f1', where: 'front', x: 34,  y: 142 }, { id: 'f2', where: 'front', x: 104, y: 142 },
+    { id: 'f3', where: 'front', x: 174, y: 142 }, { id: 'f4', where: 'front', x: 244, y: 142 },
+  ];
+  const ROOM_CELL = 48;                       // 자리 한 칸의 크기(그림도 이 크기로 그린다)
+  const ROOM_ITEMS = [
+    // 벽에 거는 것
+    { id: 'torch',   icon: '🔥', name: '횃불',       where: 'wall',  price: 80,  say: '벽이 따뜻해 보여요' },
+    { id: 'shield',  icon: '🛡', name: '방패',       where: 'wall',  price: 150, say: '문장 방패를 걸어요' },
+    { id: 'banner',  icon: '🚩', name: '문장 깃발',   where: 'wall',  price: 200, say: '내 색으로 된 깃발이에요' },
+    { id: 'swords',  icon: '⚔️', name: '십자검',     where: 'wall',  price: 250, say: '검 두 자루를 엇갈려 걸어요' },
+    { id: 'medals',  icon: '🏅', name: '훈장 걸이',   where: 'wall',  price: 400, say: '얻은 칭호가 걸려요' },
+    // 안쪽 줄에 세우는 것
+    { id: 'barrel',  icon: '🛢', name: '나무 술통',   where: 'back',  price: 100, say: '물과 사과를 담아 둬요' },
+    { id: 'books',   icon: '📚', name: '책장',       where: 'back',  price: 220, say: '모험 일지를 꽂아 둬요' },
+    { id: 'rack',    icon: '🗡', name: '무기 거치대', where: 'back',  price: 280, say: '창과 검을 세워 둬요' },
+    { id: 'armor',   icon: '🥋', name: '갑옷 거치대', where: 'back',  price: 350, say: '갑옷이 서 있어요' },
+    { id: 'hearth',  icon: '🔥', name: '벽난로',     where: 'back',  price: 500, say: '불이 타올라요' },
+    // 앞줄에 놓는 것
+    { id: 'table',   icon: '🪑', name: '나무 탁자',   where: 'front', price: 120, say: '촛불을 하나 올려 둬요' },
+    { id: 'chest',   icon: '🧰', name: '보물 상자',   where: 'front', price: 200, say: '금화를 넣어 두는 척해요' },
+    { id: 'bed',     icon: '🛏', name: '짚 침대',     where: 'front', price: 300, say: '하루 한 번 여기서 공짜로 쉬어요', rest: true },
+    { id: 'throne',  icon: '👑', name: '왕좌',       where: 'front', price: 600, say: '대장만 앉을 수 있어요' },
+  ];
+  const RI = {};
+  ROOM_ITEMS.forEach(it => { RI[it.id] = it; });
+  const ROOM_RANKS = [
+    { at: 0,    name: '빈 방' },
+    { at: 1,    name: '허전한 방' },
+    { at: 300,  name: '아늑한 구석' },
+    { at: 800,  name: '기사의 방' },
+    { at: 1600, name: '대장의 방' },
+    { at: 2600, name: '성주의 방' },
+    { at: 3750, name: '전설의 전당' },
+  ];
+  function roomOf(save){
+    if (!save.room || typeof save.room !== 'object') save.room = { at: {}, own: [], rest: '' };
+    if (!save.room.at || typeof save.room.at !== 'object') save.room.at = {};
+    if (!Array.isArray(save.room.own)) save.room.own = [];
+    return save.room;
+  }
+  function roomHas(save, id){ return roomOf(save).own.indexOf(id) >= 0; }
+  function roomSlotOf(save, id){                       // 그 물건이 지금 놓인 자리
+    const R = roomOf(save);
+    return Object.keys(R.at).filter(k => R.at[k] === id)[0] || null;
+  }
+  function roomBuy(save, id){
+    const it = RI[id]; const R = roomOf(save);
+    if (!it || roomHas(save, id) || (save.gold || 0) < it.price) return false;
+    save.gold -= it.price; R.own.push(id);
+    return true;
+  }
+  // 놓기 — 자리가 맞아야 하고(거는 것은 벽에만), 그 자리에 있던 것은 밀려나 가방으로 돌아간다.
+  function roomPut(save, id, slotId){
+    const it = RI[id], slot = ROOM_SLOTS.filter(s2 => s2.id === slotId)[0];
+    if (!it || !slot || !roomHas(save, id) || it.where !== slot.where) return false;
+    const R = roomOf(save);
+    const was = roomSlotOf(save, id);
+    if (was) delete R.at[was];
+    R.at[slotId] = id;
+    return true;
+  }
+  function roomTake(save, slotId){
+    const R = roomOf(save);
+    if (!R.at[slotId]) return false;
+    delete R.at[slotId];
+    return true;
+  }
+  function roomScore(save){
+    const R = roomOf(save);
+    return Object.keys(R.at).reduce((a, k) => a + ((RI[R.at[k]] && RI[R.at[k]].price) || 0), 0);
+  }
+  function roomRank(save){
+    const n = roomScore(save);
+    let out = ROOM_RANKS[0];
+    ROOM_RANKS.forEach(r => { if (n >= r.at) out = r; });
+    return out;
+  }
+  // 짚 침대에서 쉬기 — 놓여 있어야 하고, 하루 한 번.
+  function roomCanRest(save, day){
+    return roomSlotOf(save, 'bed') !== null && roomOf(save).rest !== day;
+  }
+
   // ---------- 이번 주 보스 ----------
   // 월요일 날짜가 주의 열쇠. 자매 둘이 낸 피해를 합쳐서 잰다.
   const WEEK0 = new Date(2026, 7, 31);   // 첫 주 월요일
@@ -823,6 +919,7 @@ const QUEST = (() => {
       outbox: [],                         // 자매에게 내놓은 금화 — 상대가 열 때 가져간다
       gotGifts: [],                       // 이미 받은 선물 번호 — 두 번 받지 않게
       bought: { seedbag: 0 },             // 금화로 산 농장 씨앗 주머니 수 — 가게에 보여 준다
+      room: { at: {}, own: [], rest: '' },// 내 방 — 자리마다 무엇이 놓였나, 산 것, 마지막으로 쉰 날
     };
   }
   // 옛 세이브에 없는 칸을 채운다. 규칙이 늘어도 예전 줄이 깨지지 않게.
@@ -845,6 +942,14 @@ const QUEST = (() => {
     if (!Array.isArray(s.gotGifts)) s.gotGifts = [];
     if (!AMU[s.amulet]) s.amulet = '';
     s.bought = Object.assign({ seedbag: 0 }, s.bought || {});
+    s.room = Object.assign({ at: {}, own: [], rest: '' }, s.room || {});
+    if (!s.room.at || typeof s.room.at !== 'object') s.room.at = {};
+    if (!Array.isArray(s.room.own)) s.room.own = [];
+    s.room.own = s.room.own.filter(id => !!RI[id]);                       // 없어진 물건은 지운다
+    Object.keys(s.room.at).forEach(k => {                                 // 없는 자리·없는 물건도
+      const slot = ROOM_SLOTS.filter(x => x.id === k)[0];
+      if (!slot || !RI[s.room.at[k]] || RI[s.room.at[k]].where !== slot.where) delete s.room.at[k];
+    });
     if (!s.friendDay || typeof s.friendDay !== 'object') s.friendDay = {};
     s.expo = Object.assign(n.expo, s.expo || {});
     if (!Array.isArray(s.expo.sent)) s.expo.sent = [];
@@ -886,7 +991,8 @@ const QUEST = (() => {
 
   return {
     HEROES, AREAS, REAL, SHOP, WEEK, TUNE_DEFAULT, HIT_MULT, ELEM, STRONG, TITLES, CHEST, FRIEND, STREAK, streakMult,
-    AMULETS, AMU, amuletOf, amuEff, hasAmulet, SEND, sendGold, giftsWaiting, claimGifts, seasonOf, isNight, seasonBoost, MERCHANT, merchantDeal, FIND_CHANCE, tryFind, findsCount, DUO, MISSION, dailyMission,
+    AMULETS, AMU, amuletOf, amuEff, hasAmulet, SEND, sendGold, giftsWaiting, claimGifts,
+    ROOM_SLOTS, ROOM_ITEMS, ROOM_CELL, RI, ROOM_RANKS, roomOf, roomHas, roomSlotOf, roomBuy, roomPut, roomTake, roomScore, roomRank, roomCanRest, seasonOf, isNight, seasonBoost, MERCHANT, merchantDeal, FIND_CHANCE, tryFind, findsCount, DUO, MISSION, dailyMission,
     BOSS_SAY, BOSS_SKIP, BOSS_HEAL, BOSS_GUARD_CUT, MAX_ENERGY,
     EXPO, EXPO_EMPTY_SAY, expoOf, expoPlan, expoSlots, expoAway, expoFacts, expoSpeed, expoLeft, expoReward, expoDuo, expoSend, expoClaim, hash01,
     WINS_FOR_BOSS, COMBO_MULT, STREAK_FOR_FANFARE, TAME_WINS, CHEER_HEAL, HIDDEN_DAYS,

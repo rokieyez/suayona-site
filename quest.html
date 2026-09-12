@@ -136,6 +136,26 @@
   .gear-pick .pick{display:flex; flex-direction:column; align-items:center; gap:4px;}
   .gear-pick canvas{width:48px; height:48px; border:2px solid var(--ink); image-rendering:pixelated; background:#fffaf2;}
   .gear-pick button{font:inherit; font-size:10px; font-weight:800; padding:3px 6px; border:2px solid var(--ink); background:#fff; cursor:pointer;}
+  /* 내 방 — 돌벽과 나무 바닥의 중세 전사 방. 농장 집과는 아주 다른 곳이다. */
+  .room-stage{line-height:0; border:3px solid var(--ink); background:#6f6a60;}
+  #roomCanvas{
+    display:block; width:100%; aspect-ratio:320/200; image-rendering:pixelated;
+    cursor:pointer; touch-action:manipulation;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  }
+  .room-tray{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:10px;}
+  @media (max-width:720px){ .room-tray{grid-template-columns:1fr 1fr;} }
+  @media (max-width:420px){ .room-tray{grid-template-columns:1fr;} }
+  .room-tray button{
+    font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; text-align:left; padding:8px 10px;
+    border:2px solid var(--ink); background:#fff; color:var(--ink); box-shadow:2px 2px 0 var(--ink);
+  }
+  .room-tray button small{display:block; font-size:11px; color:var(--ink-soft); font-weight:700; margin-top:2px;}
+  .room-tray button:disabled{opacity:.45; cursor:not-allowed; box-shadow:none;}
+  .room-tray button.own{background:#fff6e9;}
+  .room-tray button.put{background:#eaf4e6;}
+  .room-tray button.pick{background:var(--lemon); box-shadow:none;}
+  #roomRest{margin-top:10px;}
   /* 장신구 — 금화로만 사는 칸. 산 것은 눌러서 바꿔 찬다. */
   .amu-h{display:flex; align-items:baseline; gap:8px; margin:14px 0 6px; flex-wrap:wrap;}
   .amu-h b{font-size:13px;}
@@ -459,6 +479,16 @@
         <div class="sendbox" id="sendBox"></div>
         <div class="sendout" id="sendOut"></div>
         <div class="gear-pick" id="gearPick" hidden></div>
+      </div>
+
+      <div class="dot-card q-card reveal" id="roomCard" style="margin-top:14px;">
+        <h3 class="pixel">내 방 <span id="roomRank" style="font-weight:700;color:var(--ink-soft);font-size:12px;"></span></h3>
+        <p class="msg" style="margin:0 0 8px;">금화로 사서 벽에 걸고 바닥에 놓아요. 놓인 것을 눌러 집으면 자리를 옮길 수 있어요.</p>
+        <div class="room-stage"><canvas id="roomCanvas" width="640" height="400"
+             aria-label="내 방. 아래에서 물건을 고르고 방의 빈자리를 눌러 놓아요."></canvas></div>
+        <button type="button" class="dot-btn small" id="roomRest" hidden></button>
+        <div class="msg" id="roomMsg"></div>
+        <div class="room-tray" id="roomTray"></div>
       </div>
 
       <div class="dot-card q-card reveal">
