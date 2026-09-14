@@ -164,6 +164,7 @@ const MENU = [
   // 일곱이면 좁은 화면에서 한 줄이 넘친다.
   // 놀이는 한 자리에 모았다 — 한 번 눌러 뛰기·지뢰찾기·모험단 (2026-09-12)
   { href: '/games.html',    label: '게임',      key: 'games' },
+  { href: '/honors.html',   label: '업적 전시실', key: 'honors' },   // 현실의 상장·급수·처음 해낸 것 (2026-09-14)
   { href: '/farm.html',     label: '수아연아 농장',   key: 'farm' },
 ];
 

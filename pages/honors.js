@@ -1,4 +1,4 @@
-// honors.html 의 페이지 스크립트 — 자랑 저장고.
+// honors.html 의 페이지 스크립트 — 업적 전시실.
 // 싣는 순서: supabase → pixel → common → 이 파일.
 /* 학교·학원에서 받은 상장, 차근차근 올라간 급수, 처음 해낸 일을 아이마다 모아 전시한다(2026-09-14).
    모험단 보물 저장고와는 따로다 — 게임 보상과 잇지 않는다(상을 받는 일이 게임 점수가 되지 않게).
@@ -393,10 +393,25 @@ function shellCv(color, yr){
     g.fillRect(Math.round(p.x - 14), Math.round(p.y - 3), 12, 1); g.fillRect(Math.round(p.x + 2), Math.round(p.y + 2), 12, 1);
     if (prand('k' + i + ':' + j) < 0.18){ g.fillStyle = '#8a5a34'; g.fillRect(Math.round(p.x + (prand('kx' + i + j) - 0.5) * 20), Math.round(p.y + (prand('ky' + i + j) - 0.5) * 8), 2, 1); }
   }
-  // 창빛 — 왼쪽 벽 앞 바닥에 비스듬한 밝은 조각
-  g.save(); g.globalCompositeOperation = 'lighter';
-  for (let k = 0; k < 40; k++){ const p = tileXY(0.3 + k / 40 * 1.8, 1.1 + k / 40 * 1.8); g.fillStyle = 'rgba(255,240,200,' + (0.05 + 0.05 * (1 - k / 40)).toFixed(3) + ')'; g.fillRect(Math.round(p.x - 30), Math.round(p.y), 60, 2); }
-  g.restore();
+  // 창빛 — 창을 바닥에 투영한 평행사변형. 바닥 좌표(i, j)로 판정해서 타일 격자를 따라 눕는다.
+  // 창은 왼쪽 벽 u = W.u..W.u+W.w 에 있으니 j 는 그 범위(u/28), 빛은 방 안쪽(i)으로 들어오며 해가 비껴서 j 가 i 를 따라 밀린다.
+  // 창살 자리(세로 창살 j, 가로 창살 i)에는 그늘 줄. (처음엔 화면 가로 띠를 쌓아서 바닥에 안 붙어 보였다 — 부모가 잡았다.)
+  {
+    const j0 = W.u / 28, j1 = (W.u + W.w) / 28, jm = (W.u + 29) / 28, i0 = 0.12, i1 = 2.3, im = 1.25, skew = 0.32;
+    const box = [tileXY(i0, j0), tileXY(i1, j0 + i1 * skew), tileXY(i1, j1 + i1 * skew), tileXY(i0, j1)];
+    const x0 = Math.floor(Math.min(...box.map(p => p.x))), x1 = Math.ceil(Math.max(...box.map(p => p.x)));
+    const y0 = Math.floor(Math.min(...box.map(p => p.y))), y1 = Math.ceil(Math.max(...box.map(p => p.y)));
+    g.save(); g.globalCompositeOperation = 'lighter';
+    for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2){
+      const cx = x + 1, cy = y + 1;
+      const i = ((cx - FX) / 28 + (cy - FY) / 14) / 2, j = ((cy - FY) / 14 - (cx - FX) / 28) / 2 - i * skew;
+      if (i < i0 || i >= i1 || j < j0 || j >= j1) continue;
+      const bar = Math.abs(j - jm) < 0.05 || Math.abs(i - im) < 0.05;
+      const a = (bar ? 0.04 : 0.16) * (1 - (i - i0) / (i1 - i0) * 0.55);
+      g.fillStyle = 'rgba(255,240,200,' + a.toFixed(3) + ')'; g.fillRect(x, y, 2, 2);
+    }
+    g.restore();
+  }
   // 아이 색 양탄자 — 학년도 무늬
   const rug = tileXY(5.9, 3.1);
   for (let k = -27; k <= 27; k++){
@@ -655,7 +670,7 @@ function tabBtn(label, on, extra, fn){
 function render(){
   const note = $('#honorNote');
   note.hidden = !missing;
-  note.textContent = missing ? '자랑 저장고를 준비하는 중이에요. 곧 열려요.' : '';
+  note.textContent = missing ? '업적 전시실를 준비하는 중이에요. 곧 열려요.' : '';
   $('#adminBar').hidden = !isAdmin || missing;
   const kt = $('#kidTabs'); kt.innerHTML = '';
   KIDS.forEach(k => kt.appendChild(tabBtn(heroName(k) + ' ' + mineOf(k).length, k === kid, k, () => { kid = k; year = 'all'; say(''); render(); })));
@@ -667,7 +682,7 @@ function render(){
   const list = inYear(mineOf(kid));
   const nA = list.filter(r => r.kind === 'award').length, nF = list.filter(r => r.kind === 'first').length;
   const nT = ladderTracks(mineOf(kid)).length;
-  $('#roomTitle').textContent = heroName(kid) + '의 자랑 저장고' + (year === 'all' ? '' : ' · ' + year + '학년도');
+  $('#roomTitle').textContent = heroName(kid) + '의 업적 전시실' + (year === 'all' ? '' : ' · ' + year + '학년도');
   $('#roomSub').textContent = '🏅 상장·메달 ' + nA + ' · 🪜 급수 ' + nT + '가지 · ⭐ 처음 해낸 것 ' + nF + ' — 액자·사다리·진열대를 누르면 사진이 열려요';
   const tools = $('#roomTools'); tools.innerHTML = '';
   if (!missing && list.length){
@@ -1277,7 +1292,7 @@ function yearCard(list){
     g.fillText(fmtDate(r.got_on) + (r.org ? ' · ' + fitText(g, r.org, 60) : ''), cx, cy + 77);
   });
   if (list.length > CARD_MAX){ g.fillStyle = '#7a6a58'; g.font = '700 10px ' + FONT; g.fillText('… 그리고 앞서 받은 ' + (list.length - CARD_MAX) + '개 더', CARD_W / 2, top + 4 * cellH + 2); }
-  g.fillStyle = '#7a6a58'; g.font = '700 9px ' + FONT; g.fillText('www.suayona.com · 자랑 저장고 · ' + fmtDate(todayStr()), CARD_W / 2, CARD_H - 24);
+  g.fillStyle = '#7a6a58'; g.font = '700 9px ' + FONT; g.fillText('www.suayona.com · 업적 전시실 · ' + fmtDate(todayStr()), CARD_W / 2, CARD_H - 24);
   return c;
 }
 function openYearCard(list){
@@ -1305,7 +1320,7 @@ function printSheet(list){
   sheet.innerHTML = '';
   const h = document.createElement('h1'); h.textContent = heroName(kid) + '의 ' + label; sheet.appendChild(h);
   const sub = document.createElement('p'); sub.className = 'ps-sub';
-  sub.textContent = '수아랑 연아랑 자랑 저장고 · ' + fmtDate(todayStr()) + ' 뽑음'; sheet.appendChild(sub);
+  sub.textContent = '수아랑 연아랑 업적 전시실 · ' + fmtDate(todayStr()) + ' 뽑음'; sheet.appendChild(sub);
   ['award', 'level', 'first'].forEach(kd => {
     const part = list.filter(r => r.kind === kd).slice().sort((a, b) => a.got_on < b.got_on ? -1 : 1);
     if (!part.length) return;
