@@ -12,7 +12,6 @@
    · 급수 사다리의 빈 윗칸에 아이가 「다음 목표」를 적는다(honor_goals). 그 단계가 올라오면 이룬 것이 된다.
    · 손님이 자랑마다 박수를 남긴다(honor_claps, 방명록 도장과 같은 홍수 방지). 한 브라우저에서 한 자랑에 한 번.
    · 아이가 제 자랑에 그날의 소감 목소리를 붙인다(honor_voice). 목소리 일기와 같은 녹음기·폴더.
-   · 부모가 올릴 때 가리기 전 원본을 비공개 버킷(family-private)에 따로 둔다 — 가족만 서명 주소로 연다.
    · 아이가 진열대 천 색·조명 색을 고른다(honor_prefs). */
 
 buildChrome('honors');
@@ -31,18 +30,16 @@ const LOOK = {
 };
 const LEVEL_COLOR = '#57b98a';               // 색을 안 고른 급수
 const PHOTO_DIM = 2000;                      // 올리는 사진의 긴 변
-const PHOTO_LIMIT = 3 * 1024 * 1024;
+const PHOTO_LIMIT = Math.round(1.5 * 1024 * 1024);   // 눌러 크게 볼 사진은 1.5MB 안으로 줄여 올린다
 const THUMB_LONG = 400;
 
-const PRIVATE_BUCKET = 'family-private';      // 가리기 전 원본 — 공개 주소가 없는 버킷
-const ORIG_LIMIT = 10 * 1024 * 1024;
 const CLOTH = { cream: '#f1e3c6', red: '#c0392b', blue: '#3a63b0', green: '#3f9a63', purple: '#7a4fa8', night: '#2f3242' };
 const CLOTH_NAME = { cream: '크림', red: '빨강 벨벳', blue: '파랑', green: '초록', purple: '보라', night: '까만 밤' };
 const LAMP = { warm: [255, 230, 170], white: [235, 240, 255], pink: [255, 190, 215], mint: [190, 245, 220] };
 const LAMP_NAME = { warm: '따뜻한 노랑', white: '하얀 빛', pink: '분홍', mint: '민트' };
 
 let rows = [], kid = 'sua', year = 'all', missing = false;
-let goals = [], claps = {}, prefs = {}, origs = {};   // 다음 목표 · 박수 수 · 진열대 꾸밈 · 원본(가족만)
+let goals = [], claps = {}, prefs = {};   // 다음 목표 · 박수 수 · 진열대 꾸밈
 let wantItem = Number(new URLSearchParams(location.search).get('item')) || 0;   // ?item= 으로 들어오면 그것부터 연다
 {
   const q = new URLSearchParams(location.search);
@@ -99,16 +96,14 @@ async function load(){
 
 // 곁표들 — 하나가 없거나 막혀도 저장고는 그려진다
 async function loadExtras(){
-  const [g, c, pf, og] = await Promise.all([
+  const [g, c, pf] = await Promise.all([
     sb.from('honor_goals').select('*'),
     sb.rpc('honor_clap_counts'),
     sb.from('honor_prefs').select('*'),
-    isLoggedIn ? sb.from('honor_originals').select('honor_id, path') : Promise.resolve({ data: null }),
   ]);
   goals = g.data || [];
   claps = {}; (c.data || []).forEach(x => { claps[x.honor_id] = Number(x.n) || 0; });
   prefs = {}; (pf.data || []).forEach(x => { prefs[x.who] = x; });
-  origs = {}; (og.data || []).forEach(x => { origs[x.honor_id] = x.path; });
 }
 
 // ---------- 도트 그림 ----------
@@ -768,7 +763,6 @@ function cardOf(r){
   if (isAdmin) act('✎ 고치기', () => openForm(r));
   if (mine) act('💬 한마디', () => openSay(r));
   if (mine || isAdmin) act(r.audio_url ? '🎙 목소리 바꾸기' : '🎙 목소리', () => openVoice(r));
-  if (isLoggedIn && origs[r.id]) act('🔒 원본', () => viewOriginal(r));
   if (acts.children.length) body.appendChild(acts);
   el.append(pic, body);
   return el;
@@ -828,9 +822,18 @@ function mosaicEditor(stage, onChange){
     view.addEventListener('pointerup', end); view.addEventListener('pointercancel', end);
     paint();
   }
+  // 한도를 넘어도 막지 않는다 — 화질을 낮추고, 그래도 넘으면 크기를 줄여서 반드시 한도 안에 넣는다
   async function jpeg(c, limit){
-    let q = 0.88, blob = await new Promise(r => c.toBlob(r, 'image/jpeg', q));
-    while (blob && blob.size > limit && q > 0.5){ q -= 0.08; blob = await new Promise(r => c.toBlob(r, 'image/jpeg', q)); }
+    const enc = (cv, q) => new Promise(r => cv.toBlob(r, 'image/jpeg', q));
+    let cv = c, q = 0.88, blob = await enc(cv, q);
+    while (blob && blob.size > limit && q > 0.5){ q -= 0.08; blob = await enc(cv, q); }
+    while (blob && blob.size > limit && Math.max(cv.width, cv.height) > 480){
+      const t = document.createElement('canvas');
+      t.width = Math.max(1, Math.round(cv.width * 0.85)); t.height = Math.max(1, Math.round(cv.height * 0.85));
+      const tg = t.getContext('2d'); tg.imageSmoothingEnabled = true; tg.imageSmoothingQuality = 'high';
+      tg.drawImage(cv, 0, 0, t.width, t.height);
+      cv = t; blob = await enc(cv, 0.72);
+    }
     return blob;
   }
   return {
@@ -868,27 +871,6 @@ async function dropFiles(paths){
   if (!ok.length) return;
   try { await sb.storage.from(MEDIA_BUCKET).remove(ok); } catch (e) { /* 파일 정리는 못 해도 글은 이미 바뀌었다 */ }
 }
-// 가리기 전 원본 — 비공개 버킷. 공개 주소가 없어서 보려면 서명 주소를 받아야 한다.
-async function uploadOriginal(file){
-  const ext = (file.name.match(/\.(jpe?g|png|heic|heif|webp|gif)$/i) || ['', 'jpg'])[1].toLowerCase();
-  const path = 'suayona/honor-orig/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
-  const up = await sb.storage.from(PRIVATE_BUCKET).upload(path, file);
-  if (up.error) throw up.error;
-  return path;
-}
-async function dropPrivate(paths){
-  const ok = paths.filter(Boolean);
-  if (!ok.length) return;
-  try { await sb.storage.from(PRIVATE_BUCKET).remove(ok); } catch (e) { /* 파일 정리는 못 해도 줄은 이미 바뀌었다 */ }
-}
-async function viewOriginal(r){
-  const path = origs[r.id]; if (!path) return;
-  say('🔒 원본을 여는 중…');
-  const { data, error } = await sb.storage.from(PRIVATE_BUCKET).createSignedUrl(path, 120);
-  if (error || !data || !data.signedUrl){ say('원본을 열지 못했어요: ' + readableError(error || new Error('가족만 열 수 있어요'))); return; }
-  say('🔒 ' + r.title + ' — 가리기 전 원본 (가족만 보여요)');
-  lightbox.open([{ media_url: data.signedUrl, media_type: 'image', caption: '🔒 ' + captionOf(r) + ' — 원본' }], 0);
-}
 
 // ---------- 부모: 올리기 · 고치기 ----------
 function openForm(r){
@@ -920,7 +902,6 @@ function openForm(r){
       '<label class="field">사진 (선택)</label>' +
       '<div class="photo-now"></div>' +
       '<input type="file" class="fFile" accept="image/*" aria-label="사진 고르기">' +
-      '<label class="keep-orig" hidden><input type="checkbox" class="fKeepOrig" checked> 🔒 가리기 전 원본도 가족 보관함에 넣기 <small>(비공개 버킷 · 가족만 열어요)</small></label>' +
       '<div class="mosaic" hidden>' +
         '<p class="mz-help">이름·학교·반·선생님 이름처럼 가릴 곳을 <b>끌어서 네모</b>로 골라요. 가린 사본만 올라가고 원본은 이 기기 밖으로 안 나가요.</p>' +
         '<div class="mz-stage"></div>' +
@@ -974,16 +955,14 @@ function openForm(r){
 
   // 사진
   const mz = mosaicEditor(q('.mz-stage'), n => { q('.mz-count').textContent = n ? '가린 곳 ' + n + '군데' : '아직 가린 곳이 없어요'; });
-  let removePhoto = false, rawFile = null, dropOrig = false;
+  let removePhoto = false;
   const now = q('.photo-now');
   if (r && r.photo_url){
     now.innerHTML = '<img alt="지금 올라가 있는 사진">' +
       '<label><input type="checkbox" class="fNoPhoto"> 사진 빼기</label>' +
-      (origs[r.id] ? '<label><input type="checkbox" class="fNoOrig"> 🔒 보관한 원본 빼기</label>' : '') +
       '<button type="button" class="dot-btn small fReMask">이 사진 다시 가리기</button>';
     now.querySelector('img').src = r.thumb_url || r.photo_url;
     now.querySelector('.fNoPhoto').addEventListener('change', e => { removePhoto = e.target.checked; });
-    if (now.querySelector('.fNoOrig')) now.querySelector('.fNoOrig').addEventListener('change', e => { dropOrig = e.target.checked; });
     now.querySelector('.fReMask').addEventListener('click', async e => {
       e.target.disabled = true; q('.fMsg').textContent = '사진을 불러오는 중…';
       try {
@@ -997,12 +976,8 @@ function openForm(r){
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     const url = URL.createObjectURL(f);
-    try {
-      mz.setImage(await loadImage(url)); q('.mosaic').hidden = false; q('.fMsg').textContent = '';
-      rawFile = f; q('.keep-orig').hidden = false;
-      if (f.size > ORIG_LIMIT){ q('.fKeepOrig').checked = false; q('.fKeepOrig').disabled = true; q('.keep-orig').append(' — 10MB 가 넘어 원본은 못 넣어요'); }
-    }
-    catch (err) { q('.fMsg').textContent = '이 파일은 사진으로 읽지 못했어요.'; rawFile = null; q('.keep-orig').hidden = true; }
+    try { mz.setImage(await loadImage(url)); q('.mosaic').hidden = false; q('.fMsg').textContent = ''; }
+    catch (err) { q('.fMsg').textContent = '이 파일은 사진으로 읽지 못했어요.'; }
     finally { URL.revokeObjectURL(url); }
   });
   q('.mzMode').addEventListener('change', e => mz.setMode(e.target.value));
@@ -1038,23 +1013,6 @@ function openForm(r){
       // 막힌 고치기는 오류 없이 0줄로 끝난다 — 돌려받은 줄 수로 확인한다
       const res = r ? await sb.from('honors').update(row).eq('id', r.id).select('id') : await sb.from('honors').insert(row).select('id');
       if (res.error || !(res.data && res.data.length)) throw res.error || new Error('저장 권한이 없어요');
-      const id = res.data[0].id;
-      // 원본은 줄이 저장된 뒤에 넣는다 — 실패해도 가린 사진은 이미 올라가 있다
-      const keepOrig = rawFile && q('.fKeepOrig').checked && rawFile.size <= ORIG_LIMIT;
-      if (keepOrig || (r && (removePhoto || dropOrig || keepOrig))){
-        const old = r ? origs[r.id] : null;
-        if (keepOrig){
-          try {
-            const path = await uploadOriginal(rawFile);
-            const o = await sb.from('honor_originals').upsert({ honor_id: id, path }).select('honor_id');
-            if (o.error || !(o.data && o.data.length)){ await dropPrivate([path]); throw o.error || new Error('원본 보관 권한이 없어요'); }
-            if (old && old !== path) await dropPrivate([old]);
-          } catch (e) { say('저장은 됐지만 원본은 못 넣었어요: ' + readableError(e)); }
-        } else if (old){
-          await sb.from('honor_originals').delete().eq('honor_id', id);
-          await dropPrivate([old]);
-        }
-      }
     } catch (err) {
       await dropFiles(fresh);
       msg.textContent = '저장하지 못했어요: ' + readableError(err);
@@ -1072,7 +1030,6 @@ function openForm(r){
     const res = await sb.from('honors').delete().eq('id', r.id).select('id');
     if (res.error || !(res.data && res.data.length)){ q('.fMsg').textContent = '지우지 못했어요: ' + readableError(res.error || new Error('권한이 없어요')); return; }
     await dropFiles([pathOfUrl(r.photo_url), pathOfUrl(r.thumb_url), pathOfUrl(r.audio_url)]);
-    if (origs[r.id]) await dropPrivate([origs[r.id]]);            // 줄은 딸려 지워졌고 파일만 치운다
     close();
     await load();
     say('저장고에서 뺐어요.');

@@ -1638,7 +1638,8 @@ begin
   if not found then raise exception '내 자랑에만 한마디를 쓸 수 있어요'; end if;
 end
 $$;
-revoke all on function public.honor_say(bigint, text) from public;
+-- 기본 권한이 함수마다 anon 에게 EXECUTE 를 따로 주므로 「public 에서 거둠」만으로는 안 빠진다 — anon 도 명시해서 거둔다
+revoke execute on function public.honor_say(bigint, text) from anon, public;
 grant execute on function public.honor_say(bigint, text) to authenticated;
 
 -- 아이가 제 자랑에 그날의 소감 목소리를 붙인다(뗄 때는 빈 주소). 한마디와 같은 울타리.
@@ -1660,7 +1661,7 @@ begin
   if not found then raise exception '내 자랑에만 목소리를 붙일 수 있어요'; end if;
 end
 $$;
-revoke all on function public.honor_voice(bigint, text, integer) from public;
+revoke execute on function public.honor_voice(bigint, text, integer) from anon, public;
 grant execute on function public.honor_voice(bigint, text, integer) to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -1711,6 +1712,7 @@ begin
   end if;
   return new;
 end $$;
+revoke execute on function public.honor_claps_rate_guard() from anon, authenticated, public;   -- 트리거로만 돈다
 drop trigger if exists honor_claps_rate on public.honor_claps;
 create trigger honor_claps_rate before insert on public.honor_claps
   for each row execute function public.honor_claps_rate_guard();
@@ -1740,36 +1742,8 @@ drop policy if exists "parent decorates stands" on public.honor_prefs;
 create policy "parent decorates stands" on public.honor_prefs for all to authenticated
   using ((select public.my_role()) = 'parent') with check ((select public.my_role()) = 'parent');
 
--- ---------------------------------------------------------------------------
--- 상장 원본 보관 — 가리기 전 원본은 공개 버킷이 아니라 비공개 버킷에 둔다.
--- 공개 버킷은 주소만 알면 누구나 여니, 「가족만」은 버킷부터 달라야 한다.
--- 파일을 보려면 서명 주소를 받아야 하고, 그 주소는 읽기 정책이 있는 가족만 받는다.
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-  values ('family-private', 'family-private', false, 10485760, array['image/*'])
-  on conflict (id) do nothing;
-drop policy if exists "family reads private files" on storage.objects;
-create policy "family reads private files" on storage.objects for select to authenticated
-  using (bucket_id = 'family-private' and (select public.my_role()) is not null);
-drop policy if exists "parent keeps private files" on storage.objects;
-create policy "parent keeps private files" on storage.objects for insert to authenticated
-  with check (bucket_id = 'family-private' and (select public.my_role()) = 'parent');
-drop policy if exists "parent drops private files" on storage.objects;
-create policy "parent drops private files" on storage.objects for delete to authenticated
-  using (bucket_id = 'family-private' and (select public.my_role()) = 'parent');
--- 어느 자랑에 원본이 있는지는 따로 적는다 — honors 는 누구나 읽는 표라, 손님은 원본이 있다는 것조차 모르게.
-create table if not exists public.honor_originals (
-  honor_id   bigint primary key references public.honors(id) on delete cascade,
-  path       text not null check (path like 'suayona/honor-orig/%'),
-  created_at timestamptz not null default now()
-);
-alter table public.honor_originals enable row level security;
-drop policy if exists "family sees originals" on public.honor_originals;
-create policy "family sees originals" on public.honor_originals for select to authenticated
-  using ((select public.my_role()) is not null);
-drop policy if exists "parent keeps originals" on public.honor_originals;
-create policy "parent keeps originals" on public.honor_originals for all to authenticated
-  using ((select public.my_role()) = 'parent') with check ((select public.my_role()) = 'parent');
-
+-- (한때 「가리기 전 원본을 비공개 버킷에 보관」을 만들어 적용했다가 같은 날 뺐다 — 부모가 필요 없다고 했다.
+--  family-private 버킷·honor_originals 표·정책은 비어 있을 때 지웠다. 사진은 가린 사본 하나만, 1.5MB 안으로.)
 
 -- =====================================================================
 -- 2026-09-14 — 편지쓰기 페이지를 뺐다. 받을 곳이 없어졌으니 손님 「넣기」 문도 닫는다.
