@@ -721,7 +721,8 @@ function renderRoom(sec, k){
   const nA = list.filter(r => r.kind === 'award').length, nF = list.filter(r => r.kind === 'first').length;
   const nT = ladderTracks(mineOf(k)).length;
   q('.room-title').textContent = heroName(k) + '의 업적 전시실' + (year === 'all' ? '' : ' · ' + year + '학년도');
-  q('.room-sub').textContent = '🏅 상장·메달 ' + nA + ' · 🪜 급수 ' + nT + '가지 · ⭐ 처음 해낸 것 ' + nF + ' — 액자·사다리·진열대를 누르면 사진이 열려요';
+  // 셈은 한 줄, 안내는 그 아래 줄 — 폰에서 「액자…」가 어중간하게 접혔다
+  q('.room-sub').innerHTML = '🏅 상장·메달 ' + nA + ' · 🪜 급수 ' + nT + '가지 · ⭐ 처음 해낸 것 ' + nF + '<br>액자·사다리·진열대를 누르면 사진이 열려요';
   const tools = q('.room-tools'); tools.innerHTML = '';
   if (!missing && list.length){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small';
