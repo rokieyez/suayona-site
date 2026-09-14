@@ -112,18 +112,17 @@ function clapped(id){ try { return localStorage.getItem(clapKey(id)) === '1'; } 
 
 // ---------- 불러오기 ----------
 async function load(){
-  const { data, error } = await sb.from('honors').select('*')
-    .order('got_on', { ascending: false }).order('id', { ascending: false });
+  // 표 넷(honors·goals·prefs·박수 수)을 honor_board() 한 번으로 받는다 — 전엔 왕복 4번
+  const { data, error } = await sb.rpc('honor_board');
   if (error){
-    // 표가 아직 없으면(서버 쪽 준비 전) 빈 전시관 대신 그렇다고 말한다
-    missing = /honors|42P01|PGRST205|schema cache/i.test((error.code || '') + ' ' + (error.message || ''));
+    // 함수·표가 아직 없으면(서버 쪽 준비 전) 빈 전시관 대신 그렇다고 말한다
+    missing = /honor_board|honors|42P01|42883|PGRST20[25]|schema cache/i.test((error.code || '') + ' ' + (error.message || ''));
     rows = [];
     if (!missing) say('불러오지 못했어요: ' + readableError(error));
   } else {
     missing = false;
-    rows = data || [];
+    takeBoard(data);
   }
-  if (!missing) await loadExtras();
   // 메뉴 「업적 전시실」의 새 자랑 점 — 여기까지 본 것을 적어 두면 점이 사라진다(common.js markNewHonors)
   try {
     const latest = rows.reduce((m, r) => r.created_at > m ? r.created_at : m, '');
@@ -145,15 +144,13 @@ async function load(){
 }
 
 // 곁표들 — 하나가 없거나 막혀도 전시실은 그려진다
-async function loadExtras(){
-  const [g, c, pf] = await Promise.all([
-    sb.from('honor_goals').select('*'),
-    sb.rpc('honor_clap_counts'),
-    sb.from('honor_prefs').select('*'),
-  ]);
-  goals = g.data || [];
-  claps = {}; (c.data || []).forEach(x => { claps[x.honor_id] = Number(x.n) || 0; });
-  prefs = {}; (pf.data || []).forEach(x => { prefs[x.who] = x; });
+// honor_board() 가 준 한 덩이를 나눠 담는다. 서버가 got_on·id 내림차순으로 준다.
+function takeBoard(b){
+  b = b || {};
+  rows = Array.isArray(b.honors) ? b.honors : [];
+  goals = Array.isArray(b.goals) ? b.goals : [];
+  claps = {}; Object.keys(b.claps || {}).forEach(id => { claps[id] = Number(b.claps[id]) || 0; });
+  prefs = {}; (Array.isArray(b.prefs) ? b.prefs : []).forEach(x => { prefs[x.who] = x; });
 }
 
 // ---------- 도트 그림 ----------

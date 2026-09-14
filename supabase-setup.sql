@@ -1752,34 +1752,46 @@ drop policy if exists "anyone can insert messages" on public.messages;
 
 
 -- =====================================================================
--- 2026-09-14 밤 마무리작업에서 적어 둔 제안 — **아직 미적용** (부모 허락 뒤에)
--- 1) 성능 어드바이저: honors·honor_goals·honor_prefs 에 같은 역할·같은 동작의 허용 정책이 둘씩 겹친다
---    (읽기 정책 + 「for all」 쓰기 정책). 매 조회마다 둘 다 돌므로 쓰기 정책을 insert/update/delete 로 쪼개 읽기는 하나만 남긴다.
--- 2) 전시실 첫 화면이 표 넷을 따로 부른다(honors·clap_counts·goals·prefs = 왕복 4번). 한 함수로 묶으면 1번.
---
--- drop policy if exists "parent writes honors" on public.honors;
--- create policy "parent adds honors"   on public.honors for insert to authenticated with check ((select public.my_role()) = 'parent');
--- create policy "parent edits honors"  on public.honors for update to authenticated using ((select public.my_role()) = 'parent') with check ((select public.my_role()) = 'parent');
--- create policy "parent drops honors"  on public.honors for delete to authenticated using ((select public.my_role()) = 'parent');
--- drop policy if exists "child sets own honor goal" on public.honor_goals;
--- drop policy if exists "parent sets honor goals"   on public.honor_goals;
--- create policy "family sets honor goals" on public.honor_goals for insert to authenticated
---   with check ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
--- create policy "family fixes honor goals" on public.honor_goals for update to authenticated
---   using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())))
---   with check ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
--- create policy "family drops honor goals" on public.honor_goals for delete to authenticated
---   using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
--- (honor_prefs 도 같은 꼴로)
--- create or replace function public.honor_board()
--- returns jsonb language sql stable set search_path = public as $$
---   select jsonb_build_object(
---     'honors', (select coalesce(jsonb_agg(h order by h.got_on desc, h.id desc), '[]') from honors h),
---     'goals',  (select coalesce(jsonb_agg(g), '[]') from honor_goals g),
---     'prefs',  (select coalesce(jsonb_agg(p), '[]') from honor_prefs p),
---     'claps',  (select coalesce(jsonb_object_agg(honor_id, n), '{}') from (select honor_id, count(*) n from honor_claps group by honor_id) c))
--- $$;
--- grant execute on function public.honor_board() to anon, authenticated;
+-- 2026-09-14 밤 마무리작업 제안 → 2026-09-15 허락 받고 적용 (마이그레이션 honors_policy_split_and_board)
+-- 1) 성능 어드바이저: honors·honor_goals·honor_prefs 에 같은 역할·같은 동작의 허용 정책이 둘씩 겹쳤다
+--    (읽기 정책 + 「for all」 쓰기 정책 → 매 조회마다 둘 다 돈다). 쓰기를 insert/update/delete 로 쪼개 읽기는 하나만 남긴다.
+--    적용 뒤 겹침 경고 13 → 0.
+drop policy if exists "parent writes honors" on public.honors;
+create policy "parent adds honors"  on public.honors for insert to authenticated with check ((select public.my_role()) = 'parent');
+create policy "parent edits honors" on public.honors for update to authenticated using ((select public.my_role()) = 'parent') with check ((select public.my_role()) = 'parent');
+create policy "parent drops honors" on public.honors for delete to authenticated using ((select public.my_role()) = 'parent');
+
+drop policy if exists "child sets own honor goal" on public.honor_goals;
+drop policy if exists "parent sets honor goals"   on public.honor_goals;
+create policy "family sets honor goals" on public.honor_goals for insert to authenticated
+  with check ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
+create policy "family fixes honor goals" on public.honor_goals for update to authenticated
+  using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())))
+  with check ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
+create policy "family drops honor goals" on public.honor_goals for delete to authenticated
+  using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
+
+drop policy if exists "child decorates own stands" on public.honor_prefs;
+drop policy if exists "parent decorates stands"    on public.honor_prefs;
+create policy "family sets honor prefs" on public.honor_prefs for insert to authenticated
+  with check ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
+create policy "family fixes honor prefs" on public.honor_prefs for update to authenticated
+  using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())))
+  with check ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
+create policy "family drops honor prefs" on public.honor_prefs for delete to authenticated
+  using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
+
+-- 2) 전시실 첫 화면이 표 넷을 따로 불렀다(honors·clap_counts·goals·prefs = 왕복 4번). 한 함수로 묶어 1번.
+--    RLS 는 부르는 쪽 것을 따른다(invoker) — 누구나 읽는 표들이라 anon 도 부른다. honor_clap_counts 는 그대로 둔다.
+create or replace function public.honor_board()
+returns jsonb language sql stable set search_path = public as $$
+  select jsonb_build_object(
+    'honors', (select coalesce(jsonb_agg(to_jsonb(h) order by h.got_on desc, h.id desc), '[]') from honors h),
+    'goals',  (select coalesce(jsonb_agg(to_jsonb(g)), '[]') from honor_goals g),
+    'prefs',  (select coalesce(jsonb_agg(to_jsonb(p)), '[]') from honor_prefs p),
+    'claps',  (select coalesce(jsonb_object_agg(honor_id, n), '{}') from (select honor_id, count(*) n from honor_claps group by honor_id) c))
+$$;
+grant execute on function public.honor_board() to anon, authenticated;
 
 
 -- =====================================================================
