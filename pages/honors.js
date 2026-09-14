@@ -372,7 +372,9 @@ function shellCv(color, yr){
   // 오른쪽 벽 앞 — 유리 진열장 몸통 (물건과 유리는 살아서 그린다)
   const sc = SC, wood = '#8a5a34';
   faceTop(g, 1, sc.u0 - 3, sc.u1 + 3, sc.v0 - 2, 0, sc.d, 'rgba(40,24,10,.2)');
-  faceEnd(g, 1, sc.u0 - 3, sc.v0, sc.v1 - sc.v0, 0, sc.d, shade(wood, -40));
+  // 옆면은 벽을 따라 멀리 있는 쪽(u1)이 보인다 — u0 쪽 옆면은 앞면 뒤에 숨는다(처음엔 u0 쪽만 그려서 옆이 뚫려 보였다)
+  faceEnd(g, 1, sc.u1 + 2, sc.v0 - 2, sc.v1 - sc.v0 + 2, 0, sc.d, shade(wood, -40));
+  faceEnd(g, 1, sc.u1 + 2, sc.v0 - 2, 1, 0, sc.d, shade(wood, -10));
   faceTop(g, 1, sc.u0 - 3, sc.u1 + 3, sc.v0 - 2, 0, sc.d, shade(wood, 26));
   faceTop(g, 1, sc.u0 - 3, sc.u1 + 3, sc.v0 - 2, sc.d - 0.06, sc.d, shade(wood, 50));
   wallRect(g, 1, sc.u0 - 3, sc.v0 - 2, sc.u1 - sc.u0 + 6, sc.v1 - sc.v0 + 2, shade(wood, -18), sc.d);     // 앞 틀
