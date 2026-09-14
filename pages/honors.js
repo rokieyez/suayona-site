@@ -20,7 +20,7 @@ const lightbox = createLightbox();
 const KIDS = ['sua', 'yona'];
 const KID_COLOR = { sua: '#ff7f8a', yona: '#6cc7b3' };   // 모험단 주인공 색과 같다
 const KIND_NAME = { title: '직함', award: '상장·메달', level: '급수', first: '처음 해낸 것' };
-// 직함 아이콘 — 어깨띠·역대 줄·홈 카드에 같이 쓴다
+// 직함 아이콘 — 금 배지 리본·역대 줄·홈 카드에 같이 쓴다
 const ICON_NAME = { crown: '왕관', star: '별', book: '책', spoon: '숟가락', flag: '깃발', note: '음표', ball: '공', heart: '하트' };
 const ICONS = {
   crown: ['g.....g', 'g.g.g.g', 'gg.g.gg', 'ggggggg', 'gyyyyyg', 'ggggggg'],
