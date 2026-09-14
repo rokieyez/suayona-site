@@ -706,7 +706,7 @@ function drawSparkle(g, x, y){
   const h = Math.max(1, L >> 1);
   g.fillRect(x - h, y - h, 1, 1); g.fillRect(x + h, y - h, 1, 1); g.fillRect(x - h, y + h, 1, 1); g.fillRect(x + h, y + h, 1, 1);
 }
-const hitKey = h => h.r ? (h.star ? 's' : h.hall ? 'h' : 'r') + h.r.id : 't' + h.t.track;
+const hitKey = h => h.kid ? 'kid' : h.r ? (h.star ? 's' : h.hall ? 'h' : 'r') + h.r.id : 't' + h.t.track;
 // 벽 층 — 껍데기와 벽에 거는 것(액자·핀·사다리·진열장·별자리·역대 직함)은 자료·학년도·시간대·날짜가 바뀔 때만 다시 굽는다.
 // 아이가 걸을 때마다(초당 25장, 두 방) 벽까지 새로 그리던 것을, 구운 벽 한 장 + 바닥 층만 그리게 줄였다(마무리작업 2026-09-15).
 // boardGen 은 honor_board 를 받을 때마다 오른다(takeBoard) — 저장·목표·꾸미기 뒤에는 늘 load() 를 거친다.
@@ -815,6 +815,8 @@ function drawMuseum(g, k){
     g.strokeStyle = 'rgba(255,217,121,.95)'; g.lineWidth = 1;
     g.strokeRect(Math.round(hv.x0) + 0.5, Math.round(hv.y0) + 0.5, Math.round(hv.x1 - hv.x0), Math.round(hv.y1 - hv.y0));
   }
+  const bub = bubbleOf[k], bs = bub && walkerSpot(k);                  // 아이 말풍선
+  if (bs) drawBubble(g, bs.x, bs.y - 42, bub.text);
 }
 function drawRoom(k){
   const cv = $('#museum-' + (k || kid)); if (!cv) return;
@@ -827,24 +829,27 @@ function hitAt(e, k){
   const rc = $('#museum-' + k).getBoundingClientRect();
   if (!rc.width) return null;
   const x = (e.clientX - rc.left) / rc.width * RW, y = (e.clientY - rc.top) / rc.height * RH;
+  const ks = walkerSpot(k);                                             // 아이가 맨 앞 — 누르면 이야기한다
+  if (ks && x >= ks.x - 14 && x < ks.x + 14 && y >= ks.y - 40 && y < ks.y + 3) return { kid: true, x0: ks.x - 14, x1: ks.x + 14, y0: ks.y - 40, y1: ks.y + 3 };
   // 앞에 그린 진열대가 이긴다
   return (hitsOf[k] || []).filter(h => x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1).sort((a, b) => (b.front || 0) - (a.front || 0))[0] || null;
 }
 // 마우스로 훑으면 누를 수 있는 것에 테가 둘리고 이름이 먼저 보인다(손가락에는 훑기가 없으니 누르기만)
 function wireCanvas(cv, k){
-  cv.dataset.kid = k; if (roomIO) roomIO.observe(cv);
+  cv.dataset.kid = k;
   cv.addEventListener('pointermove', e => {
     if (e.pointerType !== 'mouse') return;
     const h = hitAt(e, k), key = h ? k + ':' + hitKey(h) : null;
     if (key === hoverKey) return;
     hoverKey = key;
     cv.style.cursor = h ? 'pointer' : 'default';
-    withKid(k, () => { if (h) say(h.r ? captionOf(h.r) : ladderCaption(h.t)); drawRoom(k); });
+    withKid(k, () => { if (h) say(h.kid ? heroName(k) + '를 누르면 이야기해요' : h.r ? captionOf(h.r) : ladderCaption(h.t)); drawRoom(k); });
   });
   cv.addEventListener('pointerleave', () => { if (hoverKey){ hoverKey = null; drawRoom(k); } });
   cv.addEventListener('click', e => withKid(k, () => {
     const h = hitAt(e, k);
     if (!h){ say(''); return; }
+    if (h.kid){ kidTalk(k); return; }
     if (h.r){ openItem(h.r); return; }
     const shots = h.t.rows.filter(r => r.photo_url).slice().reverse();
     say(ladderCaption(h.t) + ' · ' + h.t.rows.map(r => r.title).join(' → '));
@@ -891,7 +896,9 @@ function buildRoom(k){
     '</div>' +
     '<div class="honor-list"></div>';
   // 비율은 스크립트가 직접 박는다 — HTML 만 옛것이 캐시되면 다른 비율 상자에 들어가 찌그러졌다(2026-09-14 밤, 폰에서 봄)
-  const cv = sec.querySelector('canvas');
+  // 방 캔버스는 이름(.museum)으로 집는다 — 직함 띠를 방 위에 넣은 뒤로 첫 canvas 가 띠가 되어,
+  // 방 비율이 띠에 붙어 띠가 세로로 찌그러지고, 누르기·훑기·보임 확인이 모두 띠에 걸려 방은 눌러도 안 열렸다(2026-09-15 부모가 잡음).
+  const cv = sec.querySelector('canvas.museum');
   cv.style.aspectRatio = RW + ' / ' + RH;
   wireCanvas(cv, k);
   return sec;
@@ -939,6 +946,7 @@ function renderRoom(sec, k){
   q('.room-paper').textContent = missing ? '' : roomYear() + '학년도 벽지 · ' + WALLPAPERS[((roomYear() % 4) + 4) % 4].name;
   drawSash(q('.title-sash'), k);
   drawRoom(k);
+  if (STILL && !greeted[k]){ greeted[k] = true; greetNew(k); }          // 움직임 줄이기면 루프가 없어 여기서 알린다
   renderList(list, q('.honor-list'), k);
 }
 function renderList(list, box, k){
@@ -1702,6 +1710,14 @@ function stepWalker(k, dt){
   }
   const di = w.ti - w.i, dj = w.tj - w.j, d = Math.hypot(di, dj);
   if (d < 0.02){
+    if (w.plan && w.plan.length){ const p = w.plan.shift(); w.ti = p.i; w.tj = p.j; return false; }   // 새 자랑 앞으로 가는 길
+    if (w.after){                                                         // 닿았다 — 돌아서서 알린다
+      const a = w.after; w.after = null; w.plan = null;
+      w.moving = false; w.dir = a.dir; w.flip = false; w.wait = a.hold;
+      kidSay(k, a.say, a.hold);
+      if (a.done) a.done();
+      return true;
+    }
     for (let n = 0; n < 16; n++){
       const s = walkFree();
       if (Math.hypot(s.i - w.i, s.j - w.j) > 1.2 && walkClear(w, s)){ w.ti = s.i; w.tj = s.j; break; }
@@ -1756,22 +1772,128 @@ function drawWalker(g, k, s){
   const c = kidSprite(k, w.dir, f, w.dir === 'side' && w.flip, dayPhase());
   g.drawImage(c, s.x - 15, s.y - 39, c.width / 2, c.height / 2);
 }
-// 방이 화면에 보일 때만 움직이고 그린다(할머니 폰 배터리)
+// ---------- 아이 말풍선 — 누르면 제 소감을 말하고(아이디어 5), 새 자랑이 오면 그 앞에 가서 알린다(아이디어 3) ----------
+const bubbleOf = { sua: null, yona: null }, bubbleTimer = {}, greeted = { sua: false, yona: false }, talkTurn = { sua: 0, yona: 0 };
+const BUB_FONT = '800 13px "Suayona Sans", Pretendard, system-ui, sans-serif';
+const short = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+function kidSay(k, text, ms){
+  const life = ms || 3000 + text.length * 70;
+  bubbleOf[k] = { text };
+  clearTimeout(bubbleTimer[k]);
+  bubbleTimer[k] = setTimeout(() => { bubbleOf[k] = null; drawRoom(k); }, life);   // 움직임 줄이기라 루프가 없어도 사라진다
+  drawRoom(k);
+}
+function bubbleLinesOf(g, text, maxW){
+  const out = [];
+  String(text).split('\n').forEach(para => {
+    let line = '';
+    for (const ch of para){
+      if (line && g.measureText(line + ch).width > maxW){ out.push(line); line = ch === ' ' ? '' : ch; }
+      else line += ch;
+    }
+    if (line) out.push(line);
+  });
+  if (out.length > 4){ out.length = 4; out[3] = out[3].slice(0, -1) + '…'; }
+  return out;
+}
+function drawBubble(g, cx, tipY, text){
+  g.save();
+  g.font = BUB_FONT; g.textBaseline = 'top'; g.textAlign = 'left';
+  const lines = bubbleLinesOf(g, text, 156);
+  const w = Math.ceil(Math.max(...lines.map(l => g.measureText(l).width))) + 12, h = lines.length * 16 + 8;
+  const x = Math.round(Math.max(2, Math.min(RW - w - 2, cx - w / 2))), y = Math.round(Math.max(2, tipY - h - 6));
+  const INK = '#2a2118', BG = '#fffaf0';
+  g.fillStyle = INK; g.fillRect(x + 2, y, w - 4, h); g.fillRect(x, y + 2, w, h - 4);   // 테 — 모서리를 한 도트 깎는다
+  g.fillStyle = BG; g.fillRect(x + 2, y + 2, w - 4, h - 4);
+  const tx = Math.round(Math.max(x + 6, Math.min(x + w - 12, cx - 3)));                  // 꼬리는 아이 머리를 가리킨다
+  g.fillStyle = INK; g.fillRect(tx - 2, y + h - 2, 10, 2); g.fillRect(tx, y + h, 6, 2); g.fillRect(tx + 2, y + h + 2, 2, 2);
+  g.fillStyle = BG; g.fillRect(tx, y + h - 2, 6, 2); g.fillRect(tx + 2, y + h, 2, 2);
+  g.fillStyle = INK; lines.forEach((l, i) => g.fillText(l, x + 6, y + 5 + i * 16));
+  g.restore();
+}
+// 아이를 누르면 — 제가 적은 소감을 돌아가며 말한다. 소감이 없으면 셈으로 만든 인사
+function kidTalk(k){
+  const all = mineOf(k), said = all.filter(r => String(r['say_' + k] || '').trim());
+  let text;
+  if (said.length){
+    const r = said[talkTurn[k]++ % said.length];
+    text = '「' + String(r['say_' + k]).trim() + '」\n— ' + short(r.title, 16);
+  } else {
+    const nA = all.filter(r => r.kind === 'award').length, nF = all.filter(r => r.kind === 'first').length;
+    const lines = ['내 전시실에 온 걸 환영해요!', nA ? '상장·메달을 ' + nA + '개 모았어요!' : '첫 상장을 기다리고 있어요!', nF ? '처음 해낸 일도 ' + nF + '가지예요!' : '오늘도 하나 해내 볼게요!'];
+    text = lines[talkTurn[k]++ % lines.length];
+  }
+  const w = walkerOf(k);
+  w.plan = null; w.after = null; w.ti = w.i; w.tj = w.j; w.moving = false; w.dir = 'down'; w.flip = false;   // 멈춰서 앞을 보고
+  w.wait = Math.max(w.wait, 3000 + text.length * 70);
+  kidSay(k, text);
+  say(heroName(k) + ': ' + text.replace('\n', ' '), k);                    // 방 아래 글줄에도 — 할머니가 읽기 쉽게
+}
+function newLabel(r){
+  const l = lookOf(r);
+  return r.kind === 'level' ? '새 급수!' : r.kind === 'first' ? '처음 해냈어요!' : r.kind === 'title' ? '새 직함!' : l === 'paper' ? '새 상장!' : l === 'trophy' ? '새 트로피!' : '새 메달!';
+}
+// 그 물건 앞 바닥 자리(i, j) — 누르는 자리의 화면 좌표를 바닥 좌표로 되돌린다
+function greetSpot(h){
+  const cx = (h.x0 + h.x1) / 2, B = WALK_BOX, cl = (v, a, b) => Math.max(a, Math.min(b, v));
+  let s, alongJ;
+  if (h.front > 1){                                                     // 바닥 받침대(front = 받침대 y) — 그 앞 칸
+    const a = (cx - FX) / (TW / 2), b = (h.y1 - 8 - FY) / (TH / 2);
+    s = { i: (a + b) / 2 + 0.2, j: (b - a) / 2 + 0.95 }; alongJ = true;
+  } else if (cx >= FX){ s = { i: (cx - FX) / (TW / 2) + 0.95, j: 0.95 }; alongJ = true; }   // 오른쪽 벽·진열장 — 그 아래
+  else { s = { i: 0.5, j: 0.5 - (cx - FX) / (TW / 2) }; alongJ = false; }                   // 왼쪽 벽 사다리 — 그 아래
+  s.i = cl(s.i, B.i0, B.i1); s.j = cl(s.j, B.j0, B.j1);
+  for (let n = 0; n < 8 && walkBlocked(s.i, s.j); n++){ if (alongJ) s.j = Math.min(B.j1, s.j + 0.3); else s.i = Math.min(B.i1, s.i + 0.3); }
+  return walkBlocked(s.i, s.j) ? null : s;
+}
+// 새 자랑(14일 안에 올라온 가장 새것)이 있으면 한 번 — 그 앞으로 걸어가 돌아서서 「새 상장!」. 이 브라우저에서 한 번 알린 것은 다시 안 알린다
+function greetNew(k){
+  const all = mineOf(k).filter(r => r.created_at);
+  if (!all.length) return;
+  const r = all.reduce((m, x) => x.created_at > m.created_at ? x : m, all[0]);
+  if (daysBetween(String(r.created_at).slice(0, 10), todayStr()) > 14) return;
+  const key = 'honors_greet_' + k;
+  try { if (localStorage.getItem(key) === String(r.id)) return; } catch (e) { /* 못 읽으면 올 때마다 알린다 */ }
+  const h = (hitsOf[k] || []).find(x => (x.r && x.r.id === r.id) || (x.t && r.kind === 'level' && x.t.track === r.track));
+  const spot = h && greetSpot(h);
+  if (!spot) return;                                                    // 이 학년도 화면에 없거나 설 자리가 없으면 그냥 둔다
+  const w = walkerOf(k), text = newLabel(r) + '\n' + short(r.title, 18);
+  const done = () => { try { localStorage.setItem(key, String(r.id)); } catch (e) { /* 다음에 또 알린다 */ } say(heroName(k) + ': ' + text.replace('\n', ' '), k); };
+  w.after = { dir: 'up', say: text, hold: 4500, done };
+  const mid = { i: 6.2, j: 3.1 };
+  if (STILL || walkClear(w, spot)) w.plan = STILL ? [] : [spot];
+  else if (!walkBlocked(mid.i, mid.j) && walkClear(w, mid) && walkClear(mid, spot)) w.plan = [mid, spot];
+  else w.plan = [];
+  if (!w.plan.length){ w.i = spot.i; w.j = spot.j; }                     // 곧게 못 가면 그 자리에 선다
+  w.ti = w.i; w.tj = w.j; w.wait = 0;
+  if (STILL) stepWalker(k, 16);                                          // 루프가 없으니 바로 알린다
+}
+
+// 방이 화면에 보일 때만 움직이고 그린다(할머니 폰 배터리). 0.4초마다 방 캔버스 자리를 직접 잰다.
+// 예전 IntersectionObserver 는 방이 아니라 직함 띠를 지켜봐서, 띠가 숨은 방(연아)은 늘 「안 보임」이라 아이가 서 있기만 했다.
 const roomSeen = { sua: true, yona: true };
-const roomIO = 'IntersectionObserver' in window
-  ? new IntersectionObserver(es => es.forEach(e => { roomSeen[e.target.dataset.kid] = e.isIntersecting; }), { rootMargin: '60px' }) : null;
+let seenAt = 0;
+function checkSeen(now){
+  if (now - seenAt < 400) return;
+  seenAt = now;
+  KIDS.forEach(k => { const cv = $('#museum-' + k), rc = cv && cv.getBoundingClientRect(); roomSeen[k] = !!rc && rc.width > 0 && rc.bottom > -60 && rc.top < (window.innerHeight || 800) + 60; });
+}
 const lastDraw = { sua: 0, yona: 0 };
 let lastTick = 0;
 function roomLoop(now){
-  const dt = Math.min(100, lastTick ? now - lastTick : 16); lastTick = now;
-  const t = now % 2000, on = t < 450, spark = on || sparklePhase !== null;
-  if (spark) sparklePhase = on ? t / 450 : null;
-  if (!document.hidden) KIDS.forEach(k => {
-    if (!roomSeen[k] || !$('#museum-' + k)) return;
-    const moved = stepWalker(k, dt);
-    if ((moved && now - lastDraw[k] >= 40) || (spark && sparkleOf[k])){ drawRoom(k); lastDraw[k] = now; }   // 걸음은 초당 25장까지
-  });
-  requestAnimationFrame(roomLoop);
+  requestAnimationFrame(roomLoop);                                       // 다음 장부터 건다 — 아래에서 오류가 나도 루프는 산다
+  try {
+    const dt = Math.min(100, lastTick ? now - lastTick : 16); lastTick = now;
+    checkSeen(now);
+    const t = now % 2000, on = t < 450, spark = on || sparklePhase !== null;
+    if (spark) sparklePhase = on ? t / 450 : null;
+    if (!document.hidden) KIDS.forEach(k => {
+      if (!roomSeen[k] || !$('#museum-' + k)) return;
+      if (!greeted[k] && hitsOf[k]){ greeted[k] = true; greetNew(k); }   // 방이 처음 보일 때 새 자랑을 알린다
+      const moved = stepWalker(k, dt);
+      if ((moved && now - lastDraw[k] >= 40) || (spark && sparkleOf[k])){ drawRoom(k); lastDraw[k] = now; }   // 걸음은 초당 25장까지
+    });
+  } catch (e) { /* 한 장 건너뛴다 */ }
 }
 if (!STILL) requestAnimationFrame(roomLoop);
 
