@@ -38,13 +38,16 @@ const CLOTH_NAME = { cream: '크림', red: '빨강 벨벳', blue: '파랑', gree
 const LAMP = { warm: [255, 230, 170], white: [235, 240, 255], pink: [255, 190, 215], mint: [190, 245, 220] };
 const LAMP_NAME = { warm: '따뜻한 노랑', white: '하얀 빛', pink: '분홍', mint: '민트' };
 
+// kid·year 는 「지금 다루는 구역」이다. 두 아이의 방을 위아래로 다 그리므로(2026-09-14 저녁, 탭을 없앴다)
+// 구역마다 withKid() 로 잠깐 바꿔 놓고 그린다. 모달은 열 때의 아이를 붙잡아 둔다 — 다른 방을 훑기만 해도 kid 가 바뀐다.
 let rows = [], kid = 'sua', year = 'all', missing = false;
+const yearOf = { sua: 'all', yona: 'all' };
+function withKid(k, fn){ const pk = kid, py = year; kid = k; year = yearOf[k]; try { return fn(); } finally { kid = pk; year = py; } }
 let goals = [], claps = {}, prefs = {};   // 다음 목표 · 박수 수 · 진열대 꾸밈
 let wantItem = Number(new URLSearchParams(location.search).get('item')) || 0;   // ?item= 으로 들어오면 그것부터 연다
 {
   const q = new URLSearchParams(location.search);
-  if (KIDS.includes(q.get('who'))) kid = q.get('who');
-  if (/^\d{4}$/.test(q.get('year') || '')) year = q.get('year');
+  if (KIDS.includes(q.get('who')) && /^\d{4}$/.test(q.get('year') || '')) yearOf[q.get('who')] = q.get('year');
 }
 
 // ---------- 작은 셈 ----------
@@ -63,7 +66,7 @@ function captionOf(r){
   return (r.kind === 'level' ? r.track + ' · ' : '') + r.title + (r.kind === 'level' && r.step ? ' (' + r.step + '단계)' : '') +
     (r.org ? ' · ' + r.org : '') + ' · ' + fmtDate(r.got_on) + (s ? ' — “' + s + '”' : '');
 }
-function say(t){ $('#museumMsg').textContent = t || ''; }
+function say(t, k){ const el = $('#museumMsg-' + (k || kid)); if (el) el.textContent = t || ''; }
 function canEditKid(k){ return isAdmin || (isChild && !!me && me.author_key === k); }   // 부모거나 그 아이 자신
 function prefOf(k){ return Object.assign({ cloth: 'cream', lamp: 'warm' }, prefs[k] || {}); }
 function goalOf(k, track){ return goals.find(g => g.who === k && g.track === track) || null; }
@@ -90,7 +93,13 @@ async function load(){
   if (wantItem){
     const r = rows.find(x => x.id === wantItem);
     wantItem = 0;
-    if (r){ if (r.who !== 'both') kid = r.who; year = 'all'; render(); openItem(r); }
+    if (r){
+      const k = r.who === 'both' ? 'sua' : r.who;
+      yearOf[k] = 'all'; render();
+      const sec = document.querySelector('.honor-room[data-kid="' + k + '"]');
+      if (sec) sec.scrollIntoView({ block: 'start' });
+      withKid(k, () => openItem(r));
+    }
   }
 }
 
@@ -254,7 +263,8 @@ const PINS = [0, 1, 2].flatMap(r => [0, 1, 2, 3].map(c => ({ u: CORK.u + 8 + c *
 const PIN_W = 32, PIN_H = 20;
 const FRAMES = [192, 228, 264, 300].map(u => ({ u, v: 14 }));
 const FRAME_W = 30, FRAME_H = 22;
-const SC = { u0: 196, u1: 292, v0: 62, v1: 132, d: 1 };                 // 유리 진열장
+// 유리 진열장 — 깊이 반 칸(d 0.5). 한 칸이면 앞 아랫선이 벽 밑선보다 14px 내려가 바닥에 파묻힌 듯 보였다(부모가 잡음).
+const SC = { u0: 196, u1: 292, v0: 62, v1: WALLH - 2, d: 0.5 };
 const SC_SHELF = [SC.v0 + 3, SC.v0 + 37];                              // 두 칸의 윗선(칸 높이 32)
 const SC_SLOTS = SC_SHELF.flatMap(v => [0, 1, 2, 3].map(q => ({ u: SC.u0 + 8 + q * 22, v: v + 14 })));
 const WIN = { u: 10, v: 12, w: 56, h: 66 };
@@ -371,6 +381,7 @@ function shellCv(color, yr){
   }
   // 오른쪽 벽 앞 — 유리 진열장 몸통 (물건과 유리는 살아서 그린다)
   const sc = SC, wood = '#8a5a34';
+  faceTop(g, 1, sc.u0 - 3, sc.u1 + 6, WALLH, sc.d, sc.d + 0.3, 'rgba(40,24,10,.22)');        // 바닥에 깔리는 그림자
   faceTop(g, 1, sc.u0 - 3, sc.u1 + 3, sc.v0 - 2, 0, sc.d, 'rgba(40,24,10,.2)');
   // 옆면은 벽을 따라 멀리 있는 쪽(u1)이 보인다 — u0 쪽 옆면은 앞면 뒤에 숨는다(처음엔 u0 쪽만 그려서 옆이 뚫려 보였다)
   faceEnd(g, 1, sc.u1 + 2, sc.v0 - 2, sc.v1 - sc.v0 + 2, 0, sc.d, shade(wood, -40));
@@ -534,6 +545,7 @@ function drawShowcaseGlass(g){
 }
 // 누를 수 있는 곳 — 그릴 때 함께 적어 둔다
 let hits = [], hoverKey = null;
+const hitsOf = { sua: [], yona: [] };
 const hitKey = h => h.r ? 'r' + h.r.id : 't' + h.t.track;
 function drawMuseum(g, k){
   const color = KID_COLOR[k], all = mineOf(k), list = inYear(all);
@@ -597,45 +609,47 @@ function drawMuseum(g, k){
   vig.addColorStop(0, 'rgba(20,12,6,0)');
   vig.addColorStop(1, 'rgba(20,12,6,0.34)');
   g.fillStyle = vig; g.fillRect(0, 0, RW, RH);
-  const hv = hits.find(h => hitKey(h) === hoverKey);
+  hitsOf[k] = hits;
+  const hv = hits.find(h => k + ':' + hitKey(h) === hoverKey);
   if (hv){
     g.strokeStyle = 'rgba(255,217,121,.95)'; g.lineWidth = 1;
     g.strokeRect(Math.round(hv.x0) + 0.5, Math.round(hv.y0) + 0.5, Math.round(hv.x1 - hv.x0), Math.round(hv.y1 - hv.y0));
   }
 }
-function drawRoom(){
-  const cv = $('#museum'); if (!cv) return;
+function drawRoom(k){
+  const cv = $('#museum-' + (k || kid)); if (!cv) return;
   const g = cv.getContext('2d');
   g.imageSmoothingEnabled = false;
   g.setTransform(2, 0, 0, 2, 0, 0);
-  drawMuseum(g, kid);
+  withKid(k || kid, () => drawMuseum(g, k || kid));
 }
-function hitAt(e){
-  const rc = $('#museum').getBoundingClientRect();
+function hitAt(e, k){
+  const rc = $('#museum-' + k).getBoundingClientRect();
   if (!rc.width) return null;
   const x = (e.clientX - rc.left) / rc.width * RW, y = (e.clientY - rc.top) / rc.height * RH;
   // 앞에 그린 진열대가 이긴다
-  return hits.filter(h => x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1).sort((a, b) => (b.front || 0) - (a.front || 0))[0] || null;
+  return (hitsOf[k] || []).filter(h => x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1).sort((a, b) => (b.front || 0) - (a.front || 0))[0] || null;
 }
 // 마우스로 훑으면 누를 수 있는 것에 테가 둘리고 이름이 먼저 보인다(손가락에는 훑기가 없으니 누르기만)
-$('#museum').addEventListener('pointermove', e => {
-  if (e.pointerType !== 'mouse') return;
-  const h = hitAt(e), k = h ? hitKey(h) : null;
-  if (k === hoverKey) return;
-  hoverKey = k;
-  e.currentTarget.style.cursor = h ? 'pointer' : 'default';
-  if (h) say(h.r ? captionOf(h.r) : ladderCaption(h.t));
-  drawRoom();
-});
-$('#museum').addEventListener('pointerleave', () => { if (hoverKey){ hoverKey = null; drawRoom(); } });
-$('#museum').addEventListener('click', e => {
-  const h = hitAt(e);
-  if (!h){ say(''); return; }
-  if (h.r){ openItem(h.r); return; }
-  const shots = h.t.rows.filter(r => r.photo_url).slice().reverse();
-  say(ladderCaption(h.t) + ' · ' + h.t.rows.map(r => r.title).join(' → '));
-  if (shots.length) lightbox.open(shots.map(r => ({ media_url: r.photo_url, media_type: 'image', caption: captionOf(r) })), 0);
-});
+function wireCanvas(cv, k){
+  cv.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'mouse') return;
+    const h = hitAt(e, k), key = h ? k + ':' + hitKey(h) : null;
+    if (key === hoverKey) return;
+    hoverKey = key;
+    cv.style.cursor = h ? 'pointer' : 'default';
+    withKid(k, () => { if (h) say(h.r ? captionOf(h.r) : ladderCaption(h.t)); drawRoom(k); });
+  });
+  cv.addEventListener('pointerleave', () => { if (hoverKey){ hoverKey = null; drawRoom(k); } });
+  cv.addEventListener('click', e => withKid(k, () => {
+    const h = hitAt(e, k);
+    if (!h){ say(''); return; }
+    if (h.r){ openItem(h.r); return; }
+    const shots = h.t.rows.filter(r => r.photo_url).slice().reverse();
+    say(ladderCaption(h.t) + ' · ' + h.t.rows.map(r => r.title).join(' → '));
+    if (shots.length) lightbox.open(shots.map(r => ({ media_url: r.photo_url, media_type: 'image', caption: captionOf(r) })), 0);
+  }));
+}
 function ladderCaption(t){
   const g = goalOf(kid, t.track);
   return '🪜 ' + t.track + ' — 지금 ' + t.top + '단계' + (g ? (goalDone(g, t.top) ? ' · 🎯 목표 「' + g.goal + '」 이뤘어요!' : ' · 🎯 다음 목표 「' + g.goal + '」') : '');
@@ -653,12 +667,11 @@ function openItem(r){
 }
 
 // ---------- 화면 ----------
+// 두 아이의 방을 위아래로 — 수아 아래에 연아. 구역마다 학년도 탭·방·도구·목록이 따로 있다.
 function syncUrl(){
   const q = new URLSearchParams(location.search);
-  q.set('who', kid);
-  if (year === 'all') q.delete('year'); else q.set('year', year);
-  q.delete('item');
-  history.replaceState(history.state, '', location.pathname + '?' + q.toString());
+  q.delete('who'); q.delete('year'); q.delete('item');
+  history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q.toString() : ''));
 }
 function tabBtn(label, on, extra, fn){
   const b = document.createElement('button');
@@ -667,45 +680,70 @@ function tabBtn(label, on, extra, fn){
   b.addEventListener('click', fn);
   return b;
 }
+function buildRoom(k){
+  const sec = document.createElement('section');
+  sec.className = 'honor-room ' + k; sec.dataset.kid = k;
+  sec.innerHTML =
+    '<div class="year-tabs" role="group" aria-label="' + heroName(k) + ' 학년도"></div>' +
+    '<div class="dot-card museum-card">' +
+      '<h2 class="room-title"></h2>' +
+      '<p class="sub room-sub"></p>' +
+      '<div class="museum-stage"><canvas class="museum" id="museum-' + k + '" width="1280" height="840"' +
+        ' aria-label="' + heroName(k) + '의 업적 전시실. 오른쪽 벽에 상장 액자와 코르크판, 유리 진열장에 메달·트로피, 왼쪽 벽에 급수 사다리, 바닥 받침대에 처음 해낸 일이 있어요. 누르면 사진이 열려요."></canvas></div>' +
+      '<p class="museum-msg" id="museumMsg-' + k + '" aria-live="polite"></p>' +
+      '<div class="room-tools"></div>' +
+      '<p class="room-paper"></p>' +
+    '</div>' +
+    '<div class="honor-list"></div>';
+  wireCanvas(sec.querySelector('canvas'), k);
+  return sec;
+}
 function render(){
   const note = $('#honorNote');
   note.hidden = !missing;
-  note.textContent = missing ? '업적 전시실를 준비하는 중이에요. 곧 열려요.' : '';
+  note.textContent = missing ? '업적 전시실을 준비하는 중이에요. 곧 열려요.' : '';
   $('#adminBar').hidden = !isAdmin || missing;
-  const kt = $('#kidTabs'); kt.innerHTML = '';
-  KIDS.forEach(k => kt.appendChild(tabBtn(heroName(k) + ' ' + mineOf(k).length, k === kid, k, () => { kid = k; year = 'all'; say(''); render(); })));
-  const ys = yearsOf(mineOf(kid));
-  if (year !== 'all' && !ys.includes(Number(year))) year = 'all';
-  const yt = $('#yearTabs'); yt.innerHTML = '';
-  yt.hidden = !ys.length;
-  ['all'].concat(ys).forEach(y => yt.appendChild(tabBtn(y === 'all' ? '전체' : y + '학년도', String(y) === String(year), '', () => { year = String(y); say(''); render(); })));
-  const list = inYear(mineOf(kid));
-  const nA = list.filter(r => r.kind === 'award').length, nF = list.filter(r => r.kind === 'first').length;
-  const nT = ladderTracks(mineOf(kid)).length;
-  $('#roomTitle').textContent = heroName(kid) + '의 업적 전시실' + (year === 'all' ? '' : ' · ' + year + '학년도');
-  $('#roomSub').textContent = '🏅 상장·메달 ' + nA + ' · 🪜 급수 ' + nT + '가지 · ⭐ 처음 해낸 것 ' + nF + ' — 액자·사다리·진열대를 누르면 사진이 열려요';
-  const tools = $('#roomTools'); tools.innerHTML = '';
-  if (!missing && list.length){
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small';
-    b.textContent = '🖼 ' + (year === 'all' ? '전체' : year + '학년도') + ' 카드'; b.addEventListener('click', () => openYearCard(list));
-    tools.appendChild(b);
-  }
-  if (!missing && canEditKid(kid)){
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small';
-    b.textContent = '🎨 진열대 꾸미기'; b.addEventListener('click', openDecor);
-    tools.appendChild(b);
-  }
-  $('#roomPaper').textContent = missing ? '' : roomYear() + '학년도 벽지 · ' + WALLPAPERS[((roomYear() % 4) + 4) % 4].name;
-  drawRoom();
-  renderList(list);
+  const box = $('#rooms');
+  KIDS.forEach(k => {
+    let sec = box.querySelector('.honor-room[data-kid="' + k + '"]');
+    if (!sec){ sec = buildRoom(k); box.appendChild(sec); }
+    withKid(k, () => renderRoom(sec, k));
+  });
   syncUrl();
 }
-function renderList(list){
-  const box = $('#honorList'); box.innerHTML = '';
+function renderRoom(sec, k){
+  const q = sel => sec.querySelector(sel);
+  const ys = yearsOf(mineOf(k));
+  if (year !== 'all' && !ys.includes(Number(year))) year = yearOf[k] = 'all';
+  const yt = q('.year-tabs'); yt.innerHTML = '';
+  yt.hidden = !ys.length;
+  ['all'].concat(ys).forEach(y => yt.appendChild(tabBtn(y === 'all' ? '전체' : y + '학년도', String(y) === String(year), '', () => { yearOf[k] = String(y); say('', k); render(); })));
+  const list = inYear(mineOf(k));
+  const nA = list.filter(r => r.kind === 'award').length, nF = list.filter(r => r.kind === 'first').length;
+  const nT = ladderTracks(mineOf(k)).length;
+  q('.room-title').textContent = heroName(k) + '의 업적 전시실' + (year === 'all' ? '' : ' · ' + year + '학년도');
+  q('.room-sub').textContent = '🏅 상장·메달 ' + nA + ' · 🪜 급수 ' + nT + '가지 · ⭐ 처음 해낸 것 ' + nF + ' — 액자·사다리·진열대를 누르면 사진이 열려요';
+  const tools = q('.room-tools'); tools.innerHTML = '';
+  if (!missing && list.length){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small';
+    b.textContent = '🖼 ' + (year === 'all' ? '전체' : year + '학년도') + ' 카드'; b.addEventListener('click', () => withKid(k, () => openYearCard(list)));
+    tools.appendChild(b);
+  }
+  if (!missing && canEditKid(k)){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small';
+    b.textContent = '🎨 진열대 꾸미기'; b.addEventListener('click', () => withKid(k, openDecor));
+    tools.appendChild(b);
+  }
+  q('.room-paper').textContent = missing ? '' : roomYear() + '학년도 벽지 · ' + WALLPAPERS[((roomYear() % 4) + 4) % 4].name;
+  drawRoom(k);
+  renderList(list, q('.honor-list'), k);
+}
+function renderList(list, box, k){
+  box.innerHTML = '';
   if (missing) return;
   if (!list.length){
     const p = document.createElement('p'); p.className = 'honor-empty';
-    p.textContent = year === 'all' ? heroName(kid) + '의 자랑이 아직 없어요.' : year + '학년도에는 아직 없어요.';
+    p.textContent = year === 'all' ? heroName(k) + '의 자랑이 아직 없어요.' : year + '학년도에는 아직 없어요.';
     box.appendChild(p); return;
   }
   ['award', 'level', 'first'].forEach(kd => {
@@ -725,17 +763,17 @@ function renderList(list){
         sub.textContent = '🪜 ' + t + ' — 지금 ' + rs[0].title + (rs[0].step ? ' (' + rs[0].step + '단계)' : '') +
           (rs.length > 1 ? ' · ' + rs.slice().reverse().map(r => r.title).join(' → ') : '');
         // 다음 목표 — 아이가 적어 둔 것. 그 단계가 올라오면 「이뤘어요」
-        const top = mineOf(kid).filter(r => r.kind === 'level' && r.track === t).reduce((m, r) => Math.max(m, r.step || 1), 0);
-        const g = goalOf(kid, t), goalP = document.createElement('p'); goalP.className = 'goal-line';
-        goalP.textContent = g ? (goalDone(g, top) ? '🎯 목표 「' + g.goal + '」 이뤘어요! ' : '🎯 다음 목표: ' + g.goal + ' (' + g.step + '단계) ') : (canEditKid(kid) ? '🎯 다음 목표를 아직 안 정했어요 ' : '');
-        if (canEditKid(kid)){
+        const top = mineOf(k).filter(r => r.kind === 'level' && r.track === t).reduce((m, r) => Math.max(m, r.step || 1), 0);
+        const g = goalOf(k, t), goalP = document.createElement('p'); goalP.className = 'goal-line';
+        goalP.textContent = g ? (goalDone(g, top) ? '🎯 목표 「' + g.goal + '」 이뤘어요! ' : '🎯 다음 목표: ' + g.goal + ' (' + g.step + '단계) ') : (canEditKid(k) ? '🎯 다음 목표를 아직 안 정했어요 ' : '');
+        if (canEditKid(k)){
           const gb = document.createElement('button'); gb.type = 'button'; gb.className = 'goal-btn';
           gb.textContent = g ? (goalDone(g, top) ? '새 목표 정하기' : '목표 고치기') : '목표 정하기';
-          gb.addEventListener('click', () => openGoal(t, top, g && !goalDone(g, top) ? g : null));
+          gb.addEventListener('click', () => withKid(k, () => openGoal(t, top, g && !goalDone(g, top) ? g : null)));
           goalP.appendChild(gb);
         }
         const grid = document.createElement('div'); grid.className = 'honor-grid';
-        rs.forEach(r => grid.appendChild(cardOf(r)));
+        rs.forEach(r => grid.appendChild(cardOf(r, k)));
         sec.append(sub);
         if (goalP.textContent) sec.append(goalP);
         sec.append(grid);
@@ -744,11 +782,11 @@ function renderList(list){
       return;
     }
     const grid = document.createElement('div'); grid.className = 'honor-grid';
-    part.forEach(r => grid.appendChild(cardOf(r)));
+    part.forEach(r => grid.appendChild(cardOf(r, k)));
     sec.append(h, grid); box.appendChild(sec);
   });
 }
-function cardOf(r){
+function cardOf(r, k){
   const el = document.createElement('div'); el.className = 'dot-card honor-card';
   const pic = document.createElement('button');
   pic.type = 'button'; pic.className = 'pic'; pic.setAttribute('aria-label', r.title + ' 크게 보기');
@@ -757,13 +795,13 @@ function cardOf(r){
   const cg = cv.getContext('2d'); cg.imageSmoothingEnabled = false;
   drawArtOut(cg, OBJ_ART[lookOf(r)] || OBJ_ART.star, 2, 2, 2, itemColor(r));
   pic.appendChild(cv);
-  pic.addEventListener('click', () => openItem(r));
+  pic.addEventListener('click', () => withKid(k, () => openItem(r)));
   const body = document.createElement('div'); body.className = 'txt';
   const b = document.createElement('b'); b.textContent = (r.kind === 'level' ? r.track + ' ' : '') + r.title;
   const sm = document.createElement('small');
   sm.textContent = [r.kind === 'level' && r.step ? r.step + '단계' : '', r.org, fmtDate(r.got_on), r.who === 'both' ? '둘이 함께' : ''].filter(Boolean).join(' · ');
   body.append(b, sm);
-  const s = sayOf(r, kid);
+  const s = sayOf(r, k);
   if (s){ const p = document.createElement('p'); p.className = 'say'; p.textContent = '“' + s + '”'; body.appendChild(p); }
   if (r.audio_url){                                                  // 그날의 소감 목소리
     const vb = document.createElement('div'); vb.className = 'honor-voice';
@@ -771,8 +809,8 @@ function cardOf(r){
     body.appendChild(vb);
   }
   const acts = document.createElement('div'); acts.className = 'acts';
-  const act = (t, fn, cls) => { const x = document.createElement('button'); x.type = 'button'; x.textContent = t; if (cls) x.className = cls; x.addEventListener('click', fn); acts.appendChild(x); return x; };
-  const mine = isChild && me && me.author_key === kid && (r.who === kid || r.who === 'both');
+  const act = (t, fn, cls) => { const x = document.createElement('button'); x.type = 'button'; x.textContent = t; if (cls) x.className = cls; x.addEventListener('click', () => withKid(k, fn)); acts.appendChild(x); return x; };
+  const mine = isChild && me && me.author_key === k && (r.who === k || r.who === 'both');
   const n = claps[r.id] || 0, did = clapped(r.id);
   const cb = act('👏 ' + (n ? n : '박수'), () => clap(r, cb), 'clap' + (did ? ' did' : ''));
   cb.disabled = did; cb.title = did ? '이 자랑에는 박수를 보냈어요' : '박수 보내기';
@@ -1038,18 +1076,17 @@ function openForm(r){
     }
     await dropFiles(drop);
     close();
-    if (who !== 'both') kid = who;
     await load();
-    say('저장했어요.');
+    say('저장했어요.', who === 'both' ? 'sua' : who);
   });
   if (r) q('.fDel').addEventListener('click', async () => {
-    if (!confirm('「' + r.title + '」을(를) 저장고에서 뺄까요? 사진도 함께 지워져요.')) return;
+    if (!confirm('「' + r.title + '」을(를) 전시실에서 뺄까요? 사진도 함께 지워져요.')) return;
     const res = await sb.from('honors').delete().eq('id', r.id).select('id');
     if (res.error || !(res.data && res.data.length)){ q('.fMsg').textContent = '지우지 못했어요: ' + readableError(res.error || new Error('권한이 없어요')); return; }
     await dropFiles([pathOfUrl(r.photo_url), pathOfUrl(r.thumb_url), pathOfUrl(r.audio_url)]);
     close();
     await load();
-    say('저장고에서 뺐어요.');
+    say('전시실에서 뺐어요.', r.who === 'both' ? 'sua' : r.who);
   });
 }
 
@@ -1069,6 +1106,7 @@ function openSay(r){
   const q = s => overlay.querySelector(s);
   q('.msg').textContent = captionOf(Object.assign({}, r, { say_sua: '', say_yona: '' }));
   q('.sText').value = sayOf(r, kid) || '';
+  const k = kid;                         // 열 때의 아이
   const close = () => overlay.remove();
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   q('.sCancel').addEventListener('click', close);
@@ -1078,7 +1116,7 @@ function openSay(r){
     if (error){ q('.sMsg').textContent = '저장하지 못했어요: ' + readableError(error); q('.sSave').disabled = false; return; }
     close();
     await load();
-    say('한마디를 남겼어요.');
+    say('한마디를 남겼어요.', k);
   });
   q('.sText').focus();
 }
@@ -1114,6 +1152,7 @@ function smallModal(html){
 
 // ---------- 아이: 다음 목표 ----------
 function openGoal(track, top, g){
+  const k = kid;                         // 열 때의 아이
   const m = smallModal(
     '<h3>🎯 ' + escapeHTML(track) + ' 다음 목표</h3>' +
     '<p class="msg" style="margin:0 0 8px;">지금 ' + top + '단계예요. 다음 단계에 무엇을 따고 싶은지 적어 두면 사다리 윗칸에 깃발이 걸려요.</p>' +
@@ -1129,27 +1168,27 @@ function openGoal(track, top, g){
     if (!goal){ m.q('.gMsg').textContent = '목표를 적어 주세요.'; return; }
     if (!(step > top && step <= 99)){ m.q('.gMsg').textContent = '지금(' + top + '단계)보다 위여야 해요.'; return; }
     m.q('.gSave').disabled = true;
-    const res = await sb.from('honor_goals').upsert({ who: kid, track, step, goal, set_on: todayStr() }).select('who');
+    const res = await sb.from('honor_goals').upsert({ who: k, track, step, goal, set_on: todayStr() }).select('who');
     if (res.error || !(res.data && res.data.length)){ m.q('.gMsg').textContent = '저장하지 못했어요: ' + readableError(res.error || new Error('권한이 없어요')); m.q('.gSave').disabled = false; return; }
-    m.close(); await load(); say('🎯 ' + track + ' 다음 목표 「' + goal + '」 — 깃발을 걸었어요.');
+    m.close(); await load(); say('🎯 ' + track + ' 다음 목표 「' + goal + '」 — 깃발을 걸었어요.', k);
   });
   if (g) m.q('.gDel').addEventListener('click', async () => {
-    const res = await sb.from('honor_goals').delete().eq('who', kid).eq('track', track).select('who');
+    const res = await sb.from('honor_goals').delete().eq('who', k).eq('track', track).select('who');
     if (res.error || !(res.data && res.data.length)){ m.q('.gMsg').textContent = '지우지 못했어요.'; return; }
-    m.close(); await load(); say('목표를 지웠어요.');
+    m.close(); await load(); say('목표를 지웠어요.', k);
   });
   m.q('.gText').focus();
 }
 
 // ---------- 아이: 진열대 꾸미기 ----------
 function openDecor(){
-  const cur = prefOf(kid);
+  const k = kid, cur = prefOf(k);        // 열 때의 아이
   const sw = (map, names, key, on) => Object.keys(map).map(k =>
     '<button type="button" class="swatch' + (k === on ? ' on' : '') + '" data-' + key + '="' + k + '" aria-label="' + names[k] + '" title="' + names[k] + '"><i style="background:' +
     (key === 'lamp' ? 'rgb(' + map[k].join(',') + ')' : map[k]) + '"></i></button>').join('');
   const m = smallModal(
     '<h3>🎨 진열대 꾸미기</h3>' +
-    '<p class="msg" style="margin:0 0 8px;">' + escapeHTML(heroName(kid)) + '의 진열대 천 색과 조명 색을 골라요. 방을 보는 모두에게 그렇게 보여요.</p>' +
+    '<p class="msg" style="margin:0 0 8px;">' + escapeHTML(heroName(k)) + '의 진열대 천 색과 조명 색을 골라요. 방을 보는 모두에게 그렇게 보여요.</p>' +
     '<label class="field">받침대 천</label><div class="swatches">' + sw(CLOTH, CLOTH_NAME, 'cloth', cur.cloth) + '</div>' +
     '<label class="field">조명</label><div class="swatches">' + sw(LAMP, LAMP_NAME, 'lamp', cur.lamp) + '</div>' +
     '<p class="msg dMsg" aria-live="polite"></p>' +
@@ -1159,15 +1198,15 @@ function openDecor(){
     const key = b.dataset.cloth ? 'cloth' : 'lamp';
     pick[key] = b.dataset[key];
     b.parentElement.querySelectorAll('.swatch').forEach(x => x.classList.toggle('on', x === b));
-    prefs[kid] = Object.assign({}, prefs[kid], { who: kid }, pick); drawRoom();   // 고르는 대로 방에 미리 비친다
+    prefs[k] = Object.assign({}, prefs[k], { who: k }, pick); drawRoom(k);   // 고르는 대로 방에 미리 비친다
   }));
-  const was = prefs[kid];
-  m.q('.mCancel').addEventListener('click', () => { prefs[kid] = was; drawRoom(); });
+  const was = prefs[k];
+  m.q('.mCancel').addEventListener('click', () => { prefs[k] = was; drawRoom(k); });
   m.q('.dSave').addEventListener('click', async () => {
     m.q('.dSave').disabled = true;
-    const res = await sb.from('honor_prefs').upsert({ who: kid, cloth: pick.cloth, lamp: pick.lamp }).select('who');
+    const res = await sb.from('honor_prefs').upsert({ who: k, cloth: pick.cloth, lamp: pick.lamp }).select('who');
     if (res.error || !(res.data && res.data.length)){ m.q('.dMsg').textContent = '저장하지 못했어요: ' + readableError(res.error || new Error('권한이 없어요')); m.q('.dSave').disabled = false; return; }
-    m.close(); await load(); say('🎨 진열대를 ' + CLOTH_NAME[pick.cloth] + ' 천, ' + LAMP_NAME[pick.lamp] + ' 조명으로 꾸몄어요.');
+    m.close(); await load(); say('🎨 진열대를 ' + CLOTH_NAME[pick.cloth] + ' 천, ' + LAMP_NAME[pick.lamp] + ' 조명으로 꾸몄어요.', k);
   });
 }
 
@@ -1175,6 +1214,7 @@ function openDecor(){
 // 목소리 일기의 녹음기를 그대로 쓴다(common.js startVoiceRecorder / uploadVoice).
 // 아이는 함수(honor_voice)로 제 것에만 붙이고, 부모는 줄을 바로 고친다.
 function openVoice(r){
+  const k = kid;                         // 열 때의 아이
   let rec = null, draft = null;
   const m = smallModal(
     '<h3>🎙 ' + escapeHTML(r.title) + '</h3>' +
@@ -1229,7 +1269,7 @@ function openVoice(r){
         await put(url, draft.secs);
         const oldPath = pathOfUrl(r.audio_url);
         if (oldPath) await dropFiles([oldPath]);
-        stopAll(); m.close(); await load(); say('🎙 ' + r.title + '에 목소리를 붙였어요.');
+        stopAll(); m.close(); await load(); say('🎙 ' + r.title + '에 목소리를 붙였어요.', k);
       } catch (e) { msg.textContent = '붙이지 못했어요: ' + readableError(e); box.querySelector('.vSave').disabled = false; }
     });
     on('.vDel', async () => {
@@ -1238,7 +1278,7 @@ function openVoice(r){
         const oldPath = pathOfUrl(r.audio_url);
         await put(null, null);
         if (oldPath) await dropFiles([oldPath]);
-        m.close(); await load(); say('목소리를 뗐어요.');
+        m.close(); await load(); say('목소리를 뗐어요.', k);
       } catch (e) { msg.textContent = '떼지 못했어요: ' + readableError(e); }
     });
   }
@@ -1296,7 +1336,7 @@ function yearCard(list){
   return c;
 }
 function openYearCard(list){
-  const label = year === 'all' ? '지금까지' : year + '학년도';
+  const k = kid, y = year, label = y === 'all' ? '지금까지' : y + '학년도';
   const m = smallModal(
     '<h3>🖼 ' + escapeHTML(heroName(kid)) + '의 ' + label + ' 카드</h3>' +
     '<div class="year-card"></div>' +
@@ -1308,10 +1348,10 @@ function openYearCard(list){
   m.q('.ySave').addEventListener('click', () => cv.toBlob(b => {
     if (!b){ m.q('.yMsg').textContent = '그림을 만들지 못했어요.'; return; }
     const a = document.createElement('a'); a.href = URL.createObjectURL(b);
-    a.download = 'suayona-' + kid + '-' + (year === 'all' ? 'all' : year) + '.png'; a.click();
+    a.download = 'suayona-' + k + '-' + (y === 'all' ? 'all' : y) + '.png'; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }, 'image/png'));
-  m.q('.yPrint').addEventListener('click', () => { printSheet(list); });
+  m.q('.yPrint').addEventListener('click', () => withKid(k, () => printSheet(list)));
 }
 function printSheet(list){
   let sheet = $('#printSheet');
@@ -1343,7 +1383,7 @@ function printSheet(list){
 }
 
 // ---------- 시작 ----------
-$('#addHonor').addEventListener('click', () => openForm(null));
+$('#addHonor').addEventListener('click', () => withKid('sua', () => openForm(null)));
 document.addEventListener('suayona:auth', () => render());
 (async function boot(){
   try { await refreshAuth(); } catch (e) { /* 로그인 확인이 안 되면 손님으로 본다 */ }

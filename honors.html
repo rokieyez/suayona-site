@@ -17,23 +17,25 @@
 <link href="./style.css" rel="stylesheet">
 <style>
   /* 업적 전시실 — 모험단 보물 저장고가 돌벽 보물 창고라면 여기는 밝은 나무 벽의 작은 박물관 */
-  .kid-tabs, .year-tabs{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:0 0 10px;}
-  .kid-tabs .dot-btn.on.sua{background:var(--coral);}
-  .kid-tabs .dot-btn.on.yona{background:var(--mint);}
+  .honor-room{max-width:1080px; margin:0 auto 34px;}
+  .honor-room + .honor-room{padding-top:26px; border-top:3px dashed var(--ink-soft);}
+  .honor-room.sua .museum-card h2{color:var(--coral);}
+  .honor-room.yona .museum-card h2{color:#2f8f78;}
+  .year-tabs{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:0 0 10px;}
   .year-tabs .dot-btn{font-size:12px; padding:6px 10px;}
   .year-tabs .dot-btn.on{background:var(--lemon);}
   .admin-bar{text-align:center; margin:0 0 12px;}
   .museum-card{padding:14px; max-width:1080px; margin:0 auto;}
-  .museum-card h2{font-size:16px; margin:0 0 2px;}
+  .museum-card h2{font-size:17px; margin:0 0 2px;}
   .museum-card .sub{font-size:12px; color:var(--ink-soft); margin:0 0 10px;}
   .museum-stage{line-height:0; border:3px solid var(--ink); background:#2a2320;}
-  #museum{
+  .museum{
     display:block; width:100%; aspect-ratio:640/420; image-rendering:pixelated;
     cursor:pointer; touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
   }
   .museum-msg{min-height:1.6em; font-size:12.5px; color:var(--ink-soft); margin:8px 0 0; line-height:1.6;}
   .honor-note{text-align:center; color:var(--ink-soft); font-size:13px; margin:0 0 14px;}
-  .honor-list{max-width:1080px; margin:18px auto 0;}
+  .honor-list{margin:18px auto 0;}
   .room-tools{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:8px 0 0;}
   .room-paper{font-size:11.5px; color:var(--ink-soft); margin:6px 0 0; text-align:right;}
   .goal-line{font-size:12.5px; margin:-2px 0 8px; color:var(--ink-soft); line-height:1.6;}
@@ -105,21 +107,10 @@
     </div>
 
     <p class="honor-note" id="honorNote" hidden></p>
-    <div class="kid-tabs" id="kidTabs" role="group" aria-label="누구의 저장고"></div>
-    <div class="year-tabs" id="yearTabs" role="group" aria-label="학년도"></div>
     <div class="admin-bar" id="adminBar" hidden><button type="button" class="dot-btn primary" id="addHonor">＋ 자랑 올리기</button></div>
 
-    <div class="dot-card museum-card reveal">
-      <h2 id="roomTitle">업적 전시실</h2>
-      <p class="sub" id="roomSub">액자·코르크판·진열장·사다리·받침대를 누르면 사진이 열려요</p>
-      <div class="museum-stage"><canvas id="museum" width="1280" height="840"
-           aria-label="업적 전시실. 오른쪽 벽에 상장 액자와 코르크판, 유리 진열장에 메달·트로피, 왼쪽 벽에 급수 사다리, 바닥 받침대에 처음 해낸 일이 있어요. 누르면 사진이 열려요."></canvas></div>
-      <p class="museum-msg" id="museumMsg" aria-live="polite"></p>
-      <div class="room-tools" id="roomTools"></div>
-      <p class="room-paper" id="roomPaper"></p>
-    </div>
-
-    <div class="honor-list" id="honorList"></div>
+    <!-- 두 아이의 전시실이 위아래로 — 수아, 그 아래 연아. honors.js buildRoom() 이 채운다 -->
+    <div id="rooms"></div>
   </div>
 </section>
 
