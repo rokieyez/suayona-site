@@ -23,6 +23,16 @@
   .honor-room.yona .museum-card h2{color:#2f8f78;}
   .title-sash{line-height:0; margin:0 auto 4px; max-width:560px;}
   .sash-cv{display:block; width:100%; height:auto; image-rendering:pixelated;}
+  /* 임기 막대 — 이벤트 진행도와 같은 HTML 막대. 배지 칸마다 하나씩 그 아래 가운데 */
+  .sash-terms{display:grid; grid-template-columns:repeat(var(--n, 1), minmax(0, 1fr)); line-height:1.4; margin:4px 0 6px;}
+  .sash-term{justify-self:center; width:min(88%, 260px);}
+  .term-now{font-size:12px; font-weight:800; color:var(--ink); text-align:center; margin:0 0 6px; text-wrap:balance;}
+  .term-track{position:relative; height:12px; background:var(--paper); border:3px solid var(--ink);}
+  .term-fill{display:block; height:100%; background:var(--kid, var(--coral)); animation:termGrow 1.2s ease both;}
+  .term-mark{position:absolute; top:-7px; bottom:-7px; width:3px; margin-left:-2px; background:var(--lemon); box-shadow:0 0 0 2px var(--ink);}
+  .term-dates{display:flex; justify-content:space-between; gap:6px; margin:5px 0 0; font-size:11px; font-weight:700; color:var(--ink-soft); font-variant-numeric:tabular-nums;}
+  @keyframes termGrow{from{width:0;}}
+  @media (prefers-reduced-motion: reduce){ .term-fill{animation:none;} }
   .honor-card.now{box-shadow:4px 4px 0 var(--lemon), 0 0 0 3px var(--lemon);}
   .year-nav{display:flex; gap:10px; align-items:center; justify-content:center; margin:0 0 10px;}
   .year-nav .dot-btn{padding:6px 12px; font-size:13px;}
@@ -36,7 +46,7 @@
   .museum-stage{line-height:0;}
   @media (max-width:700px){ .museum-stage{margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);} }   /* 좁은 화면은 가장자리까지 */
   .museum{
-    display:block; width:100%; aspect-ratio:512/438; image-rendering:pixelated;
+    display:block; width:100%; aspect-ratio:512/416; image-rendering:pixelated;
     cursor:pointer; touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
   }
   .museum-msg{min-height:1.6em; font-size:12.5px; color:var(--ink-soft); margin:8px 0 0; line-height:1.6;}

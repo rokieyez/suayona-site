@@ -232,7 +232,7 @@ function drawArtOut(g, art, x, y, s, color){
    벽에 위아래 명암, 바닥에 창빛, 물건마다 윤곽과 그늘을 더했다. 칸(56×28)과 도트 크기는 모험단 방과 같다. */
 // 캔버스는 방 테두리에 딱 맞춘다(512×438) — 검은 여백을 두지 않고 배경은 비워 둔다. 할머니 휴대폰에서 방이 최대한 크게 보이게(2026-09-14 밤).
 // 2026-09-15: 벽을 136 → 200 으로 높였다가(코르크판 12 → 24, 액자 4 → 8), 코르크판 아래 한 줄이 비어 보여 핀 한 줄(22)만큼 낮췄다 → 178(코르크판 20).
-const RW = 512, RH = 438, TW = 56, TH = 28, NI = 12, NJ = 6, FX = 172, FY = 196, WALLH = 178;
+const RW = 512, RH = 416, TW = 56, TH = 28, NI = 12, NJ = 6, FX = 172, FY = 174, WALLH = 156;   // 층고 200 → 178 → 156(핀 한 줄씩, 2026-09-15)
 const RAIL_V = WALLH - 40;                                   // 징두리 윗선 — 이 아래는 나무 판
 const CORNER = { x: FX, y: FY - TH / 2 }, WTOP = CORNER.y - WALLH;
 const LWr = NI * (TW / 2), LWl = NJ * (TW / 2);
@@ -306,18 +306,18 @@ function wallHit(side, u, v, w, h, d){
 }
 
 // ---- 자리 ----
-// 오른쪽 벽: 코르크판(12장 핀) + 금테 액자 4 · 유리 진열장(두 칸 × 4) — 왼쪽 벽: 창문 + 급수 사다리 4 — 바닥: 받침대 8
+// 오른쪽 벽: 코르크판(16장 핀) + 금테 액자 8 · 유리 진열장(두 칸 × 4) — 왼쪽 벽: 창문 + 급수 사다리 4 — 바닥: 받침대 8
 // 코르크판은 v 18 부터 — 위 띠(v 6~15)에 처음 해낸 것 별자리가 걸린다
-const CORK = { u: 12, v: 18, w: 168, h: 114 };
-const PINS = [0, 1, 2, 3, 4].flatMap(r => [0, 1, 2, 3].map(c => ({ u: CORK.u + 8 + c * 40, v: CORK.v + 3 + r * 22 })));
+const CORK = { u: 12, v: 18, w: 168, h: 92 };
+const PINS = [0, 1, 2, 3].flatMap(r => [0, 1, 2, 3].map(c => ({ u: CORK.u + 8 + c * 40, v: CORK.v + 3 + r * 22 })));
 const PIN_W = 32, PIN_H = 20;
-const FRAMES = [14, 44].flatMap(v => [192, 228, 264, 300].map(u => ({ u, v })));     // 두 줄
+const FRAMES = [8, 34].flatMap(v => [192, 228, 264, 300].map(u => ({ u, v })));      // 두 줄 — 벽을 낮추며 위로 붙였다(별자리는 u 24~164 라 안 겹친다)
 const FRAME_W = 30, FRAME_H = 22;
 // 유리 진열장 — 깊이 반 칸(d 0.5). 한 칸이면 앞 아랫선이 벽 밑선보다 14px 내려가 바닥에 파묻힌 듯 보였다(부모가 잡음).
 const SC = { u0: 196, u1: 292, v0: WALLH - 74, v1: WALLH - 2, d: 0.5 };            // 높이는 전과 같게, 바닥에 붙여서
 const SC_SHELF = [SC.v0 + 3, SC.v0 + 37];                              // 두 칸의 윗선(칸 높이 32)
 const SC_SLOTS = SC_SHELF.flatMap(v => [0, 1, 2, 3].map(q => ({ u: SC.u0 + 8 + q * 22, v: v + 14 })));
-const WIN = { u: 10, v: 12, w: 56, h: 100 };
+const WIN = { u: 10, v: 12, w: 56, h: 78 };                               // 창턱이 징두리보다 18 위 — 벽을 낮춘 만큼 줄였다
 const LADDERS = [78, 102, 126, 150], LAD_V = 10, LAD_H = RAIL_V - 20, LAD_W = 22;
 const LAD_RUNGS = Math.floor((LAD_H - 12) / 6), PLAQUE_V = WALLH - 34;   // 사다리 칸 수 · 징두리 이름표 자리
 const STAND_TILES = [[1.0, 1.5], [2.4, 1.5], [3.8, 1.5], [5.2, 1.5], [4.2, 4.5], [5.6, 4.5], [7.0, 4.5], [8.4, 4.5]];
@@ -616,8 +616,9 @@ function drawShowcaseGlass(g){
 // ---------- 금 배지 리본 — 지금 맡은 직함 ----------
 /* 방 위에 금 배지(직함 아이콘)와 아이 색 리본(직함 이름), 2초마다 반짝(roomLoop 가 다시 그린다). 그 아래 임기 막대(시작 ~ 끝, 오늘 위치, 몇 개월째).
    직함이 둘이면 나란히(막대도 둘), 셋이면 배지만(낮은 캔버스). 임기가 끝나면 여기서 사라지고 벽의 역대 줄로 간다.
-   2026-09-15 어깨띠 → 금 배지 리본(부모가 시안 3번을 고름). */
-const SASH_W = 480, SASH_H = 92, SASH_H3 = 64;
+   2026-09-15 어깨띠 → 금 배지 리본(부모가 시안 3번을 고름).
+   임기 막대는 캔버스가 아니라 HTML(drawTerms) — 캔버스 안 글자는 폰 폭에 맞춰 같이 줄어 8px 가 5.6px 로 보였다. */
+const SASH_W = 480, SASH_H = 62, SASH_H3 = 48;
 const sashHits = { sua: [], yona: [] }, sashOn = { sua: false, yona: false };
 function drawSash(box, k){
   const cur = mineOf(k).filter(isCurrent).sort((a, b) => a.got_on < b.got_on ? -1 : 1).slice(0, 3);
@@ -631,8 +632,9 @@ function drawSash(box, k){
   cur.forEach((r, i) => {
     const cx = Math.round(slot * i + slot / 2), R = n === 1 ? 19 : n === 2 ? 16 : 13, cy = R + 4;
     g.save(); g.globalCompositeOperation = 'lighter';                   // 은은한 빛
-    const gr = g.createRadialGradient(cx, cy, 0, cx, cy, R * 3); gr.addColorStop(0, 'rgba(255,205,140,.5)'); gr.addColorStop(1, 'rgba(255,205,140,0)');
-    g.fillStyle = gr; g.fillRect(cx - R * 3, cy - R * 3, R * 6, R * 6); g.restore();
+    const GR = Math.min(R * 3, H - cy);                                  // 캔버스 아래 끝에서 빛이 칼같이 잘리지 않게
+    const gr = g.createRadialGradient(cx, cy, 0, cx, cy, GR); gr.addColorStop(0, 'rgba(255,205,140,.5)'); gr.addColorStop(1, 'rgba(255,205,140,0)');
+    g.fillStyle = gr; g.fillRect(cx - GR, cy - GR, GR * 2, GR * 2); g.restore();
     // 리본 꼬리(뒤) — 양 끝이 아래로 접혀 나온다
     g.font = '900 ' + (n === 1 ? 12 : n === 2 ? 11 : 10) + 'px ' + FONT;
     let label = r.title;
@@ -669,25 +671,46 @@ function drawSash(box, k){
     g.fillStyle = '#fff8e6'; g.fillText(label, cx, ry + rh / 2);
     if (sparklePhase !== null) drawSparkle(g, Math.round(cx + R * 0.55), Math.round(cy - R * 0.6));   // 2초마다 반짝
     sashHits[k].push({ r, x0: rx - tail - 2, x1: rx + rw + tail + 2, y0: cy - R - 3, y1: ry + rh + 6 });
-    if (n <= 2){                                                                 // 임기 막대
-      const t = termOf(r), bw = Math.min(200, slot - 40), bx = Math.round(cx - bw / 2), by = 74;
-      g.fillStyle = '#2a2118'; g.fillRect(bx - 1, by - 1, bw + 2, 7);
-      g.fillStyle = '#e8dcc4'; g.fillRect(bx, by, bw, 5);
-      g.fillStyle = color; g.fillRect(bx, by, Math.round(bw * t.frac), 5);
-      const mx = bx + Math.round(bw * t.frac);
-      g.fillStyle = '#2a2118'; g.fillRect(mx - 1, by - 4, 3, 13); g.fillStyle = '#ffd979'; g.fillRect(mx, by - 3, 1, 11);
-      g.font = '700 8px ' + FONT; g.textBaseline = 'top'; g.fillStyle = '#7a6a58';
-      g.textAlign = 'left'; g.fillText(fmtDate(r.got_on), bx, by + 8); g.textAlign = 'right'; g.fillText(fmtDate(r.until), bx + bw, by + 8);
-      g.textAlign = 'center'; g.fillStyle = '#2a2118'; g.font = '800 8px ' + FONT;
-      g.fillText('오늘 · ' + t.monthsIn + '개월째' + (t.monthsLeft ? ' · ' + t.monthsLeft + '개월 남음' : ' · 마지막 달'), Math.max(bx + 40, Math.min(bx + bw - 40, mx)), by - 14);
-    }
   });
+  drawTerms(box, k, cur);
   if (!cv.__wired){
     cv.__wired = true;
     const at = e => { const rc = cv.getBoundingClientRect(); if (!rc.width) return null; const x = (e.clientX - rc.left) / rc.width * SASH_W, y = (e.clientY - rc.top) / rc.height * (cv.height / 2); return sashHits[k].find(h => x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1) || null; };
     cv.addEventListener('pointermove', e => { const h = at(e); cv.style.cursor = h ? 'pointer' : 'default'; if (h && e.pointerType === 'mouse') withKid(k, () => say(captionOf(h.r))); });
     cv.addEventListener('click', e => { const h = at(e); if (h) withKid(k, () => openItem(h.r)); });
   }
+}
+
+/* 임기 막대 — 이벤트 진행도처럼 HTML 막대. 글자가 폰에서도 제 크기(12px)로 보이고 화면 읽기도 읽는다.
+   반짝임 때문에 drawSash 가 초당 25번 불리므로, 직함·임기·날짜가 그대로면 DOM 을 건드리지 않는다. */
+function drawTerms(box, k, cur){
+  const wrap = box.querySelector('.sash-terms');
+  if (!wrap) return;
+  const list = cur.length <= 2 ? cur : [];                               // 셋이면 배지만
+  const key = todayStr() + '|' + list.map(r => r.id + ':' + r.got_on + ':' + r.until).join(',');
+  if (wrap.__key === key) return;
+  wrap.__key = key;
+  wrap.replaceChildren();
+  wrap.hidden = !list.length;
+  wrap.style.setProperty('--n', String(Math.max(1, list.length)));
+  list.forEach(r => {
+    const t = termOf(r), pct = Math.round(t.frac * 1000) / 10;
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const term = el('div', 'sash-term');
+    term.style.setProperty('--kid', KID_COLOR[k]);
+    term.appendChild(el('div', 'term-now', '오늘 · ' + t.monthsIn + '개월째' + (t.monthsLeft ? ' · ' + t.monthsLeft + '개월 남음' : ' · 마지막 달')));
+    const track = el('div', 'term-track');
+    track.setAttribute('role', 'progressbar');
+    track.setAttribute('aria-label', r.title + ' 임기');
+    track.setAttribute('aria-valuemin', '0'); track.setAttribute('aria-valuemax', '100'); track.setAttribute('aria-valuenow', String(Math.round(pct)));
+    const fill = el('i', 'term-fill'); fill.style.width = pct + '%';
+    const mark = el('b', 'term-mark'); mark.style.left = pct + '%';
+    track.append(fill, mark);
+    const dates = el('div', 'term-dates');
+    dates.append(el('span', '', fmtDate(r.got_on)), el('span', '', fmtDate(r.until)));
+    term.append(track, dates);
+    wrap.appendChild(term);
+  });
 }
 
 // 누를 수 있는 곳 — 그릴 때 함께 적어 둔다
@@ -701,7 +724,7 @@ let sparklePhase = null;                          // null 이면 안 반짝임, 
 const CONST_U0 = 24, CONST_STEP = 20, CONST_MAX = 8;
 function constPos(n){ return { u: CONST_U0 + n * CONST_STEP, v: 10 + [0, -1, 1, 0, -1, 1, 0, -1][n % 8] }; }
 // 역대 직함 줄 — 오른쪽 벽 액자 아래 띠(u 196~330, v 40~58). 지난 것은 작게, 지금 것은 크게 빛난다
-const HALL = { u0: 200, u1: 330, v: 82 };                       // 액자 두 줄 아래
+const HALL = { u0: 200, u1: 330, v: 69 };                       // 액자 두 줄 아래(액자 끝 56 < 배지 61~77 < 진열장 윗면 82)
 function drawHallBadge(g, u, v, r, big){
   const R = big ? 8 : 5, c = wallXY(1, u, v);
   const col = big ? '#e0a93b' : '#c8b28a', hi = big ? '#ffd979' : '#ddd0b0';
@@ -750,7 +773,7 @@ function wallLayer(k, list, all){
   let sparkle = null;
   g.drawImage(shellCv(color, roomYear()), 0, 0, RW, RH);
   const mark = (r, h) => { hits.push(h); if (r.id === newest) sparkle = { x: Math.round((h.x0 + h.x1) / 2) + 6, y: Math.round(h.y0) + 4 }; };
-  // 오른쪽 벽 — 상장: 최근 넷은 금테 액자에, 그 다음 열둘은 코르크판에 핀으로
+  // 오른쪽 벽 — 상장: 최근 여덟은 금테 액자에, 그 다음 열여섯은 코르크판에 핀으로
   const papers = list.filter(r => r.kind === 'award' && lookOf(r) === 'paper');
   papers.slice(0, FRAMES.length).forEach((r, n) => {
     const f = FRAMES[n];
@@ -858,7 +881,11 @@ function hitAt(e, k){
   const ks = walkerSpot(k);                                             // 아이가 맨 앞 — 누르면 이야기한다
   if (ks && x >= ks.x - 14 && x < ks.x + 14 && y >= ks.y - 40 && y < ks.y + 3) return { kid: true, x0: ks.x - 14, x1: ks.x + 14, y0: ks.y - 40, y1: ks.y + 3 };
   // 앞에 그린 진열대가 이긴다
-  return (hitsOf[k] || []).filter(h => x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1).sort((a, b) => (b.front || 0) - (a.front || 0))[0] || null;
+  // 앞뒤가 같으면 작은 자리가 이긴다 — 기울어진 벽의 액자 상자가 그 아래 역대 직함 배지·별을 덮어, 배지를 눌러도 액자가 열렸다(층고를 낮출 때 잡음)
+  // 크기도 같으면(핀끼리) 누른 곳에서 가운데가 가까운 쪽 — 줄 간격보다 상자가 커서 옛 코드도 핀 하나가 옆 핀으로 열렸다
+  const area = h => (h.x1 - h.x0) * (h.y1 - h.y0);
+  const dist = h => Math.hypot((h.x0 + h.x1) / 2 - x, (h.y0 + h.y1) / 2 - y);
+  return (hitsOf[k] || []).filter(h => x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1).sort((a, b) => (b.front || 0) - (a.front || 0) || area(a) - area(b) || dist(a) - dist(b))[0] || null;
 }
 // 마우스로 훑으면 누를 수 있는 것에 테가 둘리고 이름이 먼저 보인다(손가락에는 훑기가 없으니 누르기만)
 function wireCanvas(cv, k){
@@ -913,7 +940,7 @@ function buildRoom(k){
     '<div class="museum-card">' +
       '<h2 class="room-title"></h2>' +
       '<p class="sub room-sub"></p>' +
-      '<div class="title-sash" hidden><canvas class="sash-cv" width="' + SASH_W * 2 + '" height="' + SASH_H * 2 + '" aria-label="지금 맡은 직함"></canvas></div>' +
+      '<div class="title-sash" hidden><canvas class="sash-cv" width="' + SASH_W * 2 + '" height="' + SASH_H * 2 + '" aria-label="지금 맡은 직함"></canvas><div class="sash-terms" hidden></div></div>' +
       '<div class="museum-stage"><canvas class="museum" id="museum-' + k + '" width="' + RW * 2 + '" height="' + RH * 2 + '"' +
         ' aria-label="' + heroName(k) + '의 업적 전시실. 오른쪽 벽에 상장 액자와 코르크판, 유리 진열장에 메달·트로피, 왼쪽 벽에 급수 사다리, 바닥 받침대에 처음 해낸 일이 있어요. 누르면 사진이 열려요."></canvas></div>' +
       '<p class="museum-msg" id="museumMsg-' + k + '" aria-live="polite"></p>' +
