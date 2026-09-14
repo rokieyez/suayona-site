@@ -19,7 +19,24 @@ const lightbox = createLightbox();
 
 const KIDS = ['sua', 'yona'];
 const KID_COLOR = { sua: '#ff7f8a', yona: '#6cc7b3' };   // 모험단 주인공 색과 같다
-const KIND_NAME = { award: '상장·메달', level: '급수', first: '처음 해낸 것' };
+const KIND_NAME = { title: '직함', award: '상장·메달', level: '급수', first: '처음 해낸 것' };
+// 직함 아이콘 — 어깨띠·역대 줄·홈 카드에 같이 쓴다
+const ICON_NAME = { crown: '왕관', star: '별', book: '책', spoon: '숟가락', flag: '깃발', note: '음표', ball: '공', heart: '하트' };
+const ICONS = {
+  crown: ['g.....g', 'g.g.g.g', 'gg.g.gg', 'ggggggg', 'gyyyyyg', 'ggggggg'],
+  star:  ['...y...', '..yyy..', 'yyyyyyy', '.yyyyy.', '..yyy..', '.yy.yy.'],
+  book:  ['bbbbbbb', 'bwwwwwb', 'bwbbbwb', 'bwwwwwb', 'bwbbwwb', 'bbbbbbb'],
+  spoon: ['..www..', '..www..', '...w...', '...w...', '...w...', '...w...'],
+  flag:  ['r......', 'rrrrrr.', 'rrrrrrr', 'rrrrrr.', 'r......', 'r......'],
+  note:  ['....y..', '....yy.', '....y.y', '....y..', '..yyy..', '..yyy..'],
+  ball:  ['.ggggg.', 'gwggggg', 'gggwggg', 'gggggwg', 'gggggg.', '.ggggg.'],
+  heart: ['.rr.rr.', 'rrrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...'],
+};
+const IPAL = { g: '#ffd979', y: '#fffaf2', b: '#3a63b0', w: '#fffaf2', r: '#ff8a9a' };
+function drawIcon(g, name, x, y, sc, over){
+  const a = ICONS[name] || ICONS.star;
+  for (let r = 0; r < a.length; r++) for (let c = 0; c < a[r].length; c++){ const ch = a[r][c]; if (ch === '.') continue; g.fillStyle = (over && over[ch]) || IPAL[ch]; g.fillRect(x + c * sc, y + r * sc, sc, sc); }
+}
 const LOOK = {
   paper:  { name: '상장 액자', kind: 'award' },
   medal:  { name: '메달',     kind: 'award' },
@@ -27,6 +44,7 @@ const LOOK = {
   piano:  { name: '건반 이름표', kind: 'level' },
   badge:  { name: '인증 배지', kind: 'level' },
   star:   { name: '별 기념패', kind: 'first' },
+  sash:   { name: '어깨띠',   kind: 'title' },
 };
 const LEVEL_COLOR = '#57b98a';               // 색을 안 고른 급수
 const PHOTO_DIM = 2000;                      // 올리는 사진의 긴 변
@@ -66,14 +84,23 @@ function mineOf(k){ return rows.filter(r => r.who === k || r.who === 'both'); }
 function yearsOf(list){ return [...new Set(list.map(r => schoolYear(r.got_on)))].sort((a, b) => b - a); }
 function inYear(list){ return year === 'all' ? list : list.filter(r => schoolYear(r.got_on) === Number(year)); }
 function sayOf(r, k){ return k === 'sua' ? r.say_sua : r.say_yona; }
-function lookOf(r){ return LOOK[r.look] && LOOK[r.look].kind === r.kind ? r.look : ({ award: 'paper', level: 'piano', first: 'star' })[r.kind] || 'paper'; }
+function lookOf(r){ return LOOK[r.look] && LOOK[r.look].kind === r.kind ? r.look : ({ award: 'paper', level: 'piano', first: 'star', title: 'sash' })[r.kind] || 'paper'; }
 function itemColor(r){ return /^#[0-9a-f]{6}$/i.test(r.color || '') ? r.color : r.kind === 'level' ? LEVEL_COLOR : KID_COLOR[kid]; }
 function pathOfUrl(u){ const m = String(u || '').split('/object/public/' + MEDIA_BUCKET + '/'); return m.length === 2 ? decodeURIComponent(m[1].split('?')[0]) : null; }
 function captionOf(r){
   const s = sayOf(r, kid);
+  if (r.kind === 'title') return r.title + (r.org ? ' · ' + r.org : '') + ' · ' + fmtDate(r.got_on) + ' ~ ' + fmtDate(r.until) + (isCurrent(r) ? ' · 임기 중' : ' · 임기 끝') + (s ? ' — “' + s + '”' : '');
   return (r.kind === 'level' ? r.track + ' · ' : '') + r.title + (r.kind === 'level' && r.step ? ' (' + r.step + '단계)' : '') +
     (r.org ? ' · ' + r.org : '') + ' · ' + fmtDate(r.got_on) + (s ? ' — “' + s + '”' : '');
 }
+// 직함 — 임기(got_on ~ until). 오늘이 그 안이면 「지금」, 지났으면 「역대」
+function isCurrent(r){ const t = todayStr(); return r.kind === 'title' && !!r.until && r.got_on <= t && t <= r.until; }
+function daysBetween(a, b){ const p = x => { const q = String(x).split('-').map(Number); return Date.UTC(q[0], q[1] - 1, q[2]); }; return Math.round((p(b) - p(a)) / 86400000); }
+function termOf(r){
+  const total = Math.max(1, daysBetween(r.got_on, r.until)), gone = Math.max(0, Math.min(total, daysBetween(r.got_on, todayStr())));
+  return { total, gone, frac: gone / total, monthsIn: Math.floor(gone / 30.4) + 1, monthsLeft: Math.max(0, Math.ceil((total - gone) / 30.4)) };
+}
+function untilDefault(got){ const y = schoolYear(got || todayStr()) + 1; return y + '-02-' + (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0) ? '29' : '28'); }
 function say(t, k){ const el = $('#museumMsg-' + (k || kid)); if (el) el.textContent = t || ''; }
 function canEditKid(k){ return isAdmin || (isChild && !!me && me.author_key === k); }   // 부모거나 그 아이 자신
 function prefOf(k){ return Object.assign({ cloth: 'cream', lamp: 'warm' }, prefs[k] || {}); }
@@ -162,6 +189,12 @@ const OBJ_ART = {
     '..kwwwwwwwwwwk..', '..kwIIIIIwwwwk..', '..kwwwwwwwwwwk..', '..kwIIIIwwhhwk..',
     '..kwwwwwwhHhwk..', '..kwwwwwwwhhwk..', '..kkkkkkkkkkkk..', '..........hh....',
     '.........h..h...', '................', '................', '................',
+  ],
+  sash: [                                                           // 비스듬한 어깨띠
+    '................', 'kk..............', 'khhk............', 'khhhhk..........',
+    '.khhhhhk........', '..khhHhhhk......', '...khhhHhhhk....', '....khhhhHhhk...',
+    '.....khhhhhHhk..', '......khhhhhhhk.', '.......khhhhhhkk', '........khhhhk..',
+    '.........khhk...', '..........kk....', '................', '................',
   ],
   piano: [                                                          // 건반 위에 단계 색 음표
     '...........h....', '...........h....', '...........h....', '.........hhh....',
@@ -273,8 +306,9 @@ function wallHit(side, u, v, w, h, d){
 
 // ---- 자리 ----
 // 오른쪽 벽: 코르크판(12장 핀) + 금테 액자 4 · 유리 진열장(두 칸 × 4) — 왼쪽 벽: 창문 + 급수 사다리 4 — 바닥: 받침대 8
-const CORK = { u: 12, v: 12, w: 168, h: 76 };
-const PINS = [0, 1, 2].flatMap(r => [0, 1, 2, 3].map(c => ({ u: CORK.u + 8 + c * 40, v: CORK.v + 5 + r * 23 })));
+// 코르크판은 v 18 부터 — 위 띠(v 6~15)에 처음 해낸 것 별자리가 걸린다
+const CORK = { u: 12, v: 18, w: 168, h: 70 };
+const PINS = [0, 1, 2].flatMap(r => [0, 1, 2, 3].map(c => ({ u: CORK.u + 8 + c * 40, v: CORK.v + 3 + r * 22 })));
 const PIN_W = 32, PIN_H = 20;
 const FRAMES = [192, 228, 264, 300].map(u => ({ u, v: 14 }));
 const FRAME_W = 30, FRAME_H = 22;
@@ -571,15 +605,77 @@ function drawShowcaseGlass(g){
   wallRect(g, 1, SC.u0 + w / 2 - 1, SC.v0 + 1, 2, h, 'rgba(120,80,40,.35)', SC.d);          // 문 사이 틀
   wallRect(g, 1, SC.u0 + w / 2 - 4, SC.v0 + 30, 2, 4, '#c8962e', SC.d); wallRect(g, 1, SC.u0 + w / 2 + 2, SC.v0 + 30, 2, 4, '#c8962e', SC.d);   // 손잡이
 }
+// ---------- 어깨띠 — 지금 맡은 직함 ----------
+/* 방 위에 아이 색 어깨띠와 금박 글씨. 그 아래 임기 막대(시작 ~ 끝, 오늘 위치, 몇 개월째).
+   직함이 둘이면 나란히(막대도 둘), 셋 이상이면 띠만. 임기가 끝나면 여기서 사라지고 벽의 역대 줄로 간다. */
+const SASH_W = 480, SASH_H = 70;
+const sashHits = { sua: [], yona: [] };
+function drawSash(box, k){
+  const cur = mineOf(k).filter(isCurrent).sort((a, b) => a.got_on < b.got_on ? -1 : 1).slice(0, 3);
+  box.hidden = !cur.length; sashHits[k] = [];
+  if (!cur.length) return;
+  const cv = box.querySelector('canvas'), g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0); g.clearRect(0, 0, SASH_W, SASH_H);
+  const color = KID_COLOR[k], n = cur.length, slot = SASH_W / n, FONT = '"Suayona Sans", Pretendard, system-ui, sans-serif';
+  cur.forEach((r, i) => {
+    const cx = slot * i + slot / 2, cy = n === 1 ? 24 : 22, w = n === 1 ? 92 : n === 2 ? 76 : 60, sl = 0.2;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const gr = g.createRadialGradient(cx, cy, 0, cx, cy, 70); gr.addColorStop(0, 'rgba(255,200,160,.5)'); gr.addColorStop(1, 'rgba(255,200,160,0)');
+    g.fillStyle = gr; g.fillRect(cx - 70, cy - 70, 140, 140); g.restore();
+    for (let d = -w; d <= w; d++){                                            // 띠 — 왼위에서 오른아래로
+      const x = Math.round(cx + d), y = Math.round(cy + d * sl), edge = Math.abs(d) === w;
+      g.fillStyle = '#2a2118'; g.fillRect(x, y - 10, 1, 1); g.fillRect(x, y + 9, 1, 1);
+      g.fillStyle = edge ? '#2a2118' : shade(color, (d % 6 === 0) ? -14 : 0); g.fillRect(x, y - 9, 1, 18);
+      if (!edge){ g.fillStyle = shade(color, 40); g.fillRect(x, y - 8, 1, 1); }
+    }
+    g.fillStyle = '#2a2118'; g.fillRect(Math.round(cx - w - 8), Math.round(cy - w * sl) - 12, 8, 2); g.fillRect(Math.round(cx + w), Math.round(cy + w * sl) + 8, 8, 2);   // 매듭 끝
+    drawIcon(g, r.icon, Math.round(cx - w + 6), Math.round(cy - (w - 9) * sl) - 3, 1, { g: '#fff3c4', y: '#fff', b: '#fff', w: '#3a2410', r: '#fff' });
+    g.save(); g.translate(cx, cy); g.rotate(Math.atan(sl));
+    g.font = '900 ' + (n === 1 ? 13 : n === 2 ? 12 : 10) + 'px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillText(r.title, 1, 1); g.fillStyle = '#ffd979'; g.fillText(r.title, 0, 0);
+    g.restore();
+    sashHits[k].push({ r, x0: cx - w - 8, x1: cx + w + 8, y0: cy - w * sl - 12, y1: cy + w * sl + 12 });
+    if (n <= 2){                                                                 // 임기 막대
+      const t = termOf(r), bw = Math.min(200, slot - 40), bx = Math.round(cx - bw / 2), by = 52;
+      g.fillStyle = '#2a2118'; g.fillRect(bx - 1, by - 1, bw + 2, 7);
+      g.fillStyle = '#e8dcc4'; g.fillRect(bx, by, bw, 5);
+      g.fillStyle = color; g.fillRect(bx, by, Math.round(bw * t.frac), 5);
+      const mx = bx + Math.round(bw * t.frac);
+      g.fillStyle = '#2a2118'; g.fillRect(mx - 1, by - 4, 3, 13); g.fillStyle = '#ffd979'; g.fillRect(mx, by - 3, 1, 11);
+      g.font = '700 8px ' + FONT; g.textBaseline = 'top'; g.fillStyle = '#7a6a58';
+      g.textAlign = 'left'; g.fillText(fmtDate(r.got_on), bx, by + 8); g.textAlign = 'right'; g.fillText(fmtDate(r.until), bx + bw, by + 8);
+      g.textAlign = 'center'; g.fillStyle = '#2a2118'; g.font = '800 8px ' + FONT;
+      g.fillText('오늘 · ' + t.monthsIn + '개월째' + (t.monthsLeft ? ' · ' + t.monthsLeft + '개월 남음' : ' · 마지막 달'), Math.max(bx + 40, Math.min(bx + bw - 40, mx)), by - 14);
+    }
+  });
+  if (!cv.__wired){
+    cv.__wired = true;
+    const at = e => { const rc = cv.getBoundingClientRect(); if (!rc.width) return null; const x = (e.clientX - rc.left) / rc.width * SASH_W, y = (e.clientY - rc.top) / rc.height * SASH_H; return sashHits[k].find(h => x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1) || null; };
+    cv.addEventListener('pointermove', e => { const h = at(e); cv.style.cursor = h ? 'pointer' : 'default'; if (h && e.pointerType === 'mouse') withKid(k, () => say(captionOf(h.r))); });
+    cv.addEventListener('click', e => { const h = at(e); if (h) withKid(k, () => openItem(h.r)); });
+  }
+}
+
 // 누를 수 있는 곳 — 그릴 때 함께 적어 둔다
 let hits = [], hoverKey = null;
 const hitsOf = { sua: [], yona: [] };
 // 가장 최근 것의 자리(반짝임) — 그릴 때 적어 둔다
 const sparkleOf = { sua: null, yona: null };
 let sparklePhase = null;                          // null 이면 안 반짝임, 0..1 이면 그 만큼
-// 처음 해낸 것 별자리 — 오른쪽 벽 액자 아래 띠(u 196~316, v 42~56). 순서대로 이어서 하나의 별자리가 된다
-const CONST_U0 = 196, CONST_STEP = 17, CONST_MAX = 8;
-function constPos(n){ return { u: CONST_U0 + n * CONST_STEP, v: 44 + [0, 8, 3, 10, 1, 7, 4, 9][n % 8] }; }
+// 처음 해낸 것 별자리 — 코르크판 위 벽지 띠(u 22~, v 7~11)에 화환처럼. 순서대로 이어서 하나의 별자리가 된다
+// (처음엔 액자 아래 띠였는데, 그 자리는 역대 직함 줄에 내줬다)
+const CONST_U0 = 24, CONST_STEP = 20, CONST_MAX = 8;
+function constPos(n){ return { u: CONST_U0 + n * CONST_STEP, v: 10 + [0, -1, 1, 0, -1, 1, 0, -1][n % 8] }; }
+// 역대 직함 줄 — 오른쪽 벽 액자 아래 띠(u 196~330, v 40~58). 지난 것은 작게, 지금 것은 크게 빛난다
+const HALL = { u0: 200, u1: 330, v: 49 };
+function drawHallBadge(g, u, v, r, big){
+  const R = big ? 8 : 5, c = wallXY(1, u, v);
+  const col = big ? '#e0a93b' : '#c8b28a', hi = big ? '#ffd979' : '#ddd0b0';
+  for (let y = -R; y <= R; y++){ const hw = Math.round(Math.sqrt(R * R - y * y)); g.fillStyle = '#2a2118'; g.fillRect(Math.round(c.x - hw - 1), Math.round(c.y + y), hw * 2 + 2, 1); }
+  for (let y = -R + 1; y <= R - 1; y++){ const hw = Math.round(Math.sqrt((R - 1) * (R - 1) - y * y)); g.fillStyle = y < -R / 2 ? hi : col; g.fillRect(Math.round(c.x - hw), Math.round(c.y + y), hw * 2, 1); }
+  drawIcon(g, r.icon, Math.round(c.x - 3), Math.round(c.y - 3), 1, big ? { g: '#fff3c4', y: '#fff', b: '#fff', w: '#3a2410', r: '#fff' } : { g: '#5a3a22', y: '#5a3a22', b: '#5a3a22', w: '#e8dcc4', r: '#5a3a22' });
+  return { x0: c.x - R - 2, x1: c.x + R + 2, y0: c.y - R - 2, y1: c.y + R + 2 };
+}
 function drawConstellation(g, firsts){
   const pts = firsts.map((r, n) => Object.assign({ r }, constPos(n)));
   for (let n = 1; n < pts.length; n++){                                   // 잇는 선 — 벽면 좌표로 보간
@@ -602,7 +698,7 @@ function drawSparkle(g, x, y){
   const h = Math.max(1, L >> 1);
   g.fillRect(x - h, y - h, 1, 1); g.fillRect(x + h, y - h, 1, 1); g.fillRect(x - h, y + h, 1, 1); g.fillRect(x + h, y + h, 1, 1);
 }
-const hitKey = h => h.r ? (h.star ? 's' : 'r') + h.r.id : 't' + h.t.track;
+const hitKey = h => h.r ? (h.star ? 's' : h.hall ? 'h' : 'r') + h.r.id : 't' + h.t.track;
 function drawMuseum(g, k){
   const color = KID_COLOR[k], all = mineOf(k), list = inYear(all);
   hits = [];
@@ -643,9 +739,21 @@ function drawMuseum(g, k){
     mark(r, Object.assign({ r, front: 1 }, wallHit(1, s.u - 2, s.v - 2, 20, 18, SC.d)));
   });
   drawShowcaseGlass(g);
-  // 오른쪽 벽 띠 — 처음 해낸 것 별자리(받침대에도 있지만, 벽에서는 하나의 별자리로 이어진다)
+  // 코르크판 위 띠 — 처음 해낸 것 별자리(받침대에도 있지만, 벽에서는 하나의 별자리로 이어진다)
   drawConstellation(g, list.filter(r => r.kind === 'first').slice(0, CONST_MAX)).forEach(pt => {
     hits.push(Object.assign({ r: pt.r, star: true }, wallHit(1, pt.u - 3, pt.v - 3, 7, 7, 0)));
+  });
+  // 액자 아래 띠 — 역대 직함. 오래된 것부터 작게, 지금 것은 맨 오른쪽에 크게(학년도 필터와 무관하게 전부)
+  const titles = all.filter(r => r.kind === 'title' && r.until).slice().sort((a, b) => a.got_on < b.got_on ? -1 : 1);
+  const past = titles.filter(r => !isCurrent(r)).slice(-6), cur = titles.filter(isCurrent);
+  let hu = HALL.u0;
+  past.forEach(r => { const h = drawHallBadge(g, hu, HALL.v, r, false); hits.push(Object.assign({ r, hall: true }, h)); hu += 16; });
+  hu += past.length ? 6 : 0;
+  cur.forEach((r, n) => {
+    const u = Math.min(HALL.u1 - 10, hu + 8 + n * 22), c = wallXY(1, u, HALL.v);
+    lamps.push([c.x, c.y, 22, 0.28]);
+    const h = drawHallBadge(g, u, HALL.v, r, true); hits.push(Object.assign({ r, hall: true }, h));
+    if (r.id === newest) sparkleOf[k] = { x: Math.round(c.x) + 8, y: Math.round(c.y) - 8 };
   });
   SC_SHELF.forEach(v => { const p = wallXY(1, SC.u0 + (SC.u1 - SC.u0) / 2, v + 10, SC.d); lamps.push([p.x, p.y, 46, 0.14]); });
   // 바닥 받침대 — 처음 해낸 것과 진열장에 못 들어간 메달·트로피
@@ -740,6 +848,7 @@ function buildRoom(k){
     '<div class="museum-card">' +
       '<h2 class="room-title"></h2>' +
       '<p class="sub room-sub"></p>' +
+      '<div class="title-sash" hidden><canvas class="sash-cv" width="960" height="140" aria-label="지금 맡은 직함"></canvas></div>' +
       '<div class="museum-stage"><canvas class="museum" id="museum-' + k + '" width="1024" height="792"' +
         ' aria-label="' + heroName(k) + '의 업적 전시실. 오른쪽 벽에 상장 액자와 코르크판, 유리 진열장에 메달·트로피, 왼쪽 벽에 급수 사다리, 바닥 받침대에 처음 해낸 일이 있어요. 누르면 사진이 열려요."></canvas></div>' +
       '<p class="museum-msg" id="museumMsg-' + k + '" aria-live="polite"></p>' +
@@ -794,6 +903,7 @@ function renderRoom(sec, k){
     tools.appendChild(b);
   }
   q('.room-paper').textContent = missing ? '' : roomYear() + '학년도 벽지 · ' + WALLPAPERS[((roomYear() % 4) + 4) % 4].name;
+  drawSash(q('.title-sash'), k);
   drawRoom(k);
   renderList(list, q('.honor-list'), k);
 }
@@ -805,7 +915,7 @@ function renderList(list, box, k){
     p.textContent = year === 'all' ? heroName(k) + '의 자랑이 아직 없어요.' : year + '학년도에는 아직 없어요.';
     box.appendChild(p); return;
   }
-  ['award', 'level', 'first'].forEach(kd => {
+  ['title', 'award', 'level', 'first'].forEach(kd => {
     const part = list.filter(r => r.kind === kd);
     if (!part.length) return;
     const sec = document.createElement('div'); sec.className = 'honor-group';
@@ -852,13 +962,17 @@ function cardOf(r, k){
   if (r.thumb_url || r.photo_url){ const im = document.createElement('img'); im.loading = 'lazy'; im.alt = ''; im.src = r.thumb_url || r.photo_url; pic.appendChild(im); }
   const cv = document.createElement('canvas'); cv.width = 36; cv.height = 36; cv.className = 'mark';
   const cg = cv.getContext('2d'); cg.imageSmoothingEnabled = false;
-  drawArtOut(cg, OBJ_ART[lookOf(r)] || OBJ_ART.star, 2, 2, 2, itemColor(r));
+  drawArtOut(cg, OBJ_ART[lookOf(r)] || OBJ_ART.star, 2, 2, 2, r.kind === 'title' ? KID_COLOR[k] : itemColor(r));
+  if (r.kind === 'title') drawIcon(cg, r.icon, 20, 4, 2);
   pic.appendChild(cv);
   pic.addEventListener('click', () => withKid(k, () => openItem(r)));
   const body = document.createElement('div'); body.className = 'txt';
   const b = document.createElement('b'); b.textContent = (r.kind === 'level' ? r.track + ' ' : '') + r.title;
   const sm = document.createElement('small');
-  sm.textContent = [r.kind === 'level' && r.step ? r.step + '단계' : '', r.org, fmtDate(r.got_on), r.who === 'both' ? '둘이 함께' : ''].filter(Boolean).join(' · ');
+  sm.textContent = r.kind === 'title'
+    ? [r.org, fmtDate(r.got_on) + ' ~ ' + fmtDate(r.until), isCurrent(r) ? '임기 중' : '임기 끝', r.who === 'both' ? '둘이 함께' : ''].filter(Boolean).join(' · ')
+    : [r.kind === 'level' && r.step ? r.step + '단계' : '', r.org, fmtDate(r.got_on), r.who === 'both' ? '둘이 함께' : ''].filter(Boolean).join(' · ');
+  if (r.kind === 'title' && isCurrent(r)) el.classList.add('now');
   body.append(b, sm);
   const s = sayOf(r, k);
   if (s){ const p = document.createElement('p'); p.className = 'say'; p.textContent = '“' + s + '”'; body.appendChild(p); }
@@ -997,7 +1111,7 @@ function openForm(r){
       '<h3>' + (r ? '✎ 자랑 고치기' : '＋ 자랑 올리기') + '</h3>' +
       '<div class="row2">' +
         '<div><label class="field">누구</label><select class="fWho" aria-label="누구"><option value="sua">수아</option><option value="yona">연아</option><option value="both">둘이 함께</option></select></div>' +
-        '<div><label class="field">종류</label><select class="fKind" aria-label="종류"><option value="award">상장·메달</option><option value="level">급수</option><option value="first">처음 해낸 것</option></select></div>' +
+        '<div><label class="field">종류</label><select class="fKind" aria-label="종류"><option value="award">상장·메달</option><option value="level">급수</option><option value="first">처음 해낸 것</option><option value="title">직함 (임기가 있는 것)</option></select></div>' +
       '</div>' +
       '<label class="field">모양</label><select class="fLook" aria-label="모양"></select>' +
       '<div class="fLevel">' +
@@ -1008,9 +1122,13 @@ function openForm(r){
         '</div>' +
         '<label class="field">단계 색</label><input type="color" class="fColor" aria-label="색">' +
       '</div>' +
+      '<div class="fTitleW row2">' +
+        '<div><label class="field">아이콘</label><select class="fIcon" aria-label="아이콘">' + Object.keys(ICON_NAME).map(i => '<option value="' + i + '">' + ICON_NAME[i] + '</option>').join('') + '</select></div>' +
+        '<div><label class="field">임기 끝</label><input type="date" class="fUntil" aria-label="임기 끝"></div>' +
+      '</div>' +
       '<label class="field fTitleL">제목</label><input type="text" class="fTitle" maxlength="60" aria-label="제목">' +
       '<div class="fOrgW"><label class="field">주는 곳 (선택)</label><input type="text" class="fOrg" maxlength="40" aria-label="주는 곳" placeholder="예: 줄넘기 학원"></div>' +
-      '<label class="field">받은 날</label><input type="date" class="fDate" aria-label="받은 날">' +
+      '<label class="field fDateL">받은 날</label><input type="date" class="fDate" aria-label="받은 날">' +
       '<div class="fSayW-sua"><label class="field">수아의 한마디 (선택)</label><input type="text" class="fSaySua" maxlength="80" aria-label="수아의 한마디"></div>' +
       '<div class="fSayW-yona"><label class="field">연아의 한마디 (선택)</label><input type="text" class="fSayYona" maxlength="80" aria-label="연아의 한마디"></div>' +
       '<label class="field">사진 (선택)</label>' +
@@ -1044,13 +1162,17 @@ function openForm(r){
   q('.fTitle').value = v.title || ''; q('.fOrg').value = v.org || ''; q('.fDate').value = v.got_on || todayStr();
   q('.fTrack').value = v.track || ''; q('.fStep').value = v.step || ''; q('.fColor').value = /^#[0-9a-f]{6}$/i.test(v.color || '') ? v.color : LEVEL_COLOR;
   q('.fSaySua').value = v.say_sua || ''; q('.fSayYona').value = v.say_yona || '';
+  q('.fIcon').value = v.icon || 'crown'; q('.fUntil').value = v.until || '';
   const sync = () => {
     const kd = q('.fKind').value, cur = q('.fLook').value || v.look;
     q('.fLook').innerHTML = Object.keys(LOOK).filter(l => LOOK[l].kind === kd).map(l => '<option value="' + l + '">' + LOOK[l].name + '</option>').join('');
     if (LOOK[cur] && LOOK[cur].kind === kd) q('.fLook').value = cur;
     q('.fLevel').hidden = kd !== 'level';
+    q('.fTitleW').hidden = kd !== 'title';
     q('.fOrgW').hidden = kd === 'first';
-    q('.fTitleL').textContent = kd === 'level' ? '단계 이름 (예: 체르니 100, 5급)' : kd === 'first' ? '해낸 일 (예: 두발자전거 혼자 타기)' : '상 이름 (예: 줄넘기 대회 은상)';
+    q('.fTitleL').textContent = kd === 'level' ? '단계 이름 (예: 체르니 100, 5급)' : kd === 'first' ? '해낸 일 (예: 두발자전거 혼자 타기)' : kd === 'title' ? '직함 (예: 전교회장, 반장)' : '상 이름 (예: 줄넘기 대회 은상)';
+    q('.fDateL').textContent = kd === 'title' ? '시작한 날' : '받은 날';
+    if (kd === 'title' && !q('.fUntil').value) q('.fUntil').value = untilDefault(q('.fDate').value);   // 임기 끝은 그 학년도 2월 말로 미리
     const w = q('.fWho').value;
     q('.fSayW-sua').hidden = w === 'yona'; q('.fSayW-yona').hidden = w === 'sua';
   };
@@ -1106,6 +1228,9 @@ function openForm(r){
     if (!/^\d{4}-\d{2}-\d{2}$/.test(got_on)){ msg.textContent = '받은 날을 골라 주세요.'; return; }
     if (kd === 'level' && !track){ msg.textContent = '급수는 종목을 적어 주세요 (예: 피아노).'; return; }
     if (kd === 'level' && !(step >= 1 && step <= 99)){ msg.textContent = '몇 번째 단계인지 숫자로 적어 주세요.'; return; }
+    const until = q('.fUntil').value;
+    if (kd === 'title' && !/^\d{4}-\d{2}-\d{2}$/.test(until)){ msg.textContent = '임기가 끝나는 날을 골라 주세요.'; return; }
+    if (kd === 'title' && until < got_on){ msg.textContent = '임기 끝이 시작한 날보다 앞이에요.'; return; }
     if (mz.has() && !mz.count() && !confirm('가린 곳 없이 그대로 올릴까요? 이름·학교·반이 보이지 않는지 한 번 더 봐 주세요.')) return;
     const btn = q('.fSave'); btn.disabled = true; msg.textContent = '저장하는 중…';
     let photo = { url: r ? r.photo_url : null, turl: r ? r.thumb_url : null }, fresh = [], drop = [];
@@ -1120,6 +1245,7 @@ function openForm(r){
       const row = {
         who, kind: kd, look: q('.fLook').value, title, org: kd === 'first' ? null : (q('.fOrg').value.trim() || null), got_on,
         track: kd === 'level' ? track : null, step: kd === 'level' ? step : null, color: kd === 'level' ? q('.fColor').value : null,
+        icon: kd === 'title' ? q('.fIcon').value : null, until: kd === 'title' ? until : null,
         photo_url: photo.url, thumb_url: photo.turl,
         say_sua: who === 'yona' ? null : (q('.fSaySua').value.trim() || null),
         say_yona: who === 'sua' ? null : (q('.fSayYona').value.trim() || null),
@@ -1420,7 +1546,7 @@ function printSheet(list){
   const h = document.createElement('h1'); h.textContent = heroName(kid) + '의 ' + label; sheet.appendChild(h);
   const sub = document.createElement('p'); sub.className = 'ps-sub';
   sub.textContent = '수아랑 연아랑 업적 전시실 · ' + fmtDate(todayStr()) + ' 뽑음'; sheet.appendChild(sub);
-  ['award', 'level', 'first'].forEach(kd => {
+  ['title', 'award', 'level', 'first'].forEach(kd => {
     const part = list.filter(r => r.kind === kd).slice().sort((a, b) => a.got_on < b.got_on ? -1 : 1);
     if (!part.length) return;
     const h2 = document.createElement('h2'); h2.textContent = KIND_NAME[kd] + ' ' + part.length; sheet.appendChild(h2);
@@ -1430,7 +1556,7 @@ function printSheet(list){
       else { const cv = document.createElement('canvas'); cv.width = 48; cv.height = 48; const cg = cv.getContext('2d'); cg.imageSmoothingEnabled = false; drawArtOut(cg, OBJ_ART[lookOf(r)] || OBJ_ART.star, 0, 0, 3, itemColor(r)); row.appendChild(cv); }
       const t = document.createElement('div');
       const b = document.createElement('b'); b.textContent = (r.kind === 'level' ? r.track + ' ' : '') + r.title + (r.kind === 'level' && r.step ? ' (' + r.step + '단계)' : '');
-      const sm = document.createElement('small'); sm.textContent = [r.org, fmtDate(r.got_on), r.who === 'both' ? '둘이 함께' : ''].filter(Boolean).join(' · ');
+      const sm = document.createElement('small'); sm.textContent = [r.org, fmtDate(r.got_on) + (r.kind === 'title' ? ' ~ ' + fmtDate(r.until) : ''), r.who === 'both' ? '둘이 함께' : ''].filter(Boolean).join(' · ');
       t.append(b, sm);
       const s = sayOf(r, kid);
       if (s){ const q = document.createElement('p'); q.textContent = '“' + s + '”'; t.appendChild(q); }

@@ -2617,8 +2617,9 @@ belowFold(async () => {
     star:   ['...yy...', '...yy...', '.yyyyyy.', '..yyyy..', '..yyyy..', '.yy..yy.', '........', '..rrrr..'],
     piano:  ['.....g..', '....gg..', 'kkkkkkkk', 'kwwwwwwk', 'kwkwkwwk', 'kwkwkwwk', 'kwwwwwwk', 'kkkkkkkk'],
     badge:  ['kkkkkkkk', 'kwwwwwwk', 'kwIIIIwk', 'kwwwwwwk', 'kwIIwwwk', 'kkkkkkkk', '...hh...', '..h..h..'],
+    sash:   ['k.......', 'khk.....', 'khhhk...', '.khhhhk.', '..khhhhk', '...khhhk', '....khk.', '.....k..'],
   };
-  const lookOf = r => ART[r.look] ? r.look : ({ award: 'paper', level: 'piano', first: 'star' })[r.kind] || 'paper';
+  const lookOf = r => ART[r.look] ? r.look : ({ award: 'paper', level: 'piano', first: 'star', title: 'sash' })[r.kind] || 'paper';
   const draw = (g, art, x, color) => {
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++){
       const ch = art[r][c]; if (ch === '.') continue;
@@ -2633,7 +2634,7 @@ belowFold(async () => {
     if (!mine.length){ const t = document.createElement('span'); t.textContent = '아직 없어요'; row.appendChild(t); box.appendChild(row); return; }
     const cv = document.createElement('canvas'); cv.width = 30; cv.height = 10;
     const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
-    mine.slice(0, 3).forEach((r, n) => draw(g, ART[lookOf(r)], n * 10 + 1, /^#[0-9a-f]{6}$/i.test(r.color || '') ? r.color : '#57b98a'));
+    mine.slice(0, 3).forEach((r, n) => draw(g, ART[lookOf(r)], n * 10 + 1, r.kind === 'title' ? (k === 'sua' ? '#ff7f8a' : '#6cc7b3') : /^#[0-9a-f]{6}$/i.test(r.color || '') ? r.color : '#57b98a'));
     cv.setAttribute('aria-label', mine.slice(0, 3).map(r => r.title).join(', '));
     const nA = mine.filter(r => r.kind === 'award').length, nL = new Set(mine.filter(r => r.kind === 'level').map(r => r.track)).size, nF = mine.filter(r => r.kind === 'first').length;
     const t = document.createElement('span'); t.textContent = '🏅' + nA + ' 🪜' + nL + ' ⭐' + nF + ' · ' + mine[0].title;

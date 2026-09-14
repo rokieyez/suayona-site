@@ -1781,3 +1781,19 @@ drop policy if exists "anyone can insert messages" on public.messages;
 -- $$;
 -- grant execute on function public.honor_board() to anon, authenticated;
 
+
+-- =====================================================================
+-- 2026-09-14 밤 — 직함(title): 임기가 있는 것(전교회장·반장·도서부장…). 어깨띠 + 임기 막대 + 역대 줄
+-- 상장과 달리 「지금 이 자리에 있다」가 핵심이라 임기 끝(until)이 있다. 오늘 ≤ until 이면 지금, 지나면 역대.
+-- 아이콘은 정해진 여덟 가지에서 고른다. (적용: 부모 허락 뒤)
+alter table public.honors drop constraint if exists honors_kind_check;
+alter table public.honors add constraint honors_kind_check check (kind in ('award', 'level', 'first', 'title'));
+alter table public.honors drop constraint if exists honors_look_check;
+alter table public.honors add constraint honors_look_check check (look in ('paper', 'medal', 'trophy', 'piano', 'badge', 'star', 'sash'));
+alter table public.honors add column if not exists until date;
+alter table public.honors add column if not exists icon text check (icon is null or icon in ('crown', 'star', 'book', 'spoon', 'flag', 'note', 'ball', 'heart'));
+alter table public.honors drop constraint if exists honors_title_has_until;
+alter table public.honors add constraint honors_title_has_until check (kind <> 'title' or until is not null);
+alter table public.honors drop constraint if exists honors_until_after_start;
+alter table public.honors add constraint honors_until_after_start check (until is null or until >= got_on);
+
