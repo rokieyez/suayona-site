@@ -42,6 +42,14 @@ const LAMP_NAME = { warm: '따뜻한 노랑', white: '하얀 빛', pink: '분홍
 // 구역마다 withKid() 로 잠깐 바꿔 놓고 그린다. 모달은 열 때의 아이를 붙잡아 둔다 — 다른 방을 훑기만 해도 kid 가 바뀐다.
 let rows = [], kid = 'sua', year = 'all', missing = false;
 const yearOf = { sua: 'all', yona: 'all' };
+// 시간대 — 창밖과 전등이 따라 바뀐다(농장의 계절처럼). ?phase=day|dusk|night 로 미리 볼 수 있다.
+function dayPhase(){
+  const q = new URLSearchParams(location.search).get('phase');
+  if (q === 'day' || q === 'dusk' || q === 'night') return q;
+  const h = new Date().getHours();
+  return h >= 7 && h < 17 ? 'day' : h >= 17 && h < 20 ? 'dusk' : 'night';
+}
+const STILL = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 function withKid(k, fn){ const pk = kid, py = year; kid = k; year = yearOf[k]; try { return fn(); } finally { kid = pk; year = py; } }
 let goals = [], claps = {}, prefs = {};   // 다음 목표 · 박수 수 · 진열대 꾸밈
 let wantItem = Number(new URLSearchParams(location.search).get('item')) || 0;   // ?item= 으로 들어오면 그것부터 연다
@@ -89,6 +97,12 @@ async function load(){
     rows = data || [];
   }
   if (!missing) await loadExtras();
+  // 메뉴 「업적 전시실」의 새 자랑 점 — 여기까지 본 것을 적어 두면 점이 사라진다(common.js markNewHonors)
+  try {
+    const latest = rows.reduce((m, r) => r.created_at > m ? r.created_at : m, '');
+    localStorage.setItem('honors_seen', latest);
+    sessionStorage.setItem('honors_latest', JSON.stringify({ at: Date.now(), latest }));
+  } catch (e) { /* 저장이 막힌 브라우저 — 점이 남을 뿐이다 */ }
   render();
   if (wantItem){
     const r = rows.find(x => x.id === wantItem);
@@ -316,7 +330,7 @@ function drawFloorLamp(g, x, y, color){
 // 껍데기(벽·창문·코르크판·진열장 몸통·마루·양탄자·화분)는 아이 색·학년도마다 한 번만 굽는다
 const shells = {};
 function shellCv(color, yr){
-  const key = color + ':' + yr;
+  const phase = dayPhase(), key = color + ':' + yr + ':' + phase;
   if (shells[key]) return shells[key];
   const style = ((yr % 4) + 4) % 4, paper = WALLPAPERS[style];
   const c = document.createElement('canvas');
@@ -352,16 +366,25 @@ function shellCv(color, yr){
   const W = WIN;
   wallRect(g, 0, W.u - 3, W.v - 3, W.w + 6, W.h + 6, '#f4ecd8');                           // 창틀
   wallRect(g, 0, W.u - 3, W.v - 3, W.w + 6, 1, '#fffaf0');
-  for (let u = 0; u < W.w; u++) for (let v = 0; v < W.h; v++){                           // 하늘 — 위로 갈수록 짙다
-    const t = v / W.h, r = Math.round(120 + 90 * t), gg = Math.round(178 + 55 * t), b = Math.round(230 + 15 * t);
+  // 하늘 — 낮은 파랑(위로 갈수록 짙다), 저녁은 주황→보라, 밤은 남색에 별과 달
+  const SKY = { day: [[120, 178, 230], [210, 233, 245]], dusk: [[90, 60, 120], [255, 150, 90]], night: [[10, 16, 44], [30, 40, 80]] }[phase];
+  for (let u = 0; u < W.w; u++) for (let v = 0; v < W.h; v++){
+    const t = v / W.h, r = Math.round(SKY[0][0] + (SKY[1][0] - SKY[0][0]) * t), gg = Math.round(SKY[0][1] + (SKY[1][1] - SKY[0][1]) * t), b = Math.round(SKY[0][2] + (SKY[1][2] - SKY[0][2]) * t);
     const p = wallXY(0, W.u + u, W.v + v);
     g.fillStyle = 'rgb(' + r + ',' + gg + ',' + b + ')'; g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
   }
-  [[8, 14, 14], [30, 30, 18], [12, 44, 10]].forEach(([cu, cv, w]) => {                     // 구름
-    for (let k = 0; k < 3; k++) wallRect(g, 0, W.u + cu + k * 2, W.v + cv - k * 2, w - k * 4, 2 + (k === 1 ? 2 : 0), k === 2 ? '#ffffff' : '#f2f7ff');
-    wallRect(g, 0, W.u + cu - 2, W.v + cv + 2, w + 4, 3, '#e8f0fb');
+  if (phase === 'night'){
+    for (let n = 0; n < 26; n++){ const su = 3 + Math.floor(prand('sx' + n) * (W.w - 6)), sv = 3 + Math.floor(prand('sy' + n) * (W.h - 26)); wallRect(g, 0, W.u + su, W.v + sv, 1, 1, prand('sb' + n) < 0.3 ? '#ffffff' : '#c9d6ff'); }
+    wallRect(g, 0, W.u + 38, W.v + 10, 8, 8, '#fff3c4'); wallRect(g, 0, W.u + 40, W.v + 9, 4, 1, '#fff3c4'); wallRect(g, 0, W.u + 40, W.v + 18, 4, 1, '#fff3c4');   // 달
+    wallRect(g, 0, W.u + 37, W.v + 12, 1, 4, '#fff3c4'); wallRect(g, 0, W.u + 46, W.v + 12, 1, 4, '#fff3c4');
+    wallRect(g, 0, W.u + 42, W.v + 12, 3, 3, '#f0e4b0');
+  } else [[8, 14, 14], [30, 30, 18], [12, 44, 10]].forEach(([cu, cv, w]) => {              // 구름(저녁엔 분홍빛)
+    const c1 = phase === 'dusk' ? '#ffd0c0' : '#ffffff', c2 = phase === 'dusk' ? '#f7c2b8' : '#f2f7ff', c3 = phase === 'dusk' ? '#e9b0b0' : '#e8f0fb';
+    for (let k = 0; k < 3; k++) wallRect(g, 0, W.u + cu + k * 2, W.v + cv - k * 2, w - k * 4, 2 + (k === 1 ? 2 : 0), k === 2 ? c1 : c2);
+    wallRect(g, 0, W.u + cu - 2, W.v + cv + 2, w + 4, 3, c3);
   });
-  wallRect(g, 0, W.u + 4, W.v + W.h - 10, 12, 10, '#5e8b3f'); wallRect(g, 0, W.u + 2, W.v + W.h - 6, 16, 6, '#4b7332');   // 창밖 나무
+  const tree = phase === 'day' ? ['#5e8b3f', '#4b7332'] : phase === 'dusk' ? ['#4a6a34', '#3a5528'] : ['#22342a', '#1a2a20'];
+  wallRect(g, 0, W.u + 4, W.v + W.h - 10, 12, 10, tree[0]); wallRect(g, 0, W.u + 2, W.v + W.h - 6, 16, 6, tree[1]);   // 창밖 나무
   wallRect(g, 0, W.u + 28, W.v, 2, W.h, '#e9e0c9'); wallRect(g, 0, W.u, W.v + 32, W.w, 2, '#e9e0c9');                    // 창살
   wallRect(g, 0, W.u + 2, W.v + 2, 1, 20, 'rgba(255,255,255,.55)');                                                        // 유리 반사
   wallRect(g, 0, W.u - 5, W.v + W.h + 3, W.w + 10, 4, '#e2d4b6'); wallRect(g, 0, W.u - 5, W.v + W.h + 7, W.w + 10, 1, '#8a6440');   // 창턱
@@ -407,8 +430,9 @@ function shellCv(color, yr){
   // 창빛 — 창을 바닥에 투영한 평행사변형. 바닥 좌표(i, j)로 판정해서 타일 격자를 따라 눕는다.
   // 창은 왼쪽 벽 u = W.u..W.u+W.w 에 있으니 j 는 그 범위(u/28), 빛은 방 안쪽(i)으로 들어오며 해가 비껴서 j 가 i 를 따라 밀린다.
   // 창살 자리(세로 창살 j, 가로 창살 i)에는 그늘 줄. (처음엔 화면 가로 띠를 쌓아서 바닥에 안 붙어 보였다 — 부모가 잡았다.)
-  {
+  if (phase !== 'night'){                                                                  // 밤엔 창빛이 없다
     const j0 = W.u / 28, j1 = (W.u + W.w) / 28, jm = (W.u + 29) / 28, i0 = 0.12, i1 = 2.3, im = 1.25, skew = 0.32;
+    const tint = phase === 'dusk' ? '255,200,150,' : '255,240,200,', gain = phase === 'dusk' ? 0.6 : 1;
     const box = [tileXY(i0, j0), tileXY(i1, j0 + i1 * skew), tileXY(i1, j1 + i1 * skew), tileXY(i0, j1)];
     const x0 = Math.floor(Math.min(...box.map(p => p.x))), x1 = Math.ceil(Math.max(...box.map(p => p.x)));
     const y0 = Math.floor(Math.min(...box.map(p => p.y))), y1 = Math.ceil(Math.max(...box.map(p => p.y)));
@@ -418,8 +442,8 @@ function shellCv(color, yr){
       const i = ((cx - FX) / 28 + (cy - FY) / 14) / 2, j = ((cy - FY) / 14 - (cx - FX) / 28) / 2 - i * skew;
       if (i < i0 || i >= i1 || j < j0 || j >= j1) continue;
       const bar = Math.abs(j - jm) < 0.05 || Math.abs(i - im) < 0.05;
-      const a = (bar ? 0.04 : 0.16) * (1 - (i - i0) / (i1 - i0) * 0.55);
-      g.fillStyle = 'rgba(255,240,200,' + a.toFixed(3) + ')'; g.fillRect(x, y, 2, 2);
+      const a = (bar ? 0.04 : 0.16) * gain * (1 - (i - i0) / (i1 - i0) * 0.55);
+      g.fillStyle = 'rgba(' + tint + a.toFixed(3) + ')'; g.fillRect(x, y, 2, 2);
     }
     g.restore();
   }
@@ -438,7 +462,11 @@ function shellCv(color, yr){
     if (Math.abs(k) < 10){ const hw2 = Math.round((1 - Math.abs(k) / 10) * 40); g.fillStyle = shade(color, 16); g.fillRect(Math.round(rug.x - hw2), Math.round(rug.y + k * 2), hw2 * 2, 2); }
   }
   const pl = tileXY(0.6, 4.9); drawPlant(g, Math.round(pl.x - 16), Math.round(pl.y - 30));
-  const lp = tileXY(11.2, 0.8); drawFloorLamp(g, Math.round(lp.x), Math.round(lp.y), color);
+  const lp = tileXY(11.2, 0.8); drawFloorLamp(g, Math.round(lp.x), Math.round(lp.y), phase === 'day' ? color : shade(color, 40));   // 저녁·밤엔 전등이 켜진다
+  if (phase !== 'day'){                                                                    // 방 전체가 살짝 어둑해진다
+    g.fillStyle = phase === 'dusk' ? 'rgba(90,40,20,.10)' : 'rgba(16,20,60,.22)';
+    g.globalCompositeOperation = 'source-atop'; g.fillRect(0, 0, RW, RH); g.globalCompositeOperation = 'source-over';
+  }
   shells[key] = c;
   return c;
 }
@@ -546,19 +574,49 @@ function drawShowcaseGlass(g){
 // 누를 수 있는 곳 — 그릴 때 함께 적어 둔다
 let hits = [], hoverKey = null;
 const hitsOf = { sua: [], yona: [] };
-const hitKey = h => h.r ? 'r' + h.r.id : 't' + h.t.track;
+// 가장 최근 것의 자리(반짝임) — 그릴 때 적어 둔다
+const sparkleOf = { sua: null, yona: null };
+let sparklePhase = null;                          // null 이면 안 반짝임, 0..1 이면 그 만큼
+// 처음 해낸 것 별자리 — 오른쪽 벽 액자 아래 띠(u 196~316, v 42~56). 순서대로 이어서 하나의 별자리가 된다
+const CONST_U0 = 196, CONST_STEP = 17, CONST_MAX = 8;
+function constPos(n){ return { u: CONST_U0 + n * CONST_STEP, v: 44 + [0, 8, 3, 10, 1, 7, 4, 9][n % 8] }; }
+function drawConstellation(g, firsts){
+  const pts = firsts.map((r, n) => Object.assign({ r }, constPos(n)));
+  for (let n = 1; n < pts.length; n++){                                   // 잇는 선 — 벽면 좌표로 보간
+    const a = pts[n - 1], b = pts[n], steps = Math.max(Math.abs(b.u - a.u), Math.abs(b.v - a.v));
+    for (let k = 0; k <= steps; k += 2){ const p = wallXY(1, a.u + (b.u - a.u) * k / steps, a.v + (b.v - a.v) * k / steps); g.fillStyle = 'rgba(255,225,140,.45)'; g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); }
+  }
+  pts.forEach(pt => {
+    wallRect(g, 1, pt.u - 2, pt.v, 5, 1, '#ffd979'); wallRect(g, 1, pt.u, pt.v - 2, 1, 5, '#ffd979');
+    wallRect(g, 1, pt.u, pt.v, 1, 1, '#fff8dc');
+    wallRect(g, 1, pt.u - 1, pt.v - 1, 1, 1, 'rgba(255,217,121,.5)'); wallRect(g, 1, pt.u + 1, pt.v + 1, 1, 1, 'rgba(255,217,121,.5)');
+  });
+  return pts;
+}
+function drawSparkle(g, x, y){
+  const s = Math.sin(sparklePhase * Math.PI), L = Math.round(2 + 5 * s);
+  if (L <= 0) return;
+  g.fillStyle = '#ffffff';
+  g.fillRect(x - L, y, L * 2 + 1, 1); g.fillRect(x, y - L, 1, L * 2 + 1);
+  g.fillStyle = '#ffd979';
+  const h = Math.max(1, L >> 1);
+  g.fillRect(x - h, y - h, 1, 1); g.fillRect(x + h, y - h, 1, 1); g.fillRect(x - h, y + h, 1, 1); g.fillRect(x + h, y + h, 1, 1);
+}
+const hitKey = h => h.r ? (h.star ? 's' : 'r') + h.r.id : 't' + h.t.track;
 function drawMuseum(g, k){
   const color = KID_COLOR[k], all = mineOf(k), list = inYear(all);
   hits = [];
   g.clearRect(0, 0, RW, RH);
   g.drawImage(shellCv(color, roomYear()), 0, 0, RW, RH);
   const lamps = [], newest = list[0] ? list[0].id : null;
+  sparkleOf[k] = null;
+  const mark = (r, h) => { hits.push(h); if (r.id === newest) sparkleOf[k] = { x: Math.round((h.x0 + h.x1) / 2) + 6, y: Math.round(h.y0) + 4 }; };
   // 오른쪽 벽 — 상장: 최근 넷은 금테 액자에, 그 다음 열둘은 코르크판에 핀으로
   const papers = list.filter(r => r.kind === 'award' && lookOf(r) === 'paper');
   papers.slice(0, FRAMES.length).forEach((r, n) => {
     const f = FRAMES[n];
     drawFrame(g, f, n);
-    hits.push(Object.assign({ r }, wallHit(1, f.u, f.v, FRAME_W, FRAME_H, 0)));
+    mark(r, Object.assign({ r }, wallHit(1, f.u, f.v, FRAME_W, FRAME_H, 0)));
   });
   FRAMES.slice(papers.length).forEach(f => {                           // 아직 비어 있는 액자 자리 — 점선 테
     const c = 'rgba(110,70,36,.26)';
@@ -568,7 +626,7 @@ function drawMuseum(g, k){
   papers.slice(FRAMES.length, FRAMES.length + PINS.length).forEach((r, n) => {
     const s = PINS[n];
     drawPinned(g, s, n);
-    hits.push(Object.assign({ r }, wallHit(1, s.u, s.v, PIN_W, PIN_H, 0)));
+    mark(r, Object.assign({ r }, wallHit(1, s.u, s.v, PIN_W, PIN_H, 0)));
   });
   // 왼쪽 벽 — 급수 사다리
   ladderTracks(all).slice(0, LADDERS.length).forEach((t, n) => {
@@ -582,22 +640,26 @@ function drawMuseum(g, k){
   cased.forEach((r, n) => {
     const s = SC_SLOTS[n];
     drawShowcaseItem(g, s, r);
-    hits.push(Object.assign({ r, front: 1 }, wallHit(1, s.u - 2, s.v - 2, 20, 18, SC.d)));
+    mark(r, Object.assign({ r, front: 1 }, wallHit(1, s.u - 2, s.v - 2, 20, 18, SC.d)));
   });
   drawShowcaseGlass(g);
+  // 오른쪽 벽 띠 — 처음 해낸 것 별자리(받침대에도 있지만, 벽에서는 하나의 별자리로 이어진다)
+  drawConstellation(g, list.filter(r => r.kind === 'first').slice(0, CONST_MAX)).forEach(pt => {
+    hits.push(Object.assign({ r: pt.r, star: true }, wallHit(1, pt.u - 3, pt.v - 3, 7, 7, 0)));
+  });
   SC_SHELF.forEach(v => { const p = wallXY(1, SC.u0 + (SC.u1 - SC.u0) / 2, v + 10, SC.d); lamps.push([p.x, p.y, 46, 0.14]); });
   // 바닥 받침대 — 처음 해낸 것과 진열장에 못 들어간 메달·트로피
   const floor = list.filter(r => r.kind === 'first').concat(shelfy.slice(SC_SLOTS.length)).slice(0, STANDS.length);
   STANDS.map((p, n) => ({ p, r: floor[n] })).sort((a, b) => a.p.y - b.p.y).forEach(({ p, r }) => {
     if (!r){ isoTile(g, p.x, p.y, 'rgba(255,250,235,.07)', 12); return; }
     drawStand(g, p.x, p.y, r);
-    hits.push({ r, x0: p.x - 15, x1: p.x + 15, y0: p.y - 40, y1: p.y + 8, front: p.y });
+    mark(r, { r, x0: p.x - 15, x1: p.x + 15, y0: p.y - 40, y1: p.y + 8, front: p.y });
     lamps.push([p.x, p.y - 26, r.id === newest ? 44 : 24, r.id === newest ? 0.34 : 0.16]);
   });
   g.save();
   g.globalCompositeOperation = 'lighter';
   const lc = LAMP[prefOf(k).lamp] || LAMP.warm;                       // 아이가 고른 조명 색
-  const lp = tileXY(11.2, 0.8); lamps.push([lp.x, lp.y - 72, 54, 0.22]);
+  const ph = dayPhase(), lp = tileXY(11.2, 0.8); lamps.push([lp.x, lp.y - 72, ph === 'day' ? 40 : 70, ph === 'day' ? 0.10 : ph === 'dusk' ? 0.34 : 0.46]);
   lamps.forEach(L => {
     const grd = g.createRadialGradient(L[0], L[1], 0, L[0], L[1], L[2]);
     grd.addColorStop(0, 'rgba(' + lc.join(',') + ',' + L[3] + ')');
@@ -605,6 +667,7 @@ function drawMuseum(g, k){
     g.fillStyle = grd; g.fillRect(L[0] - L[2], L[1] - L[2], L[2] * 2, L[2] * 2);
   });
   g.restore();
+  if (sparklePhase !== null && sparkleOf[k]) drawSparkle(g, sparkleOf[k].x, sparkleOf[k].y);
   hitsOf[k] = hits;
   const hv = hits.find(h => k + ':' + hitKey(h) === hoverKey);
   if (hv){
@@ -669,18 +732,11 @@ function syncUrl(){
   q.delete('who'); q.delete('year'); q.delete('item');
   history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q.toString() : ''));
 }
-function tabBtn(label, on, extra, fn){
-  const b = document.createElement('button');
-  b.type = 'button'; b.className = 'dot-btn small' + (on ? ' on' : '') + (extra ? ' ' + extra : '');
-  b.textContent = label; b.setAttribute('aria-pressed', on ? 'true' : 'false');
-  b.addEventListener('click', fn);
-  return b;
-}
 function buildRoom(k){
   const sec = document.createElement('section');
   sec.className = 'honor-room ' + k; sec.dataset.kid = k;
   sec.innerHTML =
-    '<div class="year-tabs" role="group" aria-label="' + heroName(k) + ' 학년도"></div>' +
+    '<div class="year-nav" role="group" aria-label="' + heroName(k) + ' 학년도"><button type="button" class="dot-btn small yPrev" aria-label="앞 학년도">◀</button><span class="year-label"></span><button type="button" class="dot-btn small yNext" aria-label="뒤 학년도">▶</button></div>' +
     '<div class="museum-card">' +
       '<h2 class="room-title"></h2>' +
       '<p class="sub room-sub"></p>' +
@@ -714,9 +770,12 @@ function renderRoom(sec, k){
   const q = sel => sec.querySelector(sel);
   const ys = yearsOf(mineOf(k));
   if (year !== 'all' && !ys.includes(Number(year))) year = yearOf[k] = 'all';
-  const yt = q('.year-tabs'); yt.innerHTML = '';
-  yt.hidden = !ys.length;
-  ['all'].concat(ys).forEach(y => yt.appendChild(tabBtn(y === 'all' ? '전체' : y + '학년도', String(y) === String(year), '', () => { yearOf[k] = String(y); say('', k); render(); })));
+  // ◀ ▶ 로 학년도를 넘긴다 — 넘길 때 벽지가 바뀌는 게 탭보다 잘 보인다. 차례: 옛 학년도 → 새 학년도 → 전체
+  const opts = ys.slice().reverse().map(String).concat('all'), at = Math.max(0, opts.indexOf(String(year)));
+  const yn = q('.year-nav'); yn.hidden = ys.length < 1;
+  q('.year-label').textContent = year === 'all' ? '전체' : year + '학년도';
+  const go = d => { yearOf[k] = opts[(at + d + opts.length) % opts.length]; say('', k); render(); };
+  q('.yPrev').onclick = () => go(-1); q('.yNext').onclick = () => go(1);
   const list = inYear(mineOf(k));
   const nA = list.filter(r => r.kind === 'award').length, nF = list.filter(r => r.kind === 'first').length;
   const nT = ladderTracks(mineOf(k)).length;
@@ -1381,6 +1440,18 @@ function printSheet(list){
   const imgs = Array.from(sheet.querySelectorAll('img'));
   Promise.all(imgs.map(im => im.complete ? null : new Promise(res => { im.onload = im.onerror = res; }))).then(() => window.print());
 }
+
+// ---------- 반짝임 ----------
+// 2초마다 0.45초 동안 가장 최근 것에 반짝. 그 동안만 다시 그린다(한 방 1.8ms). 움직임을 줄인 설정이면 안 한다.
+function sparkleLoop(){
+  const t = performance.now() % 2000, on = t < 450;
+  if (on || sparklePhase !== null){
+    sparklePhase = on ? t / 450 : null;
+    KIDS.forEach(k => { if (sparkleOf[k]) drawRoom(k); });
+  }
+  requestAnimationFrame(sparkleLoop);
+}
+if (!STILL) requestAnimationFrame(sparkleLoop);
 
 // ---------- 시작 ----------
 $('#addHonor').addEventListener('click', () => withKid('sua', () => openForm(null)));

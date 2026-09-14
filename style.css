@@ -158,6 +158,16 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
   border:2px solid var(--ink); border-radius:999px;
 }
 .hdr-icon:hover{background:var(--lemon);}
+/* 메뉴 글자 옆의 새 자랑 점. ☰ 단추에는 모서리에 붙는다. */
+.nav-new{display:inline-block; width:8px; height:8px; margin-left:5px; vertical-align:2px; background:var(--coral); border:2px solid var(--ink); border-radius:999px;}
+.menu-toggle{position:relative;}
+.nav-new.on-toggle{position:absolute; top:-6px; right:-6px; margin:0;}
+/* 첫 화면 08 카드의 전시실 미리보기 — 아이마다 최근 것 셋의 도트 표시와 셈 */
+.honor-peek{display:flex; flex-direction:column; gap:4px; margin:8px 0 2px;}
+.honor-peek .hp-row{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-soft);}
+.honor-peek .hp-name{font-weight:800; min-width:2.2em;}
+.honor-peek .hp-name.sua{color:var(--coral);} .honor-peek .hp-name.yona{color:#2f8f78;}
+.honor-peek canvas{width:60px; height:20px; image-rendering:pixelated; flex:none;}
 .hdr-icon:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--ink);}
 .hdr-icon.active{background:var(--lemon);}
 .hdr-icon:focus-visible{outline:3px solid var(--ink); outline-offset:2px;}

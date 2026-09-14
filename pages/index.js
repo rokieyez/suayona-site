@@ -2601,6 +2601,47 @@ belowFold(async () => {
   if (duels.length || relay) $('#duel').hidden = false;
 });
 
+// ================= 업적 전시실 미리보기 =================
+// 08 카드에 아이마다 「최근 것 셋의 도트 표시 + 셈」. honors 는 누구나 읽는 표라 함수 없이 그대로 읽는다(작은 표).
+// 방 그림 자체는 honors.js(28KB)가 있어야 하니 여기서는 8×8 표시만 그린다.
+belowFold(async () => {
+  const box = $('#honorPeek'); if (!box) return;
+  const { data } = await sb.from('honors').select('who, kind, look, color, title, got_on').order('got_on', { ascending: false }).order('id', { ascending: false });
+  const rows = data || [];
+  if (!rows.length) return;
+  const PAL = { k: '#2a2118', G: '#b9812c', g: '#e0a93b', y: '#ffd979', w: '#fffaf2', I: '#9aa4b2', r: '#d4504a', b: '#3a63b0' };
+  const ART = {
+    paper:  ['GGGGGGGG', 'GwwwwwwG', 'GwIIIIwG', 'GwwwwwwG', 'GwIIIwwG', 'GwwwwrwG', 'GwwwwwwG', 'GGGGGGGG'],
+    medal:  ['..rb....', '..rb....', '..GGG...', '.GgygG..', '.GyyygG.', '.GgygG..', '..GGG...', '........'],
+    trophy: ['.GGGGGG.', 'GgyyyygG', '.GgyygG.', '..GggG..', '...gg...', '...gg...', '..GGGG..', '.kkkkkk.'],
+    star:   ['...yy...', '...yy...', '.yyyyyy.', '..yyyy..', '..yyyy..', '.yy..yy.', '........', '..rrrr..'],
+    piano:  ['.....g..', '....gg..', 'kkkkkkkk', 'kwwwwwwk', 'kwkwkwwk', 'kwkwkwwk', 'kwwwwwwk', 'kkkkkkkk'],
+    badge:  ['kkkkkkkk', 'kwwwwwwk', 'kwIIIIwk', 'kwwwwwwk', 'kwIIwwwk', 'kkkkkkkk', '...hh...', '..h..h..'],
+  };
+  const lookOf = r => ART[r.look] ? r.look : ({ award: 'paper', level: 'piano', first: 'star' })[r.kind] || 'paper';
+  const draw = (g, art, x, color) => {
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++){
+      const ch = art[r][c]; if (ch === '.') continue;
+      g.fillStyle = ch === 'h' ? color : PAL[ch]; g.fillRect(x + c, r, 1, 1);
+    }
+  };
+  ['sua', 'yona'].forEach(k => {
+    const mine = rows.filter(r => r.who === k || r.who === 'both');
+    const row = document.createElement('div'); row.className = 'hp-row';
+    const nm = document.createElement('span'); nm.className = 'hp-name ' + k; nm.textContent = HERO_NAMES[k];
+    row.appendChild(nm);
+    if (!mine.length){ const t = document.createElement('span'); t.textContent = '아직 없어요'; row.appendChild(t); box.appendChild(row); return; }
+    const cv = document.createElement('canvas'); cv.width = 30; cv.height = 10;
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+    mine.slice(0, 3).forEach((r, n) => draw(g, ART[lookOf(r)], n * 10 + 1, /^#[0-9a-f]{6}$/i.test(r.color || '') ? r.color : '#57b98a'));
+    cv.setAttribute('aria-label', mine.slice(0, 3).map(r => r.title).join(', '));
+    const nA = mine.filter(r => r.kind === 'award').length, nL = new Set(mine.filter(r => r.kind === 'level').map(r => r.track)).size, nF = mine.filter(r => r.kind === 'first').length;
+    const t = document.createElement('span'); t.textContent = '🏅' + nA + ' 🪜' + nL + ' ⭐' + nF + ' · ' + mine[0].title;
+    row.append(cv, t); box.appendChild(row);
+  });
+  box.hidden = false;
+});
+
 // ================= 올해의 카드 배경 =================
 // 「우리 모험단」 칸은 뺐지만, 도감을 채운 무대의 하늘은 올해의 카드가 여전히 쓴다.
 // 세이브 요약만 한 번 읽어 하늘 목록을 채운다.

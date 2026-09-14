@@ -275,6 +275,7 @@ function buildChrome(activeKey){
   document.body.prepend(header);
   syncHeaderHeight(header);
   buildAuthModal();
+  markNewHonors();
 
   const footer = document.createElement('footer');
   footer.className = 'site';
@@ -460,6 +461,32 @@ function markParentWaiting(){
     b.setAttribute('aria-label', '확인할 것 ' + n + '개');
     btn.appendChild(b);
   }, () => {});
+}
+
+// 메뉴 「업적 전시실」에 새 자랑 점을 붙인다 — 자랑이 올라온 걸 들어가 봐야만 알 수 있었다.
+// 마지막으로 본 자랑의 시각을 이 브라우저에 적어 두고(honors.js), 그보다 새것이 있으면 점.
+// 표 한 줄(created_at 하나)만 읽고, 한 세션에 10분에 한 번만 묻는다. 첫 화면 그리기를 늦추지 않게 한가할 때 부른다.
+function markNewHonors(){
+  if (ACTIVE_KEY === 'honors') return;
+  const a = document.querySelector('#nav a[href="/honors.html"]');
+  if (!a) return;
+  let seen = null, cached = null;
+  try { seen = localStorage.getItem('honors_seen'); cached = JSON.parse(sessionStorage.getItem('honors_latest') || 'null'); } catch (e) { /* 저장이 막힌 브라우저 — 점은 안 붙인다 */ return; }
+  const show = latest => {
+    if (!latest || (seen && latest <= seen)) return;
+    const dot = document.createElement('span'); dot.className = 'nav-new'; dot.setAttribute('aria-label', '새 자랑'); dot.title = '새 자랑이 올라왔어요';
+    a.appendChild(dot);
+    const t = document.getElementById('menuToggle');
+    if (t){ const d2 = dot.cloneNode(true); d2.classList.add('on-toggle'); t.appendChild(d2); }   // 좁은 화면은 메뉴가 접혀 있으니 ☰ 에도
+  };
+  if (cached && cached.at && Date.now() - cached.at < 10 * 60 * 1000) return show(cached.latest);
+  const go = () => sb.from('honors').select('created_at').order('created_at', { ascending: false }).limit(1)
+    .then(({ data }) => {
+      const latest = data && data[0] ? data[0].created_at : '';
+      try { sessionStorage.setItem('honors_latest', JSON.stringify({ at: Date.now(), latest })); } catch (e) { /* 위와 같다 */ }
+      show(latest);
+    }).catch(() => {});
+  if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 1500);
 }
 
 // 우체통 아이콘에 안 읽은 쪽지 수를 붙인다. 열어 봐야 새 쪽지가 있는지 알 수 있어서
