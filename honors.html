@@ -36,7 +36,7 @@
   .museum-stage{line-height:0;}
   @media (max-width:700px){ .museum-stage{margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);} }   /* 좁은 화면은 가장자리까지 */
   .museum{
-    display:block; width:100%; aspect-ratio:512/396; image-rendering:pixelated;
+    display:block; width:100%; aspect-ratio:512/460; image-rendering:pixelated;
     cursor:pointer; touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
   }
   .museum-msg{min-height:1.6em; font-size:12.5px; color:var(--ink-soft); margin:8px 0 0; line-height:1.6;}
@@ -100,6 +100,9 @@
   .mz-bar{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;}
   .mz-bar select{width:auto;}
   .mz-count{font-size:12px; color:var(--ink-soft);}
+  /* 사진 글자 읽기 — 채운 칸은 잠깐 노랗게, 안내는 사진 칸 바로 아래 */
+  .honor-form .ocr-note{ margin:6px 0 2px; font-size:.86rem; line-height:1.5; color:#6b5236; }
+  .honor-form .ocr-filled{ background:#fff4c2; box-shadow:inset 0 0 0 2px #e6bd45; }
 </style>
 </head>
 <body>
@@ -123,6 +126,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
         onerror="window.__sbFailed=1"></script>
 <script src="./common.js"></script>
+<script src="/pages/kid-art.js"></script>
 <script src="/pages/honors.js"></script>
 </body>
 </html>

@@ -226,10 +226,13 @@ function drawArtOut(g, art, x, y, s, color){
 // ---------- 아이소메트릭 틀 ----------
 /* 2026-09-14 저녁: 방을 두 배로 키웠다(400×260 → 640×420, 바닥 6×4 → 12×6칸). 아이들이 상을 많이 받아서
    상장 8 → 16(코르크판 12 + 액자 4), 바닥 8 → 16(유리 진열장 8 + 받침대 8), 급수 사다리 3 → 4.
+   2026-09-15 벽을 높여 상장 16 → 32(코르크판 24 + 액자 8). 방에는 그 아이가 농장처럼 걸어 다닌다(kid-art.js).
    그림은 「Unpacking」류 아이소메트릭 도트를 참고했다 — 창문·커튼·코르크판·유리 진열장·화분·전등을 넣고,
    벽에 위아래 명암, 바닥에 창빛, 물건마다 윤곽과 그늘을 더했다. 칸(56×28)과 도트 크기는 모험단 방과 같다. */
-// 캔버스는 방 테두리에 딱 맞춘다(512×396) — 검은 여백을 두지 않고 배경은 비워 둔다. 할머니 휴대폰에서 방이 최대한 크게 보이게(2026-09-14 밤).
-const RW = 512, RH = 396, TW = 56, TH = 28, NI = 12, NJ = 6, FX = 172, FY = 154, WALLH = 136;
+// 캔버스는 방 테두리에 딱 맞춘다(512×460) — 검은 여백을 두지 않고 배경은 비워 둔다. 할머니 휴대폰에서 방이 최대한 크게 보이게(2026-09-14 밤).
+// 2026-09-15: 벽을 136 → 200 으로 높였다(바닥은 그대로). 거는 칸이 코르크판 12 → 24, 액자 4 → 8 로 는다.
+const RW = 512, RH = 460, TW = 56, TH = 28, NI = 12, NJ = 6, FX = 172, FY = 218, WALLH = 200;
+const RAIL_V = WALLH - 40;                                   // 징두리 윗선 — 이 아래는 나무 판
 const CORNER = { x: FX, y: FY - TH / 2 }, WTOP = CORNER.y - WALLH;
 const LWr = NI * (TW / 2), LWl = NJ * (TW / 2);
 function tileXY(i, j){ return { x: FX + (i - j) * (TW / 2), y: FY + (i + j) * (TH / 2) }; }
@@ -304,20 +307,20 @@ function wallHit(side, u, v, w, h, d){
 // ---- 자리 ----
 // 오른쪽 벽: 코르크판(12장 핀) + 금테 액자 4 · 유리 진열장(두 칸 × 4) — 왼쪽 벽: 창문 + 급수 사다리 4 — 바닥: 받침대 8
 // 코르크판은 v 18 부터 — 위 띠(v 6~15)에 처음 해낸 것 별자리가 걸린다
-const CORK = { u: 12, v: 18, w: 168, h: 70 };
-const PINS = [0, 1, 2].flatMap(r => [0, 1, 2, 3].map(c => ({ u: CORK.u + 8 + c * 40, v: CORK.v + 3 + r * 22 })));
+const CORK = { u: 12, v: 18, w: 168, h: 136 };
+const PINS = [0, 1, 2, 3, 4, 5].flatMap(r => [0, 1, 2, 3].map(c => ({ u: CORK.u + 8 + c * 40, v: CORK.v + 3 + r * 22 })));
 const PIN_W = 32, PIN_H = 20;
-const FRAMES = [192, 228, 264, 300].map(u => ({ u, v: 14 }));
+const FRAMES = [14, 44].flatMap(v => [192, 228, 264, 300].map(u => ({ u, v })));     // 두 줄
 const FRAME_W = 30, FRAME_H = 22;
 // 유리 진열장 — 깊이 반 칸(d 0.5). 한 칸이면 앞 아랫선이 벽 밑선보다 14px 내려가 바닥에 파묻힌 듯 보였다(부모가 잡음).
-const SC = { u0: 196, u1: 292, v0: 62, v1: WALLH - 2, d: 0.5 };
+const SC = { u0: 196, u1: 292, v0: WALLH - 74, v1: WALLH - 2, d: 0.5 };            // 높이는 전과 같게, 바닥에 붙여서
 const SC_SHELF = [SC.v0 + 3, SC.v0 + 37];                              // 두 칸의 윗선(칸 높이 32)
 const SC_SLOTS = SC_SHELF.flatMap(v => [0, 1, 2, 3].map(q => ({ u: SC.u0 + 8 + q * 22, v: v + 14 })));
-const WIN = { u: 10, v: 12, w: 56, h: 66 };
-const LADDERS = [78, 102, 126, 150], LAD_V = 10, LAD_H = 78, LAD_W = 22;
-const STANDS = [];
-[[1.0, 1.5], [2.4, 1.5], [3.8, 1.5], [5.2, 1.5], [4.2, 4.5], [5.6, 4.5], [7.0, 4.5], [8.4, 4.5]]
-  .forEach(([i, j]) => { const p = tileXY(i, j); STANDS.push({ x: Math.round(p.x), y: Math.round(p.y) }); });
+const WIN = { u: 10, v: 12, w: 56, h: 100 };
+const LADDERS = [78, 102, 126, 150], LAD_V = 10, LAD_H = RAIL_V - 20, LAD_W = 22;
+const LAD_RUNGS = Math.floor((LAD_H - 12) / 6), PLAQUE_V = WALLH - 34;   // 사다리 칸 수 · 징두리 이름표 자리
+const STAND_TILES = [[1.0, 1.5], [2.4, 1.5], [3.8, 1.5], [5.2, 1.5], [4.2, 4.5], [5.6, 4.5], [7.0, 4.5], [8.4, 4.5]];
+const STANDS = STAND_TILES.map(([i, j]) => { const p = tileXY(i, j); return { x: Math.round(p.x), y: Math.round(p.y) }; });
 
 // 학년도마다 벽지 무늬와 색조, 양탄자 무늬가 바뀐다 — 해를 넘겨 보는 재미
 const WALLPAPERS = [
@@ -372,14 +375,15 @@ function shellCv(color, yr){
   // 벽 — 위는 밝고 아래로 갈수록 살짝 어둡다. 왼쪽 벽은 빛을 등진다
   [1, 0].forEach(side => {
     const len = side ? LWr : LWl, dim = side ? 0 : -16;
-    for (let u = 0; u < len; u++) for (let v = 0; v < WALLH; v++){
+    // 왼쪽 벽은 u = -1 부터 — 두 벽이 모서리에서 한 도트 떨어져 있어(wallXY 의 -2) 흰 세로줄이 비쳤다(부모가 잡음)
+    for (let u = side ? 0 : -1; u < len; u++) for (let v = 0; v < WALLH; v++){
       let base, d = 0;
       if (v < 4) base = v < 2 ? '#f6efe0' : '#d9c9a8';                                     // 천장 몰딩
       else if (v < 6) base = '#8a6440';
-      else if (v < 96){ base = paper.tint; d = Math.round((prand('p' + side + ':' + (u >> 3) + ':' + (v >> 3)) - 0.5) * 6) + wallDeco(style, u, v) + Math.round(6 - v / 8); }   // 벽지
-      else if (v < 100) base = v < 98 ? '#dcb27a' : '#9c6c42';                             // 징두리 윗몰딩
+      else if (v < RAIL_V){ base = paper.tint; d = Math.round((prand('p' + side + ':' + (u >> 3) + ':' + (v >> 3)) - 0.5) * 6) + wallDeco(style, u, v) + Math.round(6 - v * 12 / RAIL_V); }   // 벽지
+      else if (v < RAIL_V + 4) base = v < RAIL_V + 2 ? '#dcb27a' : '#9c6c42';               // 징두리 윗몰딩
       else if (v >= WALLH - 6) base = '#4e3220';                                            // 굽도리
-      else if (u % 28 < 2 || v === 100 || v === WALLH - 8) base = '#7d5434';                // 널 판 테
+      else if (u % 28 < 2 || v === RAIL_V + 4 || v === WALLH - 8) base = '#7d5434';          // 널 판 테
       else { base = '#a8764a'; d = (u >> 1) % 7 === 0 ? -6 : (u % 28 > 24 ? 6 : 0); }
       const p = wallXY(side, u, v);
       g.fillStyle = shade(base, d + dim); g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
@@ -391,6 +395,7 @@ function shellCv(color, yr){
       const pr = wallXY(1, i, v), pl = wallXY(0, i, v);
       g.fillStyle = 'rgba(40,24,10,' + a + ')';
       g.fillRect(Math.round(pr.x), Math.round(pr.y), 1, 1); g.fillRect(Math.round(pl.x), Math.round(pl.y), 1, 1);
+      if (i === 0){ const pc = wallXY(0, -1, v); g.fillRect(Math.round(pc.x), Math.round(pc.y), 1, 1); }
     }
   }
   // 왼쪽 벽 — 창문과 커튼(아이 색)
@@ -546,7 +551,7 @@ function drawLadder(g, u, t){
   // 아직 못 이룬 다음 목표가 있으면 그 칸까지 보이게 창을 한 칸 올린다
   const goal = goalOf(kid, t.track), pending = goal && !goalDone(goal, t.top) ? goal : null;
   const reach = pending ? Math.max(t.top, pending.step) : t.top;
-  const n = Math.min(10, Math.max(7, reach)), first = Math.max(1, reach - n + 1);
+  const n = LAD_RUNGS, first = Math.max(1, reach - n + 1);             // 벽이 높아져 사다리가 끝까지 찬다
   let col = LEVEL_COLOR;
   t.rows.forEach(x => { if ((x.step || 1) < first && x.color) col = x.color; });
   for (let k = 0; k < n; k++){
@@ -565,10 +570,10 @@ function drawLadder(g, u, t){
   }
   // 징두리 판의 이름표 — 지금 단계의 건반 이름표나 배지. 이게 없으면 사다리가 문이나 책장으로 읽혔다
   const last = t.rows.filter(x => (x.step || 1) === t.top).pop() || t.rows[t.rows.length - 1];
-  wallRect(g, 0, u + 1, 102, LAD_W - 2, 20, '#ead6b1');
-  wallRect(g, 0, u + 1, 102, LAD_W - 2, 1, '#fff3da');
-  wallRect(g, 0, u + 1, 121, LAD_W - 2, 1, '#6e4526');
-  wallArt(g, 0, u + 3, 104, OBJ_ART[lookOf(last)] || OBJ_ART.piano, itemColor(last));
+  wallRect(g, 0, u + 1, PLAQUE_V, LAD_W - 2, 20, '#ead6b1');
+  wallRect(g, 0, u + 1, PLAQUE_V, LAD_W - 2, 1, '#fff3da');
+  wallRect(g, 0, u + 1, PLAQUE_V + 19, LAD_W - 2, 1, '#6e4526');
+  wallArt(g, 0, u + 3, PLAQUE_V + 2, OBJ_ART[lookOf(last)] || OBJ_ART.piano, itemColor(last));
 }
 function drawStand(g, x, y, r){
   const look = lookOf(r), color = itemColor(r), cloth = CLOTH[prefOf(kid).cloth] || CLOTH.cream;
@@ -664,7 +669,7 @@ let sparklePhase = null;                          // null 이면 안 반짝임, 
 const CONST_U0 = 24, CONST_STEP = 20, CONST_MAX = 8;
 function constPos(n){ return { u: CONST_U0 + n * CONST_STEP, v: 10 + [0, -1, 1, 0, -1, 1, 0, -1][n % 8] }; }
 // 역대 직함 줄 — 오른쪽 벽 액자 아래 띠(u 196~330, v 40~58). 지난 것은 작게, 지금 것은 크게 빛난다
-const HALL = { u0: 200, u1: 330, v: 49 };
+const HALL = { u0: 200, u1: 330, v: 82 };                       // 액자 두 줄 아래
 function drawHallBadge(g, u, v, r, big){
   const R = big ? 8 : 5, c = wallXY(1, u, v);
   const col = big ? '#e0a93b' : '#c8b28a', hi = big ? '#ffd979' : '#ddd0b0';
@@ -725,7 +730,7 @@ function drawMuseum(g, k){
   ladderTracks(all).slice(0, LADDERS.length).forEach((t, n) => {
     const u = LADDERS[n];
     drawLadder(g, u, t);
-    hits.push(Object.assign({ t }, wallHit(0, u - 2, LAD_V, LAD_W + 4, 112, 0)));
+    hits.push(Object.assign({ t }, wallHit(0, u - 2, LAD_V, LAD_W + 4, PLAQUE_V + 20 - LAD_V, 0)));
   });
   // 유리 진열장 — 메달·트로피·배지 여덟, 그 뒤는 바닥 받침대로
   const shelfy = list.filter(r => r.kind === 'award' && lookOf(r) !== 'paper');
@@ -755,7 +760,11 @@ function drawMuseum(g, k){
   SC_SHELF.forEach(v => { const p = wallXY(1, SC.u0 + (SC.u1 - SC.u0) / 2, v + 10, SC.d); lamps.push([p.x, p.y, 46, 0.14]); });
   // 바닥 받침대 — 처음 해낸 것과 진열장에 못 들어간 메달·트로피
   const floor = list.filter(r => r.kind === 'first').concat(shelfy.slice(SC_SLOTS.length)).slice(0, STANDS.length);
-  STANDS.map((p, n) => ({ p, r: floor[n] })).sort((a, b) => a.p.y - b.p.y).forEach(({ p, r }) => {
+  const floorList = STANDS.map((p, n) => ({ p, r: floor[n] }));
+  const kidAt = walkerSpot(k);                                          // 제 방을 걷는 아이 — 받침대와 앞뒤를 맞춰 끼운다
+  if (kidAt) floorList.push({ p: kidAt, kidAt });
+  floorList.sort((a, b) => a.p.y - b.p.y).forEach(({ p, r, kidAt }) => {
+    if (kidAt){ drawWalker(g, k, kidAt); return; }
     if (!r){ isoTile(g, p.x, p.y, 'rgba(255,250,235,.07)', 12); return; }
     drawStand(g, p.x, p.y, r);
     mark(r, { r, x0: p.x - 15, x1: p.x + 15, y0: p.y - 40, y1: p.y + 8, front: p.y });
@@ -796,6 +805,7 @@ function hitAt(e, k){
 }
 // 마우스로 훑으면 누를 수 있는 것에 테가 둘리고 이름이 먼저 보인다(손가락에는 훑기가 없으니 누르기만)
 function wireCanvas(cv, k){
+  cv.dataset.kid = k; if (roomIO) roomIO.observe(cv);
   cv.addEventListener('pointermove', e => {
     if (e.pointerType !== 'mouse') return;
     const h = hitAt(e, k), key = h ? k + ':' + hitKey(h) : null;
@@ -846,7 +856,7 @@ function buildRoom(k){
       '<h2 class="room-title"></h2>' +
       '<p class="sub room-sub"></p>' +
       '<div class="title-sash" hidden><canvas class="sash-cv" width="960" height="140" aria-label="지금 맡은 직함"></canvas></div>' +
-      '<div class="museum-stage"><canvas class="museum" id="museum-' + k + '" width="1024" height="792"' +
+      '<div class="museum-stage"><canvas class="museum" id="museum-' + k + '" width="' + RW * 2 + '" height="' + RH * 2 + '"' +
         ' aria-label="' + heroName(k) + '의 업적 전시실. 오른쪽 벽에 상장 액자와 코르크판, 유리 진열장에 메달·트로피, 왼쪽 벽에 급수 사다리, 바닥 받침대에 처음 해낸 일이 있어요. 누르면 사진이 열려요."></canvas></div>' +
       '<p class="museum-msg" id="museumMsg-' + k + '" aria-live="polite"></p>' +
       '<div class="room-tools"></div>' +
@@ -1079,6 +1089,20 @@ function mosaicEditor(stage, onChange){
     },
   };
 }
+// 사진 글자 읽기 파일 — 부모가 사진 칸을 누를 때만 받는다(손님은 받지 않는다)
+let ocrReady = null;
+function loadOcr(){
+  if (window.HonorOCR) return Promise.resolve();
+  if (ocrReady) return ocrReady;
+  ocrReady = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = '/pages/honors-ocr.js';
+    sc.onload = () => window.HonorOCR ? resolve() : reject(new Error('글자 읽기 파일이 비어 있어요'));
+    sc.onerror = () => { ocrReady = null; sc.remove(); reject(new Error('글자 읽기 파일을 받지 못했어요')); };
+    document.head.appendChild(sc);
+  });
+  return ocrReady;
+}
 async function uploadPhoto(bl){
   const stem = 'suayona/honor/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
   const path = stem + '.jpg', tpath = stem + '.thumb.jpg';
@@ -1131,6 +1155,7 @@ function openForm(r){
       '<label class="field">사진 (선택)</label>' +
       '<div class="photo-now"></div>' +
       '<input type="file" class="fFile" accept="image/*" aria-label="사진 고르기">' +
+      '<p class="ocr-note" aria-live="polite" hidden></p>' +
       '<div class="mosaic" hidden>' +
         '<p class="mz-help">이름·학교·반·선생님 이름처럼 가릴 곳을 <b>끌어서 네모</b>로 골라요. 가린 사본만 올라가고 원본은 이 기기 밖으로 안 나가요.</p>' +
         '<div class="mz-stage"></div>' +
@@ -1205,11 +1230,59 @@ function openForm(r){
       } catch (err) { q('.fMsg').textContent = '사진을 불러오지 못했어요: ' + err.message; e.target.disabled = false; }
     });
   }
+  // 사진 속 글자 읽기 — 상 이름·주는 곳·받은 날의 빈 칸을 채운다. 읽기는 이 기기 안에서만 한다(honors-ocr.js).
+  // 부모가 이미 적은 칸은 건드리지 않고, 앞서 사진이 채운 칸만 새 사진으로 바꾼다.
+  const ocrNote = q('.ocr-note'), auto = {};
+  let dateTouched = !!r, ocrTurn = 0;
+  q('.fDate').addEventListener('input', () => { dateTouched = q('.fDate').value !== auto['.fDate']; });
+  ['.fTitle', '.fOrg', '.fDate'].forEach(sel => q(sel).addEventListener('input', () => q(sel).classList.remove('ocr-filled')));
+  // 사진 칸을 누르는 순간 읽기 도구를 미리 받아 둔다 — 고르고 나서 기다리는 시간이 준다
+  q('.fFile').addEventListener('pointerdown', () => { if (q('.fKind').value !== 'first') loadOcr().then(() => window.HonorOCR.warm()).catch(() => {}); });
+  async function readPhoto(f){
+    const turn = ++ocrTurn;
+    ocrNote.hidden = false; ocrNote.textContent = '📷 사진 속 글자를 읽는 중…';
+    try {
+      await loadOcr();
+      const got = await window.HonorOCR.read(f, m => {
+        if (turn !== ocrTurn) return;
+        const pct = Math.round((m.progress || 0) * 100);
+        if (/language/.test(m.status || '')) ocrNote.textContent = '📷 한국어 글자 사전을 받는 중… ' + pct + '% (처음 한 번만)';
+        else if (/recogniz/.test(m.status || '')) ocrNote.textContent = '📷 사진 속 글자를 읽는 중… ' + pct + '%';
+      });
+      if (turn !== ocrTurn || !overlay.isConnected) return;
+      const kd = q('.fKind').value, done = [];
+      const put = (sel, val, label) => {
+        const el = q(sel), cur = el.value.trim();
+        if (!val || (cur && cur !== auto[sel])) return;
+        el.value = val; auto[sel] = val; el.classList.add('ocr-filled'); done.push(label);
+      };
+      put('.fTitle', got.title, kd === 'title' ? '직함' : kd === 'level' ? '단계 이름' : '상 이름');
+      if (kd !== 'first') put('.fOrg', got.org, '주는 곳');
+      if (got.got_on && !dateTouched){
+        const before = q('.fDate').value;
+        q('.fDate').value = got.got_on; auto['.fDate'] = got.got_on; q('.fDate').classList.add('ocr-filled');
+        done.push(kd === 'title' ? '시작한 날' : '받은 날');
+        if (kd === 'title' && q('.fUntil').value === untilDefault(before)) q('.fUntil').value = untilDefault(got.got_on);
+      }
+      if (!done.length){
+        ocrNote.textContent = got.lines && got.lines.length ? '📷 사진에서 이름·날짜를 찾지 못했어요. 직접 적어 주세요.' : '📷 사진에서 글자를 찾지 못했어요. 직접 적어 주세요.';
+        return;
+      }
+      let t = '📷 사진에서 읽어 채웠어요: ' + done.join(' · ') + '. 틀린 곳은 고쳐 주세요.';
+      if (auto['.fOrg'] && q('.fOrg').value === auto['.fOrg'] && /학교|유치원|어린이집/.test(auto['.fOrg'])) t += ' 주는 곳의 학교 이름은 누구나 볼 수 있어요 — 필요하면 줄여 주세요.';
+      ocrNote.textContent = t;
+    } catch (err) {
+      if (turn === ocrTurn) ocrNote.textContent = '📷 글자를 읽지 못했어요(' + ((err && err.message) || err) + '). 직접 적어 주세요.';
+    }
+  }
   q('.fFile').addEventListener('change', async e => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     const url = URL.createObjectURL(f);
-    try { mz.setImage(await loadImage(url)); q('.mosaic').hidden = false; q('.fMsg').textContent = ''; }
+    try {
+      mz.setImage(await loadImage(url)); q('.mosaic').hidden = false; q('.fMsg').textContent = '';
+      if (q('.fKind').value !== 'first') readPhoto(f);      // 「처음 해낸 것」 사진은 글자가 없는 순간 사진이라 안 읽는다
+    }
     catch (err) { q('.fMsg').textContent = '이 파일은 사진으로 읽지 못했어요.'; }
     finally { URL.revokeObjectURL(url); }
   });
@@ -1566,15 +1639,114 @@ function printSheet(list){
 
 // ---------- 반짝임 ----------
 // 2초마다 0.45초 동안 가장 최근 것에 반짝. 그 동안만 다시 그린다(한 방 1.8ms). 움직임을 줄인 설정이면 안 한다.
-function sparkleLoop(){
-  const t = performance.now() % 2000, on = t < 450;
-  if (on || sparklePhase !== null){
-    sparklePhase = on ? t / 450 : null;
-    KIDS.forEach(k => { if (sparkleOf[k]) drawRoom(k); });
+// ---------- 산책하는 아이 ----------
+/* 농장처럼 제 전시실 안을 아이가 걸어 다닌다(수아 방엔 수아, 연아 방엔 연아). 그림은 농장과 같은 kid-art.js —
+   28×38 도트를 방 도트 한 칸에 하나씩(농장 집 안 방과 같은 크기). 바닥 좌표(i, j)에서 받침대·화분·전등을 비켜
+   곧게 갈 수 있는 빈 자리를 골라 걷고, 닿으면 앞을 보고 잠깐 쉰다. 화분·전등은 껍데기에 구워져 있어
+   뒤로 지나가면 앞뒤가 뒤집히므로 넉넉히 비켜 간다. 움직임 줄이기 설정이면 서 있기만 한다. */
+const WALK_SPEED = 0.9;                                                 // 칸/초 — 농장 아이(26도트/초 ÷ 32)와 비슷하게
+const WALK_BOX = { i0: 0.3, i1: 10.9, j0: 0.7, j1: 5.0 };
+const WALK_BLOCK = STAND_TILES.map(([i, j]) => ({ i, j, r: 0.62 })).concat([{ i: 0.6, j: 4.9, r: 1.3 }, { i: 11.2, j: 0.8, r: 1.2 }]);
+const walkers = {};
+const walkBlocked = (i, j) => WALK_BLOCK.some(b => (i - b.i) * (i - b.i) + (j - b.j) * (j - b.j) < b.r * b.r);
+function walkFree(){
+  for (let n = 0; n < 40; n++){
+    const i = WALK_BOX.i0 + Math.random() * (WALK_BOX.i1 - WALK_BOX.i0), j = WALK_BOX.j0 + Math.random() * (WALK_BOX.j1 - WALK_BOX.j0);
+    if (!walkBlocked(i, j)) return { i, j };
   }
-  requestAnimationFrame(sparkleLoop);
+  return { i: 6.5, j: 3 };
 }
-if (!STILL) requestAnimationFrame(sparkleLoop);
+function walkClear(a, b){
+  const n = Math.ceil(Math.hypot(b.i - a.i, b.j - a.j) / 0.1);
+  for (let s = 1; s <= n; s++) if (walkBlocked(a.i + (b.i - a.i) * s / n, a.j + (b.j - a.j) * s / n)) return false;
+  return true;
+}
+function walkerOf(k){
+  if (!walkers[k]){ const s = walkFree(); walkers[k] = { i: s.i, j: s.j, ti: s.i, tj: s.j, wait: 500 + (k === 'yona' ? 1500 : 0), dir: 'down', flip: false, moving: false, phase: 0 }; }
+  return walkers[k];
+}
+// 한 걸음 — 그림이 달라졌으면(자리·발·방향) true
+function stepWalker(k, dt){
+  const w = walkerOf(k);
+  if (w.wait > 0){
+    w.wait -= dt;
+    if (w.moving){ w.moving = false; return true; }
+    return false;
+  }
+  const di = w.ti - w.i, dj = w.tj - w.j, d = Math.hypot(di, dj);
+  if (d < 0.02){
+    for (let n = 0; n < 16; n++){
+      const s = walkFree();
+      if (Math.hypot(s.i - w.i, s.j - w.j) > 1.2 && walkClear(w, s)){ w.ti = s.i; w.tj = s.j; break; }
+    }
+    const changed = w.moving || w.dir !== 'down';
+    w.moving = false; w.dir = 'down'; w.flip = false;                   // 닿으면 앞(보는 사람)을 본다
+    w.wait = 1400 + Math.random() * 3600;
+    return changed;
+  }
+  const before = walkKey(w), step = Math.min(d, WALK_SPEED * dt / 1000);
+  w.i += di / d * step; w.j += dj / d * step; w.moving = true; w.phase += dt / 260;
+  const sx = (di - dj) * TW / 2, sy = (di + dj) * TH / 2;                // 화면에서 가는 방향
+  if (Math.abs(sx) > Math.abs(sy) * 1.15){ w.dir = 'side'; w.flip = sx < 0; }
+  else w.dir = sy > 0 ? 'down' : 'up';
+  return walkKey(w) !== before;
+}
+function walkKey(w){ const p = tileXY(w.i, w.j); return Math.round(p.x) + ',' + Math.round(p.y) + w.dir + w.flip + (w.moving ? Math.floor(w.phase) % 2 : 0); }
+function walkerSpot(k){
+  if (typeof KIDART === 'undefined' || !KIDART[k]) return null;       // 그림 파일을 못 받았으면 아이 없이
+  const w = walkerOf(k), p = tileXY(w.i, w.j);
+  return { x: Math.round(p.x), y: Math.round(p.y), w };
+}
+// 테 두른 아이 그림을 한 번 그려 담아 둔다(농장 outlined 와 같은 방식: 사방 짙은 갈색 78%)
+const kidBuf = {};
+function kidSprite(k, dir, f, flip, phase){
+  const key = [k, dir, f, flip ? 1 : 0, phase].join('|');
+  if (kidBuf[key]) return kidBuf[key];
+  const rows = KIDART[k][dir][f], pal = KIDPAL[k], W = rows[0].length, H = rows.length;
+  const paint = (g, ox, oy, one) => {
+    for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){
+      const ch = rows[r][x]; if (ch === '.') continue;
+      g.fillStyle = one || pal[ch] || '#000';
+      g.fillRect(((flip ? W - 1 - x : x) + 1 + ox) * 2, (r + 1 + oy) * 2, 2, 2);
+    }
+  };
+  const c = document.createElement('canvas'); c.width = (W + 2) * 2; c.height = (H + 2) * 2;
+  const g = c.getContext('2d'), sil = document.createElement('canvas'); sil.width = c.width; sil.height = c.height;
+  const sg = sil.getContext('2d');
+  [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => paint(sg, ox, oy, '#241c14'));
+  g.globalAlpha = 0.78; g.drawImage(sil, 0, 0); g.globalAlpha = 1;
+  paint(g, 0, 0);
+  if (phase !== 'day'){                                                  // 방이 어둑해지는 만큼 아이도
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = phase === 'dusk' ? 'rgba(90,40,20,.10)' : 'rgba(16,20,60,.22)'; g.fillRect(0, 0, c.width, c.height);
+    g.globalCompositeOperation = 'source-over';
+  }
+  return (kidBuf[key] = c);
+}
+function drawWalker(g, k, s){
+  const w = s.w, f = w.moving ? Math.floor(w.phase) % 2 : 0;
+  isoTopD(g, s.x, s.y, 10, 4, 'rgba(40,24,10,.24)');                      // 발밑 그림자
+  const c = kidSprite(k, w.dir, f, w.dir === 'side' && w.flip, dayPhase());
+  g.drawImage(c, s.x - 15, s.y - 39, c.width / 2, c.height / 2);
+}
+// 방이 화면에 보일 때만 움직이고 그린다(할머니 폰 배터리)
+const roomSeen = { sua: true, yona: true };
+const roomIO = 'IntersectionObserver' in window
+  ? new IntersectionObserver(es => es.forEach(e => { roomSeen[e.target.dataset.kid] = e.isIntersecting; }), { rootMargin: '60px' }) : null;
+const lastDraw = { sua: 0, yona: 0 };
+let lastTick = 0;
+function roomLoop(now){
+  const dt = Math.min(100, lastTick ? now - lastTick : 16); lastTick = now;
+  const t = now % 2000, on = t < 450, spark = on || sparklePhase !== null;
+  if (spark) sparklePhase = on ? t / 450 : null;
+  if (!document.hidden) KIDS.forEach(k => {
+    if (!roomSeen[k] || !$('#museum-' + k)) return;
+    const moved = stepWalker(k, dt);
+    if ((moved && now - lastDraw[k] >= 40) || (spark && sparkleOf[k])){ drawRoom(k); lastDraw[k] = now; }   // 걸음은 초당 25장까지
+  });
+  requestAnimationFrame(roomLoop);
+}
+if (!STILL) requestAnimationFrame(roomLoop);
 
 // ---------- 시작 ----------
 $('#addHonor').addEventListener('click', () => withKid('sua', () => openForm(null)));
