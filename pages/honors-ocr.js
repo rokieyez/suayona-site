@@ -17,6 +17,16 @@
   const LONG_MAX = 2400, LONG_MIN = 1400;   // 읽기 좋은 크기로 맞춘다(너무 크면 느리고, 작으면 글자가 뭉개진다)
 
   let libReady = null, workerReady = null, progressCb = null;
+  // 다 읽고 90초 동안 또 안 부르면 읽기 일꾼을 닫는다 — 한국어 사전과 wasm 이 폼을 닫은 뒤에도 탭 메모리에 남지 않게.
+  // 사전은 브라우저 저장소에 남아 있어 다시 부를 때 받지 않는다(일꾼을 새로 띄우는 1초 남짓만 든다).
+  const IDLE_MS = 90 * 1000;
+  let idleTimer = 0, busy = 0;
+  function idleLater(){ clearTimeout(idleTimer); idleTimer = setTimeout(release, IDLE_MS); }
+  async function release(){
+    if (busy || !workerReady) return;
+    const w = workerReady; workerReady = null;
+    try { (await w).terminate(); } catch (e) { /* 이미 닫혔으면 그만 */ }
+  }
   function loadLib(){
     if (libReady) return libReady;
     libReady = new Promise((resolve, reject) => {
@@ -72,9 +82,10 @@
 
   async function read(src, onProgress){
     const t0 = performance.now();
+    busy++; clearTimeout(idleTimer);
+    try {
     const cv = fit(await toImage(src));
     progressCb = onProgress || null;
-    try {
       const w = await getWorker();
       const { data } = await w.recognize(cv, {}, { text: true, blocks: true });
       const lines = collectLines(data);
@@ -82,10 +93,10 @@
       out.lines = lines.map(l => l.text);
       out.ms = Math.round(performance.now() - t0);
       return out;
-    } finally { progressCb = null; }
+    } finally { progressCb = null; busy--; idleLater(); }
   }
   // 폼을 열고 사진 칸을 누르는 순간 미리 받아 두면 고른 뒤 기다림이 짧다
-  function warm(){ getWorker().catch(() => {}); }
+  function warm(){ getWorker().then(() => { if (!busy) idleLater(); }).catch(() => {}); }
 
   // ---------------------------------------------------------------------------
   // 읽은 줄 → 상 이름·주는 곳·받은 날
@@ -248,5 +259,5 @@
     return { title: clip(title, 60), org: clip(org, 40), got_on: date ? date.iso : '', doc };
   }
 
-  window.HonorOCR = { read, warm, parse };
+  window.HonorOCR = { read, warm, parse, release, get alive(){ return !!workerReady; } };
 })();

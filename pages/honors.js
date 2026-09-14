@@ -147,6 +147,7 @@ async function load(){
 // honor_board() 가 준 한 덩이를 나눠 담는다. 서버가 got_on·id 내림차순으로 준다.
 function takeBoard(b){
   b = b || {};
+  boardGen++;                                                          // 벽 층을 다시 굽게
   rows = Array.isArray(b.honors) ? b.honors : [];
   goals = Array.isArray(b.goals) ? b.goals : [];
   claps = {}; Object.keys(b.claps || {}).forEach(id => { claps[id] = Number(b.claps[id]) || 0; });
@@ -706,14 +707,23 @@ function drawSparkle(g, x, y){
   g.fillRect(x - h, y - h, 1, 1); g.fillRect(x + h, y - h, 1, 1); g.fillRect(x - h, y + h, 1, 1); g.fillRect(x + h, y + h, 1, 1);
 }
 const hitKey = h => h.r ? (h.star ? 's' : h.hall ? 'h' : 'r') + h.r.id : 't' + h.t.track;
-function drawMuseum(g, k){
-  const color = KID_COLOR[k], all = mineOf(k), list = inYear(all);
-  hits = [];
-  g.clearRect(0, 0, RW, RH);
+// 벽 층 — 껍데기와 벽에 거는 것(액자·핀·사다리·진열장·별자리·역대 직함)은 자료·학년도·시간대·날짜가 바뀔 때만 다시 굽는다.
+// 아이가 걸을 때마다(초당 25장, 두 방) 벽까지 새로 그리던 것을, 구운 벽 한 장 + 바닥 층만 그리게 줄였다(마무리작업 2026-09-15).
+// boardGen 은 honor_board 를 받을 때마다 오른다(takeBoard) — 저장·목표·꾸미기 뒤에는 늘 load() 를 거친다.
+let boardGen = 0;
+const wallLayers = {};
+function wallLayer(k, list, all){
+  const color = KID_COLOR[k], key = [boardGen, color, roomYear(), dayPhase(), year, todayStr()].join('|');
+  const had = wallLayers[k];
+  if (had && had.key === key) return had;
+  const c = (had && had.c) || document.createElement('canvas');
+  c.width = RW * 2; c.height = RH * 2;                                   // 크기를 다시 주면 비워진다
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0);
+  const hits = [], lamps = [], newest = list[0] ? list[0].id : null;
+  let sparkle = null;
   g.drawImage(shellCv(color, roomYear()), 0, 0, RW, RH);
-  const lamps = [], newest = list[0] ? list[0].id : null;
-  sparkleOf[k] = null;
-  const mark = (r, h) => { hits.push(h); if (r.id === newest) sparkleOf[k] = { x: Math.round((h.x0 + h.x1) / 2) + 6, y: Math.round(h.y0) + 4 }; };
+  const mark = (r, h) => { hits.push(h); if (r.id === newest) sparkle = { x: Math.round((h.x0 + h.x1) / 2) + 6, y: Math.round(h.y0) + 4 }; };
   // 오른쪽 벽 — 상장: 최근 넷은 금테 액자에, 그 다음 열둘은 코르크판에 핀으로
   const papers = list.filter(r => r.kind === 'award' && lookOf(r) === 'paper');
   papers.slice(0, FRAMES.length).forEach((r, n) => {
@@ -761,9 +771,20 @@ function drawMuseum(g, k){
     const u = Math.min(HALL.u1 - 10, hu + 8 + n * 22), c = wallXY(1, u, HALL.v);
     lamps.push([c.x, c.y, 22, 0.28]);
     const h = drawHallBadge(g, u, HALL.v, r, true); hits.push(Object.assign({ r, hall: true }, h));
-    if (r.id === newest) sparkleOf[k] = { x: Math.round(c.x) + 8, y: Math.round(c.y) - 8 };
+    if (r.id === newest) sparkle = { x: Math.round(c.x) + 8, y: Math.round(c.y) - 8 };
   });
   SC_SHELF.forEach(v => { const p = wallXY(1, SC.u0 + (SC.u1 - SC.u0) / 2, v + 10, SC.d); lamps.push([p.x, p.y, 46, 0.14]); });
+  return (wallLayers[k] = { key, c, hits, lamps, sparkle });
+}
+function drawMuseum(g, k){
+  const all = mineOf(k), list = inYear(all), W = wallLayer(k, list, all);
+  hits = W.hits.slice();
+  g.clearRect(0, 0, RW, RH);
+  g.drawImage(W.c, 0, 0, RW, RH);
+  const lamps = W.lamps.slice(), newest = list[0] ? list[0].id : null;
+  sparkleOf[k] = W.sparkle;
+  const mark = (r, h) => { hits.push(h); if (r.id === newest) sparkleOf[k] = { x: Math.round((h.x0 + h.x1) / 2) + 6, y: Math.round(h.y0) + 4 }; };
+  const shelfy = list.filter(r => r.kind === 'award' && lookOf(r) !== 'paper');
   // 바닥 받침대 — 처음 해낸 것과 진열장에 못 들어간 메달·트로피
   const floor = list.filter(r => r.kind === 'first').concat(shelfy.slice(SC_SLOTS.length)).slice(0, STANDS.length);
   const floorList = STANDS.map((p, n) => ({ p, r: floor[n] }));
@@ -1102,7 +1123,7 @@ function loadOcr(){
   if (ocrReady) return ocrReady;
   ocrReady = new Promise((resolve, reject) => {
     const sc = document.createElement('script');
-    sc.src = '/pages/honors-ocr.js';
+    sc.src = '/pages/honors-ocr.js?v=2';                                // 판 번호 — 캐시에 남은 옛 읽기 파일을 안 쓰게(고칠 때마다 올린다)
     sc.onload = () => window.HonorOCR ? resolve() : reject(new Error('글자 읽기 파일이 비어 있어요'));
     sc.onerror = () => { ocrReady = null; sc.remove(); reject(new Error('글자 읽기 파일을 받지 못했어요')); };
     document.head.appendChild(sc);
