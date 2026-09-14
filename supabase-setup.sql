@@ -1785,7 +1785,7 @@ drop policy if exists "anyone can insert messages" on public.messages;
 -- =====================================================================
 -- 2026-09-14 밤 — 직함(title): 임기가 있는 것(전교회장·반장·도서부장…). 어깨띠 + 임기 막대 + 역대 줄
 -- 상장과 달리 「지금 이 자리에 있다」가 핵심이라 임기 끝(until)이 있다. 오늘 ≤ until 이면 지금, 지나면 역대.
--- 아이콘은 정해진 여덟 가지에서 고른다. (적용: 부모 허락 뒤)
+-- 아이콘은 정해진 여덟 가지에서 고른다. (2026-09-15 적용 — 마이그레이션 honors_title_kind. 적용 때 honors 는 0줄)
 alter table public.honors drop constraint if exists honors_kind_check;
 alter table public.honors add constraint honors_kind_check check (kind in ('award', 'level', 'first', 'title'));
 alter table public.honors drop constraint if exists honors_look_check;
