@@ -232,7 +232,7 @@ function drawArtOut(g, art, x, y, s, color){
    벽에 위아래 명암, 바닥에 창빛, 물건마다 윤곽과 그늘을 더했다. 칸(56×28)과 도트 크기는 모험단 방과 같다. */
 // 캔버스는 방 테두리에 딱 맞춘다(512×438) — 검은 여백을 두지 않고 배경은 비워 둔다. 할머니 휴대폰에서 방이 최대한 크게 보이게(2026-09-14 밤).
 // 2026-09-15: 벽을 136 → 200 으로 높였다가(코르크판 12 → 24, 액자 4 → 8), 코르크판 아래 한 줄이 비어 보여 핀 한 줄(22)만큼 낮췄다 → 178(코르크판 20).
-const RW = 512, RH = 416, TW = 56, TH = 28, NI = 12, NJ = 6, FX = 172, FY = 174, WALLH = 156;   // 층고 200 → 178 → 156(핀 한 줄씩, 2026-09-15)
+const RW = 512, RH = 396, TW = 56, TH = 28, NI = 12, NJ = 6, FX = 172, FY = 154, WALLH = 136;   // 층고 200 → 178 → 156 → 136(처음 높이로, 2026-09-15 부모 요청)
 const RAIL_V = WALLH - 40;                                   // 징두리 윗선 — 이 아래는 나무 판
 const CORNER = { x: FX, y: FY - TH / 2 }, WTOP = CORNER.y - WALLH;
 const LWr = NI * (TW / 2), LWl = NJ * (TW / 2);
@@ -306,18 +306,18 @@ function wallHit(side, u, v, w, h, d){
 }
 
 // ---- 자리 ----
-// 오른쪽 벽: 코르크판(16장 핀) + 금테 액자 8 · 유리 진열장(두 칸 × 4) — 왼쪽 벽: 창문 + 급수 사다리 4 — 바닥: 받침대 8
+// 오른쪽 벽: 코르크판(12장 핀) + 금테 액자 4 · 유리 진열장(두 칸 × 4) — 왼쪽 벽: 창문 + 급수 사다리 4 — 바닥: 받침대 8
 // 코르크판은 v 18 부터 — 위 띠(v 6~15)에 처음 해낸 것 별자리가 걸린다
-const CORK = { u: 12, v: 18, w: 168, h: 92 };
-const PINS = [0, 1, 2, 3].flatMap(r => [0, 1, 2, 3].map(c => ({ u: CORK.u + 8 + c * 40, v: CORK.v + 3 + r * 22 })));
+const CORK = { u: 12, v: 18, w: 168, h: 70 };
+const PINS = [0, 1, 2].flatMap(r => [0, 1, 2, 3].map(c => ({ u: CORK.u + 8 + c * 40, v: CORK.v + 3 + r * 22 })));
 const PIN_W = 32, PIN_H = 20;
-const FRAMES = [8, 34].flatMap(v => [192, 228, 264, 300].map(u => ({ u, v })));      // 두 줄 — 벽을 낮추며 위로 붙였다(별자리는 u 24~164 라 안 겹친다)
+const FRAMES = [12].flatMap(v => [192, 228, 264, 300].map(u => ({ u, v })));        // 한 줄 — 처음 높이로 되돌리며 두 줄 → 한 줄(별자리는 u 24~164 라 안 겹친다)
 const FRAME_W = 30, FRAME_H = 22;
 // 유리 진열장 — 깊이 반 칸(d 0.5). 한 칸이면 앞 아랫선이 벽 밑선보다 14px 내려가 바닥에 파묻힌 듯 보였다(부모가 잡음).
 const SC = { u0: 196, u1: 292, v0: WALLH - 74, v1: WALLH - 2, d: 0.5 };            // 높이는 전과 같게, 바닥에 붙여서
 const SC_SHELF = [SC.v0 + 3, SC.v0 + 37];                              // 두 칸의 윗선(칸 높이 32)
 const SC_SLOTS = SC_SHELF.flatMap(v => [0, 1, 2, 3].map(q => ({ u: SC.u0 + 8 + q * 22, v: v + 14 })));
-const WIN = { u: 10, v: 12, w: 56, h: 78 };                               // 창턱이 징두리보다 18 위 — 벽을 낮춘 만큼 줄였다
+const WIN = { u: 10, v: 12, w: 56, h: 66 };                               // 처음 높이의 창(창턱 86 < 징두리 96)
 const LADDERS = [78, 102, 126, 150], LAD_V = 10, LAD_H = RAIL_V - 20, LAD_W = 22;
 const LAD_RUNGS = Math.floor((LAD_H - 12) / 6), PLAQUE_V = WALLH - 34;   // 사다리 칸 수 · 징두리 이름표 자리
 const STAND_TILES = [[1.0, 1.5], [2.4, 1.5], [3.8, 1.5], [5.2, 1.5], [4.2, 4.5], [5.6, 4.5], [7.0, 4.5], [8.4, 4.5]];
@@ -724,7 +724,7 @@ let sparklePhase = null;                          // null 이면 안 반짝임, 
 const CONST_U0 = 24, CONST_STEP = 20, CONST_MAX = 8;
 function constPos(n){ return { u: CONST_U0 + n * CONST_STEP, v: 10 + [0, -1, 1, 0, -1, 1, 0, -1][n % 8] }; }
 // 역대 직함 줄 — 오른쪽 벽 액자 아래 띠(u 196~330, v 40~58). 지난 것은 작게, 지금 것은 크게 빛난다
-const HALL = { u0: 200, u1: 330, v: 69 };                       // 액자 두 줄 아래(액자 끝 56 < 배지 61~77 < 진열장 윗면 82)
+const HALL = { u0: 200, u1: 330, v: 49 };                       // 액자 한 줄 아래(액자 끝 34 < 배지 41~57 < 진열장 윗면 62)
 function drawHallBadge(g, u, v, r, big){
   const R = big ? 8 : 5, c = wallXY(1, u, v);
   const col = big ? '#e0a93b' : '#c8b28a', hi = big ? '#ffd979' : '#ddd0b0';
@@ -773,7 +773,7 @@ function wallLayer(k, list, all){
   let sparkle = null;
   g.drawImage(shellCv(color, roomYear()), 0, 0, RW, RH);
   const mark = (r, h) => { hits.push(h); if (r.id === newest) sparkle = { x: Math.round((h.x0 + h.x1) / 2) + 6, y: Math.round(h.y0) + 4 }; };
-  // 오른쪽 벽 — 상장: 코르크판(모서리 쪽 큰 판)부터 핀으로 열여섯, 다 차면 금테 액자 여덟으로(2026-09-15 부모 요청 — 전엔 액자부터였다)
+  // 오른쪽 벽 — 상장: 코르크판(모서리 쪽 큰 판)부터 핀으로 열둘, 다 차면 금테 액자 넷으로(2026-09-15 부모 요청 — 전엔 액자부터였다)
   const papers = list.filter(r => r.kind === 'award' && lookOf(r) === 'paper');
   papers.slice(0, PINS.length).forEach((r, n) => {
     const s = PINS[n];
