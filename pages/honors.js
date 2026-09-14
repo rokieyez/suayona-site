@@ -541,17 +541,22 @@ function ladderTracks(all){
     return { track: t, rows: rs, top: Math.max(...rs.map(x => x.step || 1)), last: rs.reduce((m, x) => x.got_on > m ? x.got_on : m, '') };
   }).sort((a, b) => a.last < b.last ? 1 : -1);
 }
-function drawLadder(g, u, t){
-  wallRect(g, 0, u + 2, LAD_V + 2, LAD_W, LAD_H, 'rgba(40,24,10,.22)');
-  wallRect(g, 0, u, LAD_V, LAD_W, LAD_H, '#e7d4b0');
-  wallRect(g, 0, u, LAD_V, 2, LAD_H, '#7a4f2d');
-  wallRect(g, 0, u + LAD_W - 2, LAD_V, 2, LAD_H, '#7a4f2d');
-  wallRect(g, 0, u, LAD_V, LAD_W, 3, '#5a3a22');
-  wallRect(g, 0, u, LAD_V + LAD_H - 2, LAD_W, 2, '#5a3a22');
-  // 아직 못 이룬 다음 목표가 있으면 그 칸까지 보이게 창을 한 칸 올린다
+// 사다리 크기 — 그 종목의 단계 수만큼만(아직 못 이룬 다음 목표가 있으면 그 칸까지). 밑은 징두리 위에 붙이고 위로 자란다.
+// 벽을 높인 뒤 늘 21칸을 그렸더니 단계가 적은 종목은 빈 칸이 길게 남았다(부모가 잡음, 2026-09-15).
+function ladderSpan(t){
   const goal = goalOf(kid, t.track), pending = goal && !goalDone(goal, t.top) ? goal : null;
   const reach = pending ? Math.max(t.top, pending.step) : t.top;
-  const n = LAD_RUNGS, first = Math.max(1, reach - n + 1);             // 벽이 높아져 사다리가 끝까지 찬다
+  const n = Math.max(1, Math.min(LAD_RUNGS, reach)), h = 8 + n * 6;
+  return { pending, reach, n, first: Math.max(1, reach - n + 1), top: LAD_V + LAD_H - h, h };
+}
+function drawLadder(g, u, t){
+  const sp = ladderSpan(t), { pending, n, first } = sp, top = sp.top, H = sp.h;
+  wallRect(g, 0, u + 2, top + 2, LAD_W, H, 'rgba(40,24,10,.22)');
+  wallRect(g, 0, u, top, LAD_W, H, '#e7d4b0');
+  wallRect(g, 0, u, top, 2, H, '#7a4f2d');
+  wallRect(g, 0, u + LAD_W - 2, top, 2, H, '#7a4f2d');
+  wallRect(g, 0, u, top, LAD_W, 3, '#5a3a22');
+  wallRect(g, 0, u, top + H - 2, LAD_W, 2, '#5a3a22');
   let col = LEVEL_COLOR;
   t.rows.forEach(x => { if ((x.step || 1) < first && x.color) col = x.color; });
   for (let k = 0; k < n; k++){
@@ -730,7 +735,8 @@ function drawMuseum(g, k){
   ladderTracks(all).slice(0, LADDERS.length).forEach((t, n) => {
     const u = LADDERS[n];
     drawLadder(g, u, t);
-    hits.push(Object.assign({ t }, wallHit(0, u - 2, LAD_V, LAD_W + 4, PLAQUE_V + 20 - LAD_V, 0)));
+    const lt = ladderSpan(t).top;
+    hits.push(Object.assign({ t }, wallHit(0, u - 2, lt - 4, LAD_W + 4, PLAQUE_V + 20 - lt + 4, 0)));   // 사다리 위(목표 깃발)부터 이름표까지
   });
   // 유리 진열장 — 메달·트로피·배지 여덟, 그 뒤는 바닥 받침대로
   const shelfy = list.filter(r => r.kind === 'award' && lookOf(r) !== 'paper');
