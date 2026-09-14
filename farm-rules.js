@@ -316,7 +316,7 @@ const FARM = (() => {
     pasture:    { name: '목장',     w: 6, h: 5, x: 13, y: 10, kind: 'build',  move: true },
     fountain:   { name: '분수',     w: 2, h: 2, x: 8,  y: 0,  kind: 'decor',  move: true },
     statue:     { name: '별 동상',  w: 1, h: 2, x: 11, y: 0,  kind: 'decor',  move: true },
-    pond:       { name: '연못',     w: 2, h: 2, x: 0,  y: 13, kind: 'decor',  move: true },
+    pond:       { name: '연못',     w: 4, h: 3, x: 0,  y: 12, kind: 'decor',  move: true },   // 2×2 는 오리 두 마리가 헤엄치기엔 좁았다. 맨 아랫줄은 앞 수풀에 가려 한 줄 올렸다
     path:       { name: '꽃길',     w: 8, h: 1, x: 8,  y: 8,  kind: 'decor',  move: true },
     lantern:    { name: '등불',     w: 1, h: 1, x: 16, y: 7,  kind: 'decor',  move: true },
     bench:      { name: '나무 벤치', w: 2, h: 1, x: 8, y: 15, kind: 'decor',  move: true },
@@ -325,11 +325,11 @@ const FARM = (() => {
     sandbox:    { name: '모래놀이터', w: 2, h: 2, x: 0, y: 10, kind: 'decor',  move: true },
     firepit:    { name: '모닥불',   w: 1, h: 1, x: 11, y: 13, kind: 'decor',  move: true },
     sign:       { name: '농장 팻말', w: 1, h: 1, x: 6,  y: 0,  kind: 'decor',  move: true },
-    clothesline:{ name: '빨랫줄',   w: 2, h: 1, x: 0,  y: 12, kind: 'decor',  move: true },
+    clothesline:{ name: '빨랫줄',   w: 2, h: 1, x: 8,  y: 14, kind: 'decor',  move: true },   // 연못이 커지며 처음 자리를 비켜 줬다
     flowerbed:  { name: '꽃밭',     w: 2, h: 1, x: 10, y: 9,  kind: 'decor',  move: true },
     birdhouse:  { name: '새집',     w: 1, h: 1, x: 12, y: 0,  kind: 'decor',  move: true },
     flag:       { name: '깃발',     w: 1, h: 1, x: 19, y: 0,  kind: 'decor',  move: true },
-    wagon:      { name: '수레',     w: 2, h: 1, x: 2,  y: 14, kind: 'decor',  move: true },
+    wagon:      { name: '수레',     w: 2, h: 1, x: 6,  y: 15, kind: 'decor',  move: true },   // 연못이 4×3 이 되며 처음 자리를 비켜 줬다
     windmill:   { name: '풍차',     w: 2, h: 2, x: 16, y: 8,  kind: 'decor',  move: true },
   };
   const PLACE_IDS = Object.keys(PLACE);
@@ -412,7 +412,7 @@ const FARM = (() => {
     rock1: { kind: 'rock', x: 9,  y: 11, give: { stone: 2 }, cost: 'mine',   days: 1 },
     rock2: { kind: 'rock', x: 11, y: 11, give: { stone: 3 }, cost: 'mine',   days: 1 },
     rock3: { kind: 'rock', x: 10, y: 13, give: { stone: 4 }, cost: 'mine',   days: 2 },
-    bush:  { kind: 'bush', x: 3,  y: 12, give: { berry: 2 }, cost: 'forage', days: 1, season: ['spring', 'summer', 'autumn'] },
+    bush:  { kind: 'bush', x: 5,  y: 12, give: { berry: 2 }, cost: 'forage', days: 1, season: ['spring', 'summer', 'autumn'] },
     bush2: { kind: 'bush', x: 6,  y: 13, give: { berry: 3 }, cost: 'forage', days: 2, season: ['spring', 'summer', 'autumn'] },
     snow:  { kind: 'snow', x: 8,  y: 13, give: { snowball: 1 }, cost: 'forage', days: 1, season: ['winter'] },
   };

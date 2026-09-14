@@ -1557,24 +1557,7 @@ function drawDecor(season, night){
       });
     }
   }
-  if (d.pond){
-    const b = spot('pond'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
-    const ice = season === 'winter';
-    px(X + 4, Y + 8, w - 8, h - 16, ice ? '#a9c9d9' : '#3f86c4');
-    px(X + 8, Y + 12, w - 16, h - 24, ice ? '#d3e6ef' : '#5aa9e6');
-    px(X + 12, Y + 16, w - 28, 6, ice ? '#f0f8fc' : '#8fd0f0');
-    // 돌 테두리
-    for (let i = 0; i < w - 8; i += 12){
-      px(X + 4 + i, Y + 4, 10, 6, STONE.mid); grainy(X + 4 + i, Y + 4, 10, 6, STONE.mid, 'stone', 'pk' + i);
-      px(X + 4 + i, Y + 4, 10, 2, STONE.hi);
-      px(X + 4 + i, Y + h - 12, 10, 6, STONE.low); grainy(X + 4 + i, Y + h - 12, 10, 6, STONE.low, 'stone', 'pl' + i);
-    }
-    // 잔물결 — 물이 한 덩어리로 안 보이게
-    if (!ice) for (let i = 12; i < w - 20; i += 14) for (let j = 14; j < h - 22; j += 10)
-      if (noise2(X + i, Y + j, 3, 'pw') > 0.55) px(X + i, Y + j, 8, 2, '#7dc2ea');
-    if (ice){ px(X + 14, Y + 24, 18, 2, '#ffffff'); px(X + 24, Y + 18, 2, 14, '#ffffff'); px(X + 32, Y + 32, 12, 2, '#eaf6ff'); }
-    else { px(X + 16, Y + h - 28, 12, 8, '#4f9a58'); px(X + 18, Y + h - 30, 6, 2, '#6fb567'); px(X + 20, Y + h - 34, 6, 6, '#ff9ec4'); }
-  }
+  if (d.pond){ const b = spot('pond'); drawPond(season, b.x * T, b.y * T, b.w * T, b.h * T); }
   if (d.fountain){
     const b = spot('fountain'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
     px(X + 6, Y + h - 8, w - 12, 4, '#00000018');
@@ -2197,8 +2180,194 @@ function drawSprinkler(X, Y, t, good){
 }
 
 // 그네는 바람을 타고, 등불은 조금씩 흔들린다 — 움직이는 겹에서 그린다.
+/* ---------- 연못 ----------
+   예전 연못은 파란 네모 셋을 겹치고 위아래로 돌 한 줄씩 둔 것이라 「파란 판」으로 보였고,
+   오리 두 마리가 헤엄친다는 설명과 달리 오리가 없었다. 이제는
+   · 가장자리가 둥글고 줄마다 조금씩 울퉁불퉁한 물 — 물가는 얕아 밝고 가운데로 갈수록 깊다
+   · 윗물가에는 둑 그늘이 물에 지고, 아랫물가에는 밝은 물빛 한 줄
+   · 둘레 돌은 크기·빛깔이 제각각, 앞쪽 돌은 옆면까지 보인다
+   · 부들·갈대·수련 잎과 꽃, 가을엔 떠 있는 낙엽, 겨울엔 금 간 얼음과 눈
+   이것들은 구워 두는 겹(지은 것)에 그려서 도트 하나하나를 칠해도 매 장 드는 값은 없고,
+   오리와 물 반짝임만 drawPondLive 가 매 장 그린다. */
+const POND_WATER = {
+  warm: ['#8fd3ea', '#6bbbe6', '#55a6dc', '#4592cf', '#3c82c0'],
+  ice:  ['#e2f1f8', '#cfe6f1', '#bcdaea', '#a9cde3', '#9ac2dc'],   // 눈밭과 섞이지 않게 푸른 기를 남긴다
+};
+function pondGeom(X, Y, w, h){
+  const cx = X + w / 2, cy = Y + h / 2 + 1;
+  const rx = w / 2 - 3, ry = h / 2 - 3;           // 둑(돌 바깥)까지
+  const wx = rx - 8, wy = ry - 8;                 // 물까지
+  return { cx, cy, rx, ry, wx, wy };
+}
+// 줄마다 반폭. 둥근 네모꼴(p>2)에 부드러운 울퉁불퉁함을 더한다 — 줄마다 따로 흔들면 톱니가 된다.
+function pondHalf(yy, a, b, p, salt){
+  const q = Math.abs(yy) / b;
+  if (q >= 1) return -1;
+  const n = (yy + 200) / 7, i0 = Math.floor(n), f = n - i0, sn = strSeed('pond' + salt);
+  const e = f * f * (3 - 2 * f), wob = (hash2(i0, 0, sn) * (1 - e) + hash2(i0 + 1, 0, sn) * e - 0.5) * 3.2;
+  return a * Math.pow(1 - Math.pow(q, p), 1 / p) + wob;
+}
+function drawPond(season, X, Y, w, h){
+  const ice = season === 'winter', G = pondGeom(X, Y, w, h), { cx, cy, rx, ry, wx, wy } = G;
+  const WC = ice ? POND_WATER.ice : POND_WATER.warm, sn = strSeed('pondw');
+  // 1) 젖은 풀 그늘 — 둑보다 두 도트 넓게 옅게
+  for (let yy = -ry - 2; yy <= ry + 3; yy++){
+    const hw = pondHalf(yy, rx + 3, ry + 3, 2.4, 'o'); if (hw <= 0) continue;
+    px(cx - hw, cy + yy, hw * 2, 1, ice ? '#6a8aa01a' : '#1e3a1a22');
+  }
+  // 2) 둑 — 흙(겨울엔 눈). 알갱이를 흩뿌린다
+  const mud = ice ? '#e9f1f5' : season === 'autumn' ? '#a08a62' : '#a8946c';
+  for (let yy = -ry; yy <= ry; yy++){
+    const hw = pondHalf(yy, rx, ry, 2.4, 'b'); if (hw <= 0) continue;
+    const x0 = Math.round(cx - hw), x1 = Math.round(cx + hw);
+    px(x0, cy + yy, x1 - x0, 1, mud);
+    for (let x = x0; x < x1; x++){
+      const v = hash2(x, cy + yy, sn + 7);
+      if (v > 0.86) px(x, cy + yy, 1, 1, shade(mud, 12)); else if (v < 0.12) px(x, cy + yy, 1, 1, shade(mud, -14));
+    }
+  }
+  // 3) 물 — 가장자리에서 얼마나 떨어졌나로 깊이를 고르고, 경계는 흩뿌려 섞는다. 같은 색은 한 번에 칠한다
+  for (let yy = -wy; yy <= wy; yy++){
+    const hw = pondHalf(yy, wx, wy, 2.3, 'w'); if (hw <= 0) continue;
+    const y = cy + yy, x0 = Math.round(cx - hw), x1 = Math.round(cx + hw);
+    let runC = null, runX = x0;
+    for (let x = x0; x <= x1; x++){
+      let c = null;
+      if (x < x1){
+        const ex = (x + 0.5 - cx) / wx, ey = yy / wy;
+        const edge = Math.min(x - x0, x1 - 1 - x, (wy - Math.abs(yy)) * 1.6);
+        let d = Math.min(1, Math.sqrt(ex * ex + ey * ey)) ;
+        d += (hash2(x, y, sn) - 0.5) * 0.10;
+        let k = d > 0.9 || edge < 2 ? 0 : d > 0.74 ? 1 : d > 0.52 ? 2 : d > 0.28 ? 3 : 4;
+        if (!ice && yy < -wy + 7 && k < 4) k = Math.min(4, k + (yy < -wy + 3 ? 2 : 1));   // 윗둑 그늘
+        c = WC[k];
+        if (!ice && yy > wy - 2 && edge >= 2) c = '#a9def0';                               // 아랫물가 빛
+      }
+      if (c !== runC){ if (runC) px(runX, y, x - runX, 1, runC); runC = c; runX = x; }
+    }
+  }
+  // 4) 물 위의 하늘 빛 / 얼음 금
+  if (!ice){
+    for (let i = 0; i < 9; i++){
+      const u = R.prand('prf' + i) - 0.5, v = R.prand('prg' + i) - 0.5, len = 3 + Math.floor(R.prand('prl' + i) * 8);
+      const gx = cx + u * wx * 1.3, gy = cy + v * wy * 1.2;
+      px(gx, gy, len, 1, i < 3 ? '#c4ebf7' : '#8fd0ee');
+    }
+    px(cx - wx * 0.55, cy - wy * 0.35, 10, 1, '#d6f2fb'); px(cx - wx * 0.55 + 3, cy - wy * 0.35 + 2, 5, 1, '#b9e5f4');
+  } else {
+    const crack = (pts) => { for (let i = 1; i < pts.length; i++){
+      const [ax, ay] = pts[i - 1], [bx, by] = pts[i], n = Math.max(Math.abs(bx - ax), Math.abs(by - ay));
+      for (let s2 = 0; s2 <= n; s2++){ const qx = ax + (bx - ax) * s2 / n, qy = ay + (by - ay) * s2 / n; px(qx, qy + 1, 1, 1, '#9fc2d4'); px(qx, qy, 1, 1, '#ffffff'); }
+    } };
+    crack([[cx - 20, cy - 10], [cx - 8, cy - 4], [cx + 2, cy - 6], [cx + 16, cy + 2]]);
+    crack([[cx - 8, cy - 4], [cx - 12, cy + 8]]);
+    crack([[cx + 2, cy - 6], [cx + 8, cy - 16]]);
+    [[cx + 18, cy + 12, 14, 5], [cx - 26, cy + 6, 10, 4], [cx + 24, cy - 12, 8, 3]].forEach(([sx, sy, sw, sh]) => {
+      for (let r = 0; r < sh; r++){ const k2 = Math.sin(Math.PI * (r + 0.5) / sh), ww = Math.round(sw * (0.4 + 0.6 * k2)); px(sx - ww / 2, sy + r, ww, 1, '#fbfdfe'); }
+    });
+  }
+  // 5) 수련 잎과 꽃 · 가을 낙엽 (얼음 위엔 없다)
+  if (!ice){
+    const padC = season === 'autumn' ? ['#a3a94e', '#c2c46a', '#7f8538'] : ['#5fae4e', '#86c96a', '#3f8a3c'];
+    [[0.36, 0.42, 7, 0], [-0.30, 0.52, 5, 1], [0.58, -0.22, 6, 2], [-0.62, 0.05, 4, 3]].forEach(([u, v, r, i]) => {
+      const lx = Math.round(cx + u * wx), ly = Math.round(cy + v * wy), ry2 = Math.max(2, Math.round(r * 0.62));
+      px(lx - r + 1, ly + ry2 - 1, r * 2 - 2, 1, '#2f6fa866');                    // 물에 비친 잎 그늘
+      for (let yy = -ry2; yy < ry2; yy++){
+        const k2 = Math.sqrt(1 - Math.pow((yy + 0.5) / ry2, 2)), hw = Math.round(r * k2);
+        px(lx - hw, ly + yy, hw * 2, 1, yy >= ry2 - 1 ? padC[2] : padC[0]);
+        if (yy < 0 && hw > 2) px(lx - hw + 1, ly + yy, Math.max(1, hw - 2), 1, padC[1]);
+      }
+      const notch = WC[3];                                                        // 잎의 갈라진 틈
+      px(lx, ly - 1, Math.round(r * 0.9), 1, notch); px(lx + 1, ly, Math.round(r * 0.6), 1, notch);
+      if (i === 0 && season !== 'autumn'){                                        // 꽃 한 송이
+        px(lx - 4, ly - 3, 3, 2, '#ff9ec4'); px(lx - 1, ly - 3, 3, 2, '#ff9ec4');
+        px(lx - 3, ly - 5, 2, 2, '#ffc2dc'); px(lx - 1, ly - 6, 2, 3, '#ffd6e7'); px(lx + 1, ly - 5, 2, 2, '#ffc2dc');
+        px(lx - 2, ly - 3, 2, 1, '#ffe066');
+      }
+    });
+    if (season === 'autumn') [['#e8874a', 0.1, -0.3], ['#d9603c', -0.2, 0.2], ['#f2c14e', 0.3, 0.1]].forEach(([c, u, v]) => {
+      const lx = cx + u * wx, ly = cy + v * wy; px(lx, ly, 3, 1, c); px(lx + 1, ly + 1, 3, 1, shade(c, -24));
+    });
+  }
+  // 6) 둘레 돌 — 뒤(위)쪽부터. 앞쪽 돌은 옆면이 보인다
+  const stones = [];
+  const N = 30;
+  for (let k = 0; k < N; k++){
+    const a = (k + (R.prand('psa' + k) - 0.5) * 0.5) / N * Math.PI * 2;
+    const sw = 7 + Math.floor(R.prand('psw' + k) * 6), sh = 5 + Math.floor(R.prand('psh' + k) * 3);
+    stones.push({ x: cx + Math.cos(a) * (wx + 3) - sw / 2, y: cy + Math.sin(a) * (wy + 3) - sh / 2, sw, sh, front: Math.sin(a) > 0.15, k });
+  }
+  stones.sort((p, q) => p.y - q.y).forEach(o => {
+    const x = Math.round(o.x), y = Math.round(o.y), { sw, sh } = o;
+    const base = [STONE.mid, STONE.hi, STONE.low, '#b8b0a4'][Math.floor(R.prand('psc' + o.k) * 4)];
+    if (o.front){ px(x + 1, y + sh - 1, sw - 2, 3, STONE.dark); px(x + 2, y + sh + 2, sw - 4, 1, '#00000022'); }
+    px(x + 1, y, sw - 2, sh, base); px(x, y + 1, sw, sh - 2, base);
+    px(x + 1, y + 1, sw - 3, 1, shade(base, 16)); px(x + 1, y + 1, 1, sh - 3, shade(base, 10));   // 위·왼쪽 빛
+    px(x + 2, y + sh - 1, sw - 3, 1, shade(base, -18)); px(x + sw - 1, y + 2, 1, sh - 3, shade(base, -12));
+    if (R.prand('psd' + o.k) > 0.6) px(x + 3, y + 2, 1, 1, shade(base, -22));                     // 오목한 곳
+    if (ice){ px(x + 1, y, sw - 2, 2, '#f6fafc'); px(x, y + 1, sw, 1, '#ffffff'); }
+    else if (season !== 'autumn' && R.prand('psm' + o.k) > 0.7){ px(x + 1, y, 3, 1, '#7fb069'); px(x, y + 1, 2, 1, '#6a9c58'); }
+  });
+  // 7) 부들(왼쪽 뒤)과 갈대(오른쪽 앞)
+  const stem = ice ? '#b89e72' : season === 'autumn' ? '#a88f52' : '#5f9440';
+  const leaf = ice ? '#c7ae80' : season === 'autumn' ? '#bda463' : '#79b04e';
+  [[-0.94, -0.30, 19], [-0.86, -0.46, 23], [-0.78, -0.24, 16], [-0.70, -0.52, 20]].forEach(([u, v, hh], i) => {
+    const bx = Math.round(cx + u * rx), by = Math.round(cy + v * ry) + 4;
+    px(bx - 1, by, 3, 1, '#00000024');
+    px(bx, by - hh, 1, hh, stem);
+    px(bx + (i % 2 ? 1 : -1), by - Math.round(hh * 0.5), 1, Math.round(hh * 0.5), leaf);
+    px(bx + (i % 2 ? 2 : -2), by - Math.round(hh * 0.62), 1, Math.round(hh * 0.25), leaf);
+    px(bx - 1, by - hh + 3, 3, 6, '#7a4a2a'); px(bx - 1, by - hh + 3, 1, 5, '#9a6a3f');       // 부들 이삭
+    px(bx, by - hh, 1, 3, stem);
+    if (ice) px(bx - 1, by - hh + 3, 3, 1, '#ffffff');
+  });
+  [[0.80, 0.58], [0.88, 0.44], [0.72, 0.66]].forEach(([u, v], i) => {
+    const bx = Math.round(cx + u * rx), by = Math.round(cy + v * ry) + 2;
+    for (let s2 = 0; s2 < 3; s2++){
+      const hh = 8 + ((i + s2) % 3) * 3, lean = s2 - 1;
+      for (let r = 0; r < hh; r++) px(bx + s2 * 2 + Math.round(lean * r / hh * 2), by - r, 1, 1, r > hh * 0.6 ? leaf : stem);
+    }
+  });
+}
+// 오리 두 마리와 물 반짝임 — 매 장. 오리는 서로 다른 크기의 타원을 반대로 돈다(한 바퀴 17초·23초).
+function drawPondLive(season, t, L){
+  const b = spot('pond'); if (!b) return;
+  const ice = season === 'winter', G = pondGeom(b.x * T, b.y * T, b.w * T, b.h * T), { cx, cy, wx, wy } = G;
+  if (!ice && L.dark < 0.55) for (let i = 0; i < 6; i++){
+    const ph = (t / 1000 + R.prand('pgt' + i) * 7) % 7;
+    if (ph > 0.7) continue;
+    const gx = cx + (R.prand('pgx' + i) - 0.5) * wx * 1.3, gy = cy + (R.prand('pgy' + i) - 0.5) * wy * 1.2;
+    if (ph < 0.35){ px(gx - 1, gy, 3, 1, '#f2fbff'); px(gx, gy - 1, 1, 3, '#f2fbff'); } else px(gx, gy, 1, 1, '#e3f6fd');
+  }
+  const B = BEAST.duck, rows = ice ? B.art : B.art.slice(0, 14);                 // 헤엄칠 땐 다리와 배 밑이 물에 잠긴다
+  const list = [0, 1].map(i => {
+    const dir = i ? -1 : 1, a = dir * t / (i ? 23000 : 17000) * Math.PI * 2 + i * 2.6;
+    const ex = wx - 20 - i * 3, ey = wy - 13 - i * 5;
+    return { i, x: cx + Math.cos(a) * ex, y: cy + 5 + Math.sin(a) * ey, flip: -Math.sin(a) * dir < 0 };
+  }).sort((p, q) => p.y - q.y);
+  list.forEach(o => {
+    const x = Math.round(o.x), y = Math.round(o.y), back = o.flip ? 1 : -1;
+    const bob = ice ? 0 : Math.round(Math.sin(t / 650 + o.i * 2));
+    if (ice){
+      footShade(x, y + 6, 20);
+      artOut('pondDuckI', rows, x - 12, y + 6 - rows.length, B.pal, o.flip);
+      return;
+    }
+    // 꼬리 뒤로 벌어지는 물살
+    for (let k = 1; k <= 3; k++){
+      ctx.globalAlpha = 0.75 - k * 0.2;
+      const wx2 = x + back * (11 + k * 4) - (back < 0 ? 3 : 0);
+      px(wx2, y - k, 3, 1, '#d4f0fa'); px(wx2, y + k, 3, 1, '#d4f0fa');
+    }
+    ctx.globalAlpha = 1;
+    artOut('pondDuck', rows, x - 12, y - rows.length + bob, B.pal, o.flip);
+    px(x - 12, y + bob, 24, 1, '#d9f3fb');                                     // 물에 닿는 줄
+    px(x - 10, y + bob + 1, 20, 1, '#2f6fa855');
+  });
+}
 function drawDecorLive(season, t, L){
   const d = W.decor || {};
+  if (d.pond) drawPondLive(season, t, L);
   if (d.swing){
     const b = spot('swing'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
     const a = Math.sin(t / 1150) * (5 + curWind);
