@@ -691,7 +691,10 @@ function buildRoom(k){
       '<p class="room-paper"></p>' +
     '</div>' +
     '<div class="honor-list"></div>';
-  wireCanvas(sec.querySelector('canvas'), k);
+  // 비율은 스크립트가 직접 박는다 — HTML 만 옛것이 캐시되면 다른 비율 상자에 들어가 찌그러졌다(2026-09-14 밤, 폰에서 봄)
+  const cv = sec.querySelector('canvas');
+  cv.style.aspectRatio = RW + ' / ' + RH;
+  wireCanvas(cv, k);
   return sec;
 }
 function render(){
