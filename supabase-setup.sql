@@ -1536,3 +1536,46 @@ end $$;
 drop trigger if exists snowmen_flood_guard on public.snowmen;
 create trigger snowmen_flood_guard before insert on public.snowmen for each row execute function public.snowmen_flood_guard();
 revoke execute on function public.snowmen_flood_guard() from public, anon, authenticated;
+
+
+-- =====================================================================
+-- 2026-09-14 — 손님에게도 두 아이의 방과 보물 저장고를 (quest_cards 에 두 칸)
+-- 왜: 모험단 첫 화면이 로그인 전에는 이름 카드 두 장뿐이었다. 농장처럼 각자의 방을 보여 주고
+-- 보물 저장고를 전시하려면, 방에 놓인 것(room.at)과 얻은 드문 보물이 필요하다.
+-- 나가는 것은 그리는 데 필요한 만큼만:
+--   · room 은 자리마다 놓인 것(at)만. 산 목록(own)·마지막으로 쉰 날(rest)은 뺀다.
+--   · 보물은 이름 목록만. 세이브에는 얻은 날이 적히는데, 날짜는 아이가 언제 놀았는지라서 뺀다.
+-- 훈장(칭호)은 이미 나가는 lv·friends·boss 같은 칸으로 화면이 계산한다.
+create or replace function public.quest_cards()
+returns table (who text, data jsonb)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select q.who,
+         jsonb_build_object(
+           'lv',         coalesce(q.data->'lv',         '1'::jsonb),
+           'wins',       coalesce(q.data->'wins',       '[]'::jsonb),
+           'boss',       coalesce(q.data->'boss',       '[]'::jsonb),
+           'friends',    coalesce(q.data->'friends',    '[]'::jsonb),
+           'dexSkies',   coalesce(q.data->'dexSkies',   '[]'::jsonb),
+           'finds',      coalesce(q.data->'finds',      '{}'::jsonb),
+           'fights',     coalesce(q.data->'fights',     '0'::jsonb),
+           'weapon',     coalesce(q.data->'weapon',     '0'::jsonb),
+           'armor',      coalesce(q.data->'armor',      '0'::jsonb),
+           'weekWins',   coalesce(q.data->'weekWins',   '0'::jsonb),
+           'bestStreak', coalesce(q.data->'bestStreak', '0'::jsonb),
+           'week',       coalesce((q.data->'week') - 'day' - 'swings', '{}'::jsonb),
+           'lastWeek',   coalesce(q.data->'lastWeek',   'null'::jsonb),
+           'room',       jsonb_build_object('at',
+                           case when jsonb_typeof(q.data->'room'->'at') = 'object' then q.data->'room'->'at' else '{}'::jsonb end),
+           'trophies',   case when jsonb_typeof(q.data->'trophies') = 'object'
+                           then coalesce((select jsonb_agg(k) from jsonb_object_keys(q.data->'trophies') k), '[]'::jsonb)
+                           else '[]'::jsonb end
+         )
+  from public.quest_saves q
+  where q.who in ('sua', 'yona');
+$$;
+revoke all on function public.quest_cards() from public;
+grant execute on function public.quest_cards() to anon, authenticated;

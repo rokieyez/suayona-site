@@ -156,6 +156,26 @@
   .room-tray button.put{background:#eaf4e6;}
   .room-tray button.pick{background:var(--lemon); box-shadow:none;}
   #roomRest{margin-top:10px;}
+  /* 보물 저장고 — 내 방과 같은 틀이지만 더 깊은 보랏빛 돌에 금 테. 받침돌과 훈장을 누르면 이름이 나온다. */
+  .vault-stage{background:#2a2530;}
+  .vault-cv, .peek-cv{
+    display:block; width:100%; aspect-ratio:400/260; image-rendering:pixelated;
+    touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  }
+  .vault-cv{cursor:pointer;}
+  .vault-list{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:10px;}
+  @media (max-width:720px){ .vault-list{grid-template-columns:repeat(3,1fr);} }
+  @media (max-width:420px){ .vault-list{grid-template-columns:1fr 1fr;} }
+  .vault-list div{border:2px solid var(--ink); padding:6px 7px; font-size:12px; font-weight:800; background:#fffaf2; line-height:1.4;}
+  .vault-list div.no{background:#efe9df; color:var(--ink-soft);}
+  .vault-list small{display:block; font-size:10.5px; font-weight:700; color:var(--ink-soft);}
+  /* 손님 화면 — 두 아이의 방과 보물 저장고 */
+  .peek-rooms{display:grid; gap:14px; margin:14px 0 20px; text-align:left;}
+  .peek-hero h3{margin:0 0 8px;}
+  .peek-hero h3 + .room-stage{margin-bottom:0;}
+  .peek-hero h3.vh{margin-top:16px;}
+  .peek-hero .sub{font-weight:700; color:var(--ink-soft); font-size:12px;}
+  .peek-note{font-size:12.5px; color:var(--ink-soft); margin:10px 0 16px;}
   /* 장신구 — 금화로만 사는 칸. 산 것은 눌러서 바꿔 찬다. */
   .amu-h{display:flex; align-items:baseline; gap:8px; margin:14px 0 6px; flex-wrap:wrap;}
   .amu-h b{font-size:13px;}
@@ -377,6 +397,7 @@
         <span id="gateWho">수아나 연아로 로그인하면 모험이 시작돼요.</span>
       </p>
       <div class="heroes" id="heroes"></div>
+      <div class="peek-rooms" id="peekRooms"></div>
 
       <div class="dot-card tune" id="tuneCard" hidden>
         <h3 class="pixel" style="margin:0 0 4px;font-size:13px;">부모 조정판</h3>
@@ -489,6 +510,15 @@
         <button type="button" class="dot-btn small" id="roomRest" hidden></button>
         <div class="msg" id="roomMsg"></div>
         <div class="room-tray" id="roomTray"></div>
+      </div>
+
+      <div class="dot-card q-card reveal" id="vaultCard" style="margin-top:14px;">
+        <h3 class="pixel">보물 저장고 <span id="vaultHead" style="font-weight:700;color:var(--ink-soft);font-size:12px;"></span></h3>
+        <p class="msg" style="margin:0 0 8px;">모험하다 아주 가끔 드문 보물이 나와요. 얻은 보물은 받침돌에, 칭호는 훈장판에 전시돼요. 눌러 보면 이름과 얻는 곳이 나와요.</p>
+        <div class="room-stage vault-stage"><canvas id="vaultCanvas" class="vault-cv" width="800" height="520"
+             aria-label="보물 저장고. 받침돌 열둘에 드문 보물이, 오른쪽 벽 훈장판에 칭호 훈장이 전시돼요."></canvas></div>
+        <div class="msg" id="vaultMsg"></div>
+        <div class="vault-list" id="vaultList"></div>
       </div>
 
       <div class="dot-card q-card reveal">

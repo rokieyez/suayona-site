@@ -112,11 +112,14 @@ async function bootInner(){
   // 있는지만 알면 되고, prev 와 prev_day 는 늘 같이 적히므로 날짜만 받는다.
   let got = isLoggedIn ? await sb.from('quest_saves').select('who, data, prev_day') : { data: null, error: null };
   // 로그인은 했지만 가족 프로필이 없는 계정이면 표가 비어 온다 — 그때도 카드는 보여야 한다.
-  if (!got.error && !(got.data && got.data.length)) got = await sb.rpc('quest_cards');
+  let viaCards = false;
+  if (!got.error && !(got.data && got.data.length)){ got = await sb.rpc('quest_cards'); viaCards = true; }
   const rows = got.data, error = got.error;
   if (error) throw error;
   (rows || []).forEach(r => {
     if (r.who === 'tuning') { TUNE = Q.fixTune(r.data); return; }
+    // 요약 함수가 아직 방 칸을 안 내보내면(서버 쪽 함수가 옛것) 손님에게 빈 방을 그리지 않는다
+    if (viaCards && r.data && !('room' in r.data)) peekOld = true;
     saves[r.who] = Q.fixSave(r.data);
     // 되돌릴 자리가 있는지, 있으면 언제 것인지 — 부모 조정판이 읽는다
     backups[r.who] = { has: !!r.prev_day, day: r.prev_day || null };
@@ -126,6 +129,7 @@ async function bootInner(){
     $('#gate').hidden = false;
     if (isLoggedIn) $('#gateWho').textContent = '이 모험은 수아와 연아의 것이에요. 부모는 여기서 구경하고, 아래에서 난이도를 맞출 수 있어요.';
     renderHeroes();
+    renderPeek();
     if (isAdmin) renderTune();
     initReveal();
     return;
@@ -162,6 +166,7 @@ async function bootInner(){
   $('#game').hidden = false;
   $('#lead').textContent = hero.name + '의 모험 — 현실에서 한 일이 경험치가 돼요';
   wireRoom();                                        // 방은 한 번만 이어 둔다
+  wireVault($('#vaultCanvas'), () => save, () => st, $('#vaultMsg'));
   renderAll();
   initReveal();
 }
@@ -180,7 +185,7 @@ function refreshStats(){
   }
 }
 
-function renderAll(){ renderStatus(); renderReal(); renderToday(); renderMap(); renderExpo(); renderShop(); renderWeek(); renderDex(); renderMission(); renderRoom(); }
+function renderAll(){ renderStatus(); renderReal(); renderToday(); renderMap(); renderExpo(); renderShop(); renderWeek(); renderDex(); renderMission(); renderRoom(); renderVault(); }
 function today(){ const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
 
 // ---------- 손님 화면 ----------
@@ -559,6 +564,8 @@ function renderMap(){
     sfx(got ? 'sparkle' : 'prop');
     if (got){ save.finds[curArea] = true; notice('🔍 <b>' + A.find.name + '</b>' + J2(A.find.name, '을', '를') + ' 찾았어요!'); }
     else notice('이번엔 못 찾았어요. 내일 또 살펴봐요.');
+    const tf = Q.trophyRoll(save, { src: 'find', day: today() });
+    if (tf) gotTrophy(tf);
     renderMap(); renderDex(); persist(true);
   });
 }
@@ -805,6 +812,7 @@ function claimExpo(e){
     ? '<b>' + nm + '</b>' + J2(friendName(r.who), '이', '가') + ' 빈손으로 돌아왔어요 — ' + escapeHTML(r.say)
     : '<b>' + nm + '</b> ' + escapeHTML(r.say) + (r.duo ? ' 🤝<b>합동 원정</b>' : '') +
       ' — 💰' + r.gold + ' · ✨' + r.xp + (r.seed ? ' · 🌱 <b>농장에 심을 씨앗</b>도 주워 왔어요' : ''));
+  if (!r.empty){ const te = Q.trophyRoll(save, { src: 'expo', day: today() }); if (te) gotTrophy(te); }
   refreshStats();
   renderExpo(); renderStatus(); renderDex(); persist(true);
 }
@@ -1542,9 +1550,9 @@ function wallXY(side, u, v){
 /* 방의 껍데기(벽·바닥·양탄자)는 한 번만 그려 두고 그 뒤로는 베껴 쓴다.
    벽 한 겹이 6천 번 넘는 칠이라, 물건을 하나 옮길 때마다 다시 칠하면 폰에서 느껴진다.
    농장의 마을·밭과 같은 방법이다. */
-let roomShell = null;
+const roomShell = {};                   // 아이 색마다 — 손님 화면은 두 방을 한 페이지에 그린다
 function roomShellCv(color){
-  if (roomShell) return roomShell;
+  if (roomShell[color]) return roomShell[color];
   const c = document.createElement('canvas');
   c.width = RW * 2; c.height = RH * 2;
   const g = c.getContext('2d');
@@ -1552,7 +1560,7 @@ function roomShellCv(color){
   g.setTransform(2, 0, 0, 2, 0, 0);
   g.fillStyle = '#1c1814'; g.fillRect(0, 0, RW, RH);
   paintShell(g, color);
-  roomShell = c;
+  roomShell[color] = c;
   return c;
 }
 function paintShell(g, color){
@@ -1604,13 +1612,14 @@ function paintShell(g, color){
     }
   }
 }
-function drawRoom(){
-  const g = roomCtx(); if (!g) return;
-  const R = Q.roomOf(save), color = hero.color;
+function drawRoom(){ const g = roomCtx(); if (g) drawRoomOn(g, save, hero.color, Q.titlesOf(save, st).length, true); }
+// 방 한 장. 내 방은 빈 자리 표시(markers)까지, 손님 화면은 놓인 것만 그린다.
+function drawRoomOn(g, s, color, medalN, markers){
+  const R = Q.roomOf(s);
   g.clearRect(0, 0, RW, RH);
   g.drawImage(roomShellCv(color), 0, 0, RW, RH);
   // ---- 빈 자리 ----
-  Q.ROOM_SLOTS.forEach(sl => {
+  if (markers) Q.ROOM_SLOTS.forEach(sl => {
     if (R.at[sl.id]) return;
     const on = roomPick && Q.RI[roomPick] && Q.RI[roomPick].where === sl.where;
     if (sl.where === 'wall'){
@@ -1637,7 +1646,7 @@ function drawRoom(){
     if (sl.where !== 'wall' && ROOM_PAINT[id]) ROOM_PAINT[id](g, sl.x + 24, sl.y + 44, color);
     else drawArt(g, art, sl.x, sl.y, 2, color, sl.where === 'wall' ? (sl.side === 'r' ? 0.5 : -0.5) : 0);
     if (id === 'medals'){                                      // 받은 칭호만큼 훈장이 걸린다
-      const n = Math.min(6, Q.titlesOf(save, st).length);
+      const n = Math.min(6, medalN);
       const sk = sl.side === 'r' ? 0.5 : -0.5;
       for (let m = 0; m < n; m++){
         const cx = 8 + (m % 3) * 7, cy = 8 + Math.floor(m / 3) * 7;
@@ -1765,6 +1774,389 @@ function wireRoom(){
     sfx('sparkle');
     roomSay('짚 침대에서 푹 쉬었어요. 체력이 가득 찼어요.');
     renderStatus(); renderRoom(); persist();
+  });
+}
+
+/* ---------- 보물 저장고 ----------
+   모험에서 드물게 얻는 보물과 모은 훈장(칭호)을 전시하는 방. 내 방과 같은 아이소메트릭 틀(400×260,
+   칸 56×28)을 쓰되 돌은 더 깊은 보랏빛, 벽에는 금 갓돌과 허리띠, 바닥은 대리석 바둑판에 붉은 길.
+   · 바닥의 받침돌 열둘 — 보물 하나에 하나. 못 얻은 자리는 빈 방석과 물음표
+   · 오른쪽 벽의 훈장판 — 칭호 열 자리. 얻은 칭호는 리본 달린 금 훈장, 못 얻은 자리는 빈 고리
+   · 왼쪽 벽 — 아이 색 깃발과 촛대, 앞 구석 — 전시한 것이 늘수록 커지는 금화 더미
+   껍데기(벽·바닥·길·훈장판 틀·촛대)는 방처럼 한 번 구워 두고, 전시물만 그때그때 얹는다. */
+// 보물 그림 16×16. 글자는 방 그림과 같은 RPAL.
+const TROPHY_ART = {
+  crown: [
+    '................', '................', '................', '................',
+    '..Q....y....Q...', '.QxQ..yFy..QxQ..', '..Q....y....Q...', '..G....G....G...',
+    '..gG..gGg..Gg...', '..ggGggyggGgg...', '..gyggyYyggyg...', '..ggggggggggg...',
+    '..GGGGGGGGGGG...', '................', '................', '................',
+  ],
+  pearl: [
+    '................', '................', '....QQQQQQQ.....', '..QQqQqQqQqQQ...',
+    '..qQqQqQqQqQq...', '...qqqqqqqqq....', '................', '......dCd.......',
+    '.....dCCdi......', '.....CddCi......', '..q...iii...q...', '..QqqqqqqqqqQ...',
+    '...QqQqQqQqQ....', '....QQQQQQQ.....', '................', '................',
+  ],
+  citykey: [
+    '................', '..........iii...', '.........iIIIi..', '.........iI.Ii..',
+    '.........iIIIi..', '........iJiii...', '.......iJ.......', '......iJ........',
+    '.....iJ.........', '....iJ.I........', '...iJ.IJ........', '..iJ..J.........',
+    '...J............', '................', '................', '................',
+  ],
+  hourglass: [
+    '................', '...GGGGGGGGGG...', '....i......i....', '....iFFFFFFi....',
+    '.....iFFFFi.....', '......iFFi......', '.......ii.......', '.......iF.......',
+    '......i.Fi......', '.....i..F.i.....', '....i..FFF.i....', '....iFFFFFFi....',
+    '...GGGGGGGGGG...', '................', '................', '................',
+  ],
+  meteor: [
+    '................', '................', '..........y.....', '.........yYy....',
+    '......yyyYYYyyy.', '.......yYYYYYy..', '........yYYYy...', '.......yYy.yYy..',
+    '......vy.....y..', '.....vb.........', '....vb..........', '...vb...........',
+    '..vb............', '.v..............', '................', '................',
+  ],
+  feather: [
+    '................', '...........dC...', '..........dCCd..', '.........dCCCd..',
+    '........dCCCd...', '.......dCiCd....', '......dCiCd.....', '.....dCiCd......',
+    '....dCiCd.......', '....dCid........', '...dCid.........', '...gCd..........',
+    '..g.............', '.g..............', '................', '................',
+  ],
+  crest: [
+    '................', '....y..y..y.....', '....yyyyyyy.....', '....GGGGGGG.....',
+    '..jjjjjjjjjjj...', '..jqqqqqqqqqj...', '..jqqqqyqqqqj...', '..jqqqyYyqqqj...',
+    '..jqqqqyqqqqj...', '...jqqqqqqqj....', '...jRqqqqqRj....', '....jRqqqRj.....',
+    '.....jRRRj......', '......jjj.......', '................', '................',
+  ],
+  scale: [
+    '................', '................', '......LLL.......', '.....LlllL......',
+    '....LllYllL.....', '...LlllYlllL....', '...LllYlllllL...', '..LlllllYlllL...',
+    '..LllllYllllL...', '..LlllYlllllL...', '...LllllllllL...', '....LlllllL.....',
+    '.....LlllL......', '......LLL.......', '................', '................',
+  ],
+  acorn: [
+    '................', '................', '.......n........', '......nN........',
+    '....GGGGGGG.....', '...GgGgGgGgG....', '...GGGGGGGGG....', '....gyyyyyg.....',
+    '....gyYyyyg.....', '....gyYyyyg.....', '....ggyyyyg.....', '.....ggyygG.....',
+    '......gggG......', '.......GG.......', '................', '................',
+  ],
+  compass: [
+    '................', '.......gg.......', '.....GGGGG......', '....GgggggG.....',
+    '...GgCCCCCgG....', '..GgCCCqCCCgG...', '..GgCCCqCCCgG...', '..GgCCCkCCCgG...',
+    '..GgCCCjCCCgG...', '..GgCCCjCCCgG...', '...GgCCCCCgG....', '....GgggggG.....',
+    '.....GGGGG......', '................', '................', '................',
+  ],
+  ember: [
+    '................', '................', '.......x........', '......xF........',
+    '......FFx.......', '.....fFFFx......', '.....fFxFf......', '....ofFxxFf.....',
+    '....offFFfo.....', '.....offfo......', '..jjjjjjjjjj....', '...JjjjjjjJ.....',
+    '....JJJJJJ......', '......jj........', '.....jjjj.......', '................',
+  ],
+  starcoin: [
+    '................', '................', '.....GGGGGG.....', '....GggggggG....',
+    '...GggyyyyggG...', '..GggyyYyyyggG..', '..GgyyyYYyyygG..', '..GgyYYYYYYygG..',
+    '..GgyyYYYYyygG..', '..GgyyYyyYyygG..', '..GggyyyyyyggG..', '...GggyyyyggG...',
+    '....GggggggG....', '.....GGGGGG.....', '................', '................',
+  ],
+};
+// 훈장 자리에서 보여 줄 「어떻게 얻나」 — 칭호 표에는 조건 함수만 있어서 말은 여기 둔다
+const TITLE_HINT = {
+  start: '처음 싸우면', friend: '친구 셋을 사귀면', dex: '무대 셋의 도감을 채우면', boss3: '대장 셋을 이기면',
+  gear: '무기와 갑옷을 둘 다 +3 으로', week: '이번 주 보스를 함께 이기면', lv10: '레벨 10 이 되면',
+  streak5: '5연승을 하면', finds: '모든 무대에서 채집물을 찾으면', all: '열 무대 대장을 다 이기면',
+};
+// 받침돌 열둘 — 4줄×3줄. 가운데(i≈3)는 붉은 길이 지나가게 비워 둔다.
+const VAULT_PED = [];
+[0.3, 1.5, 2.7].forEach(j => [0.9, 2.3, 3.7, 5.1].forEach(i => { const p = tileXY(i, j); VAULT_PED.push({ x: Math.round(p.x), y: Math.round(p.y) }); }));
+const VAULT_MED = Array.from({ length: 10 }, (_, k) => ({ u: 32 + (k % 5) * 24, v: 20 + Math.floor(k / 5) * 26 }));
+const VAULT_SCONCE = [[0, 14], [0, 96], [1, 156]];            // [벽, 벽을 따라 떨어진 거리]
+const VAULT_HOARD = tileXY(0, 3.3);
+function cvCtx(cv){
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.setTransform(2, 0, 0, 2, 0, 0);
+  return g;
+}
+// 벽면에 붙은 네모 — 두 칸 폭 기둥을 벽 기울기대로 이어 붙인다
+function wallRect(g, side, u, v, w, h, c){
+  g.fillStyle = c;
+  for (let du = 0; du < w; du += 2){ const p = wallXY(side, u + du, v); g.fillRect(Math.round(p.x), Math.round(p.y), 2, h); }
+}
+const vaultShell = {};
+function vaultShellCv(color){
+  if (vaultShell[color]) return vaultShell[color];
+  const c = document.createElement('canvas');
+  c.width = RW * 2; c.height = RH * 2;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.setTransform(2, 0, 0, 2, 0, 0);
+  g.fillStyle = '#141118'; g.fillRect(0, 0, RW, RH);
+  paintVaultShell(g, color);
+  vaultShell[color] = c;
+  return c;
+}
+function paintVaultShell(g, color){
+  // ---- 벽 둘 ---- 방보다 작은 돌을 촘촘히, 금 갓돌과 허리띠
+  [1, 0].forEach(side => {
+    const len = side ? LWr : LWl, dim = side ? 0 : -14;
+    for (let u = 0; u < len; u += 2){
+      for (let v = 0; v < WALLH; v += 2){
+        const off = Math.floor(v / 12) % 2 ? 12 : 0;
+        const bx = Math.floor((u + off) / 24), by = Math.floor(v / 12);
+        const t = Math.floor(prandRoom('v' + side + ':' + bx + ':' + by) * 5) - 2;
+        let c = shade('#5f596b', t * 5 + dim);
+        if (v % 12 < 2 || (u + off) % 24 < 2) c = shade('#39343f', dim);            // 줄눈
+        if (v < 4) c = shade('#e0a93b', dim);                                      // 금 갓돌
+        else if (v < 8) c = shade('#8a6424', dim);
+        if (v >= 40 && v < 44) c = shade(v < 42 ? '#b9812c' : '#6e4f1e', dim);     // 허리 금띠
+        if (v >= WALLH - 8) c = shade('#2c2833', dim);                             // 굽도리
+        const p = wallXY(side, u, v);
+        g.fillStyle = c; g.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
+      }
+    }
+  });
+  for (let i = 0; i < 10; i += 2){                                                // 모서리 그늘
+    const a = (0.26 * (1 - i / 10)).toFixed(3);
+    for (let v = 0; v < WALLH; v += 2){
+      const pr = wallXY(1, i, v), pl = wallXY(0, i, v);
+      g.fillStyle = 'rgba(12,8,16,' + a + ')';
+      g.fillRect(Math.round(pr.x), Math.round(pr.y), 2, 2);
+      g.fillRect(Math.round(pl.x), Math.round(pl.y), 2, 2);
+    }
+  }
+  // ---- 바닥 ---- 대리석 바둑판
+  for (let j = 0; j <= 3; j++) for (let i = 0; i <= 5; i++){
+    const p = tileXY(i, j);
+    isoTile(g, p.x, p.y, '#221e28', 0);
+    const base = (i + j) % 2 ? '#948fa0' : '#5d5869';
+    const t = Math.floor(prandRoom('vf' + i + ':' + j) * 3) - 1;
+    isoTile(g, p.x, p.y, shade(base, t * 5 - j * 4), 2);
+    g.fillStyle = shade(base, 16);                                                 // 대리석 결 한 줄
+    g.fillRect(Math.round(p.x - 9 + t * 4), Math.round(p.y - 2 + t), 8, 1);
+    g.fillRect(Math.round(p.x - 1 + t * 4), Math.round(p.y - 1 + t), 6, 1);
+  }
+  // ---- 붉은 길 ---- 앞에서 안쪽까지. 칸 좌표로 거꾸로 셈해 금 테·짙은 테·결을 나눈다
+  for (let y = 0; y < RH; y += 2) for (let x = 0; x < RW; x += 2){
+    const a = (x + 1 - FX) / (TW / 2), b = (y + 1 - FY) / (TH / 2);
+    const i = (a + b) / 2, j = (b - a) / 2;
+    if (j < -0.5 || j > 3.5 || i < 2.64 || i > 3.36) continue;
+    const e = Math.min(i - 2.64, 3.36 - i);
+    g.fillStyle = e < 0.06 ? '#e0a93b' : e < 0.12 ? '#6e2422' : (Math.floor(j * 3) % 2 ? '#b8423c' : '#a93b36');
+    if (e >= 0.12 && Math.abs(i - 3) < 0.03) g.fillStyle = '#d0a040';               // 가운데 금실
+    g.fillRect(x, y, 2, 2);
+  }
+  // ---- 왼쪽 벽: 아이 색 깃발 ----
+  const bu = 36, bw = 26, bv = 14;
+  wallRect(g, 0, bu - 4, bv - 4, bw + 8, 3, '#b9812c');                            // 깃대
+  for (let du = 0; du < bw; du += 2){
+    const mid = Math.abs(du + 1 - bw / 2);
+    const h = 52 - Math.round(mid * 1.1);                                          // 아래가 뾰족하다
+    wallRect(g, 0, bu + du, bv, 2, h, du < 4 ? shade(color, -34) : du > bw - 5 ? shade(color, -20) : shade(color, -6));
+    wallRect(g, 0, bu + du, bv + h - 3, 2, 3, shade(color, -50));
+  }
+  const su = bu + bw / 2 - 4, sv = bv + 18;                                        // 별 무늬
+  wallRect(g, 0, su + 2, sv, 4, 10, '#ffd979');
+  wallRect(g, 0, su - 2, sv + 3, 12, 4, '#ffd979');
+  wallRect(g, 0, su + 2, sv + 4, 4, 2, '#fff0b8');
+  // ---- 오른쪽 벽: 훈장판 틀 ----
+  wallRect(g, 1, 24, 10, 124, 64, '#2e1d10');
+  wallRect(g, 1, 26, 12, 120, 60, '#5a3a22');
+  for (let u = 26; u < 146; u += 8) wallRect(g, 1, u, 12, 2, 60, '#4e321d');         // 널빤지 줄
+  wallRect(g, 1, 26, 12, 120, 2, '#e0a93b');
+  wallRect(g, 1, 26, 70, 120, 2, '#8a6424');
+  // ---- 촛대 ----
+  VAULT_SCONCE.forEach(([side, u]) => {
+    wallRect(g, side, u + 2, 40, 2, 7, '#3f4653');
+    wallRect(g, side, u, 36, 6, 4, '#5d6675');
+    wallRect(g, side, u, 36, 6, 1, '#9aa4b2');
+    wallRect(g, side, u + 2, 31, 2, 5, '#fff8e8');                                  // 초
+    wallRect(g, side, u + 2, 26, 2, 5, '#ff9d3b');
+    wallRect(g, side, u + 2, 28, 2, 3, '#ffd24a');
+  });
+}
+// 윤곽선을 두른 보물 그림 — 어두운 방에서도 모양이 또렷하게
+function drawArtOut(g, art, x, y, s, color){
+  g.fillStyle = '#1a120a';
+  for (let c = 0; c < art[0].length; c++) for (let r = 0; r < art.length; r++){
+    if (art[r][c] === '.') continue;
+    g.fillRect(x + (c - 1) * s, y + r * s, s, s); g.fillRect(x + (c + 1) * s, y + r * s, s, s);
+    g.fillRect(x + c * s, y + (r - 1) * s, s, s); g.fillRect(x + c * s, y + (r + 1) * s, s, s);
+  }
+  drawArt(g, art, x, y, s, color, 0);
+}
+function drawPedestal(g, x, y, has){
+  isoTile(g, x + 2, y + 2, 'rgba(8,4,12,.38)', 12);                               // 그림자
+  isoBoxD(g, x, y, 10, 5, 18, '#9c96a6', '#8d8797', '#5b5567', 0);                // 기둥
+  isoBoxD(g, x, y, 13, 7, 4, '#c0bac8', '#a7a1b2', '#6d6779', 18);                // 머릿돌
+  isoBandD(g, x, y, 13, 7, 1, '#e0a93b', '#a0762a', 18);                          // 금 테
+  if (has){
+    isoTopD(g, x, y - 22, 9, 4, '#8f302c');                                        // 붉은 방석
+    isoTopD(g, x, y - 23, 7, 3, '#c24a42');
+  } else {
+    isoTopD(g, x, y - 22, 9, 4, '#4a4454');
+    // 물음표 — 한 줄씩 그어 올리면 옷걸이처럼 보였다. 5×8 글자꼴로 그린다
+    ['.###.', '#...#', '....#', '...#.', '..#..', '..#..', '.....', '..#..'].forEach((row, r) => {
+      for (let c = 0; c < 5; c++) if (row[c] === '#'){
+        g.fillStyle = '#2a2530'; g.fillRect(x - 2 + c + 1, y - 40 + r + 1, 1, 1);   // 그림자
+        g.fillStyle = '#a39db0'; g.fillRect(x - 2 + c, y - 40 + r, 1, 1);
+      }
+    });
+  }
+}
+function drawHoard(g, cx, cy, n){
+  const L = Math.min(5, 1 + Math.floor(n / 4));
+  for (let i = 0; i < 4 + L * 2; i++){                                             // 흩어진 금화
+    const a = prandRoom('hc' + i) * Math.PI * 2, r = 8 + prandRoom('hr' + i) * (L * 4 + 6);
+    const x = Math.round(cx + Math.cos(a) * r), y = Math.round(cy + 2 + Math.sin(a) * r * 0.5);
+    g.fillStyle = '#8a6424'; g.fillRect(x, y + 1, 4, 1);
+    g.fillStyle = '#ffd979'; g.fillRect(x, y, 4, 1);
+  }
+  for (let k = 0; k < L; k++){                                                     // 쌓인 더미
+    const hw = (L - k) * 4 + 4, hh = Math.max(2, Math.round(hw / 2)), y = cy - k * 4;
+    isoTopD(g, cx, y, hw, hh, '#8a6424');
+    isoTopD(g, cx, y - 1, hw - 1, hh - 1, '#b9812c');
+    isoTopD(g, cx - 1, y - 2, Math.max(2, hw - 4), Math.max(1, hh - 2), '#e0a93b');
+  }
+  g.fillStyle = '#fff0b8';
+  g.fillRect(cx - 3, cy - L * 4 - 1, 2, 1); g.fillRect(cx + 3, cy - L * 2, 1, 1); g.fillRect(cx - 7, cy - 2, 1, 1);
+}
+function drawVaultOn(g, s, color, stl){
+  const got = Q.trophyMap(s), earned = Q.titlesOf(s, stl).map(t => t.id);
+  g.clearRect(0, 0, RW, RH);
+  g.drawImage(vaultShellCv(color), 0, 0, RW, RH);
+  // 훈장판
+  const RIB = ['#d4504a', '#3a63b0', '#6fb567', '#9d7fd0', '#e0a93b'];
+  Q.TITLES.forEach((t, k) => {
+    const m = VAULT_MED[k]; if (!m) return;
+    if (earned.indexOf(t.id) >= 0){
+      const rc = RIB[k % 5];
+      wallRect(g, 1, m.u + 2, m.v, 6, 10, rc);
+      wallRect(g, 1, m.u + 4, m.v, 2, 10, shade(rc, -34));
+      wallRect(g, 1, m.u + 2, m.v + 8, 6, 12, '#8a6424');
+      wallRect(g, 1, m.u, m.v + 10, 10, 8, '#8a6424');
+      wallRect(g, 1, m.u + 2, m.v + 10, 6, 8, '#e0a93b');
+      wallRect(g, 1, m.u + 2, m.v + 10, 2, 2, '#fff0b8');
+      wallRect(g, 1, m.u + 4, m.v + 12, 2, 4, '#ffd979');
+    } else {
+      wallRect(g, 1, m.u + 4, m.v + 2, 2, 3, '#1c120a');                          // 빈 고리
+      wallRect(g, 1, m.u + 2, m.v + 10, 6, 8, 'rgba(12,6,2,.32)');
+    }
+  });
+  const n = Object.keys(got).length + earned.length;
+  if (n) drawHoard(g, Math.round(VAULT_HOARD.x), Math.round(VAULT_HOARD.y), n);
+  // 받침돌 — 뒤에서 앞으로
+  const lamps = VAULT_SCONCE.map(([side, u]) => { const p = wallXY(side, u + 3, 28); return [p.x, p.y, 70, 0.32]; });
+  VAULT_PED.map((p, k) => ({ p, k })).sort((a, b) => a.p.y - b.p.y).forEach(({ p, k }) => {
+    const T = Q.TROPHIES[k]; if (!T) return;
+    const has = T.id in got;
+    drawPedestal(g, p.x, p.y, has);
+    if (has && TROPHY_ART[T.id]){ drawArtOut(g, TROPHY_ART[T.id], p.x - 8, p.y - 40, 1, color); lamps.push([p.x, p.y - 32, 24, 0.26]); }
+  });
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  lamps.forEach(L => {
+    const grd = g.createRadialGradient(L[0], L[1], 0, L[0], L[1], L[2]);
+    grd.addColorStop(0, 'rgba(255,200,110,' + L[3] + ')');
+    grd.addColorStop(0.5, 'rgba(255,170,70,' + (L[3] * 0.4).toFixed(3) + ')');
+    grd.addColorStop(1, 'rgba(255,150,50,0)');
+    g.fillStyle = grd; g.fillRect(L[0] - L[2], L[1] - L[2], L[2] * 2, L[2] * 2);
+  });
+  g.restore();
+  const vig = g.createRadialGradient(RW / 2, RH / 2, 70, RW / 2, RH / 2, 250);
+  vig.addColorStop(0, 'rgba(8,4,12,0)');
+  vig.addColorStop(1, 'rgba(8,4,12,0.5)');
+  g.fillStyle = vig; g.fillRect(0, 0, RW, RH);
+}
+// 누른 곳 — 앞의 받침돌이 이긴다, 그다음 훈장
+function vaultHit(cv, e){
+  const r = cv.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width * RW, y = (e.clientY - r.top) / r.height * RH;
+  const peds = VAULT_PED.map((p, k) => ({ p, k })).sort((a, b) => b.p.y - a.p.y);
+  for (let i = 0; i < peds.length; i++){
+    const { p, k } = peds[i];
+    if (x >= p.x - 15 && x < p.x + 15 && y >= p.y - 44 && y < p.y + 8) return { kind: 'trophy', k };
+  }
+  for (let k = 0; k < VAULT_MED.length; k++){
+    const a = wallXY(1, VAULT_MED[k].u, VAULT_MED[k].v);
+    if (x >= a.x - 3 && x < a.x + 13 && y >= a.y - 3 && y < a.y + 26) return { kind: 'medal', k };
+  }
+  return null;
+}
+function wireVault(cv, getS, getSt, msg){
+  if (!cv || !msg) return;
+  cv.addEventListener('click', e => {
+    const s = getS(); if (!s) return;
+    const h = vaultHit(cv, e);
+    if (!h){ msg.textContent = ''; return; }
+    if (h.kind === 'trophy'){
+      const T = Q.TROPHIES[h.k], got = Q.trophyMap(s);
+      msg.textContent = (T.id in got)
+        ? T.icon + ' ' + T.name + ' — ' + T.say + (got[T.id] ? ' (' + got[T.id] + '에 얻음)' : '')
+        : '❔ 아직 빈 받침돌 — ' + T.hint;
+    } else {
+      const t = Q.TITLES[h.k], has = Q.titlesOf(s, getSt() || { lv: s.lv || 1 }).some(x => x.id === t.id);
+      msg.textContent = has ? '🏅 ' + t.name : '빈 훈장 자리 — ' + (TITLE_HINT[t.id] || '') + ' 걸려요';
+    }
+    sfx('pop');
+  });
+}
+function renderVaultList(box, s){
+  if (!box) return;
+  const got = Q.trophyMap(s);
+  box.innerHTML = Q.TROPHIES.map(T => (T.id in got)
+    ? '<div>' + T.icon + ' ' + T.name + '<small>' + T.say + '</small></div>'
+    : '<div class="no">❔ ???<small>' + T.hint + '</small></div>').join('');
+}
+function renderVault(){
+  const cv = $('#vaultCanvas'); if (!cv || !save) return;
+  $('#vaultHead').textContent = '🏆 ' + Q.trophyCount(save) + '/' + Q.TROPHIES.length + ' · 🏅 ' + Q.titlesOf(save, st).length + '/' + Q.TITLES.length;
+  drawVaultOn(cvCtx(cv), save, hero.color, st);
+  renderVaultList($('#vaultList'), save);
+}
+// 드문 보물을 얻었을 때 — 싸움 중이면 잠깐 멈춰 보여 주고, 아니면 알림에 한 줄 덧붙인다
+async function gotTrophy(T){
+  sfx('fanfare');
+  const line = '🏆 드문 보물 <b>' + T.icon + ' ' + T.name + '</b>' + J2(T.name, '을', '를') + ' 얻었어요! 아래 <b>보물 저장고</b>에 전시됐어요';
+  if (battle){
+    addFx(hero.name, '🏆', '#ffd979', true);
+    log(line);
+    renderVault();
+    await wait(1900);
+  } else {
+    const n = $('#notice');
+    notice((n && !n.hidden && n.innerHTML ? n.innerHTML + '<br>' : '') + line);
+    renderVault();
+  }
+}
+// ---------- 손님 화면: 두 아이의 방과 보물 저장고 ----------
+let peekOld = false;
+function renderPeek(){
+  const box = $('#peekRooms'); if (!box) return;
+  box.innerHTML = '';
+  if (peekOld){
+    box.innerHTML = '<p class="peek-note">두 아이의 방과 보물 저장고 그림은 곧 여기서도 볼 수 있어요.</p>';
+    return;
+  }
+  Object.keys(Q.HEROES).forEach(k => {
+    const h = Q.HEROES[k], s = saves[k];
+    if (!s) return;
+    const stl = { lv: s.lv || 1 };
+    const medals = Q.titlesOf(s, stl).length;
+    const card = document.createElement('div');
+    card.className = 'dot-card q-card peek-hero';
+    card.innerHTML =
+      '<h3 class="pixel">' + h.name + '의 방 <span class="sub">🏰 ' + Q.roomRank(s).name + '</span></h3>' +
+      '<div class="room-stage"><canvas class="peek-cv" width="800" height="520" aria-label="' + h.name + '의 방"></canvas></div>' +
+      '<h3 class="pixel vh">' + h.name + '의 보물 저장고 <span class="sub">🏆 ' + Q.trophyCount(s) + '/' + Q.TROPHIES.length +
+        ' · 🏅 ' + medals + '/' + Q.TITLES.length + '</span></h3>' +
+      '<div class="room-stage vault-stage"><canvas class="vault-cv" width="800" height="520" aria-label="' + h.name + '의 보물 저장고. 눌러 보면 이름이 나와요."></canvas></div>' +
+      '<div class="msg vault-msg"></div><div class="vault-list"></div>';
+    box.appendChild(card);
+    const cvs = card.querySelectorAll('canvas');
+    drawRoomOn(cvCtx(cvs[0]), s, h.color, medals, false);
+    drawVaultOn(cvCtx(cvs[1]), s, h.color, stl);
+    wireVault(cvs[1], () => s, () => stl, card.querySelector('.vault-msg'));
+    renderVaultList(card.querySelector('.vault-list'), s);
   });
 }
 
@@ -2221,6 +2613,10 @@ async function win(){
   renderBars();
   await wait(1200);
 
+  // 드문 보물 — 한 판에 하나까지. 이미 가진 것은 다시 안 나온다.
+  let trophy = Q.trophyRoll(save, { src: foe.week ? 'week' : foe.boss ? 'boss' : 'win', area: foe.area, streak: save.streak, day: today() });
+  if (trophy) await gotTrophy(trophy);
+
   // 보물 상자 — 대장은 늘, 일반 상대는 가끔.
   if (Math.random() < Q.CHEST.chance(foe.boss) + Q.amuEff(save, 'chest')){
     const c = Q.openChest(foe);
@@ -2239,6 +2635,7 @@ async function win(){
       (c.gold ? '금화 +' + c.gold : c.potions ? '물약 +' + c.potions : '경험치 +' + c.xp) + streakSay);
     refreshStats(); renderBars();
     await wait(2100);
+    if (!trophy){ trophy = Q.trophyRoll(save, { src: 'chest', day: today() }); if (trophy) await gotTrophy(trophy); }
   }
   endBattle();
 }

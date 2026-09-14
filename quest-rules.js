@@ -806,6 +806,53 @@ const QUEST = (() => {
     return roomSlotOf(save, 'bed') !== null && roomOf(save).rest !== day;
   }
 
+  // ---------- 드문 보물(트로피) ----------
+  /* 모험 중에 아주 가끔 나오는 전시용 보물(2026-09-14). 힘도 금화도 주지 않는다 — 보물 저장고의
+     받침돌에 놓일 뿐이다. 무대 묶음마다 다른 것이 나오니 「그 보물을 찾으러 그 무대에 간다」가 생긴다.
+     이미 가진 것은 다시 안 나오고, 한 번에 하나만. 싸움에서 나오는 것은 한 판 3% 안팎이라
+     그 무대 묶음에서 서른 판쯤 이기면 하나 나오는 셈이다.
+     얻은 날을 적어 두지만 손님에게는 이름만 나간다(quest_cards) — 날짜는 아이가 언제 놀았는지라서. */
+  const TROPHIES = [
+    { id: 'crown',     icon: '🌸', name: '들꽃 왕관',       src: 'win',  areas: [0, 1],  chance: 0.03, hint: '들판·산에서 이기면 아주 가끔',       say: '들판 요정이 두고 간 왕관' },
+    { id: 'pearl',     icon: '🫧', name: '물빛 진주',       src: 'win',  areas: [2, 3],  chance: 0.03, hint: '강·바다에서 이기면 아주 가끔',       say: '조개 속에서 반짝이던 진주' },
+    { id: 'citykey',   icon: '🗝', name: '은빛 열쇠',       src: 'win',  areas: [4],     chance: 0.04, hint: '도시에서 이기면 아주 가끔',          say: '어느 문을 여는지 아무도 몰라요' },
+    { id: 'hourglass', icon: '⏳', name: '사막 모래시계',    src: 'win',  areas: [5, 6],  chance: 0.03, hint: '사막·화산에서 이기면 아주 가끔',     say: '모래가 거꾸로 흘러요' },
+    { id: 'meteor',    icon: '☄️', name: '별똥별 조각',     src: 'win',  areas: [7, 8],  chance: 0.03, hint: '발사기지·우주에서 이기면 아주 가끔', say: '아직도 따뜻해요' },
+    { id: 'feather',   icon: '🪶', name: '천사의 깃털',     src: 'win',  areas: [9, 10], chance: 0.03, hint: '천국·뒷마당에서 이기면 아주 가끔',   say: '바람 없이도 살랑거려요' },
+    { id: 'crest',     icon: '👑', name: '대장의 문장',     src: 'boss', chance: 0.08, hint: '무대 대장을 이기면 가끔',              say: '대장들이 인정한 표시' },
+    { id: 'scale',     icon: '🐉', name: '용의 비늘',       src: 'week', chance: 0.30, hint: '이번 주 보스를 쓰러뜨리면 가끔',       say: '자매가 함께 얻은 비늘' },
+    { id: 'acorn',     icon: '🌰', name: '황금 도토리',     src: 'find', chance: 0.06, hint: '무대를 살펴볼 때 가끔',                say: '다람쥐가 숨겨 둔 것' },
+    { id: 'compass',   icon: '🧭', name: '옛 나침판',       src: 'expo', chance: 0.06, hint: '원정에서 친구가 돌아올 때 가끔',       say: '늘 집 쪽을 가리켜요' },
+    { id: 'ember',     icon: '🔥', name: '꺼지지 않는 불씨', src: 'streak', streak: 10, chance: 0.05, hint: '10연승 넘게 이어 가며 이기면 가끔', say: '연승의 열기가 담겼어요' },
+    { id: 'starcoin',  icon: '🪙', name: '별무늬 금화',     src: 'chest', chance: 0.05, hint: '보물 상자를 열 때 가끔',              say: '쓰지 않고 모셔 둬요' },
+  ];
+  const TI = {};
+  TROPHIES.forEach(t => { TI[t.id] = t; });
+  // 저장은 { id: 얻은 날 }. 손님 요약에서는 이름 목록(배열)으로 온다 — 둘 다 같은 모양으로 편다.
+  function trophyMap(save){
+    const t = save && save.trophies;
+    if (Array.isArray(t)){ const o = {}; t.forEach(id => { if (TI[id]) o[id] = ''; }); return o; }
+    return (t && typeof t === 'object') ? t : {};
+  }
+  function trophyCount(save){ return Object.keys(trophyMap(save)).filter(id => !!TI[id]).length; }
+  // ctx: { src: 'win' | 'boss' | 'week' | 'find' | 'expo' | 'chest', area, streak, day }
+  function trophyRoll(save, ctx, rnd){
+    const R = typeof rnd === 'function' ? rnd : Math.random;
+    const got = trophyMap(save), fight = ctx.src === 'win' || ctx.src === 'boss';
+    for (let i = 0; i < TROPHIES.length; i++){
+      const t = TROPHIES[i];
+      if (t.id in got) continue;
+      const fits = t.src === 'win' ? fight && t.areas.indexOf(ctx.area) >= 0
+        : t.src === 'streak' ? fight && (ctx.streak || 0) >= t.streak
+        : t.src === ctx.src;
+      if (!fits || R() >= t.chance) continue;
+      if (!save.trophies || Array.isArray(save.trophies) || typeof save.trophies !== 'object') save.trophies = got;
+      save.trophies[t.id] = ctx.day || '';
+      return t;
+    }
+    return null;
+  }
+
   // ---------- 이번 주 보스 ----------
   // 월요일 날짜가 주의 열쇠. 자매 둘이 낸 피해를 합쳐서 잰다.
   const WEEK0 = new Date(2026, 7, 31);   // 첫 주 월요일
@@ -930,6 +977,7 @@ const QUEST = (() => {
       gotGifts: [],                       // 이미 받은 선물 번호 — 두 번 받지 않게
       bought: { seedbag: 0 },             // 금화로 산 농장 씨앗 주머니 수 — 가게에 보여 준다
       room: { at: {}, own: [], rest: '' },// 내 방 — 자리마다 무엇이 놓였나, 산 것, 마지막으로 쉰 날
+      trophies: {},                       // 드문 보물 — { id: 얻은 날 }. 보물 저장고에 전시된다
     };
   }
   // 옛 세이브에 없는 칸을 채운다. 규칙이 늘어도 예전 줄이 깨지지 않게.
@@ -960,6 +1008,8 @@ const QUEST = (() => {
       const slot = ROOM_SLOTS.filter(x => x.id === k)[0];
       if (!slot || !RI[s.room.at[k]] || RI[s.room.at[k]].where !== slot.where) delete s.room.at[k];
     });
+    s.trophies = trophyMap(s);                                            // 없어진 보물은 지운다
+    Object.keys(s.trophies).forEach(k => { if (!TI[k]) delete s.trophies[k]; else if (typeof s.trophies[k] !== 'string') s.trophies[k] = ''; });
     if (!s.friendDay || typeof s.friendDay !== 'object') s.friendDay = {};
     s.expo = Object.assign(n.expo, s.expo || {});
     if (!Array.isArray(s.expo.sent)) s.expo.sent = [];
@@ -1002,6 +1052,7 @@ const QUEST = (() => {
   return {
     HEROES, AREAS, REAL, SHOP, WEEK, TUNE_DEFAULT, HIT_MULT, ELEM, STRONG, TITLES, CHEST, FRIEND, STREAK, streakMult,
     AMULETS, AMU, amuletOf, amuEff, hasAmulet, SEND, sendGold, giftsWaiting, claimGifts,
+    TROPHIES, TI, trophyMap, trophyCount, trophyRoll,
     ROOM_SLOTS, ROOM_ITEMS, ROOM_CELL, RI, ROOM_RANKS, roomOf, roomHas, roomSlotOf, roomBuy, roomPut, roomTake, roomScore, roomRank, roomCanRest, seasonOf, isNight, seasonBoost, MERCHANT, merchantDeal, FIND_CHANCE, tryFind, findsCount, DUO, MISSION, dailyMission,
     BOSS_SAY, BOSS_SKIP, BOSS_HEAL, BOSS_GUARD_CUT, MAX_ENERGY,
     EXPO, EXPO_EMPTY_SAY, expoOf, expoPlan, expoSlots, expoAway, expoFacts, expoSpeed, expoLeft, expoReward, expoDuo, expoSend, expoClaim, hash01,
