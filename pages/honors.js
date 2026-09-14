@@ -773,22 +773,22 @@ function wallLayer(k, list, all){
   let sparkle = null;
   g.drawImage(shellCv(color, roomYear()), 0, 0, RW, RH);
   const mark = (r, h) => { hits.push(h); if (r.id === newest) sparkle = { x: Math.round((h.x0 + h.x1) / 2) + 6, y: Math.round(h.y0) + 4 }; };
-  // 오른쪽 벽 — 상장: 최근 여덟은 금테 액자에, 그 다음 열여섯은 코르크판에 핀으로
+  // 오른쪽 벽 — 상장: 코르크판(모서리 쪽 큰 판)부터 핀으로 열여섯, 다 차면 금테 액자 여덟으로(2026-09-15 부모 요청 — 전엔 액자부터였다)
   const papers = list.filter(r => r.kind === 'award' && lookOf(r) === 'paper');
-  papers.slice(0, FRAMES.length).forEach((r, n) => {
+  papers.slice(0, PINS.length).forEach((r, n) => {
+    const s = PINS[n];
+    drawPinned(g, s, n);
+    mark(r, Object.assign({ r }, wallHit(1, s.u, s.v, PIN_W, PIN_H, 0)));
+  });
+  papers.slice(PINS.length, PINS.length + FRAMES.length).forEach((r, n) => {
     const f = FRAMES[n];
     drawFrame(g, f, n);
     mark(r, Object.assign({ r }, wallHit(1, f.u, f.v, FRAME_W, FRAME_H, 0)));
   });
-  FRAMES.slice(papers.length).forEach(f => {                           // 아직 비어 있는 액자 자리 — 점선 테
+  FRAMES.slice(Math.max(0, papers.length - PINS.length)).forEach(f => {   // 아직 비어 있는 액자 자리 — 점선 테
     const c = 'rgba(110,70,36,.26)';
     for (let d = 0; d < FRAME_W; d += 6){ wallRect(g, 1, f.u + d, f.v, 2, 1, c); wallRect(g, 1, f.u + d, f.v + FRAME_H - 1, 2, 1, c); }
     for (let d = 0; d < FRAME_H; d += 5){ wallRect(g, 1, f.u, f.v + d, 2, 2, c); wallRect(g, 1, f.u + FRAME_W - 2, f.v + d, 2, 2, c); }
-  });
-  papers.slice(FRAMES.length, FRAMES.length + PINS.length).forEach((r, n) => {
-    const s = PINS[n];
-    drawPinned(g, s, n);
-    mark(r, Object.assign({ r }, wallHit(1, s.u, s.v, PIN_W, PIN_H, 0)));
   });
   // 왼쪽 벽 — 급수 사다리
   ladderTracks(all).slice(0, LADDERS.length).forEach((t, n) => {
