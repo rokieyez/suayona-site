@@ -1749,3 +1749,35 @@ create policy "parent decorates stands" on public.honor_prefs for all to authent
 -- 2026-09-14 — 편지쓰기 페이지를 뺐다. 받을 곳이 없어졌으니 손님 「넣기」 문도 닫는다.
 -- 뺄 때 messages 는 0통이었다. 읽기·지우기는 부모 정책 그대로 두고, 넣기만 막는다.
 drop policy if exists "anyone can insert messages" on public.messages;
+
+
+-- =====================================================================
+-- 2026-09-14 밤 마무리작업에서 적어 둔 제안 — **아직 미적용** (부모 허락 뒤에)
+-- 1) 성능 어드바이저: honors·honor_goals·honor_prefs 에 같은 역할·같은 동작의 허용 정책이 둘씩 겹친다
+--    (읽기 정책 + 「for all」 쓰기 정책). 매 조회마다 둘 다 돌므로 쓰기 정책을 insert/update/delete 로 쪼개 읽기는 하나만 남긴다.
+-- 2) 전시실 첫 화면이 표 넷을 따로 부른다(honors·clap_counts·goals·prefs = 왕복 4번). 한 함수로 묶으면 1번.
+--
+-- drop policy if exists "parent writes honors" on public.honors;
+-- create policy "parent adds honors"   on public.honors for insert to authenticated with check ((select public.my_role()) = 'parent');
+-- create policy "parent edits honors"  on public.honors for update to authenticated using ((select public.my_role()) = 'parent') with check ((select public.my_role()) = 'parent');
+-- create policy "parent drops honors"  on public.honors for delete to authenticated using ((select public.my_role()) = 'parent');
+-- drop policy if exists "child sets own honor goal" on public.honor_goals;
+-- drop policy if exists "parent sets honor goals"   on public.honor_goals;
+-- create policy "family sets honor goals" on public.honor_goals for insert to authenticated
+--   with check ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
+-- create policy "family fixes honor goals" on public.honor_goals for update to authenticated
+--   using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())))
+--   with check ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
+-- create policy "family drops honor goals" on public.honor_goals for delete to authenticated
+--   using ((select public.my_role()) = 'parent' or ((select public.my_role()) = 'child' and who = (select public.my_author_key())));
+-- (honor_prefs 도 같은 꼴로)
+-- create or replace function public.honor_board()
+-- returns jsonb language sql stable set search_path = public as $$
+--   select jsonb_build_object(
+--     'honors', (select coalesce(jsonb_agg(h order by h.got_on desc, h.id desc), '[]') from honors h),
+--     'goals',  (select coalesce(jsonb_agg(g), '[]') from honor_goals g),
+--     'prefs',  (select coalesce(jsonb_agg(p), '[]') from honor_prefs p),
+--     'claps',  (select coalesce(jsonb_object_agg(honor_id, n), '{}') from (select honor_id, count(*) n from honor_claps group by honor_id) c))
+-- $$;
+-- grant execute on function public.honor_board() to anon, authenticated;
+

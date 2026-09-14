@@ -103,7 +103,7 @@ async function load(){
   }
 }
 
-// 곁표들 — 하나가 없거나 막혀도 저장고는 그려진다
+// 곁표들 — 하나가 없거나 막혀도 전시실은 그려진다
 async function loadExtras(){
   const [g, c, pf] = await Promise.all([
     sb.from('honor_goals').select('*'),
