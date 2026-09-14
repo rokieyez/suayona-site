@@ -184,7 +184,8 @@ function drawArtOut(g, art, x, y, s, color){
    상장 8 → 16(코르크판 12 + 액자 4), 바닥 8 → 16(유리 진열장 8 + 받침대 8), 급수 사다리 3 → 4.
    그림은 「Unpacking」류 아이소메트릭 도트를 참고했다 — 창문·커튼·코르크판·유리 진열장·화분·전등을 넣고,
    벽에 위아래 명암, 바닥에 창빛, 물건마다 윤곽과 그늘을 더했다. 칸(56×28)과 도트 크기는 모험단 방과 같다. */
-const RW = 640, RH = 420, TW = 56, TH = 28, NI = 12, NJ = 6, FX = 237, FY = 176, WALLH = 136;
+// 캔버스는 방 테두리에 딱 맞춘다(512×396) — 검은 여백을 두지 않고 배경은 비워 둔다. 할머니 휴대폰에서 방이 최대한 크게 보이게(2026-09-14 밤).
+const RW = 512, RH = 396, TW = 56, TH = 28, NI = 12, NJ = 6, FX = 172, FY = 154, WALLH = 136;
 const CORNER = { x: FX, y: FY - TH / 2 }, WTOP = CORNER.y - WALLH;
 const LWr = NI * (TW / 2), LWl = NJ * (TW / 2);
 function tileXY(i, j){ return { x: FX + (i - j) * (TW / 2), y: FY + (i + j) * (TH / 2) }; }
@@ -323,7 +324,6 @@ function shellCv(color, yr){
   const g = c.getContext('2d');
   g.imageSmoothingEnabled = false;
   g.setTransform(2, 0, 0, 2, 0, 0);
-  g.fillStyle = '#231d1a'; g.fillRect(0, 0, RW, RH);
   // 벽 — 위는 밝고 아래로 갈수록 살짝 어둡다. 왼쪽 벽은 빛을 등진다
   [1, 0].forEach(side => {
     const len = side ? LWr : LWl, dim = side ? 0 : -16;
@@ -605,10 +605,6 @@ function drawMuseum(g, k){
     g.fillStyle = grd; g.fillRect(L[0] - L[2], L[1] - L[2], L[2] * 2, L[2] * 2);
   });
   g.restore();
-  const vig = g.createRadialGradient(RW / 2, RH / 2, 150, RW / 2, RH / 2, 420);
-  vig.addColorStop(0, 'rgba(20,12,6,0)');
-  vig.addColorStop(1, 'rgba(20,12,6,0.34)');
-  g.fillStyle = vig; g.fillRect(0, 0, RW, RH);
   hitsOf[k] = hits;
   const hv = hits.find(h => k + ':' + hitKey(h) === hoverKey);
   if (hv){
@@ -685,10 +681,10 @@ function buildRoom(k){
   sec.className = 'honor-room ' + k; sec.dataset.kid = k;
   sec.innerHTML =
     '<div class="year-tabs" role="group" aria-label="' + heroName(k) + ' 학년도"></div>' +
-    '<div class="dot-card museum-card">' +
+    '<div class="museum-card">' +
       '<h2 class="room-title"></h2>' +
       '<p class="sub room-sub"></p>' +
-      '<div class="museum-stage"><canvas class="museum" id="museum-' + k + '" width="1280" height="840"' +
+      '<div class="museum-stage"><canvas class="museum" id="museum-' + k + '" width="1024" height="792"' +
         ' aria-label="' + heroName(k) + '의 업적 전시실. 오른쪽 벽에 상장 액자와 코르크판, 유리 진열장에 메달·트로피, 왼쪽 벽에 급수 사다리, 바닥 받침대에 처음 해낸 일이 있어요. 누르면 사진이 열려요."></canvas></div>' +
       '<p class="museum-msg" id="museumMsg-' + k + '" aria-live="polite"></p>' +
       '<div class="room-tools"></div>' +
