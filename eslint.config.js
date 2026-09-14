@@ -59,6 +59,10 @@ const vendor = {
   exifr: 'readonly',      // event/compress.js 가 늦게 싣는다
   qrcode: 'readonly',     // portfolio 가 늦게 싣는다
   KOREA_SIG: 'readonly',  // map/korea-sig.js — 첫 화면이 지도 자리에서 늦게 싣는다(map/build.py 가 굽는다)
+  // pages/kid-art.js — 농장·전시실이 같이 쓰는 아이 그림. 캐시된 옛 farm.js 의 const 와 부딪히지 않게
+  // IIFE 로 가두고 창 속성으로만 내놓아서 topLevelNames 로는 안 잡힌다(2026-09-15 마무리작업에서 no-undef 3건).
+  KIDART: 'readonly',
+  KIDPAL: 'readonly',
   module: 'writable',     // farm-rules / quest-rules 가 node 에서도 돌게 한다
   require: 'readonly',
 };
