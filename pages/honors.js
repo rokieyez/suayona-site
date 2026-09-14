@@ -6,7 +6,14 @@
      모자이크한 사본만 올린다. 원본은 브라우저 밖으로 안 나간다 — 캔버스에서 다시 구우므로 EXIF(찍은 곳)도 빠진다.
    · 방은 모험단 방과 같은 아이소메트릭 틀(400×260, 칸 56×28). 오른쪽 벽은 상장 액자,
      왼쪽 벽은 급수 사다리, 바닥 진열대는 메달·트로피와 처음 해낸 것.
-   · 학년도(3월 시작)로 나눈다. 생년월일은 가족만 읽는 표라 「몇 학년」 대신 「2026학년도」로 적는다. */
+   · 학년도(3월 시작)로 나눈다. 생년월일은 가족만 읽는 표라 「몇 학년」 대신 「2026학년도」로 적는다.
+   더한 것(2026-09-14 저녁):
+   · 학년도마다 벽지·양탄자 무늬가 바뀐다(shellCv 의 yr). 한 해치를 도트 카드 한 장으로 굽거나(yearCard) A4 로 뽑는다(printSheet).
+   · 급수 사다리의 빈 윗칸에 아이가 「다음 목표」를 적는다(honor_goals). 그 단계가 올라오면 이룬 것이 된다.
+   · 손님이 자랑마다 박수를 남긴다(honor_claps, 방명록 도장과 같은 홍수 방지). 한 브라우저에서 한 자랑에 한 번.
+   · 아이가 제 자랑에 그날의 소감 목소리를 붙인다(honor_voice). 목소리 일기와 같은 녹음기·폴더.
+   · 부모가 올릴 때 가리기 전 원본을 비공개 버킷(family-private)에 따로 둔다 — 가족만 서명 주소로 연다.
+   · 아이가 진열대 천 색·조명 색을 고른다(honor_prefs). */
 
 buildChrome('honors');
 const lightbox = createLightbox();
@@ -18,7 +25,7 @@ const LOOK = {
   paper:  { name: '상장 액자', kind: 'award' },
   medal:  { name: '메달',     kind: 'award' },
   trophy: { name: '트로피',   kind: 'award' },
-  belt:   { name: '띠',       kind: 'level' },
+  piano:  { name: '건반 이름표', kind: 'level' },
   badge:  { name: '인증 배지', kind: 'level' },
   star:   { name: '별 기념패', kind: 'first' },
 };
@@ -27,7 +34,15 @@ const PHOTO_DIM = 2000;                      // 올리는 사진의 긴 변
 const PHOTO_LIMIT = 3 * 1024 * 1024;
 const THUMB_LONG = 400;
 
+const PRIVATE_BUCKET = 'family-private';      // 가리기 전 원본 — 공개 주소가 없는 버킷
+const ORIG_LIMIT = 10 * 1024 * 1024;
+const CLOTH = { cream: '#f1e3c6', red: '#c0392b', blue: '#3a63b0', green: '#3f9a63', purple: '#7a4fa8', night: '#2f3242' };
+const CLOTH_NAME = { cream: '크림', red: '빨강 벨벳', blue: '파랑', green: '초록', purple: '보라', night: '까만 밤' };
+const LAMP = { warm: [255, 230, 170], white: [235, 240, 255], pink: [255, 190, 215], mint: [190, 245, 220] };
+const LAMP_NAME = { warm: '따뜻한 노랑', white: '하얀 빛', pink: '분홍', mint: '민트' };
+
 let rows = [], kid = 'sua', year = 'all', missing = false;
+let goals = [], claps = {}, prefs = {}, origs = {};   // 다음 목표 · 박수 수 · 진열대 꾸밈 · 원본(가족만)
 let wantItem = Number(new URLSearchParams(location.search).get('item')) || 0;   // ?item= 으로 들어오면 그것부터 연다
 {
   const q = new URLSearchParams(location.search);
@@ -43,7 +58,7 @@ function mineOf(k){ return rows.filter(r => r.who === k || r.who === 'both'); }
 function yearsOf(list){ return [...new Set(list.map(r => schoolYear(r.got_on)))].sort((a, b) => b - a); }
 function inYear(list){ return year === 'all' ? list : list.filter(r => schoolYear(r.got_on) === Number(year)); }
 function sayOf(r, k){ return k === 'sua' ? r.say_sua : r.say_yona; }
-function lookOf(r){ return LOOK[r.look] && LOOK[r.look].kind === r.kind ? r.look : ({ award: 'paper', level: 'belt', first: 'star' })[r.kind] || 'paper'; }
+function lookOf(r){ return LOOK[r.look] && LOOK[r.look].kind === r.kind ? r.look : ({ award: 'paper', level: 'piano', first: 'star' })[r.kind] || 'paper'; }
 function itemColor(r){ return /^#[0-9a-f]{6}$/i.test(r.color || '') ? r.color : r.kind === 'level' ? LEVEL_COLOR : KID_COLOR[kid]; }
 function pathOfUrl(u){ const m = String(u || '').split('/object/public/' + MEDIA_BUCKET + '/'); return m.length === 2 ? decodeURIComponent(m[1].split('?')[0]) : null; }
 function captionOf(r){
@@ -52,6 +67,13 @@ function captionOf(r){
     (r.org ? ' · ' + r.org : '') + ' · ' + fmtDate(r.got_on) + (s ? ' — “' + s + '”' : '');
 }
 function say(t){ $('#museumMsg').textContent = t || ''; }
+function canEditKid(k){ return isAdmin || (isChild && !!me && me.author_key === k); }   // 부모거나 그 아이 자신
+function prefOf(k){ return Object.assign({ cloth: 'cream', lamp: 'warm' }, prefs[k] || {}); }
+function goalOf(k, track){ return goals.find(g => g.who === k && g.track === track) || null; }
+function goalDone(g, top){ return !!g && top >= g.step; }
+function roomYear(){ return year === 'all' ? schoolYear(todayStr()) : Number(year); }
+function clapKey(id){ return 'honor_clap:' + id; }
+function clapped(id){ try { return localStorage.getItem(clapKey(id)) === '1'; } catch (e) { return false; } }
 
 // ---------- 불러오기 ----------
 async function load(){
@@ -66,12 +88,27 @@ async function load(){
     missing = false;
     rows = data || [];
   }
+  if (!missing) await loadExtras();
   render();
   if (wantItem){
     const r = rows.find(x => x.id === wantItem);
     wantItem = 0;
     if (r){ if (r.who !== 'both') kid = r.who; year = 'all'; render(); openItem(r); }
   }
+}
+
+// 곁표들 — 하나가 없거나 막혀도 저장고는 그려진다
+async function loadExtras(){
+  const [g, c, pf, og] = await Promise.all([
+    sb.from('honor_goals').select('*'),
+    sb.rpc('honor_clap_counts'),
+    sb.from('honor_prefs').select('*'),
+    isLoggedIn ? sb.from('honor_originals').select('honor_id, path') : Promise.resolve({ data: null }),
+  ]);
+  goals = g.data || [];
+  claps = {}; (c.data || []).forEach(x => { claps[x.honor_id] = Number(x.n) || 0; });
+  prefs = {}; (pf.data || []).forEach(x => { prefs[x.who] = x; });
+  origs = {}; (og.data || []).forEach(x => { origs[x.honor_id] = x.path; });
 }
 
 // ---------- 도트 그림 ----------
@@ -108,11 +145,11 @@ const OBJ_ART = {
     '..kwwwwwwhHhwk..', '..kwwwwwwwhhwk..', '..kkkkkkkkkkkk..', '..........hh....',
     '.........h..h...', '................', '................', '................',
   ],
-  belt: [
-    '................', '................', '................', '.hhhhhhhhhhhhhh.',
-    'hHhhhhhhhhhhhhHh', 'hhhhhhhHHhhhhhhh', '.hhhhhhHHhhhhhh.', '......hHHh......',
-    '.....hH..Hh.....', '....hH....Hh....', '...hH......Hh...', '...hh......hh...',
-    '................', '................', '................', '................',
+  piano: [                                                          // 건반 위에 단계 색 음표
+    '...........h....', '...........h....', '...........h....', '.........hhh....',
+    '........hHhh....', '.........hh.....', '................', '.kkkkkkkkkkkkkk.',
+    '.kwwwwwwwwwwwwk.', '.kwkwkwwkwkwkwk.', '.kwkwkwwkwkwkwk.', '.kwwwwwwwwwwwwk.',
+    '.kwIwIwIwIwIwIk.', '.kkkkkkkkkkkkkk.', '................', '................',
   ],
 };
 function shade(hex, d){
@@ -138,12 +175,20 @@ function drawArtOut(g, art, x, y, s, color){
   drawArt(g, art, x, y, s, color);
 }
 
-// ---------- 아이소메트릭 틀 (모험단 방과 같은 수) ----------
-const RW = 400, RH = 260, TW = 56, TH = 28, FX = 172, FY = 116, WALLH = 96;
+// ---------- 아이소메트릭 틀 ----------
+/* 2026-09-14 저녁: 방을 두 배로 키웠다(400×260 → 640×420, 바닥 6×4 → 12×6칸). 아이들이 상을 많이 받아서
+   상장 8 → 16(코르크판 12 + 액자 4), 바닥 8 → 16(유리 진열장 8 + 받침대 8), 급수 사다리 3 → 4.
+   그림은 「Unpacking」류 아이소메트릭 도트를 참고했다 — 창문·커튼·코르크판·유리 진열장·화분·전등을 넣고,
+   벽에 위아래 명암, 바닥에 창빛, 물건마다 윤곽과 그늘을 더했다. 칸(56×28)과 도트 크기는 모험단 방과 같다. */
+const RW = 640, RH = 420, TW = 56, TH = 28, NI = 12, NJ = 6, FX = 237, FY = 176, WALLH = 136;
 const CORNER = { x: FX, y: FY - TH / 2 }, WTOP = CORNER.y - WALLH;
-const LWr = 6 * (TW / 2), LWl = 4 * (TW / 2);
+const LWr = NI * (TW / 2), LWl = NJ * (TW / 2);
 function tileXY(i, j){ return { x: FX + (i - j) * (TW / 2), y: FY + (i + j) * (TH / 2) }; }
-function wallXY(side, u, v){ return { x: side ? CORNER.x + u : CORNER.x - u - 2, y: WTOP + v + u / 2 }; }
+// 벽 위의 자리 (u: 모서리에서 벽을 따라, v: 천장에서 아래로). d 는 벽에서 방 안쪽으로 나온 칸 수 — 가구 앞면
+function wallXY(side, u, v, d){
+  const k = d || 0;
+  return side ? { x: CORNER.x + u - k * 28, y: WTOP + v + u / 2 + k * 14 } : { x: CORNER.x - u - 2 + k * 28, y: WTOP + v + u / 2 + k * 14 };
+}
 function prand(k){ let h = 2166136261; for (let i = 0; i < k.length; i++){ h ^= k.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10007) / 10007; }
 function isoTile(g, cx, cy, color, inset){
   const half = TW / 2 - (inset || 0);
@@ -174,101 +219,230 @@ function isoBoxD(g, cx, cy, hw, hh, H, top, left, right, up){
   isoBandD(g, cx, cy, hw, hh, H, left, right, up);
   isoTopD(g, cx, cy - (up || 0) - H, hw, hh, top);
 }
-// 벽면에 붙은 네모 — 두 칸 폭 기둥을 벽 기울기대로 이어 붙인다
-function wallRect(g, side, u, v, w, h, c){
+// 벽면(또는 벽과 나란한 가구 앞면)에 붙은 네모 — 한 칸 폭 기둥을 벽 기울기대로 이어 붙인다
+function wallRect(g, side, u, v, w, h, c, d){
   g.fillStyle = c;
-  for (let du = 0; du < w; du += 2){ const p = wallXY(side, u + du, v); g.fillRect(Math.round(p.x), Math.round(p.y), 2, h); }
+  for (let du = 0; du < w; du++){ const p = wallXY(side, u + du, v, d); g.fillRect(Math.round(p.x), Math.round(p.y), 1, h); }
 }
-
-// 벽면에 붙인 도트 그림 — 한 칸씩 벽 기울기대로 찍는다(왼쪽 벽은 거울처럼 뒤집히지만 띠·배지는 좌우가 거의 같다)
-function wallArt(g, side, u, v, art, color){
+// 벽과 나란한 가구의 윗면 — u 구간 × 깊이(d0..d1) 평행사변형
+function faceTop(g, side, u0, u1, v, d0, d1, c){
+  g.fillStyle = c;
+  const steps = Math.round((d1 - d0) * 28);
+  for (let u = u0; u < u1; u++) for (let k = 0; k <= steps; k++){ const p = wallXY(side, u, v, d0 + k / 28); g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); }
+}
+// 가구의 옆면(끝면) — u 한 자리에서 깊이 방향으로 펼친 면
+function faceEnd(g, side, u, v, h, d0, d1, c){
+  g.fillStyle = c;
+  const steps = Math.round((d1 - d0) * 28);
+  for (let k = 0; k <= steps; k++){ const p = wallXY(side, u, v, d0 + k / 28); g.fillRect(Math.round(p.x), Math.round(p.y), 1, h); }
+}
+// 벽면에 붙인 도트 그림 — 한 칸씩 벽 기울기대로 찍는다(왼쪽 벽은 거울처럼 뒤집히지만 건반·배지는 좌우가 거의 같다)
+function wallArt(g, side, u, v, art, color, d){
   const dark = shade(color, -44);
   for (let r = 0; r < art.length; r++) for (let c = 0; c < art[r].length; c++){
     const ch = art[r][c]; if (ch === '.') continue;
-    const p = wallXY(side, u + c, v + r);
+    const p = wallXY(side, u + c, v + r, d);
     g.fillStyle = ch === 'h' ? color : ch === 'H' ? dark : HPAL[ch];
     g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
   }
 }
-// 자리 — 오른쪽 벽 액자 여덟(두 줄), 왼쪽 벽 사다리 셋, 바닥 진열대 여덟
-const FRAMES = [10, 36].flatMap(v => [12, 50, 88, 126].map(u => ({ u, v })));
-const FRAME_W = 30, FRAME_H = 22;
-const LADDERS = [10, 44, 78], LAD_V = 8, LAD_H = 50, LAD_W = 24;
-const STANDS = [];
-[1.0, 2.5].forEach(j => [0.8, 2.2, 3.6, 5.0].forEach(i => { const p = tileXY(i, j); STANDS.push({ x: Math.round(p.x), y: Math.round(p.y) }); }));
+// 벽 물건의 누르는 자리(대략 네모) — 기울어진 만큼 아래로 늘린다
+function wallHit(side, u, v, w, h, d){
+  const a = wallXY(side, u, v, d), b = wallXY(side, u + w, v, d);
+  return side ? { x0: a.x - 2, x1: b.x + 2, y0: a.y - 3, y1: b.y + h + 3 } : { x0: b.x - 2, x1: a.x + 3, y0: a.y - 3, y1: b.y + h + 3 };
+}
 
-// 껍데기(회벽·나무 징두리·쪽마루·양탄자)는 아이 색마다 한 번만 굽는다
+// ---- 자리 ----
+// 오른쪽 벽: 코르크판(12장 핀) + 금테 액자 4 · 유리 진열장(두 칸 × 4) — 왼쪽 벽: 창문 + 급수 사다리 4 — 바닥: 받침대 8
+const CORK = { u: 12, v: 12, w: 168, h: 76 };
+const PINS = [0, 1, 2].flatMap(r => [0, 1, 2, 3].map(c => ({ u: CORK.u + 8 + c * 40, v: CORK.v + 5 + r * 23 })));
+const PIN_W = 32, PIN_H = 20;
+const FRAMES = [192, 228, 264, 300].map(u => ({ u, v: 14 }));
+const FRAME_W = 30, FRAME_H = 22;
+const SC = { u0: 196, u1: 292, v0: 62, v1: 132, d: 1 };                 // 유리 진열장
+const SC_SHELF = [SC.v0 + 3, SC.v0 + 37];                              // 두 칸의 윗선(칸 높이 32)
+const SC_SLOTS = SC_SHELF.flatMap(v => [0, 1, 2, 3].map(q => ({ u: SC.u0 + 8 + q * 22, v: v + 14 })));
+const WIN = { u: 10, v: 12, w: 56, h: 66 };
+const LADDERS = [78, 102, 126, 150], LAD_V = 10, LAD_H = 78, LAD_W = 22;
+const STANDS = [];
+[[1.0, 1.5], [2.4, 1.5], [3.8, 1.5], [5.2, 1.5], [4.2, 4.5], [5.6, 4.5], [7.0, 4.5], [8.4, 4.5]]
+  .forEach(([i, j]) => { const p = tileXY(i, j); STANDS.push({ x: Math.round(p.x), y: Math.round(p.y) }); });
+
+// 학년도마다 벽지 무늬와 색조, 양탄자 무늬가 바뀐다 — 해를 넘겨 보는 재미
+const WALLPAPERS = [
+  { name: '민무늬', tint: '#e8dcc4' },
+  { name: '세로줄', tint: '#e2e0cc' },
+  { name: '물방울', tint: '#ecd9ce' },
+  { name: '마름모', tint: '#dbe3cf' },
+];
+function wallDeco(style, u, v){
+  if (style === 1) return u % 12 < 2 ? -9 : 0;
+  if (style === 2) return (u % 14 === 6 || u % 14 === 8) && (v % 14 === 6 || v % 14 === 8) ? -6 : 0;
+  if (style === 3){ const a = (u >> 1) % 8, b = (v >> 1) % 8; return (a === b || a + b === 7) ? -8 : 0; }
+  return 0;
+}
+const PLANT = [
+  '.......gg.......', '......gGGg......', '.....gGGGGg.....', '..gg.gGGgGg.gg..', '.gGGgGGgggGgGGg.', 'gGGGGGgGgGgGGGGg',
+  '.gGGgGGgGgGGgGg.', '..ggGGGGGGGGgg..', '....gGGgggGg....', '.....gggggg.....', '......nNNn......', '.....nNNNNn.....',
+  '.....nnnnnn.....', '.....nNNNNn.....', '.....nNNNNn.....', '......nnnn......',
+];
+const PPAL = { g: '#2f7a3e', G: '#5cb85c', n: '#a0522d', N: '#c8794a' };
+function drawPlant(g, x, y){
+  isoTile(g, x + 3, y + 8, 'rgba(40,24,10,.22)', 14);
+  for (let r = 0; r < PLANT.length; r++) for (let c = 0; c < PLANT[r].length; c++){
+    const ch = PLANT[r][c]; if (ch === '.') continue;
+    g.fillStyle = '#1f2a1a'; g.fillRect(x + c * 2 - 1, y + r * 2 - 1, 4, 4);
+  }
+  for (let r = 0; r < PLANT.length; r++) for (let c = 0; c < PLANT[r].length; c++){
+    const ch = PLANT[r][c]; if (ch === '.') continue;
+    g.fillStyle = PPAL[ch]; g.fillRect(x + c * 2, y + r * 2, 2, 2);
+  }
+}
+function drawFloorLamp(g, x, y, color){
+  isoTile(g, x + 2, y + 2, 'rgba(40,24,10,.22)', 16);
+  isoBoxD(g, x, y, 7, 4, 3, '#3a3634', '#2a2624', '#1c1a18', 0);
+  g.fillStyle = '#4a4542'; g.fillRect(x - 1, y - 62, 2, 60);
+  g.fillStyle = '#6b6562'; g.fillRect(x - 1, y - 62, 1, 60);
+  for (let k = 0; k < 16; k++){ g.fillStyle = k % 4 === 0 ? shade(color, -30) : shade(color, k < 4 ? 20 : 0); g.fillRect(x - 8 - (k >> 1), y - 80 + k, 16 + k, 1); }
+  g.fillStyle = '#2a2118'; g.fillRect(x - 16, y - 64, 32, 1);
+}
+
+// 껍데기(벽·창문·코르크판·진열장 몸통·마루·양탄자·화분)는 아이 색·학년도마다 한 번만 굽는다
 const shells = {};
-function shellCv(color){
-  if (shells[color]) return shells[color];
+function shellCv(color, yr){
+  const key = color + ':' + yr;
+  if (shells[key]) return shells[key];
+  const style = ((yr % 4) + 4) % 4, paper = WALLPAPERS[style];
   const c = document.createElement('canvas');
   c.width = RW * 2; c.height = RH * 2;
   const g = c.getContext('2d');
   g.imageSmoothingEnabled = false;
   g.setTransform(2, 0, 0, 2, 0, 0);
-  g.fillStyle = '#2a2320'; g.fillRect(0, 0, RW, RH);
+  g.fillStyle = '#231d1a'; g.fillRect(0, 0, RW, RH);
+  // 벽 — 위는 밝고 아래로 갈수록 살짝 어둡다. 왼쪽 벽은 빛을 등진다
   [1, 0].forEach(side => {
-    const len = side ? LWr : LWl, dim = side ? 0 : -14;          // 왼쪽 벽은 빛을 등진다
-    for (let u = 0; u < len; u += 2) for (let v = 0; v < WALLH; v += 2){
+    const len = side ? LWr : LWl, dim = side ? 0 : -16;
+    for (let u = 0; u < len; u++) for (let v = 0; v < WALLH; v++){
       let base, d = 0;
-      if (v < 4) base = '#c49565';                                  // 천장 몰딩
+      if (v < 4) base = v < 2 ? '#f6efe0' : '#d9c9a8';                                     // 천장 몰딩
       else if (v < 6) base = '#8a6440';
-      else if (v < 62){ base = '#efe2c8'; d = Math.round((prand('p' + side + ':' + (u >> 3) + ':' + (v >> 3)) - 0.5) * 8); }   // 회벽
-      else if (v < 66) base = v < 64 ? '#d7a870' : '#9c6c42';       // 징두리 윗몰딩
-      else if (v >= WALLH - 6) base = '#5e3d24';                    // 굽도리
-      else if (u % 28 < 2 || v === 66 || v === WALLH - 8) base = '#7d5434';   // 널 판 테
-      else { base = '#a8764a'; d = (u >> 1) % 7 === 0 ? -6 : 0; }
+      else if (v < 96){ base = paper.tint; d = Math.round((prand('p' + side + ':' + (u >> 3) + ':' + (v >> 3)) - 0.5) * 6) + wallDeco(style, u, v) + Math.round(6 - v / 8); }   // 벽지
+      else if (v < 100) base = v < 98 ? '#dcb27a' : '#9c6c42';                             // 징두리 윗몰딩
+      else if (v >= WALLH - 6) base = '#4e3220';                                            // 굽도리
+      else if (u % 28 < 2 || v === 100 || v === WALLH - 8) base = '#7d5434';                // 널 판 테
+      else { base = '#a8764a'; d = (u >> 1) % 7 === 0 ? -6 : (u % 28 > 24 ? 6 : 0); }
       const p = wallXY(side, u, v);
-      g.fillStyle = shade(base, d + dim); g.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
+      g.fillStyle = shade(base, d + dim); g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
     }
   });
-  for (let i = 0; i < 10; i += 2){                                  // 모서리 그늘
-    const a = (0.16 * (1 - i / 10)).toFixed(3);
-    for (let v = 0; v < WALLH; v += 2){
+  for (let i = 0; i < 14; i++){                                                            // 모서리 그늘
+    const a = (0.18 * (1 - i / 14)).toFixed(3);
+    for (let v = 0; v < WALLH; v++){
       const pr = wallXY(1, i, v), pl = wallXY(0, i, v);
       g.fillStyle = 'rgba(40,24,10,' + a + ')';
-      g.fillRect(Math.round(pr.x), Math.round(pr.y), 2, 2);
-      g.fillRect(Math.round(pl.x), Math.round(pl.y), 2, 2);
+      g.fillRect(Math.round(pr.x), Math.round(pr.y), 1, 1); g.fillRect(Math.round(pl.x), Math.round(pl.y), 1, 1);
     }
   }
-  for (let j = 0; j <= 3; j++) for (let i = 0; i <= 5; i++){       // 쪽마루
-    const p = tileXY(i, j);
-    isoTile(g, p.x, p.y, '#6e4a2c', 0);
-    const t = Math.floor(prand('f' + i + ':' + j) * 3) - 1;
-    isoTile(g, p.x, p.y, shade((i + j) % 2 ? '#c99a62' : '#b8864f', t * 5 - j * 3), 2);
-    g.fillStyle = shade('#a87644', -j * 3);
-    g.fillRect(Math.round(p.x - 13), Math.round(p.y - 3), 10, 1);
-    g.fillRect(Math.round(p.x + 3), Math.round(p.y + 2), 10, 1);
+  // 왼쪽 벽 — 창문과 커튼(아이 색)
+  const W = WIN;
+  wallRect(g, 0, W.u - 3, W.v - 3, W.w + 6, W.h + 6, '#f4ecd8');                           // 창틀
+  wallRect(g, 0, W.u - 3, W.v - 3, W.w + 6, 1, '#fffaf0');
+  for (let u = 0; u < W.w; u++) for (let v = 0; v < W.h; v++){                           // 하늘 — 위로 갈수록 짙다
+    const t = v / W.h, r = Math.round(120 + 90 * t), gg = Math.round(178 + 55 * t), b = Math.round(230 + 15 * t);
+    const p = wallXY(0, W.u + u, W.v + v);
+    g.fillStyle = 'rgb(' + r + ',' + gg + ',' + b + ')'; g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
   }
-  const rug = tileXY(2.9, 1.75);                                    // 아이 색 양탄자
-  for (let k = -19; k <= 19; k++){
-    const hw = Math.round((1 - Math.abs(k) / 20) * 76);
+  [[8, 14, 14], [30, 30, 18], [12, 44, 10]].forEach(([cu, cv, w]) => {                     // 구름
+    for (let k = 0; k < 3; k++) wallRect(g, 0, W.u + cu + k * 2, W.v + cv - k * 2, w - k * 4, 2 + (k === 1 ? 2 : 0), k === 2 ? '#ffffff' : '#f2f7ff');
+    wallRect(g, 0, W.u + cu - 2, W.v + cv + 2, w + 4, 3, '#e8f0fb');
+  });
+  wallRect(g, 0, W.u + 4, W.v + W.h - 10, 12, 10, '#5e8b3f'); wallRect(g, 0, W.u + 2, W.v + W.h - 6, 16, 6, '#4b7332');   // 창밖 나무
+  wallRect(g, 0, W.u + 28, W.v, 2, W.h, '#e9e0c9'); wallRect(g, 0, W.u, W.v + 32, W.w, 2, '#e9e0c9');                    // 창살
+  wallRect(g, 0, W.u + 2, W.v + 2, 1, 20, 'rgba(255,255,255,.55)');                                                        // 유리 반사
+  wallRect(g, 0, W.u - 5, W.v + W.h + 3, W.w + 10, 4, '#e2d4b6'); wallRect(g, 0, W.u - 5, W.v + W.h + 7, W.w + 10, 1, '#8a6440');   // 창턱
+  wallRect(g, 0, W.u - 8, W.v - 8, W.w + 16, 2, '#6e4a2a'); wallRect(g, 0, W.u - 10, W.v - 9, 3, 4, '#c8962e'); wallRect(g, 0, W.u + W.w + 5, W.v - 9, 3, 4, '#c8962e');   // 커튼 봉
+  [W.u - 7, W.u + W.w - 7].forEach(cu => {                                                 // 커튼 — 주름은 세로 명암
+    for (let k = 0; k < 14; k++){ const f = k % 4; wallRect(g, 0, cu + k, W.v - 6, 1, W.h + 12, shade(color, f === 0 ? -34 : f === 2 ? 18 : -6)); }
+    wallRect(g, 0, cu, W.v - 6, 14, 1, shade(color, 30));
+    wallRect(g, 0, cu + 2, W.v + 30, 10, 3, shade(color, -50)); wallRect(g, 0, cu + 3, W.v + 30, 8, 1, '#ffd979');   // 묶는 끈
+  });
+  // 오른쪽 벽 — 코르크판
+  wallRect(g, 1, CORK.u + 3, CORK.v + 3, CORK.w, CORK.h, 'rgba(40,24,10,.25)');
+  wallRect(g, 1, CORK.u - 3, CORK.v - 3, CORK.w + 6, CORK.h + 6, '#6e4526');
+  wallRect(g, 1, CORK.u - 3, CORK.v - 3, CORK.w + 6, 1, '#a07048');
+  for (let u = 0; u < CORK.w; u++) for (let v = 0; v < CORK.h; v++){
+    const n = prand('c' + u + ':' + v), p = wallXY(1, CORK.u + u, CORK.v + v);
+    g.fillStyle = n < 0.12 ? '#b8905c' : n < 0.24 ? '#d9b07a' : '#caa068'; g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
+  }
+  // 오른쪽 벽 앞 — 유리 진열장 몸통 (물건과 유리는 살아서 그린다)
+  const sc = SC, wood = '#8a5a34';
+  faceTop(g, 1, sc.u0 - 3, sc.u1 + 3, sc.v0 - 2, 0, sc.d, 'rgba(40,24,10,.2)');
+  faceEnd(g, 1, sc.u0 - 3, sc.v0, sc.v1 - sc.v0, 0, sc.d, shade(wood, -40));
+  faceTop(g, 1, sc.u0 - 3, sc.u1 + 3, sc.v0 - 2, 0, sc.d, shade(wood, 26));
+  faceTop(g, 1, sc.u0 - 3, sc.u1 + 3, sc.v0 - 2, sc.d - 0.06, sc.d, shade(wood, 50));
+  wallRect(g, 1, sc.u0 - 3, sc.v0 - 2, sc.u1 - sc.u0 + 6, sc.v1 - sc.v0 + 2, shade(wood, -18), sc.d);     // 앞 틀
+  wallRect(g, 1, sc.u0, sc.v0 + 1, sc.u1 - sc.u0, sc.v1 - sc.v0 - 5, '#d9c39c', sc.d);                    // 속 등판(밝은 나무)
+  for (let u = 0; u < sc.u1 - sc.u0; u += 2) wallRect(g, 1, sc.u0 + u, sc.v0 + 1, 1, sc.v1 - sc.v0 - 5, 'rgba(120,80,40,.10)', sc.d);
+  SC_SHELF.forEach(v => wallRect(g, 1, sc.u0, v + 30, sc.u1 - sc.u0, 2, shade(wood, -6), sc.d));            // 선반 판
+  SC_SHELF.forEach(v => wallRect(g, 1, sc.u0, v + 32, sc.u1 - sc.u0, 1, shade(wood, -40), sc.d));
+  wallRect(g, 1, sc.u0 - 3, sc.v1 - 4, sc.u1 - sc.u0 + 6, 4, shade(wood, -46), sc.d);                        // 밑단
+  // 바닥 — 쪽마루. 결과 옹이, 판 이음
+  for (let j = 0; j < NJ; j++) for (let i = 0; i < NI; i++){
+    const p = tileXY(i, j);
+    isoTile(g, p.x, p.y, '#5a3a20', 0);
+    const t = Math.floor(prand('f' + i + ':' + j) * 3) - 1;
+    isoTile(g, p.x, p.y, shade((i + j) % 2 ? '#c99a62' : '#b8864f', t * 5 - j * 2), 1);
+    g.fillStyle = shade('#a87644', -j * 2);
+    g.fillRect(Math.round(p.x - 14), Math.round(p.y - 3), 12, 1); g.fillRect(Math.round(p.x + 2), Math.round(p.y + 2), 12, 1);
+    if (prand('k' + i + ':' + j) < 0.18){ g.fillStyle = '#8a5a34'; g.fillRect(Math.round(p.x + (prand('kx' + i + j) - 0.5) * 20), Math.round(p.y + (prand('ky' + i + j) - 0.5) * 8), 2, 1); }
+  }
+  // 창빛 — 왼쪽 벽 앞 바닥에 비스듬한 밝은 조각
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (let k = 0; k < 40; k++){ const p = tileXY(0.3 + k / 40 * 1.8, 1.1 + k / 40 * 1.8); g.fillStyle = 'rgba(255,240,200,' + (0.05 + 0.05 * (1 - k / 40)).toFixed(3) + ')'; g.fillRect(Math.round(p.x - 30), Math.round(p.y), 60, 2); }
+  g.restore();
+  // 아이 색 양탄자 — 학년도 무늬
+  const rug = tileXY(5.9, 3.1);
+  for (let k = -27; k <= 27; k++){
+    const hw = Math.round((1 - Math.abs(k) / 28) * 108);
     if (hw <= 0) continue;
-    const edge = Math.abs(k) > 15;
+    const edge = Math.abs(k) > 22;
     g.fillStyle = edge ? shade(color, -50) : shade(color, -18);
     g.fillRect(Math.round(rug.x - hw), Math.round(rug.y + k * 2), hw * 2, 2);
-    if (!edge && Math.abs(k) < 8){
-      const hw2 = Math.round((1 - Math.abs(k) / 8) * 30);
-      g.fillStyle = shade(color, 16);
-      g.fillRect(Math.round(rug.x - hw2), Math.round(rug.y + k * 2), hw2 * 2, 2);
-    }
+    if (edge) continue;
+    if (style === 1 && k % 4 === 0){ g.fillStyle = shade(color, 10); g.fillRect(Math.round(rug.x - hw + 8), Math.round(rug.y + k * 2), hw * 2 - 16, 2); }
+    if (style === 2) for (let x = -hw + 10; x < hw - 8; x += 14) if ((k + (x >> 2)) % 6 === 0){ g.fillStyle = shade(color, 22); g.fillRect(Math.round(rug.x + x), Math.round(rug.y + k * 2), 4, 2); }
+    if (style === 3 && Math.abs(k) < 16){ const hw3 = Math.round((1 - Math.abs(k) / 16) * 60); g.fillStyle = (k & 2) ? shade(color, 8) : shade(color, -4); g.fillRect(Math.round(rug.x - hw3), Math.round(rug.y + k * 2), hw3 * 2, 2); }
+    if (Math.abs(k) < 10){ const hw2 = Math.round((1 - Math.abs(k) / 10) * 40); g.fillStyle = shade(color, 16); g.fillRect(Math.round(rug.x - hw2), Math.round(rug.y + k * 2), hw2 * 2, 2); }
   }
-  shells[color] = c;
+  const pl = tileXY(0.6, 4.9); drawPlant(g, Math.round(pl.x - 16), Math.round(pl.y - 30));
+  const lp = tileXY(11.2, 0.8); drawFloorLamp(g, Math.round(lp.x), Math.round(lp.y), color);
+  shells[key] = c;
   return c;
 }
 function drawFrame(g, f, n){
-  const fc = ['#c8962e', '#8a5a34', '#b9bec7'][n % 3];            // 금 · 나무 · 은 테
-  wallRect(g, 1, f.u + 14, f.v - 4, 2, 4, '#5a4a3a');               // 거는 줄
-  wallRect(g, 1, f.u + 2, f.v + 2, FRAME_W, FRAME_H, 'rgba(40,24,10,.22)');   // 그림자
+  const fc = ['#c8962e', '#8a5a34', '#b9bec7', '#c8962e'][n % 4];            // 금 · 나무 · 은 · 금 테
+  wallRect(g, 1, f.u + 14, f.v - 4, 2, 4, '#5a4a3a');                        // 거는 줄
+  wallRect(g, 1, f.u + 2, f.v + 2, FRAME_W, FRAME_H, 'rgba(40,24,10,.25)');  // 그림자
   wallRect(g, 1, f.u, f.v, FRAME_W, FRAME_H, shade(fc, -46));
   wallRect(g, 1, f.u + 2, f.v + 2, FRAME_W - 4, FRAME_H - 4, fc);
   wallRect(g, 1, f.u + 2, f.v + 2, FRAME_W - 4, 1, shade(fc, 30));
   wallRect(g, 1, f.u + 4, f.v + 4, FRAME_W - 8, FRAME_H - 8, '#fffaf0');   // 종이
-  wallRect(g, 1, f.u + 10, f.v + 6, 10, 2, '#c8962e');              // 제목 띠
+  wallRect(g, 1, f.u + 10, f.v + 6, 10, 2, '#c8962e');                       // 제목 띠
   wallRect(g, 1, f.u + 6, f.v + 10, 18, 1, '#c9bca8');
   wallRect(g, 1, f.u + 6, f.v + 12, 18, 1, '#c9bca8');
   wallRect(g, 1, f.u + 6, f.v + 14, 10, 1, '#c9bca8');
-  wallRect(g, 1, f.u + 18, f.v + 13, 4, 4, '#d4504a');              // 붉은 도장
+  wallRect(g, 1, f.u + 18, f.v + 13, 4, 4, '#d4504a');                       // 붉은 도장
+}
+// 코르크판에 핀으로 꽂은 상장
+function drawPinned(g, s, n){
+  const pin = ['#d4504a', '#3a63b0', '#57b98a', '#ffd979'][n % 4];
+  wallRect(g, 1, s.u + 2, s.v + 2, PIN_W, PIN_H, 'rgba(40,24,10,.28)');
+  wallRect(g, 1, s.u, s.v, PIN_W, PIN_H, '#fffaf0');
+  wallRect(g, 1, s.u, s.v + PIN_H - 1, PIN_W, 1, '#e4d9c3');
+  wallRect(g, 1, s.u + 10, s.v + 4, 12, 2, '#c8962e');
+  wallRect(g, 1, s.u + 5, s.v + 8, 22, 1, '#c9bca8'); wallRect(g, 1, s.u + 5, s.v + 10, 22, 1, '#c9bca8'); wallRect(g, 1, s.u + 5, s.v + 12, 14, 1, '#c9bca8');
+  wallRect(g, 1, s.u + 23, s.v + 13, 4, 4, '#d4504a');
+  wallRect(g, 1, s.u + PIN_W / 2 - 2, s.v - 1, 4, 3, shade(pin, -30)); wallRect(g, 1, s.u + PIN_W / 2 - 2, s.v - 1, 4, 1, shade(pin, 30)); wallRect(g, 1, s.u + PIN_W / 2 - 1, s.v - 1, 2, 2, pin);
 }
 function ladderTracks(all){
   // 급수는 쌓이는 것이라, 고른 학년도의 끝(다음 해 2월)까지 오른 곳을 보여 준다
@@ -281,40 +455,70 @@ function ladderTracks(all){
   }).sort((a, b) => a.last < b.last ? 1 : -1);
 }
 function drawLadder(g, u, t){
+  wallRect(g, 0, u + 2, LAD_V + 2, LAD_W, LAD_H, 'rgba(40,24,10,.22)');
   wallRect(g, 0, u, LAD_V, LAD_W, LAD_H, '#e7d4b0');
   wallRect(g, 0, u, LAD_V, 2, LAD_H, '#7a4f2d');
   wallRect(g, 0, u + LAD_W - 2, LAD_V, 2, LAD_H, '#7a4f2d');
   wallRect(g, 0, u, LAD_V, LAD_W, 3, '#5a3a22');
-  const n = Math.min(8, Math.max(6, t.top)), first = Math.max(1, t.top - n + 1);
+  wallRect(g, 0, u, LAD_V + LAD_H - 2, LAD_W, 2, '#5a3a22');
+  // 아직 못 이룬 다음 목표가 있으면 그 칸까지 보이게 창을 한 칸 올린다
+  const goal = goalOf(kid, t.track), pending = goal && !goalDone(goal, t.top) ? goal : null;
+  const reach = pending ? Math.max(t.top, pending.step) : t.top;
+  const n = Math.min(10, Math.max(7, reach)), first = Math.max(1, reach - n + 1);
   let col = LEVEL_COLOR;
   t.rows.forEach(x => { if ((x.step || 1) < first && x.color) col = x.color; });
   for (let k = 0; k < n; k++){
     const no = first + k, rec = t.rows.filter(x => (x.step || 1) === no && x.color).pop();
     if (rec) col = rec.color;
-    const vy = LAD_V + LAD_H - 7 - k * 6, got = no <= t.top;
-    wallRect(g, 0, u + 4, vy, LAD_W - 8, 4, got ? col : '#cdbd9f');
-    if (got) wallRect(g, 0, u + 4, vy, LAD_W - 8, 1, shade(col, 34));
+    const vy = LAD_V + LAD_H - 9 - k * 6, got = no <= t.top;
+    wallRect(g, 0, u + 3, vy, LAD_W - 6, 4, got ? col : '#cdbd9f');
+    if (got) wallRect(g, 0, u + 3, vy, LAD_W - 6, 1, shade(col, 34));
     if (no === t.top){ wallRect(g, 0, u - 2, vy - 3, 4, 4, '#ffd979'); wallRect(g, 0, u - 2, vy - 3, 2, 2, '#fff0b8'); }
+    if (pending && no === pending.step){                              // 목표 칸 — 아이 색 깃발
+      wallRect(g, 0, u + 3, vy, LAD_W - 6, 4, shade(KID_COLOR[kid], 40));
+      wallRect(g, 0, u - 6, vy - 4, 2, 9, '#5a3a22');
+      wallRect(g, 0, u - 12, vy - 4, 6, 4, KID_COLOR[kid]);
+      wallRect(g, 0, u - 12, vy - 4, 6, 1, shade(KID_COLOR[kid], 40));
+    }
   }
-  // 징두리 판의 이름표 — 지금 단계의 띠나 배지. 이게 없으면 사다리가 문이나 책장으로 읽혔다
+  // 징두리 판의 이름표 — 지금 단계의 건반 이름표나 배지. 이게 없으면 사다리가 문이나 책장으로 읽혔다
   const last = t.rows.filter(x => (x.step || 1) === t.top).pop() || t.rows[t.rows.length - 1];
-  wallRect(g, 0, u + 2, 68, LAD_W - 4, 18, '#ead6b1');
-  wallRect(g, 0, u + 2, 68, LAD_W - 4, 1, '#fff3da');
-  wallRect(g, 0, u + 2, 85, LAD_W - 4, 1, '#6e4526');
-  wallArt(g, 0, u + 4, 69, OBJ_ART[lookOf(last)] || OBJ_ART.belt, itemColor(last));
+  wallRect(g, 0, u + 1, 102, LAD_W - 2, 20, '#ead6b1');
+  wallRect(g, 0, u + 1, 102, LAD_W - 2, 1, '#fff3da');
+  wallRect(g, 0, u + 1, 121, LAD_W - 2, 1, '#6e4526');
+  wallArt(g, 0, u + 3, 104, OBJ_ART[lookOf(last)] || OBJ_ART.piano, itemColor(last));
 }
 function drawStand(g, x, y, r){
-  const look = lookOf(r), color = itemColor(r);
-  isoTile(g, x + 2, y + 2, 'rgba(60,36,16,.28)', 12);
-  isoBoxD(g, x, y, 11, 6, 12, '#f1e3c6', '#dcc7a1', '#b3976c', 0);
-  isoBandD(g, x, y, 11, 6, 2, '#8a5a34', '#6e4526', 10);
-  if (look === 'star') isoTopD(g, x, y - 12, 8, 4, '#b8423c');
-  drawArtOut(g, OBJ_ART[look] || OBJ_ART.star, x - 8, y - 30, 1, color);
+  const look = lookOf(r), color = itemColor(r), cloth = CLOTH[prefOf(kid).cloth] || CLOTH.cream;
+  isoTile(g, x + 2, y + 3, 'rgba(40,24,10,.3)', 10);
+  isoBoxD(g, x, y, 12, 6, 14, cloth, shade(cloth, -22), shade(cloth, -50), 0);
+  isoBandD(g, x, y, 12, 6, 2, '#8a5a34', '#6e4526', 12);
+  isoBandD(g, x, y, 12, 6, 1, '#4e3220', '#3d2717', 0);
+  if (look === 'star') isoTopD(g, x, y - 14, 8, 4, '#b8423c');
+  drawArtOut(g, OBJ_ART[look] || OBJ_ART.star, x - 8, y - 32, 1, color);
   if (look === 'medal' || look === 'badge'){                       // 유리 덮개
-    isoBandD(g, x, y, 10, 5, 20, 'rgba(210,235,255,.16)', 'rgba(180,215,245,.12)', 12);
-    isoTopD(g, x, y - 32, 10, 5, 'rgba(225,242,255,.22)');
-    g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(x - 8, y - 28, 1, 10);
+    isoBandD(g, x, y, 11, 5, 22, 'rgba(210,235,255,.16)', 'rgba(180,215,245,.12)', 14);
+    isoTopD(g, x, y - 36, 11, 5, 'rgba(225,242,255,.22)');
+    g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(x - 9, y - 30, 1, 12);
   }
+}
+// 진열장 물건 — 앞면(d=1)에 벽 기울기대로 세운다
+function drawShowcaseItem(g, s, r){
+  const art = OBJ_ART[lookOf(r)] || OBJ_ART.star;
+  wallRect(g, 1, s.u + 1, s.v + 15, 16, 2, 'rgba(40,24,10,.3)', SC.d);
+  for (let rr = 0; rr < art.length; rr++) for (let c = 0; c < art[rr].length; c++){       // 윤곽
+    if (art[rr][c] === '.') continue;
+    [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([dc, dr]) => { const p = wallXY(1, s.u + c + dc, s.v + rr + dr, SC.d); g.fillStyle = '#2a2118'; g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); });
+  }
+  wallArt(g, 1, s.u, s.v, art, itemColor(r), SC.d);
+}
+function drawShowcaseGlass(g){
+  const w = SC.u1 - SC.u0, h = SC.v1 - SC.v0 - 5;
+  wallRect(g, 1, SC.u0, SC.v0 + 1, w, h, 'rgba(210,235,255,.14)', SC.d);
+  wallRect(g, 1, SC.u0 + 4, SC.v0 + 3, 2, h - 6, 'rgba(255,255,255,.35)', SC.d);
+  wallRect(g, 1, SC.u0 + 8, SC.v0 + 3, 1, h - 6, 'rgba(255,255,255,.2)', SC.d);
+  wallRect(g, 1, SC.u0 + w / 2 - 1, SC.v0 + 1, 2, h, 'rgba(120,80,40,.35)', SC.d);          // 문 사이 틀
+  wallRect(g, 1, SC.u0 + w / 2 - 4, SC.v0 + 30, 2, 4, '#c8962e', SC.d); wallRect(g, 1, SC.u0 + w / 2 + 2, SC.v0 + 30, 2, 4, '#c8962e', SC.d);   // 손잡이
 }
 // 누를 수 있는 곳 — 그릴 때 함께 적어 둔다
 let hits = [], hoverKey = null;
@@ -323,51 +527,63 @@ function drawMuseum(g, k){
   const color = KID_COLOR[k], all = mineOf(k), list = inYear(all);
   hits = [];
   g.clearRect(0, 0, RW, RH);
-  g.drawImage(shellCv(color), 0, 0, RW, RH);
-  const lamps = [];
-  // 오른쪽 벽 — 상장 액자
-  const papers = list.filter(r => r.kind === 'award' && lookOf(r) === 'paper').slice(0, FRAMES.length);
-  papers.forEach((r, n) => {
+  g.drawImage(shellCv(color, roomYear()), 0, 0, RW, RH);
+  const lamps = [], newest = list[0] ? list[0].id : null;
+  // 오른쪽 벽 — 상장: 최근 넷은 금테 액자에, 그 다음 열둘은 코르크판에 핀으로
+  const papers = list.filter(r => r.kind === 'award' && lookOf(r) === 'paper');
+  papers.slice(0, FRAMES.length).forEach((r, n) => {
     const f = FRAMES[n];
     drawFrame(g, f, n);
-    const a = wallXY(1, f.u, f.v);
-    hits.push({ r, x0: a.x - 2, x1: a.x + FRAME_W + 2, y0: a.y - 5, y1: a.y + FRAME_H + FRAME_W / 2 + 2 });
-    const p = wallXY(1, f.u + FRAME_W / 2, f.v - 6);
-    lamps.push([p.x, p.y, 30, 0.2]);
+    hits.push(Object.assign({ r }, wallHit(1, f.u, f.v, FRAME_W, FRAME_H, 0)));
   });
   FRAMES.slice(papers.length).forEach(f => {                           // 아직 비어 있는 액자 자리 — 점선 테
     const c = 'rgba(110,70,36,.26)';
     for (let d = 0; d < FRAME_W; d += 6){ wallRect(g, 1, f.u + d, f.v, 2, 1, c); wallRect(g, 1, f.u + d, f.v + FRAME_H - 1, 2, 1, c); }
     for (let d = 0; d < FRAME_H; d += 5){ wallRect(g, 1, f.u, f.v + d, 2, 2, c); wallRect(g, 1, f.u + FRAME_W - 2, f.v + d, 2, 2, c); }
   });
+  papers.slice(FRAMES.length, FRAMES.length + PINS.length).forEach((r, n) => {
+    const s = PINS[n];
+    drawPinned(g, s, n);
+    hits.push(Object.assign({ r }, wallHit(1, s.u, s.v, PIN_W, PIN_H, 0)));
+  });
   // 왼쪽 벽 — 급수 사다리
   ladderTracks(all).slice(0, LADDERS.length).forEach((t, n) => {
     const u = LADDERS[n];
     drawLadder(g, u, t);
-    const xr = wallXY(0, u, LAD_V).x + 2, xl = wallXY(0, u + LAD_W, LAD_V).x;
-    hits.push({ t, x0: xl - 3, x1: xr + 1, y0: WTOP + LAD_V + u / 2 - 4, y1: WTOP + 88 + (u + LAD_W) / 2 });
+    hits.push(Object.assign({ t }, wallHit(0, u - 2, LAD_V, LAD_W + 4, 112, 0)));
   });
-  // 바닥 — 메달·트로피와 처음 해낸 것
-  const floor = list.filter(r => r.kind === 'first' || (r.kind === 'award' && lookOf(r) !== 'paper')).slice(0, STANDS.length);
-  const newest = list[0] ? list[0].id : null;
+  // 유리 진열장 — 메달·트로피·배지 여덟, 그 뒤는 바닥 받침대로
+  const shelfy = list.filter(r => r.kind === 'award' && lookOf(r) !== 'paper');
+  const cased = shelfy.slice(0, SC_SLOTS.length);
+  cased.forEach((r, n) => {
+    const s = SC_SLOTS[n];
+    drawShowcaseItem(g, s, r);
+    hits.push(Object.assign({ r, front: 1 }, wallHit(1, s.u - 2, s.v - 2, 20, 18, SC.d)));
+  });
+  drawShowcaseGlass(g);
+  SC_SHELF.forEach(v => { const p = wallXY(1, SC.u0 + (SC.u1 - SC.u0) / 2, v + 10, SC.d); lamps.push([p.x, p.y, 46, 0.14]); });
+  // 바닥 받침대 — 처음 해낸 것과 진열장에 못 들어간 메달·트로피
+  const floor = list.filter(r => r.kind === 'first').concat(shelfy.slice(SC_SLOTS.length)).slice(0, STANDS.length);
   STANDS.map((p, n) => ({ p, r: floor[n] })).sort((a, b) => a.p.y - b.p.y).forEach(({ p, r }) => {
-    if (!r){ isoTile(g, p.x, p.y, 'rgba(255,250,235,.08)', 12); return; }
+    if (!r){ isoTile(g, p.x, p.y, 'rgba(255,250,235,.07)', 12); return; }
     drawStand(g, p.x, p.y, r);
-    hits.push({ r, x0: p.x - 14, x1: p.x + 14, y0: p.y - 36, y1: p.y + 8, front: p.y });
-    lamps.push([p.x, p.y - 24, r.id === newest ? 40 : 22, r.id === newest ? 0.34 : 0.16]);
+    hits.push({ r, x0: p.x - 15, x1: p.x + 15, y0: p.y - 40, y1: p.y + 8, front: p.y });
+    lamps.push([p.x, p.y - 26, r.id === newest ? 44 : 24, r.id === newest ? 0.34 : 0.16]);
   });
   g.save();
   g.globalCompositeOperation = 'lighter';
+  const lc = LAMP[prefOf(k).lamp] || LAMP.warm;                       // 아이가 고른 조명 색
+  const lp = tileXY(11.2, 0.8); lamps.push([lp.x, lp.y - 72, 54, 0.22]);
   lamps.forEach(L => {
     const grd = g.createRadialGradient(L[0], L[1], 0, L[0], L[1], L[2]);
-    grd.addColorStop(0, 'rgba(255,230,170,' + L[3] + ')');
-    grd.addColorStop(1, 'rgba(255,210,140,0)');
+    grd.addColorStop(0, 'rgba(' + lc.join(',') + ',' + L[3] + ')');
+    grd.addColorStop(1, 'rgba(' + lc.join(',') + ',0)');
     g.fillStyle = grd; g.fillRect(L[0] - L[2], L[1] - L[2], L[2] * 2, L[2] * 2);
   });
   g.restore();
-  const vig = g.createRadialGradient(RW / 2, RH / 2, 90, RW / 2, RH / 2, 260);
+  const vig = g.createRadialGradient(RW / 2, RH / 2, 150, RW / 2, RH / 2, 420);
   vig.addColorStop(0, 'rgba(20,12,6,0)');
-  vig.addColorStop(1, 'rgba(20,12,6,0.32)');
+  vig.addColorStop(1, 'rgba(20,12,6,0.34)');
   g.fillStyle = vig; g.fillRect(0, 0, RW, RH);
   const hv = hits.find(h => hitKey(h) === hoverKey);
   if (hv){
@@ -396,7 +612,7 @@ $('#museum').addEventListener('pointermove', e => {
   if (k === hoverKey) return;
   hoverKey = k;
   e.currentTarget.style.cursor = h ? 'pointer' : 'default';
-  if (h) say(h.r ? captionOf(h.r) : '🪜 ' + h.t.track + ' — 지금 ' + h.t.top + '단계');
+  if (h) say(h.r ? captionOf(h.r) : ladderCaption(h.t));
   drawRoom();
 });
 $('#museum').addEventListener('pointerleave', () => { if (hoverKey){ hoverKey = null; drawRoom(); } });
@@ -405,9 +621,13 @@ $('#museum').addEventListener('click', e => {
   if (!h){ say(''); return; }
   if (h.r){ openItem(h.r); return; }
   const shots = h.t.rows.filter(r => r.photo_url).slice().reverse();
-  say('🪜 ' + h.t.track + ' — 지금 ' + h.t.top + '단계 · ' + h.t.rows.map(r => r.title).join(' → '));
+  say(ladderCaption(h.t) + ' · ' + h.t.rows.map(r => r.title).join(' → '));
   if (shots.length) lightbox.open(shots.map(r => ({ media_url: r.photo_url, media_type: 'image', caption: captionOf(r) })), 0);
 });
+function ladderCaption(t){
+  const g = goalOf(kid, t.track);
+  return '🪜 ' + t.track + ' — 지금 ' + t.top + '단계' + (g ? (goalDone(g, t.top) ? ' · 🎯 목표 「' + g.goal + '」 이뤘어요!' : ' · 🎯 다음 목표 「' + g.goal + '」') : '');
+}
 // 한 가지 자랑을 바로 여는 주소 — 할머니께 「이거 봐요」 하고 보낼 수 있게
 async function copyLink(r){
   const url = location.origin + location.pathname + '?who=' + (r.who === 'both' ? kid : r.who) + '&item=' + r.id;
@@ -452,6 +672,18 @@ function render(){
   const nT = ladderTracks(mineOf(kid)).length;
   $('#roomTitle').textContent = heroName(kid) + '의 자랑 저장고' + (year === 'all' ? '' : ' · ' + year + '학년도');
   $('#roomSub').textContent = '🏅 상장·메달 ' + nA + ' · 🪜 급수 ' + nT + '가지 · ⭐ 처음 해낸 것 ' + nF + ' — 액자·사다리·진열대를 누르면 사진이 열려요';
+  const tools = $('#roomTools'); tools.innerHTML = '';
+  if (!missing && list.length){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small';
+    b.textContent = '🖼 ' + (year === 'all' ? '전체' : year + '학년도') + ' 카드'; b.addEventListener('click', () => openYearCard(list));
+    tools.appendChild(b);
+  }
+  if (!missing && canEditKid(kid)){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small';
+    b.textContent = '🎨 진열대 꾸미기'; b.addEventListener('click', openDecor);
+    tools.appendChild(b);
+  }
+  $('#roomPaper').textContent = missing ? '' : roomYear() + '학년도 벽지 · ' + WALLPAPERS[((roomYear() % 4) + 4) % 4].name;
   drawRoom();
   renderList(list);
   syncUrl();
@@ -471,7 +703,7 @@ function renderList(list){
     const h = document.createElement('h3'); h.textContent = KIND_NAME[kd] + ' ';
     const n = document.createElement('span'); n.textContent = part.length; h.appendChild(n);
     if (kd === 'level'){
-      // 급수는 종목끼리 모아 높은 단계부터 — 「태권도: 노란띠 → 초록띠」가 한눈에
+      // 급수는 종목끼리 모아 높은 단계부터 — 「피아노: 바이엘 → 체르니 100」이 한눈에
       const byTrack = {};
       part.forEach(r => { (byTrack[r.track] = byTrack[r.track] || []).push(r); });
       sec.appendChild(h);
@@ -480,9 +712,21 @@ function renderList(list){
         const sub = document.createElement('p'); sub.className = 'track-head';
         sub.textContent = '🪜 ' + t + ' — 지금 ' + rs[0].title + (rs[0].step ? ' (' + rs[0].step + '단계)' : '') +
           (rs.length > 1 ? ' · ' + rs.slice().reverse().map(r => r.title).join(' → ') : '');
+        // 다음 목표 — 아이가 적어 둔 것. 그 단계가 올라오면 「이뤘어요」
+        const top = mineOf(kid).filter(r => r.kind === 'level' && r.track === t).reduce((m, r) => Math.max(m, r.step || 1), 0);
+        const g = goalOf(kid, t), goalP = document.createElement('p'); goalP.className = 'goal-line';
+        goalP.textContent = g ? (goalDone(g, top) ? '🎯 목표 「' + g.goal + '」 이뤘어요! ' : '🎯 다음 목표: ' + g.goal + ' (' + g.step + '단계) ') : (canEditKid(kid) ? '🎯 다음 목표를 아직 안 정했어요 ' : '');
+        if (canEditKid(kid)){
+          const gb = document.createElement('button'); gb.type = 'button'; gb.className = 'goal-btn';
+          gb.textContent = g ? (goalDone(g, top) ? '새 목표 정하기' : '목표 고치기') : '목표 정하기';
+          gb.addEventListener('click', () => openGoal(t, top, g && !goalDone(g, top) ? g : null));
+          goalP.appendChild(gb);
+        }
         const grid = document.createElement('div'); grid.className = 'honor-grid';
         rs.forEach(r => grid.appendChild(cardOf(r)));
-        sec.append(sub, grid);
+        sec.append(sub);
+        if (goalP.textContent) sec.append(goalP);
+        sec.append(grid);
       });
       box.appendChild(sec);
       return;
@@ -509,11 +753,22 @@ function cardOf(r){
   body.append(b, sm);
   const s = sayOf(r, kid);
   if (s){ const p = document.createElement('p'); p.className = 'say'; p.textContent = '“' + s + '”'; body.appendChild(p); }
+  if (r.audio_url){                                                  // 그날의 소감 목소리
+    const vb = document.createElement('div'); vb.className = 'honor-voice';
+    mountVoice(vb, r.audio_url, r.audio_secs, isAdmin ? { table: 'honors', id: r.id } : null);
+    body.appendChild(vb);
+  }
   const acts = document.createElement('div'); acts.className = 'acts';
-  const act = (t, fn) => { const x = document.createElement('button'); x.type = 'button'; x.textContent = t; x.addEventListener('click', fn); acts.appendChild(x); };
+  const act = (t, fn, cls) => { const x = document.createElement('button'); x.type = 'button'; x.textContent = t; if (cls) x.className = cls; x.addEventListener('click', fn); acts.appendChild(x); return x; };
+  const mine = isChild && me && me.author_key === kid && (r.who === kid || r.who === 'both');
+  const n = claps[r.id] || 0, did = clapped(r.id);
+  const cb = act('👏 ' + (n ? n : '박수'), () => clap(r, cb), 'clap' + (did ? ' did' : ''));
+  cb.disabled = did; cb.title = did ? '이 자랑에는 박수를 보냈어요' : '박수 보내기';
   act('🔗 링크', () => copyLink(r));
   if (isAdmin) act('✎ 고치기', () => openForm(r));
-  if (isChild && me && me.author_key === kid && (r.who === kid || r.who === 'both')) act('💬 한마디', () => openSay(r));
+  if (mine) act('💬 한마디', () => openSay(r));
+  if (mine || isAdmin) act(r.audio_url ? '🎙 목소리 바꾸기' : '🎙 목소리', () => openVoice(r));
+  if (isLoggedIn && origs[r.id]) act('🔒 원본', () => viewOriginal(r));
   if (acts.children.length) body.appendChild(acts);
   el.append(pic, body);
   return el;
@@ -613,6 +868,27 @@ async function dropFiles(paths){
   if (!ok.length) return;
   try { await sb.storage.from(MEDIA_BUCKET).remove(ok); } catch (e) { /* 파일 정리는 못 해도 글은 이미 바뀌었다 */ }
 }
+// 가리기 전 원본 — 비공개 버킷. 공개 주소가 없어서 보려면 서명 주소를 받아야 한다.
+async function uploadOriginal(file){
+  const ext = (file.name.match(/\.(jpe?g|png|heic|heif|webp|gif)$/i) || ['', 'jpg'])[1].toLowerCase();
+  const path = 'suayona/honor-orig/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+  const up = await sb.storage.from(PRIVATE_BUCKET).upload(path, file);
+  if (up.error) throw up.error;
+  return path;
+}
+async function dropPrivate(paths){
+  const ok = paths.filter(Boolean);
+  if (!ok.length) return;
+  try { await sb.storage.from(PRIVATE_BUCKET).remove(ok); } catch (e) { /* 파일 정리는 못 해도 줄은 이미 바뀌었다 */ }
+}
+async function viewOriginal(r){
+  const path = origs[r.id]; if (!path) return;
+  say('🔒 원본을 여는 중…');
+  const { data, error } = await sb.storage.from(PRIVATE_BUCKET).createSignedUrl(path, 120);
+  if (error || !data || !data.signedUrl){ say('원본을 열지 못했어요: ' + readableError(error || new Error('가족만 열 수 있어요'))); return; }
+  say('🔒 ' + r.title + ' — 가리기 전 원본 (가족만 보여요)');
+  lightbox.open([{ media_url: data.signedUrl, media_type: 'image', caption: '🔒 ' + captionOf(r) + ' — 원본' }], 0);
+}
 
 // ---------- 부모: 올리기 · 고치기 ----------
 function openForm(r){
@@ -630,11 +906,11 @@ function openForm(r){
       '<label class="field">모양</label><select class="fLook" aria-label="모양"></select>' +
       '<div class="fLevel">' +
         '<div class="row2">' +
-          '<div><label class="field">종목</label><input type="text" class="fTrack" list="honorTracks" maxlength="20" placeholder="예: 태권도" aria-label="종목">' +
+          '<div><label class="field">종목</label><input type="text" class="fTrack" list="honorTracks" maxlength="20" placeholder="예: 피아노" aria-label="종목">' +
             '<datalist id="honorTracks">' + tracks.map(t => '<option value="' + escapeHTML(t) + '">').join('') + '</datalist></div>' +
           '<div><label class="field">몇 번째 단계</label><input type="number" class="fStep" min="1" max="99" aria-label="몇 번째 단계"></div>' +
         '</div>' +
-        '<label class="field">색 (띠·배지)</label><input type="color" class="fColor" aria-label="색">' +
+        '<label class="field">단계 색</label><input type="color" class="fColor" aria-label="색">' +
       '</div>' +
       '<label class="field fTitleL">제목</label><input type="text" class="fTitle" maxlength="60" aria-label="제목">' +
       '<div class="fOrgW"><label class="field">주는 곳 (선택)</label><input type="text" class="fOrg" maxlength="40" aria-label="주는 곳" placeholder="예: 줄넘기 학원"></div>' +
@@ -644,6 +920,7 @@ function openForm(r){
       '<label class="field">사진 (선택)</label>' +
       '<div class="photo-now"></div>' +
       '<input type="file" class="fFile" accept="image/*" aria-label="사진 고르기">' +
+      '<label class="keep-orig" hidden><input type="checkbox" class="fKeepOrig" checked> 🔒 가리기 전 원본도 가족 보관함에 넣기 <small>(비공개 버킷 · 가족만 열어요)</small></label>' +
       '<div class="mosaic" hidden>' +
         '<p class="mz-help">이름·학교·반·선생님 이름처럼 가릴 곳을 <b>끌어서 네모</b>로 골라요. 가린 사본만 올라가고 원본은 이 기기 밖으로 안 나가요.</p>' +
         '<div class="mz-stage"></div>' +
@@ -678,7 +955,7 @@ function openForm(r){
     if (LOOK[cur] && LOOK[cur].kind === kd) q('.fLook').value = cur;
     q('.fLevel').hidden = kd !== 'level';
     q('.fOrgW').hidden = kd === 'first';
-    q('.fTitleL').textContent = kd === 'level' ? '단계 이름 (예: 노란띠, 5급)' : kd === 'first' ? '해낸 일 (예: 두발자전거 혼자 타기)' : '상 이름 (예: 줄넘기 대회 은상)';
+    q('.fTitleL').textContent = kd === 'level' ? '단계 이름 (예: 체르니 100, 5급)' : kd === 'first' ? '해낸 일 (예: 두발자전거 혼자 타기)' : '상 이름 (예: 줄넘기 대회 은상)';
     const w = q('.fWho').value;
     q('.fSayW-sua').hidden = w === 'yona'; q('.fSayW-yona').hidden = w === 'sua';
   };
@@ -697,14 +974,16 @@ function openForm(r){
 
   // 사진
   const mz = mosaicEditor(q('.mz-stage'), n => { q('.mz-count').textContent = n ? '가린 곳 ' + n + '군데' : '아직 가린 곳이 없어요'; });
-  let removePhoto = false;
+  let removePhoto = false, rawFile = null, dropOrig = false;
   const now = q('.photo-now');
   if (r && r.photo_url){
     now.innerHTML = '<img alt="지금 올라가 있는 사진">' +
       '<label><input type="checkbox" class="fNoPhoto"> 사진 빼기</label>' +
+      (origs[r.id] ? '<label><input type="checkbox" class="fNoOrig"> 🔒 보관한 원본 빼기</label>' : '') +
       '<button type="button" class="dot-btn small fReMask">이 사진 다시 가리기</button>';
     now.querySelector('img').src = r.thumb_url || r.photo_url;
     now.querySelector('.fNoPhoto').addEventListener('change', e => { removePhoto = e.target.checked; });
+    if (now.querySelector('.fNoOrig')) now.querySelector('.fNoOrig').addEventListener('change', e => { dropOrig = e.target.checked; });
     now.querySelector('.fReMask').addEventListener('click', async e => {
       e.target.disabled = true; q('.fMsg').textContent = '사진을 불러오는 중…';
       try {
@@ -718,8 +997,12 @@ function openForm(r){
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     const url = URL.createObjectURL(f);
-    try { mz.setImage(await loadImage(url)); q('.mosaic').hidden = false; q('.fMsg').textContent = ''; }
-    catch (err) { q('.fMsg').textContent = '이 파일은 사진으로 읽지 못했어요.'; }
+    try {
+      mz.setImage(await loadImage(url)); q('.mosaic').hidden = false; q('.fMsg').textContent = '';
+      rawFile = f; q('.keep-orig').hidden = false;
+      if (f.size > ORIG_LIMIT){ q('.fKeepOrig').checked = false; q('.fKeepOrig').disabled = true; q('.keep-orig').append(' — 10MB 가 넘어 원본은 못 넣어요'); }
+    }
+    catch (err) { q('.fMsg').textContent = '이 파일은 사진으로 읽지 못했어요.'; rawFile = null; q('.keep-orig').hidden = true; }
     finally { URL.revokeObjectURL(url); }
   });
   q('.mzMode').addEventListener('change', e => mz.setMode(e.target.value));
@@ -732,7 +1015,7 @@ function openForm(r){
     const step = parseInt(q('.fStep').value, 10);
     if (!title){ msg.textContent = '제목을 적어 주세요.'; return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(got_on)){ msg.textContent = '받은 날을 골라 주세요.'; return; }
-    if (kd === 'level' && !track){ msg.textContent = '급수는 종목을 적어 주세요 (예: 태권도).'; return; }
+    if (kd === 'level' && !track){ msg.textContent = '급수는 종목을 적어 주세요 (예: 피아노).'; return; }
     if (kd === 'level' && !(step >= 1 && step <= 99)){ msg.textContent = '몇 번째 단계인지 숫자로 적어 주세요.'; return; }
     if (mz.has() && !mz.count() && !confirm('가린 곳 없이 그대로 올릴까요? 이름·학교·반이 보이지 않는지 한 번 더 봐 주세요.')) return;
     const btn = q('.fSave'); btn.disabled = true; msg.textContent = '저장하는 중…';
@@ -755,6 +1038,23 @@ function openForm(r){
       // 막힌 고치기는 오류 없이 0줄로 끝난다 — 돌려받은 줄 수로 확인한다
       const res = r ? await sb.from('honors').update(row).eq('id', r.id).select('id') : await sb.from('honors').insert(row).select('id');
       if (res.error || !(res.data && res.data.length)) throw res.error || new Error('저장 권한이 없어요');
+      const id = res.data[0].id;
+      // 원본은 줄이 저장된 뒤에 넣는다 — 실패해도 가린 사진은 이미 올라가 있다
+      const keepOrig = rawFile && q('.fKeepOrig').checked && rawFile.size <= ORIG_LIMIT;
+      if (keepOrig || (r && (removePhoto || dropOrig || keepOrig))){
+        const old = r ? origs[r.id] : null;
+        if (keepOrig){
+          try {
+            const path = await uploadOriginal(rawFile);
+            const o = await sb.from('honor_originals').upsert({ honor_id: id, path }).select('honor_id');
+            if (o.error || !(o.data && o.data.length)){ await dropPrivate([path]); throw o.error || new Error('원본 보관 권한이 없어요'); }
+            if (old && old !== path) await dropPrivate([old]);
+          } catch (e) { say('저장은 됐지만 원본은 못 넣었어요: ' + readableError(e)); }
+        } else if (old){
+          await sb.from('honor_originals').delete().eq('honor_id', id);
+          await dropPrivate([old]);
+        }
+      }
     } catch (err) {
       await dropFiles(fresh);
       msg.textContent = '저장하지 못했어요: ' + readableError(err);
@@ -771,7 +1071,8 @@ function openForm(r){
     if (!confirm('「' + r.title + '」을(를) 저장고에서 뺄까요? 사진도 함께 지워져요.')) return;
     const res = await sb.from('honors').delete().eq('id', r.id).select('id');
     if (res.error || !(res.data && res.data.length)){ q('.fMsg').textContent = '지우지 못했어요: ' + readableError(res.error || new Error('권한이 없어요')); return; }
-    await dropFiles([pathOfUrl(r.photo_url), pathOfUrl(r.thumb_url)]);
+    await dropFiles([pathOfUrl(r.photo_url), pathOfUrl(r.thumb_url), pathOfUrl(r.audio_url)]);
+    if (origs[r.id]) await dropPrivate([origs[r.id]]);            // 줄은 딸려 지워졌고 파일만 치운다
     close();
     await load();
     say('저장고에서 뺐어요.');
@@ -806,6 +1107,265 @@ function openSay(r){
     say('한마디를 남겼어요.');
   });
   q('.sText').focus();
+}
+
+
+// ---------- 박수 ----------
+// 손님도 누른다. 한 브라우저에서 한 자랑에 한 번 — 서버는 분·시간 단위로 홍수만 막는다.
+async function clap(r, btn){
+  if (clapped(r.id)) return;
+  btn.disabled = true;
+  const { error } = await sb.from('honor_claps').insert({ honor_id: r.id });
+  if (error){ btn.disabled = false; say('박수를 못 보냈어요: ' + readableError(error)); return; }
+  claps[r.id] = (claps[r.id] || 0) + 1;
+  try { localStorage.setItem(clapKey(r.id), '1'); } catch (e) { /* 저장이 막힌 브라우저 — 다음에 또 눌러도 서버가 받아 준다 */ }
+  btn.textContent = '👏 ' + claps[r.id]; btn.classList.add('did'); btn.title = '이 자랑에는 박수를 보냈어요';
+  if (typeof sfx === 'function') sfx('pop');
+  say('👏 ' + r.title + '에 박수를 보냈어요!');
+}
+
+// ---------- 작은 창 틀 ----------
+function smallModal(html){
+  const overlay = document.createElement('div');
+  overlay.className = 'modal';
+  overlay.innerHTML = '<div class="modal-box dot-card"><div class="inner">' + html + '</div></div>';
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+  const close = () => { overlay.remove(); document.body.style.overflow = ''; };
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  const q = sel => overlay.querySelector(sel);
+  const cancel = q('.mCancel'); if (cancel) cancel.addEventListener('click', close);
+  return { q, close, overlay };
+}
+
+// ---------- 아이: 다음 목표 ----------
+function openGoal(track, top, g){
+  const m = smallModal(
+    '<h3>🎯 ' + escapeHTML(track) + ' 다음 목표</h3>' +
+    '<p class="msg" style="margin:0 0 8px;">지금 ' + top + '단계예요. 다음 단계에 무엇을 따고 싶은지 적어 두면 사다리 윗칸에 깃발이 걸려요.</p>' +
+    '<input type="text" class="gText" maxlength="30" aria-label="다음 목표" placeholder="예: 체르니 100, 6급">' +
+    '<div class="row2" style="margin-top:8px;"><div><label class="field">몇 번째 단계</label><input type="number" class="gStep" min="1" max="99" aria-label="몇 번째 단계"></div></div>' +
+    '<p class="msg gMsg" aria-live="polite"></p>' +
+    '<div class="modal-actions">' + (g ? '<button type="button" class="dot-btn gDel">목표 지우기</button>' : '') +
+    '<button type="button" class="dot-btn mCancel">취소</button><button type="button" class="dot-btn primary gSave">저장</button></div>');
+  m.q('.gText').value = g ? g.goal : '';
+  m.q('.gStep').value = g ? g.step : top + 1;
+  m.q('.gSave').addEventListener('click', async () => {
+    const goal = m.q('.gText').value.trim(), step = parseInt(m.q('.gStep').value, 10);
+    if (!goal){ m.q('.gMsg').textContent = '목표를 적어 주세요.'; return; }
+    if (!(step > top && step <= 99)){ m.q('.gMsg').textContent = '지금(' + top + '단계)보다 위여야 해요.'; return; }
+    m.q('.gSave').disabled = true;
+    const res = await sb.from('honor_goals').upsert({ who: kid, track, step, goal, set_on: todayStr() }).select('who');
+    if (res.error || !(res.data && res.data.length)){ m.q('.gMsg').textContent = '저장하지 못했어요: ' + readableError(res.error || new Error('권한이 없어요')); m.q('.gSave').disabled = false; return; }
+    m.close(); await load(); say('🎯 ' + track + ' 다음 목표 「' + goal + '」 — 깃발을 걸었어요.');
+  });
+  if (g) m.q('.gDel').addEventListener('click', async () => {
+    const res = await sb.from('honor_goals').delete().eq('who', kid).eq('track', track).select('who');
+    if (res.error || !(res.data && res.data.length)){ m.q('.gMsg').textContent = '지우지 못했어요.'; return; }
+    m.close(); await load(); say('목표를 지웠어요.');
+  });
+  m.q('.gText').focus();
+}
+
+// ---------- 아이: 진열대 꾸미기 ----------
+function openDecor(){
+  const cur = prefOf(kid);
+  const sw = (map, names, key, on) => Object.keys(map).map(k =>
+    '<button type="button" class="swatch' + (k === on ? ' on' : '') + '" data-' + key + '="' + k + '" aria-label="' + names[k] + '" title="' + names[k] + '"><i style="background:' +
+    (key === 'lamp' ? 'rgb(' + map[k].join(',') + ')' : map[k]) + '"></i></button>').join('');
+  const m = smallModal(
+    '<h3>🎨 진열대 꾸미기</h3>' +
+    '<p class="msg" style="margin:0 0 8px;">' + escapeHTML(heroName(kid)) + '의 진열대 천 색과 조명 색을 골라요. 방을 보는 모두에게 그렇게 보여요.</p>' +
+    '<label class="field">받침대 천</label><div class="swatches">' + sw(CLOTH, CLOTH_NAME, 'cloth', cur.cloth) + '</div>' +
+    '<label class="field">조명</label><div class="swatches">' + sw(LAMP, LAMP_NAME, 'lamp', cur.lamp) + '</div>' +
+    '<p class="msg dMsg" aria-live="polite"></p>' +
+    '<div class="modal-actions"><button type="button" class="dot-btn mCancel">취소</button><button type="button" class="dot-btn primary dSave">저장</button></div>');
+  const pick = { cloth: cur.cloth, lamp: cur.lamp };
+  m.overlay.querySelectorAll('.swatch').forEach(b => b.addEventListener('click', () => {
+    const key = b.dataset.cloth ? 'cloth' : 'lamp';
+    pick[key] = b.dataset[key];
+    b.parentElement.querySelectorAll('.swatch').forEach(x => x.classList.toggle('on', x === b));
+    prefs[kid] = Object.assign({}, prefs[kid], { who: kid }, pick); drawRoom();   // 고르는 대로 방에 미리 비친다
+  }));
+  const was = prefs[kid];
+  m.q('.mCancel').addEventListener('click', () => { prefs[kid] = was; drawRoom(); });
+  m.q('.dSave').addEventListener('click', async () => {
+    m.q('.dSave').disabled = true;
+    const res = await sb.from('honor_prefs').upsert({ who: kid, cloth: pick.cloth, lamp: pick.lamp }).select('who');
+    if (res.error || !(res.data && res.data.length)){ m.q('.dMsg').textContent = '저장하지 못했어요: ' + readableError(res.error || new Error('권한이 없어요')); m.q('.dSave').disabled = false; return; }
+    m.close(); await load(); say('🎨 진열대를 ' + CLOTH_NAME[pick.cloth] + ' 천, ' + LAMP_NAME[pick.lamp] + ' 조명으로 꾸몄어요.');
+  });
+}
+
+// ---------- 목소리: 그날의 소감 ----------
+// 목소리 일기의 녹음기를 그대로 쓴다(common.js startVoiceRecorder / uploadVoice).
+// 아이는 함수(honor_voice)로 제 것에만 붙이고, 부모는 줄을 바로 고친다.
+function openVoice(r){
+  let rec = null, draft = null;
+  const m = smallModal(
+    '<h3>🎙 ' + escapeHTML(r.title) + '</h3>' +
+    '<p class="msg" style="margin:0 0 8px;">받았을 때 기분을 목소리로 남겨요. 60초까지예요.</p>' +
+    '<div class="vBox"></div>' +
+    '<p class="msg vMsg" aria-live="polite"></p>' +
+    '<div class="modal-actions"><button type="button" class="dot-btn mCancel">닫기</button></div>');
+  const box = m.q('.vBox'), msg = m.q('.vMsg');
+  const stopAll = () => { if (rec){ rec.cancel(); rec = null; } if (draft && draft.url) URL.revokeObjectURL(draft.url); draft = null; };
+  m.q('.mCancel').addEventListener('click', stopAll);
+  async function put(url, secs){
+    if (isAdmin){
+      const res = await sb.from('honors').update({ audio_url: url, audio_secs: secs }).eq('id', r.id).select('id');
+      if (res.error || !(res.data && res.data.length)) throw res.error || new Error('권한이 없어요');
+    } else {
+      const { error } = await sb.rpc('honor_voice', { p_id: r.id, p_url: url, p_secs: secs });
+      if (error) throw error;
+    }
+  }
+  function paint(){
+    let html = '';
+    if (draft){
+      html = '<audio controls src="' + draft.url + '"></audio><div class="mz-bar">' +
+        '<button type="button" class="dot-btn small primary vSave">이걸로 붙이기 (' + secsLabel(draft.secs) + ')</button>' +
+        '<button type="button" class="dot-btn small vRedo">다시 녹음</button></div>';
+    } else if (rec){
+      html = '<p class="rec-line"><span class="rec-dot"></span> 녹음 중 <span class="vTimer">0초</span></p>' +
+        '<button type="button" class="dot-btn small primary vStop">■ 멈추기</button>';
+    } else {
+      html = (r.audio_url ? '<div class="honor-voice vNow"></div>' : '<p class="msg" style="margin:0 0 6px;">아직 붙인 목소리가 없어요.</p>') +
+        '<div class="mz-bar"><button type="button" class="dot-btn small primary vRec">● 녹음 시작</button>' +
+        (r.audio_url ? '<button type="button" class="dot-btn small vDel">목소리 떼기</button>' : '') + '</div>';
+    }
+    box.innerHTML = html;
+    if (box.querySelector('.vNow')) mountVoice(box.querySelector('.vNow'), r.audio_url, r.audio_secs, null);
+    const on = (sel, fn) => { const el = box.querySelector(sel); if (el) el.addEventListener('click', fn); };
+    on('.vRec', async () => {
+      if (!canRecordVoice()){ msg.textContent = '이 브라우저에서는 녹음이 안 돼요.'; return; }
+      try {
+        rec = await startVoiceRecorder(secs => { const t = box.querySelector('.vTimer'); if (t) t.textContent = secsLabel(secs); if (secs >= VOICE_MAX_SECS) finish(); });
+        paint();
+      } catch (e) {
+        msg.textContent = /NotAllowed|Permission/i.test((e && e.name) + (e && e.message)) ? '마이크를 쓸 수 없어요. 브라우저에서 이 사이트의 마이크 사용을 허용해 주세요.' : '녹음을 시작하지 못했어요: ' + ((e && e.message) || e);
+      }
+    });
+    on('.vStop', finish);
+    on('.vRedo', () => { if (draft && draft.url) URL.revokeObjectURL(draft.url); draft = null; paint(); box.querySelector('.vRec').click(); });
+    on('.vSave', async () => {
+      box.querySelector('.vSave').disabled = true; msg.textContent = '올리는 중…';
+      try {
+        const url = await uploadVoice(draft.blob, draft.ext);
+        await put(url, draft.secs);
+        const oldPath = pathOfUrl(r.audio_url);
+        if (oldPath) await dropFiles([oldPath]);
+        stopAll(); m.close(); await load(); say('🎙 ' + r.title + '에 목소리를 붙였어요.');
+      } catch (e) { msg.textContent = '붙이지 못했어요: ' + readableError(e); box.querySelector('.vSave').disabled = false; }
+    });
+    on('.vDel', async () => {
+      if (!confirm('이 목소리를 뗄까요?')) return;
+      try {
+        const oldPath = pathOfUrl(r.audio_url);
+        await put(null, null);
+        if (oldPath) await dropFiles([oldPath]);
+        m.close(); await load(); say('목소리를 뗐어요.');
+      } catch (e) { msg.textContent = '떼지 못했어요: ' + readableError(e); }
+    });
+  }
+  async function finish(){
+    if (!rec) return;
+    const cur = rec; rec = null;
+    try {
+      const { blob, secs } = await cur.stop();
+      if (blob && blob.size) draft = { blob, secs: Math.max(1, secs), ext: cur.ext, url: URL.createObjectURL(blob) };
+    } catch (e) { /* 아무것도 안 담겼으면 처음 화면으로 */ }
+    paint();
+  }
+  paint();
+}
+
+// ---------- 한 해치 모아보기: 도트 카드 · A4 인쇄 ----------
+// 카드는 캔버스 한 장(360×480 을 두 배로 굽는다). 인쇄는 숨겨 둔 종이 한 장을 채우고 print() 를 부른다 —
+// 화면의 나머지는 @media print 에서 감춘다.
+const CARD_W = 360, CARD_H = 480, CARD_COLS = 3, CARD_MAX = 12;
+function fitText(g, text, maxW){
+  if (g.measureText(text).width <= maxW) return text;
+  let t = text;
+  while (t.length > 1 && g.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+  return t + '…';
+}
+function yearCard(list){
+  const c = document.createElement('canvas'); c.width = CARD_W * 2; c.height = CARD_H * 2;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0);
+  const color = KID_COLOR[kid], label = year === 'all' ? '지금까지의 자랑' : year + '학년도 자랑';
+  const FONT = '"Suayona Sans", Pretendard, system-ui, sans-serif';
+  g.fillStyle = '#fff6e6'; g.fillRect(0, 0, CARD_W, CARD_H);
+  g.fillStyle = color; g.fillRect(0, 0, CARD_W, 6); g.fillRect(0, CARD_H - 6, CARD_W, 6); g.fillRect(0, 0, 6, CARD_H); g.fillRect(CARD_W - 6, 0, 6, CARD_H);
+  g.fillStyle = shade(color, -40);                                    // 안쪽 점선 테
+  for (let x = 12; x < CARD_W - 12; x += 6){ g.fillRect(x, 12, 3, 1); g.fillRect(x, CARD_H - 13, 3, 1); }
+  for (let y = 12; y < CARD_H - 12; y += 6){ g.fillRect(12, y, 1, 3); g.fillRect(CARD_W - 13, y, 1, 3); }
+  g.fillStyle = color; g.fillRect(20, 20, CARD_W - 40, 54);
+  g.fillStyle = '#fff'; g.textBaseline = 'middle'; g.textAlign = 'center';
+  g.font = '800 17px ' + FONT; g.fillText(heroName(kid) + '의 ' + label, CARD_W / 2, 40);
+  const nA = list.filter(r => r.kind === 'award').length, nL = list.filter(r => r.kind === 'level').length, nF = list.filter(r => r.kind === 'first').length;
+  g.font = '700 11px ' + FONT; g.fillText('🏅 상장·메달 ' + nA + '   🪜 급수 ' + nL + '   ⭐ 처음 해낸 것 ' + nF, CARD_W / 2, 60);
+  // 열둘이 넘으면 가장 최근 열둘을 받은 차례로
+  const items = list.slice().sort((a, b) => a.got_on < b.got_on ? -1 : 1).slice(-CARD_MAX);
+  const cellW = (CARD_W - 40) / CARD_COLS, cellH = 88, top = 86;
+  items.forEach((r, n) => {
+    const cx = 20 + (n % CARD_COLS) * cellW + cellW / 2, cy = top + Math.floor(n / CARD_COLS) * cellH;
+    g.fillStyle = 'rgba(42,33,24,.06)'; g.fillRect(Math.round(cx - cellW / 2 + 4), cy, Math.round(cellW - 8), cellH - 6);
+    drawArtOut(g, OBJ_ART[lookOf(r)] || OBJ_ART.star, Math.round(cx - 24), cy + 6, 3, itemColor(r));
+    g.fillStyle = '#2a2118'; g.font = '800 10.5px ' + FONT; g.textAlign = 'center';
+    g.fillText(fitText(g, (r.kind === 'level' ? r.track + ' ' : '') + r.title, cellW - 16), cx, cy + 64);
+    g.fillStyle = '#7a6a58'; g.font = '700 9px ' + FONT;
+    g.fillText(fmtDate(r.got_on) + (r.org ? ' · ' + fitText(g, r.org, 60) : ''), cx, cy + 77);
+  });
+  if (list.length > CARD_MAX){ g.fillStyle = '#7a6a58'; g.font = '700 10px ' + FONT; g.fillText('… 그리고 앞서 받은 ' + (list.length - CARD_MAX) + '개 더', CARD_W / 2, top + 4 * cellH + 2); }
+  g.fillStyle = '#7a6a58'; g.font = '700 9px ' + FONT; g.fillText('www.suayona.com · 자랑 저장고 · ' + fmtDate(todayStr()), CARD_W / 2, CARD_H - 24);
+  return c;
+}
+function openYearCard(list){
+  const label = year === 'all' ? '지금까지' : year + '학년도';
+  const m = smallModal(
+    '<h3>🖼 ' + escapeHTML(heroName(kid)) + '의 ' + label + ' 카드</h3>' +
+    '<div class="year-card"></div>' +
+    '<p class="msg yMsg" aria-live="polite">그림을 길게 누르거나 「그림으로 저장」을 눌러요. 냉장고에 붙이려면 「A4 로 인쇄」.</p>' +
+    '<div class="modal-actions"><button type="button" class="dot-btn mCancel">닫기</button>' +
+    '<button type="button" class="dot-btn ySave">그림으로 저장</button><button type="button" class="dot-btn primary yPrint">A4 로 인쇄</button></div>');
+  m.q('.modal-box').classList.add('year-modal');
+  const cv = yearCard(list); m.q('.year-card').appendChild(cv);
+  m.q('.ySave').addEventListener('click', () => cv.toBlob(b => {
+    if (!b){ m.q('.yMsg').textContent = '그림을 만들지 못했어요.'; return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+    a.download = 'suayona-' + kid + '-' + (year === 'all' ? 'all' : year) + '.png'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }, 'image/png'));
+  m.q('.yPrint').addEventListener('click', () => { printSheet(list); });
+}
+function printSheet(list){
+  let sheet = $('#printSheet');
+  if (!sheet){ sheet = document.createElement('section'); sheet.id = 'printSheet'; document.body.appendChild(sheet); }
+  const label = year === 'all' ? '지금까지의 자랑' : year + '학년도 자랑';
+  sheet.innerHTML = '';
+  const h = document.createElement('h1'); h.textContent = heroName(kid) + '의 ' + label; sheet.appendChild(h);
+  const sub = document.createElement('p'); sub.className = 'ps-sub';
+  sub.textContent = '수아랑 연아랑 자랑 저장고 · ' + fmtDate(todayStr()) + ' 뽑음'; sheet.appendChild(sub);
+  ['award', 'level', 'first'].forEach(kd => {
+    const part = list.filter(r => r.kind === kd).slice().sort((a, b) => a.got_on < b.got_on ? -1 : 1);
+    if (!part.length) return;
+    const h2 = document.createElement('h2'); h2.textContent = KIND_NAME[kd] + ' ' + part.length; sheet.appendChild(h2);
+    part.forEach(r => {
+      const row = document.createElement('div'); row.className = 'ps-row';
+      if (r.thumb_url || r.photo_url){ const im = document.createElement('img'); im.alt = ''; im.src = r.thumb_url || r.photo_url; row.appendChild(im); }
+      else { const cv = document.createElement('canvas'); cv.width = 48; cv.height = 48; const cg = cv.getContext('2d'); cg.imageSmoothingEnabled = false; drawArtOut(cg, OBJ_ART[lookOf(r)] || OBJ_ART.star, 0, 0, 3, itemColor(r)); row.appendChild(cv); }
+      const t = document.createElement('div');
+      const b = document.createElement('b'); b.textContent = (r.kind === 'level' ? r.track + ' ' : '') + r.title + (r.kind === 'level' && r.step ? ' (' + r.step + '단계)' : '');
+      const sm = document.createElement('small'); sm.textContent = [r.org, fmtDate(r.got_on), r.who === 'both' ? '둘이 함께' : ''].filter(Boolean).join(' · ');
+      t.append(b, sm);
+      const s = sayOf(r, kid);
+      if (s){ const q = document.createElement('p'); q.textContent = '“' + s + '”'; t.appendChild(q); }
+      row.appendChild(t); sheet.appendChild(row);
+    });
+  });
+  const imgs = Array.from(sheet.querySelectorAll('img'));
+  Promise.all(imgs.map(im => im.complete ? null : new Promise(res => { im.onload = im.onerror = res; }))).then(() => window.print());
 }
 
 // ---------- 시작 ----------

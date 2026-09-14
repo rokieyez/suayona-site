@@ -1592,7 +1592,7 @@ create table if not exists public.honors (
   id         bigint generated always as identity primary key,
   who        text not null check (who in ('sua', 'yona', 'both')),
   kind       text not null check (kind in ('award', 'level', 'first')),
-  look       text not null default 'paper' check (look in ('paper', 'medal', 'trophy', 'belt', 'badge', 'star')),
+  look       text not null default 'paper' check (look in ('paper', 'medal', 'trophy', 'piano', 'badge', 'star')),
   title      text not null check (char_length(title) between 1 and 60),
   org        text check (org is null or char_length(org) <= 40),
   got_on     date not null,
@@ -1603,6 +1603,9 @@ create table if not exists public.honors (
   thumb_url  text check (thumb_url is null or thumb_url like 'https://ifiemaypzjwdrljmmkgb.supabase.co/storage/v1/object/public/event-images/suayona/honor/%'),
   say_sua    text check (say_sua is null or char_length(say_sua) <= 80),
   say_yona   text check (say_yona is null or char_length(say_yona) <= 80),
+  -- 그날의 소감 목소리(아이가 제 것에 붙인다). 목소리 일기와 같은 폴더를 쓴다.
+  audio_url  text check (audio_url is null or audio_url like 'https://ifiemaypzjwdrljmmkgb.supabase.co/storage/v1/object/public/event-images/suayona/voice/%'),
+  audio_secs smallint check (audio_secs is null or audio_secs between 1 and 120),
   created_at timestamptz not null default now(),
   constraint honors_level_has_track check (kind <> 'level' or track is not null)
 );
@@ -1637,6 +1640,135 @@ end
 $$;
 revoke all on function public.honor_say(bigint, text) from public;
 grant execute on function public.honor_say(bigint, text) to authenticated;
+
+-- 아이가 제 자랑에 그날의 소감 목소리를 붙인다(뗄 때는 빈 주소). 한마디와 같은 울타리.
+create or replace function public.honor_voice(p_id bigint, p_url text, p_secs integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  k text;
+begin
+  select author_key into k from profiles where user_id = auth.uid() and role = 'child';
+  if k is null then raise exception '아이 계정만 목소리를 붙일 수 있어요'; end if;
+  update honors
+     set audio_url  = nullif(btrim(coalesce(p_url, '')), ''),
+         audio_secs = case when nullif(btrim(coalesce(p_url, '')), '') is null then null else p_secs end
+   where id = p_id and who in (k, 'both');
+  if not found then raise exception '내 자랑에만 목소리를 붙일 수 있어요'; end if;
+end
+$$;
+revoke all on function public.honor_voice(bigint, text, integer) from public;
+grant execute on function public.honor_voice(bigint, text, integer) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 급수 다음 목표 — 아이가 사다리 맨 위 빈 칸에 「다음엔 파란띠」를 적어 둔다.
+-- 종목마다 하나. 그 단계(step)의 급수가 올라오면 이룬 것으로 친다.
+create table if not exists public.honor_goals (
+  who    text not null check (who in ('sua', 'yona')),
+  track  text not null check (char_length(track) between 1 and 20),
+  step   smallint not null check (step between 1 and 99),
+  goal   text not null check (char_length(goal) between 1 and 30),
+  set_on date not null default current_date,
+  primary key (who, track)
+);
+alter table public.honor_goals enable row level security;
+drop policy if exists "anyone reads honor goals" on public.honor_goals;
+create policy "anyone reads honor goals" on public.honor_goals for select using (true);
+drop policy if exists "child sets own honor goal" on public.honor_goals;
+create policy "child sets own honor goal" on public.honor_goals for all to authenticated
+  using ((select public.my_role()) = 'child' and who = (select public.my_author_key()))
+  with check ((select public.my_role()) = 'child' and who = (select public.my_author_key()));
+drop policy if exists "parent sets honor goals" on public.honor_goals;
+create policy "parent sets honor goals" on public.honor_goals for all to authenticated
+  using ((select public.my_role()) = 'parent') with check ((select public.my_role()) = 'parent');
+
+-- ---------------------------------------------------------------------------
+-- 박수 — 손님(할머니)이 자랑마다 박수를 남긴다. 방명록 도장과 같은 방식: 아무것도 안 받고
+-- 「어느 자랑에, 언제」만 적는다. 손님이 넣을 수 있는 칸이라 홍수 방지를 건다.
+create table if not exists public.honor_claps (
+  id         bigint generated always as identity primary key,
+  honor_id   bigint not null references public.honors(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists honor_claps_honor_idx on public.honor_claps (honor_id);
+alter table public.honor_claps enable row level security;
+drop policy if exists "anyone reads claps" on public.honor_claps;
+create policy "anyone reads claps" on public.honor_claps for select using (true);
+drop policy if exists "anyone claps" on public.honor_claps;
+create policy "anyone claps" on public.honor_claps for insert with check (true);
+drop policy if exists "parent clears claps" on public.honor_claps;
+create policy "parent clears claps" on public.honor_claps for delete to authenticated
+  using ((select public.my_role()) = 'parent');
+create or replace function public.honor_claps_rate_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from honor_claps where created_at > now() - interval '1 minute') >= 30
+     or (select count(*) from honor_claps where created_at > now() - interval '1 hour') >= 300 then
+    raise exception '박수가 너무 빨리 쏟아지고 있어요. 잠시 뒤에 다시 해 주세요.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists honor_claps_rate on public.honor_claps;
+create trigger honor_claps_rate before insert on public.honor_claps
+  for each row execute function public.honor_claps_rate_guard();
+-- 자랑마다 몇 번인지만 받아 온다 — 줄을 전부 내려받지 않는다.
+create or replace function public.honor_clap_counts()
+returns table (honor_id bigint, n bigint)
+language sql stable
+set search_path = public
+as $$ select honor_id, count(*) from honor_claps group by honor_id $$;
+grant execute on function public.honor_clap_counts() to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 진열대 꾸미기 — 아이가 받침대 천 색과 조명 색을 고른다. 아이마다 한 줄.
+create table if not exists public.honor_prefs (
+  who   text primary key check (who in ('sua', 'yona')),
+  cloth text not null default 'cream' check (cloth in ('cream', 'red', 'blue', 'green', 'purple', 'night')),
+  lamp  text not null default 'warm'  check (lamp in ('warm', 'white', 'pink', 'mint'))
+);
+alter table public.honor_prefs enable row level security;
+drop policy if exists "anyone reads honor prefs" on public.honor_prefs;
+create policy "anyone reads honor prefs" on public.honor_prefs for select using (true);
+drop policy if exists "child decorates own stands" on public.honor_prefs;
+create policy "child decorates own stands" on public.honor_prefs for all to authenticated
+  using ((select public.my_role()) = 'child' and who = (select public.my_author_key()))
+  with check ((select public.my_role()) = 'child' and who = (select public.my_author_key()));
+drop policy if exists "parent decorates stands" on public.honor_prefs;
+create policy "parent decorates stands" on public.honor_prefs for all to authenticated
+  using ((select public.my_role()) = 'parent') with check ((select public.my_role()) = 'parent');
+
+-- ---------------------------------------------------------------------------
+-- 상장 원본 보관 — 가리기 전 원본은 공개 버킷이 아니라 비공개 버킷에 둔다.
+-- 공개 버킷은 주소만 알면 누구나 여니, 「가족만」은 버킷부터 달라야 한다.
+-- 파일을 보려면 서명 주소를 받아야 하고, 그 주소는 읽기 정책이 있는 가족만 받는다.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('family-private', 'family-private', false, 10485760, array['image/*'])
+  on conflict (id) do nothing;
+drop policy if exists "family reads private files" on storage.objects;
+create policy "family reads private files" on storage.objects for select to authenticated
+  using (bucket_id = 'family-private' and (select public.my_role()) is not null);
+drop policy if exists "parent keeps private files" on storage.objects;
+create policy "parent keeps private files" on storage.objects for insert to authenticated
+  with check (bucket_id = 'family-private' and (select public.my_role()) = 'parent');
+drop policy if exists "parent drops private files" on storage.objects;
+create policy "parent drops private files" on storage.objects for delete to authenticated
+  using (bucket_id = 'family-private' and (select public.my_role()) = 'parent');
+-- 어느 자랑에 원본이 있는지는 따로 적는다 — honors 는 누구나 읽는 표라, 손님은 원본이 있다는 것조차 모르게.
+create table if not exists public.honor_originals (
+  honor_id   bigint primary key references public.honors(id) on delete cascade,
+  path       text not null check (path like 'suayona/honor-orig/%'),
+  created_at timestamptz not null default now()
+);
+alter table public.honor_originals enable row level security;
+drop policy if exists "family sees originals" on public.honor_originals;
+create policy "family sees originals" on public.honor_originals for select to authenticated
+  using ((select public.my_role()) is not null);
+drop policy if exists "parent keeps originals" on public.honor_originals;
+create policy "parent keeps originals" on public.honor_originals for all to authenticated
+  using ((select public.my_role()) = 'parent') with check ((select public.my_role()) = 'parent');
 
 
 -- =====================================================================
