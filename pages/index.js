@@ -2617,7 +2617,7 @@ belowFold(async () => {
     star:   ['...yy...', '...yy...', '.yyyyyy.', '..yyyy..', '..yyyy..', '.yy..yy.', '........', '..rrrr..'],
     piano:  ['.....g..', '....gg..', 'kkkkkkkk', 'kwwwwwwk', 'kwkwkwwk', 'kwkwkwwk', 'kwwwwwwk', 'kkkkkkkk'],
     badge:  ['kkkkkkkk', 'kwwwwwwk', 'kwIIIIwk', 'kwwwwwwk', 'kwIIwwwk', 'kkkkkkkk', '...hh...', '..h..h..'],
-    sash:   ['k.......', 'khk.....', 'khhhk...', '.khhhhk.', '..khhhhk', '...khhhk', '....khk.', '.....k..'],
+    sash:   ['..kkkk..', '.kgyygk.', '.kyyygk.', '.kgyggk.', '..kkkk..', 'khhhhhhk', 'kkkkkkkk', '.k....k.'],   // 금 배지 리본(직함)
   };
   const lookOf = r => ART[r.look] ? r.look : ({ award: 'paper', level: 'piano', first: 'star', title: 'sash' })[r.kind] || 'paper';
   const draw = (g, art, x, color) => {

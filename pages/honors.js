@@ -44,7 +44,7 @@ const LOOK = {
   piano:  { name: '건반 이름표', kind: 'level' },
   badge:  { name: '인증 배지', kind: 'level' },
   star:   { name: '별 기념패', kind: 'first' },
-  sash:   { name: '어깨띠',   kind: 'title' },
+  sash:   { name: '금 배지 리본', kind: 'title' },   // 값은 DB 제약 그대로 sash — 그림만 어깨띠에서 금 배지 리본으로(2026-09-15)
 };
 const LEVEL_COLOR = '#57b98a';               // 색을 안 고른 급수
 const PHOTO_DIM = 2000;                      // 올리는 사진의 긴 변
@@ -188,11 +188,11 @@ const OBJ_ART = {
     '..kwwwwwwhHhwk..', '..kwwwwwwwhhwk..', '..kkkkkkkkkkkk..', '..........hh....',
     '.........h..h...', '................', '................', '................',
   ],
-  sash: [                                                           // 비스듬한 어깨띠
-    '................', 'kk..............', 'khhk............', 'khhhhk..........',
-    '.khhhhhk........', '..khhHhhhk......', '...khhhHhhhk....', '....khhhhHhhk...',
-    '.....khhhhhHhk..', '......khhhhhhhk.', '.......khhhhhhkk', '........khhhhk..',
-    '.........khhk...', '..........kk....', '................', '................',
+  sash: [                                                           // 금 배지 + 아이 색 리본(직함)
+    '.....kkkkkk.....', '....kGggggGk....', '...kGgyyyygGk...', '..kGgyYYyyygGk..',
+    '..kGgyYyyyygGk..', '..kGgyyyyyygGk..', '..kGggyyyyggGk..', '...kGggggggGk...',
+    '....kGGGGGGk....', '.kkkkkkkkkkkkkk.', '.khhhhhhhhhhhhk.', '.kHHHHHHHHHHHHk.',
+    '.kkkkkkkkkkkkkk.', '.kHk........kHk.', '.kk..........kk.', '................',
   ],
   piano: [                                                          // 건반 위에 단계 색 음표
     '...........h....', '...........h....', '...........h....', '.........hhh....',
@@ -613,38 +613,64 @@ function drawShowcaseGlass(g){
   wallRect(g, 1, SC.u0 + w / 2 - 1, SC.v0 + 1, 2, h, 'rgba(120,80,40,.35)', SC.d);          // 문 사이 틀
   wallRect(g, 1, SC.u0 + w / 2 - 4, SC.v0 + 30, 2, 4, '#c8962e', SC.d); wallRect(g, 1, SC.u0 + w / 2 + 2, SC.v0 + 30, 2, 4, '#c8962e', SC.d);   // 손잡이
 }
-// ---------- 어깨띠 — 지금 맡은 직함 ----------
-/* 방 위에 아이 색 어깨띠와 금박 글씨. 그 아래 임기 막대(시작 ~ 끝, 오늘 위치, 몇 개월째).
-   직함이 둘이면 나란히(막대도 둘), 셋 이상이면 띠만. 임기가 끝나면 여기서 사라지고 벽의 역대 줄로 간다. */
-const SASH_W = 480, SASH_H = 70;
-const sashHits = { sua: [], yona: [] };
+// ---------- 금 배지 리본 — 지금 맡은 직함 ----------
+/* 방 위에 금 배지(직함 아이콘)와 아이 색 리본(직함 이름), 2초마다 반짝(roomLoop 가 다시 그린다). 그 아래 임기 막대(시작 ~ 끝, 오늘 위치, 몇 개월째).
+   직함이 둘이면 나란히(막대도 둘), 셋이면 배지만(낮은 캔버스). 임기가 끝나면 여기서 사라지고 벽의 역대 줄로 간다.
+   2026-09-15 어깨띠 → 금 배지 리본(부모가 시안 3번을 고름). */
+const SASH_W = 480, SASH_H = 92, SASH_H3 = 64;
+const sashHits = { sua: [], yona: [] }, sashOn = { sua: false, yona: false };
 function drawSash(box, k){
   const cur = mineOf(k).filter(isCurrent).sort((a, b) => a.got_on < b.got_on ? -1 : 1).slice(0, 3);
-  box.hidden = !cur.length; sashHits[k] = [];
+  box.hidden = !cur.length; sashHits[k] = []; sashOn[k] = !!cur.length;
   if (!cur.length) return;
-  const cv = box.querySelector('canvas'), g = cv.getContext('2d');
-  g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0); g.clearRect(0, 0, SASH_W, SASH_H);
-  const color = KID_COLOR[k], n = cur.length, slot = SASH_W / n, FONT = '"Suayona Sans", Pretendard, system-ui, sans-serif';
+  const cv = box.querySelector('canvas'), n = cur.length, H = n <= 2 ? SASH_H : SASH_H3;
+  if (cv.height !== H * 2) cv.height = H * 2;                            // 높이를 다시 주면 비워진다 — 화면 높이는 CSS height:auto 가 따라간다
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0); g.clearRect(0, 0, SASH_W, H);
+  const color = KID_COLOR[k], slot = SASH_W / n, FONT = '"Suayona Sans", Pretendard, system-ui, sans-serif';
   cur.forEach((r, i) => {
-    const cx = slot * i + slot / 2, cy = n === 1 ? 24 : 22, w = n === 1 ? 92 : n === 2 ? 76 : 60, sl = 0.2;
-    g.save(); g.globalCompositeOperation = 'lighter';
-    const gr = g.createRadialGradient(cx, cy, 0, cx, cy, 70); gr.addColorStop(0, 'rgba(255,200,160,.5)'); gr.addColorStop(1, 'rgba(255,200,160,0)');
-    g.fillStyle = gr; g.fillRect(cx - 70, cy - 70, 140, 140); g.restore();
-    for (let d = -w; d <= w; d++){                                            // 띠 — 왼위에서 오른아래로
-      const x = Math.round(cx + d), y = Math.round(cy + d * sl), edge = Math.abs(d) === w;
-      g.fillStyle = '#2a2118'; g.fillRect(x, y - 10, 1, 1); g.fillRect(x, y + 9, 1, 1);
-      g.fillStyle = edge ? '#2a2118' : shade(color, (d % 6 === 0) ? -14 : 0); g.fillRect(x, y - 9, 1, 18);
-      if (!edge){ g.fillStyle = shade(color, 40); g.fillRect(x, y - 8, 1, 1); }
+    const cx = Math.round(slot * i + slot / 2), R = n === 1 ? 19 : n === 2 ? 16 : 13, cy = R + 4;
+    g.save(); g.globalCompositeOperation = 'lighter';                   // 은은한 빛
+    const gr = g.createRadialGradient(cx, cy, 0, cx, cy, R * 3); gr.addColorStop(0, 'rgba(255,205,140,.5)'); gr.addColorStop(1, 'rgba(255,205,140,0)');
+    g.fillStyle = gr; g.fillRect(cx - R * 3, cy - R * 3, R * 6, R * 6); g.restore();
+    // 리본 꼬리(뒤) — 양 끝이 아래로 접혀 나온다
+    g.font = '900 ' + (n === 1 ? 12 : n === 2 ? 11 : 10) + 'px ' + FONT;
+    let label = r.title;
+    const rwMax = slot - 26;
+    while (label.length > 2 && g.measureText(label).width > rwMax - 14) label = label.slice(0, -2) + '…';
+    const rw = Math.round(Math.min(rwMax, Math.max(R * 2 + 14, g.measureText(label).width + 18))), rh = n === 1 ? 16 : 14;
+    const rx = Math.round(cx - rw / 2), ry = cy + R - 5, tail = 8, dark = shade(color, -42);
+    [rx - tail + 2, rx + rw - 2].forEach((tx, side) => {
+      g.fillStyle = '#2a2118'; g.fillRect(tx - 1, ry + 3, tail + 1, rh + 2);
+      g.fillStyle = dark; g.fillRect(tx, ry + 4, tail - 1, rh);
+      const nx = side ? tx + tail - 3 : tx - 1;                          // 끝의 V 홈
+      g.clearRect(nx, ry + 4 + Math.round(rh / 2) - 2, 3, 4);
+    });
+    // 금 배지 — 도트 원(테 · 짙은 금 · 금 · 윗빛 · 안쪽 고리)
+    const disc = (rad, col) => { g.fillStyle = col; for (let y = -rad; y <= rad; y++){ const hw = Math.round(Math.sqrt(rad * rad - y * y)); g.fillRect(cx - hw, cy + y, hw * 2 + 1, 1); } };
+    disc(R + 1, '#2a2118'); disc(R, '#b9812c'); disc(R - 2, '#e0a93b');
+    g.fillStyle = '#ffd979';
+    for (let y = -(R - 2); y <= -Math.round(R / 3); y++){ const hw = Math.round(Math.sqrt((R - 2) * (R - 2) - y * y) * 0.8); g.fillRect(cx - hw, cy + y, hw * 2 + 1, 1); }
+    g.fillStyle = '#b9812c';
+    for (let y = -(R - 5); y <= R - 5; y++){
+      const ho = Math.round(Math.sqrt((R - 5) * (R - 5) - y * y)), hi = Math.abs(y) >= R - 6 ? -1 : Math.round(Math.sqrt((R - 6) * (R - 6) - y * y));
+      if (hi < 0) g.fillRect(cx - ho, cy + y, ho * 2 + 1, 1); else { g.fillRect(cx - ho, cy + y, ho - hi, 1); g.fillRect(cx + hi + 1, cy + y, ho - hi, 1); }
     }
-    g.fillStyle = '#2a2118'; g.fillRect(Math.round(cx - w - 8), Math.round(cy - w * sl) - 12, 8, 2); g.fillRect(Math.round(cx + w), Math.round(cy + w * sl) + 8, 8, 2);   // 매듭 끝
-    drawIcon(g, r.icon, Math.round(cx - w + 6), Math.round(cy - (w - 9) * sl) - 3, 1, { g: '#fff3c4', y: '#fff', b: '#fff', w: '#3a2410', r: '#fff' });
-    g.save(); g.translate(cx, cy); g.rotate(Math.atan(sl));
-    g.font = '900 ' + (n === 1 ? 13 : n === 2 ? 12 : 10) + 'px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillText(r.title, 1, 1); g.fillStyle = '#ffd979'; g.fillText(r.title, 0, 0);
-    g.restore();
-    sashHits[k].push({ r, x0: cx - w - 8, x1: cx + w + 8, y0: cy - w * sl - 12, y1: cy + w * sl + 12 });
+    const sc = R >= 16 ? 2 : 1;
+    drawIcon(g, r.icon, Math.round(cx - 7 * sc / 2), Math.round(cy - 6 * sc / 2), sc, { g: '#6b4410', y: '#fff3c4', b: '#6b4410', w: '#fff3c4', r: '#c0392b' });
+    g.fillStyle = '#fff8dc'; g.fillRect(cx - R + 5, cy - R + 6, 2, 2);  // 늘 있는 작은 빛점
+    // 리본 앞판과 직함 이름
+    g.fillStyle = '#2a2118'; g.fillRect(rx - 1, ry - 1, rw + 2, rh + 2);
+    g.fillStyle = color; g.fillRect(rx, ry, rw, rh);
+    g.fillStyle = shade(color, 40); g.fillRect(rx, ry, rw, 1);
+    g.fillStyle = shade(color, -22); g.fillRect(rx, ry + rh - 2, rw, 2);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = 'rgba(0,0,0,.3)'; g.fillText(label, cx + 1, ry + rh / 2 + 1);
+    g.fillStyle = '#fff8e6'; g.fillText(label, cx, ry + rh / 2);
+    if (sparklePhase !== null) drawSparkle(g, Math.round(cx + R * 0.55), Math.round(cy - R * 0.6));   // 2초마다 반짝
+    sashHits[k].push({ r, x0: rx - tail - 2, x1: rx + rw + tail + 2, y0: cy - R - 3, y1: ry + rh + 6 });
     if (n <= 2){                                                                 // 임기 막대
-      const t = termOf(r), bw = Math.min(200, slot - 40), bx = Math.round(cx - bw / 2), by = 52;
+      const t = termOf(r), bw = Math.min(200, slot - 40), bx = Math.round(cx - bw / 2), by = 74;
       g.fillStyle = '#2a2118'; g.fillRect(bx - 1, by - 1, bw + 2, 7);
       g.fillStyle = '#e8dcc4'; g.fillRect(bx, by, bw, 5);
       g.fillStyle = color; g.fillRect(bx, by, Math.round(bw * t.frac), 5);
@@ -658,7 +684,7 @@ function drawSash(box, k){
   });
   if (!cv.__wired){
     cv.__wired = true;
-    const at = e => { const rc = cv.getBoundingClientRect(); if (!rc.width) return null; const x = (e.clientX - rc.left) / rc.width * SASH_W, y = (e.clientY - rc.top) / rc.height * SASH_H; return sashHits[k].find(h => x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1) || null; };
+    const at = e => { const rc = cv.getBoundingClientRect(); if (!rc.width) return null; const x = (e.clientX - rc.left) / rc.width * SASH_W, y = (e.clientY - rc.top) / rc.height * (cv.height / 2); return sashHits[k].find(h => x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1) || null; };
     cv.addEventListener('pointermove', e => { const h = at(e); cv.style.cursor = h ? 'pointer' : 'default'; if (h && e.pointerType === 'mouse') withKid(k, () => say(captionOf(h.r))); });
     cv.addEventListener('click', e => { const h = at(e); if (h) withKid(k, () => openItem(h.r)); });
   }
@@ -887,7 +913,7 @@ function buildRoom(k){
     '<div class="museum-card">' +
       '<h2 class="room-title"></h2>' +
       '<p class="sub room-sub"></p>' +
-      '<div class="title-sash" hidden><canvas class="sash-cv" width="960" height="140" aria-label="지금 맡은 직함"></canvas></div>' +
+      '<div class="title-sash" hidden><canvas class="sash-cv" width="' + SASH_W * 2 + '" height="' + SASH_H * 2 + '" aria-label="지금 맡은 직함"></canvas></div>' +
       '<div class="museum-stage"><canvas class="museum" id="museum-' + k + '" width="' + RW * 2 + '" height="' + RH * 2 + '"' +
         ' aria-label="' + heroName(k) + '의 업적 전시실. 오른쪽 벽에 상장 액자와 코르크판, 유리 진열장에 메달·트로피, 왼쪽 벽에 급수 사다리, 바닥 받침대에 처음 해낸 일이 있어요. 누르면 사진이 열려요."></canvas></div>' +
       '<p class="museum-msg" id="museumMsg-' + k + '" aria-live="polite"></p>' +
@@ -1886,7 +1912,10 @@ function roomLoop(now){
     const dt = Math.min(100, lastTick ? now - lastTick : 16); lastTick = now;
     checkSeen(now);
     const t = now % 2000, on = t < 450, spark = on || sparklePhase !== null;
-    if (spark) sparklePhase = on ? t / 450 : null;
+    if (spark){
+      sparklePhase = on ? t / 450 : null;
+      KIDS.forEach(k => { if (sashOn[k] && roomSeen[k]){ const b = document.querySelector('.honor-room[data-kid="' + k + '"] .title-sash'); if (b) drawSash(b, k); } });   // 금 배지 반짝
+    }
     if (!document.hidden) KIDS.forEach(k => {
       if (!roomSeen[k] || !$('#museum-' + k)) return;
       if (!greeted[k] && hitsOf[k]){ greeted[k] = true; greetNew(k); }   // 방이 처음 보일 때 새 자랑을 알린다
