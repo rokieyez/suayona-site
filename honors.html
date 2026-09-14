@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="robots" content="noindex, nofollow">
+<title>자랑 저장고 · 수아랑 연아랑</title>
+<meta name="description" content="수아랑 연아랑의 자랑 저장고 — 학교·학원에서 받은 상장, 차근차근 올라간 급수, 처음 해낸 일을 모아 둔 도트 전시관.">
+
+<link rel="preload" href="/fonts/PretendardVariable.subset.woff2" as="font" type="font/woff2" crossorigin>
+<link href="/fonts/dot.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  /* 자랑 저장고 — 모험단 보물 저장고가 돌벽 보물 창고라면 여기는 밝은 나무 벽의 작은 박물관 */
+  .kid-tabs, .year-tabs{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:0 0 10px;}
+  .kid-tabs .dot-btn.on.sua{background:var(--coral);}
+  .kid-tabs .dot-btn.on.yona{background:var(--mint);}
+  .year-tabs .dot-btn{font-size:12px; padding:6px 10px;}
+  .year-tabs .dot-btn.on{background:var(--lemon);}
+  .admin-bar{text-align:center; margin:0 0 12px;}
+  .museum-card{padding:14px; max-width:820px; margin:0 auto;}
+  .museum-card h2{font-size:16px; margin:0 0 2px;}
+  .museum-card .sub{font-size:12px; color:var(--ink-soft); margin:0 0 10px;}
+  .museum-stage{line-height:0; border:3px solid var(--ink); background:#2a2320;}
+  #museum{
+    display:block; width:100%; aspect-ratio:400/260; image-rendering:pixelated;
+    cursor:pointer; touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  }
+  .museum-msg{min-height:1.6em; font-size:12.5px; color:var(--ink-soft); margin:8px 0 0; line-height:1.6;}
+  .honor-note{text-align:center; color:var(--ink-soft); font-size:13px; margin:0 0 14px;}
+  .honor-list{max-width:820px; margin:18px auto 0;}
+  .honor-group{margin-top:18px;}
+  .honor-group h3{font-size:14px; margin:0 0 8px;}
+  .honor-group h3 span{font-size:12px; color:var(--ink-soft); font-weight:700;}
+  .track-head{font-size:12.5px; font-weight:800; margin:10px 0 6px; line-height:1.6;}
+  .honor-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:10px;}
+  .honor-card{display:flex; gap:10px; padding:10px; align-items:flex-start; position:relative;}
+  .honor-card .pic{position:relative; flex:none; width:76px; height:76px; border:2px solid var(--ink); background:#fff6e6; padding:0; cursor:pointer; overflow:hidden;}
+  .honor-card .pic img{width:100%; height:100%; object-fit:cover; display:block;}
+  .honor-card .pic .mark{position:absolute; right:0; bottom:0; width:36px; height:36px; image-rendering:pixelated;}
+  .honor-card .pic .mark:only-child{inset:0; margin:auto; width:54px; height:54px;}
+  .honor-card .txt{min-width:0; flex:1; padding-right:4px;}
+  .honor-card .txt b{display:block; font-size:13.5px; line-height:1.4; word-break:keep-all;}
+  .honor-card .txt small{display:block; font-size:11.5px; color:var(--ink-soft); line-height:1.5;}
+  .honor-card .say{margin:6px 0 0; font-size:12.5px; line-height:1.55;}
+  .honor-card .acts{display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;}
+  .honor-card .acts button{font:inherit; font-size:11px; font-weight:800; padding:2px 7px; border:2px solid var(--ink); background:#fff; cursor:pointer;}
+  .honor-empty{text-align:center; color:var(--ink-soft); font-size:13px; margin:18px 0;}
+  .row2{display:flex; gap:10px;}
+  .row2 > *{flex:1; min-width:0;}
+  .honor-form.modal-box{max-width:560px;}
+  .honor-form .photo-now img{width:100%; border:2px solid var(--ink); display:block;}
+  .honor-form .photo-now label{display:flex; gap:6px; align-items:center; font-size:12px; margin:6px 0;}
+  .mz-help{font-size:12px; color:var(--ink-soft); margin:8px 0; line-height:1.6;}
+  .mz-stage{border:2px solid var(--ink); background:#222; line-height:0;}
+  .mz-cv{display:block; width:100%; height:auto; touch-action:none; cursor:crosshair;}
+  .mz-bar{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;}
+  .mz-bar select{width:auto;}
+  .mz-count{font-size:12px; color:var(--ink-soft);}
+</style>
+</head>
+<body>
+
+<section class="page-top section-pad">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">HONORS</span>
+      <h1>자랑 저장고</h1>
+      <p>학교·학원에서 받은 상장, 한 칸씩 올라간 급수, 처음 해낸 일을 모아 둔 전시관이에요</p>
+    </div>
+
+    <p class="honor-note" id="honorNote" hidden></p>
+    <div class="kid-tabs" id="kidTabs" role="group" aria-label="누구의 저장고"></div>
+    <div class="year-tabs" id="yearTabs" role="group" aria-label="학년도"></div>
+    <div class="admin-bar" id="adminBar" hidden><button type="button" class="dot-btn primary" id="addHonor">＋ 자랑 올리기</button></div>
+
+    <div class="dot-card museum-card reveal">
+      <h2 id="roomTitle">자랑 저장고</h2>
+      <p class="sub" id="roomSub">벽의 액자, 왼쪽 벽의 급수 사다리, 바닥 진열대를 누르면 사진이 열려요</p>
+      <div class="museum-stage"><canvas id="museum" width="800" height="520"
+           aria-label="자랑 저장고. 오른쪽 벽에 상장 액자, 왼쪽 벽에 급수 사다리, 바닥 진열대에 메달·트로피와 처음 해낸 일이 있어요. 누르면 사진이 열려요."></canvas></div>
+      <p class="museum-msg" id="museumMsg" aria-live="polite"></p>
+    </div>
+
+    <div class="honor-list" id="honorList"></div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        onerror="window.__sbFailed=1"></script>
+<script src="./common.js"></script>
+<script src="/pages/honors.js"></script>
+</body>
+</html>

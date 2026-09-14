@@ -1579,3 +1579,67 @@ as $$
 $$;
 revoke all on function public.quest_cards() from public;
 grant execute on function public.quest_cards() to anon, authenticated;
+
+
+-- =====================================================================
+-- 2026-09-14 — 자랑 저장고 (honors.html): 상장·메달 · 급수 · 처음 해낸 것
+-- 누구나 읽는다(부모가 공개로 정했다). 쓰기는 부모만.
+-- 사진은 부모가 올릴 때 이름·학교를 모자이크한 사본만 올라간다(원본은 브라우저 밖으로 안 나감).
+-- 사진 주소는 우리 버킷의 suayona/honor/ 로 못 박는다 — 남의 주소를 적어 넣어 우리 페이지가
+-- 그것을 불러 주게 되는 일을 막는다. 올리기 권한은 기존 「parent uploads media」 가 이미 덮는다.
+-- 아이는 제 자랑(또는 둘이 함께 받은 것)에 한마디만 쓸 수 있다 — 표를 직접 못 고치게 함수로 좁힌다.
+create table if not exists public.honors (
+  id         bigint generated always as identity primary key,
+  who        text not null check (who in ('sua', 'yona', 'both')),
+  kind       text not null check (kind in ('award', 'level', 'first')),
+  look       text not null default 'paper' check (look in ('paper', 'medal', 'trophy', 'belt', 'badge', 'star')),
+  title      text not null check (char_length(title) between 1 and 60),
+  org        text check (org is null or char_length(org) <= 40),
+  got_on     date not null,
+  track      text check (track is null or char_length(track) between 1 and 20),
+  step       smallint check (step is null or step between 1 and 99),
+  color      text check (color is null or color ~ '^#[0-9a-fA-F]{6}$'),
+  photo_url  text check (photo_url is null or photo_url like 'https://ifiemaypzjwdrljmmkgb.supabase.co/storage/v1/object/public/event-images/suayona/honor/%'),
+  thumb_url  text check (thumb_url is null or thumb_url like 'https://ifiemaypzjwdrljmmkgb.supabase.co/storage/v1/object/public/event-images/suayona/honor/%'),
+  say_sua    text check (say_sua is null or char_length(say_sua) <= 80),
+  say_yona   text check (say_yona is null or char_length(say_yona) <= 80),
+  created_at timestamptz not null default now(),
+  constraint honors_level_has_track check (kind <> 'level' or track is not null)
+);
+create index if not exists honors_got_on_idx on public.honors (got_on desc);
+alter table public.honors enable row level security;
+
+drop policy if exists "anyone reads honors" on public.honors;
+create policy "anyone reads honors" on public.honors for select using (true);
+drop policy if exists "parent writes honors" on public.honors;
+create policy "parent writes honors" on public.honors for all
+  using ((select public.my_role()) = 'parent') with check ((select public.my_role()) = 'parent');
+
+create or replace function public.honor_say(p_id bigint, p_text text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  k text;
+  t text := nullif(btrim(coalesce(p_text, '')), '');
+begin
+  select author_key into k from profiles where user_id = auth.uid() and role = 'child';
+  if k is null then raise exception '아이 계정만 한마디를 쓸 수 있어요'; end if;
+  if t is not null and char_length(t) > 80 then raise exception '한마디는 80자까지예요'; end if;
+  update honors
+     set say_sua  = case when k = 'sua'  then t else say_sua  end,
+         say_yona = case when k = 'yona' then t else say_yona end
+   where id = p_id and who in (k, 'both');
+  if not found then raise exception '내 자랑에만 한마디를 쓸 수 있어요'; end if;
+end
+$$;
+revoke all on function public.honor_say(bigint, text) from public;
+grant execute on function public.honor_say(bigint, text) to authenticated;
+
+
+-- =====================================================================
+-- 2026-09-14 — 편지쓰기 페이지를 뺐다. 받을 곳이 없어졌으니 손님 「넣기」 문도 닫는다.
+-- 뺄 때 messages 는 0통이었다. 읽기·지우기는 부모 정책 그대로 두고, 넣기만 막는다.
+drop policy if exists "anyone can insert messages" on public.messages;

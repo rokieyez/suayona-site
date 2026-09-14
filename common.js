@@ -160,7 +160,6 @@ const MENU = [
   { href: '/event/',        label: '이벤트',    key: 'event' },
   { href: '/wish/',         label: '가볼 곳',   key: 'wish' },
   { href: '/board.html',    label: '일기장',    key: 'board' },
-  { href: '/contact.html',  label: '편지쓰기',  key: 'contact' },
   // 그리기는 메뉴에 두지 않는다 — 첫 화면의 「그리러 가기」로 충분하고, 항목이
   // 일곱이면 좁은 화면에서 한 줄이 넘친다.
   // 놀이는 한 자리에 모았다 — 한 번 눌러 뛰기·지뢰찾기·모험단 (2026-09-12)
@@ -1957,7 +1956,7 @@ function buildFormatBar(ta, opts){
 }
 
 // ============================================================================
-// 배경 겹 — 소개 / 포트폴리오 / 일기장 / 편지쓰기
+// 배경 겹 — 소개 / 포트폴리오 / 일기장 / 이벤트 / 한 해 / 시간표
 //
 // 화면에 고정된 세 겹(먼 하늘·중간 소품·가까운 풀)을 깔고, 스크롤에 따라 서로 다른
 // 속도로 아주 조금씩 민다. 이동값은 도트 한 칸(S) 단위로 끊는다 — 첫 페이지 히어로가
@@ -2139,7 +2138,7 @@ const BACKDROP = {
         { tilt: H * 0.05, lit: u.wash(SCENE.hillsLit[1], .68), litRows:1 });
       drawTreeLine(g, tops, S, W,
         u.wash(SCENE.hills[4], .74), u.wash(SCENE.hills[3], .74), 2.1, 0.55);
-      // 능선 오른쪽에 집 하나 — 편지쓰기 페이지에서 이 집 앞까지 온다
+      // 능선 오른쪽에 집 하나
       const hs = u.fitS(SPRITES.house, H * 0.11);
       drawSprite(g, SPRITES.house, Math.round(W * 0.80 / S) * S,
         Math.round((H * 0.58 - SPRITES.house.length * hs) / S) * S, hs,
@@ -2281,45 +2280,6 @@ const BACKDROP = {
     near(g, W, H, S, u){ return BACKDROP.board.near(g, W, H, S, u); },
   },
 
-  // 편지쓰기 — 우체국. 폼 한 칸짜리라 스크롤이 거의 없어서, 움직임이 아니라 겹침으로 깊이를 낸다.
-  contact: {
-    nearH: [168, 112],
-    far(g, W, H, S, u){
-      drawSkyBands(g, W, H, S, [
-        { at:0,    color:u.wash(SCENE.sky[2], .66) },
-        { at:0.50, color:u.wash(SCENE.sky[3], .66) },
-        { at:1,    color:u.wash(SCENE.sky[4], .66) },
-      ]);
-      drawHill(g, [{freq:1.2, amp:9, phase:1.5}],
-        u.wash(SCENE.hills[2], .68), S, H * 0.60, W, H,
-        { tilt: H * 0.04, lit: u.wash(SCENE.hillsLit[2], .68), litRows:1 });
-      const bs = u.fitS(SPRITES.bird, H * 0.035);       // 편지를 나르는 쪽
-      [[0.30, 0.26], [0.44, 0.20]].forEach(([xr, yr]) =>
-        drawSprite(g, SPRITES.bird, Math.round(W * xr / S) * S,
-          Math.round(H * yr / S) * S, bs, u.washPal(SPRITES.bird, .80, u.CREAM)));
-      groundOut(g, W, H, H - 72, S, u.wash(SCENE.hills[2], .68), u.CREAM);
-    },
-    mid(g, W, H, S, u){
-      const mob = W < 640;
-      // 소개 페이지 능선에서 손톱만하게 보이던 그 집. 여기서는 슬롯의 42% 다.
-      // 크기와 겹 속도가 같이 벌어지므로 "멀리 보이던 집 앞에 와서 편지를 쓴다"가 읽힌다.
-      const hs = u.fitS(SPRITES.house, H * 0.45);
-      drawSprite(g, SPRITES.house, Math.round(W * 0.10 / S) * S,
-        Math.round((H - SPRITES.house.length * hs) / S) * S, hs,
-        u.washPal(SPRITES.house, .78, u.CREAM));
-      const ms = u.fitS(SPRITES.mail, H * 0.24);
-      const path = mob ? [[0.74, 0.30]] : [[0.90, 0.10], [0.80, 0.34], [0.70, 0.58]];
-      path.forEach(([xr, yr]) =>                        // 집을 향해 내려오는 편지들
-        drawSprite(g, SPRITES.mail, Math.round(W * xr / S) * S,
-          Math.round(H * yr / S) * S, ms, u.washPal(SPRITES.mail, .78, u.CREAM)));
-    },
-    near(g, W, H, S, u){
-      const sh = NEAR_SHADES(u);
-      drawBushMass(g, -S*4, W + S*4, H * 0.28, H, S, 5.5, sh);
-      drawTallGrass(g, -S*2, W + S*2, H * 0.34, S, 3.7, sh, 2);
-      drawTallGrass(g, -S*2, W + S*2, H * 0.98, S, 8.1, sh, 2);
-    },
-  },
 };
 
 // 가까운 겹의 초록 3단. SCENE.bush 는 흰 글자를 받으려고 만든 거의 검정 초록이라,
