@@ -48,7 +48,7 @@ const LOOK = {
 };
 const LEVEL_COLOR = '#57b98a';               // 색을 안 고른 급수
 const PHOTO_DIM = 2000;                      // 올리는 사진의 긴 변
-const PHOTO_LIMIT = Math.round(1.5 * 1024 * 1024);   // 눌러 크게 볼 사진은 1.5MB 안으로 줄여 올린다
+const PHOTO_LIMIT = 800 * 1000;                      // 눌러 크게 볼 사진은 800KB 안으로 줄여 올린다(2026-09-15, 1.5MB → 800KB). 넘으면 막지 않고 화질·크기를 낮춘다
 const THUMB_LONG = 400;
 
 const CLOTH = { cream: '#f1e3c6', red: '#c0392b', blue: '#3a63b0', green: '#3f9a63', purple: '#7a4fa8', night: '#2f3242' };
