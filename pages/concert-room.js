@@ -43,7 +43,8 @@
   function wallDo(g, side, fn){ g.save(); g.transform(1, side ? 0.5 : -0.5, 0, 1, OX, OY); fn(); g.restore(); }
   function rtext(g, t, a, v, font, col, align){ wallDo(g, 1, () => { g.font = font; g.fillStyle = col; g.textAlign = align || 'left'; g.fillText(t, a * 28, -v); }); }
   function ltext(g, t, b, v, font, col, align){ wallDo(g, 0, () => { g.font = font; g.fillStyle = col; g.textAlign = align || 'left'; g.fillText(t, -b * 28, -v); }); }
-  const short = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+  // 맥에서 올린 제목은 자모가 풀려(NFD) 있어 그대로 자르면 끝 글자가 ㄱ·ㅈ 처럼 깨진다 — 모아 쓴 뒤 자른다
+  const short = (t, n) => { t = String(t || '').normalize('NFC'); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
   function prand(k){ let h = 2166136261; for (let i = 0; i < k.length; i++){ h ^= k.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10007) / 10007; }
   const layer = () => { const c = document.createElement('canvas'); c.width = RW * 2; c.height = RH * 2; const g = c.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); g.imageSmoothingEnabled = false; return { c, g }; };
 
@@ -59,7 +60,19 @@
   const HOME = { sua: { row: 0, a: 4.3 }, yona: { row: 0, a: 6.55 } };     // 두 아이 자리 — 통로 옆
   const LANE_B = 3.82;                                                     // 무대와 첫 줄 사이 길
   const SCREEN = { a0: 6.9, a1: 11.55, v0: 96, v1: 170 };                  // 오른쪽 벽 화면
-  const MUSIC = /쇼팽|연습곡|에튀드|etude|sonatina|소나티나|피아노|piano|자작곡|콩쿠르|연주|chopin|곡\b|노래|song/i;
+  // 영상 종류 → 무대 모습(2026-09-15 부모 「전부진행」). 제목으로 가른다 — 앞에서부터 먼저 맞는 것(요리가 만들기보다 앞: 「샌드위치 만들기」)
+  const KINDS = [
+    ['piano', /쇼팽|연습곡|에튀드|etude|sonatina|소나티나|피아노|piano|자작곡|콩쿠르|chopin|\bost\b|secret|시크릿/i],
+    ['news', /뉴스|news|속보/i],
+    ['cinema', /만화|애니|cartoon|웹툰|영화|film|\(20\d\d\)/i],
+    ['game', /게임|보드|game/i],
+    ['cook', /요리|레시피|샌드위치|쿠킹|cook/i],
+    ['craft', /만들기|강좌|그리기|프로크리|이모티콘|올챙이|슬라임|공예/i],
+  ];
+  const stageKind = w => { const t = String((w && w.title) || '').normalize('NFC'), k = KINDS.find(([, re]) => re.test(t)); return k ? k[0] : 'mic'; };
+  const KIND_ICON = { piano: '🎹', news: '📰', cinema: '🎬', game: '🎲', cook: '🍳', craft: '✂️', mic: '🎤' };
+  const KIND_NOUN = { piano: '연주', news: '뉴스', cinema: '상영', game: '게임', cook: '요리', craft: '만들기', mic: '무대' };
+  const onStage = (a, b) => a <= STAGE.a1 + 0.01 && b <= STAGE.b1 + 0.01;
   function floorH(a, b){
     if (a <= STAGE.a1 + 0.001 && b <= STAGE.b1 + 0.001) return STAGE.h;
     if (a >= STAIRS.a0 - 0.05 && a <= STAIRS.a1 + 0.05 && b > STAIRS.b0 && b < STAIRS.b1) return Math.round(STAGE.h * (STAIRS.b1 - b) / (STAIRS.b1 - STAIRS.b0));
@@ -242,7 +255,12 @@
     if (mode === 'piano') return n > 1 ? [{ a: 2.08, b: 2.7 }, { a: 2.68, b: 2.7 }] : [{ a: 2.38, b: 2.7 }];
     return n > 1 ? [{ a: 4.15, b: 2.25 }, { a: 4.95, b: 2.25 }] : [{ a: MIC.a, b: 2.25 }];
   }
-  function approachA(mode, spot){ return mode === 'piano' ? spot.a : spot.a >= MIC.a ? spot.a + 0.42 : spot.a - 0.42; }
+  const TABLE_KINDS = ['news', 'game', 'cook', 'craft'];
+  function approachA(mode, spot){
+    if (mode === 'piano') return spot.a;
+    if (TABLE_KINDS.includes(show.kind)) return spot.a >= MIC.a ? 5.62 : 3.5;        // 탁자 옆으로 돌아 들어간다
+    return spot.a >= MIC.a ? spot.a + 0.42 : spot.a - 0.42;
+  }
   function planUp(k, mode, spot){
     const h = homeSpot(k), ax = approachA(mode, spot);
     const pts = [{ a: h.a, b: LANE_B }, { a: STAIR_A, b: LANE_B }, { a: STAIR_A, b: EDGE_B }, { a: ax, b: EDGE_B }, { a: ax, b: spot.b }];
@@ -256,13 +274,13 @@
 
   // ---------- 공연 차례 ----------
   // idle(객석 불 켜짐·다음 무대 안내) → up(걸어 올라감) → sit → play(불 어둡게·조명) → bow(인사·박수) → down → rest → 다음 영상
-  const DUR = { idle: 1800, sit: 700, play: 15000, bow: 4200, rest: 900 };
+  const DUR = { idle: 3400, sit: 700, play: 15000, bow: 4200, rest: 900 };
   let videos = [], list = [], openFn = null, idx = 0;
   const show = { phase: 'none', t: 0, who: [], mode: 'piano', spots: [], w: null, since: 0 };
   function startShow(){
     if (!videos.length){ show.phase = 'none'; show.w = null; return; }
     const w = videos[idx % videos.length];
-    show.w = w; show.mode = MUSIC.test(w.title || '') ? 'piano' : 'mic';
+    show.w = w; show.kind = stageKind(w); show.mode = show.kind === 'piano' ? 'piano' : 'mic';
     show.who = w.author === 'together' ? ['sua', 'yona'] : [HOME[w.author] ? w.author : 'sua'];
     show.spots = spotsFor(show.mode, show.who.length);
     setPhase(STILL ? 'play' : 'idle');
@@ -271,7 +289,8 @@
   function setPhase(ph){ show.phase = ph; show.t = 0; onPhase(ph); }
   function onPhase(ph){
     const who = show.who.map(actorOf);
-    if (ph === 'up'){
+    if (ph === 'idle') announce();
+    else if (ph === 'up'){
       let left = who.length;
       who.forEach((p, n) => { p.seated = false; p.plan = planUp(p.k, show.mode, show.spots[n]); p.onArrive = () => { p.flip = false; p.seated = show.mode === 'piano'; p.dir = p.seated ? 'up' : 'down'; if (--left === 0) setPhase('sit'); }; });
     } else if (ph === 'play'){
@@ -296,7 +315,7 @@
     if (ph === 'idle' && t > DUR.idle) setPhase('up');
     else if (ph === 'sit' && t > DUR.sit) setPhase('play');
     else if (ph === 'play' && (show.pendingBow || (t > DUR.play && !show.live))){ show.pendingBow = false; setPhase('bow'); }   // 진짜 영상을 트는 동안은 끝날 때까지
-    else if (ph === 'bow' && t > DUR.bow) setPhase('down');
+    else if (ph === 'bow' && t > DUR.bow && !growth) setPhase('down');   // 성장 무대 중이면 내려가지 않고 다음 곡을 기다린다
     else if (ph === 'rest' && t > DUR.rest){ idx = (idx + 1) % videos.length; startShow(); }
     KIDS.forEach(k => stepActor(actorOf(k), dt));
     return true;
@@ -340,6 +359,12 @@
         if (show.live && yt && yt.getDuration){ try { const d = yt.getDuration(); if (d > 0) p = Math.min(1, yt.getCurrentTime() / d); } catch (e) { /* 플레이어가 아직 준비 전 */ } }
         g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(x + 5, y + H - 8, W - 10, 3);
         g.fillStyle = '#ffd979'; g.fillRect(x + 5, y + H - 8, Math.round((W - 10) * p), 3);
+        if (show.kind === 'news'){
+          g.fillStyle = '#c0392b'; g.fillRect(x, y + H - 22, W, 11); g.fillStyle = '#fff8ea'; g.fillRect(x, y + H - 22, 22, 11);
+          g.save(); g.beginPath(); g.rect(x + 23, y + H - 22, W - 23, 11); g.clip(); g.font = '800 7px ' + FONT; g.fillStyle = '#fff8ea'; g.textAlign = 'left';
+          const tick = '수아연아 뉴스 · 오늘의 소식을 전해 드립니다 · ', off = (now() / 40) % 160; g.fillText(tick + tick, x + 23 - off, y + H - 14); g.restore();
+          g.fillStyle = '#c0392b'; g.font = '800 7px ' + FONT; g.textAlign = 'center'; g.fillText('속보', x + 11, y + H - 14);
+        }
         if (Math.floor(now() / 600) % 2){ g.fillStyle = '#e8453c'; g.fillRect(x + 6, y + 5, 4, 4); }
         g.fillStyle = '#fff8ea'; g.font = '800 7px ' + FONT; g.textAlign = 'left'; g.fillText('상영 중', x + 13, y + 10);
       } else if (ph === 'bow'){
@@ -368,7 +393,57 @@
     ltext(g, on ? '박수' : '박수판', 4.38, 113, '800 7px ' + FONT, '#c9a24a');
     ltext(g, on ? String(n) : '준비 중', 3.45, 105, '800 ' + (on ? 11 : 8) + 'px ' + FONT, '#ffd979', 'right');
     if (hoverKey === 'board') lwall(g, 3.3, 4.5, 94, 96, '#ffd979');
+    drawStickers(g);
   }
+  // ---------- 응원 스티커 — 화면 아래 판벽에 붙는다(종류 여섯, 글은 받지 않는다) ----------
+  const STICKERS = ['👏', '🌟', '💖', '🎹', '😂', '👍'];
+  let cheers = {}, cheersState = 'idle', stickerPop = null;
+  function drawStickers(g){
+    const w = show.w; if (!w) return;
+    const c = cheers[w.id] || [];
+    rtext(g, '응원판', 7.15, 56, '800 7px ' + FONT, '#f0d78a');
+    STICKERS.forEach((em, k) => {
+      const n = c[k] || 0; if (!n) return;
+      const copies = Math.min(n, 3);
+      for (let i = 0; i < copies; i++){
+        const a = 7.3 + ((k * 0.68 + i * 0.41 + prand('st' + w.id + k + i) * 0.25) % 4.0), v = 16 + ((k * 13 + i * 9) % 30);
+        rtext(g, em, a, v, '12px ' + FONT, INK);
+      }
+      if (n > 3) rtext(g, '×' + n, 7.3 + ((k * 0.68 + 2 * 0.41) % 4.0) + 0.5, 16 + ((k * 13 + 18) % 30), '800 7px ' + FONT, '#fff8ea');
+    });
+    if (stickerPop && now() < stickerPop.until){ const t = 1 - (stickerPop.until - now()) / 900; rtext(g, STICKERS[stickerPop.k], 9.2, 26 + t * 10, Math.round(16 + 14 * Math.sin(t * Math.PI)) + 'px ' + FONT, INK, 'center'); }
+  }
+  function loadCheers(){
+    if (cheersState !== 'idle' || typeof sb === 'undefined') return;
+    cheersState = 'loading';
+    sb.rpc('concert_cheer_counts').then(res => {
+      if (res.error){ cheersState = 'off'; renderTools(); return; }
+      cheers = {}; (res.data || []).forEach(r => { (cheers[r.work_id] = cheers[r.work_id] || [0, 0, 0, 0, 0, 0])[r.kind] = Number(r.n) || 0; });
+      cheersState = 'on'; renderTools(); draw();
+    }).catch(() => { cheersState = 'off'; });
+  }
+  async function sticker(k){
+    const w = show.w; if (!w) return;
+    heard = true;
+    if (cheersState !== 'on'){ say('응원판을 준비하는 중이에요'); return; }
+    const key = 'concert_cheer_' + w.id + '_' + k;
+    let did = false; try { did = !!localStorage.getItem(key); } catch (e) { /* 못 읽으면 다시 붙일 수 있다 */ }
+    if (did){ say('이 무대에는 ' + STICKERS[k] + ' 를 이미 붙였어요'); return; }
+    const { error } = await sb.from('concert_cheers').insert({ work_id: w.id, kind: k });
+    if (error){ say('지금은 스티커를 못 붙였어요: ' + (typeof readableError === 'function' ? readableError(error) : error.message)); return; }
+    (cheers[w.id] = cheers[w.id] || [0, 0, 0, 0, 0, 0])[k]++;
+    try { localStorage.setItem(key, '1'); } catch (e) { /* 저장이 막혀도 스티커는 붙었다 */ }
+    stickerPop = { k, until: now() + 900 };
+    if (typeof tone === 'function') tone(1046, 0.08, 'triangle', 0.05);
+    say(STICKERS[k] + ' 「' + short(w.title, 14) + '」 응원판에 붙였어요'); renderTools(); draw();
+  }
+
+  // ---------- 내 자리 — 빈자리를 골라 앉는다(이 브라우저에만 적는다, 서버로 안 보낸다) ----------
+  let me = null, seatMode = false;
+  try { me = JSON.parse(localStorage.getItem('concert_me') || 'null'); } catch (e) { /* 저장이 막힌 브라우저 — 자리 없이 본다 */ }
+  function seatFree(row, a){ return !guests.some(q => q.row === row && q.a === a) && !KIDS.some(k => HOME[k].row === row && HOME[k].a === a) && !(me && me.row === row && me.a === a); }
+  if (me && !(Number.isInteger(me.row) && SEAT_ROWS[me.row] !== undefined && SEAT_A.includes(me.a) && !guests.some(q => q.row === me.row && q.a === me.a) && !KIDS.some(k => HOME[k].row === me.row && HOME[k].a === me.a))) me = null;
+  function saveMe(){ try { if (me) localStorage.setItem('concert_me', JSON.stringify(me)); else localStorage.removeItem('concert_me'); } catch (e) { /* 저장이 막혀도 이번 방문엔 앉아 있다 */ } }
 
   // ---------- ④ 의자·사람·마이크 ----------
   let clapUntil = 0;
@@ -416,6 +491,126 @@
     g.fillStyle = '#241c14'; g.fillRect(x - 9, y - 9, 18, 8); g.fillRect(x + 5, y - 14, 8, 8); g.fillRect(x - 12 - wag, y - 11, 4, 4);
     g.fillStyle = '#b98a5a'; g.fillRect(x - 8, y - 8, 16, 6); g.fillRect(x + 6, y - 13, 6, 6); g.fillRect(x - 11 - wag, y - 10, 3, 2);
     g.fillStyle = '#7a4a2a'; g.fillRect(x + 6, y - 13, 2, 3); g.fillStyle = '#241c14'; g.fillRect(x + 10, y - 11, 1, 1);
+  }
+
+  // ---------- 막 올리기 전 안내 방송 ----------
+  const josaIGa = t => { const c = t.charCodeAt(t.length - 1) - 0xAC00; return c >= 0 && c < 11172 && c % 28 ? '이' : '가'; };
+  function announce(){
+    if (!show.w) return;
+    const who = KID_NAME[show.w.author] || '수아랑 연아랑', noun = KIND_NOUN[show.kind] || '무대';
+    show.announce = '잠시 후 ' + who + '의 「' + short(show.w.title, 12) + '」 ' + noun + josaIGa(noun) + ' 시작됩니다';
+    show.announceUntil = now() + DUR.idle - 200;
+    guests.forEach(q => { q.say = null; });                                // 방송 동안은 조용히
+    if (heard && roomVisible() && typeof tone === 'function'){ tone(784, 0.42, 'sine', 0.05); tone(622, 0.62, 'sine', 0.05, 0.44); }   // 딩—동
+  }
+
+  // ---------- 앞막 — 기다릴 때는 닫혀 있다가 작가가 나오면 양옆으로 걷힌다 ----------
+  const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  const CURTAIN_TOP = 150;
+  let curtainOpen = STILL ? 1 : 0;
+  function stepCurtain(dt){
+    const ph = show.phase, still = show.who.map(actorOf).some(p => !atHome(p) && onStage(p.a, p.b));
+    const target = STILL || show.live || ph === 'up' || ph === 'sit' || ph === 'play' || ph === 'bow' || (ph === 'down' && still) ? 1 : 0;
+    curtainOpen += (target - curtainOpen) * Math.min(1, dt / 420);
+  }
+  function drawCurtain(g){
+    const open = ease(Math.max(0, Math.min(1, curtainOpen))), W = STAGE.a1, B = STAGE.b1, gather = 0.42;
+    const wd = gather + (W / 2 - gather) * (1 - open);
+    const x0 = Math.round(P(0, B)[0]), x1 = Math.round(P(W, B)[0]);
+    for (let x = x0; x < x1; x++){
+      const a = B + (x - OX) / 28;                                         // 앞막 면(b=3) 위의 a
+      let u = -1, right = false;
+      if (a <= wd) u = a / wd; else if (a >= W - wd){ u = (W - a) / wd; right = true; }
+      if (u < 0) continue;
+      const fold = Math.sin(u * 14 * Math.PI + (right ? 1.3 : 0)), col = fold > 0.55 ? '#bd3a4e' : fold > 0 ? '#9e2a3c' : fold > -0.6 ? '#80202f' : '#5c1422';
+      const base = OY + (a + B) * 14, yTop = Math.round(base - CURTAIN_TOP), yBot = Math.round(base - STAGE.h);
+      g.fillStyle = col; g.fillRect(x, yTop, 1, yBot - yTop);
+      g.fillStyle = 'rgba(20,0,10,.18)'; g.fillRect(x, yBot - 26, 1, 26);                 // 아래로 갈수록 그늘
+      g.fillStyle = x % 3 ? '#c9a24a' : '#8a6a2a'; g.fillRect(x, yBot - 4, 1, 3);         // 금술
+    }
+    if (open > 0.6) [gather * 0.55, W - gather * 0.55].forEach(a => { const q = P(a, B, 74); g.fillStyle = '#8a6a2a'; g.fillRect(Math.round(q[0]) - 9, Math.round(q[1]) - 1, 18, 5); g.fillStyle = '#e0c070'; g.fillRect(Math.round(q[0]) - 8, Math.round(q[1]), 16, 3); });   // 묶은 끈
+    for (let x = x0; x < x1; x++){                                        // 윗막(발랑스) — 막대 위를 가려 무대 입구가 또렷하게
+      const a = B + (x - OX) / 28, base = OY + (a + B) * 14, y0 = Math.round(base - CURTAIN_TOP - 22);
+      g.fillStyle = Math.sin(a * 5) > 0 ? '#7a1c2c' : '#6a1624'; g.fillRect(x, y0, 1, 22);
+      g.fillStyle = '#c9a24a'; g.fillRect(x, y0, 1, 2);
+      g.fillStyle = (x >> 1) % 2 ? '#e0c070' : '#8a6a2a'; g.fillRect(x, y0 + 20, 1, 3 + (x % 4 === 0 ? 2 : 0));
+    }
+    line(g, P(0, B, CURTAIN_TOP + 1), P(W, B, CURTAIN_TOP + 1), '#8a6a2a', 3); line(g, P(0, B, CURTAIN_TOP + 2), P(W, B, CURTAIN_TOP + 2), '#e0c070', 1);   // 막대
+  }
+
+  // ---------- 영상 종류별 무대 소품 ----------
+  const TBL = { a0: 3.85, a1: 5.25, b0: 2.42, b1: 2.8 }, TH = STAGE.h + 18;
+  function faceText(g, t, a, b, h, font, col){ const o = P(a, b, h); g.save(); g.transform(1, 0.5, 0, 1, o[0], o[1]); g.font = font; g.fillStyle = col; g.textAlign = 'center'; g.fillText(t, 0, 0); g.restore(); }
+  const dot = (g, pt, w, h, col) => { g.fillStyle = col; g.fillRect(Math.round(pt[0]), Math.round(pt[1]), w, h); };
+  function drawTableKind(g){
+    const k = show.kind, T = TBL;
+    const look = { news: ['#e6dccb', '#2b3a5e', '#1c2740'], game: ['#3f7a4a', '#5a3a22', '#4a2e1a'], cook: ['#f1e6d2', '#c9b896', '#a8987a'], craft: ['#d8b98a', '#8a5a36', '#6e4428'] }[k];
+    box(g, T.a0, T.a1, T.b0, T.b1, STAGE.h, 18, look[0], look[1], look[2]);
+    if (k === 'news'){
+      poly(g, [P(T.a0, T.b1, STAGE.h + 12), P(T.a1, T.b1, STAGE.h + 12), P(T.a1, T.b1, STAGE.h + 14), P(T.a0, T.b1, STAGE.h + 14)], '#c9a24a');
+      faceText(g, '수아연아 뉴스', (T.a0 + T.a1) / 2, T.b1, STAGE.h + 5, '800 7px ' + FONT, '#fff8ea');
+      box(g, 4.0, 4.4, 2.5, 2.62, TH, 12, '#1c1a18', '#2a2624', '#141210'); poly(g, [P(4.03, 2.62, TH + 2), P(4.37, 2.62, TH + 2), P(4.37, 2.62, TH + 11), P(4.03, 2.62, TH + 11)], '#3a6ab0');
+      box(g, 4.95, 5.05, 2.55, 2.65, TH, 5, '#fff8ea', '#e6dccb', '#c9b896');                   // 머그잔
+    } else if (k === 'game'){
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++){ const a = 4.1 + i * 0.22, b = 2.48 + j * 0.13; poly(g, [P(a, b, TH), P(a + 0.22, b, TH), P(a + 0.22, b + 0.13, TH), P(a, b + 0.13, TH)], (i + j) % 2 ? '#f1e6d2' : '#d4504a'); }
+      [[4.2, 2.52, '#5b7fbf'], [4.64, 2.66, '#ffd979'], [4.86, 2.52, '#6cc7b3']].forEach(([a, b, c]) => { const q = P(a, b, TH); dot(g, [q[0] - 1, q[1] - 5], 3, 5, '#241c14'); dot(g, [q[0], q[1] - 4], 1, 3, c); });
+      box(g, 5.0, 5.1, 2.6, 2.7, TH, 3, '#fff8ea', '#e6dccb', '#c9b896'); dot(g, P(5.05, 2.65, TH + 3), 1, 1, '#241c14');   // 주사위
+    } else if (k === 'cook'){
+      box(g, 4.0, 4.38, 2.48, 2.72, TH, 9, '#5a5652', '#3a3634', '#2a2624'); poly(g, [P(4.03, 2.5, TH + 9), P(4.35, 2.5, TH + 9), P(4.35, 2.7, TH + 9), P(4.03, 2.7, TH + 9)], '#8a8480');
+      for (let k2 = 0; k2 < 3; k2++){ const t = (now() / 1400 + k2 / 3) % 1, q = P(4.19, 2.6, TH + 12 + t * 26); g.fillStyle = 'rgba(255,255,255,' + (0.5 * (1 - t)).toFixed(2) + ')'; g.beginPath(); g.ellipse(q[0] + Math.sin(t * 6 + k2) * 3, q[1], 3 + t * 3, 2 + t * 2, 0, 0, Math.PI * 2); g.fill(); }   // 김
+      box(g, 4.6, 5.1, 2.5, 2.72, TH, 2, '#c8a070', '#9a7248', '#8a6238');
+      [['#e8c88a', 2], ['#6aa07a', 3], ['#e8453c', 4], ['#ffe066', 5], ['#e8c88a', 6]].forEach(([c, h]) => box(g, 4.72, 4.98, 2.55, 2.67, TH + h - 1, 1, c, shade2(c), shade2(c)));   // 샌드위치 층
+    } else if (k === 'craft'){
+      poly(g, [P(4.0, 2.46, TH), P(4.5, 2.46, TH), P(4.5, 2.74, TH), P(4.0, 2.74, TH)], '#fff8ea'); poly(g, [P(4.08, 2.52, TH), P(4.3, 2.52, TH), P(4.3, 2.62, TH), P(4.08, 2.62, TH)], '#ffb0b8');
+      ['#d4504a', '#5b7fbf', '#6aa07a', '#e0a93b'].forEach((c, n) => line(g, P(4.62 + n * 0.08, 2.5, TH), P(4.68 + n * 0.08, 2.72, TH), c, 2));
+      box(g, 4.98, 5.16, 2.52, 2.68, TH, 12, 'rgba(160,220,200,.7)', 'rgba(120,190,170,.75)', 'rgba(100,170,150,.75)');   // 올챙이 병
+      const q = P(5.07, 2.6, TH + 6); dot(g, [q[0] + Math.round(Math.sin(now() / 300) * 2), q[1]], 2, 1, '#241c14');
+    }
+  }
+  function shade2(hex){ const n = parseInt(hex.slice(1), 16), c = v => Math.max(0, v - 40); return 'rgb(' + c(n >> 16) + ',' + c((n >> 8) & 255) + ',' + c(n & 255) + ')'; }
+  function drawCinema(g){
+    box(g, 5.3, 5.85, 1.62, 2.02, STAGE.h, 20, '#fff8ea', '#d4504a', '#b83a34');                  // 팝콘 수레
+    for (let a = 5.35; a < 5.85; a += 0.14) poly(g, [P(a, 2.02, STAGE.h + 2), P(a + 0.07, 2.02, STAGE.h + 2), P(a + 0.07, 2.02, STAGE.h + 18), P(a, 2.02, STAGE.h + 18)], '#fff8ea');
+    for (let n = 0; n < 12; n++){ const q = P(5.38 + (n % 4) * 0.12, 1.7 + Math.floor(n / 4) * 0.1, STAGE.h + 21 + (n % 3)); dot(g, [q[0] - 1, q[1] - 1], 3, 3, n % 2 ? '#ffe066' : '#fff3c4'); }
+    const c = P(3.3, 2.7, STAGE.h); dot(g, [c[0] - 7, c[1] - 8], 14, 8, '#241c14'); dot(g, [c[0] - 6, c[1] - 7], 12, 6, '#1c1a18');   // 슬레이트
+    for (let n = 0; n < 4; n++) dot(g, [c[0] - 6 + n * 3, c[1] - 11], 2, 3, n % 2 ? '#fff8ea' : '#241c14');
+  }
+  // 박수 이정표 — 10 꽃다발 · 30 트로피 · 100 풍선과 만석
+  function drawBouquet(g){
+    box(g, 3.0, 3.2, 2.7, 2.88, STAGE.h, 10, '#9fc3e6', '#6a8ab0', '#5a7aa0');
+    const c = P(3.1, 2.79, STAGE.h + 10);
+    [[-6, -6, '#ff7f8a'], [5, -7, '#ffd979'], [0, -12, '#ffb0b8'], [-3, -3, '#f2f2f2'], [7, -2, '#9b6bbf'], [-8, -11, '#6cc7b3']].forEach(([dx, dy, col]) => { dot(g, [c[0] + dx - 2, c[1] + dy - 2], 5, 5, '#241c14'); dot(g, [c[0] + dx - 1, c[1] + dy - 1], 3, 3, col); });
+    dot(g, [c[0] - 1, c[1] - 2], 2, 3, '#3f7a4a');
+  }
+  function drawTrophy(g){
+    box(g, 5.45, 5.78, 1.02, 1.35, STAGE.h, 14, '#f1ece4', '#c9c2b8', '#b4ada2');
+    const c = P(5.615, 1.185, STAGE.h + 14), x = Math.round(c[0]), y = Math.round(c[1]), glint = Math.floor(now() / 500) % 4 === 0;
+    dot(g, [x - 6, y - 4], 12, 4, '#8a6a2a'); dot(g, [x - 2, y - 10], 4, 6, '#c9a24a'); dot(g, [x - 8, y - 22], 16, 12, '#241c14'); dot(g, [x - 7, y - 21], 14, 10, '#e0b040');
+    dot(g, [x - 11, y - 20], 3, 6, '#c9a24a'); dot(g, [x + 8, y - 20], 3, 6, '#c9a24a'); dot(g, [x - 5, y - 20], 3, 5, glint ? '#fffbe0' : '#f0d78a');
+  }
+  function drawBalloons(g){
+    [[0.35, '#ff7f8a', '#6cc7b3', '#ffd979'], [5.95, '#5b7fbf', '#ffb0b8', '#9b6bbf']].forEach(([a, c1, c2, c3], side) => {
+      const tie = P(a, STAGE.b1 - 0.1, STAGE.h);
+      [c1, c2, c3].forEach((col, n) => {
+        const bob = Math.sin(now() / 700 + n + side) * 3, bx = tie[0] + (n - 1) * 9, by = tie[1] - 66 - n * 10 + bob;
+        line(g, tie, [bx, by + 8], 'rgba(40,24,10,.5)');
+        g.fillStyle = '#241c14'; g.beginPath(); g.ellipse(bx, by, 7, 9, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = col; g.beginPath(); g.ellipse(bx, by, 6, 8, 0, 0, Math.PI * 2); g.fill();
+        dot(g, [bx - 3, by - 5], 2, 3, 'rgba(255,255,255,.6)');
+      });
+    });
+  }
+  const extras = {};
+  function extraGuest(row, a){ const k = row + ':' + a; return extras[k] || (extras[k] = { row, a, b: SEAT_ROWS[row], n: 3 + Math.round(a * 3) % GUESTS.length, off: prand('x' + k) * 360 }); }
+  function stageProps(){
+    const out = [];
+    if (TABLE_KINDS.includes(show.kind)) out.push({ key: (TBL.a0 + TBL.a1) / 2 + TBL.b1, f: g => drawTableKind(g) });
+    if (show.kind === 'cinema') out.push({ key: 5.57 + 2.02, f: g => drawCinema(g) });
+    const n = show.w ? (claps[show.w.id] || 0) : 0;
+    if (n >= 10) out.push({ key: 3.1 + 2.88, f: g => drawBouquet(g) });
+    if (n >= 30) out.push({ key: 5.6 + 1.35, f: g => drawTrophy(g) });
+    if (n >= 100) out.push({ key: 9.5, front: true, f: g => drawBalloons(g) });   // 무대 앞 모서리 — 앞막보다 앞에 그린다
+    return out;
   }
 
   // ---------- ⑤ 조명 — 공연 중엔 객석이 어두워지고, 무대에 스포트라이트 ----------
@@ -520,13 +715,21 @@
     drawScreen(g); drawWallInfo(g);                                      // ③
     g.drawImage(props(), 0, 0, RW, RH);                                  // ②
     const items = [], kids = KIDS.map(actorOf);                          // ④ 깊이(a+b) 순
+    const full = !!show.w && (claps[show.w.id] || 0) >= 100;
     SEAT_ROWS.forEach((b, row) => SEAT_A.forEach(a => {
-      const q = guests.find(x => x.row === row && x.a === a), kid = kids.find(p => atHome(p) && HOME[p.k].row === row && HOME[p.k].a === a);
+      const kid = kids.find(p => atHome(p) && HOME[p.k].row === row && HOME[p.k].a === a);
+      const mine = me && me.row === row && me.a === a ? { n: me.look, off: 0, me: true } : null;
+      const q = mine || guests.find(x => x.row === row && x.a === a) || (full && !kid ? extraGuest(row, a) : null);
       items.push({ key: a + b + 0.25, f: () => drawChair(g, a, b, q, kid) });
     }));
-    kids.filter(p => !atHome(p)).forEach(p => items.push({ key: p.a + p.b + 0.02, f: () => drawActor(g, p) }));
-    items.push({ key: MIC.a + MIC.b, f: () => drawMic(g) }, { key: 5.45 + 5.72, f: () => drawDog(g) });
-    items.sort((x, y) => x.key - y.key).forEach(it => it.f());
+    kids.filter(p => !atHome(p)).forEach(p => items.push({ key: p.a + p.b + 0.02, stage: onStage(p.a, p.b), f: () => drawActor(g, p) }));
+    if (show.kind === 'mic' || show.kind === 'cinema') items.push({ key: MIC.a + MIC.b, stage: true, f: () => drawMic(g) });
+    stageProps().forEach(it => items.push({ key: it.key, stage: !it.front, f: () => it.f(g) }));
+    items.push({ key: 5.45 + 5.72, f: () => drawDog(g) });
+    items.sort((x, y) => x.key - y.key);
+    items.filter(it => it.stage).forEach(it => it.f());                   // 무대 위 — 앞막 뒤
+    drawCurtain(g);
+    items.filter(it => !it.stage).forEach(it => it.f());                  // 계단·객석 — 앞막 앞
     drawLight(g, dt);                                                    // ⑤
     drawParts(g);                                                        // ⑥
     const t = now();                                                     // ⑦
@@ -536,6 +739,9 @@
       else if (!home && p.moving) nameTag(g, Math.round(bp[0]), Math.round(bp[1]) - 56, p.k);
     });
     guests.forEach(q => { if (q.say && t < q.sayUntil){ const bp = P(q.a, q.b, 7); bubble(g, bp[0], bp[1] - 32, q.say); } });
+    if (me){ const bp = P(me.a, SEAT_ROWS[me.row], 7); g.save(); g.font = '800 8px ' + FONT; g.fillStyle = INK; g.fillRect(Math.round(bp[0]) - 7, Math.round(bp[1]) - 44, 14, 11); g.fillStyle = '#ffd979'; g.fillRect(Math.round(bp[0]) - 6, Math.round(bp[1]) - 43, 12, 9); g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('나', Math.round(bp[0]), Math.round(bp[1]) - 43); g.restore(); }
+    if (seatMode) SEAT_ROWS.forEach((b, row) => SEAT_A.forEach(a => { if (!seatFree(row, a)) return; const bp = P(a, b, 10), r = 9 + Math.sin(t / 220) * 2; g.strokeStyle = '#ffd979'; g.lineWidth = 2; g.beginPath(); g.ellipse(bp[0], bp[1] - 6, r, r * 0.55, 0, 0, Math.PI * 2); g.stroke(); }));
+    if (show.announce && t < show.announceUntil){ const sp = P(5.575, 0.37, STAGE.h + 50); bubble(g, sp[0] - 60, sp[1], '📢 ' + show.announce); }
   }
   function draw(){ const cv = $('#concertCv'); if (!cv || show.phase === 'none' && !videos.length && !list.length) return; drawScene(cv.getContext('2d'), 0); }
 
@@ -633,6 +839,8 @@
   function hitAt(e){
     const cv = $('#concertCv'), rc = cv.getBoundingClientRect(); if (!rc.width) return null;
     const x = (e.clientX - rc.left) / rc.width * RW, y = (e.clientY - rc.top) / rc.height * RH;
+    if (seatMode) for (let row = 0; row < SEAT_ROWS.length; row++) for (const a of SEAT_A){ if (!seatFree(row, a)) continue; const bp = P(a, SEAT_ROWS[row], 7); if (x >= bp[0] - 14 && x < bp[0] + 14 && y >= bp[1] - 22 && y < bp[1] + 6) return { key: 'seat', row, a }; }
+    if (me){ const bp = P(me.a, SEAT_ROWS[me.row], 7); if (x >= bp[0] - 13 && x < bp[0] + 13 && y >= bp[1] - 30 && y < bp[1] + 3) return { key: 'me' }; }
     for (const p of KIDS.map(actorOf)){
       const home = atHome(p), bp = home ? P(p.a, p.b, 7) : actorBase(p), top = home || p.seated ? 30 : 40;
       if (x >= bp[0] - 13 && x < bp[0] + 13 && y >= bp[1] - top && y < bp[1] + 3) return { key: 'kid:' + p.k, kid: p.k };
@@ -649,6 +857,8 @@
   function describe(h){
     if (!h) return stateLine();
     if (h.key === 'screen') return '「' + short(show.w.title, 20) + '」 · ' + authorOf(show.w) + (lastPointer === 'mouse' ? ' · 누르면 무대에서 봐요' : ' · 한 번 더 누르면 무대에서 봐요');
+    if (h.key === 'seat') return '빈자리 · 누르면 여기 앉아요';
+    if (h.key === 'me') return '나 · 누르면 옷이 바뀌어요';
     if (h.key === 'board') return '박수판 · 누르면 이 무대에 박수(연주회장 박수는 작품 박수와 따로 세요)';
     if (h.kid) return KID_NAME[h.kid] + ' · 누르면 이야기해요';
     if (h.guest) return '관객 · 누르면 한마디';
@@ -681,6 +891,8 @@
         focusKey = null; openPlayer(show.w); return;
       }
       focusKey = null;
+      if (h.key === 'seat'){ me = { row: h.row, a: h.a, look: me ? me.look : Math.floor(Math.random() * GUESTS.length) }; seatMode = false; saveMe(); say('자리에 앉았어요 — 나를 누르면 옷이 바뀌어요'); renderTools(); draw(); return; }
+      if (h.key === 'me'){ me.look = (me.look + 1) % GUESTS.length; saveMe(); say('옷을 갈아입었어요'); draw(); return; }
       if (h.key === 'board'){ clap(); return; }
       if (h.kid){ const p = actorOf(h.kid); talk(p, kidLine(p), 2600); say(KID_NAME[h.kid] + ': ' + p.say); draw(); return; }
       if (h.guest){ h.guest.say = GUEST_TALK[Math.floor(Math.random() * GUEST_TALK.length)]; h.guest.sayUntil = now() + 2200; say('관객: ' + h.guest.say); draw(); return; }
@@ -691,14 +903,22 @@
   }
   function renderTools(){
     const box = $('#concertTools'); if (!box) return;
-    const w = show.w, muted = typeof sfxMuted === 'function' && sfxMuted();
-    box.innerHTML = (w ? '<button type="button" class="dot-btn small" id="cClap">👏 박수' + (clapsState === 'on' ? ' <b>' + (claps[w.id] || 0) + '</b>' : '') + '</button> ' +
-      '<button type="button" class="dot-btn small" id="cOpen">▶ 무대에서 보기</button> ' +
-      (videos.length > 1 ? '<button type="button" class="dot-btn small" id="cNext">⏭ 다음 무대</button> ' : '') : '') +
-      '<button type="button" class="dot-btn small" id="cSound">' + (muted ? '🔇 소리 꺼짐' : '🔊 소리 켜짐') + '</button>';
+    const w = show.w, muted = typeof sfxMuted === 'function' && sfxMuted(), btn = (id, label) => '<button type="button" class="dot-btn small" id="' + id + '">' + label + '</button> ';
+    let html = '';
+    if (w){
+      html += btn('cClap', '👏 박수' + (clapsState === 'on' ? ' <b>' + (claps[w.id] || 0) + '</b>' : '')) + btn('cOpen', '▶ 무대에서 보기');
+      if (videos.length > 1) html += btn('cNext', '⏭ 다음 무대');
+      if (!show.live && growthList(w).length >= 2) html += btn('cGrow', '🌱 성장 무대');
+    }
+    html += btn('cSeat', seatMode ? '🪑 빈자리를 눌러요' : me ? '🚶 자리 비우기' : '🪑 내 자리') + (videos.length ? btn('cPrint', '🖨 프로그램북') : '') + btn('cSound', muted ? '🔇 소리 꺼짐' : '🔊 소리 켜짐');
+    if (w && cheersState === 'on'){ const c = cheers[w.id] || []; html += '<div class="concert-stickers" style="flex-basis:100%;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">' + STICKERS.map((em, k) => '<button type="button" class="dot-btn small" data-sticker="' + k + '" aria-label="응원 스티커 ' + em + '">' + em + (c[k] ? ' <b>' + c[k] + '</b>' : '') + '</button>').join('') + '</div>'; }
+    box.innerHTML = html;
     const on = (id, f) => { const b = $('#' + id); if (b) b.addEventListener('click', f); };
     on('cClap', () => clap()); on('cOpen', () => openPlayer(show.w)); on('cNext', () => { heard = true; skipShow(); renderTools(); say(stateLine()); });
+    on('cGrow', () => startGrowth()); on('cPrint', () => printProgram());
+    on('cSeat', () => { if (me && !seatMode){ me = null; saveMe(); say('자리를 비웠어요'); } else { seatMode = !seatMode; say(seatMode ? '노랗게 빛나는 빈자리를 눌러 앉으세요' : stateLine()); } renderTools(); draw(); });
     on('cSound', () => { if (typeof sfxSetMuted === 'function') sfxSetMuted(!muted); heard = true; renderTools(); if (muted) applause(0.8, false); });
+    box.querySelectorAll('[data-sticker]').forEach(b => b.addEventListener('click', () => sticker(Number(b.dataset.sticker))));
   }
 
   // ---------- 무대 위 영상 — 화면을 누르면 방 위에 진짜 유튜브 플레이어가 뜨고, 영상이 끝나면 방에서 인사·박수 ----------
@@ -739,7 +959,8 @@
       idx = Math.max(0, videos.indexOf(w)); startShow(); if (!STILL) setPhase('up');
     }
     show.live = true; show.paused = false; show.pendingBow = false; liveW = w;
-    box.querySelector('.cp-title').textContent = short(w.title, 30) + ' · ' + authorOf(w);
+    if (growth && growth.list[growth.i] !== w){ clearTimeout(growth.timer); growth = null; }
+    box.querySelector('.cp-title').textContent = (growth ? '🌱 ' + (growth.i + 1) + '/' + growth.list.length + (w.made_on ? ' · ' + w.made_on.slice(0, 7).replace('-', '.') : '') + ' · ' : '') + short(w.title, 30) + ' · ' + authorOf(w);
     box.hidden = false; box.classList.remove('rise'); void box.offsetWidth; box.classList.add('rise');
     box.scrollIntoView({ block: 'nearest', behavior: STILL ? 'auto' : 'smooth' });      // 절반 넘게 보여야 자동 재생할 수 있다(규정)
     say('▶ 「' + short(w.title, 20) + '」 — 영상이 끝나면 무대에서 인사해요'); renderTools();
@@ -755,16 +976,55 @@
   function onYT(state){ show.paused = state === 2; if (state === 0) videoEnded(); }   // 0 끝남 · 1 재생 · 2 멈춤
   function videoEnded(){
     if (!liveW) return;
+    const more = growth && growth.i < growth.list.length - 1;
     closePlayer(true);
     if (show.phase === 'play') setPhase('bow'); else show.pendingBow = true;   // 아직 걸어가는 중이면 앉자마자 인사
+    if (more) growth.timer = setTimeout(growthNext, 3400); else growth = null;
+  }
+  // 🌱 성장 무대 — 같은 작가의 피아노 영상을 옛것부터 이어 튼다. 사이마다 인사하고 무대에서 내려가지 않고 다음 곡
+  let growth = null;
+  function growthList(w){
+    if (!w || !HOME[w.author]) return [];
+    return videos.filter(v => v.author === w.author && stageKind(v) === 'piano').sort((x, y) => String(x.made_on || '').localeCompare(String(y.made_on || '')));
+  }
+  function startGrowth(){ const l = growthList(show.w); if (l.length < 2) return; growth = { list: l, i: 0, timer: 0 }; openPlayer(l[0]); }
+  function growthNext(){
+    if (!growth) return;
+    growth.i++;
+    const w = growth.list[growth.i];
+    idx = Math.max(0, videos.indexOf(w)); show.w = w; show.kind = 'piano'; show.mode = 'piano'; show.spots = spotsFor('piano', 1);
+    const p = actorOf(show.who[0]); p.plan = [show.spots[0]]; p.onArrive = () => { p.seated = true; p.dir = 'up'; };
+    setPhase('play'); openPlayer(w);
   }
   function closePlayer(ended){
     if (!playerBox || !liveW) return;
     liveW = null; show.live = false; show.paused = false;
+    if (!ended && growth){ clearTimeout(growth.timer); growth = null; }
     try { if (yt && yt.stopVideo) yt.stopVideo(); } catch (e) { /* 이미 닫힌 플레이어 */ }
     playerBox.hidden = true;
     if (!ended && show.phase === 'play') show.t = Math.max(show.t, DUR.play - 1500);   // 닫으면 곧 인사하고 다음 무대로
     renderTools(); say(stateLine());
+  }
+
+  // ---------- 🖨 공연 프로그램북 — 오늘의 무대 차례표를 한 장으로(작품집 인쇄와 QR 을 같이 쓴다) ----------
+  async function printProgram(){
+    if (!videos.length) return;
+    if (typeof window.loadQrcode === 'function') await window.loadQrcode();
+    let sheet = $('#programSheet');
+    if (!sheet){ sheet = document.createElement('div'); sheet.id = 'programSheet'; sheet.setAttribute('aria-hidden', 'true'); document.body.appendChild(sheet); }
+    const d = new Date(), z = n => String(n).padStart(2, '0'), today = d.getFullYear() + '.' + z(d.getMonth() + 1) + '.' + z(d.getDate());
+    const qr = w => typeof window.qrSvg === 'function' && typeof window.workUrl === 'function' ? window.qrSvg(window.workUrl(w), 2) : '';
+    sheet.innerHTML = '<div class="pg-cover"><p class="pg-eye">SUAYONA CONCERT</p><h1>수아랑 연아랑 연주회</h1>' +
+      '<p class="pg-date">' + today + ' · 오늘의 무대 ' + videos.length + '편</p><p class="pg-note">QR 을 찍으면 그 무대 영상이 열려요</p></div>' +
+      '<div class="pg-list">' + videos.map((w, n) => { const k = stageKind(w);
+        return '<div class="pg-row"><span class="pg-no">' + (n + 1) + '</span><span class="pg-ico">' + KIND_ICON[k] + '</span><div class="pg-txt"><p class="t">' + escapeHTML(w.title || '') + '</p>' +
+          '<p class="m">' + escapeHTML(KID_NAME[w.author] || '수아랑 연아랑') + (w.made_on ? ' · ' + escapeHTML(w.made_on.replace(/-/g, '.')) : '') + ' · ' + KIND_NOUN[k] + (claps[w.id] ? ' · 박수 ' + claps[w.id] : '') + '</p></div>' + qr(w) + '</div>'; }).join('') + '</div>' +
+      '<p class="pg-mark">suayona.com · 작품전시실 옆 연주회장</p>';
+    document.body.classList.add('program-printing');
+    const done = () => { document.body.classList.remove('program-printing'); sheet.innerHTML = ''; window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    window.print();
+    setTimeout(() => { if (document.body.classList.contains('program-printing')) done(); }, 3000);   // 취소하면 afterprint 가 안 오는 브라우저 대비
   }
 
   // ---------- 탭 ----------
@@ -774,7 +1034,7 @@
     rooms.dataset.room = room;
     document.querySelectorAll('#roomTabs [data-room]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.room === room)));
     try { const u = new URL(location.href); if (room === 'concert') u.searchParams.set('room', 'concert'); else u.searchParams.delete('room'); history.replaceState(history.state, '', u); } catch (e) { /* 주소를 못 바꿔도 탭은 바뀐다 */ }
-    if (room === 'concert'){ if (byUser) heard = true; loadClaps(); draw(); say(stateLine()); }
+    if (room === 'concert'){ if (byUser) heard = true; loadClaps(); loadCheers(); draw(); say(stateLine()); }
     else { closePlayer(false); if (window.GALLERY && GALLERY.draw) GALLERY.draw(); }
   }
   function wireTabs(){
@@ -799,13 +1059,13 @@
       startShow();
     }
     wire(); wireTabs(); renderTools(); draw();
-    if ($('#rooms') && $('#rooms').dataset.room === 'concert') loadClaps();   // 박수 수는 연주회장을 볼 때만 받는다 — 전시실만 보는 사람은 요청이 없다
+    if ($('#rooms') && $('#rooms').dataset.room === 'concert'){ loadClaps(); loadCheers(); }   // 박수 수는 연주회장을 볼 때만 받는다 — 전시실만 보는 사람은 요청이 없다
     if (!STILL && !looping){ looping = true; requestAnimationFrame(loop); }
   }
   // 보일 때만 돈다 — 탭이 전시실이면(display:none) 너비가 0 이라 멈춘다. 초당 30장
   let looping = false, lastTick = 0, acc = 0, seen = false, seenAt = 0, lastPhase = '', lastW = null;
   function tick(t, dt){                                                  // 한 장 — 시험에서도 부른다(숨은 창은 rAF 가 안 돈다)
-    stepShow(dt); stepParts(dt);
+    stepShow(dt); stepParts(dt); stepCurtain(dt);
     if (show.phase !== lastPhase || show.w !== lastW){
       lastPhase = show.phase;
       if (show.w !== lastW){ lastW = show.w; renderTools(); }
@@ -823,5 +1083,5 @@
       tick(t, Math.min(100, acc)); acc = 0;
     } catch (e) { /* 한 장 건너뛴다 */ }
   }
-  window.CONCERT = { render, draw, _tick: tick, _show: show, _actors: actors, _guests: guests, _skip: skipShow, _room: setRoom, _clap: clap, _parts: parts, _applause: applause, _hit: hitAt, _claps: () => claps, _state: () => clapsState, _phase: setPhase, _open: openPlayer, _ended: videoEnded, _yt: () => yt, _close: closePlayer };
+  window.CONCERT = { render, draw, _tick: tick, _show: show, _actors: actors, _guests: guests, _skip: skipShow, _room: setRoom, _clap: clap, _parts: parts, _applause: applause, _hit: hitAt, _claps: () => claps, _state: () => clapsState, _phase: setPhase, _open: openPlayer, _ended: videoEnded, _yt: () => yt, _close: closePlayer, _setClaps: m => { claps = m; renderTools(); draw(); }, _cheers: () => cheers, _me: () => me, _growth: () => growth, _growthNext: growthNext, _print: printProgram, _kind: stageKind };
 })();
