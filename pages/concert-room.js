@@ -907,13 +907,13 @@
   }
   function renderTools(){
     const box = $('#concertTools'); if (!box) return;
-    const w = show.w, muted = typeof sfxMuted === 'function' && sfxMuted(), btn = (id, label) => '<button type="button" class="dot-btn small" id="' + id + '">' + label + '</button> ';
+    const w = show.w, muted = typeof sfxMuted === 'function' && sfxMuted(), btn = (id, label, aria) => '<button type="button" class="dot-btn small" id="' + id + '"' + (aria ? ' aria-label="' + aria + '"' : '') + '>' + label + '</button> ';   // 폰에서 한 줄에 들어가게 글자는 짧게, 뜻은 aria-label 로
     let html = '';
     if (w){
-      html += btn('cClap', '👏 박수' + (clapsState === 'on' ? ' <b>' + (claps[w.id] || 0) + '</b>' : '')) + btn('cOpen', '▶ 무대에서 보기');
-      if (videos.length > 1) html += btn('cNext', '⏭ 다음 무대');
+      html += btn('cClap', '👏 박수' + (clapsState === 'on' ? ' <b>' + (claps[w.id] || 0) + '</b>' : '')) + btn('cOpen', '▶ 보기', '무대에서 보기');
+      if (videos.length > 1) html += btn('cNext', '⏭ 다음', '다음 무대');
     }
-    html += btn('cSeat', seatMode ? '🪑 빈자리를 눌러요' : me ? '🚶 자리 비우기' : '🪑 내 자리') + btn('cSound', muted ? '🔇 소리 꺼짐' : '🔊 소리 켜짐');
+    html += btn('cSeat', seatMode ? '🪑 골라요' : me ? '🚶 비우기' : '🪑 내 자리', seatMode ? '빈자리를 눌러 앉아요' : me ? '자리 비우기' : '내 자리 고르기') + btn('cSound', muted ? '🔇 소리' : '🔊 소리', muted ? '소리 꺼짐 — 누르면 켜요' : '소리 켜짐 — 누르면 꺼요');
     box.innerHTML = html;
     const on = (id, f) => { const b = $('#' + id); if (b) b.addEventListener('click', f); };
     on('cClap', () => clap()); on('cOpen', () => openPlayer(show.w)); on('cNext', () => { heard = true; skipShow(); renderTools(); say(stateLine()); });
