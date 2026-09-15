@@ -9,7 +9,7 @@
 // ④ 연도를 바꾸면 방이 옆으로 밀리며 그 해의 벽지·양탄자로 ⑤ 관람객 도트 ⑥ 저녁·밤 조명 ⑦ 이름표 옆 작가 얼굴 ⑧ 가로형 그림을 큰 액자에
 // ⑨ 27칸을 넘으면 마지막 네 칸을 날마다 바꿔 건다 ⑩ 박수(work_claps) — 큰 화면에서 치고, 방에서는 수와 리본으로 보인다.
 // 2026-09-15 밤 열 가지 더(부모 「전부진행」): ⓐ 박수 1등 「이달의 그림」 받침대 ⓑ 관람객이 큰 액자 앞에 오래 서고 리본 작품엔 손뼉 ⓒ 관람객 넷(어른·아이·할머니·강아지)
-// ⓓ 텔레비전을 누르면 방 안에 작은 재생기 ⓔ 부모 편집 모드(액자 끌어 바꿔 걸기 → works.wall_slot) ⓕ 그 해 작품을 셋 이상 열어 보면 연도 도장 ⓖ 밤엔 관객 대신 경비 아저씨가 손전등을 들고 한 바퀴
+// ⓓ 텔레비전을 누르면 방 안에 작은 재생기 ⓔ 부모 편집 모드(액자 끌어 바꿔 걸기 → works.wall_slot) ⓕ (연도 도장 — 부모 요청으로 뺌) ⓖ 밤엔 관객 대신 경비 아저씨가 손전등을 들고 한 바퀴
 // ⓗ 「같이」 이름표의 두 얼굴 사이 하트 ⓘ 방 사진 저장·나누기 ⓙ (DB) 박수 시각 잠금·안 쓰는 함수 정리
 (function(){
   'use strict';
@@ -133,7 +133,7 @@
   let list = [], openFn = null, year = 'all', images = [], videos = [], easelW = null, hung = [], hits = [], hoverKey = null, focusKey = null;
   let claps = {}, clapsState = 'idle', clapsTotal = 0, overflowNote = '';
   let tvIdx = 0, tvTimer = null;
-  let admin = false, editMode = false, drag = null, capturing = false, allWorks = [], tvPlaying = null;   // ⓔ ⓘ ⓕ ⓓ
+  let admin = false, editMode = false, drag = null, capturing = false, tvPlaying = null;   // ⓔ ⓘ ⓓ
   const TV_MAX = 8;                                                    // 텔레비전이 돌려 보여 주는 영상 수(가장 새 것부터)
 
   // ---------- 껍데기 — 벽·바닥·양탄자·화분(연도 무늬·시간대마다 한 번) ----------
@@ -879,29 +879,6 @@
     say(editMode ? '액자를 끌어서 다른 칸에 놓으세요 · 다 됐으면 「배치 끝」' : '');
     draw();
   }
-  // ⓕ 연도 도장 — 그 해 작품을 셋(그보다 적으면 전부) 이상 열어 보면 도장. 이 브라우저에만 남는다
-  const SEEN_KEY = 'gallery_seen', STAMP_KEY = 'gallery_stamps';
-  const readJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || '') || d; } catch (e) { return d; } };
-  const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 못 남기면 다음에 또 센다 */ } };
-  function yearOf(w){ return String(w.made_on || w.created_at || '').slice(0, 4); }
-  function stampStatus(){
-    const seen = readJSON(SEEN_KEY, {}), got = readJSON(STAMP_KEY, {}), byYear = {};
-    (allWorks.length ? allWorks : list).forEach(w => { const y = yearOf(w); if (!y) return; (byYear[y] = byYear[y] || []).push(w); });
-    return Object.keys(byYear).sort().map(y => { const ws = byYear[y], n = ws.filter(w => seen[w.id]).length, need = Math.min(3, ws.length); return { y, n, need, got: !!got[y] || n >= need }; });
-  }
-  function noteSeen(w){
-    const seen = readJSON(SEEN_KEY, {}); if (seen[w.id]) return; seen[w.id] = 1; writeJSON(SEEN_KEY, seen);
-    const y = yearOf(w), st = stampStatus().find(s => s.y === y), got = readJSON(STAMP_KEY, {});
-    if (st && st.got && !got[y]){ got[y] = todayStr(); writeJSON(STAMP_KEY, got); const k = KID_HAIR[w.author] ? w.author : 'sua'; kidSay(k, y + '년 방을 다 봤어요!\n도장 쾅!'); say(y + '년 방을 다 봤어요! 도장 쾅!'); }
-    renderStamps();
-  }
-  function renderStamps(){
-    const box = $('#galleryStamps'); if (!box) return;
-    const st = stampStatus(); box.innerHTML = '';
-    if (!st.length) return;
-    st.forEach(s => { const el = document.createElement('span'); el.className = 'stamp' + (s.got ? ' got' : ''); el.textContent = s.y; el.title = s.got ? s.y + '년 방 관람 도장' : s.y + '년 작품 ' + s.need + '개를 열어 보면 도장 (' + s.n + '/' + s.need + ')'; box.appendChild(el); });
-    const t = document.createElement('small'); t.textContent = '관람 도장 — 그 해 작품을 셋 열어 보면'; box.prepend(t);
-  }
   // ⓓ 텔레비전 재생기 — 캔버스 위 텔레비전 자리에 작은 유튜브 재생기를 띄운다. 다시 누르거나 ✕ 로 끈다
   function tvToggle(w){
     const stage = $('#galleryRoom .museum-stage'); if (!stage) return;
@@ -951,7 +928,7 @@
       if (h.tv){ tvToggle(videos[tvIdx % Math.max(1, videos.length)]); return; }           // ⓓ 텔레비전 → 방 안 작은 재생기
       if (e.pointerType !== 'mouse' && h.w && focusKey !== key){ focusKey = key; draw(); say(describe(h)); return; }   // 손가락: 한 번 누르면 이름표, 한 번 더 누르면 열기
       const w = h.w; if (!w || !openFn) return;
-      const i = list.indexOf(w); if (i >= 0){ noteSeen(w); openFn(i); }
+      const i = list.indexOf(w); if (i >= 0) openFn(i);
     });
     // ⓔ 끌어서 바꿔 걸기 — 부모가 편집 모드를 켰을 때만. 손가락으로도 끌 수 있게 그동안은 touch-action 을 끈다
     cv.addEventListener('pointerdown', e => {
@@ -1041,7 +1018,7 @@
       slide = { from, dir: ord(newYear) > ord(year) ? 1 : -1, t0: performance.now() };
     }
     year = newYear; list = Array.isArray(visibleList) ? visibleList : []; openFn = open;
-    admin = !!(opts && opts.admin); allWorks = (opts && Array.isArray(opts.all)) ? opts.all : [];
+    admin = !!(opts && opts.admin);
     if (!admin && editMode) setEdit(false);
     if (tvPlaying && !list.includes(tvPlaying)) tvToggle(null);
     images = list.filter(w => w.media_type !== 'youtube' && w.media_type !== 'video' && (w.thumb_url || w.media_url));
@@ -1061,10 +1038,10 @@
     const tvN = Math.min(videos.length, TV_MAX);
     if (tvN > 1 && !STILL) tvTimer = setInterval(() => { if (seen && !document.hidden){ tvIdx = (tvIdx + 1) % tvN; draw(); } }, 4000);
     if (cv){ cv.style.aspectRatio = RW + ' / ' + RH; cv.tabIndex = 0; }
-    wire(); renderTools(); renderStamps(); say(''); draw(); loadClaps();
+    wire(); renderTools(); say(''); draw(); loadClaps();
     if (!STILL && !looping){ looping = true; requestAnimationFrame(loop); }
   }
   window.GALLERY = { render, draw, clapped, claps: () => claps, clapsOn: () => clapsState === 'on', _hits: () => hits, _walkers: walkers, _visitors: visitors, _hung: () => hung, _aspect: aspectOf,
     _tick: tick, _focus: k => { focusKey = k; draw(); }, _slide: () => slide, _bubbles: bubbleOf, _setClaps: m => { claps = m; clapsTotal = Object.values(m).reduce((a, b) => a + b, 0); wallKey = ''; draw(); },
-    _guard: () => guard, _edit: setEdit, _move: moveSlot, _stamps: stampStatus, _seen: noteSeen, _tv: tvToggle, _snap: snapshot, _top: topWork, _sprite: visitorSprite, _slotUnder: slotUnder };
+    _guard: () => guard, _edit: setEdit, _move: moveSlot, _tv: tvToggle, _snap: snapshot, _top: topWork, _sprite: visitorSprite, _slotUnder: slotUnder };
 })();

@@ -63,7 +63,7 @@ function render(){
   const grid = $('#grid');
   const list = visible();
   // 제목 아래 미술관 방 — 같은 목록을 걸고, 액자를 누르면 같은 큰 화면을 연다(gallery-room.js 가 없는 옛 HTML 이면 건너뛴다)
-  if (window.GALLERY) GALLERY.render(list, i => openWork(list, i), { year: yearFilter, admin: isAdmin, all: works });   // 연도를 넘기면 방이 그 해의 벽지로 옆으로 밀린다. admin 이면 벽 배치 편집, all 은 연도 도장 셈용
+  if (window.GALLERY) GALLERY.render(list, i => openWork(list, i), { year: yearFilter, admin: isAdmin });   // 연도를 넘기면 방이 그 해의 벽지로 옆으로 밀린다. admin 이면 벽 배치 편집
   grid.innerHTML = '';
   $('#empty').style.display = list.length ? 'none' : 'block';
 

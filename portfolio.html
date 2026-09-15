@@ -238,9 +238,6 @@
   .tv-player .tv-x{position:absolute; right:-12px; top:-12px; width:26px; height:26px; border:2px solid var(--ink); background:var(--lemon); font:inherit; font-weight:800; line-height:1; cursor:pointer;}
   .museum-tools{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:8px 0 0;}
   .museum-tools .dot-btn.on{background:var(--lemon);}
-  .museum-stamps{display:flex; gap:6px; justify-content:center; align-items:center; flex-wrap:wrap; margin:8px 0 0; font-size:11.5px; color:var(--ink-soft);}
-  .museum-stamps .stamp{display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border:2px dashed var(--ink-soft); border-radius:50%; font-weight:800; font-size:11px; color:var(--ink-soft); transform:rotate(-8deg);}
-  .museum-stamps .stamp.got{border:3px double #c0392b; color:#c0392b; background:rgba(192,57,43,.06);}
 </style>
 </head>
 <body>
@@ -258,7 +255,6 @@
       <div class="museum-stage"><canvas class="museum" id="galleryCv" width="1024" height="968" aria-label="수아랑 연아랑 미술관. 벽의 액자마다 작품이 걸려 있고, 누르면 크게 열려요. 이젤에는 가장 새 작품, 텔레비전에는 영상이 있어요."></canvas></div>
       <p class="museum-msg" id="galleryMsg" aria-live="polite"></p>
       <div class="museum-tools" id="galleryTools"></div>
-      <div class="museum-stamps" id="galleryStamps"></div>
     </div>
 
     <div id="adminArea"></div>
