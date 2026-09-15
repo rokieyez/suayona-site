@@ -722,11 +722,10 @@
     if (playerBox) return playerBox;
     const stage = $('#concertRoom .museum-stage'); if (!stage) return null;
     playerBox = document.createElement('div'); playerBox.className = 'concert-player'; playerBox.hidden = true;
-    playerBox.innerHTML = '<div class="cp-bar"><b class="cp-title"></b><button type="button" class="dot-btn small cp-post">게시글로</button>' +
+    playerBox.innerHTML = '<div class="cp-bar"><b class="cp-title"></b>' +
       '<button type="button" class="dot-btn small cp-close" aria-label="영상 닫기">✕ 닫기</button></div><div class="cp-frame"><div id="concertYT"></div></div>';
     stage.appendChild(playerBox);
     playerBox.querySelector('.cp-close').addEventListener('click', () => closePlayer(false));
-    playerBox.querySelector('.cp-post').addEventListener('click', () => { const w = liveW; closePlayer(false); const i = w ? list.indexOf(w) : -1; if (i >= 0 && openFn) openFn(i); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && liveW) closePlayer(false); });
     return playerBox;
   }
