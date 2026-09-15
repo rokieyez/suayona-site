@@ -93,8 +93,9 @@
   function dayPhase(){
     const q = new URLSearchParams(location.search).get('phase');
     if (q === 'day' || q === 'dusk' || q === 'night') return q;
-    const h = new Date().getHours();
-    return h >= 7 && h < 17 ? 'day' : h >= 17 && h < 20 ? 'dusk' : 'night';
+    // 시각은 보는 사람 기기가 아니라 서울 기준(한국은 서머타임이 없어 UTC+9 고정). 밤은 오후 10시 ~ 아침 7시(2026-09-15 부모 요청, 전엔 기기 시각 오후 8시)
+    const h = (new Date().getUTCHours() + 9) % 24;
+    return h >= 7 && h < 17 ? 'day' : h >= 17 && h < 22 ? 'dusk' : 'night';
   }
   const short = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
   const todayStr = () => { const d = new Date(), z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); };
@@ -202,7 +203,7 @@
     return (shells[key] = c);
   }
 
-  // 레일 조명 — 윗줄 액자 자리마다 하나. 밤(20~7시)에만 켠다 — 낮·저녁엔 꺼진 전등 몸통만(2026-09-15 부모 요청: 「낮에는 안 켜도 될 것 같고 밤에만」).
+  // 레일 조명 — 윗줄 액자 자리마다 하나. 밤(서울 22~7시)에만 켠다 — 낮·저녁엔 꺼진 전등 몸통만(2026-09-15 부모 요청: 「낮에는 안 켜도 될 것 같고 밤에만」).
   // 벽지가 아니라 액자 위에 따로 한 겹으로 그린다 — 벽지에 칠하면 액자가 빛을 덮어서 빛이 그림 뒤로 들어간 것처럼 보였다(부모 지적).
   // 칸 자리는 안 바뀌니 켜진 판·꺼진 판을 한 번씩만 굽는다
   const lampCv = {};
