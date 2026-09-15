@@ -5,7 +5,7 @@
 // 객석이 박수·환호(소리는 그 자리에서 만든다) — 다시 자리로 돌아가면 다음 영상.
 // 박수는 작품 박수(work_claps)와 따로 concert_claps 에 모은다(부모 요청). 수는 연주회장 탭을 열 때만 받는다.
 // 기다릴 때 앞막이 닫히고 안내 방송 → 막이 열리며 공연. 제목으로 무대 종류(피아노·뉴스·게임·요리·만들기·상영·마이크)를 가르고,
-// 박수 10·30·100 에 꽃다발·트로피·풍선과 만석, 🌱 성장 무대(같은 작가 피아노 영상 이어 틀기), 내 자리(이 브라우저에만).
+// 박수 10·30·100 에 꽃다발·트로피·풍선과 만석, 내 자리(이 브라우저에만). 화면을 한 번 누르면 무대 위 유튜브 플레이어.
 // 층: ① 벽·바닥·뒤막·무대(한 번 굽기) ② 피아노·의자·스피커(한 번 굽기) ③ 화면·안내판 ④ 무대 위 것 → 앞막 → 객석·화분(깊이 순)
 //     ⑤ 객석 어둠·스포트라이트·화면 빛·EXIT 초록불 ⑥ 음표·먼지·꽃가루 ⑦ 말풍선·이름표. 밖으로는 window.CONCERT 만 내놓는다.
 (function(){
@@ -910,7 +910,8 @@
     const w = show.w, muted = typeof sfxMuted === 'function' && sfxMuted(), btn = (id, label, aria) => '<button type="button" class="dot-btn small" id="' + id + '"' + (aria ? ' aria-label="' + aria + '"' : '') + '>' + label + '</button> ';   // 폰에서 한 줄에 들어가게 글자는 짧게, 뜻은 aria-label 로
     let html = '';
     if (w){
-      html += btn('cClap', '👏 박수' + (clapsState === 'on' ? ' <b>' + (claps[w.id] || 0) + '</b>' : '')) + btn('cOpen', '▶ 보기', '무대에서 보기');
+      // 수가 세 자리가 되면 「박수」 글자까지 두면 폰에서 두 줄이 됐다(100 → 340px > 335px) — 그래서 👏 옆에 수만
+      html += btn('cClap', clapsState === 'on' ? '👏 <b>' + (claps[w.id] || 0) + '</b>' : '👏 박수', '박수' + (clapsState === 'on' ? ' ' + (claps[w.id] || 0) + '번' : '')) + btn('cOpen', '▶ 보기', '무대에서 보기');
       if (videos.length > 1) html += btn('cNext', '⏭ 다음', '다음 무대');
     }
     html += btn('cSeat', seatMode ? '🪑 골라요' : me ? '🚶 비우기' : '🪑 내 자리', seatMode ? '빈자리를 눌러 앉아요' : me ? '자리 비우기' : '내 자리 고르기') + btn('cSound', muted ? '🔇 소리' : '🔊 소리', muted ? '소리 꺼짐 — 누르면 켜요' : '소리 켜짐 — 누르면 꺼요');

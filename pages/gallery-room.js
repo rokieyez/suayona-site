@@ -936,7 +936,7 @@
     const p = guard, t = tileXY(p.i, p.j), x = Math.round(t.x), y = Math.round(t.y), bob = p.wait > 0 || p.hush > 0 ? 0 : Math.floor(p.phase) % 2;
     const fx = p.flip ? -1 : 1;
     g.save(); g.globalCompositeOperation = 'lighter';
-    for (let k = 0; k < 4; k++) isoTopD(g, x + fx * (26 + k * 10), y + 10 + k * 3, 14 + k * 9, 6 + k * 3, 'rgba(255,230,150,' + (0.30 - k * 0.06).toFixed(2) + ')');   // 손전등 빛 — 밤 어둠(0.26) 위에서 보이려면 이 정도는 돼야 한다
+    for (let k = 0; k < 4; k++) isoTopD(g, x + fx * (26 + k * 10), y + 10 + k * 3, 14 + k * 9, 6 + k * 3, 'rgba(255,230,150,' + (0.30 - k * 0.06).toFixed(2) + ')');   // 손전등 빛 — 밤 어둠 층(drawNight)이 이 자리를 도려내고, 이 빛은 그 위에 더해진다
     g.restore();
     isoTopD(g, x, y, 10, 4, 'rgba(40,24,10,.3)');
     const c = visitorSprite(3, p.flip, 'adult', '');
