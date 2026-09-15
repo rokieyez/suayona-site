@@ -3,12 +3,12 @@
 // 최상위 선언이라 여기서 못 가져오고, 공유 파일로 빼면 캐시된 옛 honors.js 의 const 와 부딪힌다(kid-art.js 때 겪음).
 // 그래서 필요한 원시 함수(칸 좌표·벽 좌표·상자·벽 네모)는 여기에 다시 적었다. 밖으로는 window.GALLERY 만 내놓는다.
 //   GALLERY.render(list, open) — list: 보이는 작품(거르개 적용), open(i): i번째 작품을 크게 연다.
-// 벽에는 사진 작품의 작은 그림(thumb_url)을 액자에 넣어 건다 — 최근 것부터, 오른쪽 벽 12 + 왼쪽 벽 6.
+// 벽에는 사진 작품의 작은 그림(thumb_url)을 액자에 넣어 건다 — 최근 것부터, 오른쪽 벽 24 + 왼쪽 벽 12.
 // 가장 새 작품 하나는 방 앞 이젤에 크게. 영상은 바닥의 작은 텔레비전(누르면 가장 새 영상). 두 아이가 같이 걸어 다닌다.
 (function(){
   'use strict';
   const $ = s => document.querySelector(s);
-  const RW = 512, RH = 396, TW = 56, TH = 28, NI = 12, NJ = 6, FX = 172, FY = 154, WALLH = 136;
+  const RW = 512, RH = 484, TW = 56, TH = 28, NI = 12, NJ = 6, FX = 172, FY = 242, WALLH = 224;   // 벽 136 → 224(액자 두 줄 44씩, 2026-09-15 부모 요청). 바꾸면 portfolio.html 의 canvas height·aspect-ratio 도
   const CORNER = { x: FX, y: FY - TH / 2 }, WTOP = CORNER.y - WALLH;
   const LWr = NI * (TW / 2), LWl = NJ * (TW / 2);
   const KID_COLOR = { sua: '#ff7f8a', yona: '#6cc7b3', together: '#ffd979' };
@@ -82,8 +82,8 @@
   }
 
   // ---------- 자리 ----------
-  // 액자: 오른쪽 벽 두 줄 × 6, 왼쪽 벽 두 줄 × 3. 사진 36×26 + 테 2 + 검은 윤곽 1
-  const FW = 36, FH = 26, ROWS = [14, 58];
+  // 액자: 오른쪽 벽 네 줄 × 6, 왼쪽 벽 네 줄 × 3(36칸). 사진 36×26 + 테 2 + 검은 윤곽 1. 줄 간격 44
+  const FW = 36, FH = 26, ROWS = [14, 58, 102, 146];
   const SLOTS = [];
   ROWS.forEach(v => { for (let n = 0; n < 6; n++) SLOTS.push({ side: 1, u: 18 + n * 52, v }); for (let n = 0; n < 3; n++) SLOTS.push({ side: 0, u: 16 + n * 50, v }); });
   const EASEL = tileXY(9.7, 4.3), TV = tileXY(1.7, 4.7), BENCH = tileXY(6.0, 3.4), PLANT_AT = tileXY(0.55, 0.55);
