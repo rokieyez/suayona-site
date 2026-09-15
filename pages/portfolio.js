@@ -63,7 +63,7 @@ function render(){
   const grid = $('#grid');
   const list = visible();
   // 제목 아래 미술관 방 — 같은 목록을 걸고, 액자를 누르면 같은 큰 화면을 연다(gallery-room.js 가 없는 옛 HTML 이면 건너뛴다)
-  if (window.GALLERY) GALLERY.render(list, i => openWork(list, i));
+  if (window.GALLERY) GALLERY.render(list, i => openWork(list, i), { year: yearFilter });   // 연도를 넘기면 방이 그 해의 벽지로 옆으로 밀린다
   grid.innerHTML = '';
   $('#empty').style.display = list.length ? 'none' : 'block';
 
@@ -732,6 +732,10 @@ function renderWork(){
         (when ? escapeHTML(when) : '') +
         (age ? ' <span class="tag">' + escapeHTML(age) + '</span>' : '') +
         (canFlip ? ' <button type="button" class="flip-btn" id="wFlip">🔄 뒷면</button>' : '') +
+        // 박수(work_claps) — 방 이름표에 수가 붙고 다섯부터 액자에 리본. 표가 아직 없으면 단추도 없다
+        (window.GALLERY && GALLERY.clapsOn()
+          ? ' <button type="button" class="flip-btn clap-btn" id="wClap" aria-label="박수">👏 박수 <b>' + (GALLERY.claps()[w.id] || 0) + '</b></button>'
+          : '') +
         // 아이가 이 작품에 붙여 둔 소리. 열 때 한 번 나고, 눌러서 다시 들을 수 있다.
         (w.sfx && WORK_SFX[w.sfx]
           ? ' <button type="button" class="work-sfx" id="wSfx" title="이 작품의 소리">🔈 ' +
@@ -760,6 +764,21 @@ function renderWork(){
   $('#wNext').disabled = viewIdx >= viewList.length - 1;
     const sfxBtn = $('#wSfx');
   if (sfxBtn) sfxBtn.addEventListener('click', () => sfx(w.sfx));
+  const clapBtn = $('#wClap');
+  if (clapBtn) clapBtn.addEventListener('click', async () => {
+    const key = 'work_clap_' + w.id;
+    let did = false; try { did = !!localStorage.getItem(key); } catch (e) { /* 못 읽으면 다시 칠 수 있다 */ }
+    if (did){ clapBtn.classList.add('did'); clapBtn.title = '이미 박수를 쳤어요'; return; }
+    clapBtn.disabled = true;
+    const { error } = await sb.from('work_claps').insert({ work_id: w.id });
+    clapBtn.disabled = false;
+    if (error){ clapBtn.title = '지금은 박수를 못 쳤어요: ' + error.message; return; }
+    const n = (GALLERY.claps()[w.id] || 0) + 1;
+    GALLERY.clapped(w.id, n);
+    clapBtn.querySelector('b').textContent = n; clapBtn.classList.add('did');
+    try { localStorage.setItem(key, '1'); } catch (e) { /* 저장이 막혀도 박수는 남았다 */ }
+    sfx('prop');
+  });
   if (canFlip) {
     const mediaBox = $('#wMedia'), flipBtn = $('#wFlip');
     const flip = () => { mediaBox.classList.toggle('flipped'); sfx('prop'); };
