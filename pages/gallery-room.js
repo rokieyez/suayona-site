@@ -129,6 +129,7 @@
   let list = [], openFn = null, year = 'all', images = [], videos = [], easelW = null, hung = [], hits = [], hoverKey = null, focusKey = null;
   let claps = {}, clapsState = 'idle', clapsTotal = 0, overflowNote = '';
   let tvIdx = 0, tvTimer = null;
+  const TV_MAX = 8;                                                    // 텔레비전이 돌려 보여 주는 영상 수(가장 새 것부터)
 
   // ---------- 껍데기 — 벽·바닥·양탄자·화분(연도 무늬·시간대마다 한 번) ----------
   const shells = {};
@@ -735,7 +736,9 @@
     wallKey = '';                                                        // 목록이 바뀌었으니 다시 굽는다
     onThumb = () => { const before = hung.map(w => w && w.id).join(','); layout(); if (hung.map(w => w && w.id).join(',') !== before) wallKey = ''; wallKey = ''; draw(); };
     clearInterval(tvTimer); tvIdx = 0;
-    if (videos.length > 1 && !STILL) tvTimer = setInterval(() => { if (seen && !document.hidden){ tvIdx = (tvIdx + 1) % videos.length; draw(); } }, 4000);
+    // 텔레비전은 새 영상 8개만 돌린다 — 17개를 다 돌리면 섬네일 17장(약 200KB)을 받는다(2026-09-15 마무리작업). 누르면 지금 화면의 영상이 열린다
+    const tvN = Math.min(videos.length, TV_MAX);
+    if (tvN > 1 && !STILL) tvTimer = setInterval(() => { if (seen && !document.hidden){ tvIdx = (tvIdx + 1) % tvN; draw(); } }, 4000);
     if (cv){ cv.style.aspectRatio = RW + ' / ' + RH; cv.tabIndex = 0; }
     wire(); say(''); draw(); loadClaps();
     if (!STILL && !looping){ looping = true; requestAnimationFrame(loop); }

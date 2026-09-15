@@ -982,15 +982,17 @@ function youtubeUrl(id){ return 'https://www.youtube.com/watch?v=' + id; }
 function youtubeThumbHTML(id, alt, cls, sizes){
   const base = 'https://i.ytimg.com/vi_webp/' + id + '/';
   const small = base + 'mqdefault.webp';
-  // 큰 그림이 없으면 유튜브는 404 대신 120x90 회색 판을 준다 — 크기를 보고 갈아 끼운다.
+  // 큰 그림이 없으면 유튜브는 404 대신 120x90 회색 판을 준다 — 모양을 보고 갈아 끼운다.
   // srcset 이 걸려 있으면 src 만 바꿔도 안 먹으므로 srcset 을 먼저 떼어 낸다.
+  // 너비(naturalWidth<200)로 재면 안 된다: srcset 의 w 후보가 골라지면 naturalWidth 는 「원본 ÷ 밀도」라
+  // 폰에서는 320 짜리도 130 으로 읽혀 늘 갈아 끼웠다(2026-09-15 마무리작업에서 잰 것). 회색 판은 4:3, 진짜는 16:9 라 비율로 가른다.
   const swap = "this.onload=null; this.onerror=null; this.removeAttribute('srcset'); this.src='" + small + "';";
   return '<img' + (cls ? ' class="' + cls + '"' : '') +
     ' src="' + base + 'maxresdefault.webp"' +
     ' srcset="' + small + ' 320w, ' + base + 'maxresdefault.webp 1280w"' +
     ' sizes="' + (sizes || '100vw') + '"' +
     ' loading="lazy" decoding="async"' +
-    ' onload="if(this.naturalWidth<200){' + swap + '}"' +
+    ' onload="if(this.naturalHeight/this.naturalWidth>0.7){' + swap + '}"' +
     ' onerror="' + swap + '"' +
     ' alt="' + escapeHTML(alt || '') + '">';
 }

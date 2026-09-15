@@ -72,7 +72,9 @@ function render(){
     card.className = 'gal-item dot-card hoverable reveal';
     const ytId = w.media_type === 'youtube' ? youtubeId(w.media_url) : '';
     const media = ytId
-      ? youtubeThumbHTML(ytId, w.title, '', '(max-width:560px) calc(50vw - 57px), 230px') + '<span class="yt-mark">▶ 영상</span><span class="yt-play sm"></span>'
+      // sizes 의 230px 는 일부러 160px 로 줄여 적는다 — 레티나(×2)에서 230px 이라 하면 320 짜리(밀도 1.4)를 모자라다고 보고
+      // 1280 짜리(54~114KB)를 받는다. 160px 이라 하면 320 짜리(11~16KB)를 고른다. 섬네일이라 조금 무른 건 안 보인다(2026-09-15 마무리작업).
+      ? youtubeThumbHTML(ytId, w.title, '', '(max-width:560px) calc(50vw - 57px), 160px') + '<span class="yt-mark">▶ 영상</span><span class="yt-play sm"></span>'
       : w.media_type === 'video'
       ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
       // 격자 칸은 264px 인데 원본은 1800px 이 넘는다. 사본이 있으면 그것만 받는다.
