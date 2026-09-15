@@ -130,7 +130,7 @@
   const GREET_SPOT = { i: 8.7, j: 3.4 };                                 // ② 이젤 앞에 서는 자리(이젤이 오른쪽에 보인다)
   const WALK_BOX = { i0: 0.3, i1: 10.9, j0: 0.9, j1: 5.1 };
   // 걸을 수 없는 곳 — 가구마다 바닥에 닿는 네모(칸 좌표)에 몸 반 폭(0.35칸)을 더했다. 동그라미로 재던 옛 것은 관객·경비원이 아예 안 봐서 가구를 뚫고 지나갔다
-  const LAMP = 0.36;                                                     // 레일 조명 빛 세기(0.3 은 벽 파랑이 10쯤만 줄어 잘 안 보였다)
+  const LAMP = 0.52;                                                     // 레일 조명 빛 세기 — 타원 번짐 가운데 값. 가장자리로 갈수록 0 으로 흐려져서 띠(0.36)보다 높게 둔다
   const BLOCKS = [
     { i0: 4.95, i1: 7.05, j0: 2.4, j1: 4.4 },                                                // 가운데 의자(반 폭 0.64칸)
     { i0: EASEL_AT.i - 1.4, i1: EASEL_AT.i + 1.4, j0: EASEL_AT.j - 0.8, j1: EASEL_AT.j + 0.4 },   // 이젤(판 폭 60px ≈ 2.1칸, 뒷다리는 벽 쪽으로 0.46칸)
@@ -197,13 +197,31 @@
     }
     drawPlant(g, Math.round(PLANT_AT.x - 16), Math.round(PLANT_AT.y - 30));
     if (night){ g.fillStyle = phase === 'dusk' ? 'rgba(90,40,20,.12)' : 'rgba(16,20,60,.26)'; g.globalCompositeOperation = 'source-atop'; g.fillRect(0, 0, RW, RH); g.globalCompositeOperation = 'source-over'; }
-    // 레일 조명 — 윗줄 액자 자리마다 하나. 밤낮 없이 늘 켜 둔 은은한 노란 빛(2026-09-15 부모 요청). 어둠 막 뒤에 그려서 낮과 밤이 같은 빛이다
+    return (shells[key] = c);
+  }
+
+  // 레일 조명 — 윗줄 액자 자리마다 하나. 밤낮 없이 늘 켜 둔 은은한 노란 빛(2026-09-15 부모 요청).
+  // 벽지가 아니라 액자 위에 따로 한 겹으로 그린다 — 벽지에 칠하면 액자가 빛을 덮어서 빛이 그림 뒤로 들어간 것처럼 보였다(부모 지적).
+  // 밤 어둠 막과 상관없는 겹이라 낮과 밤이 같은 빛이다. 칸 자리는 안 바뀌니 한 번만 굽는다
+  let lampCv = null;
+  function lampLayer(){
+    if (lampCv) return lampCv;
+    const c = document.createElement('canvas'); c.width = RW * 2; c.height = RH * 2;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0);
     [1, 0].forEach(side => SLOTS.filter(s => s.side === side && s.v === ROWS[0]).forEach(s => {
       const cu = s.u + s.w / 2;
-      for (let v = 10; v < WALLH - 8; v++){ const hw = Math.min(30, 4 + (v - 10) * 0.55); g.fillStyle = 'rgba(255,214,120,' + (LAMP * (1 - (v - 10) / WALLH)).toFixed(3) + ')'; for (let du = -hw; du < hw; du++){ const p = wallXY(side, cu + du, v); g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); } }
+      // 빛 — 벽면 좌표(u,v)를 그대로 캔버스 변환으로 옮겨 타원 번짐으로 칠한다. 점을 하나씩 반올림해 찍던 옛 방식은 가장자리가 딱딱한 띠에
+      // 겹친 점이 체크무늬로 남아서, 액자 위로 올리니 그림에 노란 필름을 붙인 것처럼 보였다. 벽면은 x = 모서리 ± u, y = 벽 위 + v + u/2 인 일차 변환이다
+      g.save();
+      g.setTransform(side ? 2 : -2, 1, 0, 2, (side ? CORNER.x : CORNER.x - 2) * 2, WTOP * 2);
+      g.translate(cu, 9); g.scale(1, 4.6);                                                  // 가로 반지름 36 · 세로 166 인 타원
+      const glow = g.createRadialGradient(0, 0, 0, 0, 0, 36);
+      glow.addColorStop(0, 'rgba(255,214,120,' + LAMP + ')'); glow.addColorStop(0.5, 'rgba(255,214,120,' + (LAMP * 0.55).toFixed(3) + ')'); glow.addColorStop(1, 'rgba(255,214,120,0)');
+      g.fillStyle = glow; g.fillRect(-36, 0, 72, 36);                                       // 아래 반쪽만(위는 천장)
+      g.restore();
       wallRect(g, side, cu - 3, 6, 6, 4, '#2a2624'); wallRect(g, side, cu - 4, 9, 8, 3, 'rgba(255,226,150,.5)'); wallRect(g, side, cu - 2, 9, 4, 1, '#fff3c4');
     }));
-    return (shells[key] = c);
+    return (lampCv = c);
   }
 
   // ---------- 작품 사진 — 작은 캔버스로 미리 줄여 둔다(그대로 줄이면 도트가 튄다) ----------
@@ -257,7 +275,11 @@
   }
   function drawFrameAt(g, s, w){
     const c = frameColor(w), W = s.w, H = s.h, t = thumbOf(w, W, H), b = s.big ? 2 : 0;    // 큰 액자는 테가 두 도트 더 두껍고 금테가 한 줄 더
-    wallRect(g, s.side, s.u + 3, s.v + 3, W + 6 + b, H + 6 + b, 'rgba(40,24,10,.22)');       // 그림자
+    // 그림자 — 벽에 딱 붙은 액자처럼 테 바로 옆·아래에만(2026-09-15 부모 「붕 뜬 느낌」). 전에는 오른쪽·아래로 6px 씩 번져 벽에서 떨어져 보였다.
+    // 빛이 위 레일 조명에서 오니 아래로 2px, 옆으로 1px. 테에 닿는 한 줄은 짙게
+    wallRect(g, s.side, s.u - 2 - b, s.v - 1 - b, W + 6 + b * 2, H + 6 + b * 2, 'rgba(40,24,10,.16)');
+    wallRect(g, s.side, s.u - 3 - b, s.v + H + 3 + b, W + 7 + b * 2, 1, 'rgba(40,24,10,.30)');   // 아래 테에 닿는 줄
+    wallRect(g, s.side, s.u + W + 3 + b, s.v - 2 - b, 1, H + 6 + b * 2, 'rgba(40,24,10,.24)');   // 옆 테에 닿는 줄
     wallRect(g, s.side, s.u - 3 - b, s.v - 3 - b, W + 6 + b * 2, H + 6 + b * 2, INK);
     wallRect(g, s.side, s.u - 2 - b, s.v - 2 - b, W + 4 + b * 2, H + 4 + b * 2, shade(c, -30));
     wallRect(g, s.side, s.u - 1 - b, s.v - 1 - b, W + 2 + b * 2, H + 2 + b * 2, c);
@@ -903,6 +925,7 @@
     g.clearRect(0, 0, RW, RH);
     g.drawImage(shellCv(), 0, 0, RW, RH);
     g.drawImage(bakeWall(), 0, 0, RW, RH);
+    g.drawImage(lampLayer(), 0, 0, RW, RH);                               // 레일 조명은 액자 위에
     const floor = [{ y: BENCH.y, f: () => drawBench(g) }, { y: EASEL.y, f: () => drawEasel(g) }, { y: TV.y, f: () => drawTV(g) }, { y: PLINTH.y, f: () => drawPlinth(g) }];
     if (guard){ const t = tileXY(guard.i, guard.j); floor.push({ y: t.y - 1, f: () => drawGuard(g) }); }
     const spots = {};
