@@ -715,7 +715,34 @@ function drawTerms(box, k, cur){
 }
 
 // 누를 수 있는 곳 — 그릴 때 함께 적어 둔다
-let hits = [], hoverKey = null;
+let hits = [], hoverKey = null, focusKey = null;                       // focusKey: 한 번 누른 것 — 이름표가 떠 있고, 한 번 더 누르면 사진(2026-09-15 부모 요청)
+// 이름표 — 누르거나 마우스를 올린 것 아래에 제목·기관·날짜·한마디. 노란 테두리 대신(부모 요청으로 뺌)
+function plateLines(h){
+  if (h.r){
+    const r = h.r, s = sayOf(r, kid);
+    const l1 = short(r.title, 18);
+    const l2 = (r.kind === 'level' ? r.track + (r.step ? ' ' + r.step + '단계' : '') : (r.org || (r.kind === 'first' ? '처음 해낸 것' : '상장·메달'))) + (r.got_on ? ' · ' + fmtDate(r.got_on) : '');
+    const l3 = s ? '“' + short(s, 22) + '”' : (r.photo_url ? '한 번 더 누르면 사진' : '사진은 아직 없어요');
+    return [l1, short(l2, 26), l3];
+  }
+  const t = h.t;
+  return [short(t.track, 18), '지금 ' + t.top + '단계 · ' + t.rows.length + '칸', t.rows.some(r => r.photo_url) ? '한 번 더 누르면 사진' : '사진은 아직 없어요'];
+}
+function drawPlate(g, h){
+  const lines = plateLines(h), F = '"Suayona Sans", Pretendard, system-ui, sans-serif';
+  g.save(); g.textBaseline = 'top'; g.textAlign = 'left';
+  g.font = '800 9px ' + F; const w1 = g.measureText(lines[0]).width;
+  g.font = '700 8px ' + F; const w2 = Math.max(g.measureText(lines[1]).width, g.measureText(lines[2]).width);
+  const pw = Math.round(Math.max(w1, w2)) + 12, ph = 34, cx = (h.x0 + h.x1) / 2;
+  let x = Math.round(Math.max(3, Math.min(RW - pw - 3, cx - pw / 2))), y = Math.round(h.y1 + 4);
+  if (y + ph > RH - 3) y = Math.round(h.y0 - ph - 4);                  // 아래 자리가 없으면 위에
+  g.fillStyle = '#2a2118'; g.fillRect(x - 1, y - 1, pw + 2, ph + 2); g.fillStyle = '#fff8ea'; g.fillRect(x, y, pw, ph); g.fillStyle = '#ffffff'; g.fillRect(x, y, pw, 1);
+  const tx = Math.round(Math.max(x + 4, Math.min(x + pw - 8, cx - 3)));   // 위쪽 꼬리
+  if (y > h.y1){ g.fillStyle = '#2a2118'; g.fillRect(tx - 1, y - 4, 8, 4); g.fillStyle = '#fff8ea'; g.fillRect(tx + 1, y - 2, 4, 3); }
+  g.fillStyle = '#2a2118'; g.font = '800 9px ' + F; g.fillText(lines[0], x + 6, y + 4);
+  g.fillStyle = '#6f6558'; g.font = '700 8px ' + F; g.fillText(lines[1], x + 6, y + 15); g.fillText(lines[2], x + 6, y + 24);
+  g.restore();
+}
 const hitsOf = { sua: [], yona: [] };
 // 가장 최근 것의 자리(반짝임) — 그릴 때 적어 둔다
 const sparkleOf = { sua: null, yona: null };
@@ -860,11 +887,8 @@ function drawMuseum(g, k){
   g.restore();
   if (sparklePhase !== null && sparkleOf[k]) drawSparkle(g, sparkleOf[k].x, sparkleOf[k].y);
   hitsOf[k] = hits;
-  const hv = hits.find(h => k + ':' + hitKey(h) === hoverKey);
-  if (hv){
-    g.strokeStyle = 'rgba(255,217,121,.95)'; g.lineWidth = 1;
-    g.strokeRect(Math.round(hv.x0) + 0.5, Math.round(hv.y0) + 0.5, Math.round(hv.x1 - hv.x0), Math.round(hv.y1 - hv.y0));
-  }
+  const fk = focusKey || hoverKey, hv = hits.find(h => k + ':' + hitKey(h) === fk);
+  if (hv && !hv.kid) drawPlate(g, hv);                                   // 노란 테두리 대신 이름표
   const bub = bubbleOf[k], bs = bub && walkerSpot(k);                  // 아이 말풍선
   if (bs) drawBubble(g, bs.x, bs.y - 42, bub.text);
 }
@@ -900,15 +924,24 @@ function wireCanvas(cv, k){
     withKid(k, () => { if (h) say(h.kid ? heroName(k) + '를 누르면 이야기해요' : h.r ? captionOf(h.r) : ladderCaption(h.t)); drawRoom(k); });
   });
   cv.addEventListener('pointerleave', () => { if (hoverKey){ hoverKey = null; drawRoom(k); } });
+  // 한 번 누르면 이름표(제목·기관·날짜·한마디)와 글줄, 같은 것을 한 번 더 누르면 사진(2026-09-15 부모 요청 — 마우스도 손가락도 같다)
   cv.addEventListener('click', e => withKid(k, () => {
     const h = hitAt(e, k);
-    if (!h){ say(''); return; }
+    if (!h){ if (focusKey){ focusKey = null; drawRoom(k); } say(''); return; }
     if (h.kid){ kidTalk(k); return; }
+    const key = k + ':' + hitKey(h);
+    if (focusKey !== key){
+      focusKey = key; drawRoom(k);
+      say(h.r ? captionOf(h.r) + (h.r.photo_url ? ' · 한 번 더 누르면 사진' : ' — 사진은 아직 없어요') : ladderCaption(h.t) + ' · ' + h.t.rows.map(r => r.title).join(' → '));
+      return;
+    }
+    focusKey = null; drawRoom(k);
     if (h.r){ openItem(h.r); return; }
     const shots = h.t.rows.filter(r => r.photo_url).slice().reverse();
     say(ladderCaption(h.t) + ' · ' + h.t.rows.map(r => r.title).join(' → '));
     if (shots.length) lightbox.open(shots.map(r => ({ media_url: r.photo_url, media_type: 'image', caption: captionOf(r) })), 0);
   }));
+  window.HONORS = { hits: kk => hitsOf[kk], focus: () => focusKey };   // 시험용
 }
 function ladderCaption(t){
   const g = goalOf(kid, t.track);
@@ -988,7 +1021,7 @@ function renderRoom(sec, k){
   // 벽 칸(코르크판 + 액자)을 넘친 상장은 벽에 안 걸린다 — 조용히 사라진 것처럼 보이지 않게 몇 장이 목록에만 있는지 적는다
   const nPaper = list.filter(r => r.kind === 'award' && lookOf(r) === 'paper').length, wallSlots = PINS.length + FRAMES.length;
   const over = nPaper > wallSlots ? '<br>벽에는 상장 ' + wallSlots + '장까지 걸려요 · 나머지 ' + (nPaper - wallSlots) + '장은 아래 목록에 있어요' : '';
-  q('.room-sub').innerHTML = '🏅 상장·메달 ' + nA + ' · 🪜 급수 ' + nT + '가지 · ⭐ 처음 해낸 것 ' + nF + '<br>액자·사다리·진열대를 누르면 사진이 열려요' + over;
+  q('.room-sub').innerHTML = '🏅 상장·메달 ' + nA + ' · 🪜 급수 ' + nT + '가지 · ⭐ 처음 해낸 것 ' + nF + '<br>액자·사다리·진열대를 누르면 이름표가, 한 번 더 누르면 사진이 열려요' + over;
   const tools = q('.room-tools'); tools.innerHTML = '';
   if (!missing && list.length){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'dot-btn small';
