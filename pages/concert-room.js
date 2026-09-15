@@ -295,13 +295,14 @@
     if (STILL) return false;
     if (ph === 'idle' && t > DUR.idle) setPhase('up');
     else if (ph === 'sit' && t > DUR.sit) setPhase('play');
-    else if (ph === 'play' && t > DUR.play) setPhase('bow');
+    else if (ph === 'play' && (show.pendingBow || (t > DUR.play && !show.live))){ show.pendingBow = false; setPhase('bow'); }   // 진짜 영상을 트는 동안은 끝날 때까지
     else if (ph === 'bow' && t > DUR.bow) setPhase('down');
     else if (ph === 'rest' && t > DUR.rest){ idx = (idx + 1) % videos.length; startShow(); }
     KIDS.forEach(k => stepActor(actorOf(k), dt));
     return true;
   }
   function skipShow(){                                                   // ⏭ 다음 무대 — 아이들을 자리에 앉히고 바로 다음 영상
+    closePlayer(false);
     KIDS.forEach(k => { const p = actorOf(k), h = homeSpot(k); Object.assign(p, { a: h.a, b: h.b, plan: [], onArrive: null, seated: true, dir: 'up', moving: false }); });
     idx = (idx + 1) % Math.max(1, videos.length); startShow(); draw();
   }
@@ -335,7 +336,8 @@
         g.fillStyle = '#fff8ea'; g.font = '800 11px ' + FONT; g.fillText(short(w.title, 14), x + W / 2, y + H / 2 + 8);
         g.fillStyle = '#c9d6e8'; g.font = '700 8px ' + FONT; g.fillText(authorOf(w), x + W / 2, y + H / 2 + 20);
       } else if (ph === 'play'){
-        const p = Math.min(1, show.t / DUR.play);
+        let p = Math.min(1, show.t / DUR.play);
+        if (show.live && yt && yt.getDuration){ try { const d = yt.getDuration(); if (d > 0) p = Math.min(1, yt.getCurrentTime() / d); } catch (e) { /* 플레이어가 아직 준비 전 */ } }
         g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(x + 5, y + H - 8, W - 10, 3);
         g.fillStyle = '#ffd979'; g.fillRect(x + 5, y + H - 8, Math.round((W - 10) * p), 3);
         if (Math.floor(now() / 600) % 2){ g.fillStyle = '#e8453c'; g.fillRect(x + 6, y + 5, 4, 4); }
@@ -463,7 +465,7 @@
   const NOTE_COL = ['#ffd979', '#fff8ea', '#ffb0b8', '#9fe0d0'];
   function confetti(n){ if (STILL) return; for (let k = 0; k < n; k++) parts.push({ kind: 'conf', x: 40 + Math.random() * 380, y: -10 - Math.random() * 80, vx: (Math.random() - 0.5) * 24, vy: 34 + Math.random() * 30, life: 0, max: 4200, col: ['#ff7f8a', '#6cc7b3', '#ffd979', '#9b6bbf', '#5b7fbf'][k % 5], ph: Math.random() * 6 }); }
   function stepParts(dt){
-    if (show.phase === 'play' && !STILL){
+    if (show.phase === 'play' && !STILL && !show.paused){
       emitAt -= dt;
       if (emitAt <= 0){
         emitAt = show.mode === 'piano' ? 320 + Math.random() * 260 : 900 + Math.random() * 600;
@@ -626,7 +628,7 @@
   function stateLine(){
     const w = show.w; if (!w) return videos.length ? '' : '이 거르개에는 영상이 없어요 — 거르개를 「전체」로 바꿔 보세요';
     const who = KID_NAME[w.author] || '수아랑 연아랑', t = '「' + short(w.title, 18) + '」';
-    return { idle: '다음 무대: ' + t + ' · ' + who, up: who + ' 무대로 나가요 · ' + t, sit: who + ' 준비 중 · ' + t, play: (show.mode === 'piano' ? '연주 중: ' : '상영 중: ') + t + ' · 화면을 누르면 크게 봐요', bow: '박수! 👏 ' + t, down: who + ' 자리로 돌아가요', rest: '잠시 쉬어요' }[show.phase] || t;
+    return { idle: '다음 무대: ' + t + ' · ' + who, up: who + ' 무대로 나가요 · ' + t, sit: who + ' 준비 중 · ' + t, play: (show.live ? '무대에서 상영 중: ' : show.mode === 'piano' ? '연주 중: ' : '상영 중: ') + t + (show.live ? ' · 끝나면 인사해요' : ' · 화면을 누르면 무대에서 봐요'), bow: '박수! 👏 ' + t, down: who + ' 자리로 돌아가요', rest: '잠시 쉬어요' }[show.phase] || t;
   }
   function hitAt(e){
     const cv = $('#concertCv'), rc = cv.getBoundingClientRect(); if (!rc.width) return null;
@@ -646,7 +648,7 @@
   }
   function describe(h){
     if (!h) return stateLine();
-    if (h.key === 'screen') return '「' + short(show.w.title, 20) + '」 · ' + authorOf(show.w) + (lastPointer === 'mouse' ? ' · 누르면 크게' : ' · 한 번 더 누르면 크게');
+    if (h.key === 'screen') return '「' + short(show.w.title, 20) + '」 · ' + authorOf(show.w) + (lastPointer === 'mouse' ? ' · 누르면 무대에서 봐요' : ' · 한 번 더 누르면 무대에서 봐요');
     if (h.key === 'board') return '박수판 · 누르면 이 무대에 박수(연주회장 박수는 작품 박수와 따로 세요)';
     if (h.kid) return KID_NAME[h.kid] + ' · 누르면 이야기해요';
     if (h.guest) return '관객 · 누르면 한마디';
@@ -676,7 +678,7 @@
       if (!h){ if (focusKey){ focusKey = null; draw(); } say(stateLine()); return; }
       if (h.key === 'screen'){
         if (touch && focusKey !== 'screen'){ focusKey = 'screen'; say(describe(h)); draw(); return; }
-        focusKey = null; openCurrent(); return;
+        focusKey = null; openPlayer(show.w); return;
       }
       focusKey = null;
       if (h.key === 'board'){ clap(); return; }
@@ -685,18 +687,85 @@
       if (typeof tone === 'function') [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.2, 'triangle', 0.05, i * 0.09));
       say('피아노 — 무대의 주인공이 곧 앉아요');
     });
-    cv.addEventListener('keydown', e => { if (e.key === 'Enter') openCurrent(); });
+    cv.addEventListener('keydown', e => { if (e.key === 'Enter') openPlayer(show.w); });
   }
   function renderTools(){
     const box = $('#concertTools'); if (!box) return;
     const w = show.w, muted = typeof sfxMuted === 'function' && sfxMuted();
     box.innerHTML = (w ? '<button type="button" class="dot-btn small" id="cClap">👏 박수' + (clapsState === 'on' ? ' <b>' + (claps[w.id] || 0) + '</b>' : '') + '</button> ' +
-      '<button type="button" class="dot-btn small" id="cOpen">▶ 이 영상 보기</button> ' +
+      '<button type="button" class="dot-btn small" id="cOpen">▶ 무대에서 보기</button> ' +
       (videos.length > 1 ? '<button type="button" class="dot-btn small" id="cNext">⏭ 다음 무대</button> ' : '') : '') +
       '<button type="button" class="dot-btn small" id="cSound">' + (muted ? '🔇 소리 꺼짐' : '🔊 소리 켜짐') + '</button>';
     const on = (id, f) => { const b = $('#' + id); if (b) b.addEventListener('click', f); };
-    on('cClap', () => clap()); on('cOpen', () => openCurrent()); on('cNext', () => { heard = true; skipShow(); renderTools(); say(stateLine()); });
+    on('cClap', () => clap()); on('cOpen', () => openPlayer(show.w)); on('cNext', () => { heard = true; skipShow(); renderTools(); say(stateLine()); });
     on('cSound', () => { if (typeof sfxSetMuted === 'function') sfxSetMuted(!muted); heard = true; renderTools(); if (muted) applause(0.8, false); });
+  }
+
+  // ---------- 무대 위 영상 — 화면을 누르면 방 위에 진짜 유튜브 플레이어가 뜨고, 영상이 끝나면 방에서 인사·박수 ----------
+  // 캔버스 속 기울어진 화면에서 틀지 않는 이유(2026-09-15 유튜브 규정 확인): 플레이어는 200×200px 이상이어야 하고,
+  // 앞에 아무것도 겹치면 안 되며, 문서에 없는 방식으로 바꾸면 안 된다(기울이기 포함). 그래서 똑바로 선 플레이어를
+  // 방 위(폰은 방 아래)에 띄우고, 방은 뒤에서 계속 움직인다. 플레이어 코드(iframe_api)는 처음 누를 때만 받는다.
+  let yt = null, ytReady = null, playerBox = null, liveW = null;
+  function loadYT(){
+    if (ytReady) return ytReady;
+    ytReady = new Promise((res, rej) => {
+      if (window.YT && window.YT.Player) return res(window.YT);
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => { if (typeof prev === 'function') try { prev(); } catch (e) { /* 남의 콜백 오류는 넘긴다 */ } res(window.YT); };
+      const sc = document.createElement('script'); sc.src = 'https://www.youtube.com/iframe_api'; sc.async = true;
+      sc.onerror = () => { ytReady = null; rej(new Error('유튜브 플레이어를 받지 못했어요')); };
+      document.head.appendChild(sc);
+    });
+    return ytReady;
+  }
+  function ensureBox(){
+    if (playerBox) return playerBox;
+    const stage = $('#concertRoom .museum-stage'); if (!stage) return null;
+    playerBox = document.createElement('div'); playerBox.className = 'concert-player'; playerBox.hidden = true;
+    playerBox.innerHTML = '<div class="cp-bar"><b class="cp-title"></b><button type="button" class="dot-btn small cp-post">게시글로</button>' +
+      '<button type="button" class="dot-btn small cp-close" aria-label="영상 닫기">✕ 닫기</button></div><div class="cp-frame"><div id="concertYT"></div></div>';
+    stage.appendChild(playerBox);
+    playerBox.querySelector('.cp-close').addEventListener('click', () => closePlayer(false));
+    playerBox.querySelector('.cp-post').addEventListener('click', () => { const w = liveW; closePlayer(false); const i = w ? list.indexOf(w) : -1; if (i >= 0 && openFn) openFn(i); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && liveW) closePlayer(false); });
+    return playerBox;
+  }
+  async function openPlayer(w){
+    if (!w) return;
+    const box = ensureBox(), id = typeof youtubeId === 'function' ? youtubeId(w.media_url) : '';
+    if (!box || !id){ openCurrent(); return; }
+    heard = true;
+    if (show.w !== w || !['up', 'sit', 'play'].includes(show.phase)){         // 이 영상의 작가가 아직 무대에 없으면 바로 올라온다
+      KIDS.forEach(k => { const p = actorOf(k), h = homeSpot(k); Object.assign(p, { a: h.a, b: h.b, plan: [], onArrive: null, seated: true, dir: 'up', moving: false }); });
+      idx = Math.max(0, videos.indexOf(w)); startShow(); if (!STILL) setPhase('up');
+    }
+    show.live = true; show.paused = false; show.pendingBow = false; liveW = w;
+    box.querySelector('.cp-title').textContent = short(w.title, 30) + ' · ' + authorOf(w);
+    box.hidden = false; box.classList.remove('rise'); void box.offsetWidth; box.classList.add('rise');
+    box.scrollIntoView({ block: 'nearest', behavior: STILL ? 'auto' : 'smooth' });      // 절반 넘게 보여야 자동 재생할 수 있다(규정)
+    say('▶ 「' + short(w.title, 20) + '」 — 영상이 끝나면 무대에서 인사해요'); renderTools();
+    try {
+      const YT = await loadYT();
+      if (liveW !== w) return;
+      if (yt && yt.loadVideoById){ yt.loadVideoById(id); return; }
+      yt = new YT.Player('concertYT', { host: 'https://www.youtube-nocookie.com', videoId: id, width: '100%', height: '100%',
+        playerVars: { autoplay: 1, rel: 0, playsinline: 1, origin: location.origin },
+        events: { onStateChange: ev => onYT(ev.data) } });
+    } catch (e) { closePlayer(false); say('영상 플레이어를 못 열어서 게시글로 열어요'); openCurrent(); }
+  }
+  function onYT(state){ show.paused = state === 2; if (state === 0) videoEnded(); }   // 0 끝남 · 1 재생 · 2 멈춤
+  function videoEnded(){
+    if (!liveW) return;
+    closePlayer(true);
+    if (show.phase === 'play') setPhase('bow'); else show.pendingBow = true;   // 아직 걸어가는 중이면 앉자마자 인사
+  }
+  function closePlayer(ended){
+    if (!playerBox || !liveW) return;
+    liveW = null; show.live = false; show.paused = false;
+    try { if (yt && yt.stopVideo) yt.stopVideo(); } catch (e) { /* 이미 닫힌 플레이어 */ }
+    playerBox.hidden = true;
+    if (!ended && show.phase === 'play') show.t = Math.max(show.t, DUR.play - 1500);   // 닫으면 곧 인사하고 다음 무대로
+    renderTools(); say(stateLine());
   }
 
   // ---------- 탭 ----------
@@ -707,7 +776,7 @@
     document.querySelectorAll('#roomTabs [data-room]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.room === room)));
     try { const u = new URL(location.href); if (room === 'concert') u.searchParams.set('room', 'concert'); else u.searchParams.delete('room'); history.replaceState(history.state, '', u); } catch (e) { /* 주소를 못 바꿔도 탭은 바뀐다 */ }
     if (room === 'concert'){ if (byUser) heard = true; loadClaps(); draw(); say(stateLine()); }
-    else if (window.GALLERY && GALLERY.draw) GALLERY.draw();
+    else { closePlayer(false); if (window.GALLERY && GALLERY.draw) GALLERY.draw(); }
   }
   function wireTabs(){
     if (tabsWired) return; tabsWired = true;
@@ -726,7 +795,7 @@
     const same = vids.length === videos.length && vids.every((w, i) => videos[i] && videos[i].id === w.id);
     videos = vids;
     if (!same){
-      idx = 0; parts.length = 0;
+      closePlayer(false); idx = 0; parts.length = 0;
       KIDS.forEach(k => { const p = actorOf(k), h = homeSpot(k); Object.assign(p, { a: h.a, b: h.b, plan: [], onArrive: null, seated: true, dir: 'up', moving: false, say: null }); });
       startShow();
     }
@@ -755,5 +824,5 @@
       tick(t, Math.min(100, acc)); acc = 0;
     } catch (e) { /* 한 장 건너뛴다 */ }
   }
-  window.CONCERT = { render, draw, _tick: tick, _show: show, _actors: actors, _guests: guests, _skip: skipShow, _room: setRoom, _clap: clap, _parts: parts, _applause: applause, _hit: hitAt, _claps: () => claps, _state: () => clapsState, _phase: setPhase };
+  window.CONCERT = { render, draw, _tick: tick, _show: show, _actors: actors, _guests: guests, _skip: skipShow, _room: setRoom, _clap: clap, _parts: parts, _applause: applause, _hit: hitAt, _claps: () => claps, _state: () => clapsState, _phase: setPhase, _open: openPlayer, _ended: videoEnded, _yt: () => yt, _close: closePlayer };
 })();
