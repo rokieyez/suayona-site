@@ -8,6 +8,9 @@
 // 2026-09-15 밤 열 가지 더(부모 「전부 진행해」): ① 액자 이름표에 제목·작가·날짜 ② 아이가 새 작품 앞으로 걸어가 안내 ③ 텔레비전에 영상 섬네일
 // ④ 연도를 바꾸면 방이 옆으로 밀리며 그 해의 벽지·양탄자로 ⑤ 관람객 도트 ⑥ 저녁·밤 조명 ⑦ 이름표 옆 작가 얼굴 ⑧ 가로형 그림을 큰 액자에
 // ⑨ 27칸을 넘으면 마지막 네 칸을 날마다 바꿔 건다 ⑩ 박수(work_claps) — 큰 화면에서 치고, 방에서는 수와 리본으로 보인다.
+// 2026-09-15 밤 열 가지 더(부모 「전부진행」): ⓐ 박수 1등 「이달의 그림」 받침대 ⓑ 관람객이 큰 액자 앞에 오래 서고 리본 작품엔 손뼉 ⓒ 관람객 넷(어른·아이·할머니·강아지)
+// ⓓ 텔레비전을 누르면 방 안에 작은 재생기 ⓔ 부모 편집 모드(액자 끌어 바꿔 걸기 → works.wall_slot) ⓕ 그 해 작품을 셋 이상 열어 보면 연도 도장 ⓖ 밤엔 관객 대신 경비 아저씨가 손전등을 들고 한 바퀴
+// ⓗ 「같이」 이름표의 두 얼굴 사이 하트 ⓘ 방 사진 저장·나누기 ⓙ (DB) 박수 시각 잠금·안 쓰는 함수 정리
 (function(){
   'use strict';
   const $ = s => document.querySelector(s);
@@ -121,14 +124,16 @@
   });
   const ROTATE = 4;                                                      // ⑨ 넘치면 마지막 네 칸을 날마다 바꿔 건다
   const EASEL = tileXY(9.7, 4.3), TV = tileXY(1.0, 4.7), BENCH = tileXY(6.0, 3.4), PLANT_AT = tileXY(0.55, 0.55);   // 텔레비전은 왼쪽 벽에 붙여서(1.7 → 1.0, 2026-09-15 부모 요청)
+  const PLINTH = tileXY(4.6, 5.55);                                      // ⓐ 이달의 그림 받침대 — 방 앞쪽 가운데 왼편
   const GREET_SPOT = { i: 8.6, j: 4.9 };                                 // ② 이젤 앞에 서는 자리(이젤이 오른쪽에 보인다)
   const WALK_BOX = { i0: 0.3, i1: 10.9, j0: 0.9, j1: 5.1 };
-  const WALK_BLOCK = [{ i: 5.1, j: 3.4, r: 1.05 }, { i: 6.9, j: 3.4, r: 1.05 }, { i: 9.7, j: 4.3, r: 1.1 }, { i: 1.0, j: 4.7, r: 1.35 }, { i: 0.55, j: 0.55, r: 1.1 }];
+  const WALK_BLOCK = [{ i: 5.1, j: 3.4, r: 1.05 }, { i: 6.9, j: 3.4, r: 1.05 }, { i: 9.7, j: 4.3, r: 1.1 }, { i: 1.0, j: 4.7, r: 1.35 }, { i: 0.55, j: 0.55, r: 1.1 }, { i: 4.6, j: 5.55, r: 0.9 }];
 
   // ---------- 상태 ----------
   let list = [], openFn = null, year = 'all', images = [], videos = [], easelW = null, hung = [], hits = [], hoverKey = null, focusKey = null;
   let claps = {}, clapsState = 'idle', clapsTotal = 0, overflowNote = '';
   let tvIdx = 0, tvTimer = null;
+  let admin = false, editMode = false, drag = null, capturing = false, allWorks = [], tvPlaying = null;   // ⓔ ⓘ ⓕ ⓓ
   const TV_MAX = 8;                                                    // 텔레비전이 돌려 보여 주는 영상 수(가장 새 것부터)
 
   // ---------- 껍데기 — 벽·바닥·양탄자·화분(연도 무늬·시간대마다 한 번) ----------
@@ -252,10 +257,14 @@
     wallImage(g, s.side, s.u, s.v, W, H, t.cv);
     const pv = s.v + H + 6 + b;                                                              // 이름표 — 얼굴 + 제목 줄
     wallRect(g, s.side, s.u + 2, pv, W - 4, 6, '#e6dccb'); wallRect(g, s.side, s.u + 2, pv + 5, W - 4, 1, '#a09484');
-    if (w.author === 'together'){ drawFace(g, s.side, s.u + 3, pv + 1, 'sua'); drawFace(g, s.side, s.u + 8, pv + 1, 'yona'); }
+    if (w.author === 'together'){                                                           // ⓗ 두 얼굴 사이 하트
+      drawFace(g, s.side, s.u + 1, pv + 1, 'sua'); drawFace(g, s.side, s.u + 10, pv + 1, 'yona');
+      wallRect(g, s.side, s.u + 6, pv + 1, 1, 1, '#d4504a'); wallRect(g, s.side, s.u + 8, pv + 1, 1, 1, '#d4504a');
+      wallRect(g, s.side, s.u + 6, pv + 2, 3, 1, '#d4504a'); wallRect(g, s.side, s.u + 7, pv + 3, 1, 1, '#a83a34');
+    }
     else drawFace(g, s.side, s.u + 3, pv + 1, KID_HAIR[w.author] ? w.author : 'sua');
     const tw = Math.max(6, Math.min(W - 18 - (w.author === 'together' ? 5 : 0), (w.title || '').length * 3));
-    wallRect(g, s.side, s.u + (w.author === 'together' ? 14 : 9), pv + 2, tw, 1, '#6f6558');
+    wallRect(g, s.side, s.u + (w.author === 'together' ? 15 : 9), pv + 2, tw, 1, '#6f6558');
     const n = claps[w.id] || 0;                                                             // ⑩ 박수 다섯부터 리본
     if (n >= 5){
       const rx = s.u + W - 6 + b, ry = s.v - 6 - b;
@@ -356,16 +365,40 @@
     slantRect(g, bx, by(0), W, H, dir, '#1c1a18');                                           // 얇은 베젤
     const sx = bx + 1, sy = by(0) + 1, SW = W - 2, SH = H - 3, cur = videos[tvIdx % Math.max(1, videos.length)];
     const th = cur ? tvThumbOf(cur, SW, SH) : null;
-    if (th && th.ok) slantImage(g, sx, sy, SW, SH, dir, th.cv);
+    if (th && th.ok && !capturing) slantImage(g, sx, sy, SW, SH, dir, th.cv);         // ⓘ 사진으로 뽑을 때는 섬네일을 빼야 캔버스가 안 더럽혀진다
     else { slantRect(g, sx, sy, SW, SH, dir, '#16233a'); for (let du = 0; du < SW; du++){ const p = du / SW; slantRect(g, sx + du, sy, 1, Math.round(3 + (1 - p) * 8), dir, p < 0.35 ? '#2f4a66' : '#22384f'); } }
     if (videos.length){
       const px = sx + 3, py = sy + SH - 9 + 3 * dir / 2;                                     // ▶ 작게 왼쪽 아래
       slantRect(g, px - 1, py - 1 + (0) , 9, 9, dir, 'rgba(0,0,0,.55)');
       for (let k = 0; k < 6; k++){ const hgt = 7 - k; slantRect(g, px + 1 + k, py + 3.5 - hgt / 2 + (1 + k) * dir / 2 * 0, 1, hgt, dir, '#fffaf0'); }
-      slantText(g, '영상 ' + videos.length, sx + SW - 2, sy + SH - 9 + (SW - 2) * dir / 2, dir, '800 6px ' + FONT, '#ffd979', 'right');
+      slantText(g, tvPlaying ? '재생 중' : '영상 ' + videos.length, sx + SW - 2, sy + SH - 9 + (SW - 2) * dir / 2, dir, '800 6px ' + FONT, tvPlaying ? '#7fd08a' : '#ffd979', 'right');
     }
     slantRect(g, bx + W / 2 - 1, by(W / 2) + H - 1, 2, 1, dir, videos.length ? '#7fd08a' : '#6b6562');   // 켜짐 불빛
     if (night && videos.length){ g.save(); g.globalCompositeOperation = 'lighter'; isoTopD(g, x - 8, y + 8, 30, 12, 'rgba(120,170,255,.14)'); g.restore(); }   // 밤엔 화면 빛이 바닥에(⑥)
+  }
+
+  // ⓐ 이달의 그림 — 박수를 가장 많이 받은 사진 작품을 대리석 받침대 위 작은 금테 액자에. 박수가 하나도 없으면 안 보인다
+  function topWork(){
+    let best = null, bn = 0;
+    images.forEach(w => { const n = claps[w.id] || 0; if (n > bn){ bn = n; best = w; } });
+    return best;
+  }
+  function drawPlinth(g){
+    const w = topWork(); if (!w) return;
+    const x = Math.round(PLINTH.x), y = Math.round(PLINTH.y), dir = 1, W = 26, H = 19;
+    isoTopD(g, x + 2, y + 3, 20, 10, 'rgba(40,24,10,.22)');
+    isoBoxD(g, x, y, 16, 8, 24, '#ece6da', '#cfc6b6', '#b8ae9c', 0);                        // 대리석 기둥
+    isoBoxD(g, x, y, 18, 9, 3, '#f6f1e6', '#d8cfbf', '#c2b8a6', 24);                        // 윗판
+    for (let k = 0; k < 3; k++){ g.fillStyle = 'rgba(120,100,80,.25)'; g.fillRect(x - 12 + k * 9, y - 14 + k * 3, 6, 1); }   // 결
+    const x0 = x - W / 2, yb = du => y - 28 + (du - W / 2) / 2, fy = yb(0) - H;             // 오른쪽 벽 방향으로 기운 작은 액자
+    slantRect(g, x0 - 3, fy - 3, W + 6, H + 6, dir, INK); slantRect(g, x0 - 2, fy - 2, W + 4, H + 4, dir, '#c9a24a'); slantRect(g, x0 - 2, fy - 2, W + 4, 1, dir, '#f0d78a');
+    slantRect(g, x0 - 1, fy - 1, W + 2, H + 2, dir, '#fff8ea');
+    slantImage(g, x0, fy, W, H, dir, thumbOf(w, W, H).cv);
+    slantRect(g, x0 - 2, yb(0) + 1, W + 4, 2, dir, '#8a6a2a');                              // 받침 턱
+    const n = claps[w.id] || 0;                                                             // 금 리본
+    slantRect(g, x0 + W - 4, fy - 6, 8, 8, dir, INK); slantRect(g, x0 + W - 3, fy - 5, 6, 6, dir, '#e0a93b'); slantRect(g, x0 + W - 2, fy + 1, 4, 4, dir, '#b9812c');
+    slantRect(g, x - 15, y - 9, 30, 8, dir, INK); slantRect(g, x - 14, y - 8, 28, 6, dir, '#fff3c4');   // 「이달의 그림」 명패
+    slantText(g, '이달의 그림 ' + n, x - 13, y - 7, dir, '800 5px ' + FONT, INK);
   }
 
   // ---------- 걷는 두 아이 (honors.js 의 산책 코드와 같은 식) ----------
@@ -510,15 +543,15 @@
     { hat: '#3a3a4a', band: '#6c6c80', coat: '#5a7fb5', coatDark: '#3e5f90', pants: '#2e3a54' },
     { hat: '#8a3a3a', band: '#c46a5a', coat: '#b56a5a', coatDark: '#8f4b3e', pants: '#3a2e2e' },
     { hat: '#4a6a3a', band: '#8ab070', coat: '#6aa07a', coatDark: '#4a7d5a', pants: '#2e3a2e' },
+    { hat: '#1f2a44', band: '#c9a24a', coat: '#2b3a5e', coatDark: '#1c2740', pants: '#1c2233' },   // ⓖ 경비 아저씨 제복
   ];
   const VIS_ENTER = { i: 10.9, j: 5.4 };
   const visitors = [];
   let nextVisitorAt = 0;
   const visBuf = {};
-  function visitorSprite(n, flip){
-    const key = n + '|' + (flip ? 1 : 0);
-    if (visBuf[key]) return visBuf[key];
-    const P = VIS_PAL[n % VIS_PAL.length], rows = [   // 아이(28×38)와 같은 격자 — 예전 12×18 은 아이 옆에 서면 절반 크기라 이상했다(2026-09-15 부모 지적)
+  // ⓒ 관람객 넷 — 모두 아이(28×38)와 같은 격자. 어른(모자·외투), 아이(작게), 할머니(쪽머리·긴 치마·지팡이), 강아지(네 발·꼬리)
+  const VIS_ROWS = {
+    adult: [
       '.........kkkkkkkkkk.........',
       '........khhhhhhhhhhk........',
       '.......khhhhhhhhhhhhk.......',
@@ -557,42 +590,191 @@
       '........kpppppk.kpppppk.....',
       '.......ksssssssksssssssk....',
       '.......kkkkkkkkkkkkkkkkk....',
-    ], pal = { h: P.hat, H: P.band, b: P.band, f: '#f2d3b8', e: '#2a2622', m: '#b06a5a', c: P.coat, C: P.coatDark, p: P.pants, s: '#2a2622', k: '#241c14' }, W = 28, H = rows.length;
+    ],
+    child: [
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '..........kkkkkkkk..........',
+      '.........khhhhhhhhk.........',
+      '........khhhhhhhhhhk........',
+      '........khhhhhhhhhhk........',
+      '........khffffffffhk........',
+      '........kffffffffffk........',
+      '........kffeeffeeffk........',
+      '........kffffffffffk........',
+      '........kffffmmffffk........',
+      '.........kffffffffk.........',
+      '.......kkkcccccccckkk.......',
+      '......kccccccccccccccck.....',
+      '......kcckccccccccckcck.....',
+      '......kcckccccccccckcck.....',
+      '......kcckccccCcccckcck.....',
+      '......kffkccccccccckffk.....',
+      '.......kkkccccCcccckkk......',
+      '.........kcccccccck.........',
+      '.........kpppppppppk........',
+      '.........kpppkkpppppk.......',
+      '.........kpppk.kpppk........',
+      '.........kpppk.kpppk........',
+      '.........kpppk.kpppk........',
+      '.........kpppk.kpppk........',
+      '.........kpppk.kpppk........',
+      '........ksssssksssssk.......',
+      '........kkkkkkkkkkkkk.......',
+      '............................',
+    ],
+    grandma: [
+      '............................',
+      '............................',
+      '..........kkkkkkkk..........',
+      '.........khhhhhhhhk.........',
+      '........khhhhhhhhhhk........',
+      '.......khhhhhhhhhhhhk.......',
+      '.......khhhhhhhhhhhhk.......',
+      '.......khhhhhhhhhhhhk.......',
+      '........khhffffffhhk........',
+      '........khffffffffhk........',
+      '........kffffffffffk........',
+      '........kfkeekkeekfk........',
+      '........kffeeffeeffk........',
+      '........kffffffffffk........',
+      '........kfffffmmffffk.......',
+      '.........kffffffffk.........',
+      '......kkkCCCCCCCCCCkkk......',
+      '.....kccCCcccccccccCCcck....',
+      '....kcccccccccCcccccccccck..',
+      '....kcccccccccCcccccccccck..',
+      '....kccccccccccccccccccccnk.',
+      '....kcccccccccCccccccccckn..',
+      '....kccccccccccccccccccckn..',
+      '....kcckcccccccCccccccckcnk.',
+      '....kcckccccccccccccccckcn..',
+      '....kffkcccccccCccccccckfn..',
+      '....kffkccccccccccccccckfn..',
+      '.....kk.kccccccccccccck.kn..',
+      '........kccccccccccccck..n..',
+      '........kccccccccccccck..n..',
+      '........kccccccccccccck..n..',
+      '........kccccccccccccck..n..',
+      '.......kccccccccccccccck.n..',
+      '.......kccccccccccccccck.n..',
+      '.......kkkkkkkkkkkkkkkkk.n..',
+      '........kpppppk.kpppppk..n..',
+      '.......ksssssssksssssssk.n..',
+      '.......kkkkkkkkkkkkkkkkk.kk.',
+    ],
+    dog: [
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '..kkk.......................',
+      '.kcccck....................k',
+      '.kccccckkkkk..............kn',
+      '.kcceccccccck............kn.',
+      '.kccccccccccck..........kn..',
+      '.kkcccccccccckkkkkkkkkkkkn..',
+      '..kmcccccccccccccccccccccck.',
+      '..kkkkccccccccccccccccccccck',
+      '.....kccccccccccccccccccccck',
+      '.....kccccccccccccccccccccck',
+      '.....kccccccccccccccccccccck',
+      '.....kkccccccccccccccccccck.',
+      '......kccckkkkkkkkkkkkcccck.',
+      '......kccck..........kccck..',
+      '......kccck..........kccck..',
+      '......ksssk..........ksssk..',
+      '......kkkkk..........kkkkk..',
+    ],
+  };
+  const VIS_KINDS = ['adult', 'child', 'grandma', 'dog'];
+  // ⓑ 손뼉 포즈 — 어른·아이·할머니의 팔을 떼어 머리 옆으로 올린다. sp 1 이면 손이 벌어진 쪽(두 포즈를 번갈아 그리면 손뼉)
+  function armsUp(rows, sp){
+    const R = rows.map(r => r.split(''));
+    const armRows = [], hasArm = R.findIndex(r => r[7] === 'k' && r[5] === 'c');            // 팔이 붙은 첫 줄(어른 17·아이 22)
+    if (hasArm < 0) return rows;
+    for (let r = hasArm; r < R.length; r++){ if (R[r][7] === 'k' || R[r][6] === 'k'){ for (const c of [4, 5, 6]) if (R[r][c] !== '.' && R[r][7] !== '.') { R[r][c] = '.'; } for (const c of [24, 25, 26]) if (R[r][23] === 'k' || R[r][22] === 'k') R[r][c] = '.'; armRows.push(r); } else break; }
+    const top = Math.max(2, hasArm - 8);
+    for (let r = top + 3; r < hasArm + 1; r++){ R[r][4 - sp] = 'k'; R[r][5 - sp] = 'c'; R[r][6 - sp] = 'c'; R[r][7 - sp] = R[r][7 - sp] === '.' ? 'k' : R[r][7 - sp]; R[r][24 + sp] = 'c'; R[r][25 + sp] = 'c'; R[r][26 + sp] = 'k'; R[r][23 + sp] = R[r][23 + sp] === '.' ? 'k' : R[r][23 + sp]; }
+    for (let r = top; r < top + 3; r++){ R[r][4 - sp] = 'k'; R[r][5 - sp] = 'f'; R[r][6 - sp] = 'f'; R[r][7 - sp] = R[r][7 - sp] === '.' ? 'k' : R[r][7 - sp]; R[r][24 + sp] = 'f'; R[r][25 + sp] = 'f'; R[r][26 + sp] = 'k'; R[r][23 + sp] = R[r][23 + sp] === '.' ? 'k' : R[r][23 + sp]; }
+    R[top - 1][4 - sp] = 'k'; R[top - 1][5 - sp] = 'k'; R[top - 1][6 - sp] = 'k'; R[top - 1][24 + sp] = 'k'; R[top - 1][25 + sp] = 'k'; R[top - 1][26 + sp] = 'k';
+    return R.map(r => r.join(''));
+  }
+  function visitorSprite(n, flip, kind, pose){
+    kind = kind || 'adult';
+    const key = [n, flip ? 1 : 0, kind, pose || ''].join('|');
+    if (visBuf[key]) return visBuf[key];
+    const P = VIS_PAL[n % VIS_PAL.length];
+    let rows = VIS_ROWS[kind] || VIS_ROWS.adult;
+    if (pose === 'clap0' || pose === 'clap1'){ if (kind === 'dog'){ rows = rows.map((r, i) => i >= 22 && i <= 26 ? r.replace(/n/g, pose === 'clap0' ? 'n' : '.') : r); } else rows = armsUp(rows, pose === 'clap1' ? 1 : 0); }
+    const hair = kind === 'grandma' ? '#d8d2c8' : kind === 'child' ? '#5a3a22' : P.hat;
+    const pal = { h: hair, H: P.band, b: P.band, f: '#f2d3b8', e: '#2a2622', m: kind === 'dog' ? '#2a2622' : '#b06a5a', c: kind === 'dog' ? '#b98a5a' : P.coat, C: P.coatDark, p: P.pants, s: '#2a2622', n: kind === 'dog' ? '#b98a5a' : '#6b4a2a', k: '#241c14' };
+    const W = 28, H = rows.length;
     const c = document.createElement('canvas'); c.width = (W + 2) * 2; c.height = (H + 2) * 2;
     const g = c.getContext('2d');
-    const paint = (ox, oy, one) => { for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){ const ch = rows[r][x]; if (ch === '.') continue; g.fillStyle = one || pal[ch]; g.fillRect(((flip ? W - 1 - x : x) + 1 + ox) * 2, (r + 1 + oy) * 2, 2, 2); } };
+    const paint = (ox, oy, one) => { for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){ const ch = rows[r][x]; if (ch === '.') continue; g.fillStyle = one || pal[ch] || '#000'; g.fillRect(((flip ? W - 1 - x : x) + 1 + ox) * 2, (r + 1 + oy) * 2, 2, 2); } };
     g.globalAlpha = 0.78; [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => paint(ox, oy, '#241c14')); g.globalAlpha = 1; paint(0, 0);
     return (visBuf[key] = c);
   }
   function visitorTarget(){
     const idx = hung.map((w, n) => w ? n : -1).filter(n => n >= 0);
     if (!idx.length) return null;
-    const s = SLOTS[idx[Math.floor(Math.random() * idx.length)]], cu = (s.u + s.w / 2) / 28;
+    const n = idx[Math.floor(Math.random() * idx.length)], s = SLOTS[n], cu = (s.u + s.w / 2) / 28;
     const spot = s.side ? { i: Math.max(WALK_BOX.i0 + 0.3, Math.min(WALK_BOX.i1 - 0.3, cu)), j: 1.0 } : { i: 1.0, j: Math.max(WALK_BOX.j0 + 0.2, Math.min(WALK_BOX.j1, cu)) };
-    return walkBlocked(spot.i, spot.j) ? null : spot;
+    if (walkBlocked(spot.i, spot.j)) return null;
+    spot.big = !!s.big; spot.ribbon = (claps[hung[n].id] || 0) >= 5;                        // ⓑ 큰 액자면 오래, 리본이 달렸으면 손뼉
+    return spot;
   }
-  function visitorCount(){ return 1 + (clapsTotal >= 10 ? 1 : 0) + (clapsTotal >= 30 ? 1 : 0); }
+  function visitorCount(){ return dayPhase() === 'night' ? 0 : 1 + (clapsTotal >= 10 ? 1 : 0) + (clapsTotal >= 30 ? 1 : 0); }   // ⓖ 밤엔 아무도 안 온다
+  const holdFor = p => (2500 + Math.random() * 3500) * (p.big ? 1.7 : 1);
   function stepVisitors(dt, now){
     if (STILL) return false;
     let changed = false;
     if (visitors.length < visitorCount() && now >= nextVisitorAt && hung.some(Boolean)){
-      visitors.push({ n: visitors.length + Math.floor(now / 1000) % 3, i: VIS_ENTER.i, j: VIS_ENTER.j, ti: VIS_ENTER.i, tj: VIS_ENTER.j, seen: 0, wait: 0, nod: 0, flip: false, leaving: false, phase: 0 });
+      const n = visitors.length + Math.floor(now / 1000) % 3, kind = VIS_KINDS[(n + Math.floor(now / 7000)) % VIS_KINDS.length];   // ⓒ 종류는 돌아가며
+      visitors.push({ n, kind, i: VIS_ENTER.i, j: VIS_ENTER.j, ti: VIS_ENTER.i, tj: VIS_ENTER.j, seen: 0, wait: 0, nod: 0, flip: false, leaving: false, phase: 0, big: false, clap: false });
       nextVisitorAt = now + 9000 + Math.random() * 12000; changed = true;
     }
     for (let v = visitors.length - 1; v >= 0; v--){
       const p = visitors[v];
-      if (p.wait > 0){ p.wait -= dt; const nod = Math.floor(now / 500) % 2; if (nod !== p.nod){ p.nod = nod; changed = true; } continue; }
+      if (dayPhase() === 'night' && !p.leaving){ p.leaving = true; p.wait = 0; p.ti = VIS_ENTER.i; p.tj = VIS_ENTER.j; }   // ⓖ 밤이 되면 나간다
+      if (p.wait > 0){ p.wait -= dt; const nod = Math.floor(now / (p.clap ? 300 : 500)) % 2; if (nod !== p.nod){ p.nod = nod; changed = true; } continue; }
       const di = p.ti - p.i, dj = p.tj - p.j, d = Math.hypot(di, dj);
       if (d < 0.02){
         if (p.leaving){ visitors.splice(v, 1); changed = true; continue; }
         if (p.seen >= 3){ p.leaving = true; p.ti = VIS_ENTER.i; p.tj = VIS_ENTER.j; continue; }
-        if (p.seen > 0 || p.arrived){ p.wait = 2500 + Math.random() * 3500; p.seen++; p.arrived = false; continue; }
+        if (p.seen > 0 || p.arrived){ p.wait = holdFor(p); p.seen++; p.arrived = false; continue; }
         const t = visitorTarget(); if (!t){ p.leaving = true; p.ti = VIS_ENTER.i; p.tj = VIS_ENTER.j; continue; }
-        p.ti = t.i; p.tj = t.j; p.arrived = true;
+        p.ti = t.i; p.tj = t.j; p.arrived = true; p.big = t.big; p.clap = t.ribbon;
       } else {
         const step = Math.min(d, 0.7 * dt / 1000); p.i += di / d * step; p.j += dj / d * step; p.phase += dt / 260;
         p.flip = (di - dj) < 0; changed = true;
-        if (Math.hypot(p.ti - p.i, p.tj - p.j) < 0.02 && p.arrived){ p.wait = 2500 + Math.random() * 3500; p.seen++; p.arrived = false; }
+        if (Math.hypot(p.ti - p.i, p.tj - p.j) < 0.02 && p.arrived){ p.wait = holdFor(p); p.seen++; p.arrived = false; }
       }
     }
     return changed;
@@ -600,8 +782,32 @@
   function drawVisitor(g, p){
     const t = tileXY(p.i, p.j), x = Math.round(t.x), y = Math.round(t.y), bob = p.wait > 0 ? p.nod : (Math.floor(p.phase) % 2);
     isoTopD(g, x, y, 10, 4, 'rgba(40,24,10,.24)');
-    const c = visitorSprite(p.n, p.flip);
-    g.drawImage(c, x - 15, y - 39 - (p.wait > 0 ? 0 : bob), c.width / 2, c.height / 2);   // 아이와 같은 자리 셈(30×40)
+    const pose = p.wait > 0 && p.clap ? 'clap' + p.nod : '';                              // ⓑ 리본 달린 작품 앞에서는 손뼉(두 포즈를 번갈아)
+    const c = visitorSprite(p.n, p.flip, p.kind, pose);
+    g.drawImage(c, x - 15, y - 39 - (p.wait > 0 && !p.clap ? 0 : bob), c.width / 2, c.height / 2);   // 아이와 같은 자리 셈(30×40)
+  }
+  // ⓖ 밤의 경비 아저씨 — 관객 대신 손전등을 들고 길목을 차례로 돈다. 불빛은 가는 쪽 바닥에 타원으로
+  let guard = null;
+  function stepGuard(dt){
+    if (dayPhase() !== 'night' || STILL){ if (guard){ guard = null; return true; } return false; }
+    if (!guard){ const m = WAYPOINTS[0]; guard = { i: VIS_ENTER.i, j: VIS_ENTER.j, ti: m.i, tj: m.j, at: 0, wait: 0, flip: false, phase: 0 }; return true; }
+    const p = guard;
+    if (p.wait > 0){ p.wait -= dt; return false; }
+    const di = p.ti - p.i, dj = p.tj - p.j, d = Math.hypot(di, dj);
+    if (d < 0.02){ p.at = (p.at + 1) % WAYPOINTS.length; const m = WAYPOINTS[p.at]; p.ti = m.i; p.tj = m.j; p.wait = 900 + Math.random() * 1500; return false; }
+    const step = Math.min(d, 0.45 * dt / 1000); p.i += di / d * step; p.j += dj / d * step; p.phase += dt / 300; p.flip = (di - dj) < 0;
+    return true;
+  }
+  function drawGuard(g){
+    const p = guard, t = tileXY(p.i, p.j), x = Math.round(t.x), y = Math.round(t.y), bob = p.wait > 0 ? 0 : Math.floor(p.phase) % 2;
+    const fx = p.flip ? -1 : 1;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 4; k++) isoTopD(g, x + fx * (26 + k * 10), y + 10 + k * 3, 14 + k * 9, 6 + k * 3, 'rgba(255,230,150,' + (0.30 - k * 0.06).toFixed(2) + ')');   // 손전등 빛 — 밤 어둠(0.26) 위에서 보이려면 이 정도는 돼야 한다
+    g.restore();
+    isoTopD(g, x, y, 10, 4, 'rgba(40,24,10,.3)');
+    const c = visitorSprite(3, p.flip, 'adult', '');
+    g.drawImage(c, x - 15, y - 39 - bob, c.width / 2, c.height / 2);
+    g.fillStyle = '#d9d2c4'; g.fillRect(x + fx * 12 - 1, y - 14 - bob, 3, 2); g.fillStyle = '#fff3c4'; g.fillRect(x + fx * 14 - (fx < 0 ? 1 : 0), y - 14 - bob, 1, 2);   // 손전등
   }
 
   // ---------- 한 장 그리기 (④ 연도 바꿈은 옆으로 밀리는 장면 전환) ----------
@@ -613,7 +819,8 @@
     g.clearRect(0, 0, RW, RH);
     g.drawImage(shellCv(), 0, 0, RW, RH);
     g.drawImage(bakeWall(), 0, 0, RW, RH);
-    const floor = [{ y: BENCH.y, f: () => drawBench(g) }, { y: EASEL.y, f: () => drawEasel(g) }, { y: TV.y, f: () => drawTV(g) }];
+    const floor = [{ y: BENCH.y, f: () => drawBench(g) }, { y: EASEL.y, f: () => drawEasel(g) }, { y: TV.y, f: () => drawTV(g) }, { y: PLINTH.y, f: () => drawPlinth(g) }];
+    if (guard){ const t = tileXY(guard.i, guard.j); floor.push({ y: t.y - 1, f: () => drawGuard(g) }); }
     const spots = {};
     KIDS.forEach(k => { const s = walkerSpot(k); if (s){ spots[k] = s; floor.push({ y: s.y, f: () => drawWalker(g, k, s) }); } });
     visitors.forEach(p => { const t = tileXY(p.i, p.j); floor.push({ y: t.y - 1, f: () => drawVisitor(g, p) }); });
@@ -621,6 +828,10 @@
     const fk = focusKey || hoverKey;
     if (fk){ const h = hits.find(x => hitKey(x) === fk); if (h && h.w) drawPlaque(g, h); }   // 노란 테두리는 뺐다(2026-09-15) — 이름표만으로 어느 작품인지 충분하다
     KIDS.forEach(k => { const b = bubbleOf[k], s = spots[k]; if (b && s) drawBubble(g, s.x, s.y - 42, b.text); });
+    if (editMode && !capturing){                                                            // ⓔ 편집 모드 — 칸마다 점선, 끌고 있는 액자는 손끝에
+      SLOTS.forEach((s, n) => { const col = drag && drag.over === n ? '#ffd979' : 'rgba(255,217,121,.55)'; for (let d = 0; d < s.w + 8; d += 4) wallRect(g, s.side, s.u - 4 + d, s.v - 4, 2, 1, col); for (let d = 0; d < s.h + 8; d += 4) wallRect(g, s.side, s.u - 4, s.v - 4 + d, 1, 2, col); });
+      if (drag && drag.moved){ const t = thumbOf(drag.w, 36, 26); g.globalAlpha = 0.85; g.fillStyle = INK; g.fillRect(Math.round(drag.x) - 20, Math.round(drag.y) - 15, 40, 30); g.drawImage(t.cv, Math.round(drag.x) - 18, Math.round(drag.y) - 13, 36, 26); g.globalAlpha = 1; }
+    }
   }
   function draw(){
     const cv = cvOf(); if (!cv) return;
@@ -642,7 +853,86 @@
   }
   function captionOf(w){ return captionLines(w).join(' · '); }
   function say(t){ const el = $('#galleryMsg'); if (el) el.textContent = t || overflowNote; }
-  function describe(h){ return !h ? '' : h.kid ? KID_NAME[h.kid] + '를 누르면 이야기해요' : h.w ? captionOf(h.w) + (h.easel ? ' · 가장 새 작품' : '') + ' · 누르면 크게' : h.tv ? '영상 ' + videos.length + '개 · 누르면 이 영상' : ''; }
+  function describe(h){ return !h ? '' : h.kid ? KID_NAME[h.kid] + '를 누르면 이야기해요' : h.w ? captionOf(h.w) + (h.easel ? ' · 가장 새 작품' : h.plinth ? ' · 이달의 그림' : '') + (editMode && h.slot ? ' · 끌어서 옮기기' : ' · 누르면 크게') : h.tv ? '영상 ' + videos.length + '개 · 누르면 방 안에서 재생' : ''; }
+  // ⓔ 빈 칸도 놓을 자리가 된다 — 액자 hit 은 걸린 칸에만 있으니 빈 칸은 자리 상자로 찾는다
+  function slotUnder(x, y){
+    for (let n = 0; n < SLOTS.length; n++){ const s = SLOTS[n], b = wallHit(s.side, s.u - 5, s.v - 5, s.w + 10, s.h + 18, 0); if (x >= b.x0 && x < b.x1 && y >= b.y0 && y < b.y1) return n; }
+    return -1;
+  }
+  function saveSlot(w, slot){
+    w.wall_slot = slot;
+    if (typeof sb === 'undefined') return Promise.resolve(false);
+    return sb.from('works').update({ wall_slot: slot }).eq('id', w.id).select('id').then(res => !res.error && res.data && res.data.length > 0).catch(() => false);   // RLS 에 막히면 줄이 0 — 오류 없이 실패한다
+  }
+  function moveSlot(w, from, to){
+    const other = hung[to];
+    hung[to] = w; hung[from] = other || null;
+    const jobs = [saveSlot(w, to)]; if (other) jobs.push(saveSlot(other, from));
+    hung.forEach((x, n) => { if (x && x.wall_slot === undefined) x.wall_slot = null; });
+    wallKey = ''; draw();
+    Promise.all(jobs).then(ok => say(ok.every(Boolean) ? '바꿔 걸었어요 · 저장됨' : '바꿔 걸었지만 저장이 안 됐어요 — 부모 계정인지 확인해 주세요'));
+  }
+  function setEdit(on){
+    editMode = !!on && admin; drag = null;
+    const cv = cvOf(); if (cv) cv.style.touchAction = editMode ? 'none' : 'manipulation';
+    const b = $('#galleryEdit'); if (b) b.classList.toggle('on', editMode);
+    say(editMode ? '액자를 끌어서 다른 칸에 놓으세요 · 다 됐으면 「배치 끝」' : '');
+    draw();
+  }
+  // ⓕ 연도 도장 — 그 해 작품을 셋(그보다 적으면 전부) 이상 열어 보면 도장. 이 브라우저에만 남는다
+  const SEEN_KEY = 'gallery_seen', STAMP_KEY = 'gallery_stamps';
+  const readJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || '') || d; } catch (e) { return d; } };
+  const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 못 남기면 다음에 또 센다 */ } };
+  function yearOf(w){ return String(w.made_on || w.created_at || '').slice(0, 4); }
+  function stampStatus(){
+    const seen = readJSON(SEEN_KEY, {}), got = readJSON(STAMP_KEY, {}), byYear = {};
+    (allWorks.length ? allWorks : list).forEach(w => { const y = yearOf(w); if (!y) return; (byYear[y] = byYear[y] || []).push(w); });
+    return Object.keys(byYear).sort().map(y => { const ws = byYear[y], n = ws.filter(w => seen[w.id]).length, need = Math.min(3, ws.length); return { y, n, need, got: !!got[y] || n >= need }; });
+  }
+  function noteSeen(w){
+    const seen = readJSON(SEEN_KEY, {}); if (seen[w.id]) return; seen[w.id] = 1; writeJSON(SEEN_KEY, seen);
+    const y = yearOf(w), st = stampStatus().find(s => s.y === y), got = readJSON(STAMP_KEY, {});
+    if (st && st.got && !got[y]){ got[y] = todayStr(); writeJSON(STAMP_KEY, got); const k = KID_HAIR[w.author] ? w.author : 'sua'; kidSay(k, y + '년 방을 다 봤어요!\n도장 쾅!'); say(y + '년 방을 다 봤어요! 도장 쾅!'); }
+    renderStamps();
+  }
+  function renderStamps(){
+    const box = $('#galleryStamps'); if (!box) return;
+    const st = stampStatus(); box.innerHTML = '';
+    if (!st.length) return;
+    st.forEach(s => { const el = document.createElement('span'); el.className = 'stamp' + (s.got ? ' got' : ''); el.textContent = s.y; el.title = s.got ? s.y + '년 방 관람 도장' : s.y + '년 작품 ' + s.need + '개를 열어 보면 도장 (' + s.n + '/' + s.need + ')'; box.appendChild(el); });
+    const t = document.createElement('small'); t.textContent = '관람 도장 — 그 해 작품을 셋 열어 보면'; box.prepend(t);
+  }
+  // ⓓ 텔레비전 재생기 — 캔버스 위 텔레비전 자리에 작은 유튜브 재생기를 띄운다. 다시 누르거나 ✕ 로 끈다
+  function tvToggle(w){
+    const stage = $('#galleryRoom .museum-stage'); if (!stage) return;
+    let box = $('#galleryTv');
+    if (box && (!w || tvPlaying === w)){ box.remove(); tvPlaying = null; draw(); say(''); return; }
+    const id = w && typeof youtubeId === 'function' ? youtubeId(w.media_url) : ''; if (!id) return;
+    if (!box){ box = document.createElement('div'); box.id = 'galleryTv'; box.className = 'tv-player'; stage.appendChild(box); }
+    box.style.left = ((TV.x - 60) / RW * 100) + '%'; box.style.top = ((TV.y - 96) / RH * 100) + '%';
+    box.innerHTML = (typeof youtubeEmbedHTML === 'function' ? youtubeEmbedHTML(id, w.title, true) : '') + '<button type="button" class="tv-x" aria-label="재생기 닫기">✕</button>';
+    box.querySelector('.tv-x').addEventListener('click', () => tvToggle(null));
+    tvPlaying = w; draw(); say('텔레비전에서 「' + short(w.title, 20) + '」 재생 중 · ✕ 로 끄기');
+  }
+  // ⓘ 방 사진 — 텔레비전 섬네일만 빼고(캔버스를 더럽히는 유일한 것) 새 캔버스에 그려 PNG 로. 나눌 수 있는 폰이면 나누기, 아니면 내려받기
+  function snapshot(){
+    const c = document.createElement('canvas'); c.width = RW * 2; c.height = RH * 2;
+    capturing = true; try { drawScene(c.getContext('2d')); } finally { capturing = false; }
+    const name = 'suayona-gallery-' + todayStr() + '.png';
+    return new Promise(res => c.toBlob(blob => {
+      if (!blob){ say('사진을 만들지 못했어요'); return res(false); }
+      const file = new File([blob], name, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: '수아랑 연아랑 미술관' }).then(() => res(true)).catch(() => res(false));
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000); say('방 사진을 내려받았어요'); res(true);
+    }, 'image/png'));
+  }
+  function renderTools(){
+    const box = $('#galleryTools'); if (!box) return;
+    box.innerHTML = '<button type="button" class="dot-btn small" id="gallerySnap">📷 방 사진</button>' + (admin ? ' <button type="button" class="dot-btn small" id="galleryEdit">🖼 벽 배치 바꾸기</button>' : '');
+    $('#gallerySnap').addEventListener('click', () => { snapshot(); });
+    const eb = $('#galleryEdit'); if (eb) eb.addEventListener('click', () => { setEdit(!editMode); eb.textContent = editMode ? '✔ 배치 끝' : '🖼 벽 배치 바꾸기'; });
+  }
   let wired = false;
   function wire(){
     const cv = cvOf(); if (!cv || wired) return; wired = true;
@@ -657,10 +947,34 @@
       const h = hitAt(e); if (!h){ if (focusKey){ focusKey = null; draw(); say(''); } return; }
       if (h.kid){ kidTalk(h.kid); return; }
       const key = hitKey(h);
+      if (editMode && h.slot) return;                                                       // ⓔ 편집 모드에선 누르기 대신 끌기
+      if (h.tv){ tvToggle(videos[tvIdx % Math.max(1, videos.length)]); return; }           // ⓓ 텔레비전 → 방 안 작은 재생기
       if (e.pointerType !== 'mouse' && h.w && focusKey !== key){ focusKey = key; draw(); say(describe(h)); return; }   // 손가락: 한 번 누르면 이름표, 한 번 더 누르면 열기
-      const w = h.w || (h.tv ? videos[tvIdx % Math.max(1, videos.length)] : null); if (!w || !openFn) return;
-      const i = list.indexOf(w); if (i >= 0) openFn(i);
+      const w = h.w; if (!w || !openFn) return;
+      const i = list.indexOf(w); if (i >= 0){ noteSeen(w); openFn(i); }
     });
+    // ⓔ 끌어서 바꿔 걸기 — 부모가 편집 모드를 켰을 때만. 손가락으로도 끌 수 있게 그동안은 touch-action 을 끈다
+    cv.addEventListener('pointerdown', e => {
+      if (!editMode) return;
+      const h = hitAt(e); if (!h || !h.slot) return;
+      const rc = cv.getBoundingClientRect();
+      drag = { w: h.w, from: SLOTS.indexOf(h.s), x: (e.clientX - rc.left) / rc.width * RW, y: (e.clientY - rc.top) / rc.height * RH, over: -1, moved: false, id: e.pointerId };
+      try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 잡지 못해도 마우스는 따라온다 */ }
+      e.preventDefault();
+    });
+    cv.addEventListener('pointermove', e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const rc = cv.getBoundingClientRect(); drag.x = (e.clientX - rc.left) / rc.width * RW; drag.y = (e.clientY - rc.top) / rc.height * RH; drag.moved = true;
+      const h = hits.filter(x => x.slot && drag.x >= x.x0 && drag.x < x.x1 && drag.y >= x.y0 && drag.y < x.y1)[0];
+      drag.over = h ? SLOTS.indexOf(h.s) : slotUnder(drag.x, drag.y);
+      draw();
+    });
+    const endDrag = e => {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      const d = drag; drag = null;
+      if (d.moved && d.over >= 0 && d.over !== d.from) moveSlot(d.w, d.from, d.over); else draw();
+    };
+    cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
     cv.addEventListener('keydown', e => { if (e.key === 'Enter' && easelW && openFn){ const i = list.indexOf(easelW); if (i >= 0) openFn(i); } });
   }
 
@@ -670,6 +984,7 @@
     if (!greeted && hits.length) greetNew();
     let moved = false; KIDS.forEach(k => { if (stepWalker(k, dt)) moved = true; });
     if (stepVisitors(dt, now)) moved = true;
+    if (stepGuard(dt)) moved = true;
     if (moved && now - lastDraw >= 40){ draw(); lastDraw = now; }
     return moved;
   }
@@ -702,15 +1017,18 @@
     const rest = images.slice(1), bigs = [], small = [];
     rest.forEach(w => { const ar = aspectOf[w.id]; if (bigs.length < BIG.length && (ar === undefined || ar >= 1.15)) bigs.push(w); else small.push(w); });
     while (bigs.length < BIG.length && small.length) bigs.push(small.shift());
-    const ordered = bigs.concat(small), cap = SLOTS.length;
+    const cap = SLOTS.length, pinned = new Array(cap).fill(null);                            // ⓔ 부모가 칸을 정한 작품(wall_slot)은 그 칸에 먼저
+    const ordered = bigs.concat(small).filter(w => { const k = w.wall_slot; if (Number.isInteger(k) && k >= 0 && k < cap && !pinned[k]){ pinned[k] = w; return false; } return true; });
     overflowNote = '';
-    if (ordered.length > cap){
-      const head = ordered.slice(0, cap - ROTATE), tail = ordered.slice(cap - ROTATE), shift = dayNum() % tail.length;
+    const free = cap - pinned.filter(Boolean).length;
+    let queue;
+    if (ordered.length > free){
+      const head = ordered.slice(0, free - ROTATE), tail = ordered.slice(free - ROTATE), shift = dayNum() % tail.length;
       const today = tail.slice(shift).concat(tail.slice(0, shift)).slice(0, ROTATE);
-      overflowNote = '벽 ' + cap + '칸이 다 차서 오늘은 ' + ROTATE + '장을 바꿔 걸었어요 · 나머지 ' + (ordered.length - cap) + '장은 아래 목록에 있어요';
-      hung = head.concat(today);
-    } else hung = ordered.slice();
-    while (hung.length < cap) hung.push(null);
+      overflowNote = '벽 ' + cap + '칸이 다 차서 오늘은 ' + ROTATE + '장을 바꿔 걸었어요 · 나머지 ' + (ordered.length - free) + '장은 아래 목록에 있어요';
+      queue = head.concat(today);
+    } else queue = ordered.slice();
+    hung = pinned.map(w => w || queue.shift() || null);
   }
 
   // ---------- 바깥에서 부르는 것 ----------
@@ -723,6 +1041,9 @@
       slide = { from, dir: ord(newYear) > ord(year) ? 1 : -1, t0: performance.now() };
     }
     year = newYear; list = Array.isArray(visibleList) ? visibleList : []; openFn = open;
+    admin = !!(opts && opts.admin); allWorks = (opts && Array.isArray(opts.all)) ? opts.all : [];
+    if (!admin && editMode) setEdit(false);
+    if (tvPlaying && !list.includes(tvPlaying)) tvToggle(null);
     images = list.filter(w => w.media_type !== 'youtube' && w.media_type !== 'video' && (w.thumb_url || w.media_url));
     videos = list.filter(w => w.media_type === 'youtube');
     box.hidden = !images.length && !videos.length;
@@ -740,9 +1061,10 @@
     const tvN = Math.min(videos.length, TV_MAX);
     if (tvN > 1 && !STILL) tvTimer = setInterval(() => { if (seen && !document.hidden){ tvIdx = (tvIdx + 1) % tvN; draw(); } }, 4000);
     if (cv){ cv.style.aspectRatio = RW + ' / ' + RH; cv.tabIndex = 0; }
-    wire(); say(''); draw(); loadClaps();
+    wire(); renderTools(); renderStamps(); say(''); draw(); loadClaps();
     if (!STILL && !looping){ looping = true; requestAnimationFrame(loop); }
   }
   window.GALLERY = { render, draw, clapped, claps: () => claps, clapsOn: () => clapsState === 'on', _hits: () => hits, _walkers: walkers, _visitors: visitors, _hung: () => hung, _aspect: aspectOf,
-    _tick: tick, _focus: k => { focusKey = k; draw(); }, _slide: () => slide, _bubbles: bubbleOf, _setClaps: m => { claps = m; clapsTotal = Object.values(m).reduce((a, b) => a + b, 0); wallKey = ''; draw(); } };
+    _tick: tick, _focus: k => { focusKey = k; draw(); }, _slide: () => slide, _bubbles: bubbleOf, _setClaps: m => { claps = m; clapsTotal = Object.values(m).reduce((a, b) => a + b, 0); wallKey = ''; draw(); },
+    _guard: () => guard, _edit: setEdit, _move: moveSlot, _stamps: stampStatus, _seen: noteSeen, _tv: tvToggle, _snap: snapshot, _top: topWork, _sprite: visitorSprite, _slotUnder: slotUnder };
 })();

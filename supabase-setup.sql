@@ -1848,3 +1848,34 @@ set search_path = public
 as $$ select work_id, count(*) from work_claps group by work_id $$;
 grant execute on function public.work_clap_counts() to anon, authenticated;
 -- (2026-09-15 적용 — 마이그레이션 work_claps. 적용 때 works 는 42줄, 박수 0)
+
+
+-- =====================================================================
+-- 2026-09-15 밤 「전부진행」 — 박수 시각 잠금, 안 쓰는 함수 정리, 벽 칸 번호 (execute_sql 로 적용, 확인 뒤 여기에 옮겨 적음)
+-- 손님이 created_at 을 과거로 적어 보내면 「최근 1분/1시간」 셈에서 빠져 홍수 방지가 비껴갔다(마무리작업에서 anon 으로 '2020-01-01' 이 들어가는 걸 봄).
+-- 트리거가 시각을 now() 로 덮어쓴다. 확인: anon 으로 '2020-01-01' 을 넣으니 created_at 이 지금 시각(되돌림).
+create or replace function public.work_claps_rate_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  new.created_at := now();   -- 손님이 적어 보낸 시각은 버린다
+  if (select count(*) from work_claps where created_at > now() - interval '1 minute') >= 30
+     or (select count(*) from work_claps where created_at > now() - interval '1 hour') >= 300 then
+    raise exception '박수가 너무 빨리 쏟아지고 있어요. 잠시 뒤에 다시 해 주세요.';
+  end if;
+  return new;
+end $$;
+create or replace function public.honor_claps_rate_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  new.created_at := now();
+  if (select count(*) from honor_claps where created_at > now() - interval '1 minute') >= 30
+     or (select count(*) from honor_claps where created_at > now() - interval '1 hour') >= 300 then
+    raise exception '박수가 너무 빨리 쏟아지고 있어요. 잠시 뒤에 다시 해 주세요.';
+  end if;
+  return new;
+end $$;
+-- honors.js 가 honor_board() 하나로 받게 된 뒤(2026-09-05) 부르는 곳이 0 이던 함수
+drop function if exists public.honor_clap_counts();
+-- 미술관 방 편집 모드(부모가 액자를 끌어 바꿔 건다) — 칸 번호를 작품에 적어 둔다. null 이면 새 순서대로
+alter table public.works add column if not exists wall_slot smallint;
+comment on column public.works.wall_slot is '미술관 방의 벽 칸 번호(0~26). 부모가 편집 모드에서 끌어다 놓은 것. null 이면 새 순서대로 건다.';
