@@ -1381,6 +1381,69 @@ const belowFold = (() => {
   try { catName = localStorage.getItem(CAT_NAME_KEY) || ''; catPlay = Number(localStorage.getItem(CAT_PLAY_KEY) || 0) || 0; } catch (e) { /* 저장이 막힌 브라우저 — 이름 없이도 논다 */ }
   const cat = { tx: 0, ty: 0, gx: 0, gy: 0, walk: 0, ready: false };
   let catAwake = 0;                                     // 이때까지는 부르면 온다
+  // 분수 물줄기 — 마을 그림에는 물줄기 도트가 박혀 있고, 그 위에 물방울이 흘러내린다(2026-09-15 부모 요청).
+  // 위 대롱에서 양쪽으로 포물선을 그려 윗접시에 떨어지고, 윗접시 가장자리에서 아랫못으로 흘러내리며 잔물결이 퍼진다.
+  const FOUNTAIN = { tx: 7.05, ty: 5.35 };
+  function drawFountain(gx, gy){
+    if (!VG || reduce) return;
+    const c = VG.dotAt(FOUNTAIN.tx, FOUNTAIN.ty), s = Math.max(1, Math.round(HS));
+    const X = Math.round(c.x) * HS + gx, Y = Math.round(c.y) * HS + gy;
+    const dot = (dx, dy, col, w) => { ctx.fillStyle = col; ctx.fillRect(Math.round(X + dx * HS), Math.round(Y + dy * HS), (w || 1) * s, s); };
+    // 대롱 위 물기둥 — 살짝 출렁인다
+    const jet = 1 + Math.round(Math.abs(Math.sin(t * 5)) * 2);
+    dot(-1, -40 - jet, '#e8f6fb', 2); dot(0, -41 - jet, '#ffffff');
+    // 포물선 물방울 — 양쪽 여섯 개씩 같은 길을 따라 흘러간다
+    for (let i = 0; i < 6; i++){
+      const u = (t * 0.9 + i / 6) % 1, dy = -34 - Math.sin(u * Math.PI) * 10 + u * 8, dx = 2 + u * 9;
+      const col = i % 2 ? '#ffffff' : '#e8f6fb';
+      dot(-dx - 1, dy, col); dot(dx, dy, col);
+      if (u > 0.9){ dot(-dx - 2, dy + 1, '#bfe4f4', 3); dot(dx - 1, dy + 1, '#bfe4f4', 3); }   // 윗접시에 닿는 튀김
+    }
+    // 윗접시에서 아랫못으로 — 양 가장자리에서 실처럼 떨어진다
+    for (let i = 0; i < 4; i++){
+      const u = (t * 1.3 + i / 4) % 1, dy = -24 + u * 13;
+      dot(-9, dy, i % 2 ? '#e8f6fb' : '#bfe4f4'); dot(8, dy, i % 2 ? '#bfe4f4' : '#e8f6fb');
+    }
+    // 아랫못 잔물결 — 떨어지는 자리에서 둥글게 퍼진다
+    [[-9, -9], [8, -9]].forEach(([cx, cy], k) => {
+      const u = (t * 0.7 + k * 0.5) % 1, r = 1 + u * 4;
+      ctx.globalAlpha = 0.7 * (1 - u);
+      for (let a = 0; a < 12; a++){ const ang = a / 12 * Math.PI * 2; dot(cx + Math.round(Math.cos(ang) * r), cy + Math.round(Math.sin(ang) * r * 0.5), '#dff2fb'); }
+      ctx.globalAlpha = 1;
+    });
+    // 물 위 반짝임
+    for (let i = 0; i < 3; i++){ const u = (t * 0.4 + i / 3) % 1; if (Math.sin(u * Math.PI) > 0.7) dot(-12 + i * 10 + Math.round(Math.sin(t + i) * 2), -8 + (i % 2), '#ffffff'); }
+  }
+
+  // 광장 비둘기 — 분수 둘레를 종종걸음으로 옮겨 다니며 모이를 쫀다(2026-09-15 부모 요청). 마을 그림에서 빼고 여기서 그린다.
+  const PIG_AREA = { x0: 5.45, x1: 8.6, y0: 4.6, y1: 6.75 };
+  const pigeons = [];
+  const pigeonFree = (x, y) => Math.hypot(x - FOUNTAIN.tx, y - FOUNTAIN.ty) > 0.95 && x >= PIG_AREA.x0 && x <= PIG_AREA.x1 && y >= PIG_AREA.y0 && y <= PIG_AREA.y1;
+  function drawPigeons(gx, gy){
+    const spots = VG && VG.pigeons; if (!spots) return;
+    if (!pigeons.length) spots.forEach(([tx, ty], i) => pigeons.push({ tx, ty, gx: tx, gy: ty, wait: 1 + i * 1.7, flip: i % 2 === 1, hop: 0, peck: 0 }));
+    const s = Math.max(1, Math.round(HS));
+    pigeons.forEach((p, i) => {
+      if (!reduce){
+        if (p.wait > 0){ p.wait -= 0.016; p.hop = 0; p.peck = Math.sin(t * 7 + i * 2) > 0.75 ? 1 : 0; }   // 서서 모이를 쫀다
+        else {
+          const dx = p.gx - p.tx, dy = p.gy - p.ty, d = Math.hypot(dx, dy);
+          if (d > 0.03){ const v = 0.45 * 0.016; p.tx += dx / d * v; p.ty += dy / d * v; p.hop += 0.016; p.flip = (dx - dy) < 0; p.peck = 0; }
+          else {                                                                         // 다음 자리 — 가까운 빈 칸으로
+            for (let n = 0; n < 12; n++){ const nx = p.tx + (Math.random() - 0.5) * 1.4, ny = p.ty + (Math.random() - 0.5) * 1.0; if (pigeonFree(nx, ny)){ p.gx = nx; p.gy = ny; break; } }
+            p.wait = 1.5 + Math.random() * 4; p.hop = 0;
+          }
+        }
+      }
+      const c = VG.dotAt(p.tx, p.ty), bob = p.hop ? Math.round(Math.abs(Math.sin(p.hop * 14))) : 0;
+      const X = Math.round(c.x * HS + gx), Y = Math.round(c.y * HS + gy) - bob * s, f = p.flip ? -1 : 1;
+      const dot = (dx, dy, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(X + (f > 0 ? dx : -dx - w) * s, Y + dy * s, w * s, h * s); };
+      dot(-3, -3, 6, 3, '#9a9aa2'); dot(-3, -3, 6, 1, '#b8b8c0');                        // 몸통
+      dot(2, -5 + p.peck, 3, 3, '#8a8a92'); dot(4, -4 + p.peck, 2, 1, '#e0a050');        // 머리·부리(쫄 때 내려간다)
+      dot(-4, -2, 2, 1, '#6a6a72'); dot(-1, 0, 1, 1, '#e0a050'); dot(1, 0, 1, 1, '#e0a050');   // 꼬리·발
+      if (p.hop && Math.floor(p.hop * 14) % 2) dot(-1, -5, 4, 1, '#c8c8d0');              // 종종걸음 날개
+    });
+  }
   function drawCat(gx, gy){
     if (!VG.cat) return;
     if (!cat.ready) { cat.tx = cat.gx = VG.cat.tx; cat.ty = cat.gy = VG.cat.ty; cat.ready = true; }
@@ -1571,11 +1634,13 @@ const belowFold = (() => {
     if (VG && SPR2) { drawDucks(gx, gy); if (VG.kite) drawKite(gx, gy); }
     if (VG) drawTentBalloons(gx, gy);
     drawPuddles(gx, gy);
+    drawFountain(gx, gy);
     drawSmoke(gx, gy);
 
     drawSteps(gx, gy);
     drawPlanted(gx, gy);
     drawSnowmen(gx, gy);
+    drawPigeons(gx, gy);
     if (VG) drawCat(gx, gy);
     drawRuler(gx, gy);
     drawSecrets(gx, gy);
