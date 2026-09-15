@@ -311,11 +311,12 @@
   // idle(객석 불 켜짐·다음 무대 안내) → up(걸어 올라감) → sit → play(불 어둡게·조명) → bow(인사·박수) → down → rest → 다음 영상
   const DUR = { idle: 3400, sit: 700, play: 15000, bow: 4200, rest: 900 };
   let videos = [], list = [], openFn = null, idx = 0;
+  let rehearsals = [], rehState = 'idle', studioOpen = false, recNow = null, recDraft = null, recWho = 'sua', recTitle = '', recMsg = '', myUid = null;   // 🎙 녹음실
   const show = { phase: 'none', t: 0, who: [], mode: 'piano', spots: [], w: null, since: 0 };
-  function startShow(){
-    if (!videos.length){ show.phase = 'none'; show.w = null; return; }
-    const w = videos[idx % videos.length];
-    show.w = w; show.kind = stageKind(w); show.mode = show.kind === 'piano' ? 'piano' : 'mic';
+  function startShow(pick){                                              // pick: 리허설처럼 차례표 밖에서 고른 무대
+    if (!pick && !videos.length){ show.phase = 'none'; show.w = null; return; }
+    const w = pick || videos[idx % videos.length];
+    show.w = w; show.kind = w.rehearsal ? 'piano' : stageKind(w); show.mode = show.kind === 'piano' ? 'piano' : 'mic';
     show.who = w.author === 'together' ? ['sua', 'yona'] : [HOME[w.author] ? w.author : 'sua'];
     show.spots = spotsFor(show.mode, show.who.length);
     setPhase(STILL ? 'play' : 'idle');
@@ -350,7 +351,7 @@
     if (ph === 'idle' && t > DUR.idle) setPhase('up');
     else if (ph === 'sit' && t > DUR.sit) setPhase('play');
     else if (ph === 'play' && (show.pendingBow || (t > DUR.play && !show.live))){ show.pendingBow = false; setPhase('bow'); }   // 진짜 영상을 트는 동안은 끝날 때까지
-    else if (ph === 'bow' && t > DUR.bow && !growth) setPhase('down');   // 성장 무대 중이면 내려가지 않고 다음 곡을 기다린다
+    else if (ph === 'bow' && t > DUR.bow) setPhase('down');
     else if (ph === 'rest' && t > DUR.rest){ idx = (idx + 1) % videos.length; startShow(); }
     KIDS.forEach(k => stepActor(actorOf(k), dt));
     return true;
@@ -375,6 +376,12 @@
     return t;
   }
   const authorOf = w => KID_NAME[w && w.author] || '수아랑 연아랑';
+  // 판 밖으로 안 나가게 — 글자 수가 아니라 실제 폭을 재서 끝을 줄인다(한글·영문·숫자 폭이 달라 short() 만으로는 넘쳤다)
+  function fitText(g, t, font, maxW){
+    g.save(); g.font = font; t = String(t || '').normalize('NFC');
+    if (g.measureText(t).width > maxW){ while (t.length > 1 && g.measureText(t + '…').width > maxW) t = t.slice(0, -1); t = t.trimEnd() + '…'; }
+    g.restore(); return t;
+  }
   function drawScreen(g){
     const w = show.w, th = thumbOf(w), x = SCREEN.a0 * 28, y = -SCREEN.v1, W = (SCREEN.a1 - SCREEN.a0) * 28, H = SCREEN.v1 - SCREEN.v0, ph = show.phase;
     wallDo(g, 1, () => {
@@ -386,12 +393,13 @@
       if (!w){ g.fillStyle = '#9fc3e6'; g.font = '800 10px ' + FONT; g.fillText('이 거르개에는 영상이 없어요', x + W / 2, y + H / 2 + 4); }
       else if (ph === 'idle' || ph === 'up' || ph === 'sit' || ph === 'rest'){
         g.fillStyle = 'rgba(8,10,20,.55)'; g.fillRect(x, y, W, H);
-        g.fillStyle = '#ffd979'; g.font = '800 9px ' + FONT; g.fillText('♪ 다음 무대 ♪', x + W / 2, y + H / 2 - 8);
-        g.fillStyle = '#fff8ea'; g.font = '800 11px ' + FONT; g.fillText(short(w.title, 14), x + W / 2, y + H / 2 + 8);
+        g.fillStyle = '#ffd979'; g.font = '800 9px ' + FONT; g.fillText(w.rehearsal ? '🎙 리허설 무대' : '♪ 다음 무대 ♪', x + W / 2, y + H / 2 - 8);
+        g.fillStyle = '#fff8ea'; g.font = '800 11px ' + FONT; g.fillText(fitText(g, w.title, '800 11px ' + FONT, W - 16), x + W / 2, y + H / 2 + 8);
         g.fillStyle = '#c9d6e8'; g.font = '700 8px ' + FONT; g.fillText(authorOf(w), x + W / 2, y + H / 2 + 20);
       } else if (ph === 'play'){
         let p = Math.min(1, show.t / DUR.play);
-        if (show.live && yt && yt.getDuration){ try { const d = yt.getDuration(); if (d > 0) p = Math.min(1, yt.getCurrentTime() / d); } catch (e) { /* 플레이어가 아직 준비 전 */ } }
+        if (show.live && liveW && liveW.rehearsal && playerBox){ const au = playerBox.querySelector('.cp-audio audio'), d = au && isFinite(au.duration) && au.duration > 0 ? au.duration : (liveW.audio_secs || 0); if (au && d > 0) p = Math.min(1, au.currentTime / d); }   // 녹음 파일은 길이를 모를 때가 있어 적어 둔 초로
+        else if (show.live && yt && yt.getDuration){ try { const d = yt.getDuration(); if (d > 0) p = Math.min(1, yt.getCurrentTime() / d); } catch (e) { /* 플레이어가 아직 준비 전 */ } }
         g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(x + 5, y + H - 8, W - 10, 3);
         g.fillStyle = '#ffd979'; g.fillRect(x + 5, y + H - 8, Math.round((W - 10) * p), 3);
         if (show.kind === 'news'){
@@ -401,7 +409,7 @@
           g.fillStyle = '#c0392b'; g.font = '800 7px ' + FONT; g.textAlign = 'center'; g.fillText('속보', x + 11, y + H - 14);
         }
         if (Math.floor(now() / 600) % 2){ g.fillStyle = '#e8453c'; g.fillRect(x + 6, y + 5, 4, 4); }
-        g.fillStyle = '#fff8ea'; g.font = '800 7px ' + FONT; g.textAlign = 'left'; g.fillText('상영 중', x + 13, y + 10);
+        g.fillStyle = '#fff8ea'; g.font = '800 7px ' + FONT; g.textAlign = 'left'; g.fillText(w.rehearsal ? '리허설 중' : '상영 중', x + 13, y + 10);
       } else if (ph === 'bow'){
         g.fillStyle = 'rgba(8,10,20,.5)'; g.fillRect(x, y, W, H);
         g.fillStyle = '#ffd979'; g.font = '800 14px ' + FONT; g.fillText('고마워요!', x + W / 2, y + H / 2 + 5);
@@ -411,7 +419,9 @@
     // 화면 아래 이름표
     if (w){
       rwall(g, SCREEN.a0 + 0.5, SCREEN.a1 - 0.5, SCREEN.v0 - 30, SCREEN.v0 - 12, INK); rwall(g, SCREEN.a0 + 0.54, SCREEN.a1 - 0.54, SCREEN.v0 - 28, SCREEN.v0 - 14, '#fff8ea');
-      rtext(g, short(w.title, 16) + ' · ' + authorOf(w), (SCREEN.a0 + SCREEN.a1) / 2, SCREEN.v0 - 25, '800 8px ' + FONT, INK, 'center');
+      const pf = '800 8px ' + FONT, tail = ' · ' + authorOf(w), maxW = (SCREEN.a1 - SCREEN.a0 - 1.08) * 28 - 12;
+      g.save(); g.font = pf; const tw = g.measureText(tail).width; g.restore();
+      rtext(g, fitText(g, w.title, pf, maxW - tw) + tail, (SCREEN.a0 + SCREEN.a1) / 2, SCREEN.v0 - 25, pf, INK, 'center');
     }
   }
   function drawWallInfo(g){
@@ -420,7 +430,8 @@
     ltext(g, '♪ 오늘의 무대', 5.58, 181, '800 9px ' + FONT, '#8e2f3a');
     for (let n = 0; n < Math.min(3, videos.length); n++){
       const w = videos[(idx + n) % videos.length];
-      ltext(g, (n ? '   ' : '▶ ') + short(w.title, 11), 5.58, 167 - n * 10, (n ? '700 ' : '800 ') + '7px ' + FONT, n ? '#6f6558' : INK);
+      const lf = (n ? '700 ' : '800 ') + '7px ' + FONT;
+      ltext(g, (n ? '   ' : '▶ ') + fitText(g, w.title, lf, 48), 5.58, 167 - n * 10, lf, n ? '#6f6558' : INK);
     }
     // 박수판 — 이 무대(연주회장) 박수만 센다
     lwall(g, 3.3, 4.5, 96, 126, '#2a1c10'); lwall(g, 3.35, 4.45, 99, 123, '#1c1a18');
@@ -813,6 +824,7 @@
     heard = true; clapUntil = now() + 1700; applause(1.4, true);
     const q = guests[Math.floor(Math.random() * guests.length)]; if (q){ q.say = GUEST_TALK[Math.floor(Math.random() * GUEST_TALK.length)]; q.sayUntil = now() + 1800; }
     draw();
+    if (w.rehearsal){ say('👏 리허설에 박수 — 박수판에는 안 세고 소리로만 보내요'); return; }
     if (clapsState !== 'on'){ say('박수 소리만 났어요 — 박수판은 아직 준비 중이에요'); return; }
     const key = 'concert_clap_' + w.id;
     let did = false; try { did = !!localStorage.getItem(key); } catch (e) { /* 못 읽으면 다시 칠 수 있다 */ }
@@ -902,15 +914,16 @@
     const w = show.w, muted = typeof sfxMuted === 'function' && sfxMuted(), btn = (id, label) => '<button type="button" class="dot-btn small" id="' + id + '">' + label + '</button> ';
     let html = '';
     if (w){
-      html += btn('cClap', '👏 박수' + (clapsState === 'on' ? ' <b>' + (claps[w.id] || 0) + '</b>' : '')) + btn('cOpen', '▶ 무대에서 보기');
+      html += btn('cClap', '👏 박수' + (clapsState === 'on' && !w.rehearsal ? ' <b>' + (claps[w.id] || 0) + '</b>' : '')) + btn('cOpen', '▶ 무대에서 보기');
       if (videos.length > 1) html += btn('cNext', '⏭ 다음 무대');
-      if (!show.live && growthList(w).length >= 2) html += btn('cGrow', '🌱 성장 무대');
     }
+    const fam = isAdmin || isChild;
+    if (rehState === 'on' && (fam || rehearsals.length)) html += btn('cStudio', (studioOpen ? '✕ 녹음실 닫기' : fam ? '🎙 녹음실' : '🎙 리허설') + (rehearsals.length && !studioOpen ? ' <b>' + rehearsals.length + '</b>' : ''));
     html += btn('cSeat', seatMode ? '🪑 빈자리를 눌러요' : me ? '🚶 자리 비우기' : '🪑 내 자리') + btn('cSound', muted ? '🔇 소리 꺼짐' : '🔊 소리 켜짐');
     box.innerHTML = html;
     const on = (id, f) => { const b = $('#' + id); if (b) b.addEventListener('click', f); };
     on('cClap', () => clap()); on('cOpen', () => openPlayer(show.w)); on('cNext', () => { heard = true; skipShow(); renderTools(); say(stateLine()); });
-    on('cGrow', () => startGrowth());
+    on('cStudio', () => { studioOpen = !studioOpen; if (!studioOpen) stopRec(); renderTools(); renderStudio(); });
     on('cSeat', () => { if (me && !seatMode){ me = null; saveMe(); say('자리를 비웠어요'); } else { seatMode = !seatMode; say(seatMode ? '노랗게 빛나는 빈자리를 눌러 앉으세요' : stateLine()); } renderTools(); draw(); });
     on('cSound', () => { if (typeof sfxSetMuted === 'function') sfxSetMuted(!muted); heard = true; renderTools(); if (muted) applause(0.8, false); });
   }
@@ -938,25 +951,47 @@
     playerBox = document.createElement('div'); playerBox.className = 'concert-player'; playerBox.hidden = true;
     playerBox.innerHTML = '<div class="cp-bar"><b class="cp-title"></b>' +
       '<a class="dot-btn small cp-yt" target="_blank" rel="noopener" aria-label="유튜브에서 이 영상 열기">유튜브에서 ↗</a>' +   // 유튜브가 로그인 확인을 띄우면 여기로 본다
-      '<button type="button" class="dot-btn small cp-close" aria-label="영상 닫기">✕ 닫기</button></div><div class="cp-frame"><div id="concertYT"></div></div>';
+      '<button type="button" class="dot-btn small cp-close" aria-label="영상 닫기">✕ 닫기</button></div><div class="cp-frame"><div id="concertYT"></div></div>' +
+      '<div class="cp-audio" hidden><p class="cp-audio-note">🎙 리허설 녹음</p><audio controls preload="none"></audio></div>';
     stage.appendChild(playerBox);
     playerBox.querySelector('.cp-close').addEventListener('click', () => closePlayer(false));
+    // 플레이어 밖을 누르면 iframe 에 남은 초점을 뺀다 — 초점이 남아 있으면 유튜브 조작 막대·제목이 계속 떠 있는 경우가 있어서(부모 요청)
+    document.addEventListener('pointerdown', e => {
+      if (!liveW || playerBox.hidden || playerBox.contains(e.target)) return;
+      const f = document.activeElement; if (f && f.tagName === 'IFRAME' && playerBox.contains(f)) f.blur();
+    }, true);
+    const au = playerBox.querySelector('.cp-audio audio');
+    au.addEventListener('ended', () => { if (liveW && liveW.rehearsal) videoEnded(); });
+    au.addEventListener('pause', () => { if (liveW && liveW.rehearsal) show.paused = true; });
+    au.addEventListener('playing', () => { show.paused = false; });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && liveW) closePlayer(false); });
     return playerBox;
   }
   async function openPlayer(w){
     if (!w) return;
     const box = ensureBox(), id = typeof youtubeId === 'function' ? youtubeId(w.media_url) : '';
-    if (!box || !id){ openCurrent(); return; }
+    if (!box || (!id && !w.rehearsal)){ openCurrent(); return; }
     heard = true;
     if (show.w !== w || !['up', 'sit', 'play'].includes(show.phase)){         // 이 영상의 작가가 아직 무대에 없으면 바로 올라온다
       KIDS.forEach(k => { const p = actorOf(k), h = homeSpot(k); Object.assign(p, { a: h.a, b: h.b, plan: [], onArrive: null, seated: true, dir: 'up', moving: false }); });
-      idx = Math.max(0, videos.indexOf(w)); startShow(); if (!STILL) setPhase('up');
+      if (!w.rehearsal) idx = Math.max(0, videos.indexOf(w));
+      startShow(w); if (!STILL) setPhase('up');
     }
     show.live = true; show.paused = false; show.pendingBow = false; liveW = w;
-    if (growth && growth.list[growth.i] !== w){ clearTimeout(growth.timer); growth = null; }
-    box.querySelector('.cp-yt').href = 'https://www.youtube.com/watch?v=' + encodeURIComponent(id);
-    box.querySelector('.cp-title').textContent = (growth ? '🌱 ' + (growth.i + 1) + '/' + growth.list.length + (w.made_on ? ' · ' + w.made_on.slice(0, 7).replace('-', '.') : '') + ' · ' : '') + short(w.title, 30) + ' · ' + authorOf(w);
+    const ytLink = box.querySelector('.cp-yt'), frame = box.querySelector('.cp-frame'), abox = box.querySelector('.cp-audio'), au = abox.querySelector('audio');
+    ytLink.hidden = !!w.rehearsal; frame.hidden = !!w.rehearsal; abox.hidden = !w.rehearsal;
+    if (w.rehearsal){                                                     // 🎙 리허설 — 유튜브 대신 녹음 소리
+      try { if (yt && yt.stopVideo) yt.stopVideo(); } catch (e) { /* 아직 없는 플레이어 */ }
+      box.querySelector('.cp-title').textContent = '🎙 리허설 · ' + short(w.title, 24) + ' · ' + authorOf(w) + (w.is_public ? '' : ' · 가족만');
+      box.hidden = false; box.classList.remove('rise'); void box.offsetWidth; box.classList.add('rise');
+      box.scrollIntoView({ block: 'nearest', behavior: STILL ? 'auto' : 'smooth' });
+      say('🎙 「' + short(w.title, 20) + '」 리허설 — 끝나면 무대에서 인사해요'); renderTools();
+      au.src = w.audio_url; au.play().catch(() => { show.paused = true; say('🎙 ▶ 단추를 눌러 리허설을 들어요'); });
+      return;
+    }
+    au.pause();
+    ytLink.href = 'https://www.youtube.com/watch?v=' + encodeURIComponent(id);
+    box.querySelector('.cp-title').textContent = short(w.title, 30) + ' · ' + authorOf(w);
     box.hidden = false; box.classList.remove('rise'); void box.offsetWidth; box.classList.add('rise');
     box.scrollIntoView({ block: 'nearest', behavior: STILL ? 'auto' : 'smooth' });      // 절반 넘게 보여야 자동 재생할 수 있다(규정)
     say('▶ 「' + short(w.title, 20) + '」 — 영상이 끝나면 무대에서 인사해요'); renderTools();
@@ -972,34 +1007,109 @@
   function onYT(state){ show.paused = state === 2; if (state === 0) videoEnded(); }   // 0 끝남 · 1 재생 · 2 멈춤
   function videoEnded(){
     if (!liveW) return;
-    const more = growth && growth.i < growth.list.length - 1;
     closePlayer(true);
     if (show.phase === 'play') setPhase('bow'); else show.pendingBow = true;   // 아직 걸어가는 중이면 앉자마자 인사
-    if (more) growth.timer = setTimeout(growthNext, 3400); else growth = null;
-  }
-  // 🌱 성장 무대 — 같은 작가의 피아노 영상을 옛것부터 이어 튼다. 사이마다 인사하고 무대에서 내려가지 않고 다음 곡
-  let growth = null;
-  function growthList(w){
-    if (!w || !HOME[w.author]) return [];
-    return videos.filter(v => v.author === w.author && stageKind(v) === 'piano').sort((x, y) => String(x.made_on || '').localeCompare(String(y.made_on || '')));
-  }
-  function startGrowth(){ const l = growthList(show.w); if (l.length < 2) return; growth = { list: l, i: 0, timer: 0 }; openPlayer(l[0]); }
-  function growthNext(){
-    if (!growth) return;
-    growth.i++;
-    const w = growth.list[growth.i];
-    idx = Math.max(0, videos.indexOf(w)); show.w = w; show.kind = 'piano'; show.mode = 'piano'; show.spots = spotsFor('piano', 1);
-    const p = actorOf(show.who[0]); p.plan = [show.spots[0]]; p.onArrive = () => { p.seated = true; p.dir = 'up'; };
-    setPhase('play'); openPlayer(w);
   }
   function closePlayer(ended){
     if (!playerBox || !liveW) return;
     liveW = null; show.live = false; show.paused = false;
-    if (!ended && growth){ clearTimeout(growth.timer); growth = null; }
     try { if (yt && yt.stopVideo) yt.stopVideo(); } catch (e) { /* 이미 닫힌 플레이어 */ }
+    const au = playerBox.querySelector('.cp-audio audio'); if (au) au.pause();
     playerBox.hidden = true;
     if (!ended && show.phase === 'play') show.t = Math.max(show.t, DUR.play - 1500);   // 닫으면 곧 인사하고 다음 무대로
     renderTools(); say(stateLine());
+  }
+
+  // ---------- 🎙 녹음실 — 연습한 곡을 녹음해 무대에 「리허설」로 올린다(concert_rehearsals, 2026-09-15 부모 「9,10 진행」) ----------
+  // 가족(로그인)만 녹음하고, 올린 것은 가족만 본다. 부모가 「모두에게」로 바꾼 것만 손님에게 보인다(표 정책이 가른다).
+  // 녹음기·올리기는 목소리 일기와 같은 것(common.js startVoiceRecorder / uploadVoice, suayona/voice/ 폴더). 박수판에는 안 센다(작품 번호가 아니라서)
+  const toStage = r => ({ id: 'r' + r.id, rid: r.id, rehearsal: true, author: r.author, title: r.title, audio_url: r.audio_url, audio_secs: r.audio_secs, is_public: r.is_public, written_by: r.written_by, made_on: String(r.created_at || '').slice(0, 10) });
+  const REH_COLS = 'id, author, title, audio_url, audio_secs, is_public, written_by, created_at';
+  const REHEARSALS_ON = false;                                          // concert_rehearsals 표를 실제 DB 에 만든 뒤 true — 그 전에 부르면 손님마다 404 요청이 하나씩 생긴다
+  function loadRehearsals(force){
+    if (!REHEARSALS_ON) return;
+    if (typeof sb === 'undefined' || (!force && rehState !== 'idle')) return;
+    rehState = 'loading';
+    sb.auth.getSession().then(({ data }) => { myUid = data && data.session ? data.session.user.id : null; }).catch(() => { myUid = null; });
+    sb.from('concert_rehearsals').select(REH_COLS).order('created_at', { ascending: false }).limit(30).then(res => {
+      if (res.error){ rehState = 'off'; renderTools(); return; }
+      rehearsals = (res.data || []).map(toStage); rehState = 'on'; renderTools(); renderStudio();
+    }).catch(() => { rehState = 'off'; });
+  }
+  document.addEventListener('suayona:auth', () => { if (rehState !== 'idle') loadRehearsals(true); });   // 로그인·로그아웃하면 볼 수 있는 것이 달라진다
+  function stopRec(){ if (recNow){ recNow.cancel(); recNow = null; } if (recDraft && recDraft.url) URL.revokeObjectURL(recDraft.url); recDraft = null; }
+  const mmss = n => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+  function renderStudio(){
+    let el = $('#concertStudio');
+    if (!el){ const tools = $('#concertTools'); if (!tools) return; el = document.createElement('div'); el.id = 'concertStudio'; el.className = 'concert-studio'; el.hidden = true; tools.insertAdjacentElement('afterend', el); }
+    el.hidden = !studioOpen; if (!studioOpen){ el.innerHTML = ''; return; }
+    const fam = isAdmin || isChild, esc = t => escapeHTML(String(t == null ? '' : t));
+    let html = '<h3>🎙 ' + (fam ? '녹음실' : '리허설 무대') + '</h3>';
+    if (fam){
+      html += '<p class="cs-note">연습한 곡을 녹음해 무대에 올려요. 60초까지 · 처음엔 가족만 들어요. 부모님이 「모두에게」로 바꾸면 손님도 들어요.</p>';
+      if (isAdmin) html += '<div class="cs-who">' + ['sua', 'yona'].map(k => '<button type="button" class="dot-btn small' + (recWho === k ? ' on' : '') + '" data-who="' + k + '">' + KID_NAME[k] + '</button>').join('') + '</div>';
+      html += '<input type="text" class="cs-title" maxlength="40" placeholder="곡 이름 (예: 쇼팽 흑건 연습)" value="' + esc(recTitle) + '">';
+      if (recDraft) html += '<audio controls src="' + recDraft.url + '"></audio><div class="cs-bar"><button type="button" class="dot-btn small primary" data-act="save">무대에 올리기 (' + mmss(recDraft.secs) + ')</button><button type="button" class="dot-btn small" data-act="redo">다시 녹음</button></div>';
+      else if (recNow) html += '<div class="cs-bar"><span class="rec-dot"></span> 녹음 중 <b class="cs-timer">0:00</b> <button type="button" class="dot-btn small primary" data-act="stop">■ 멈추기</button></div>';
+      else html += '<div class="cs-bar"><button type="button" class="dot-btn small primary" data-act="rec">● 녹음 시작</button></div>';
+    }
+    html += '<p class="cs-msg" aria-live="polite">' + esc(recMsg) + '</p>';
+    html += rehearsals.length ? '<ul class="cs-list">' + rehearsals.map(r => '<li><span class="cs-t">' + esc(short(r.title, 22)) + '</span><span class="cs-m">' + authorOf(r) + ' · ' + r.made_on.slice(5).replace('-', '.') + ' · ' + mmss(r.audio_secs) + (r.is_public ? '' : ' · 가족만') + '</span>' +
+      '<button type="button" class="dot-btn small" data-play="' + r.rid + '">▶ 무대에</button>' +
+      (isAdmin ? '<button type="button" class="dot-btn small" data-pub="' + r.rid + '">' + (r.is_public ? '가족만으로' : '모두에게') + '</button>' : '') +
+      (isAdmin || (isChild && myUid && r.written_by === myUid) ? '<button type="button" class="dot-btn small" data-del="' + r.rid + '">지우기</button>' : '') + '</li>').join('') + '</ul>'
+      : '<p class="cs-note">아직 올린 리허설이 없어요.</p>';
+    el.innerHTML = html;
+    const title = el.querySelector('.cs-title'); if (title) title.addEventListener('input', () => { recTitle = title.value; });
+    el.querySelectorAll('[data-who]').forEach(b => b.addEventListener('click', () => { recWho = b.dataset.who; renderStudio(); }));
+    const act = (name, f) => { const b = el.querySelector('[data-act="' + name + '"]'); if (b) b.addEventListener('click', f); };
+    act('rec', async () => {
+      if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices){ recMsg = '이 브라우저는 녹음을 못 해요'; renderStudio(); return; }
+      try {
+        recMsg = '';
+        recNow = await startVoiceRecorder(n => { const t = el.querySelector('.cs-timer'); if (t) t.textContent = mmss(n); if (n >= VOICE_MAX_SECS){ const b = el.querySelector('[data-act="stop"]'); if (b) b.click(); } });
+        renderStudio();
+      } catch (e) { recNow = null; recMsg = '마이크를 쓸 수 없어요 — 브라우저에서 마이크를 허락해 주세요'; renderStudio(); }
+    });
+    act('stop', async () => { const r = recNow; recNow = null; if (!r) return; const out = await r.stop(); recDraft = { blob: out.blob, secs: out.secs, ext: r.ext, url: URL.createObjectURL(out.blob) }; renderStudio(); });
+    act('redo', () => { stopRec(); recMsg = ''; renderStudio(); });
+    act('save', () => saveRehearsal());
+    const byRid = v => rehearsals.find(x => x.rid === Number(v));
+    el.querySelectorAll('[data-play]').forEach(b => b.addEventListener('click', () => { const r = byRid(b.dataset.play); if (r) openPlayer(r); }));
+    el.querySelectorAll('[data-pub]').forEach(b => b.addEventListener('click', () => setRehearsalPublic(byRid(b.dataset.pub))));
+    el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => dropRehearsal(byRid(b.dataset.del))));
+  }
+  const errText = e => (typeof readableError === 'function' ? readableError(e) : (e && e.message) || String(e));
+  async function saveRehearsal(){
+    const d = recDraft, t = String(recTitle || '').trim().slice(0, 40);
+    if (!d) return;
+    if (!t){ recMsg = '곡 이름을 적어 주세요'; renderStudio(); return; }
+    if (d.secs < 1){ recMsg = '너무 짧아요 — 1초 넘게 녹음해 주세요'; renderStudio(); return; }
+    recMsg = '올리는 중…'; renderStudio();
+    try {
+      let author = recWho;
+      if (!isAdmin){ const k = await sb.rpc('my_author_key'); author = k.data; }
+      if (author !== 'sua' && author !== 'yona') throw new Error('누구의 녹음인지 알 수 없어요');
+      const url = await uploadVoice(d.blob, d.ext);
+      const res = await sb.from('concert_rehearsals').insert({ author, title: t, audio_url: url, audio_secs: Math.min(VOICE_MAX_SECS, d.secs) }).select(REH_COLS).single();
+      if (res.error) throw res.error;
+      rehearsals.unshift(toStage(res.data)); stopRec(); recTitle = ''; recMsg = '🎙 올렸어요 — 「▶ 무대에」를 누르면 바로 무대에서 들어요'; renderTools(); renderStudio();
+    } catch (e) { recMsg = '못 올렸어요: ' + errText(e); renderStudio(); }
+  }
+  async function setRehearsalPublic(r){
+    if (!r || !isAdmin) return;
+    const res = await sb.from('concert_rehearsals').update({ is_public: !r.is_public }).eq('id', r.rid).select('id');
+    if (res.error || !(res.data && res.data.length)){ recMsg = '못 바꿨어요' + (res.error ? ': ' + errText(res.error) : ' — 권한이 없어요'); renderStudio(); return; }   // 정책에 막히면 오류 없이 0줄
+    r.is_public = !r.is_public; recMsg = r.is_public ? '이제 손님도 들을 수 있어요' : '이제 가족만 들어요'; renderStudio();
+  }
+  async function dropRehearsal(r){
+    if (!r || !window.confirm('「' + r.title + '」 리허설을 지울까요? 녹음 파일도 함께 지워요.')) return;
+    const res = await sb.from('concert_rehearsals').delete().eq('id', r.rid).select('id');
+    if (res.error || !(res.data && res.data.length)){ recMsg = '못 지웠어요' + (res.error ? ': ' + errText(res.error) : ' — 권한이 없어요'); renderStudio(); return; }
+    const path = String(r.audio_url).split('/object/public/' + MEDIA_BUCKET + '/')[1];
+    if (path) sb.storage.from(MEDIA_BUCKET).remove([decodeURIComponent(path)]).catch(() => { /* 파일이 남아도 목록에서는 사라졌다 */ });
+    if (liveW === r) closePlayer(false);
+    rehearsals = rehearsals.filter(x => x !== r); recMsg = '지웠어요'; renderTools(); renderStudio();
   }
 
   // ---------- 탭 ----------
@@ -1009,7 +1119,7 @@
     rooms.dataset.room = room;
     document.querySelectorAll('#roomTabs [data-room]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.room === room)));
     try { const u = new URL(location.href); if (room === 'concert') u.searchParams.set('room', 'concert'); else u.searchParams.delete('room'); history.replaceState(history.state, '', u); } catch (e) { /* 주소를 못 바꿔도 탭은 바뀐다 */ }
-    if (room === 'concert'){ if (byUser) heard = true; loadClaps(); draw(); say(stateLine()); }
+    if (room === 'concert'){ if (byUser) heard = true; loadClaps(); loadRehearsals(); draw(); say(stateLine()); }
     else { closePlayer(false); if (window.GALLERY && GALLERY.draw) GALLERY.draw(); }
   }
   function wireTabs(){
@@ -1034,7 +1144,7 @@
       startShow();
     }
     wire(); wireTabs(); renderTools(); draw();
-    if ($('#rooms') && $('#rooms').dataset.room === 'concert') loadClaps();   // 박수 수는 연주회장을 볼 때만 받는다 — 전시실만 보는 사람은 요청이 없다
+    if ($('#rooms') && $('#rooms').dataset.room === 'concert'){ loadClaps(); loadRehearsals(); }   // 박수 수는 연주회장을 볼 때만 받는다 — 전시실만 보는 사람은 요청이 없다
     if (!STILL && !looping){ looping = true; requestAnimationFrame(loop); }
   }
   // 보일 때만 돈다 — 탭이 전시실이면(display:none) 너비가 0 이라 멈춘다. 초당 30장
@@ -1058,5 +1168,5 @@
       tick(t, Math.min(100, acc)); acc = 0;
     } catch (e) { /* 한 장 건너뛴다 */ }
   }
-  window.CONCERT = { render, draw, _tick: tick, _show: show, _actors: actors, _guests: guests, _skip: skipShow, _room: setRoom, _clap: clap, _parts: parts, _applause: applause, _hit: hitAt, _claps: () => claps, _state: () => clapsState, _phase: setPhase, _open: openPlayer, _ended: videoEnded, _yt: () => yt, _close: closePlayer, _setClaps: m => { claps = m; renderTools(); draw(); }, _me: () => me, _growth: () => growth, _growthNext: growthNext, _kind: stageKind };
+  window.CONCERT = { render, draw, _tick: tick, _show: show, _actors: actors, _guests: guests, _skip: skipShow, _room: setRoom, _clap: clap, _parts: parts, _applause: applause, _hit: hitAt, _claps: () => claps, _state: () => clapsState, _phase: setPhase, _open: openPlayer, _ended: videoEnded, _yt: () => yt, _close: closePlayer, _setClaps: m => { claps = m; renderTools(); draw(); }, _me: () => me, _kind: stageKind, _rehearsals: () => rehearsals, _studio: v => { studioOpen = !!v; renderTools(); renderStudio(); }, _loadReh: () => loadRehearsals(true) };
 })();

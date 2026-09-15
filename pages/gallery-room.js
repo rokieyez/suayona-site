@@ -130,7 +130,7 @@
   const GREET_SPOT = { i: 8.7, j: 3.4 };                                 // ② 이젤 앞에 서는 자리(이젤이 오른쪽에 보인다)
   const WALK_BOX = { i0: 0.3, i1: 10.9, j0: 0.9, j1: 5.1 };
   // 걸을 수 없는 곳 — 가구마다 바닥에 닿는 네모(칸 좌표)에 몸 반 폭(0.35칸)을 더했다. 동그라미로 재던 옛 것은 관객·경비원이 아예 안 봐서 가구를 뚫고 지나갔다
-  const LAMP = 0.52;                                                     // 레일 조명 빛 세기 — 타원 번짐 가운데 값. 가장자리로 갈수록 0 으로 흐려져서 띠(0.36)보다 높게 둔다
+  const LAMP = 0.72;   // 2026-09-15 밤 부모 요청으로 0.52 → 0.72 더 밝게.                                                     // 레일 조명 빛 세기 — 타원 번짐 가운데 값. 가장자리로 갈수록 0 으로 흐려져서 띠(0.36)보다 높게 둔다
   const BLOCKS = [
     { i0: 4.95, i1: 7.05, j0: 2.4, j1: 4.4 },                                                // 가운데 의자(반 폭 0.64칸)
     { i0: EASEL_AT.i - 1.4, i1: EASEL_AT.i + 1.4, j0: EASEL_AT.j - 0.8, j1: EASEL_AT.j + 0.4 },   // 이젤(판 폭 60px ≈ 2.1칸, 뒷다리는 벽 쪽으로 0.46칸)
@@ -204,8 +204,34 @@
   // 벽지가 아니라 액자 위에 따로 한 겹으로 그린다 — 벽지에 칠하면 액자가 빛을 덮어서 빛이 그림 뒤로 들어간 것처럼 보였다(부모 지적).
   // 칸 자리는 안 바뀌니 켜진 판·꺼진 판을 한 번씩만 굽는다
   const lampCv = {};
+  // 💡 조명 고르기(밤 놀이) — 밤에 좋아하는 그림만 골라 불을 켠다. 고른 것은 이 브라우저에만(localStorage gallery_spots) 두고 서버로 안 보낸다
+  let spotMode = false, spotCv = null, spotKey = '';
+  const spots = new Set();
+  try { (JSON.parse(localStorage.getItem('gallery_spots') || '[]') || []).forEach(id => { if (Number.isFinite(id)) spots.add(id); }); } catch (e) { /* 저장이 막힌 브라우저 — 이번 방문에만 고른다 */ }
+  const saveSpots = () => { try { localStorage.setItem('gallery_spots', JSON.stringify([...spots])); } catch (e) { /* 저장이 막혀도 이번 방문엔 켜져 있다 */ } };
+  const picksOn = () => dayPhase() === 'night' && hung.some(w => w && spots.has(w.id));
+  function spotLayer(){
+    const key = hung.map((w, n) => w && spots.has(w.id) ? n : '').join(',');
+    if (spotCv && key === spotKey) return spotCv;
+    spotKey = key;
+    const c = spotCv || document.createElement('canvas'); c.width = RW * 2; c.height = RH * 2;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0);
+    SLOTS.forEach((s, n) => {
+      const w = hung[n]; if (!w || !spots.has(w.id)) return;
+      const cu = s.u + s.w / 2, top = s.v - 9, r = s.w / 2 + 12, reach = s.h + 34;
+      g.save();
+      g.setTransform(s.side ? 2 : -2, 1, 0, 2, (s.side ? CORNER.x : CORNER.x - 2) * 2, WTOP * 2);   // 레일 조명과 같은 벽면 변환
+      g.translate(cu, top); g.scale(1, reach / r);
+      const glow = g.createRadialGradient(0, 0, 0, 0, 0, r);
+      glow.addColorStop(0, 'rgba(255,222,140,.6)'); glow.addColorStop(0.55, 'rgba(255,214,120,.3)'); glow.addColorStop(1, 'rgba(255,214,120,0)');
+      g.fillStyle = glow; g.fillRect(-r, 0, r * 2, r);
+      g.restore();
+      wallRect(g, s.side, cu - 3, top - 4, 6, 4, '#2a2624'); wallRect(g, s.side, cu - 4, top, 8, 2, 'rgba(255,226,150,.6)'); wallRect(g, s.side, cu - 2, top, 4, 1, '#fff3c4');   // 작은 전등
+    });
+    return (spotCv = c);
+  }
   function lampLayer(){
-    const on = dayPhase() === 'night';
+    const on = dayPhase() === 'night' && !picksOn();                     // 💡 고른 그림이 있으면 레일 조명은 끄고 그 그림만
     if (lampCv[on]) return lampCv[on];
     const c = document.createElement('canvas'); c.width = RW * 2; c.height = RH * 2;
     const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0);
@@ -928,6 +954,7 @@
     L.fillStyle = 'rgba(8,10,34,' + NIGHT_DIM + ')'; L.fillRect(0, 0, RW, RH);
     L.globalCompositeOperation = 'destination-out';
     L.drawImage(lampLayer(), 0, 0, RW, RH);                                                // 번짐 세기(가운데 0.52)만큼 어둠이 걷힌다 — 두 번 도려내면 긴 번짐이 벽을 거의 다 밝혀 어두워지지 않았다
+    if (picksOn()) L.drawImage(spotLayer(), 0, 0, RW, RH);
     if (videos.length){
       const x = Math.round(TV.x), y = Math.round(TV.y), bx = x - TVW / 2, by0 = y - TV_LIFT - TVH + TVW / 4;
       slantRect(L, bx, by0, TVW, TVH, -1, '#000'); isoTopD(L, x + 26, y + 14, 40, 16, 'rgba(0,0,0,.5)');
@@ -950,6 +977,7 @@
     g.drawImage(shellCv(), 0, 0, RW, RH);
     g.drawImage(bakeWall(), 0, 0, RW, RH);
     g.drawImage(lampLayer(), 0, 0, RW, RH);                               // 레일 조명은 액자 위에
+    if (picksOn()) g.drawImage(spotLayer(), 0, 0, RW, RH);
     const floor = [{ y: BENCH.y, f: () => drawBench(g) }, { y: EASEL.y, f: () => drawEasel(g) }, { y: TV.y, f: () => drawTV(g) }, { y: PLINTH.y, f: () => drawPlinth(g) }];
     if (guard){ const t = tileXY(guard.i, guard.j); floor.push({ y: t.y - 1, f: () => drawGuard(g) }); }
     const spots = {};
@@ -988,7 +1016,7 @@
   }
   function captionOf(w){ return captionLines(w).join(' · '); }
   function say(t){ const el = $('#galleryMsg'); if (el) el.textContent = t || overflowNote; }
-  function describe(h){ return !h ? '' : h.kid ? KID_NAME[h.kid] + '를 누르면 이야기해요' : h.w ? captionOf(h.w) + (h.easel ? ' · 가장 새 작품' : h.plinth ? ' · 이달의 그림' : '') + (editMode && h.slot ? ' · 끌어서 옮기기' : ' · 누르면 크게') : h.who ? CHAR_NAME[kindOf(h.who)] + ' · 누르면 말해요' : h.tv ? (tvNow() ? captionOf(tvNow()) + ' · 텔레비전 영상 · 누르면 크게' : '') : ''; }
+  function describe(h){ if (h && spotMode && h.slot) return captionOf(h.w) + (spots.has(h.w.id) ? ' · 누르면 불을 꺼요' : ' · 누르면 불을 켜요'); return !h ? '' : h.kid ? KID_NAME[h.kid] + '를 누르면 이야기해요' : h.w ? captionOf(h.w) + (h.easel ? ' · 가장 새 작품' : h.plinth ? ' · 이달의 그림' : '') + (editMode && h.slot ? ' · 끌어서 옮기기' : ' · 누르면 크게') : h.who ? CHAR_NAME[kindOf(h.who)] + ' · 누르면 말해요' : h.tv ? (tvNow() ? captionOf(tvNow()) + ' · 텔레비전 영상 · 누르면 크게' : '') : ''; }
   // ⓔ 빈 칸도 놓을 자리가 된다 — 액자 hit 은 걸린 칸에만 있으니 빈 칸은 자리 상자로 찾는다
   function slotUnder(x, y){
     for (let n = 0; n < SLOTS.length; n++){ const s = SLOTS[n], b = wallHit(s.side, s.u - 5, s.v - 5, s.w + 10, s.h + 18, 0); if (x >= b.x0 && x < b.x1 && y >= b.y0 && y < b.y1) return n; }
@@ -1029,9 +1057,14 @@
   }
   function renderTools(){
     const box = $('#galleryTools'); if (!box) return;
-    box.innerHTML = '<button type="button" class="dot-btn small" id="gallerySnap">📷 방 사진</button>' + (admin ? ' <button type="button" class="dot-btn small" id="galleryEdit">🖼 벽 배치 바꾸기</button>' : '');
+    const night = dayPhase() === 'night'; if (!night) spotMode = false;
+    box.innerHTML = '<button type="button" class="dot-btn small" id="gallerySnap">📷 방 사진</button>' + (admin ? ' <button type="button" class="dot-btn small" id="galleryEdit">🖼 벽 배치 바꾸기</button>' : '') +
+      (night ? ' <button type="button" class="dot-btn small' + (spotMode ? ' on' : '') + '" id="gallerySpot">' + (spotMode ? '✔ 다 골랐어요' : '💡 조명 고르기') + (spots.size ? ' <b>' + spots.size + '</b>' : '') + '</button>' +
+        (spots.size ? ' <button type="button" class="dot-btn small" id="gallerySpotReset">↺ 레일 조명으로</button>' : '') : '');
     $('#gallerySnap').addEventListener('click', () => { snapshot(); });
     const eb = $('#galleryEdit'); if (eb) eb.addEventListener('click', () => { setEdit(!editMode); eb.textContent = editMode ? '✔ 배치 끝' : '🖼 벽 배치 바꾸기'; });
+    const sp = $('#gallerySpot'); if (sp) sp.addEventListener('click', () => { spotMode = !spotMode; if (spotMode && editMode) setEdit(false); renderTools(); draw(); say(spotMode ? '💡 불을 켤 그림을 눌러요 — 고르지 않은 그림은 어둠 속에서 쉬어요' : spots.size ? '💡 고른 그림에만 불이 켜져 있어요' : ''); });
+    const rs = $('#gallerySpotReset'); if (rs) rs.addEventListener('click', () => { spots.clear(); saveSpots(); spotMode = false; renderTools(); draw(); say('레일 조명을 다시 켰어요'); });
   }
   let wired = false;
   function wire(){
@@ -1049,6 +1082,10 @@
       if (h.who){ charTalk(h.who); return; }                                                // 관객·강아지·경비원 → 말풍선
       const key = hitKey(h);
       if (editMode && h.slot) return;                                                       // ⓔ 편집 모드에선 누르기 대신 끌기
+      if (spotMode && h.slot){                                                              // 💡 조명 고르기 — 액자를 누르면 그 그림 불을 켜고 끈다
+        const id = h.w.id, was = spots.has(id); if (was) spots.delete(id); else spots.add(id);
+        saveSpots(); renderTools(); draw(); say(captionOf(h.w) + (was ? ' — 불을 껐어요' : ' — 불을 켰어요 💡')); return;
+      }
       if (e.pointerType !== 'mouse' && (h.w || h.tv) && focusKey !== key){ focusKey = key; draw(); say(describe(h)); return; }   // 손가락: 한 번 누르면 이름표, 한 번 더 누르면 열기(텔레비전도)
       const w = h.tv ? tvNow() : h.w; if (!w || !openFn) return;                            // 텔레비전 → 지금 화면의 영상 게시글
       const i = list.indexOf(w); if (i >= 0) openFn(i);
@@ -1165,5 +1202,5 @@
   }
   window.GALLERY = { render, draw, clapped, claps: () => claps, clapsOn: () => clapsState === 'on', _hits: () => hits, _walkers: walkers, _visitors: visitors, _hung: () => hung, _aspect: aspectOf,
     _tick: tick, _focus: k => { focusKey = k; draw(); }, _slide: () => slide, _bubbles: bubbleOf, _setClaps: m => { claps = m; clapsTotal = Object.values(m).reduce((a, b) => a + b, 0); wallKey = ''; draw(); },
-    _guard: () => guard, _edit: setEdit, _move: moveSlot, _tvNow: tvNow, _talk: charTalk, _path: pathTo, _blocked: walkBlocked, _snap: snapshot, _top: topWork, _sprite: visitorSprite, _slotUnder: slotUnder };
+    _guard: () => guard, _edit: setEdit, _move: moveSlot, _tvNow: tvNow, _talk: charTalk, _path: pathTo, _blocked: walkBlocked, _snap: snapshot, _top: topWork, _sprite: visitorSprite, _spots: () => [...spots], _spotMode: v => { spotMode = !!v; renderTools(); draw(); }, _slotUnder: slotUnder };
 })();
