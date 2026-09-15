@@ -200,16 +200,18 @@
     return (shells[key] = c);
   }
 
-  // 레일 조명 — 윗줄 액자 자리마다 하나. 밤낮 없이 늘 켜 둔 은은한 노란 빛(2026-09-15 부모 요청).
+  // 레일 조명 — 윗줄 액자 자리마다 하나. 밤(20~7시)에만 켠다 — 낮·저녁엔 꺼진 전등 몸통만(2026-09-15 부모 요청: 「낮에는 안 켜도 될 것 같고 밤에만」).
   // 벽지가 아니라 액자 위에 따로 한 겹으로 그린다 — 벽지에 칠하면 액자가 빛을 덮어서 빛이 그림 뒤로 들어간 것처럼 보였다(부모 지적).
-  // 밤 어둠 막과 상관없는 겹이라 낮과 밤이 같은 빛이다. 칸 자리는 안 바뀌니 한 번만 굽는다
-  let lampCv = null;
+  // 칸 자리는 안 바뀌니 켜진 판·꺼진 판을 한 번씩만 굽는다
+  const lampCv = {};
   function lampLayer(){
-    if (lampCv) return lampCv;
+    const on = dayPhase() === 'night';
+    if (lampCv[on]) return lampCv[on];
     const c = document.createElement('canvas'); c.width = RW * 2; c.height = RH * 2;
     const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0);
     [1, 0].forEach(side => SLOTS.filter(s => s.side === side && s.v === ROWS[0]).forEach(s => {
       const cu = s.u + s.w / 2;
+      if (!on){ wallRect(g, side, cu - 3, 6, 6, 4, '#2a2624'); wallRect(g, side, cu - 2, 9, 4, 1, '#6b6562'); return; }   // 꺼진 전등 — 몸통과 흐린 전구만
       // 빛 — 벽면 좌표(u,v)를 그대로 캔버스 변환으로 옮겨 타원 번짐으로 칠한다. 점을 하나씩 반올림해 찍던 옛 방식은 가장자리가 딱딱한 띠에
       // 겹친 점이 체크무늬로 남아서, 액자 위로 올리니 그림에 노란 필름을 붙인 것처럼 보였다. 벽면은 x = 모서리 ± u, y = 벽 위 + v + u/2 인 일차 변환이다
       g.save();
@@ -221,7 +223,7 @@
       g.restore();
       wallRect(g, side, cu - 3, 6, 6, 4, '#2a2624'); wallRect(g, side, cu - 4, 9, 8, 3, 'rgba(255,226,150,.5)'); wallRect(g, side, cu - 2, 9, 4, 1, '#fff3c4');
     }));
-    return (lampCv = c);
+    return (lampCv[on] = c);
   }
 
   // ---------- 작품 사진 — 작은 캔버스로 미리 줄여 둔다(그대로 줄이면 도트가 튄다) ----------
