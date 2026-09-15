@@ -120,22 +120,6 @@
   /* 작품집 — 한 해치를 묶어 종이 책으로 뽑는다. 한 장에 두 작품씩, 그림 아래에
      제목·날짜·아이가 한 말·QR. 몇 해 뒤 서랍에서 꺼냈을 때 QR 로 원래 화면이 열린다. */
   #bookSheet{display:none;}
-  /* 연주회장 프로그램북(concert-room.js printProgram) */
-  #programSheet{display:none;}
-  .pg-cover{text-align:center; padding:22mm 10mm 10mm; border-bottom:2px solid #8e2f3a; margin-bottom:7mm;}
-  .pg-eye{font-size:9pt; letter-spacing:.3em; color:#8e2f3a; margin:0 0 3mm; font-weight:800;}
-  .pg-cover h1{font-size:28pt; font-weight:900; margin:0 0 4mm;}
-  .pg-date{font-size:12pt; color:#444; margin:0 0 2mm;}
-  .pg-note{font-size:9pt; color:#777; margin:0;}
-  .pg-list{display:grid; grid-template-columns:1fr 1fr; gap:4mm 8mm;}
-  .pg-row{display:flex; align-items:center; gap:3mm; break-inside:avoid; border-bottom:1px dashed #ccc; padding:0 0 3mm;}
-  .pg-no{font-size:14pt; font-weight:900; color:#8e2f3a; width:8mm; text-align:right;}
-  .pg-ico{font-size:14pt;}
-  .pg-txt{flex:1; min-width:0;}
-  .pg-txt .t{font-size:10.5pt; font-weight:800; margin:0 0 1mm; word-break:keep-all; line-height:1.35;}
-  .pg-txt .m{font-size:8pt; color:#555; margin:0;}
-  .pg-row svg{width:16mm; height:16mm; flex:0 0 16mm;}
-  .pg-mark{text-align:center; font-size:8pt; color:#999; margin-top:8mm;}
   .bk-cover{text-align:center; padding:40mm 10mm 0; break-after:page;}
   .bk-cover h1{font-size:30pt; font-weight:900; margin:0 0 6mm; letter-spacing:-.02em;}
   .bk-cover .sub{font-size:12pt; color:#444; margin:0 0 3mm;}
@@ -155,12 +139,11 @@
 
   @media print{
     @page{margin:10mm;}
-    body.qr-printing > *, body.book-printing > *, body.program-printing > *{display:none !important;}
+    body.qr-printing > *, body.book-printing > *{display:none !important;}
     body.qr-printing #qrSheet{display:grid !important;
       grid-template-columns:repeat(3, 1fr); gap:4mm;}
     body.book-printing #bookSheet{display:block !important;}
-    body.program-printing #programSheet{display:block !important;}
-    body.qr-printing, body.book-printing, body.program-printing{background:#fff !important;}
+    body.qr-printing, body.book-printing{background:#fff !important;}
   }
 
   /* 아이가 낸 그림 — 부모가 올리기 전까지 여기에만 보인다 */

@@ -3,9 +3,11 @@
 // 영상 작품(유튜브)이 한 편씩 무대에 오른다: 그 영상의 작가가 객석에서 일어나 무대 계단을 올라
 // 피아노 앞에 앉고(음악이 아닌 영상은 마이크 앞에 선다), 조명이 어두워지며 연주, 끝나면 일어나 인사하고
 // 객석이 박수·환호(소리는 그 자리에서 만든다) — 다시 자리로 돌아가면 다음 영상.
-// 박수는 작품 박수(work_claps)를 그대로 쓴다. 수는 전시실 방(GALLERY.claps)과 같은 것을 읽고, 치면 둘 다 오른다.
-// 층: ① 벽·바닥·커튼·무대(한 번 굽기) ② 피아노·마이크·계단(한 번 굽기) ③ 화면 섬네일 ④ 의자·사람(깊이 순)
-//     ⑤ 객석 어둠·스포트라이트·화면 빛 ⑥ 음표·먼지·꽃가루 ⑦ 말풍선·이름표. 밖으로는 window.CONCERT 만 내놓는다.
+// 박수는 작품 박수(work_claps)와 따로 concert_claps 에 모은다(부모 요청). 수는 연주회장 탭을 열 때만 받는다.
+// 기다릴 때 앞막이 닫히고 안내 방송 → 막이 열리며 공연. 제목으로 무대 종류(피아노·뉴스·게임·요리·만들기·상영·마이크)를 가르고,
+// 박수 10·30·100 에 꽃다발·트로피·풍선과 만석, 🌱 성장 무대(같은 작가 피아노 영상 이어 틀기), 내 자리(이 브라우저에만).
+// 층: ① 벽·바닥·뒤막·무대(한 번 굽기) ② 피아노·의자·스피커(한 번 굽기) ③ 화면·안내판 ④ 무대 위 것 → 앞막 → 객석·화분(깊이 순)
+//     ⑤ 객석 어둠·스포트라이트·화면 빛·EXIT 초록불 ⑥ 음표·먼지·꽃가루 ⑦ 말풍선·이름표. 밖으로는 window.CONCERT 만 내놓는다.
 (function(){
   'use strict';
   const $ = s => document.querySelector(s);
@@ -70,7 +72,6 @@
     ['craft', /만들기|강좌|그리기|프로크리|이모티콘|올챙이|슬라임|공예/i],
   ];
   const stageKind = w => { const t = String((w && w.title) || '').normalize('NFC'), k = KINDS.find(([, re]) => re.test(t)); return k ? k[0] : 'mic'; };
-  const KIND_ICON = { piano: '🎹', news: '📰', cinema: '🎬', game: '🎲', cook: '🍳', craft: '✂️', mic: '🎤' };
   const KIND_NOUN = { piano: '연주', news: '뉴스', cinema: '상영', game: '게임', cook: '요리', craft: '만들기', mic: '무대' };
   const onStage = (a, b) => a <= STAGE.a1 + 0.01 && b <= STAGE.b1 + 0.01;
   function floorH(a, b){
@@ -427,51 +428,7 @@
     ltext(g, on ? '박수' : '박수판', 4.38, 113, '800 7px ' + FONT, '#c9a24a');
     ltext(g, on ? String(n) : '준비 중', 3.45, 105, '800 ' + (on ? 11 : 8) + 'px ' + FONT, '#ffd979', 'right');
     if (hoverKey === 'board') lwall(g, 3.3, 4.5, 94, 96, '#ffd979');
-    drawStickers(g);
   }
-  // ---------- 응원 스티커 — 화면 아래 판벽에 붙는다(종류 여섯, 글은 받지 않는다) ----------
-  const STICKERS = ['👏', '🌟', '💖', '🎹', '😂', '👍'];
-  let cheers = {}, cheersState = 'idle', stickerPop = null;
-  function drawStickers(g){
-    const w = show.w; if (!w) return;
-    const c = cheers[w.id] || [];
-    rtext(g, '응원판', 7.15, 56, '800 7px ' + FONT, '#f0d78a');
-    STICKERS.forEach((em, k) => {
-      const n = c[k] || 0; if (!n) return;
-      const copies = Math.min(n, 3);
-      for (let i = 0; i < copies; i++){
-        const a = 7.3 + ((k * 0.68 + i * 0.41 + prand('st' + w.id + k + i) * 0.25) % 4.0), v = 16 + ((k * 13 + i * 9) % 30);
-        rtext(g, em, a, v, '12px ' + FONT, INK);
-      }
-      if (n > 3) rtext(g, '×' + n, 7.3 + ((k * 0.68 + 2 * 0.41) % 4.0) + 0.5, 16 + ((k * 13 + 18) % 30), '800 7px ' + FONT, '#fff8ea');
-    });
-    if (stickerPop && now() < stickerPop.until){ const t = 1 - (stickerPop.until - now()) / 900; rtext(g, STICKERS[stickerPop.k], 9.2, 26 + t * 10, Math.round(16 + 14 * Math.sin(t * Math.PI)) + 'px ' + FONT, INK, 'center'); }
-  }
-  function loadCheers(){
-    if (cheersState !== 'idle' || typeof sb === 'undefined') return;
-    cheersState = 'loading';
-    sb.rpc('concert_cheer_counts').then(res => {
-      if (res.error){ cheersState = 'off'; renderTools(); return; }
-      cheers = {}; (res.data || []).forEach(r => { (cheers[r.work_id] = cheers[r.work_id] || [0, 0, 0, 0, 0, 0])[r.kind] = Number(r.n) || 0; });
-      cheersState = 'on'; renderTools(); draw();
-    }).catch(() => { cheersState = 'off'; });
-  }
-  async function sticker(k){
-    const w = show.w; if (!w) return;
-    heard = true;
-    if (cheersState !== 'on'){ say('응원판을 준비하는 중이에요'); return; }
-    const key = 'concert_cheer_' + w.id + '_' + k;
-    let did = false; try { did = !!localStorage.getItem(key); } catch (e) { /* 못 읽으면 다시 붙일 수 있다 */ }
-    if (did){ say('이 무대에는 ' + STICKERS[k] + ' 를 이미 붙였어요'); return; }
-    const { error } = await sb.from('concert_cheers').insert({ work_id: w.id, kind: k });
-    if (error){ say('지금은 스티커를 못 붙였어요: ' + (typeof readableError === 'function' ? readableError(error) : error.message)); return; }
-    (cheers[w.id] = cheers[w.id] || [0, 0, 0, 0, 0, 0])[k]++;
-    try { localStorage.setItem(key, '1'); } catch (e) { /* 저장이 막혀도 스티커는 붙었다 */ }
-    stickerPop = { k, until: now() + 900 };
-    if (typeof tone === 'function') tone(1046, 0.08, 'triangle', 0.05);
-    say(STICKERS[k] + ' 「' + short(w.title, 14) + '」 응원판에 붙였어요'); renderTools(); draw();
-  }
-
   // ---------- 내 자리 — 빈자리를 골라 앉는다(이 브라우저에만 적는다, 서버로 안 보낸다) ----------
   let me = null, seatMode = false;
   try { me = JSON.parse(localStorage.getItem('concert_me') || 'null'); } catch (e) { /* 저장이 막힌 브라우저 — 자리 없이 본다 */ }
@@ -673,6 +630,8 @@
     glow(L, pool[0], pool[1] - 16, 78, 44, 'rgba(0,0,0,' + (0.95 * s).toFixed(3) + ')');                      // 무대 조명 자리
     poly(L, [P(SCREEN.a0, 0, SCREEN.v1), P(SCREEN.a1, 0, SCREEN.v1), P(SCREEN.a1, 0, SCREEN.v0), P(SCREEN.a0, 0, SCREEN.v0)], 'rgba(0,0,0,.85)');   // 화면은 제 빛
     [[1, 6.62], [1, 11.85], [0, 5.95]].forEach(([side, v]) => { const p = side ? P(v, 0, 134) : P(0, v, 134); glow(L, p[0], p[1], 14, 14, 'rgba(0,0,0,.9)'); });
+    lwall(L, 4.68, 5.42, 78, 94, '#000');                                 // 비상구 판은 객석이 어두워져도 늘 켜져 있다
+    const ex = P(0, 5.05, 86); glow(L, ex[0], ex[1], 24, 18, 'rgba(0,0,0,.5)');
     L.globalCompositeOperation = 'source-over'; L.restore();
     g.drawImage(lightCv, 0, 0, RW, RH);
     g.save(); roomPath(g); g.clip(); g.globalCompositeOperation = 'lighter';
@@ -685,6 +644,8 @@
     }
     if (show.phase === 'play'){ const p = P(9.2, 1.4); glow(g, p[0], p[1], 90, 40, 'rgba(110,160,255,' + (0.09 + 0.03 * Math.sin(now() / 400)).toFixed(3) + ')'); }
     [[1, 6.62], [1, 11.85], [0, 5.95]].forEach(([side, v]) => { const p = side ? P(v, 0, 134) : P(0, v, 134); glow(g, p[0], p[1], 20, 20, 'rgba(255,220,150,.10)'); });
+    glow(g, ex[0], ex[1], 26, 18, 'rgba(70,255,130,' + (0.10 + 0.14 * s).toFixed(3) + ')');   // EXIT 초록불 — 어두울수록 또렷
+    const door = P(0, 5.05, 60); glow(g, door[0], door[1], 20, 16, 'rgba(70,255,130,' + (0.03 + 0.06 * s).toFixed(3) + ')');   // 문 위로 번지는 빛
     g.restore();
   }
 
@@ -945,15 +906,13 @@
       if (videos.length > 1) html += btn('cNext', '⏭ 다음 무대');
       if (!show.live && growthList(w).length >= 2) html += btn('cGrow', '🌱 성장 무대');
     }
-    html += btn('cSeat', seatMode ? '🪑 빈자리를 눌러요' : me ? '🚶 자리 비우기' : '🪑 내 자리') + (videos.length ? btn('cPrint', '🖨 프로그램북') : '') + btn('cSound', muted ? '🔇 소리 꺼짐' : '🔊 소리 켜짐');
-    if (w && cheersState === 'on'){ const c = cheers[w.id] || []; html += '<div class="concert-stickers" style="flex-basis:100%;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">' + STICKERS.map((em, k) => '<button type="button" class="dot-btn small" data-sticker="' + k + '" aria-label="응원 스티커 ' + em + '">' + em + (c[k] ? ' <b>' + c[k] + '</b>' : '') + '</button>').join('') + '</div>'; }
+    html += btn('cSeat', seatMode ? '🪑 빈자리를 눌러요' : me ? '🚶 자리 비우기' : '🪑 내 자리') + btn('cSound', muted ? '🔇 소리 꺼짐' : '🔊 소리 켜짐');
     box.innerHTML = html;
     const on = (id, f) => { const b = $('#' + id); if (b) b.addEventListener('click', f); };
     on('cClap', () => clap()); on('cOpen', () => openPlayer(show.w)); on('cNext', () => { heard = true; skipShow(); renderTools(); say(stateLine()); });
-    on('cGrow', () => startGrowth()); on('cPrint', () => printProgram());
+    on('cGrow', () => startGrowth());
     on('cSeat', () => { if (me && !seatMode){ me = null; saveMe(); say('자리를 비웠어요'); } else { seatMode = !seatMode; say(seatMode ? '노랗게 빛나는 빈자리를 눌러 앉으세요' : stateLine()); } renderTools(); draw(); });
     on('cSound', () => { if (typeof sfxSetMuted === 'function') sfxSetMuted(!muted); heard = true; renderTools(); if (muted) applause(0.8, false); });
-    box.querySelectorAll('[data-sticker]').forEach(b => b.addEventListener('click', () => sticker(Number(b.dataset.sticker))));
   }
 
   // ---------- 무대 위 영상 — 화면을 누르면 방 위에 진짜 유튜브 플레이어가 뜨고, 영상이 끝나면 방에서 인사·박수 ----------
@@ -1043,27 +1002,6 @@
     renderTools(); say(stateLine());
   }
 
-  // ---------- 🖨 공연 프로그램북 — 오늘의 무대 차례표를 한 장으로(작품집 인쇄와 QR 을 같이 쓴다) ----------
-  async function printProgram(){
-    if (!videos.length) return;
-    if (typeof window.loadQrcode === 'function') await window.loadQrcode();
-    let sheet = $('#programSheet');
-    if (!sheet){ sheet = document.createElement('div'); sheet.id = 'programSheet'; sheet.setAttribute('aria-hidden', 'true'); document.body.appendChild(sheet); }
-    const d = new Date(), z = n => String(n).padStart(2, '0'), today = d.getFullYear() + '.' + z(d.getMonth() + 1) + '.' + z(d.getDate());
-    const qr = w => typeof window.qrSvg === 'function' && typeof window.workUrl === 'function' ? window.qrSvg(window.workUrl(w), 2) : '';
-    sheet.innerHTML = '<div class="pg-cover"><p class="pg-eye">SUAYONA CONCERT</p><h1>수아랑 연아랑 연주회</h1>' +
-      '<p class="pg-date">' + today + ' · 오늘의 무대 ' + videos.length + '편</p><p class="pg-note">QR 을 찍으면 그 무대 영상이 열려요</p></div>' +
-      '<div class="pg-list">' + videos.map((w, n) => { const k = stageKind(w);
-        return '<div class="pg-row"><span class="pg-no">' + (n + 1) + '</span><span class="pg-ico">' + KIND_ICON[k] + '</span><div class="pg-txt"><p class="t">' + escapeHTML(w.title || '') + '</p>' +
-          '<p class="m">' + escapeHTML(KID_NAME[w.author] || '수아랑 연아랑') + (w.made_on ? ' · ' + escapeHTML(w.made_on.replace(/-/g, '.')) : '') + ' · ' + KIND_NOUN[k] + (claps[w.id] ? ' · 박수 ' + claps[w.id] : '') + '</p></div>' + qr(w) + '</div>'; }).join('') + '</div>' +
-      '<p class="pg-mark">suayona.com · 작품전시실 옆 연주회장</p>';
-    document.body.classList.add('program-printing');
-    const done = () => { document.body.classList.remove('program-printing'); sheet.innerHTML = ''; window.removeEventListener('afterprint', done); };
-    window.addEventListener('afterprint', done);
-    window.print();
-    setTimeout(() => { if (document.body.classList.contains('program-printing')) done(); }, 3000);   // 취소하면 afterprint 가 안 오는 브라우저 대비
-  }
-
   // ---------- 탭 ----------
   let tabsWired = false;
   function setRoom(room, byUser){
@@ -1071,7 +1009,7 @@
     rooms.dataset.room = room;
     document.querySelectorAll('#roomTabs [data-room]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.room === room)));
     try { const u = new URL(location.href); if (room === 'concert') u.searchParams.set('room', 'concert'); else u.searchParams.delete('room'); history.replaceState(history.state, '', u); } catch (e) { /* 주소를 못 바꿔도 탭은 바뀐다 */ }
-    if (room === 'concert'){ if (byUser) heard = true; loadClaps(); loadCheers(); draw(); say(stateLine()); }
+    if (room === 'concert'){ if (byUser) heard = true; loadClaps(); draw(); say(stateLine()); }
     else { closePlayer(false); if (window.GALLERY && GALLERY.draw) GALLERY.draw(); }
   }
   function wireTabs(){
@@ -1096,7 +1034,7 @@
       startShow();
     }
     wire(); wireTabs(); renderTools(); draw();
-    if ($('#rooms') && $('#rooms').dataset.room === 'concert'){ loadClaps(); loadCheers(); }   // 박수 수는 연주회장을 볼 때만 받는다 — 전시실만 보는 사람은 요청이 없다
+    if ($('#rooms') && $('#rooms').dataset.room === 'concert') loadClaps();   // 박수 수는 연주회장을 볼 때만 받는다 — 전시실만 보는 사람은 요청이 없다
     if (!STILL && !looping){ looping = true; requestAnimationFrame(loop); }
   }
   // 보일 때만 돈다 — 탭이 전시실이면(display:none) 너비가 0 이라 멈춘다. 초당 30장
@@ -1120,5 +1058,5 @@
       tick(t, Math.min(100, acc)); acc = 0;
     } catch (e) { /* 한 장 건너뛴다 */ }
   }
-  window.CONCERT = { render, draw, _tick: tick, _show: show, _actors: actors, _guests: guests, _skip: skipShow, _room: setRoom, _clap: clap, _parts: parts, _applause: applause, _hit: hitAt, _claps: () => claps, _state: () => clapsState, _phase: setPhase, _open: openPlayer, _ended: videoEnded, _yt: () => yt, _close: closePlayer, _setClaps: m => { claps = m; renderTools(); draw(); }, _cheers: () => cheers, _me: () => me, _growth: () => growth, _growthNext: growthNext, _print: printProgram, _kind: stageKind };
+  window.CONCERT = { render, draw, _tick: tick, _show: show, _actors: actors, _guests: guests, _skip: skipShow, _room: setRoom, _clap: clap, _parts: parts, _applause: applause, _hit: hitAt, _claps: () => claps, _state: () => clapsState, _phase: setPhase, _open: openPlayer, _ended: videoEnded, _yt: () => yt, _close: closePlayer, _setClaps: m => { claps = m; renderTools(); draw(); }, _me: () => me, _growth: () => growth, _growthNext: growthNext, _kind: stageKind };
 })();

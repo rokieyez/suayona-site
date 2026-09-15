@@ -918,6 +918,28 @@
     g.fillStyle = '#d9d2c4'; g.fillRect(x + fx * 12 - 1, y - 14 - bob, 3, 2); g.fillStyle = '#fff3c4'; g.fillRect(x + fx * 14 - (fx < 0 ? 1 : 0), y - 14 - bob, 1, 2);   // 손전등
   }
 
+  // 밤 어둠 — 벽·액자·바닥·사람을 한 겹 더 덮고, 불빛 자리(레일 조명 번짐·경비 아저씨 손전등·텔레비전 화면과 바닥 빛)만 도려낸다
+  // (2026-09-15 밤 부모 요청: 「밤인데도 너무 밝다, 조명 빼고 전체적으로 더 어둡게」). 벽지에 구운 0.26 위에 얹힌다. 이름표·말풍선은 이 뒤에 그려 또렷하다
+  const NIGHT_DIM = 0.45;
+  const nightCv = document.createElement('canvas'); nightCv.width = RW * 2; nightCv.height = RH * 2;
+  function drawNight(g){
+    if (dayPhase() !== 'night') return;
+    const L = nightCv.getContext('2d'); L.setTransform(2, 0, 0, 2, 0, 0); L.clearRect(0, 0, RW, RH);
+    L.fillStyle = 'rgba(8,10,34,' + NIGHT_DIM + ')'; L.fillRect(0, 0, RW, RH);
+    L.globalCompositeOperation = 'destination-out';
+    L.drawImage(lampLayer(), 0, 0, RW, RH);                                                // 번짐 세기(가운데 0.52)만큼 어둠이 걷힌다 — 두 번 도려내면 긴 번짐이 벽을 거의 다 밝혀 어두워지지 않았다
+    if (videos.length){
+      const x = Math.round(TV.x), y = Math.round(TV.y), bx = x - TVW / 2, by0 = y - TV_LIFT - TVH + TVW / 4;
+      slantRect(L, bx, by0, TVW, TVH, -1, '#000'); isoTopD(L, x + 26, y + 14, 40, 16, 'rgba(0,0,0,.5)');
+    }
+    if (guard){
+      const t = tileXY(guard.i, guard.j), x = Math.round(t.x), y = Math.round(t.y), fx = guard.flip ? -1 : 1;
+      for (let k = 0; k < 4; k++) isoTopD(L, x + fx * (26 + k * 10), y + 10 + k * 3, 14 + k * 9, 6 + k * 3, 'rgba(0,0,0,' + (0.8 - k * 0.15).toFixed(2) + ')');
+    }
+    L.globalCompositeOperation = 'source-over';
+    g.save(); g.globalCompositeOperation = 'source-atop'; g.drawImage(nightCv, 0, 0, RW, RH); g.restore();   // 방 밖(투명)에는 안 칠한다
+  }
+
   // ---------- 한 장 그리기 (④ 연도 바꿈은 옆으로 밀리는 장면 전환) ----------
   const sceneCv = document.createElement('canvas'); sceneCv.width = RW * 2; sceneCv.height = RH * 2;
   let slide = null;                                                      // { from: 캔버스, dir, t0 }
@@ -934,6 +956,7 @@
     KIDS.forEach(k => { const s = walkerSpot(k); if (s){ spots[k] = s; floor.push({ y: s.y, f: () => drawWalker(g, k, s) }); } });
     visitors.forEach(p => { const t = tileXY(p.i, p.j); floor.push({ y: t.y - 1, f: () => drawVisitor(g, p) }); });
     floor.sort((a, b) => a.y - b.y).forEach(o => o.f());
+    drawNight(g);
     const fk = focusKey || hoverKey;
     if (fk){ const h = hits.find(x => hitKey(x) === fk); if (h && (h.w || h.tv)) drawPlaque(g, h); }   // 노란 테두리는 뺐다(2026-09-15) — 이름표만으로 어느 작품인지 충분하다
     KIDS.forEach(k => { const b = bubbleOf[k], s = spots[k]; if (b && s) drawBubble(g, s.x, s.y - 42, b.text); });
