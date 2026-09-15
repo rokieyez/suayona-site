@@ -188,6 +188,77 @@ async function renderDigest(){
   $('#digestCard').hidden = false;
 }
 
+// ---------- 사진 속 찍은 곳 ----------
+// 2026-09-15 점검: 공개 작품 사진 23장 중 11장이 같은 좌표 한 점을 달고 있었다(원본을 그대로 올리던 규칙).
+// 새로 올리는 사진은 compressImage 가 지우고, 이미 올라간 것은 부모가 여기서 한 번 누른다.
+// 좌표 칸 50바이트 남짓만 0 으로 덮으므로(scrubGpsBytes) 파일 길이·그림 바이트가 그대로다.
+const PHOTO_COLS = [
+  ['works', 'media_url'], ['posts', 'image_url', 'extra_images'], ['events', 'image_url', 'extra_images'],
+  ['gallery_media', 'media_url'], ['places', 'photo_url'], ['honors', 'photo_url'],
+];
+function storageSpot(url){
+  const m = /\/storage\/v1\/object\/public\/([^/?#]+)\/([^?#]+)/.exec(url || '');
+  return m ? { bucket: m[1], path: decodeURIComponent(m[2]) } : null;
+}
+async function photoUrls(){
+  const got = await Promise.all(PHOTO_COLS.map(([t, ...cols]) => sb.from(t).select(cols.join(', '))));
+  const set = new Set();
+  got.forEach(({ data, error }, i) => {
+    if (error) throw error;
+    (data || []).forEach(r => PHOTO_COLS[i].slice(1).forEach(c => {
+      const v = r[c];
+      (Array.isArray(v) ? v.map(x => typeof x === 'string' ? x : x && x.url) : [v])
+        .forEach(u => { if (storageSpot(u)) set.add(u); });
+    }));
+  });
+  return [...set];
+}
+// dryRun 이면 올리지 않고 좌표 든 사진을 세기만 한다(점검용 — 콘솔에서 wipePhotoGps(true)).
+async function wipePhotoGps(dryRun){
+  const msg = $('#gpsMsg'), btn = $('#gpsWipe');
+  msg.className = 'set-msg'; btn.disabled = true;
+  let urls = [], found = 0, done = 0, failed = 0;
+  try {
+    urls = await photoUrls();
+    for (let i = 0; i < urls.length; i++){
+      msg.textContent = '살펴보는 중 ' + (i + 1) + ' / ' + urls.length;
+      try {
+        // 좌표는 파일 앞머리(Exif, 64KB 이하)에 있다 — 앞 128KB 만 받아 보고 있을 때만 통째로 받는다
+        const head = await fetch(urls[i], { headers: { Range: 'bytes=0-131071' } });
+        if (!head.ok || !scrubGpsBytes(new Uint8Array(await head.arrayBuffer())).located) continue;   // 값이 0 인 빈 칸은 두어도 된다
+        found++;
+        if (dryRun) continue;
+        const res = await fetch(urls[i], { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const bytes = new Uint8Array(await res.arrayBuffer()), n = bytes.length;
+        const r = scrubGpsBytes(bytes);
+        // 길이가 그대로이고, 다시 훑었을 때 좌표가 하나도 안 나와야 올린다
+        if (!r.located || r.bytes.length !== n || scrubGpsBytes(r.bytes.slice()).wiped) throw new Error('지운 결과가 이상해요');
+        const spot = storageSpot(urls[i]);
+        const { error } = await sb.storage.from(spot.bucket)
+          .update(spot.path, new Blob([r.bytes], { type: 'image/jpeg' }), { contentType: 'image/jpeg', cacheControl: '3600' });
+        if (error) throw error;
+        done++;
+      } catch (e) { failed++; console.warn('좌표 지우기 실패', urls[i], e); }
+    }
+  } catch (e) {
+    msg.className = 'set-msg err'; msg.textContent = '사진 목록을 못 읽었어요: ' + readableError(e);
+    btn.disabled = false;
+    return { urls: urls.length, found, done, failed };
+  }
+  btn.disabled = false;
+  msg.textContent = !found ? '좌표가 든 사진이 없어요 (' + urls.length + '장 살펴봄)'
+    : dryRun ? '좌표가 든 사진 ' + found + '장 (' + urls.length + '장 중)'
+    : '좌표를 지운 사진 ' + done + '장' + (failed ? ' · 못 한 것 ' + failed + '장 — 다시 눌러 주세요' : '') +
+      ' · 공개 주소에는 한 시간 안에 반영돼요';
+  if (failed) msg.className = 'set-msg err';
+  return { urls: urls.length, found, done, failed };
+}
+$('#gpsWipe').addEventListener('click', () => {
+  if (!confirm('올라가 있는 사진에서 찍은 곳 좌표만 지웁니다. 그림은 바뀌지 않아요. 할까요?')) return;
+  wipePhotoGps(false);
+});
+
 (async () => {
   await refreshAuth();
   if (showGate()) { await load(); await renderDigest(); }

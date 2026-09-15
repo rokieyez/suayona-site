@@ -77,6 +77,8 @@ async function _reverseGeocode(lat, lng){
 //
 // 위쪽의 "좌표 → 지명" 은 오픈스트리트맵을 그대로 쓴다. 사진에서 좌표가 나오는 일이
 // 사실상 없어서(올라온 115장 중 0장) 손댈 값이 없기 때문.
+// (2026-09-15 다시 재 보니 갤러리 사진은 여전히 0장이었지만, 작품 원본은 23장 중 11장에 좌표가
+//  그대로 들어 있었다 — 갤러리가 아니라 작품 올리기 길로 들어온 것. 이제 올릴 때 지운다.)
 // 반대로 "관리 화면에서 적은 장소 → 좌표" 는 실제로 매번 쓰이는 길이라 카카오로 옮겼다.
 // 직접 재 봤을 때 오픈스트리트맵은 여섯 곳 중 다섯 곳을 찾았고, 못 찾은 하나가
 // "부산 광안리 스타벅스" 처럼 같은 이름이 여럿인 가게였다. 카카오는 그쪽이 강하다.
@@ -216,7 +218,12 @@ function photoMetaOverlayHTML(takenAt, locationName){
 /* opts.capDim 을 주면 **용량이 작아도** 긴 변을 그 크기로 맞춘다.
    3MB 아래는 손대지 않던 규칙 때문에 요즘 폰 사진이 거의 다 원본으로 올라갔다
    (저장소 400MB 중 394.9MB 가 원본, 한 장 평균 1.68MB). */
+// 찍은 곳 좌표는 끝에서 지운다 — 원본을 그대로 돌려주는 길이 여럿이다(scrubPhotoLocation 은 common.js).
 async function compressImageToLimit(file, maxBytes, opts) {
+  const out = await compressImageToLimitRaw(file, maxBytes, opts);
+  return typeof scrubPhotoLocation === 'function' ? scrubPhotoLocation(out) : out;
+}
+async function compressImageToLimitRaw(file, maxBytes, opts) {
   opts = opts || {};
   const capDim = opts.capDim || 0;
   const maxDim = capDim || opts.maxDim || 2400;
@@ -239,7 +246,7 @@ async function compressImageToLimit(file, maxBytes, opts) {
   }
 
   let width = img.naturalWidth, height = img.naturalHeight;
-  // 용량도 안 넘고 크기도 안 넘으면 손대지 않는다 — 다시 구우면 화질과 EXIF 만 잃는다
+  // 용량도 안 넘고 크기도 안 넘으면 손대지 않는다 — 다시 구우면 화질만 잃는다(좌표는 위 겉함수가 지운다)
   if (file.size <= maxBytes && Math.max(width, height) <= capDim) { URL.revokeObjectURL(url); return file; }
   if (Math.max(width, height) > maxDim) {
     const scale = maxDim / Math.max(width, height);

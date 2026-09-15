@@ -699,7 +699,7 @@ let galleryItems = [];
 // 작품과 경험이 각자 다른 서랍에 있던 것을 잇는 쪽 절반.
 async function loadLinkedWorks(){
   const { data, error } = await sb.from('works')
-    .select('id, title, media_url, media_type, author, made_on')
+    .select('id, title, media_url, thumb_url, media_type, author, made_on')
     .eq('event_id', CONFIG.eventSlug)
     .order('made_on', { ascending:true, nullsFirst:false });
   if (error || !data || !data.length) return;
@@ -715,7 +715,7 @@ async function loadLinkedWorks(){
           ? youtubeThumbHTML(youtubeId(w.media_url), w.title, '', '108px') + '<span class="lw-play"></span>'
           : w.media_type === 'video'
           ? '<video src="' + escapeHTML(w.media_url) + '" preload="metadata" muted></video>'
-          : '<img src="' + escapeHTML(w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">') +
+          : '<img src="' + escapeHTML(w.thumb_url || w.media_url) + '" loading="lazy" alt="' + escapeHTML(w.title) + '">') +   // 108px 칸 — 원본은 평균 3.2MB
         '<span>' + escapeHTML(w.title) + '</span>' +
       '</a>').join('') + '</div>';
   panel.insertBefore(box, panel.querySelector('.gallery-grid'));

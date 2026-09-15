@@ -1105,7 +1105,7 @@ function renderPendingWorks(){
     const row = document.createElement('div');
     row.className = 'pw-row';
     row.innerHTML =
-      '<img src="' + escapeHTML(w.media_url) + '" alt="' + escapeHTML(w.title) + '">' +
+      '<img src="' + escapeHTML(w.thumb_url || w.media_url) + '" alt="' + escapeHTML(w.title) + '">' +   // 줄 머리 작은 그림 — 원본은 평균 3.2MB
       '<div class="pw-main">' +
         '<b>' + escapeHTML(w.title) + '</b>' +
         '<span class="pw-meta">' + (AUTHORS[w.author] || '같이') +

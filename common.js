@@ -398,7 +398,14 @@ let isChild = false;     // 아이 (일기는 바로 실리고, 그림은 부모
 let isLoggedIn = false;  // 프로필이 없어도 계정으로 들어와 있으면 참
 let me = null;           // { user_id, role, display, author_key }
 
-async function refreshAuth(){
+// 쪽 스크립트와 onAuthStateChange 가 거의 같은 순간에 부르곤 해서 profiles 를 두 번 읽었다
+// (2026-09-15 로그에 46ms 간격으로 똑같은 요청 한 쌍). 이미 묻는 중이면 그 답을 같이 기다린다.
+let authAsk = null;
+function refreshAuth(){
+  if (!authAsk) authAsk = readAuth().finally(() => { authAsk = null; });
+  return authAsk;
+}
+async function readAuth(){
   const { data: { session } } = await sb.auth.getSession();
   me = null; isAdmin = false; isChild = false;
   isLoggedIn = !!session;
@@ -422,8 +429,12 @@ async function refreshAuth(){
 // 다른 탭에서 로그아웃하거나 토큰이 갱신되면 이 탭의 me 도 낡는다. 세션이 바뀔 때마다
 // 다시 읽어 머리(메뉴·로그인 단추)를 맞추고, 쪽 스크립트가 원하면 받을 수 있게 알림을 띄운다.
 // 쪽마다의 관리 화면까지 여기서 다시 그리지는 않는다 — 그건 각 쪽이 `suayona:auth` 를 듣고 정한다.
-sb.auth.onAuthStateChange((event) => {
+sb.auth.onAuthStateChange((event, session) => {
   if (event !== 'SIGNED_IN' && event !== 'SIGNED_OUT' && event !== 'TOKEN_REFRESHED') return;
+  // supabase-js 는 탭으로 돌아올 때마다(visibilitychange → _recoverAndRefresh) 같은 세션으로 SIGNED_IN 을
+  // 다시 쏜다. 그때마다 profiles 를 새로 읽어, 2026-09-15 하루 로그에서 한 가족 계정의 요청 1229번 중
+  // 317번이 profiles 였다. 사람이 그대로면(토큰만 새로 받은 것도) 다시 읽을 것이 없다.
+  if (event !== 'SIGNED_OUT' && me && session && session.user && session.user.id === me.user_id) return;
   refreshAuth().then(() => document.dispatchEvent(new CustomEvent('suayona:auth', { detail: { event, me } })))
     .catch(() => { /* 세션 확인 실패는 다음 refreshAuth 에서 다시 본다 */ });
 });
@@ -616,7 +627,72 @@ function mountLoginBox(container, onChange){
    재 보니 저장소 400MB 중 394.9MB 가 원본 사진이고 한 장 평균이 1.68MB 였다 —
    3MB 아래는 손대지 않는 규칙 때문에 요즘 폰 사진이 거의 다 원본으로 올라간 것이다.
    작품(포트폴리오)은 화질이 중요해서 capDim 을 안 준다 — 예전 그대로 10MB 넘을 때만 줄인다. */
+// ---------- 사진 속 찍은 곳(GPS) 지우기 ----------
+// 휴대폰 사진의 Exif 에는 찍은 곳 좌표가 들어 있고, 저장소는 공개라 주소만 알면 누구나 받는다.
+// 2026-09-15 점검: 공개 작품 사진 23장 중 11장이 같은 좌표 한 점을 달고 있었다 — 용량이 한도 아래면
+// 원본을 그대로 올리는 규칙 때문이다(작품은 10MB). 다시 구우면 화질을 잃으니, 좌표 칸만 0 으로 덮는다.
+// 파일 길이·오프셋이 그대로라 방향(Orientation)·찍은 날짜 같은 다른 태그와 그림 바이트는 한 개도 안 바뀐다.
+// 사진 안에 든 작은 사진(MPF)에도 Exif 가 따로 있을 수 있어 끝까지 찾는다. bytes 는 그 자리에서 고친다.
+// 돌려주는 wiped 는 비운 GPS 목록 수, located 는 그중 위도·경도 값이 0 이 아니던 수다.
+// 안드로이드가 브라우저에 넘기며 값만 0 으로 지운 사진(갤러리 45장 등)은 wiped 1 · located 0 이다.
+function scrubGpsBytes(bytes){
+  const b = bytes;
+  let wiped = 0, located = 0;
+  if (!(b.length > 4 && b[0] === 0xFF && b[1] === 0xD8)) return { bytes: b, wiped, located };   // JPEG 가 아니다
+  const SIZE = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1, 9: 4, 10: 8 };                   // Exif 값 종류별 바이트 수
+  for (let i = 2; i + 10 < b.length; i++){
+    // FF E1 [길이] 'Exif\0\0' — 그림 데이터 안의 FF 뒤에는 00 이나 RST 만 오므로 헛짚을 일이 없다
+    if (b[i] !== 0xFF || b[i + 1] !== 0xE1 || b[i + 4] !== 0x45 || b[i + 5] !== 0x78 || b[i + 6] !== 0x69 ||
+        b[i + 7] !== 0x66 || b[i + 8] !== 0 || b[i + 9] !== 0) continue;
+    const segEnd = Math.min(b.length, i + 2 + ((b[i + 2] << 8) | b[i + 3]));
+    const t = i + 10;                                              // TIFF 머리
+    const le = b[t] === 0x49;
+    const u16 = o => le ? b[t + o] | (b[t + o + 1] << 8) : (b[t + o] << 8) | b[t + o + 1];
+    const u32 = o => (le ? b[t + o] | (b[t + o + 1] << 8) | (b[t + o + 2] << 16) | (b[t + o + 3] << 24)
+                         : (b[t + o] << 24) | (b[t + o + 1] << 16) | (b[t + o + 2] << 8) | b[t + o + 3]) >>> 0;
+    const inSeg = (o, n) => o >= 8 && t + o + n <= segEnd;
+    const ifd0 = u32(4);
+    if (inSeg(ifd0, 2)) {
+      for (let k = 0, n0 = u16(ifd0); k < n0; k++){
+        const e = ifd0 + 2 + 12 * k;
+        if (!inSeg(e, 12) || u16(e) !== 0x8825) continue;          // 0x8825 = GPS 목록을 가리키는 칸
+        const g = u32(e + 8), ng = inSeg(g, 2) ? u16(g) : 0;
+        if (!ng || !inSeg(g + 2, 12 * ng)) break;
+        let real = false;
+        for (let j = 0; j < ng; j++){
+          const ge = g + 2 + 12 * j, tag = u16(ge), len = (SIZE[u16(ge + 2)] || 1) * u32(ge + 4);
+          if (len <= 4) continue;
+          const off = u32(ge + 8);
+          if (!inSeg(off, len)) continue;
+          // 2 = 위도, 4 = 경도. 분수 여섯 개(도·분·초) 중 분자가 하나라도 0 이 아니면 진짜 좌표
+          if ((tag === 2 || tag === 4) && b.subarray(t + off, t + off + len).some(x => x)) real = true;
+          b.fill(0, t + off, t + off + len);                       // 칸 밖에 적힌 값(좌표 분수)
+        }
+        b.fill(0, t + g, t + g + 2 + 12 * ng);                     // 칸 수 0, 칸들도 0
+        wiped++;
+        if (real) located++;
+        break;
+      }
+    }
+    i = segEnd - 1;
+  }
+  return { bytes: b, wiped, located };
+}
+
+// 올리기 직전의 사진 파일에서 좌표를 지운 File 을 돌려준다. 좌표가 없던 파일은 그대로 돌려준다.
+async function scrubPhotoLocation(file){
+  if (!file || !file.type || !file.type.startsWith('image/')) return file;
+  try {
+    const r = scrubGpsBytes(new Uint8Array(await file.arrayBuffer()));
+    return r.wiped ? new File([r.bytes], file.name, { type: file.type, lastModified: file.lastModified }) : file;
+  } catch (e) { /* 파일을 못 읽는 브라우저 — 압축한 그대로 올린다 */ return file; }
+}
+
+// 원본을 그대로 돌려주는 길이 여럿이라, 좌표는 끝에서 한 번에 지운다.
 async function compressImage(file, maxBytes, opts){
+  return scrubPhotoLocation(await compressImageRaw(file, maxBytes, opts));
+}
+async function compressImageRaw(file, maxBytes, opts){
   opts = opts || {};
   const capDim = opts.capDim || 0;
   const maxDim = capDim || 2400;
@@ -633,7 +709,7 @@ async function compressImage(file, maxBytes, opts){
   } catch (e) { URL.revokeObjectURL(url); return file; }
 
   let w = img.naturalWidth, h = img.naturalHeight;
-  // 용량도 안 넘고 크기도 안 넘으면 손대지 않는다 — 다시 구우면 화질과 EXIF 만 잃는다
+  // 용량도 안 넘고 크기도 안 넘으면 손대지 않는다 — 다시 구우면 화질만 잃는다(찍은 곳 좌표는 compressImage 가 지운다)
   if (file.size <= maxBytes && Math.max(w, h) <= capDim) { URL.revokeObjectURL(url); return file; }
   if (Math.max(w, h) > maxDim) {
     const sc = maxDim / Math.max(w, h);
