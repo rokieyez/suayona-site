@@ -63,7 +63,9 @@ function render(){
   const grid = $('#grid');
   const list = visible();
   // 제목 아래 미술관 방 — 같은 목록을 걸고, 액자를 누르면 같은 큰 화면을 연다(gallery-room.js 가 없는 옛 HTML 이면 건너뛴다)
-  if (window.GALLERY) GALLERY.render(list, i => openWork(list, i), { year: yearFilter, admin: isAdmin });   // 연도를 넘기면 방이 그 해의 벽지로 옆으로 밀린다. admin 이면 벽 배치 편집
+  if (window.GALLERY) GALLERY.render(list, i => openWork(list, i), { year: yearFilter, admin: isAdmin });
+  // 옆 탭 연주회장 — 같은 목록의 영상이 무대에 오른다. anyVideo: 거르개와 상관없이 영상이 하나라도 있으면 탭을 보인다
+  if (window.CONCERT) CONCERT.render(list, i => openWork(list, i), { anyVideo: works.some(w => w.media_type === 'youtube' && w.status !== 'pending') });   // 연도를 넘기면 방이 그 해의 벽지로 옆으로 밀린다. admin 이면 벽 배치 편집
   grid.innerHTML = '';
   $('#empty').style.display = list.length ? 'none' : 'block';
 

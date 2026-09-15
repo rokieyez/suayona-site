@@ -64,6 +64,7 @@ const vendor = {
   KIDART: 'readonly',
   KIDPAL: 'readonly',
   GALLERY: 'readonly',    // pages/gallery-room.js — 포트폴리오 미술관 방(IIFE, window.GALLERY 만 내놓는다)
+  CONCERT: 'readonly',    // pages/concert-room.js — 포트폴리오 연주회장(IIFE, window.CONCERT 만 내놓는다)
   module: 'writable',     // farm-rules / quest-rules 가 node 에서도 돌게 한다
   require: 'readonly',
 };

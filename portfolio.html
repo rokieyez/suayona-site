@@ -234,6 +234,10 @@
   .museum-stage{position:relative;}
   .museum-tools{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:8px 0 0;}
   .museum-tools .dot-btn.on{background:var(--lemon);}
+  /* 방 탭 — 작품전시실 · 연주회장. 안 보이는 방은 display:none 이라 그 방의 걸음 루프도 멈춘다(보일 때만 돈다) */
+  .room-tabs{display:flex; gap:6px; justify-content:center; margin:-6px 0 10px;}
+  .room-tabs .dot-btn[aria-selected="true"]{background:var(--lemon);}
+  .rooms[data-room="concert"] #galleryRoom, .rooms[data-room="gallery"] #concertRoom{display:none;}
 </style>
 </head>
 <body>
@@ -246,11 +250,24 @@
       <p>수아와 연아가 그리고, 만들고, 찍은 것들을 모아둔 전시실이에요.</p>
     </div>
 
+    <div class="rooms" id="rooms" data-room="gallery">
+    <!-- 방 탭 — 영상 작품이 있을 때만 보인다(pages/concert-room.js 가 켠다) -->
+    <div class="room-tabs" id="roomTabs" role="tablist" hidden>
+      <button type="button" class="dot-btn small" role="tab" data-room="gallery" aria-selected="true">🖼 작품전시실</button>
+      <button type="button" class="dot-btn small" role="tab" data-room="concert" aria-selected="false">🎹 연주회장</button>
+    </div>
     <!-- 미술관 방 — 두 아이의 작품이 한 방에 걸린다(pages/gallery-room.js). 거르개를 따라가고, 액자를 누르면 크게 열린다 -->
     <div class="gallery-room" id="galleryRoom" hidden>
       <div class="museum-stage"><canvas class="museum" id="galleryCv" width="1024" height="968" aria-label="수아랑 연아랑 미술관. 벽의 액자마다 작품이 걸려 있고, 누르면 크게 열려요. 이젤에는 가장 새 작품, 텔레비전에는 영상이 있어요."></canvas></div>
       <p class="museum-msg" id="galleryMsg" aria-live="polite"></p>
       <div class="museum-tools" id="galleryTools"></div>
+    </div>
+    <!-- 연주회장 — 영상 작품이 한 편씩 무대에 오른다(pages/concert-room.js) -->
+    <div class="gallery-room" id="concertRoom" hidden>
+      <div class="museum-stage"><canvas class="museum" id="concertCv" width="1024" height="968" aria-label="수아랑 연아랑 연주회장. 영상의 작가가 객석에서 나와 무대에 오르고, 끝나면 박수를 받아요. 화면을 누르면 그 영상이 열려요."></canvas></div>
+      <p class="museum-msg" id="concertMsg" aria-live="polite"></p>
+      <div class="museum-tools" id="concertTools"></div>
+    </div>
     </div>
 
     <div id="adminArea"></div>
@@ -295,6 +312,7 @@
 <script src="./common.js"></script>
 <script src="/pages/kid-art.js"></script>
 <script src="/pages/gallery-room.js"></script>
+<script src="/pages/concert-room.js"></script>
 <script src="/pages/portfolio.js"></script>
 </body>
 </html>
