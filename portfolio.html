@@ -223,6 +223,13 @@
   .work-close{position:fixed; top:14px; right:16px; z-index:121;
     border:var(--px) solid var(--ink); background:var(--cream); color:var(--ink);
     font-size:16px; font-weight:900; width:42px; height:42px; cursor:pointer;}
+  /* 미술관 방 — 업적 전시실의 방과 같은 틀 */
+  .gallery-room{max-width:1080px; margin:-14px auto 26px;}
+  .museum-stage{line-height:0;}
+  @media (max-width:700px){ .museum-stage{margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);} }
+  .museum{display:block; width:100%; aspect-ratio:512/396; image-rendering:pixelated; cursor:pointer; touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;}
+  .museum:focus-visible{outline:3px solid var(--lemon); outline-offset:2px;}
+  .museum-msg{min-height:1.6em; font-size:12.5px; color:var(--ink-soft); margin:8px 0 0; line-height:1.6; text-align:center;}
 </style>
 </head>
 <body>
@@ -233,6 +240,12 @@
       <span class="eyebrow pixel">PORTFOLIO</span>
       <h1>포트폴리오</h1>
       <p>수아와 연아가 그리고, 만들고, 찍은 것들을 모아둔 전시실이에요.</p>
+    </div>
+
+    <!-- 미술관 방 — 두 아이의 작품이 한 방에 걸린다(pages/gallery-room.js). 거르개를 따라가고, 액자를 누르면 크게 열린다 -->
+    <div class="gallery-room" id="galleryRoom" hidden>
+      <div class="museum-stage"><canvas class="museum" id="galleryCv" width="1024" height="792" aria-label="수아랑 연아랑 미술관. 벽의 액자마다 작품이 걸려 있고, 누르면 크게 열려요. 이젤에는 가장 새 작품, 텔레비전에는 영상이 있어요."></canvas></div>
+      <p class="museum-msg" id="galleryMsg" aria-live="polite"></p>
     </div>
 
     <div id="adminArea"></div>
@@ -275,6 +288,8 @@
      필요할 때 받는다. 직접 짜면 리드-솔로몬 부호까지 손으로 맞춰야 해서 검증된 것을 쓴다. -->
 <script src="/event/compress.js"></script>
 <script src="./common.js"></script>
+<script src="/pages/kid-art.js"></script>
+<script src="/pages/gallery-room.js"></script>
 <script src="/pages/portfolio.js"></script>
 </body>
 </html>

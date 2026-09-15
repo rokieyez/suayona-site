@@ -62,6 +62,8 @@ let shownCount = PAGE;
 function render(){
   const grid = $('#grid');
   const list = visible();
+  // 제목 아래 미술관 방 — 같은 목록을 걸고, 액자를 누르면 같은 큰 화면을 연다(gallery-room.js 가 없는 옛 HTML 이면 건너뛴다)
+  if (window.GALLERY) GALLERY.render(list, i => openWork(list, i));
   grid.innerHTML = '';
   $('#empty').style.display = list.length ? 'none' : 'block';
 

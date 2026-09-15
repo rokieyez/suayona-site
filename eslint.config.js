@@ -63,6 +63,7 @@ const vendor = {
   // IIFE 로 가두고 창 속성으로만 내놓아서 topLevelNames 로는 안 잡힌다(2026-09-15 마무리작업에서 no-undef 3건).
   KIDART: 'readonly',
   KIDPAL: 'readonly',
+  GALLERY: 'readonly',    // pages/gallery-room.js — 포트폴리오 미술관 방(IIFE, window.GALLERY 만 내놓는다)
   module: 'writable',     // farm-rules / quest-rules 가 node 에서도 돌게 한다
   require: 'readonly',
 };
