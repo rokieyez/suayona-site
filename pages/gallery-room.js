@@ -3,7 +3,7 @@
 // 최상위 선언이라 여기서 못 가져오고, 공유 파일로 빼면 캐시된 옛 honors.js 의 const 와 부딪힌다(kid-art.js 때 겪음).
 // 그래서 필요한 원시 함수(칸 좌표·벽 좌표·상자·벽 네모)는 여기에 다시 적었다. 밖으로는 window.GALLERY 만 내놓는다.
 //   GALLERY.render(list, open) — list: 보이는 작품(거르개 적용), open(i): i번째 작품을 크게 연다.
-// 벽에는 사진 작품의 작은 그림(thumb_url)을 액자에 넣어 건다 — 최근 것부터, 오른쪽 벽 24 + 왼쪽 벽 12.
+// 벽에는 사진 작품의 작은 그림(thumb_url)을 액자에 넣어 건다 — 큰 액자 3 + 작은 액자 24(오른쪽 벽 16 + 왼쪽 벽 8).
 // 가장 새 작품 하나는 방 앞 이젤에 크게. 영상은 바닥의 작은 텔레비전(누르면 가장 새 영상). 두 아이가 같이 걸어 다닌다.
 (function(){
   'use strict';
@@ -82,10 +82,18 @@
   }
 
   // ---------- 자리 ----------
-  // 액자: 오른쪽 벽 네 줄 × 6, 왼쪽 벽 네 줄 × 3(36칸). 사진 36×26 + 테 2 + 검은 윤곽 1. 줄 간격 44
+  // 액자: 작은 액자(사진 36×26)는 칸 간격 52·줄 간격 44. 큰 액자(사진 88×70)는 작은 액자 2×2 칸을 차지한다 — 2026-09-15 부모가 세 곳을 골랐다:
+  // 왼쪽 벽 위 모서리에서 먼 쪽(1~2칸, 0~1줄), 오른쪽 벽 가운데(1~2칸, 1~2줄), 오른쪽 벽 아래 오른쪽(4~5칸, 2~3줄). 나머지는 작은 액자 24칸 — 모두 27칸.
+  // 채우는 차례: 큰 액자 셋(이젤 다음으로 새 작품)부터, 그다음 작은 액자를 오른쪽 벽 윗줄부터.
   const FW = 36, FH = 26, ROWS = [14, 58, 102, 146];
-  const SLOTS = [];
-  ROWS.forEach(v => { for (let n = 0; n < 6; n++) SLOTS.push({ side: 1, u: 18 + n * 52, v }); for (let n = 0; n < 3; n++) SLOTS.push({ side: 0, u: 16 + n * 50, v }); });
+  const ru = c => 18 + c * 52, lu = c => 16 + c * 50;
+  const BIG = [{ side: 0, c: 1, r: 0 }, { side: 1, c: 1, r: 1 }, { side: 1, c: 4, r: 2 }];   // 왼쪽 벽은 모서리에서 먼 두 칸(u 가 모서리에서 멀어지는 쪽)
+  const SLOTS = BIG.map(b => ({ side: b.side, u: (b.side ? ru : lu)(b.c), v: ROWS[b.r], w: (b.side ? 52 : 50) + FW, h: 44 + FH, big: true }));
+  const covered = (side, c, r) => BIG.some(b => b.side === side && c >= b.c && c <= b.c + 1 && r >= b.r && r <= b.r + 1);
+  ROWS.forEach((v, r) => {
+    for (let c = 0; c < 6; c++) if (!covered(1, c, r)) SLOTS.push({ side: 1, u: ru(c), v, w: FW, h: FH });
+    for (let c = 0; c < 3; c++) if (!covered(0, c, r)) SLOTS.push({ side: 0, u: lu(c), v, w: FW, h: FH });
+  });
   const EASEL = tileXY(9.7, 4.3), TV = tileXY(1.7, 4.7), BENCH = tileXY(6.0, 3.4), PLANT_AT = tileXY(0.55, 0.55);
   const WALK_BOX = { i0: 0.3, i1: 10.9, j0: 0.9, j1: 5.1 };
   const WALK_BLOCK = [{ i: 5.1, j: 3.4, r: 1.05 }, { i: 6.9, j: 3.4, r: 1.05 }, { i: 9.7, j: 4.3, r: 1.1 }, { i: 1.7, j: 4.7, r: 1.1 }, { i: 0.55, j: 0.55, r: 1.1 }];
@@ -112,8 +120,9 @@
       }
       // 레일의 조명 — 액자 자리마다 하나, 아래로 빛
       SLOTS.filter(s => s.side === side && s.v === ROWS[0]).forEach(s => {
-        wallRect(g, side, s.u + FW / 2 - 3, 6, 6, 4, '#2a2624'); wallRect(g, side, s.u + FW / 2 - 2, 9, 4, 1, '#ffe9a8');
-        for (let v = 10; v < WALLH - 8; v++){ const hw = Math.min(28, 4 + (v - 10) * 0.55); g.fillStyle = 'rgba(255,240,200,' + (0.26 * (1 - (v - 10) / WALLH)).toFixed(3) + ')'; for (let du = -hw; du < hw; du++){ const p = wallXY(side, s.u + FW / 2 + du, v); g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); } }
+        const cu = s.u + s.w / 2;
+        wallRect(g, side, cu - 3, 6, 6, 4, '#2a2624'); wallRect(g, side, cu - 2, 9, 4, 1, '#ffe9a8');
+        for (let v = 10; v < WALLH - 8; v++){ const hw = Math.min(28, 4 + (v - 10) * 0.55); g.fillStyle = 'rgba(255,240,200,' + (0.26 * (1 - (v - 10) / WALLH)).toFixed(3) + ')'; for (let du = -hw; du < hw; du++){ const p = wallXY(side, cu + du, v); g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); } }
       });
     });
     for (let i = 0; i < 14; i++){                                                            // 모서리 그늘
@@ -178,28 +187,29 @@
   let wallCv = null, wallKey = '';
   function frameColor(w){ return KID_COLOR[w.author] || KID_COLOR.together; }
   function drawFrameAt(g, s, w){
-    const c = frameColor(w), t = thumbOf(w, FW, FH);
-    wallRect(g, s.side, s.u + 2, s.v + 2, FW + 6, FH + 6, 'rgba(40,24,10,.22)');            // 그림자
-    wallRect(g, s.side, s.u - 3, s.v - 3, FW + 6, FH + 6, INK);
-    wallRect(g, s.side, s.u - 2, s.v - 2, FW + 4, FH + 4, shade(c, -30));
-    wallRect(g, s.side, s.u - 1, s.v - 1, FW + 2, FH + 2, c);
-    wallRect(g, s.side, s.u - 1, s.v - 1, FW + 2, 1, shade(c, 40));
-    wallImage(g, s.side, s.u, s.v, FW, FH, t.cv);
-    wallRect(g, s.side, s.u + 4, s.v + FH + 6, FW - 8, 4, '#d9cfbf'); wallRect(g, s.side, s.u + 4, s.v + FH + 9, FW - 8, 1, '#a09484');   // 이름표
-    wallRect(g, s.side, s.u + 7, s.v + FH + 7, Math.max(6, Math.min(FW - 14, (w.title || '').length * 3)), 1, '#6f6558');
+    const c = frameColor(w), W = s.w, H = s.h, t = thumbOf(w, W, H), b = s.big ? 2 : 0;    // 큰 액자는 테가 두 도트 더 두껍고 금테가 한 줄 더
+    wallRect(g, s.side, s.u + 3, s.v + 3, W + 6 + b, H + 6 + b, 'rgba(40,24,10,.22)');       // 그림자
+    wallRect(g, s.side, s.u - 3 - b, s.v - 3 - b, W + 6 + b * 2, H + 6 + b * 2, INK);
+    wallRect(g, s.side, s.u - 2 - b, s.v - 2 - b, W + 4 + b * 2, H + 4 + b * 2, shade(c, -30));
+    wallRect(g, s.side, s.u - 1 - b, s.v - 1 - b, W + 2 + b * 2, H + 2 + b * 2, c);
+    wallRect(g, s.side, s.u - 1 - b, s.v - 1 - b, W + 2 + b * 2, 1, shade(c, 40));
+    if (s.big){ wallRect(g, s.side, s.u - 1, s.v - 1, W + 2, H + 2, '#c9a24a'); wallRect(g, s.side, s.u - 1, s.v - 1, W + 2, 1, '#f0d78a'); }   // 안쪽 금테
+    wallImage(g, s.side, s.u, s.v, W, H, t.cv);
+    wallRect(g, s.side, s.u + 4, s.v + H + 6 + b, W - 8, 4, '#d9cfbf'); wallRect(g, s.side, s.u + 4, s.v + H + 9 + b, W - 8, 1, '#a09484');   // 이름표
+    wallRect(g, s.side, s.u + 7, s.v + H + 7 + b, Math.max(6, Math.min(W - 14, (w.title || '').length * 3)), 1, '#6f6558');
   }
   function bakeWall(){
-    const key = hung.map(w => w.id + ':' + (thumbOf(w, FW, FH).ok ? 1 : 0)).join(',');
+    const key = hung.map((w, n) => w.id + ':' + (thumbOf(w, SLOTS[n].w, SLOTS[n].h).ok ? 1 : 0)).join(',');
     if (wallCv && key === wallKey) return wallCv;
     wallKey = key;
     const c = wallCv || document.createElement('canvas'); c.width = RW * 2; c.height = RH * 2;
     const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0);
     hits = hits.filter(h => !h.slot);
-    hung.forEach((w, n) => { const s = SLOTS[n]; drawFrameAt(g, s, w); hits.push(Object.assign({ w, slot: true }, wallHit(s.side, s.u - 3, s.v - 3, FW + 6, FH + 14, 0))); });
+    hung.forEach((w, n) => { const s = SLOTS[n]; drawFrameAt(g, s, w); hits.push(Object.assign({ w, slot: true }, wallHit(s.side, s.u - 5, s.v - 5, s.w + 10, s.h + 18, 0))); });
     SLOTS.slice(hung.length).forEach(s => {                                                 // 빈 자리 — 점선 테
       const col = 'rgba(110,90,70,.22)';
-      for (let d = 0; d < FW + 4; d += 6){ wallRect(g, s.side, s.u - 2 + d, s.v - 2, 2, 1, col); wallRect(g, s.side, s.u - 2 + d, s.v + FH + 1, 2, 1, col); }
-      for (let d = 0; d < FH + 4; d += 5){ wallRect(g, s.side, s.u - 2, s.v - 2 + d, 1, 2, col); wallRect(g, s.side, s.u + FW + 1, s.v - 2 + d, 1, 2, col); }
+      for (let d = 0; d < s.w + 4; d += 6){ wallRect(g, s.side, s.u - 2 + d, s.v - 2, 2, 1, col); wallRect(g, s.side, s.u - 2 + d, s.v + s.h + 1, 2, 1, col); }
+      for (let d = 0; d < s.h + 4; d += 5){ wallRect(g, s.side, s.u - 2, s.v - 2 + d, 1, 2, col); wallRect(g, s.side, s.u + s.w + 1, s.v - 2 + d, 1, 2, col); }
     });
     return (wallCv = c);
   }
