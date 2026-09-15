@@ -147,7 +147,9 @@
     // 왼쪽 벽: 나가는 문과 초록 비상구 표시
     lwall(g, 4.55, 5.55, 0, 74, '#2a1c10'); lwall(g, 4.6, 5.5, 0, 70, '#6e4a2e');
     lwall(g, 4.68, 5.02, 8, 62, '#7e5636'); lwall(g, 5.08, 5.42, 8, 62, '#7e5636'); lwall(g, 4.98, 5.04, 32, 38, '#e0c070');
-    lwall(g, 4.72, 5.38, 80, 92, '#1f7a3e'); ltext(g, '나가는 곳', 5.33, 83, '800 7px ' + FONT, '#e8ffe8');
+    lwall(g, 4.68, 5.42, 78, 94, '#0e3a1c'); lwall(g, 4.71, 5.39, 79, 93, '#1f7a3e');       // 비상구 판 — 글자는 판 안에 들어가는 EXIT
+    lwall(g, 4.71, 5.39, 92, 93, '#3fa05a');
+    ltext(g, 'EXIT', 5.05, 82, '800 8px ' + FONT, '#eaffea', 'center');
     return (shellCache = c);
   }
 
@@ -177,15 +179,47 @@
     box(g, BENCH.a0, BENCH.a1, BENCH.b0, BENCH.b1, S, 9, '#3a2616', '#2a1a0e', '#1f130a');
     box(g, BENCH.a0 + 0.03, BENCH.a1 - 0.03, BENCH.b0 + 0.02, BENCH.b1 - 0.02, S + 9, 3, '#9a3040', '#6e2230', '#5a1a26');
     [2.08, 2.38, 2.68].forEach(a => { const p = P(a, 2.68, S + 12); g.fillStyle = '#c9a24a'; g.fillRect(Math.round(p[0]), Math.round(p[1]), 1, 1); });
-    // 무대 뒤 스피커와 왼쪽 앞 화분
+    // 무대 뒤 스피커(화분은 ④에서 앞막 앞에)
     box(g, 5.25, 5.9, 0.12, 0.62, S, 40, '#2a2624', '#1c1a18', '#141210');
     [[S + 30, 5], [S + 14, 7]].forEach(([h, r]) => { const p = P(5.575, 0.62, h); g.fillStyle = '#0c0b0a'; g.beginPath(); g.ellipse(p[0] - 7, p[1] + 3, r, r * 0.9, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#3a3634'; g.beginPath(); g.ellipse(p[0] - 7, p[1] + 3, r * 0.45, r * 0.4, 0, 0, Math.PI * 2); g.fill(); });
-    box(g, 0.2, 0.62, 2.3, 2.72, S, 12, '#c8794a', '#8a4a2a', '#a0562c');
-    const pl = P(0.41, 2.51, S + 12);
-    [[-10, -22, '#2f7a3e'], [8, -26, '#3f8a4a'], [-4, -34, '#5cb85c'], [12, -14, '#2f7a3e'], [-14, -10, '#3f8a4a'], [2, -18, '#4a9a52']].forEach(([dx, dy, col]) => { g.fillStyle = INK; g.beginPath(); g.ellipse(pl[0] + dx, pl[1] + dy, 8, 4, dx / 20, 0, Math.PI * 2); g.fill(); g.fillStyle = col; g.beginPath(); g.ellipse(pl[0] + dx, pl[1] + dy, 7, 3, dx / 20, 0, Math.PI * 2); g.fill(); });
     // 발 조명 전구(빛은 ⑤)
     for (let a = 0.5; a < 5.2; a += 0.75){ const p = P(a, STAGE.b1, STAGE.h); g.fillStyle = '#2a2624'; g.fillRect(Math.round(p[0]) - 3, Math.round(p[1]) - 2, 6, 3); g.fillStyle = '#f5e3b0'; g.fillRect(Math.round(p[0]) - 2, Math.round(p[1]) - 3, 4, 2); }
     return (propsCache = c);
+  }
+
+  // 화분 — 토분(몸통·테·흙) 위로 뒤 잎 → 줄기 → 앞 잎 순서로 겹친다. 잎은 끝이 뾰족하고 반쪽 그늘·잎맥이 있다
+  function drawPlant(g, S, db){                                          // db: b 로 옮기기
+    box(g, 0.22, 0.6, 2.32 + db, 2.7 + db, S, 11, '#b8683c', '#7e4222', '#94502a');
+    box(g, 0.18, 0.64, 2.28 + db, 2.74 + db, S + 11, 4, '#d98a58', '#9a5430', '#b0643a');
+    poly(g, [P(0.23, 2.33 + db, S + 15), P(0.59, 2.33 + db, S + 15), P(0.59, 2.69 + db, S + 15), P(0.23, 2.69 + db, S + 15)], '#3a2618');
+    [[0.3, 2.45 + db, '#5a4030'], [0.5, 2.62 + db, '#6a5040'], [0.44, 2.4 + db, '#4a3424']].forEach(([a, b, col]) => { const q = P(a, b, S + 15); g.fillStyle = col; g.fillRect(Math.round(q[0]), Math.round(q[1]), 2, 1); });
+    const q0 = P(0.18, 2.74 + db, S + 13); g.fillStyle = 'rgba(255,220,180,.35)'; g.fillRect(Math.round(q0[0]) + 2, Math.round(q0[1]) - 1, 9, 1);   // 테의 빛
+    const o = P(0.41, 2.51 + db, S + 15);
+    const leaf = (sx, sy, tx, ty, wd, col, dark, vein) => {
+      const mx = (sx + tx) / 2, my = (sy + ty) / 2, L = Math.hypot(tx - sx, ty - sy) || 1, nx = -(ty - sy) / L * wd, ny = (tx - sx) / L * wd;
+      g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(mx + nx, my + ny, tx, ty); g.quadraticCurveTo(mx - nx, my - ny, sx, sy);
+      g.fillStyle = col; g.fill(); g.strokeStyle = INK; g.lineWidth = 1; g.stroke();
+      g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(mx - nx * 0.9, my - ny * 0.9, tx, ty); g.closePath(); g.fillStyle = dark; g.fill();
+      g.strokeStyle = vein; g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(mx + nx * 0.15, my + ny * 0.15, tx, ty); g.stroke();
+    };
+    const stem = (bx, by, ex, ey, bend) => {
+      const x0 = o[0] + bx, y0 = o[1], cx = (x0 + ex) / 2 + bend, cy = (y0 + ey) / 2;
+      g.lineWidth = 2; g.strokeStyle = '#24401e'; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(cx, cy, ex, ey); g.stroke();
+      g.lineWidth = 1; g.strokeStyle = '#6a9a3a'; g.beginPath(); g.moveTo(x0 + 0.5, y0); g.quadraticCurveTo(cx + 0.5, cy, ex + 0.5, ey); g.stroke();
+    };
+    // [줄기 뿌리 x, 잎 밑 dx, dy, 잎 끝 dx, dy, 폭, 휨, 층]
+    const L = [
+      [-1, -7, -30, -17, -45, 7, -3, 0], [1, 8, -34, 15, -50, 7, 3, 0], [0, 1, -38, 3, -56, 6, 1, 0], [-1, -12, -26, -27, -38, 6, -3, 0], [1, 12, -28, 27, -40, 6, 3, 0],
+      [-2, -10, -20, -25, -27, 7, -4, 1], [2, 10, -22, 25, -31, 7, 4, 1], [0, -3, -32, -12, -48, 6, -2, 1],
+      [-1, -5, -12, -19, -8, 7, -2, 2], [1, 6, -13, 20, -10, 7, 2, 2], [0, 2, -27, -7, -41, 6, 2, 2], [0, 2, -44, 7, -53, 4, -1, 2]
+    ];
+    const COL = [['#2a6a36', '#1f5028', '#3f7a48'], ['#3f8a4a', '#2f6a38', '#6aae6a'], ['#5cb85c', '#3f944a', '#9ad89a']];
+    [0, 1, 2].forEach(layer => {
+      L.filter(l => l[7] === layer).forEach(([rx, bx, by, tx, ty, wd, bend]) => {
+        stem(rx, 0, o[0] + bx, o[1] + by, bend);
+        const c = COL[layer]; leaf(o[0] + bx, o[1] + by, o[0] + tx, o[1] + ty, wd, c[0], c[1], c[2]);
+      });
+    });
   }
 
   // ---------- 사람 도트 — 아이 그림(kid-art.js)을 그대로, 객석 손님은 같은 틀에 색만 바꿔서 ----------
@@ -726,6 +760,7 @@
     if (show.kind === 'mic' || show.kind === 'cinema') items.push({ key: MIC.a + MIC.b, stage: true, f: () => drawMic(g) });
     stageProps().forEach(it => items.push({ key: it.key, stage: !it.front, f: () => it.f(g) }));
     items.push({ key: 5.45 + 5.72, f: () => drawDog(g) });
+    items.push({ key: 6.75 + 1.0 + 0.3, f: () => { g.save(); g.translate(28 * 6.34, 14 * 6.34); drawPlant(g, 0, -1.51); g.restore(); } });   // 화분은 무대 오른쪽 옆 바닥(a 6.75, b 1.0) — 막에 안 잘리고 객석 머리에도 안 가린다
     items.sort((x, y) => x.key - y.key);
     items.filter(it => it.stage).forEach(it => it.f());                   // 무대 위 — 앞막 뒤
     drawCurtain(g);
@@ -943,6 +978,7 @@
     const stage = $('#concertRoom .museum-stage'); if (!stage) return null;
     playerBox = document.createElement('div'); playerBox.className = 'concert-player'; playerBox.hidden = true;
     playerBox.innerHTML = '<div class="cp-bar"><b class="cp-title"></b>' +
+      '<a class="dot-btn small cp-yt" target="_blank" rel="noopener" aria-label="유튜브에서 이 영상 열기">유튜브에서 ↗</a>' +   // 유튜브가 로그인 확인을 띄우면 여기로 본다
       '<button type="button" class="dot-btn small cp-close" aria-label="영상 닫기">✕ 닫기</button></div><div class="cp-frame"><div id="concertYT"></div></div>';
     stage.appendChild(playerBox);
     playerBox.querySelector('.cp-close').addEventListener('click', () => closePlayer(false));
@@ -960,6 +996,7 @@
     }
     show.live = true; show.paused = false; show.pendingBow = false; liveW = w;
     if (growth && growth.list[growth.i] !== w){ clearTimeout(growth.timer); growth = null; }
+    box.querySelector('.cp-yt').href = 'https://www.youtube.com/watch?v=' + encodeURIComponent(id);
     box.querySelector('.cp-title').textContent = (growth ? '🌱 ' + (growth.i + 1) + '/' + growth.list.length + (w.made_on ? ' · ' + w.made_on.slice(0, 7).replace('-', '.') : '') + ' · ' : '') + short(w.title, 30) + ' · ' + authorOf(w);
     box.hidden = false; box.classList.remove('rise'); void box.offsetWidth; box.classList.add('rise');
     box.scrollIntoView({ block: 'nearest', behavior: STILL ? 'auto' : 'smooth' });      // 절반 넘게 보여야 자동 재생할 수 있다(규정)
