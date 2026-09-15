@@ -213,36 +213,74 @@
     isoBoxD(g, x, y, 33, 16, 5, '#b8433f', '#8a2f2c', '#6e2422', 14);                       // 방석
     isoTopD(g, x, y - 19, 28, 14, '#c9524e');
   }
-  function drawEasel(g){
-    const x = Math.round(EASEL.x), y = Math.round(EASEL.y), W = 44, H = 34;
-    isoTopD(g, x + 2, y + 2, 16, 8, 'rgba(40,24,10,.24)');
-    g.fillStyle = '#6e4a2a';
-    g.fillRect(x - 13, y - 62, 2, 62); g.fillRect(x + 11, y - 62, 2, 62); g.fillRect(x - 1, y - 30, 2, 26);   // 다리 셋
-    g.fillRect(x - 16, y - 34, 32, 2);                                                       // 받침
-    if (!easelW) return;
-    const c = frameColor(easelW), t = thumbOf(easelW, W, H), bx = x - W / 2, by = y - 36 - H;
-    g.fillStyle = 'rgba(40,24,10,.22)'; g.fillRect(bx + 3, by + 3, W + 6, H + 6);
-    g.fillStyle = INK; g.fillRect(bx - 3, by - 3, W + 6, H + 6);
-    g.fillStyle = c; g.fillRect(bx - 2, by - 2, W + 4, H + 4);
-    g.fillStyle = shade(c, 40); g.fillRect(bx - 2, by - 2, W + 4, 1);
-    g.drawImage(t.cv, bx, by, W, H);
-    g.fillStyle = '#ffd979'; g.fillRect(bx + W - 12, by - 6, 14, 7); g.fillStyle = INK; g.fillRect(bx + W - 12, by - 6, 14, 1); g.fillRect(bx + W - 12, by, 14, 1);
-    g.fillStyle = INK; g.font = '800 6px "Suayona Sans", Pretendard, system-ui, sans-serif'; g.textBaseline = 'top'; g.textAlign = 'left'; g.fillText('NEW', bx + W - 10, by - 5);
+  // 벽과 나란한 면 — 오른쪽 벽 방향(dir 1)은 오른쪽으로 갈수록 반 도트씩 내려가고, 왼쪽 벽 방향(dir -1)은 올라간다
+  function slantRect(g, x, y, w, h, dir, col){ g.fillStyle = col; for (let du = 0; du < w; du++) g.fillRect(Math.round(x + du), Math.round(y + du * dir / 2), 1, h); }
+  function slantImage(g, x, y, w, h, dir, src){ for (let du = 0; du < w; du++) g.drawImage(src, du * 2, 0, 2, h * 2, Math.round(x + du), Math.round(y + du * dir / 2), 1, h); }
+  function slantText(g, text, x, y, dir, font, col, align){
+    g.save(); g.transform(1, dir / 2, 0, 1, 0, 0);                     // 글자도 면을 따라 기운다
+    g.font = font; g.fillStyle = col; g.textBaseline = 'top'; g.textAlign = align || 'left';
+    g.fillText(text, x, y - dir * x / 2); g.restore();
   }
+  // 이젤 — 오른쪽 벽과 나란히 선 A자 이젤. 금테 액자, 앞 받침대, 뒤로 뻗은 다리, 바닥 그림자(2026-09-15 부모 요청: 사선·고급스럽게)
+  function drawEasel(g){
+    const x = Math.round(EASEL.x), y = Math.round(EASEL.y), W = 46, H = 34, dir = 1;
+    const x0 = x - W / 2, yb = du => y - 30 + (du - W / 2) / 2;                              // 판 아랫선(기울어진다)
+    isoTopD(g, x + 4, y + 2, 26, 9, 'rgba(40,24,10,.22)');
+    const wood = '#7a5230', woodD = '#4e3220', woodL = '#a8783f';
+    // 뒷다리 — 판 뒤 위쪽 경첩에서 벽 쪽(오른쪽 뒤)으로 물러나 바닥에 선다. 판에 가려진 부분은 안 보이고 판 아래로 나온 부분만 보인다
+    { const top = yb(W / 2) - H + 4, foot = y - 6;
+      for (let k = 0; top + k <= foot; k++){ const dx = Math.round(k / (foot - top) * 12); g.fillStyle = wood; g.fillRect(x + 2 + dx, top + k, 2, 1); g.fillStyle = woodD; g.fillRect(x + 3 + dx, top + k, 1, 1); }
+      g.fillStyle = woodD; g.fillRect(x + 13, foot, 4, 2); }
+    // 앞다리 둘 — 아래로 갈수록 바깥으로 벌어진다
+    [[6, -1], [W - 6, 1]].forEach(([du, sp]) => {
+      const top = yb(du) - H - 6, foot = y + (du - W / 2) / 2 + 2;
+      for (let k = 0; top + k < foot; k++){ const dx = Math.round(k / (foot - top) * 3) * sp; g.fillStyle = wood; g.fillRect(x0 + du + dx, top + k, 2, 1); g.fillStyle = woodL; g.fillRect(x0 + du + dx, top + k, 1, 1); }
+      g.fillStyle = woodD; g.fillRect(x0 + du + sp * 3 - 1, Math.round(foot) - 1, 4, 2);       // 발
+    });
+    if (!easelW){ slantRect(g, x0, yb(0) - H, W, H, dir, '#f4ecdc'); slantRect(g, x0, yb(0) - H, W, 1, dir, '#ffffff'); return; }
+    const c = frameColor(easelW), t = thumbOf(easelW, W, H), fy = yb(0) - H;
+    // 액자 두께(왼쪽 끝) · 검은 윤곽 · 금테 · 크림 매트 · 그림
+    for (let k = 1; k <= 3; k++) slantRect(g, x0 - 4 - k, fy - 4 - k / 2, 1, H + 8, dir, k === 3 ? '#5a4520' : '#8a6a2a');
+    slantRect(g, x0 - 5, fy - 5, W + 10, H + 10, dir, INK);
+    slantRect(g, x0 - 4, fy - 4, W + 8, H + 8, dir, '#c9a24a');
+    slantRect(g, x0 - 4, fy - 4, W + 8, 1, dir, '#f0d78a'); slantRect(g, x0 - 4, fy + H + 2, W + 8, 2, dir, '#8a6a2a');
+    slantRect(g, x0 - 2, fy - 2, W + 4, H + 4, dir, '#fff8ea');
+    slantRect(g, x0 - 1, fy - 1, W + 2, H + 2, dir, shade(c, -10));
+    slantImage(g, x0, fy, W, H, dir, t.cv);
+    // 앞 받침대(선반) — 윗면과 앞면
+    for (let k = 0; k < 3; k++) slantRect(g, x0 - 6 + k, yb(0) + 3 + k / 2, W + 12, 1, dir, woodL);
+    slantRect(g, x0 - 6 + 3, yb(0) + 4.5, W + 12, 3, dir, wood); slantRect(g, x0 - 6 + 3, yb(0) + 7.5, W + 12, 1, dir, woodD);
+    // NEW 꼬리표 — 오른쪽 위 모서리, 면을 따라 기운 글자
+    const tx = x0 + W - 8, ty = fy - 12 + (W - 8) / 2;
+    slantRect(g, tx - 1, ty - 1, 18, 9, dir, INK); slantRect(g, tx, ty, 16, 7, dir, '#ffd979');
+    slantText(g, 'NEW', tx + 2, ty + 1, dir, '800 6px "Suayona Sans", Pretendard, system-ui, sans-serif', INK);
+  }
+  // 텔레비전 — 왼쪽 벽과 나란히 놓인 장 위의 납작한 텔레비전. 두께·받침·화면 반사광(2026-09-15 부모 요청)
   function drawTV(g){
-    const x = Math.round(TV.x), y = Math.round(TV.y);
-    isoTopD(g, x + 2, y + 2, 20, 10, 'rgba(40,24,10,.24)');
-    isoBoxD(g, x, y, 18, 9, 10, '#7a5a3a', '#5a4028', '#452f1c', 0);                        // 받침장
-    g.fillStyle = INK; g.fillRect(x - 17, y - 40, 34, 26);
-    g.fillStyle = '#3a3634'; g.fillRect(x - 16, y - 39, 32, 24);
-    g.fillStyle = '#1c2a3a'; g.fillRect(x - 14, y - 37, 28, 20);
-    g.fillStyle = '#2f4a66'; g.fillRect(x - 14, y - 37, 28, 6);
+    const x = Math.round(TV.x), y = Math.round(TV.y), dir = -1, W = 40, H = 24;
+    isoTopD(g, x + 2, y + 3, 26, 13, 'rgba(40,24,10,.24)');
+    // 받침장 — 앞면에 문 둘과 손잡이
+    isoBoxD(g, x, y, 22, 11, 13, '#a07a4c', '#6b4a2c', '#4e3520', 0);
+    isoTopD(g, x, y - 13, 20, 10, '#b98c58');
+    slantRect(g, x - 20, y - 11 + 10, 9, 8, 1, '#5a3e24'); slantRect(g, x - 10, y - 11 + 5, 9, 8, 1, '#5a3e24');   // 왼쪽 앞면(오른쪽 벽 방향으로 기운 면)의 문 둘
+    slantRect(g, x - 13, y + 2, 1, 2, 1, '#e0c070'); slantRect(g, x - 3, y - 3, 1, 2, 1, '#e0c070');
+    // 받침 — 작은 타원판과 목
+    isoTopD(g, x, y - 14, 7, 3, '#2a2624'); g.fillStyle = '#3a3634'; g.fillRect(x - 1, y - 20, 2, 6);
+    // 몸통(왼쪽 벽 방향: 오른쪽으로 갈수록 올라간다) — 오른쪽 끝의 두께, 검은 테, 은색 테두리, 화면
+    const bx = x - W / 2, by = du => y - 22 - H + du * dir / 2 + (W / 2) / 2;               // 몸통 윗선
+    for (let k = 1; k <= 3; k++) slantRect(g, bx + W + k - 1, by(W) + k / 2, 1, H, dir, k === 3 ? '#141210' : '#2c2826');
+    slantRect(g, bx - 1, by(0) - 1, W + 2, H + 2, dir, INK);
+    slantRect(g, bx, by(0), W, H, dir, '#3a3634');
+    slantRect(g, bx, by(0), W, 1, dir, '#6b6562'); slantRect(g, bx + 1, by(0) + 1, W - 2, H - 2, dir, '#1c1a18');
+    slantRect(g, bx + 3, by(0) + 3, W - 6, H - 6, dir, '#16233a');
+    for (let du = 3; du < W - 3; du++){ const p = (du - 3) / (W - 6); const col = p < 0.32 ? '#2f4a66' : p < 0.42 ? '#27405a' : '#16233a'; slantRect(g, bx + du, by(0) + 3, 1, Math.round(4 + (1 - p) * 6), dir, col); }   // 비스듬한 반사광
+    g.fillStyle = '#6b6562'; g.fillRect(Math.round(bx + W / 2 - 1), Math.round(by(W / 2) + H - 2), 2, 1);   // 전원 불빛 자리
     if (videos.length){
-      g.fillStyle = '#fffaf0'; for (let k = 0; k < 8; k++) g.fillRect(x - 4, y - 32 + k, k < 4 ? k + 1 : 8 - k, 1);   // ▶
-      g.fillStyle = INK; g.font = '800 6px "Suayona Sans", Pretendard, system-ui, sans-serif'; g.textBaseline = 'top'; g.textAlign = 'center';
-      g.fillStyle = '#ffd979'; g.fillText('영상 ' + videos.length, x, y - 23);
+      const cx = bx + W / 2, cy = by(0) + H / 2;                                            // ▶ — 면을 따라 기운다
+      for (let k = 0; k < 8; k++){ const hgt = 8 - k; slantRect(g, cx - 4 + k, cy - 8 - hgt / 2 + (k - 4) / 2 * 0, 1, hgt, dir, '#fffaf0'); }   // 오른쪽을 향한 삼각형, 글자 위에
+      slantText(g, '영상 ' + videos.length, cx, by(0) + H - 9 + (W / 2) * dir / 2, dir, '800 6px "Suayona Sans", Pretendard, system-ui, sans-serif', '#ffd979', 'center');
+      g.fillStyle = '#7fd08a'; g.fillRect(Math.round(bx + W / 2 - 1), Math.round(by(W / 2) + H - 2), 2, 1);   // 켜짐
     }
-    g.fillStyle = '#6b6562'; g.fillRect(x - 3, y - 14, 6, 4);
   }
 
   // ---------- 걷는 두 아이 (honors.js 의 산책 코드와 같은 식) ----------
@@ -417,8 +455,8 @@
     easelW = images[0] || null;
     hung = images.slice(1, 1 + SLOTS.length);
     hits = hits.filter(h => h.slot === undefined && !h.easel && !h.tv);
-    if (easelW) hits.push({ w: easelW, easel: true, front: 2, x0: EASEL.x - 26, x1: EASEL.x + 26, y0: EASEL.y - 76, y1: EASEL.y + 4 });
-    if (videos.length) hits.push({ tv: true, front: 2, x0: TV.x - 19, x1: TV.x + 19, y0: TV.y - 42, y1: TV.y + 8 });
+    if (easelW) hits.push({ w: easelW, easel: true, front: 2, x0: EASEL.x - 30, x1: EASEL.x + 30, y0: EASEL.y - 86, y1: EASEL.y + 8 });
+    if (videos.length) hits.push({ tv: true, front: 2, x0: TV.x - 24, x1: TV.x + 26, y0: TV.y - 60, y1: TV.y + 12 });
     wallKey = '';                                                        // 목록이 바뀌었으니 다시 굽는다
     onThumb = () => { wallKey = ''; draw(); };
     const cv = cvOf(); if (cv){ cv.style.aspectRatio = RW + ' / ' + RH; cv.tabIndex = 0; }
