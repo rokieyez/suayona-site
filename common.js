@@ -156,7 +156,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
 
 const MENU = [
   { href: '/',              label: '홈',        key: 'home' },
-  { href: '/portfolio.html',label: '포트폴리오', key: 'portfolio' },
+  { href: '/portfolio.html',label: '작품전시실', key: 'portfolio' },   // 2026-09-15 포트폴리오 → 작품전시실(부모 요청). 주소는 그대로
   { href: '/event/',        label: '이벤트',    key: 'event' },
   { href: '/wish/',         label: '가볼 곳',   key: 'wish' },
   { href: '/board.html',    label: '일기장',    key: 'board' },

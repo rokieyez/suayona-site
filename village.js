@@ -1657,7 +1657,7 @@ VS.draw = function(env){
   });
   SHADOW_Q = null;
   VS.labels = [
-    { text: '포트폴리오', href: '/portfolio.html', x: 1.5, y: 1.5, z: 78 },
+    { text: '작품전시실', href: '/portfolio.html', x: 1.5, y: 1.5, z: 78 },   // 2026-09-15 포트폴리오 → 작품전시실(부모 요청)
     { text: '이벤트', href: '/event/', x: 1.55, y: 6.1, z: 100 },
     { text: '업적 전시실', href: '/honors.html', x: 5.45, y: 1.0, z: 82 },   // 2026-09-15 일기장 → 업적 전시실(부모 요청). 집 그림(bDiary)은 그대로
     { text: '모험단', href: '/quest.html', x: 12.3, y: 1.9, z: 132 },

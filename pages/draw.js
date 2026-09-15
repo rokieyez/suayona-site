@@ -463,7 +463,7 @@ $('#toWork').addEventListener('click', async () => {
       written_by: user.id,
     });
     if (error) throw error;
-    alert('냈어요! 부모님이 보고 전시실에 올려 주면 포트폴리오에 걸려요.');
+    alert('냈어요! 부모님이 보고 올려 주면 작품전시실에 걸려요.');
   } catch (e) {
     alert('내지 못했어요: ' + (typeof readableError === 'function' ? readableError(e) : (e.message || e)));
   } finally {
