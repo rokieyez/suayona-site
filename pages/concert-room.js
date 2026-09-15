@@ -711,6 +711,67 @@
     g.fillStyle = INK; g.textBaseline = 'top'; g.textAlign = 'center'; g.fillText(t, x, y + 1); g.restore();
   }
 
+  // ---------- 🎫 첫 방문 입장권 — 이 브라우저로 연주회장에 처음 들어오면 한 번 찍어 준다. 기억은 localStorage concert_ticket 에만(서버로 안 보낸다) ----------
+  // 위에서 떨어져 내려오고(0.45초) → 쿵 도장(0.9초) → 잠깐 보여 주고 → 위로 사라진다(3.4초). 캔버스를 누르면 바로 닫힌다
+  const TICKET_MS = 3400, STAMP_AT = 900;
+  let ticket = null;
+  function startTicket(){
+    let had = true;
+    try { had = !!localStorage.getItem('concert_ticket'); } catch (e) { /* 못 읽는 브라우저 — 매번 뜨지 않게 건너뛴다 */ }
+    if (had || ticket) return;
+    const d = new Date(), no = 1 + Math.floor(Math.random() * 999), day = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
+    ticket = { t0: now(), no, day };
+    try { localStorage.setItem('concert_ticket', JSON.stringify({ no, day })); } catch (e) { /* 저장이 막히면 기억은 못 하지만 이번엔 보여 준다 */ }
+    say('🎫 어서 오세요 — 첫 방문 입장권을 찍어 드렸어요');
+    if (STILL) setTimeout(() => { ticket = null; draw(); }, 2600);
+    draw();
+  }
+  function drawTicket(g){
+    if (!ticket) return;
+    const el = STILL ? STAMP_AT + 400 : now() - ticket.t0;
+    if (el >= TICKET_MS){ ticket = null; return; }
+    const W = 268, H = 112, STUB = 196, ty = 140;
+    const q = Math.min(1, el / 450) - 1, drop = 1 + 2.70158 * q * q * q + 1.70158 * q * q;
+    const out = Math.max(0, (el - (TICKET_MS - 500)) / 500), fade = Math.min(1, el / 300) * (1 - out);
+    const shake = el > STAMP_AT && el < STAMP_AT + 140 ? (Math.floor(el / 35) % 2 ? 2 : -2) : 0;
+    const x = Math.round(RW / 2 - W / 2 + shake), y = Math.round(-H - 20 + (ty + H + 20) * drop - out * (ty + H + 40));
+    g.save();
+    g.fillStyle = 'rgba(20,14,10,' + (0.4 * fade).toFixed(3) + ')'; g.fillRect(0, 0, RW, RH);
+    g.globalAlpha = 1 - out;
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x + 4, y + 4, W, H);
+    g.fillStyle = INK; g.fillRect(x - 2, y - 2, W + 4, H + 4);
+    g.fillStyle = '#fff4dc'; g.fillRect(x, y, W, H);
+    g.fillStyle = '#ffe9b8'; g.fillRect(x + STUB + 2, y, W - STUB - 2, H);
+    g.fillStyle = '#ff7f8a'; g.fillRect(x, y, STUB, 18);
+    g.fillStyle = '#6cc7b3'; g.fillRect(x, y + H - 7, STUB, 7);
+    g.fillStyle = INK; for (let d = 3; d < H - 2; d += 6) g.fillRect(x + STUB, y + d, 2, 3);
+    g.fillRect(x + STUB - 3, y - 2, 8, 4); g.fillRect(x + STUB - 3, y + H - 2, 8, 4);
+    g.textBaseline = 'top'; g.textAlign = 'left';
+    g.font = '800 11px ' + FONT; g.fillStyle = '#fff'; g.fillText('입장권', x + 8, y + 3);
+    g.textAlign = 'right'; g.fillText('No. ' + String(ticket.no).padStart(3, '0'), x + STUB - 8, y + 3);
+    g.textAlign = 'left'; g.fillStyle = INK; g.font = '800 17px ' + FONT; g.fillText('수아랑 연아랑 연주회장', x + 10, y + 28);
+    g.font = '700 12px ' + FONT; g.fillStyle = '#6b5a48'; g.fillText('첫 방문을 환영해요', x + 10, y + 53);
+    g.font = '600 11px ' + FONT; g.fillText(ticket.day + ' · 자유석 · 1명', x + 10, y + 76);
+    const sx = x + STUB + (W - STUB) / 2 + 1, sy = y + H / 2;
+    g.textAlign = 'center';
+    if (el < STAMP_AT){
+      g.strokeStyle = 'rgba(107,90,72,.45)'; g.lineWidth = 1; g.setLineDash([3, 3]); g.beginPath(); g.arc(sx, sy, 24, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+      g.font = '600 10px ' + FONT; g.fillStyle = 'rgba(107,90,72,.7)'; g.fillText('도장', sx, sy - 5);
+    } else {
+      const k = Math.min(1, (el - STAMP_AT) / 120), sc = 1.8 - 0.8 * k;
+      if (el < STAMP_AT + 320){
+        const r0 = 29 + (el - STAMP_AT) / 10; g.fillStyle = '#ffd979';
+        for (let n = 0; n < 8; n++){ const a = n * Math.PI / 4; g.fillRect(Math.round(sx + Math.cos(a) * r0) - 1, Math.round(sy + Math.sin(a) * r0) - 1, 3, 3); }
+      }
+      g.save(); g.translate(sx, sy); g.rotate(-0.22); g.scale(sc, sc); g.globalAlpha = (1 - out) * (0.55 + 0.45 * k);
+      g.strokeStyle = '#d9453b'; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 23, 0, Math.PI * 2); g.stroke();
+      g.lineWidth = 1; g.beginPath(); g.arc(0, 0, 17, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = '#d9453b'; g.font = '800 13px ' + FONT; g.textBaseline = 'middle'; g.fillText('입장', 0, 1);
+      g.restore();
+    }
+    g.restore();
+  }
+
   // ---------- 한 장 그리기 ----------
   function drawScene(g, dt){
     g.setTransform(2, 0, 0, 2, 0, 0); g.imageSmoothingEnabled = false;
@@ -747,6 +808,7 @@
     if (me){ const bp = P(me.a, SEAT_ROWS[me.row], 7); g.save(); g.font = '800 8px ' + FONT; g.fillStyle = INK; g.fillRect(Math.round(bp[0]) - 7, Math.round(bp[1]) - 44, 14, 11); g.fillStyle = '#ffd979'; g.fillRect(Math.round(bp[0]) - 6, Math.round(bp[1]) - 43, 12, 9); g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('나', Math.round(bp[0]), Math.round(bp[1]) - 43); g.restore(); }
     if (seatMode) SEAT_ROWS.forEach((b, row) => SEAT_A.forEach(a => { if (!seatFree(row, a)) return; const bp = P(a, b, 10), r = 9 + Math.sin(t / 220) * 2; g.strokeStyle = '#ffd979'; g.lineWidth = 2; g.beginPath(); g.ellipse(bp[0], bp[1] - 6, r, r * 0.55, 0, 0, Math.PI * 2); g.stroke(); }));
     if (show.announce && t < show.announceUntil){ const sp = P(5.575, 0.37, STAGE.h + 50); bubble(g, sp[0] - 60, sp[1], '📢 ' + show.announce); }
+    drawTicket(g);                                                       // ⑧ 첫 방문 입장권은 맨 위
   }
   function draw(){ const cv = $('#concertCv'); if (!cv || show.phase === 'none' && !videos.length && !list.length) return; drawScene(cv.getContext('2d'), 0); }
 
@@ -889,6 +951,7 @@
     cv.addEventListener('pointerleave', () => { if (hoverKey){ hoverKey = null; say(stateLine()); if (STILL) draw(); } });
     cv.addEventListener('click', e => {
       heard = true;
+      if (ticket){ ticket = null; draw(); say(stateLine()); return; }
       const h = hitAt(e);
       if (!h){ if (focusKey){ focusKey = null; draw(); } say(stateLine()); return; }
       if (h.key === 'screen'){
@@ -1002,7 +1065,7 @@
     rooms.dataset.room = room;
     document.querySelectorAll('#roomTabs [data-room]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.room === room)));
     try { const u = new URL(location.href); if (room === 'concert') u.searchParams.set('room', 'concert'); else u.searchParams.delete('room'); history.replaceState(history.state, '', u); } catch (e) { /* 주소를 못 바꿔도 탭은 바뀐다 */ }
-    if (room === 'concert'){ if (byUser) heard = true; loadClaps(); draw(); say(stateLine()); }
+    if (room === 'concert'){ if (byUser) heard = true; loadClaps(); draw(); say(stateLine()); startTicket(); }
     else { closePlayer(false); if (window.GALLERY && GALLERY.draw) GALLERY.draw(); }
   }
   function wireTabs(){
@@ -1051,5 +1114,5 @@
       tick(t, Math.min(100, acc)); acc = 0;
     } catch (e) { /* 한 장 건너뛴다 */ }
   }
-  window.CONCERT = { render, draw, _tick: tick, _show: show, _actors: actors, _guests: guests, _skip: skipShow, _room: setRoom, _clap: clap, _parts: parts, _applause: applause, _hit: hitAt, _claps: () => claps, _state: () => clapsState, _phase: setPhase, _open: openPlayer, _ended: videoEnded, _yt: () => yt, _close: closePlayer, _setClaps: m => { claps = m; renderTools(); draw(); }, _me: () => me, _kind: stageKind };
+  window.CONCERT = { render, draw, _tick: tick, _show: show, _actors: actors, _guests: guests, _skip: skipShow, _room: setRoom, _clap: clap, _parts: parts, _applause: applause, _hit: hitAt, _claps: () => claps, _state: () => clapsState, _phase: setPhase, _open: openPlayer, _ended: videoEnded, _yt: () => yt, _close: closePlayer, _setClaps: m => { claps = m; renderTools(); draw(); }, _me: () => me, _kind: stageKind, _ticket: () => ticket, _startTicket: startTicket };
 })();

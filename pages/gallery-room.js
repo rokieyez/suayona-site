@@ -131,6 +131,8 @@
   const WALK_BOX = { i0: 0.3, i1: 10.9, j0: 0.9, j1: 5.1 };
   // 걸을 수 없는 곳 — 가구마다 바닥에 닿는 네모(칸 좌표)에 몸 반 폭(0.35칸)을 더했다. 동그라미로 재던 옛 것은 관객·경비원이 아예 안 봐서 가구를 뚫고 지나갔다
   const LAMP = 0.72;   // 2026-09-15 밤 부모 요청으로 0.52 → 0.72 더 밝게.                                                     // 레일 조명 빛 세기 — 타원 번짐 가운데 값. 가장자리로 갈수록 0 으로 흐려져서 띠(0.36)보다 높게 둔다
+  // 불빛 색 — 2026-09-15 밤 부모 요청으로 호박색(255,214,120)에서 흰색 쪽으로 조금(255,226,158). 고른 그림 조명도 같은 색
+  const LAMP_RGB = '255,226,158';
   const BLOCKS = [
     { i0: 4.95, i1: 7.05, j0: 2.4, j1: 4.4 },                                                // 가운데 의자(반 폭 0.64칸)
     { i0: EASEL_AT.i - 1.4, i1: EASEL_AT.i + 1.4, j0: EASEL_AT.j - 0.8, j1: EASEL_AT.j + 0.4 },   // 이젤(판 폭 60px ≈ 2.1칸, 뒷다리는 벽 쪽으로 0.46칸)
@@ -223,10 +225,10 @@
       g.setTransform(s.side ? 2 : -2, 1, 0, 2, (s.side ? CORNER.x : CORNER.x - 2) * 2, WTOP * 2);   // 레일 조명과 같은 벽면 변환
       g.translate(cu, top); g.scale(1, reach / r);
       const glow = g.createRadialGradient(0, 0, 0, 0, 0, r);
-      glow.addColorStop(0, 'rgba(255,222,140,.6)'); glow.addColorStop(0.55, 'rgba(255,214,120,.3)'); glow.addColorStop(1, 'rgba(255,214,120,0)');
+      glow.addColorStop(0, 'rgba(' + LAMP_RGB + ',.6)'); glow.addColorStop(0.55, 'rgba(' + LAMP_RGB + ',.3)'); glow.addColorStop(1, 'rgba(' + LAMP_RGB + ',0)');
       g.fillStyle = glow; g.fillRect(-r, 0, r * 2, r);
       g.restore();
-      wallRect(g, s.side, cu - 3, top - 4, 6, 4, '#2a2624'); wallRect(g, s.side, cu - 4, top, 8, 2, 'rgba(255,226,150,.6)'); wallRect(g, s.side, cu - 2, top, 4, 1, '#fff3c4');   // 작은 전등
+      wallRect(g, s.side, cu - 3, top - 4, 6, 4, '#2a2624'); wallRect(g, s.side, cu - 4, top, 8, 2, 'rgba(255,236,190,.6)'); wallRect(g, s.side, cu - 2, top, 4, 1, '#fff8e2');   // 작은 전등
     });
     return (spotCv = c);
   }
@@ -244,10 +246,10 @@
       g.setTransform(side ? 2 : -2, 1, 0, 2, (side ? CORNER.x : CORNER.x - 2) * 2, WTOP * 2);
       g.translate(cu, 9); g.scale(1, 4.6);                                                  // 가로 반지름 36 · 세로 166 인 타원
       const glow = g.createRadialGradient(0, 0, 0, 0, 0, 36);
-      glow.addColorStop(0, 'rgba(255,214,120,' + LAMP + ')'); glow.addColorStop(0.5, 'rgba(255,214,120,' + (LAMP * 0.55).toFixed(3) + ')'); glow.addColorStop(1, 'rgba(255,214,120,0)');
+      glow.addColorStop(0, 'rgba(' + LAMP_RGB + ',' + LAMP + ')'); glow.addColorStop(0.5, 'rgba(' + LAMP_RGB + ',' + (LAMP * 0.55).toFixed(3) + ')'); glow.addColorStop(1, 'rgba(' + LAMP_RGB + ',0)');
       g.fillStyle = glow; g.fillRect(-36, 0, 72, 36);                                       // 아래 반쪽만(위는 천장)
       g.restore();
-      wallRect(g, side, cu - 3, 6, 6, 4, '#2a2624'); wallRect(g, side, cu - 4, 9, 8, 3, 'rgba(255,226,150,.5)'); wallRect(g, side, cu - 2, 9, 4, 1, '#fff3c4');
+      wallRect(g, side, cu - 3, 6, 6, 4, '#2a2624'); wallRect(g, side, cu - 4, 9, 8, 3, 'rgba(255,236,190,.5)'); wallRect(g, side, cu - 2, 9, 4, 1, '#fff8e2');
     }));
     return (lampCv[on] = c);
   }
@@ -970,6 +972,25 @@
   // ---------- 한 장 그리기 (④ 연도 바꿈은 옆으로 밀리는 장면 전환) ----------
   const sceneCv = document.createElement('canvas'); sceneCv.width = RW * 2; sceneCv.height = RH * 2;
   let slide = null;                                                      // { from: 캔버스, dir, t0 }
+  // 🔍 액자 다가가 보기 — 누르면 방 안에서 그 액자 쪽으로 부드럽게 다가간 뒤 크게 연다. 창을 닫고 돌아오면 다시 물러난다.
+  // 시간은 setTimeout 이 정하고(탭이 가려져 rAF 가 멈춰도 창은 열린다) 그리기는 draw 가 지금 시각으로 한다. 움직임 줄이기 설정이면 바로 연다
+  const CAM_IN = 520, CAM_OUT = 420;
+  let cam = null, camRaf = 0;
+  function approach(h, done){
+    if (STILL || slide || !cvOf()){ done(); return; }
+    const hh = Math.max(20, h.y1 - h.y0), z = Math.max(1.8, Math.min(3.2, RH * 0.5 / hh));
+    cam = { cx: (h.x0 + h.x1) / 2, cy: (h.y0 + h.y1) / 2, z, t0: performance.now(), ms: CAM_IN, dir: 1, held: false };
+    const mine = cam;
+    setTimeout(() => { if (cam !== mine) return; cam.held = true; draw(); done(); }, CAM_IN);
+    draw();
+  }
+  function camOut(){
+    if (!cam || !cam.held) return;
+    cam = Object.assign({}, cam, { t0: performance.now(), ms: CAM_OUT, dir: -1, held: false });
+    const mine = cam;
+    setTimeout(() => { if (cam === mine){ cam = null; draw(); } }, CAM_OUT);
+    draw();
+  }
   function cvOf(){ return $('#galleryCv'); }
   function drawScene(g){
     g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0);
@@ -1002,6 +1023,12 @@
       const p = Math.min(1, (performance.now() - slide.t0) / 450), e = 1 - Math.pow(1 - p, 3), off = Math.round(cv.width * e);
       g.drawImage(slide.from, -slide.dir * off, 0); g.drawImage(sceneCv, slide.dir * (cv.width - off), 0);
       if (p >= 1) slide = null; else requestAnimationFrame(draw);
+    } else if (cam){
+      const p = cam.held ? 1 : Math.min(1, (performance.now() - cam.t0) / cam.ms), e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      const k = cam.dir > 0 ? e : 1 - e, z = 1 + (cam.z - 1) * k, W = sceneCv.width, H = sceneCv.height, sw = W / z, sh = H / z;
+      const sx = Math.max(0, Math.min(W - sw, cam.cx / RW * W - sw / 2)), sy = Math.max(0, Math.min(H - sh, cam.cy / RH * H - sh / 2));
+      g.imageSmoothingEnabled = false; g.drawImage(sceneCv, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+      if (p < 1 && !camRaf) camRaf = requestAnimationFrame(() => { camRaf = 0; draw(); });
     } else g.drawImage(sceneCv, 0, 0);
   }
   const hitKey = h => h.kid ? 'kid:' + h.kid : h.who ? 'who:' + (h.who.id || 'guard') : h.w ? 'w' + h.w.id : h.tv ? 'tv' : 'x';
@@ -1070,13 +1097,14 @@
   function wire(){
     const cv = cvOf(); if (!cv || wired) return; wired = true;
     cv.addEventListener('pointermove', e => {
-      if (e.pointerType !== 'mouse') return;
+      if (e.pointerType !== 'mouse' || cam) return;
       const h = hitAt(e), key = h ? hitKey(h) : null;
       cv.style.cursor = h ? 'pointer' : 'default';
       if (key !== hoverKey){ hoverKey = key; draw(); say(describe(h)); }
     });
     cv.addEventListener('pointerleave', () => { if (hoverKey){ hoverKey = null; draw(); say(''); } });
     cv.addEventListener('click', e => {
+      if (cam) return;
       const h = hitAt(e); if (!h){ if (focusKey){ focusKey = null; draw(); say(''); } return; }
       if (h.kid){ kidTalk(h.kid); return; }
       if (h.who){ charTalk(h.who); return; }                                                // 관객·강아지·경비원 → 말풍선
@@ -1088,7 +1116,7 @@
       }
       if (e.pointerType !== 'mouse' && (h.w || h.tv) && focusKey !== key){ focusKey = key; draw(); say(describe(h)); return; }   // 손가락: 한 번 누르면 이름표, 한 번 더 누르면 열기(텔레비전도)
       const w = h.tv ? tvNow() : h.w; if (!w || !openFn) return;                            // 텔레비전 → 지금 화면의 영상 게시글
-      const i = list.indexOf(w); if (i >= 0) openFn(i);
+      const i = list.indexOf(w); if (i >= 0) approach(h, () => openFn(i));
     });
     // ⓔ 끌어서 바꿔 걸기 — 부모가 편집 모드를 켰을 때만. 손가락으로도 끌 수 있게 그동안은 touch-action 을 끈다
     cv.addEventListener('pointerdown', e => {
@@ -1118,6 +1146,7 @@
   // ---------- 보일 때만 걷는다 ----------
   let seen = true, seenAt = 0, lastTick = 0, lastDraw = 0;
   function tick(now, dt){                                                // 한 장 — 시험에서도 부른다(숨은 창은 rAF 가 안 돈다)
+    if (cam && cam.held && !document.body.classList.contains('lb-open')) camOut();
     if (!greeted && hits.length) greetNew();
     let moved = false; KIDS.forEach(k => { if (stepWalker(k, dt)) moved = true; });
     if (stepVisitors(dt, now)) moved = true;
@@ -1202,5 +1231,5 @@
   }
   window.GALLERY = { render, draw, clapped, claps: () => claps, clapsOn: () => clapsState === 'on', _hits: () => hits, _walkers: walkers, _visitors: visitors, _hung: () => hung, _aspect: aspectOf,
     _tick: tick, _focus: k => { focusKey = k; draw(); }, _slide: () => slide, _bubbles: bubbleOf, _setClaps: m => { claps = m; clapsTotal = Object.values(m).reduce((a, b) => a + b, 0); wallKey = ''; draw(); },
-    _guard: () => guard, _edit: setEdit, _move: moveSlot, _tvNow: tvNow, _talk: charTalk, _path: pathTo, _blocked: walkBlocked, _snap: snapshot, _top: topWork, _sprite: visitorSprite, _spots: () => [...spots], _spotMode: v => { spotMode = !!v; renderTools(); draw(); }, _slotUnder: slotUnder };
+    _guard: () => guard, _edit: setEdit, _move: moveSlot, _tvNow: tvNow, _talk: charTalk, _path: pathTo, _blocked: walkBlocked, _snap: snapshot, _top: topWork, _sprite: visitorSprite, _spots: () => [...spots], _spotMode: v => { spotMode = !!v; renderTools(); draw(); }, _slotUnder: slotUnder, _cam: () => cam, _approach: approach };
 })();
