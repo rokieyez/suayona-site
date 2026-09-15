@@ -1809,3 +1809,42 @@ alter table public.honors add constraint honors_title_has_until check (kind <> '
 alter table public.honors drop constraint if exists honors_until_after_start;
 alter table public.honors add constraint honors_until_after_start check (until is null or until >= got_on);
 
+
+
+-- =====================================================================
+-- 2026-09-15 — 포트폴리오 작품 박수(work_claps). 업적 전시실의 honor_claps 와 같은 방식:
+-- 손님도 친다(아무것도 안 받고 「어느 작품에, 언제」만), 홍수 방지 트리거, 작품마다 몇 번인지만 돌려주는 함수.
+create table if not exists public.work_claps (
+  id         bigint generated always as identity primary key,
+  work_id    bigint not null references public.works(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists work_claps_work_idx on public.work_claps (work_id);
+alter table public.work_claps enable row level security;
+drop policy if exists "anyone reads work claps" on public.work_claps;
+create policy "anyone reads work claps" on public.work_claps for select using (true);
+drop policy if exists "anyone claps works" on public.work_claps;
+create policy "anyone claps works" on public.work_claps for insert with check (true);
+drop policy if exists "parent clears work claps" on public.work_claps;
+create policy "parent clears work claps" on public.work_claps for delete to authenticated
+  using ((select public.my_role()) = 'parent');
+create or replace function public.work_claps_rate_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from work_claps where created_at > now() - interval '1 minute') >= 30
+     or (select count(*) from work_claps where created_at > now() - interval '1 hour') >= 300 then
+    raise exception '박수가 너무 빨리 쏟아지고 있어요. 잠시 뒤에 다시 해 주세요.';
+  end if;
+  return new;
+end $$;
+revoke execute on function public.work_claps_rate_guard() from anon, authenticated, public;   -- 트리거로만 돈다
+drop trigger if exists work_claps_rate on public.work_claps;
+create trigger work_claps_rate before insert on public.work_claps
+  for each row execute function public.work_claps_rate_guard();
+create or replace function public.work_clap_counts()
+returns table (work_id bigint, n bigint)
+language sql stable
+set search_path = public
+as $$ select work_id, count(*) from work_claps group by work_id $$;
+grant execute on function public.work_clap_counts() to anon, authenticated;
+-- (2026-09-15 적용 — 마이그레이션 work_claps. 적용 때 works 는 42줄, 박수 0)

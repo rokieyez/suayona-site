@@ -120,10 +120,10 @@
     for (let c = 0; c < 3; c++) if (!covered(0, c, r)) SLOTS.push({ side: 0, u: lu(c), v, w: FW, h: FH });
   });
   const ROTATE = 4;                                                      // ⑨ 넘치면 마지막 네 칸을 날마다 바꿔 건다
-  const EASEL = tileXY(9.7, 4.3), TV = tileXY(1.7, 4.7), BENCH = tileXY(6.0, 3.4), PLANT_AT = tileXY(0.55, 0.55);
+  const EASEL = tileXY(9.7, 4.3), TV = tileXY(1.0, 4.7), BENCH = tileXY(6.0, 3.4), PLANT_AT = tileXY(0.55, 0.55);   // 텔레비전은 왼쪽 벽에 붙여서(1.7 → 1.0, 2026-09-15 부모 요청)
   const GREET_SPOT = { i: 8.6, j: 4.9 };                                 // ② 이젤 앞에 서는 자리(이젤이 오른쪽에 보인다)
   const WALK_BOX = { i0: 0.3, i1: 10.9, j0: 0.9, j1: 5.1 };
-  const WALK_BLOCK = [{ i: 5.1, j: 3.4, r: 1.05 }, { i: 6.9, j: 3.4, r: 1.05 }, { i: 9.7, j: 4.3, r: 1.1 }, { i: 1.7, j: 4.7, r: 1.35 }, { i: 0.55, j: 0.55, r: 1.1 }];
+  const WALK_BLOCK = [{ i: 5.1, j: 3.4, r: 1.05 }, { i: 6.9, j: 3.4, r: 1.05 }, { i: 9.7, j: 4.3, r: 1.1 }, { i: 1.0, j: 4.7, r: 1.35 }, { i: 0.55, j: 0.55, r: 1.1 }];
 
   // ---------- 상태 ----------
   let list = [], openFn = null, year = 'all', images = [], videos = [], easelW = null, hung = [], hits = [], hoverKey = null, focusKey = null;
@@ -505,7 +505,11 @@
   }
 
   // ---------- ⑤ 관람객 — 액자 앞에 서서 고개를 끄덕이고 다음 그림으로 옮겨 간다. 수는 박수 수에 따라 하나에서 셋 ----------
-  const VIS_PAL = [{ hat: '#3a3a4a', coat: '#5a7fb5', pants: '#2e3a54' }, { hat: '#8a3a3a', coat: '#b56a5a', pants: '#3a2e2e' }, { hat: '#4a6a3a', coat: '#6aa07a', pants: '#2e3a2e' }];
+  const VIS_PAL = [
+    { hat: '#3a3a4a', band: '#6c6c80', coat: '#5a7fb5', coatDark: '#3e5f90', pants: '#2e3a54' },
+    { hat: '#8a3a3a', band: '#c46a5a', coat: '#b56a5a', coatDark: '#8f4b3e', pants: '#3a2e2e' },
+    { hat: '#4a6a3a', band: '#8ab070', coat: '#6aa07a', coatDark: '#4a7d5a', pants: '#2e3a2e' },
+  ];
   const VIS_ENTER = { i: 10.9, j: 5.4 };
   const visitors = [];
   let nextVisitorAt = 0;
@@ -513,15 +517,50 @@
   function visitorSprite(n, flip){
     const key = n + '|' + (flip ? 1 : 0);
     if (visBuf[key]) return visBuf[key];
-    const P = VIS_PAL[n % VIS_PAL.length], rows = [
-      '...hhhhhh...', '..hhhhhhhh..', '.hhhhhhhhhh.', '....ffff....', '....ffff....', '....f..f....', '...cccccc...', '..cccccccc..',
-      '.ccccccccccc', '.ccccccccccc', '..cccccccc..', '..cccccccc..', '..cccccccc..', '...pppppp...', '...pppppp...', '...pp..pp...', '...pp..pp...', '..kkk..kkk..',
-    ], pal = { h: P.hat, f: '#f2d3b8', c: P.coat, p: P.pants, k: '#2a2622' }, W = 12, H = rows.length;
+    const P = VIS_PAL[n % VIS_PAL.length], rows = [   // 아이(28×38)와 같은 격자 — 예전 12×18 은 아이 옆에 서면 절반 크기라 이상했다(2026-09-15 부모 지적)
+      '.........kkkkkkkkkk.........',
+      '........khhhhhhhhhhk........',
+      '.......khhhhhhhhhhhhk.......',
+      '.......khhhhHhhhhhhhk.......',
+      '.......khhhhhhhhhhhhk.......',
+      '....kkkkbbbbbbbbbbbbkkkk....',
+      '...khhhhhhhhhhhhhhhhhhhhk...',
+      '...khhhhhhhhhhhhhhhhhhhhk...',
+      '....kkkkkffffffffffkkkkk....',
+      '........kffffffffffk........',
+      '........kffffffffffk........',
+      '........kffeeffeeffk........',
+      '........kffeeffeeffk........',
+      '........kffffffffffk........',
+      '........kfffffmmffffk.......',
+      '.........kffffffffk.........',
+      '......kkkCCCCCCCCCCkkk......',
+      '.....kccCCcccccccccCCcck....',
+      '....kcccccccccCcccccccccck..',
+      '....kcccccccccCcccccccccck..',
+      '....kccccccccccccccccccccck.',
+      '....kccccccccccCccccccccck..',
+      '....kccccccccccccccccccccck.',
+      '....kcckcccccccCccccccckcck.',
+      '....kcckccccccccccccccckcck.',
+      '....kcckcccccccCccccccckcck.',
+      '....kcckccccccccccccccckcck.',
+      '....kffkcccccccCccccccckffk.',
+      '....kffkccccccccccccccckffk.',
+      '.....kk.kccccccccccccck.kk..',
+      '........kppppppppppppk......',
+      '........kppppppkppppppk.....',
+      '........kpppppkkkpppppk.....',
+      '........kpppppk.kpppppk.....',
+      '........kpppppk.kpppppk.....',
+      '........kpppppk.kpppppk.....',
+      '.......ksssssssksssssssk....',
+      '.......kkkkkkkkkkkkkkkkk....',
+    ], pal = { h: P.hat, H: P.band, b: P.band, f: '#f2d3b8', e: '#2a2622', m: '#b06a5a', c: P.coat, C: P.coatDark, p: P.pants, s: '#2a2622', k: '#241c14' }, W = 28, H = rows.length;
     const c = document.createElement('canvas'); c.width = (W + 2) * 2; c.height = (H + 2) * 2;
     const g = c.getContext('2d');
     const paint = (ox, oy, one) => { for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){ const ch = rows[r][x]; if (ch === '.') continue; g.fillStyle = one || pal[ch]; g.fillRect(((flip ? W - 1 - x : x) + 1 + ox) * 2, (r + 1 + oy) * 2, 2, 2); } };
     g.globalAlpha = 0.78; [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => paint(ox, oy, '#241c14')); g.globalAlpha = 1; paint(0, 0);
-    g.fillStyle = '#2a2622'; g.fillRect((5 + 1) * 2, (5 + 1) * 2, 2, 2); g.fillRect((7 + 1) * 2, (5 + 1) * 2, 2, 2);   // 눈은 등 뒤에서 안 보이지만 옆에서 보인다
     return (visBuf[key] = c);
   }
   function visitorTarget(){
@@ -559,9 +598,9 @@
   }
   function drawVisitor(g, p){
     const t = tileXY(p.i, p.j), x = Math.round(t.x), y = Math.round(t.y), bob = p.wait > 0 ? p.nod : (Math.floor(p.phase) % 2);
-    isoTopD(g, x, y, 8, 3, 'rgba(40,24,10,.22)');
+    isoTopD(g, x, y, 10, 4, 'rgba(40,24,10,.24)');
     const c = visitorSprite(p.n, p.flip);
-    g.drawImage(c, x - 7, y - 20 - (p.wait > 0 ? 0 : bob), c.width / 2, c.height / 2);
+    g.drawImage(c, x - 15, y - 39 - (p.wait > 0 ? 0 : bob), c.width / 2, c.height / 2);   // 아이와 같은 자리 셈(30×40)
   }
 
   // ---------- 한 장 그리기 (④ 연도 바꿈은 옆으로 밀리는 장면 전환) ----------
@@ -579,7 +618,7 @@
     visitors.forEach(p => { const t = tileXY(p.i, p.j); floor.push({ y: t.y - 1, f: () => drawVisitor(g, p) }); });
     floor.sort((a, b) => a.y - b.y).forEach(o => o.f());
     const fk = focusKey || hoverKey;
-    if (fk){ const h = hits.find(x => hitKey(x) === fk); if (h){ if (h.w) drawPlaque(g, h); g.strokeStyle = '#ffd979'; g.lineWidth = 2; g.strokeRect(Math.round(h.x0) + 1, Math.round(h.y0) + 1, Math.round(h.x1 - h.x0) - 2, Math.round(h.y1 - h.y0) - 2); } }
+    if (fk){ const h = hits.find(x => hitKey(x) === fk); if (h && h.w) drawPlaque(g, h); }   // 노란 테두리는 뺐다(2026-09-15) — 이름표만으로 어느 작품인지 충분하다
     KIDS.forEach(k => { const b = bubbleOf[k], s = spots[k]; if (b && s) drawBubble(g, s.x, s.y - 42, b.text); });
   }
   function draw(){
