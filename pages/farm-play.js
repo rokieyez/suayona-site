@@ -998,7 +998,7 @@ function renderHouse(){
       // 생선이 하나도 없을 때만 — 있으면 어디서 났는지 이미 안다
       const fh = ok ? '' : fishHint(Object.keys(Dd.need).filter(k => k.indexOf('fish:') === 0 && !R.countOf(M, k)).reduce((o, k) => { o[k] = 1; return o; }, {}));
       if (fh){ const h = document.createElement('div'); h.className = 'pr'; h.textContent = '🎣 ' + fh; card.appendChild(h); }
-      const a = document.createElement('div'); a.className = 'act'; a.appendChild(btn('만들기', 'buy', () => { const r = act((w, m) => R.cook(w, m, d, now())); if (r.ok) sfx('sparkle'); }, !ok)); card.appendChild(a); grid.appendChild(card);
+      const a = document.createElement('div'); a.className = 'act'; const tired = ok && (M.energy || 0) < R.COST.cook; a.appendChild(btn(tired ? '만들기 · ⚡부족' : '만들기', 'buy', () => { const r = act((w, m) => R.cook(w, m, d, now())); if (r.ok) sfx('sparkle'); }, !ok || tired)); card.appendChild(a); grid.appendChild(card);
     });
     kb.appendChild(grid);
   } else {
@@ -1276,7 +1276,9 @@ function renderDuo(){
     info.innerHTML = '<span class="nm">' + escapeHTML(a.name) + '</span> ' + (a.baby ? '<span class="baby">🐣 아기</span> ' : '') + '<span class="love">' + '♥'.repeat(a.love || 0) + '♡'.repeat(10 - (a.love || 0)) + '</span><br><span class="sub" style="margin:0;">' + (a.fedDay === today ? '밥 먹었어요' : '<b>배고파요</b>') + ' · 쓰다듬기 ' + (petted.length ? petted.map(k => NAME[k]).join('·') : '아직') + (a.baby ? ' · <b>' + grow + '일</b> 뒤 어른이 돼요' : '') + (a.ready ? ' · <b>' + escapeHTML(R.ee(R.itemName(a.ready))) + '</b> 있어요' : '') + '</span>';
     d.appendChild(info);
     const act2 = document.createElement('div'); act2.className = 'act';
-    act2.appendChild(btn('🍚 밥', 'sm', () => act((w, m) => R.feed(w, m, a.id, now())), a.fedDay === today));
+    // 기운이 모자라면 누르기 전에 알려 준다 — 눌러서 거절당하는 것보다 낫다
+    const tired = (M.energy || 0) < R.COST.feed && a.fedDay !== today;
+    act2.appendChild(btn(tired ? '🍚 밥 · ⚡부족' : '🍚 밥', 'sm', () => act((w, m) => R.feed(w, m, a.id, now())), a.fedDay === today || tired));
     act2.appendChild(btn('🤚 쓰다듬기', 'sm', () => { const r = act((w, m) => R.pet(w, m, a.id, now())); if (r.love) sfx('purr'); }, petted.indexOf(key) >= 0));
     if (a.ready) act2.appendChild(btn('줍기', 'sm buy', () => { act((w, m) => R.collect(w, m, a.id, now())); sfx('pop'); }));
     act2.appendChild(btn('✏️', 'sm', () => nameDialog(a)));

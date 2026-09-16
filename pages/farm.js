@@ -31,7 +31,28 @@ const now = () => Date.now();
 let saveTimer = 0, saving = false, dirty = false;
 function clone(o){ return JSON.parse(JSON.stringify(o)); }
 
-function flash(html, bad){ const el = $('#fmsg'); el.innerHTML = html || ''; el.classList.toggle('bad', !!bad); }
+function flash(html, bad){
+  const el = $('#fmsg'); el.innerHTML = html || ''; el.classList.toggle('bad', !!bad);
+  /* 안내 줄은 농장 그림 위에 있어서, 아래쪽 동물·부엌 단추를 누르면 화면 밖에 떴다 —
+     아이 눈에는 「눌러도 반응이 없다」. 안내 줄이 안 보이면 화면 아래에 잠깐 띄운다. */
+  const r = el.getBoundingClientRect();
+  if (!html || (r.bottom > 0 && r.top < window.innerHeight)) return;
+  let t = $('#fmsgFloat');
+  if (!t){
+    t = document.createElement('div'); t.id = 'fmsgFloat'; t.setAttribute('aria-hidden', 'true');
+    t.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;max-width:calc(100vw - 32px);'
+      + 'padding:9px 16px;border-radius:12px;font-size:14px;font-weight:800;line-height:1.5;text-align:center;'
+      + 'box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:none;transition:opacity .2s;';
+    document.body.appendChild(t);
+  }
+  t.innerHTML = html;
+  t.style.background = bad ? '#fff0ee' : '#f4fff0';
+  t.style.color = bad ? '#b23a3a' : '#2f6b2a';
+  t.style.border = '2px solid ' + (bad ? '#e8a39b' : '#9fd48f');
+  t.style.opacity = '1';
+  clearTimeout(flash.timer);
+  flash.timer = setTimeout(() => { t.style.opacity = '0'; }, 2400);
+}
 
 // ---------- 시작 ----------
 async function loadRows(){
@@ -54,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '6';
+const PLAY_V = '7';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
