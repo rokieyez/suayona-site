@@ -12,7 +12,7 @@ const COLS = R.GRID.w, ROWS = R.GRID.h;   // 지도 크기는 규칙이 정한�
 const NAME = R.NAME;
 
 let key = null, W = null, M = null, REV = 0, TUNE = R.fixTune(null), other = null, facts = {};
-let Mbase = null;                              // 마지막으로 서버에 올라간 내 줄 — 겹쳤을 때 여기서 다시 한다
+let Mbase = null;                              // 마지막으로 서버에 올라갔다고 확인된 내 줄
 let pending = [];                              // 아직 안 올라간 행동들
 let tool = 'hand', seed = null, tab = 'bag', shopTab = 'seed', room = 'living', furnPick = null;
 let furnRot = 0, rotMode = false;      // 가구를 놓을 각도 · 놓인 것을 돌리는 중인가
@@ -43,16 +43,18 @@ async function loadRows(){
   const t = rows.find(r => r.who === 'tune'); TUNE = R.fixTune(t ? t.data : null);
   W.seasonLen = TUNE.seasonLen;
   const mine = rows.find(r => r.who === key);
-  if (!Mbase){ M = R.fixMine(mine ? mine.data : null, key); Mbase = clone(M); }
+  const fresh = R.fixMine(mine ? mine.data : null, key);
+  if (!Mbase){ M = clone(fresh); Mbase = clone(fresh); }
   const o = rows.find(r => r.who === R.OTHER[key]); other = o ? R.fixMine(o.data, R.OTHER[key]) : null;
-  return true;
+  // 서버에 있는 내 줄을 돌려준다 — 겹쳤을 때 놀이 코드가 여기서부터 다시 한다
+  return { mine: fresh };
 }
 /* 놀이 코드(가게·집 조작·도감·저장 + 심기·거두기·사기 같은 규칙)는 로그인한 사람만
    받는다 — 손님은 그림만 보므로 gzip 48KB(화면 28 + 규칙 19)를 안 받는다. 고전 스크립트라 이 파일의 최상위 let/const 를 그대로 나눠 쓴다
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '5';
+const PLAY_V = '6';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;

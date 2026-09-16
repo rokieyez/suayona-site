@@ -2,12 +2,35 @@
 // pages/farm.js 가 로그인한 사람에게만 받아 온다(loadPlay). 손님은 이 파일을 안 받는다.
 // 최상위 let/const 는 farm.js 것을 그대로 쓴다 — 고전 스크립트라 전역 렉시컬 환경이 하나다.
 
+/* 답을 못 받은 저장들. 창을 덮는 순간 보낸 저장은 서버에 들어가도 페이지가 얼어서 답을
+   못 받을 수 있다. 그러면 판 번호가 뒤처져 다음 저장이 겹치는데, 그때 옛 기준점에서
+   다시 하면 이미 올라간 수확·판매가 「못 한 일」로 버려져 돈과 작물이 줄었다.
+   저장마다 표식(sync)을 붙여 두고, 서버 줄의 표식이 이 중 하나면 그만큼은 올라간 것으로 친다. */
+let unacked = [];
 function persist(){ clearTimeout(saveTimer); saveTimer = setTimeout(commit, 600); }
+/* 서버에서 막 읽은 내 줄 위에서 못 올라간 행동을 다시 한다. 되돌린 가짓수를 돌려준다. */
+function rebase(fresh){
+  const hit = unacked.find(u => u.tag === fresh.sync);
+  if (hit) pending.splice(0, hit.sent);      // 이미 서버에 있는 몫
+  unacked = [];
+  const redo = pending; pending = [];
+  M = clone(fresh); Mbase = clone(fresh);
+  let dropped = 0;
+  redo.forEach(fn => { try { const r = fn(W, M); if (r && r.ok) pending.push(fn); else dropped++; } catch (e) { dropped++; } });
+  if (pending.length) dirty = true;
+  return dropped;
+}
 async function commit(){
   if (!key || saving) return;
-  saving = true; dirty = false;
+  saving = true;
   try {
     for (let tries = 0; tries < 3; tries++){
+      // 보내는 순간의 모습을 적어 둔다 — 답을 기다리는 사이에 한 일은 다음 차례에 올린다
+      dirty = false;
+      const sent = pending.length, tag = Math.random().toString(36).slice(2, 10);
+      M.sync = tag;
+      const sentM = clone(M);
+      unacked.push({ tag, sent });
       const { data, error } = await sb.rpc('farm_commit', { p_world: W, p_rev: REV, p_mine: M });
       if (error){
         // 인터넷이 끊긴 것이면 행동은 그대로 두고 조금 뒤에 다시 올린다. 돌아오면 저절로.
@@ -16,18 +39,42 @@ async function commit(){
         if (off){ clearTimeout(saveTimer); saveTimer = setTimeout(commit, 15000); }
         break;
       }
-      if (data >= 0){ REV = data; Mbase = clone(M); pending = []; break; }
+      if (data >= 0){
+        REV = data; Mbase = sentM; unacked = [];
+        pending.splice(0, sent);
+        if (pending.length) dirty = true;
+        break;
+      }
       // 겹쳤다 — 다시 읽고, 못 올라간 행동을 새 농장 위에서 다시.
       const fresh = await loadRows();
       if (!fresh) break;
-      const redo = pending.slice(); pending = [];
-      M = clone(Mbase);
-      let dropped = 0;
-      redo.forEach(fn => { try { const r = fn(W, M); if (r && r.ok) pending.push(fn); else dropped++; } catch (e) { dropped++; } });
-      if (dropped) flash(NAME[R.OTHER[key]] + '가 먼저 움직여서 ' + dropped + '가지는 되돌렸어요', true);
+      let dropped;
+      if (fresh.mine) dropped = rebase(fresh.mine);
+      else {                                   // 옛 farm.js 와 섞여 받은 경우 — 예전 방식 그대로
+        const redo = pending.slice(); pending = [];
+        M = clone(Mbase); dropped = 0;
+        redo.forEach(fn => { try { const r = fn(W, M); if (r && r.ok) pending.push(fn); else dropped++; } catch (e) { dropped++; } });
+      }
+      if (dropped) flash('다른 곳에서 먼저 바뀐 게 있어서 ' + dropped + '가지는 되돌렸어요', true);
       renderAll();
+      if (!pending.length){ dirty = false; break; }
     }
-  } finally { saving = false; if (dirty) persist(); }
+  } finally {
+    saving = false;
+    // 창이 덮인 채 끝났으면 기다리지 않는다 — 곧 얼어서 타이머가 안 돌 수 있다
+    if (dirty){ if (document.hidden) commit(); else persist(); }
+  }
+}
+/* 뒤로 가기로 되살아난 페이지는 부팅을 안 거친다. 그 사이 서버가 앞서 있을 수 있으니 맞춘다. */
+async function resync(){
+  if (!key || !W || saving) return;
+  if (pending.length){ clearTimeout(saveTimer); commit(); return; }
+  const fresh = await loadRows();
+  if (!fresh || !fresh.mine || saving) return;
+  rebase(fresh.mine);
+  if (pending.length) persist();
+  tickAll();
+  renderAll();
 }
 function act(fn, quiet){
   const r = fn(W, M);
@@ -1420,7 +1467,9 @@ function wireUI(){
     if (document.hidden){ if (saveTimer || dirty){ clearTimeout(saveTimer); commit(); } return; }
     rollIfNewDay();                       // 다시 볼 때 — 밤새 덮어 뒀다 아침에 여는 길
   });
-  window.addEventListener('pageshow', rollIfNewDay);   // 폰에서 되살아난 쪽(bfcache)은 부팅이 안 돈다
+  window.addEventListener('pageshow', e => {            // 폰에서 되살아난 쪽(bfcache)은 부팅이 안 돈다
+    if (e.persisted) resync().then(rollIfNewDay, rollIfNewDay); else rollIfNewDay();
+  });
   // 말풍선 글꼴을 미리 받아 둔다 — 안 그러면 첫 말풍선만 다른 글꼴로 나온다
   if (document.fonts && document.fonts.load) document.fonts.load("bold 12px 'Suayona Dot'").catch(() => {});
   window.addEventListener('online', () => { if (pending.length){ clearTimeout(saveTimer); commit(); } });
