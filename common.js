@@ -158,8 +158,9 @@ const MENU = [
   { href: '/',              label: '홈',        key: 'home' },
   { href: '/life.html',     label: '수아연아',  key: 'life' },   // 인생 퀘스트 — 현실의 기록이 경험치가 되어 아바타가 자란다 (2026-09-17). 2026-09-18 부모 요청으로 메뉴 이름을 「수아연아」로, 자리를 홈 다음으로
   { href: '/portfolio.html',label: '작품전시실', key: 'portfolio' },   // 2026-09-15 포트폴리오 → 작품전시실(부모 요청). 주소는 그대로
-  { href: '/event/',        label: '이벤트',    key: 'event' },
-  { href: '/wish/',         label: '가볼 곳',   key: 'wish' },
+  // 2026-09-18 「이벤트」와 「가볼 곳」을 한 쪽으로 합쳐 「나들이」가 됐다(부모 요청). 주소는 /event/ 그대로,
+  // 옛 /wish/ 는 /event/#want 로 넘긴다. 이벤트 상세(/event/e/)도 같은 key 라 이 칸에 불이 들어온다.
+  { href: '/event/',        label: '나들이',    key: 'event' },
   { href: '/board.html',    label: '일기장',    key: 'board' },
   // 그리기는 메뉴에 두지 않는다 — 첫 화면의 「그리러 가기」로 충분하고, 항목이
   // 일곱이면 좁은 화면에서 한 줄이 넘친다.

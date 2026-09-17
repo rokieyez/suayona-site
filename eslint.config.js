@@ -79,6 +79,7 @@ const pairs = [
   { files: ['pages/farm.js', 'pages/farm-play.js'] },
   { files: ['farm-rules.js', 'farm-rules-play.js'] },
   { files: ['pages/index.js', 'pages/run.js'] },
+  { files: ['pages/outing-trips.js', 'pages/outing-places.js'] },   // 「나들이」 한 쪽을 둘이 나눠 맡는다
 ].map(p => ({
   files: p.files,
   languageOptions: { globals: Object.assign({}, ...p.files.map(topLevelNames)) },

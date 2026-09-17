@@ -424,7 +424,7 @@ async function showNearbyWishes(){
   box.hidden = false;
   box.innerHTML = '<b>📌 이 근처에 적어 둔 가볼 곳 ' + near.length + '군데</b>' +
     near.slice(0, 6).map(w =>
-      '<a href="/wish/">' + escapeHTML(w.name) +
+      '<a href="/event/#want">' + escapeHTML(w.name) +
       '<span>' + (w.m < 1000 ? w.m + 'm' : (w.m / 1000).toFixed(1) + 'km') + '</span></a>').join('');
 }
 

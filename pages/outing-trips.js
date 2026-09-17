@@ -1,9 +1,9 @@
-// event/index.html 의 페이지 스크립트. 전에는 HTML 안에 인라인으로 있었다.
-// 파일로 빼 둔 이유: 문법 검사(node --check / eslint)가 되고, 에디터가 참조를 따라갈 수 있다.
-// 싣는 순서는 그대로다 — supabase → (compress) → pixel → common → 이 파일.
-
-buildChrome('event');
-buildBackdrop('event');   // 배경 픽셀 겹 (common.js) — 다른 쪽들과 같은 풍경을 깐다
+// 「나들이」(event/index.html)의 앞쪽 짝 — 나들이 기록(이벤트) 목록과 만들기·지우기.
+// 2026-09-18 이벤트 목록과 가볼 곳을 한 쪽으로 합치면서 event-index.js 에서 이름을 바꿨다.
+// 파일 이름을 바꾼 까닭: 새 HTML 이 캐시에 남은 옛 스크립트와 섞여 돌지 않게 하려고.
+// 싣는 순서 — supabase → compress → pixel → common → 이 파일 → outing-places.js.
+// 머리말·배경·지도·탭·첫 실행은 전부 뒤쪽 짝(outing-places.js)이 맡는다. 여기서는
+// 함수만 내놓고 스스로 돌지 않는다.
 
 /* =========================================================================
    레거시 이벤트(전용 폴더+파일로 만들어진 것) — 새 이벤트는 여기 추가할 필요 없음.
@@ -28,7 +28,7 @@ function getStatus(ev){
   return 'done';
 }
 
-function cardHTML(ev, status){
+function tripCardHTML(ev, status){
   const badgeText = status === 'ongoing' ? '진행중' : status === 'upcoming' ? '예정' : '종료';
   const adminBtns = (isAdmin && ev.isRegistry)
     ? '<button class="card-lock" data-slug="' + ev.slug + '" title="' +
@@ -44,6 +44,8 @@ function cardHTML(ev, status){
   const todo = needsName
     ? '<a class="card-todo" href="/event/e/admin.html?slug=' + encodeURIComponent(ev.slug) + '">✏️ 이름을 지어주세요</a>'
     : '';
+  // 이 나들이에 이어 둔 장소가 몇 곳인지 (장소 쪽 표에서 센다)
+  const linked = PLACES.filter(p => p.event_id === ev.slug).length;
   // 지금 열려 있는 이벤트는 테두리를 코랄로 둘러 한눈에 갈라 보이게 한다
   return '<div class="card' + (status === 'ongoing' ? ' is-now' : '') +
     (ev.isPublic === false ? ' is-private' : '') + '" data-slug="' + ev.slug + '">' +
@@ -51,7 +53,8 @@ function cardHTML(ev, status){
     '<div class="card-top"><span class="card-name">' + ev.orgName + ' · ' + ev.eventName + '</span>' +
     '<span class="badge-group">' + privateTag +
     '<span class="badge ' + status + '">' + badgeText + '</span></span></div>' +
-    '<div class="card-sub">' + ev.dateRangeText + '</div></a>' +
+    '<div class="card-sub">' + ev.dateRangeText +
+      (linked ? ' · 📍 장소 ' + linked + '곳' : '') + '</div></a>' +
     todo + adminBtns + '</div>';
 }
 
@@ -97,13 +100,16 @@ async function fetchRegistryEvents(){
     });
 }
 
-async function renderEvents(){
+// 탭을 바꿀 때마다 다시 그리지만, 서버에는 바뀐 것이 있을 때만(force) 다시 묻는다.
+let TRIPS_CACHE = null;
+async function renderEvents(force){
   const currentList = $('#current-list');
   const pastList = $('#past-list');
   const current = [], past = [];
 
-  const registryEvents = await fetchRegistryEvents();
-  const allEvents = [...EVENTS, ...registryEvents];
+  const fresh = force || !TRIPS_CACHE;
+  if (fresh) TRIPS_CACHE = [...EVENTS, ...(await fetchRegistryEvents())];
+  const allEvents = TRIPS_CACHE;
 
   allEvents.forEach(ev => {
     const status = getStatus(ev);
@@ -113,23 +119,30 @@ async function renderEvents(){
   current.sort((a,b) => new Date(...a.ev.startDate) - new Date(...b.ev.startDate));
   past.sort((a,b) => new Date(...b.ev.endDate) - new Date(...a.ev.endDate));
 
-  currentList.innerHTML = current.length ? current.map(c => cardHTML(c.ev, c.status)).join('') : '<div class="empty">진행중이거나 예정된 이벤트가 없습니다</div>';
+  TRIP_COUNT = allEvents.length;
+  // 「전체」에서는 진행중·예정이 없으면 그 칸을 통째로 접는다 — 빈 안내가 장소 목록을 밀어낸다.
+  const brief = currentTab() === 'all';
+  $('#current-section').style.display = (brief && !current.length) ? 'none' : 'block';
+  currentList.innerHTML = current.length ? current.map(c => tripCardHTML(c.ev, c.status)).join('') : '<div class="empty">진행중이거나 예정된 나들이가 없습니다</div>';
   $('#past-section').style.display = past.length ? 'block' : 'none';
-  pastList.innerHTML = past.map(c => cardHTML(c.ev, c.status)).join('');
+  // 「전체」에서는 지난 기록을 몇 장만 보여 주고 나머지는 「나들이 기록」 탭으로 보낸다.
+  const few = brief ? past.slice(0, TRIPS_BRIEF) : past;
+  pastList.innerHTML = few.map(c => tripCardHTML(c.ev, c.status)).join('');
+  const more = $('#tripsMore');
+  more.hidden = !(brief && past.length > TRIPS_BRIEF);
+  if (!more.hidden) more.textContent = '지난 나들이 모두 보기 (' + past.length + ') →';
 
-  // 목록을 다 그린 뒤에 지도를 붙인다 — 지도가 늦어도 목록은 먼저 보이도록.
-  drawMapBand(allEvents);
+  // 목록을 다 그린 뒤에 지도 핀을 챙긴다 — 지도가 늦어도 목록은 먼저 보이도록.
+  if (fresh) await loadTripPins(allEvents);
 }
 
 /* =========================================================================
-   지도 띠
+   나들이 사진 핀
    ------------------------------------------------------------------------
    핀은 일정에 적어 둔 장소(events.place_lat/place_lng)에서 온다.
    사진의 위치정보로는 못 만든다 — 올라와 있는 사진 중 좌표가 남은 것이 없다.
-   그래서 관리 화면에서 장소를 적은 일정이 하나도 없으면 띠는 안 나온다.
+   그래서 관리 화면에서 장소를 적은 일정이 하나도 없는 나들이는 사진 핀이 안 나온다.
    ========================================================================= */
-let mapBandDrawn = false;
-
 // 목록에 실제로 보이는 이벤트만 물어본다 — 비공개 이벤트의 위치가
 // 로그인 안 한 사람의 지도에 찍히면 안 되므로.
 async function fetchEventPlaces(slugs){
@@ -148,117 +161,27 @@ async function fetchEventPlaces(slugs){
   return byEvent;
 }
 
-// 왼쪽 확대·축소 버튼.
-//
-// 카카오의 레벨은 숫자가 클수록 멀리 본다. 14 가 끝이라 setLevel(15) 를 넣어도
-// 14 로 되돌아온다(직접 재 봤다). 목록 지도는 핀을 다 담느라 처음부터 14 로 열리므로
-// 축소는 처음부터 더 갈 곳이 없다 — 그래서 「핀치로 줄여도 안 줄어든다」로 보였다.
-// 버튼도 사정은 같으니, 안 되는 쪽을 흐리게 해서 끝에 닿았다는 것을 보이게 한다.
-const MAP_MAX_LEVEL = 14;
-const MAP_MIN_LEVEL = 1;
-function attachZoomButtons(map){
-  const box = $('#zoomCtl'), zin = $('#zoomIn'), zout = $('#zoomOut');
-  if (!box || !zin || !zout) return;
-  function sync(){
-    const lv = map.getLevel();
-    zin.disabled  = lv <= MAP_MIN_LEVEL;
-    zout.disabled = lv >= MAP_MAX_LEVEL;
-  }
-  // 한 칸씩. 지도 한가운데를 붙잡고 움직인다(버튼에는 손가락 자리가 없다).
-  zin.addEventListener('click', () => { map.setLevel(map.getLevel() - 1); sync(); });
-  zout.addEventListener('click', () => { map.setLevel(map.getLevel() + 1); sync(); });
-  // 핀치나 더블클릭으로 바뀌었을 때도 버튼 상태가 따라가야 한다.
-  kakao.maps.event.addListener(map, 'zoom_changed', sync);
-  box.hidden = false;
-  sync();
-}
-
-async function drawMapBand(events){
-  if (mapBandDrawn) return;
-  const band = $('#mapBand');
+/* 나들이 하나에 사진 핀 하나. 지도 자체는 뒤쪽 짝이 그린다 — 여기서는 핀에 쓸 것만 모은다.
+   한 나들이에서 다닌 곳들은 서로 몇 km 안이라 전국이 보이는 크기에서는 장소마다 찍으면
+   사진이 통째로 포개진다. 그래서 그 자리들의 한가운데에 한 장만 둔다. */
+let TRIP_PINS = [];
+let TRIP_COUNT = 0;
+const TRIPS_BRIEF = 3;
+async function loadTripPins(events){
   const byEvent = await fetchEventPlaces(events.map(e => e.slug));
-  const shown = events.filter(e => byEvent[e.slug] && byEvent[e.slug].length);
-  if (!shown.length) return;                       // 적어 둔 장소가 없으면 띠를 안 그린다
-
-  // 여기서 실패하면(서비스가 꺼져 있거나 도메인이 안 맞으면) 조용히 접는다.
-  // 지도 하나 때문에 이벤트 목록이 안 보이면 안 되므로.
-  try { await loadKakaoMaps(); } catch (e) { console.warn('지도를 건너뜁니다:', e.message); return; }
-
-  mapBandDrawn = true;
-  band.hidden = false;
-  const map = new kakao.maps.Map($('#eventMap'), {
-    center: new kakao.maps.LatLng(36.5, 127.9), level: 13, scrollwheel: false,
-  });
-  enablePinchZoom(map, $('#eventMap'));
-  attachZoomButtons(map);
-  const bounds = new kakao.maps.LatLngBounds();
-  const pins = [];
-
-  const placeCount = shown.reduce((a, ev) => a + byEvent[ev.slug].length, 0);
-  function showSummary(){
-    pins.forEach(p => p.classList.remove('on'));
-    $('#stripText').innerHTML = '📍 다녀온 곳<span class="sub">이벤트 ' + shown.length +
-      '개 · ' + placeCount + '군데 · 사진을 눌러보세요</span>';
-    $('#stripLink').hidden = true;
-  }
-
-  const spots = [];
-  shown.forEach(ev => {
+  TRIP_PINS = events.filter(e => byEvent[e.slug] && byEvent[e.slug].length).map(ev => {
     const rows = byEvent[ev.slug];
-    const lat = rows.reduce((a,r) => a + r.place_lat, 0) / rows.length;
-    const lng = rows.reduce((a,r) => a + r.place_lng, 0) / rows.length;
-    const here = new kakao.maps.LatLng(lat, lng);
-    spots.push(here);
-    bounds.extend(here);
-
-    // 그 장소에 붙여 둔 사진을 핀으로. 사진이 없는 일정이면 이벤트 아이콘으로 대신한다.
-    const shot = rows.map(r => r.thumb_url || r.image_url).find(Boolean);
-    const pin = document.createElement('div');
-    pin.className = 'pin-photo';
-    pin.innerHTML = shot ? '<img alt="" src="' + escapeHTML(shot) + '">' : (ev.icon || '📍');
-
-    pin.addEventListener('click', () => {
-      pins.forEach(p => p.classList.remove('on'));
-      pin.classList.add('on');
+    const names = rows.map(r => r.place_name).filter(Boolean);
+    return {
+      ev, count: rows.length,
+      lat: rows.reduce((a, r) => a + r.place_lat, 0) / rows.length,
+      lng: rows.reduce((a, r) => a + r.place_lng, 0) / rows.length,
+      // 그 장소에 붙여 둔 사진을 핀으로. 없으면 이벤트 아이콘으로 대신한다.
+      shot: rows.map(r => r.thumb_url || r.image_url).find(Boolean) || null,
       // 이름표는 한 줄로. 길어지면 줄이 두 겹이 되어 띠가 들썩인다.
-      const names = rows.map(r => r.place_name).filter(Boolean);
-      const label = names.slice(0, 2).join(', ') +
-        (names.length > 2 ? ' 외 ' + (names.length - 2) + '곳' : '');
-      $('#stripText').innerHTML = escapeHTML(ev.eventName || ev.orgName) +
-        '<span class="sub">' + escapeHTML(label) + '</span>';
-      $('#stripLink').href = ev.href;
-      $('#stripLink').hidden = false;
-    });
-    pins.push(pin);
-
-    new kakao.maps.CustomOverlay({
-      map, position: here, content: pin,
-      xAnchor: 0.5, yAnchor: 0.5, clickable: true, zIndex: 2,
-    });
+      label: names.slice(0, 2).join(', ') + (names.length > 2 ? ' 외 ' + (names.length - 2) + '곳' : ''),
+    };
   });
-
-  // 핀이 다 들어오게 맞춘다.
-  //
-  // 여백은 핀 반지름(22px)만큼만 둔다. 카카오 지도는 레벨 14 보다 더 물러날 수 없고,
-  // 그 레벨에서 담기는 세로 폭은 띠 높이에 비례한다 — 288px 가 위도 5.08도, 231px 는
-  // 4.05도, 210px 는 3.67도였다. 제주에서 홍천까지가 4.27도라 앞의 두 높이로는
-  // 아예 담기지 않아 제주 핀이 지도 밖으로 사라졌었다. 여백을 58px 로 키웠을 때도
-  // 같은 이유로 setBounds 가 한쪽을 통째로 잘랐다.
-  // 그래도 다 안 들어오는 날이 오면 한가운데에 놓는 쪽으로 물러선다.
-  if (spots.length === 1) {
-    map.setCenter(spots[0]);
-    map.setLevel(6);                       // 한 곳뿐이면 동네가 보일 만큼만
-  } else {
-    map.setBounds(bounds, 22, 22, 22, 22);
-    const view = map.getBounds();
-    if (!spots.every(p => view.contain(p))) {
-      const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
-      map.setLevel(14);
-      map.setCenter(new kakao.maps.LatLng((sw.getLat()+ne.getLat())/2, (sw.getLng()+ne.getLng())/2));
-    }
-  }
-  showSummary();
-  kakao.maps.event.addListener(map, 'click', showSummary);
 }
 
 // ----- 이벤트 삭제 (2단계 확인: 🗑 클릭 → 인라인 확인 → 삭제 버튼 클릭) -----
@@ -288,7 +211,7 @@ $('#content').addEventListener('click', async (e) => {
     const { error } = await sb.from('event_meta').update({ is_public: !nowPublic }).eq('event_id', slug);
     lockBtn.disabled = false;
     if (error) { alert('변경 실패: ' + error.message); return; }
-    renderEvents();
+    await renderEvents(true); redrawPins();
     return;
   }
 
@@ -323,7 +246,7 @@ $('#content').addEventListener('click', async (e) => {
     okBtn.disabled = true; okBtn.textContent = '삭제 중...';
     try {
       await deleteEvent(slug);
-      renderEvents();
+      await renderEvents(true); redrawPins(); syncTabs();
     } catch (err) {
       alert('삭제 실패: ' + err.message);
       okBtn.disabled = false; okBtn.textContent = '삭제';
@@ -373,7 +296,7 @@ $('#neBtn').addEventListener('click', async () => {
   msg.className = 'ok'; msg.textContent = '만들어졌어요! 목록에 추가됐습니다.';
   $('#neSlug').value = ''; $('#neOrgName').value = ''; $('#neEventName').value = '';
   $('#neIcon').value = ''; $('#neStart').value = ''; $('#neEnd').value = '';
-  renderEvents();
+  await renderEvents(true); redrawPins(); syncTabs();
 });
 
 // ---------------------------------------------------------------------------
@@ -389,6 +312,27 @@ $('#neBtn').addEventListener('click', async () => {
 // ---------------------------------------------------------------------------
 const QUICK_ORG = '가족끼리';
 const QUICK_EVENT = '나들이';
+
+/* 「다녀왔어요」 다리 — 가보고 싶은 곳 카드에서 건너온다.
+   전에는 장소를 「다녀옴」으로 바꾸고, 따로 이벤트를 만들고, 다시 장소로 돌아와 둘을
+   이어야 했다. 이제 사진만 고르면 셋이 한 번에 된다: 기록이 그 곳 이름으로 만들어지고,
+   장소는 다녀옴이 되며, 둘이 이어진다. */
+let pendingPlace = null;
+function syncPendingNote(){
+  const box = $('#pendingNote');
+  box.hidden = !pendingPlace;
+  if (!pendingPlace) return;
+  box.innerHTML = '<b>「' + escapeHTML(pendingPlace.name) + '」 다녀온 기록을 만듭니다.</b> ' +
+    '사진을 고르면 이 곳이 「다녀옴」으로 바뀌고 새 기록에 이어져요. ' +
+    '<button type="button" id="pendingCancel">그만두기</button>';
+  $('#pendingCancel').addEventListener('click', () => { pendingPlace = null; syncPendingNote(); });
+}
+function startTripFromPlace(p){
+  pendingPlace = p;
+  setTab('trips');
+  syncPendingNote();
+  $('#new-event-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
 function isoDay(d){
   const p = n => String(n).padStart(2, '0');
@@ -453,8 +397,10 @@ async function createEventFromPhotos(fileList){
   // 3) 자리부터 잡는다 — 사진이 저장되는 경로에 주소가 쓰이므로 사진보다 먼저.
   msg.textContent = '이벤트 만드는 중...';
   const slug = await freeSlug(startVal);
+  const forPlace = pendingPlace;
   const { error: metaErr } = await sb.from('event_meta').insert({
-    event_id: slug, icon: '🗓️', org_name: QUICK_ORG, event_name: QUICK_EVENT,
+    event_id: slug, icon: '🗓️', org_name: QUICK_ORG,
+    event_name: forPlace ? String(forPlace.name).slice(0, 60) : QUICK_EVENT,
     date_range_text: formatDateRangeText(isoToDateKey(startVal), isoToDateKey(endVal)),
     start_date: startVal, end_date: endVal,
     // 이름도 아직 안 정한 이벤트가 만들자마자 밖에 보이지는 않게. 자물쇠로 공개한다.
@@ -465,7 +411,23 @@ async function createEventFromPhotos(fileList){
     msg.className = 'err'; msg.textContent = '만들기 실패: ' + metaErr.message;
     return;
   }
-  renderEvents();                       // 사진 올리는 동안 카드는 먼저 보이도록
+  // 건너온 장소가 있으면 다녀옴으로 바꾸고 이 기록에 잇는다. select() 를 붙여야 한다 —
+  // RLS 에 막힌 update 는 오류 없이 0행이다.
+  let placeLine = '';
+  if (forPlace) {
+    const patch = { status: 'done', event_id: slug, visited_on: forPlace.visited_on || startVal, hope: 0 };
+    const { data: pd, error: pe } = await sb.from('places').update(patch).eq('id', forPlace.id).select();
+    if (pe || !pd || !pd.length) {
+      placeLine = '「' + escapeHTML(forPlace.name) + '」을 다녀옴으로 바꾸지 못했어요 — 장소 카드에서 직접 고쳐주세요.';
+    } else {
+      Object.assign(forPlace, pd[0]);
+      placeLine = '「' + escapeHTML(forPlace.name) + '」을 <b>다녀옴</b>으로 바꾸고 이 기록에 이었어요. 별점은 장소 카드에서 매겨요.';
+    }
+    pendingPlace = null;
+    syncPendingNote();
+    render(); redrawPins();
+  }
+  renderEvents(true);                   // 사진 올리는 동안 카드는 먼저 보이도록
 
   // 4) 갤러리에 사진 넣기
   let okPhoto = 0, okVideo = 0, firstFail = '';
@@ -494,13 +456,14 @@ async function createEventFromPhotos(fileList){
   if (slug !== startVal) lines.push('그날 이벤트가 이미 있어서 주소는 <b>' + slug + '</b> 로 했어요.');
   if (rejected.length) lines.push(rejected.length + '개는 올리지 않았어요 — ' + escapeHTML(rejected[0]));
   if (firstFail) lines.push('올리다 실패한 것이 있어요 — ' + escapeHTML(firstFail));
-  lines.push('이름은 <b>' + QUICK_ORG + ' · ' + QUICK_EVENT + '</b> 로 뒀어요. ' +
+  if (placeLine) lines.push(placeLine);
+  lines.push('이름은 <b>' + QUICK_ORG + ' · ' + escapeHTML(forPlace ? forPlace.name : QUICK_EVENT) + '</b> 로 뒀어요. ' +
              '<a href="/event/e/?slug=' + slug + '">열어서 바꾸기 →</a>');
   lines.push('지금은 🔒 비공개예요. 아래 카드의 자물쇠를 누르면 공개됩니다.');
   msg.className = okCount ? 'ok' : 'err';
   msg.innerHTML = lines.join('<br>');
 
-  renderEvents();
+  await renderEvents(true); redrawPins(); syncTabs();
 }
 
 $('#quickFiles').addEventListener('change', (e) => {
@@ -515,18 +478,6 @@ $('#manualToggle').addEventListener('click', () => {
   $('#manualToggle').textContent = open ? '✏️ 직접 적어서 만들기' : '✏️ 접기';
 });
 
-// ----- 목록은 누구나 볼 수 있고, 만들기/삭제만 로그인한 사람에게 노출 -----
-async function refreshAuthUI(){
-  // 역할까지 확인 — 아이 계정은 이벤트를 만들거나 지울 수 없어야 한다
-  await refreshAuth();
-
-  $('#content').style.display = 'block';            // 목록은 항상 보임
-  $('#new-event-box').style.display = isAdmin ? 'block' : 'none';
-  $('.section-head p').textContent = isAdmin
-    ? '지금까지 열린 이벤트를 확인하고 새로 만들 수 있어요'
-    : '지금까지 열린 이벤트를 확인해보세요';
-
-  renderEvents();
-}
-
-refreshAuthUI();
+// 목록은 누구나 볼 수 있고, 만들기·지우기는 부모에게만 — 그 갈림과 첫 실행은
+// outing-places.js 의 refreshAuthUI 가 한다.
+$('#tripsMore').addEventListener('click', () => setTab('trips'));

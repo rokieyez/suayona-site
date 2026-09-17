@@ -191,7 +191,7 @@ function render(){
       '<div class="yr-map-wrap"><div class="yr-map" id="yearMap"></div></div>' +
       '<div class="yr-map-note">' + year + '년에 ' + places.length + '군데' +
       (평균 ? ' · 별 평균 ' + 평균 + '점' : '') +
-      ' · <a href="/wish/">가볼 곳에서 더 보기</a></div></div>';
+      ' · <a href="/event/#done">나들이에서 더 보기</a></div></div>';
   }
 
   // 일정

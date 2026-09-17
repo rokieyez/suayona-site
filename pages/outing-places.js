@@ -1,16 +1,69 @@
-// wish/index.html 의 페이지 스크립트.
-// 싣는 순서는 다른 쪽과 같다 — supabase → pixel → common → 이 파일.
+// 「나들이」(event/index.html)의 뒤쪽 짝 — 장소(가본 곳·가보고 싶은 곳), 지도, 탭, 첫 실행.
+// 2026-09-18 이벤트 목록과 가볼 곳을 한 쪽으로 합치면서 wish-index.js 에서 이름을 바꿨다.
+// 싣는 순서 — supabase → compress → pixel → common → outing-trips.js → 이 파일.
 //
-// 한 곳의 일생을 한 줄에 담는다: 가고 싶다(want) → 계획 중(planned) → 다녀옴(done).
+// 한 곳의 일생을 한 줄에 담는다: 가고 싶다(want) → 다녀옴(done).
 // 다녀온 뒤에만 별과 한마디가 붙는다. 읽기는 누구나, 쓰기는 부모만 (표의 RLS 와 같은 선).
+//
+// 지도는 한 장이다. 나들이 기록은 사진 핀, 장소는 글자 핀으로 같이 얹는다.
 
-buildChrome('wish');
-// 배경은 이벤트 쪽 풍경을 그대로 쓴다. BACKDROP 에 'wish' 항목을 따로 만들지 않은 이유는,
-// 이 쪽이 이벤트와 같은 「어디를 다녀왔나」의 자리이고 그림도 그쪽이 어울리기 때문이다.
-buildBackdrop('event');
+buildChrome('event');
+buildBackdrop('event');   // 배경 픽셀 겹 (common.js)
+
+/* ---------- 탭 ----------
+   전체 · 나들이 기록 · 가본 곳 · 가보고 싶은 곳. 목록과 지도가 함께 바뀐다.
+   주소 뒤의 #trips·#done·#want 로도 열린다 — 옛 /wish/ 주소는 #want 로 넘어온다. */
+const TABS = [['전체','all'], ['나들이 기록','trips'], ['가본 곳','done'], ['가보고 싶은 곳','want']];
+let tab = 'all';
+function currentTab(){ return tab; }
+function tabFromHash(){
+  const h = location.hash.replace('#', '');
+  return TABS.some(t => t[1] === h) ? h : 'all';
+}
+function tabCount(v){
+  if (v === 'trips') return TRIP_COUNT;
+  if (v === 'done') return PLACES.filter(p => p.status === 'done').length;
+  if (v === 'want') return PLACES.filter(p => p.status !== 'done').length;
+  return null;
+}
+function syncTabs(){
+  const box = $('#tabs');
+  box.innerHTML = '';
+  TABS.forEach(([label, v]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (v === tab ? ' on' : '');
+    const n = tabCount(v);
+    b.textContent = label + (n === null ? '' : ' ' + n);
+    b.setAttribute('aria-pressed', v === tab ? 'true' : 'false');
+    b.addEventListener('click', () => setTab(v));
+    box.appendChild(b);
+  });
+  $('#tripsPane').hidden = (tab === 'done' || tab === 'want');
+  $('#placesPane').hidden = (tab === 'trips');
+  // 만들기·넣기 상자는 제 탭에서만 편다. 「전체」에서는 건너가는 단추만 둔다.
+  $('#new-event-box').style.display = (isAdmin && tab === 'trips') ? 'block' : 'none';
+  $('#addBox').hidden = !(isAdmin && (tab === 'done' || tab === 'want'));
+  $('#quickAdd').hidden = !(isAdmin && tab === 'all');
+  $('#placesHead').hidden = (tab !== 'all');
+}
+function setTab(v, keepHash){
+  tab = v;
+  fState = (v === 'done' || v === 'want') ? v : 'all';
+  shownCount = PAGE;
+  if (!keepHash) history.replaceState(null, '', v === 'all' ? location.pathname + location.search : '#' + v);
+  if (v === 'done' || v === 'want') $('#status').value = v;
+  syncAddMode();
+  syncTabs();
+  clearCourse();
+  renderEvents();
+  render();
+  redrawPins();
+  if (map) summary();
+}
+window.addEventListener('hashchange', () => { const t = tabFromHash(); if (t !== tab) setTab(t, true); });
 
 const CATS = ['전체', '먹거리', '자연', '체험', '숙소'];
-const STATES = [['전체','all'], ['가보고 싶은 곳','want'], ['가본 곳','done']];
 const SORTS = [['최근 순','recent'], ['별 높은 순','stars'], ['이름 순','name'],
                ['이번 철 먼저','season']];
 const SEASONS = ['아무때나', '봄', '여름', '가을', '겨울'];
@@ -291,7 +344,7 @@ async function loadEventList(){
 function shown(){
   let list = PLACES.filter(p =>
     (fCat === '전체' || p.category === fCat) &&
-    (fState === 'all' || p.status === fState) &&
+    (fState === 'all' || (fState === 'done' ? p.status === 'done' : p.status !== 'done')) &&
     (!fInView || inViewNow(p)));
   if (fSort === 'season') {
     // 이번 철에 맞는 곳을 위로, 그중에서도 아직 안 가 본 곳을 먼저.
@@ -321,14 +374,7 @@ function drawFilters(){
     b.addEventListener('click', () => { fCat = c; shownCount = PAGE; render(); });
     box.appendChild(b);
   });
-  const gap = document.createElement('span'); gap.className = 'filter-gap'; box.appendChild(gap);
-  STATES.forEach(([label, v]) => {
-    const b = document.createElement('button');
-    b.className = 'chip' + (v === fState ? ' on' : '');
-    b.textContent = label;
-    b.addEventListener('click', () => { fState = v; shownCount = PAGE; render(); });
-    box.appendChild(b);
-  });
+  // 「가본 곳 / 가보고 싶은 곳」은 위의 탭이 맡는다 — 여기 또 두면 같은 거르개가 둘이 된다.
 
   const sbox = $('#sorts');
   sbox.innerHTML = '<span class="filter-label">차례</span>';
@@ -417,11 +463,14 @@ function cardHTML(p){
   }).join('');
 
   const adminActs = isAdmin
-    ? '<button class="act" type="button" data-edit-open="' + p.id + '">✏️ 고치기</button>' +
+    ? (p.status !== 'done'
+        ? '<button class="act primary" type="button" data-went="' + p.id + '">📷 다녀왔어요 — 기록 만들기</button>'
+        : '') +
+      '<button class="act" type="button" data-edit-open="' + p.id + '">✏️ 고치기</button>' +
       '<button class="act ghost" type="button" data-del="' + p.id + '">🗑 지우기</button>'
     : '';
   const eventAct = (p.status === 'done' && p.event_id)
-    ? '<a class="act ghost" href="/event/e/?slug=' + encodeURIComponent(p.event_id) + '">📖 이벤트 보기</a>'
+    ? '<a class="act ghost" href="/event/e/?slug=' + encodeURIComponent(p.event_id) + '">📖 나들이 기록 보기</a>'
     : '';
 
   return '<div class="wcard' + (p.status === 'done' ? ' done' : '') +
@@ -484,7 +533,7 @@ function drawSeasonTip(){
   const box = $('#seasonTip');
   const 계절 = nowSeason();
   const list = PLACES.filter(p => p.status !== 'done' && p.season === 계절);
-  if (!list.length){ box.hidden = true; return; }
+  if (!list.length || tab === 'done'){ box.hidden = true; return; }
   box.hidden = false;
   box.innerHTML = '<b>🍂 지금은 ' + 계절 + ' — 이때 가면 좋을 곳 ' + list.length + '군데</b>';
   list.slice(0, 6).forEach(p => {
@@ -493,7 +542,8 @@ function drawSeasonTip(){
     b.textContent = iconOf(p) + ' ' + p.name;
     b.addEventListener('click', () => {
       // 거르개가 걸려 있으면 그 카드가 안 보일 수 있다. 풀고 나서 편다.
-      fCat = '전체'; fState = 'all'; openId = p.id; editId = null;
+      fCat = '전체'; openId = p.id; editId = null;
+      if (fState !== 'all' && (fState === 'done') !== (p.status === 'done')) setTab('all');
       shownCount = PAGE;
       render();
       const card = document.querySelector('[data-card="' + p.id + '"]');
@@ -522,7 +572,7 @@ function drawAgainTip(){
     .map(p => ({ p, m: monthsSince(p.visited_on) }))
     .filter(x => x.m !== null && x.m >= AGAIN_MONTHS)
     .sort((a, b) => b.m - a.m);
-  if (!list.length) { box.hidden = true; return; }
+  if (!list.length || tab === 'want') { box.hidden = true; return; }
   box.hidden = false;
   box.innerHTML = '<b>🔁 또 가고 싶다 해 놓고 오래된 곳 ' + list.length + '군데</b>';
   list.slice(0, 6).forEach(({ p, m }) => {
@@ -531,7 +581,8 @@ function drawAgainTip(){
     b.textContent = iconOf(p) + ' ' + p.name + ' · ' +
       (m >= 12 ? Math.floor(m / 12) + '년' : m + '달') + ' 전';
     b.addEventListener('click', () => {
-      fCat = '전체'; fState = 'all'; openId = p.id; editId = null;
+      fCat = '전체'; openId = p.id; editId = null;
+      if (fState !== 'all' && (fState === 'done') !== (p.status === 'done')) setTab('all');
       shownCount = PAGE;
       render();
       const card = document.querySelector('[data-card="' + p.id + '"]');
@@ -546,7 +597,7 @@ function drawBest(){
   const done = PLACES.filter(p => p.status === 'done' && score(p));
   const top = done.slice().sort((a, b) => score(b) - score(a)).slice(0, 5);
   const box = $('#best');
-  if (top.length < 2){ box.hidden = true; return; }
+  if (top.length < 2 || tab === 'want'){ box.hidden = true; return; }
   box.hidden = false;
 
   // 분류별로 몇 군데를 갔고 별이 몇 점이었는지. 「어디를 좋아했나」가 한눈에 보인다.
@@ -601,14 +652,71 @@ function pinFace(p){
   return sc ? '★' + sc : '✓';
 }
 
+/* 나들이 사진 핀과 장소 핀을 한 지도에.
+   ------------------------------------------------------------------
+   「전체」에서 둘을 그대로 겹치면 같은 자리에 두 번 찍힌다 — 제주 나들이의 사진 핀 밑에
+   그때 다닌 스무 곳이 깔린다. 그래서 멀리서 볼 때(FOLD_LEVEL 이상)는 나들이에 이어 둔
+   장소를 그 사진 핀 하나로 접고, 당겨 들어가면 사진 핀을 거두고 장소를 펼친다.
+   이어 둔 장소가 없는 나들이는 접을 것이 없으니 사진 핀이 끝까지 남는다. */
+const FOLD_LEVEL = 11;
+let focusedTrip = null;
+const tripEls = {};
+
+function tripsOnMap(){
+  if (tab === 'done' || tab === 'want') return [];
+  if (tab === 'trips') return TRIP_PINS;
+  const far = map.getLevel() >= FOLD_LEVEL;
+  return TRIP_PINS.filter(t => far || !hasLinkedSpots(t.ev.slug));
+}
+function hasLinkedSpots(slug){
+  return PLACES.some(p => p.event_id === slug && Number.isFinite(p.lat) && Number.isFinite(p.lng));
+}
+function placesOnMap(){
+  if (tab === 'trips') return [];
+  const fold = tab === 'all' && map.getLevel() >= FOLD_LEVEL;
+  const pinned = new Set(TRIP_PINS.map(t => t.ev.slug));
+  return withCoords().filter(p =>
+    (fState === 'all' || (fState === 'done' ? p.status === 'done' : p.status !== 'done')) &&
+    !(fold && p.event_id && pinned.has(p.event_id)));
+}
+
+function focusTrip(t){
+  focusedTrip = t.ev.slug; focusedId = null;
+  Object.values(pinEls).forEach(el => el.classList.remove('on'));
+  Object.entries(tripEls).forEach(([k, el]) => el.classList.toggle('on', k === t.ev.slug));
+  const n = PLACES.filter(p => p.event_id === t.ev.slug).length;
+  $('#stripText').innerHTML = escapeHTML(t.ev.eventName || t.ev.orgName) +
+    '<span class="sub">' + escapeHTML(t.label || t.ev.dateRangeText) +
+    (n && tab === 'all' ? ' · 지도를 당기면 장소 ' + n + '곳' : '') + '</span>';
+  $('#stripLink').href = t.ev.href;
+  $('#stripLink').hidden = false;
+}
+
+function drawTripPins(){
+  Object.keys(tripEls).forEach(k => delete tripEls[k]);
+  tripsOnMap().forEach(t => {
+    const pin = document.createElement('div');
+    pin.className = 'pin-photo' + (t.ev.slug === focusedTrip ? ' on' : '');
+    pin.title = t.ev.eventName || t.ev.orgName;
+    pin.innerHTML = t.shot ? '<img alt="" src="' + escapeHTML(t.shot) + '">' : escapeHTML(t.ev.icon || '📍');
+    pin.addEventListener('click', () => focusTrip(t));
+    tripEls[t.ev.slug] = pin;
+    overlays.push(new kakao.maps.CustomOverlay({
+      map, position: new kakao.maps.LatLng(t.lat, t.lng), content: pin,
+      xAnchor: 0.5, yAnchor: 0.5, clickable: true, zIndex: 3,
+    }));
+  });
+}
+
 function redrawPins(){
   if (!map) return;
   overlays.forEach(o => o.setMap(null));
   overlays = [];
   Object.keys(pinEls).forEach(k => delete pinEls[k]);
+  drawTripPins();
 
   const proj = map.getProjection();
-  const spots = withCoords();
+  const spots = placesOnMap();
   const cells = new Map();
   spots.forEach(p => {
     const pt = proj.containerPointFromCoords(new kakao.maps.LatLng(p.lat, p.lng));
@@ -669,7 +777,9 @@ function focusOnMap(p){
 }
 
 function focusPin(p){
-  focusedId = p.id;
+  focusedId = p.id; focusedTrip = null;
+  $('#stripLink').hidden = true;
+  Object.values(tripEls).forEach(el => el.classList.remove('on'));
   Object.values(pinEls).forEach(el => el.classList.remove('on'));
   if (pinEls[p.id]) pinEls[p.id].classList.add('on');
   const sc = score(p);
@@ -683,17 +793,25 @@ function summary(){
   const done = PLACES.filter(p => p.status === 'done');
   const scored = done.map(score).filter(Boolean);
   const 평균 = scored.length ? (scored.reduce((a, b) => a + b, 0) / scored.length).toFixed(1) : null;
-  $('#stripText').innerHTML = '📌 가볼 곳<span class="sub">' +
-    '가고 싶은 곳 ' + want + '군데 · 가본 곳 ' + done.length + '군데' +
-    (평균 ? ' · 별 평균 ' + 평균 : '') + ' · 핀을 눌러보세요</span>';
-  focusedId = null;
+  const 글 = tab === 'trips'
+    ? '나들이 기록 ' + TRIP_COUNT + '개 · 사진을 눌러보세요'
+    : (tab === 'all' ? '나들이 ' + TRIP_COUNT + '번 · ' : '') +
+      (tab !== 'want' ? '가본 곳 ' + done.length + '군데' : '') +
+      (tab === 'all' ? ' · ' : '') +
+      (tab !== 'done' ? '가보고 싶은 곳 ' + want + '군데' : '') +
+      (평균 && tab !== 'want' ? ' · 별 평균 ' + 평균 : '') + ' · 핀을 눌러보세요';
+  $('#stripText').innerHTML = '🧺 나들이<span class="sub">' + 글 + '</span>';
+  $('#stripLink').hidden = true;
+  focusedId = null; focusedTrip = null;
   Object.values(pinEls).forEach(el => el.classList.remove('on'));
+  Object.values(tripEls).forEach(el => el.classList.remove('on'));
 }
 
 // 핀이 다 들어오게 맞춘다. 카카오는 레벨 14 보다 물러날 수 없어, 그래도 안 들어오면
 // 한가운데에 놓는 쪽으로 물러선다 (이벤트 목록과 같은 규칙).
 function mapFit(){
-  const spots = withCoords();
+  // 나들이 사진 핀까지 함께 담는다. 핀 반지름이 22px 이라 여백도 그만큼이다.
+  const spots = withCoords().concat(TRIP_PINS.map(t => ({ lat: t.lat, lng: t.lng })));
   if (!map || !spots.length) return;
   if (spots.length === 1) {
     map.setCenter(new kakao.maps.LatLng(spots[0].lat, spots[0].lng));
@@ -723,7 +841,7 @@ function inViewNow(p){
 function syncMapTools(){
   const box = $('#mapTools');
   if (!box) return;
-  box.hidden = !map;
+  box.hidden = !map || tab === 'trips';
   const btn = $('#inViewBtn');
   btn.classList.toggle('on', fInView);
   $('#mapToolsHint').textContent = fInView
@@ -809,18 +927,17 @@ function kmText(m){
 
 async function drawMap(){
   if (mapDrawn) return;
-  const spots = withCoords();
-  if (!spots.length) return;
+  if (!withCoords().length && !TRIP_PINS.length) return;
   // 여기서 실패하면(서비스가 꺼져 있거나 도메인이 안 맞으면) 조용히 접는다.
   // 지도 하나 때문에 목록이 안 보이면 안 되므로.
   try { await loadKakaoMaps(); } catch (e) { console.warn('지도를 건너뜁니다:', e.message); return; }
 
   mapDrawn = true;
   $('#mapBand').hidden = false;
-  map = new kakao.maps.Map($('#wishMap'), {
+  map = new kakao.maps.Map($('#outMap'), {
     center: new kakao.maps.LatLng(36.5, 127.9), level: 13, scrollwheel: false,
   });
-  enablePinchZoom(map, $('#wishMap'));
+  enablePinchZoom(map, $('#outMap'));
 
   mapFit();
 
@@ -853,7 +970,7 @@ $('#courseBtn').addEventListener('click', buildCourse);
 // 핀은 여기서 다시 그리지 않는다. 카드를 펴고 접을 때마다 오버레이를 통째로 새로
 // 만들던 것을 재 보니 한 번 누를 때 다섯 개(펼쳐 놓으면 스물일곱 개)를 버리고 다시
 // 만들고 있었다. 핀이 달라지는 때 — 별점을 매길 때와 지울 때 — 만 redrawPins() 를 부른다.
-function render(){ drawSeasonTip(); drawAgainTip(); drawFilters(); drawCards(); drawBest(); }
+function render(){ drawSeasonTip(); drawAgainTip(); drawFilters(); drawCards(); drawBest(); syncTabs(); syncMapTools(); }
 
 $('#moreBtn').addEventListener('click', () => {
   shownCount += PAGE;
@@ -891,6 +1008,13 @@ $('#cards').addEventListener('click', async (e) => {
       p.stars = before; render(); redrawPins();
       alert('별을 저장하지 못했습니다' + (error ? ': ' + error.message : ' (로그인이 풀렸는지 확인해 주세요)'));
     }
+    return;
+  }
+
+  if (t && t.dataset.went) {
+    e.stopPropagation();
+    const p = PLACES.find(x => String(x.id) === t.dataset.went);
+    if (p) startTripFromPlace(p);
     return;
   }
 
@@ -1163,28 +1287,39 @@ $('#addBtn').addEventListener('click', async () => {
   else if (data.lat) { mapFit(); redrawPins(); }
 });
 
-// ---------- 목록은 누구나, 넣기·고치기·별점은 부모만 ----------
+// ---------- 목록은 누구나, 만들기·넣기·고치기·별점은 부모만 ----------
+// 아이 계정은 나들이 기록을 만들거나 지울 수 없어야 한다 — isAdmin 은 부모일 때만 참이다.
 async function refreshAuthUI(){
   await refreshAuth();
-  $('#addBox').hidden = !isAdmin;
+  await paintForRole();
+}
+async function paintForRole(){
   if (isAdmin) { syncAddMode(); fillEventSelect(); }
   syncToolBox();
   $('#headNote').textContent = isAdmin
-    ? '가고 싶은 곳을 적어 두고, 다녀오면 별을 매겨 남겨요'
-    : '가고 싶은 곳과 다녀온 곳을 한 지도에 모았어요';
+    ? '다녀온 나들이를 남기고, 가보고 싶은 곳을 적어 둬요'
+    : '다녀온 나들이와 가보고 싶은 곳을 한 지도에 모았어요';
+  await renderEvents(true);
   render();
+  if (!mapDrawn) await drawMap();
+  else { redrawPins(); summary(); }
 }
 
+$('#goNewTrip').addEventListener('click', () => {
+  setTab('trips');
+  $('#new-event-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+$('#goNewPlace').addEventListener('click', () => {
+  setTab('want');
+  $('#addBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
 (async () => {
+  tab = tabFromHash();
+  fState = (tab === 'done' || tab === 'want') ? tab : 'all';
   await load();
   await refreshAuthUI();
-  drawMap();
 })();
 
-// 로그인 상태가 바뀌면 관리 단추도 따라 바뀌어야 한다 (common.js 가 알려 준다)
-document.addEventListener('suayona:auth', () => {
-  $('#addBox').hidden = !isAdmin;
-  if (isAdmin) { syncAddMode(); fillEventSelect(); }
-  syncToolBox();
-  render();
-});
+// 로그인 상태가 바뀌면 관리 단추도, 보이는 나들이(비공개)도 따라 바뀌어야 한다 (common.js 가 알려 준다)
+document.addEventListener('suayona:auth', () => { paintForRole(); });

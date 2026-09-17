@@ -1658,7 +1658,7 @@ VS.draw = function(env){
   SHADOW_Q = null;
   VS.labels = [
     { text: '작품전시실', href: '/portfolio.html', x: 1.5, y: 1.5, z: 78 },   // 2026-09-15 포트폴리오 → 작품전시실(부모 요청)
-    { text: '이벤트', href: '/event/', x: 1.55, y: 6.1, z: 100 },
+    { text: '나들이', href: '/event/', x: 1.55, y: 6.1, z: 100 },
     { text: '업적 전시실', href: '/honors.html', x: 5.45, y: 1.0, z: 82 },   // 2026-09-15 일기장 → 업적 전시실(부모 요청). 집 그림(bDiary)은 그대로
     { text: '모험단', href: '/quest.html', x: 12.3, y: 1.9, z: 132 },
     // 밭 왼쪽 앞으로 물러나 조금 띄워 둔다. 자리를 세 번 옮겨 가며 쟀다 —
@@ -1666,7 +1666,7 @@ VS.draw = function(env){
     // 왼쪽으로 물러나니 둘 다 0 이 됐다(폰 375 · 데스크톱 1265 에서 실측).
     { text: '농장', href: '/farm.html', x: 5.6, y: 10.7, z: 28 },
     { text: '그림 그리기', href: '/draw.html', x: 0.7, y: 10.5, z: 40 },
-    { text: '가볼 곳', href: '/wish/', x: 3.2, y: 9.45, z: 48 },
+    { text: '가볼 곳', href: '/event/#want', x: 3.2, y: 9.45, z: 48 },
   ];
 };
 

@@ -11,11 +11,11 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>이벤트 · 수아랑 연아랑</title>
+<title>나들이 · 수아랑 연아랑</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="description" content="수련회와 여행, 행사를 날짜별로 정리한 이벤트 목록입니다.">
-<meta property="og:title" content="이벤트 · 수아랑 연아랑">
-<meta property="og:description" content="지금까지의 이벤트를 확인하세요.">
+<meta name="description" content="다녀온 나들이의 기록과 가보고 싶은 곳을 한 지도에 모은 우리 가족 나들이 지도입니다.">
+<meta property="og:title" content="나들이 · 수아랑 연아랑">
+<meta property="og:description" content="다녀온 곳과 가보고 싶은 곳을 한 지도에.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.suayona.com/event/">
 <meta property="og:image" content="https://www.suayona.com/og-image.jpg">
@@ -51,7 +51,7 @@
   /* 제목 묶음은 style.css 의 .section-head 를 그대로 쓴다 — 베껴 두면 언젠가 어긋난다.
      배경 겹 위에 맨살로 앉는 소개글 색(--ink-bg-safe)까지 거기서 함께 온다. */
 
-  h2{font-size:13px; font-weight:800; color:var(--ink-soft); margin:26px 0 12px; letter-spacing:.04em;
+  #tripsPane h2, #placesHead{font-size:13px; font-weight:800; color:var(--ink-soft); margin:26px 0 12px; letter-spacing:.04em;
     padding-bottom:8px; border-bottom:var(--px) solid var(--ink);}
 
   /* ===== 지도 띠 =====
@@ -194,7 +194,7 @@
 
   /* 로그인·로그아웃은 둘 다 머리말의 단추 하나로 한다. 페이지마다 또 두면
      같은 일을 하는 자리가 화면에 둘씩 생긴다. */
-  input, select{width:100%; padding:10px 12px; border:2px solid var(--ink); border-radius:0; font-size:14px; font-family:inherit; background:var(--paper); color:var(--ink);}
+  #new-event-box input, #new-event-box select{width:100%; padding:10px 12px; border:2px solid var(--ink); border-radius:0; font-size:14px; font-family:inherit; background:var(--paper); color:var(--ink);}
   .btn{width:100%; margin-top:14px; padding:10px 16px; border:var(--px) solid var(--ink); border-radius:0; font-size:13.5px;
     font-weight:800; background:var(--mint); color:var(--ink); cursor:pointer; font-family:inherit;
     box-shadow:var(--px) var(--px) 0 var(--ink); transition:transform .1s steps(2), box-shadow .1s steps(2);}
@@ -238,6 +238,232 @@
   #manualToggle:hover{color:var(--ink);}
   #manual-new{display:none; margin-top:14px; padding-top:16px; border-top:2px dashed var(--ink);}
 
+
+  /* ===== 탭 — 목록과 지도를 함께 바꾼다 ===== */
+  .tabs{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 14px;}
+  /* 아래 분류 거르개와 같은 .chip 이라, 고른 탭은 먹빛으로 채워 한 단계 위라는 것을 보인다 */
+  .tabs .chip{font-size:13.5px; padding:8px 13px;}
+  .tabs .chip.on{background:var(--ink); color:var(--paper);}
+  .quick-add{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 18px;}
+  .quick-add[hidden]{display:none;}
+  #tripsPane[hidden], #placesPane[hidden], #placesHead[hidden]{display:none;}
+  #tripsMore{margin:14px 0 0;}
+  #tripsMore[hidden]{display:none;}
+  /* 「다녀왔어요」로 건너왔을 때 만들기 상자 위에 뜨는 알림 */
+  #pendingNote{border:2px solid var(--ink); background:var(--lemon); padding:9px 11px;
+    margin:0 0 12px; font-size:12.5px; line-height:1.7;}
+  #pendingNote[hidden]{display:none;}
+  #pendingNote button{border:2px solid var(--ink); background:var(--paper); font-family:inherit;
+    font-size:11.5px; font-weight:800; padding:2px 8px; cursor:pointer; color:var(--ink); margin-left:4px;}
+
+  /* ===== 아래부터는 장소(가본 곳·가보고 싶은 곳) — 옛 가볼 곳 쪽에서 그대로 옮겨 왔다 ===== */
+  /* 안 간 곳은 점선 핀에 번호, 다녀온 곳은 채운 핀에 별점.
+     지도만 봐도 「어디를 갔고 어디가 남았나」가 갈린다. */
+  .wish-pin{
+    min-width:34px; height:34px; padding:0 4px; border:2px dashed var(--ink); background:var(--paper);
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap;
+  }
+  .wish-pin.done{border-style:solid; background:var(--mint); font-size:11.5px;}
+  .wish-pin.on{background:var(--lemon); border-style:solid;}
+  /* 가까운 곳들을 하나로 묶은 핀. 누르면 그 자리를 확대한다. */
+  .wish-pin.cluster{border-style:solid; background:var(--paper-card); font-size:11.5px;}
+  .wish-pin.cluster.done{background:var(--mint);}
+
+  /* ===== 이번 계절 띠 =====
+     겨울에 여름 장소만 눈에 띄면 목록이 소용없다. 지금 계절과 맞는, 아직 안 간 곳만
+     맨 위에 따로 모은다. 「아무때나」는 넣지 않는다 — 그것까지 넣으면 추천이 아니라
+     그냥 목록이 된다. */
+  .season-tip, .again-tip{border:2px solid var(--ink); background:var(--lemon); padding:10px 12px;
+    margin-bottom:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+  .season-tip[hidden], .again-tip[hidden]{display:none;}
+  .season-tip b, .again-tip b{font-size:12.5px;}
+  .season-tip button, .again-tip button{border:2px solid var(--ink); background:var(--paper);
+    font-family:inherit; font-size:11.5px; font-weight:800; padding:3px 8px; cursor:pointer;
+    color:var(--ink);}
+  /* 오래된 곳은 색을 달리해 계절 알림과 헷갈리지 않게 한다 */
+  .again-tip{background:var(--mint);}
+
+  /* ===== 지도 도구 ===== */
+  .map-tools{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:10px 0 12px;}
+  .map-tools .hint{font-size:11px; color:var(--ink-soft); font-weight:700;}
+  .course-box{border:2px solid var(--ink); background:var(--paper-card); padding:12px;
+    margin-bottom:14px;}
+  .course-box[hidden]{display:none;}
+  .course-box h3{margin:0 0 8px; font-size:13px;}
+  .course-box ol{margin:0; padding-left:20px;}
+  .course-box li{font-size:12.5px; line-height:1.9; font-weight:700;}
+  .course-box li .km{color:var(--ink-soft); font-weight:700; margin-left:5px; font-size:11px;}
+  .course-box .foot{margin-top:8px; font-size:11.5px; color:var(--ink-soft); font-weight:700;}
+
+  /* ===== 거르개 ===== */
+  .filters{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; align-items:center;}
+  .chip{border:2px solid var(--ink); background:var(--paper); font-family:inherit;
+    font-size:12.5px; font-weight:800; padding:6px 10px; cursor:pointer;
+    box-shadow:2px 2px 0 var(--ink);}
+  .chip.on{background:var(--accent); transform:translate(2px,2px); box-shadow:0 0 0 var(--ink);}
+  .chip.sort{box-shadow:none; border-style:dashed; padding:5px 9px; font-size:12px;}
+  .chip.sort.on{background:var(--lemon); border-style:solid; transform:none;}
+  .filter-gap{width:10px;}
+  .filter-label{font-size:11.5px; font-weight:800; color:var(--ink-soft); margin-right:2px;}
+
+  /* ===== 카드 ===== */
+  .cards{display:grid; grid-template-columns:repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap:14px;}
+  .wcard{border:2px solid var(--ink); background:var(--paper-card);
+    box-shadow:2px 2px 0 rgba(47,42,36,.28); overflow:hidden;}
+  .wcard.done{background:#f3fbf8;}
+  /* 펼친 카드는 테를 강조색으로 바꾼다. 카드가 스물 몇 장 깔리면 어느 것을 열어
+     두었는지 스크롤 중에 놓치기 쉽다. 그림자도 같은 색으로 맞춰야 테만 뜬 것처럼
+     보이지 않는다. 굵기는 그대로 2px 이다 — 굵히면 안쪽 자리가 줄어 글이 흔들린다. */
+  .wcard.open{border-color:var(--accent); box-shadow:2px 2px 0 var(--accent);}
+  .wcard.open .wcard-more{border-top-color:rgba(var(--accent-rgb), .55);}
+  .wcard-top{display:flex; gap:10px; padding:12px; cursor:pointer;}
+  /* 자판으로 옮겨 다닐 때 지금 어디에 있는지 보여야 한다. 사이트의 다른 누름거리와
+     같은 모양의 테를 쓴다(style.css 의 :focus-visible 규칙과 같은 값). */
+  .wcard-top:focus-visible{outline:3px solid var(--ink); outline-offset:-3px;}
+  .wcard-thumb{width:58px; height:58px; flex:0 0 58px; border:2px solid var(--ink);
+    background:var(--paper); display:flex; align-items:center; justify-content:center;
+    font-size:24px; overflow:hidden;}
+  /* 이벤트에서 옮겨 온 곳에는 그때 찍은 사진이 붙는다. 없으면 분류 아이콘이 대신한다. */
+  .wcard-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .wcard-body{min-width:0; flex:1;}
+  .wcard-name{font-size:14px; font-weight:800; margin:0 0 3px;}
+  .wcard-meta{font-size:11.5px; color:var(--ink-soft); font-weight:700;
+    display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+  .tag{border:2px solid var(--ink); padding:1px 5px; font-size:10.5px; font-weight:800; background:var(--paper);}
+  /* 「놀이」는 따로 두지 않는다 — 물놀이장이든 방탈출이든 몸으로 겪는 것은 다 체험이라,
+     칸을 나눠 봐야 고를 때마다 어느 쪽인지 망설이게 된다. */
+  .tag.cat-먹거리{background:var(--lemon);}
+  .tag.cat-자연{background:#cfeee4;} .tag.cat-체험{background:#dcd7f5;}
+  .tag.cat-숙소{background:#ffe6cc;}
+  .state{font-size:10.5px; font-weight:800; border:2px solid var(--ink); padding:1px 5px;}
+  .state.want{background:var(--paper);}
+  .state.done{background:var(--mint);}
+  .hope{color:var(--ink-soft); font-size:12px; letter-spacing:1px;}
+  .again{border:2px solid var(--ink); background:var(--lemon); font-size:10.5px; font-weight:800; padding:1px 5px;}
+
+  .score{display:flex; align-items:center; gap:6px; margin-top:5px;}
+  .score .stars{color:var(--accent); font-size:15px; letter-spacing:1px; line-height:1;}
+  .score .num{font-size:12px; font-weight:800; font-variant-numeric:tabular-nums;}
+
+  .wcard-more{display:none; border-top:2px dashed rgba(47,42,36,.3); padding:12px; font-size:12.5px;}
+  .wcard.open .wcard-more{display:block;}
+  .wcard-more p{margin:0 0 10px; line-height:1.6; white-space:pre-line;}
+  .review{border-left:var(--px) solid var(--mint); padding:2px 0 2px 10px; margin:0 0 12px;
+    font-size:13px; font-weight:700; line-height:1.6;}
+
+  /* 주소 — 누르면 카카오맵이 열린다. 길게 이어지는 도로명 주소가 카드 폭을 밀지 않도록
+     한 줄로 자른다. */
+  .addr{display:flex; gap:4px; align-items:baseline; margin:0 0 10px;
+    font-size:12px; font-weight:700; color:var(--ink-soft); text-decoration:none;}
+  .addr span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    border-bottom:1px solid rgba(47,42,36,.3);}
+  .addr:hover span{color:var(--ink);}
+
+  /* 별은 눌러서 매긴다. 같은 별을 다시 누르면 지워진다 */
+  .rate-list{border:2px solid var(--ink); background:var(--paper); margin:0 0 12px;}
+  .rate-row{display:flex; align-items:center; gap:8px; padding:8px 10px;}
+  .rate-who{font-size:12px; font-weight:800; flex:0 0 auto;}
+  .rate-stars{display:flex; gap:2px;}
+  /* 손전화에서 누를 자리라 별 하나가 20px 이면 빗나간다. 여백으로 30px 을 만든다 */
+  .rate-stars button{border:none; background:none; padding:5px 4px; cursor:pointer;
+    font-size:20px; line-height:1; color:#d8cfc2; font-family:inherit;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent;}
+  .rate-stars button.on{color:var(--accent);}
+  .rate-stars button:disabled{cursor:default;}
+  .rate-note{font-size:11px; color:var(--ink-soft); font-weight:700; margin-left:auto;}
+
+  .link-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+  .link-row a{border:2px solid var(--ink); background:var(--paper); padding:4px 8px;
+    font-size:11.5px; font-weight:800; text-decoration:none; color:var(--ink);
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .act-row{display:flex; flex-wrap:wrap; gap:6px;}
+  .act{border:2px solid var(--ink); background:var(--paper); font-family:inherit;
+    font-size:11.5px; font-weight:800; padding:5px 9px; cursor:pointer; color:var(--ink);
+    text-decoration:none; display:inline-flex; align-items:center;}
+  .act.primary{background:var(--accent);}
+  .act.ghost{background:var(--paper-card);}
+  .act:disabled{opacity:.5; cursor:default;}
+
+  /* 고치기 — 카드 안에서 그대로 편다 */
+  .edit-box{border:2px solid var(--ink); background:var(--paper); padding:10px; margin:0 0 10px;}
+  .edit-box[hidden]{display:none;}
+  .edit-box label{display:block; font-size:11.5px; font-weight:800; margin:8px 0 3px;}
+  .edit-box label:first-child{margin-top:0;}
+  .edit-box input, .edit-box textarea, .edit-box select{
+    width:100%; border:2px solid var(--ink); background:var(--paper-card); font-family:inherit;
+    font-size:12.5px; padding:6px 7px; color:var(--ink);}
+  .edit-box textarea{min-height:60px; resize:vertical;}
+  .edit-row{display:flex; gap:6px; flex-wrap:wrap;}
+  .edit-row > div{flex:1 1 110px;}
+  /* 사진 바꾸기 — 지금 붙어 있는 것을 왼쪽에 보여 주고 오른쪽에서 고른다 */
+  .edit-pic{display:flex; gap:10px; align-items:flex-start;}
+  .edit-pic-now{width:64px; height:64px; flex:0 0 64px; border:2px solid var(--ink);
+    background:var(--paper-card); overflow:hidden; display:flex;
+    align-items:center; justify-content:center; font-size:24px;}
+  .edit-pic-now img{width:100%; height:100%; object-fit:cover; display:block;}
+  .edit-pic-ctl{flex:1; min-width:0;}
+  .edit-pic-ctl input[type=file]{font-size:11.5px;}
+  .e-pic-off{display:flex; align-items:center; margin-top:8px; font-size:11.5px; font-weight:700;}
+  .e-pic-off input{width:auto; margin-right:6px;}
+
+  .tool-box{border:2px dashed var(--ink); background:var(--paper-card); padding:12px;
+    margin:0 0 22px; max-width:560px;}
+  .tool-box[hidden]{display:none;}
+  .tool-box .hint{margin-top:8px;}
+
+  .more-box{display:flex; justify-content:center; margin-top:16px;}
+  .more-box[hidden]{display:none;}
+  .more-box button{padding:9px 18px; font-size:12.5px; box-shadow:2px 2px 0 var(--ink);}
+
+  /* ===== 돌아보기 ===== */
+  .best{border:var(--px) solid var(--ink); background:var(--paper-card); padding:16px;
+    margin:24px 0 0; box-shadow:var(--px) var(--px) 0 var(--ink);}
+  .best[hidden]{display:none;}
+  .best h2{margin:0 0 4px; font-size:15px;}
+  .best .sub{font-size:11.5px; color:var(--ink-soft); font-weight:700; margin:0 0 12px;}
+  .best ol{margin:0; padding-left:20px;}
+  .best li{font-size:13px; line-height:1.9; font-weight:700;}
+  .best li .s{color:var(--accent); font-weight:800; margin-left:4px;}
+  .best .cat-tab{width:100%; border-collapse:collapse; margin-top:14px; font-size:12.5px;}
+  .best .cat-tab th, .best .cat-tab td{border:2px solid var(--ink); padding:5px 8px;
+    text-align:left; font-weight:700;}
+  .best .cat-tab th{background:var(--lemon); font-weight:800;}
+  .best .cat-tab td.n{text-align:right; font-variant-numeric:tabular-nums;}
+  .best h3{margin:16px 0 6px; font-size:13px;}
+
+  /* ===== 넣기 폼 ===== */
+  .add-box{border:2px solid var(--ink); background:var(--paper-card); padding:14px;
+    margin:22px 0; max-width:560px;}
+  .add-box[hidden]{display:none;}
+  .add-box h2{margin:0 0 10px; font-size:15px;}
+  .add-box label{display:block; font-size:12px; font-weight:800; margin:10px 0 4px;}
+  .add-box input, .add-box textarea, .add-box select{
+    width:100%; border:2px solid var(--ink); background:var(--paper); font-family:inherit;
+    font-size:13px; padding:8px 9px; color:var(--ink);}
+  .add-box textarea{min-height:70px; resize:vertical;}
+  .add-row{display:flex; gap:8px; flex-wrap:wrap;}
+  .add-row > div{flex:1 1 140px;}
+  .hint{font-size:11.5px; color:var(--ink-soft); margin:6px 0 0; line-height:1.55;}
+  .search-out{border:2px solid var(--ink); border-top:none; background:var(--paper); max-height:170px; overflow:auto;}
+  .search-out[hidden]{display:none;}
+  .search-out button{display:block; width:100%; text-align:left; border:none;
+    border-bottom:2px solid rgba(47,42,36,.15); background:none; font-family:inherit;
+    font-size:12.5px; padding:8px 9px; cursor:pointer; color:var(--ink);}
+  .search-out button b{font-weight:800;}
+  .search-out button span{display:block; font-size:11px; color:var(--ink-soft); font-weight:600;}
+
+  .pic-preview{margin-top:8px; width:96px; height:96px; border:2px solid var(--ink);
+    background:var(--paper); overflow:hidden;}
+  .pic-preview[hidden]{display:none;}
+  .pic-preview img{width:100%; height:100%; object-fit:cover; display:block;}
+
+  .msg{font-size:12px; font-weight:700; margin-top:8px; min-height:1em;}
+  .msg.err{color:#c0392b;}
+  .msg.ok{color:#2b8a6f;}
+  .empty-msg{grid-column:1 / -1; text-align:center; color:var(--ink-soft);
+    font-size:13px; padding:30px 0;}
+
   /* 공통 헤더가 화면 위에 고정되므로 그만큼 본문을 내림 */
   body{
     padding-top:calc(var(--header-h) + 18px); padding-bottom:0;
@@ -259,13 +485,14 @@
      다른 쪽들처럼 본문을 main 으로 감싼다 — 길잡이(landmark)도 함께 생긴다. -->
 <main class="wrap">
   <div class="section-head">
-    <span class="eyebrow pixel">🗓️ EVENT</span>
-    <h1>이벤트 목록</h1>
-    <p>지금까지 열린 이벤트를 확인해보세요</p>
+    <span class="eyebrow pixel">🧺 OUTING</span>
+    <h1>나들이</h1>
+    <p id="headNote">다녀온 나들이와 가보고 싶은 곳을 한 지도에 모았어요</p>
   </div>
 
+  <!-- 지도는 한 장. 나들이 기록은 사진 핀, 장소는 글자 핀(점선 = 아직 안 간 곳). -->
   <div class="band" id="mapBand" hidden>
-    <div class="map" id="eventMap"></div>
+    <div class="map" id="outMap"></div>
     <div class="zoom-ctl" id="zoomCtl" hidden>
       <button type="button" id="zoomIn" aria-label="지도 확대">+</button>
       <button type="button" id="zoomOut" aria-label="지도 축소">−</button>
@@ -276,9 +503,26 @@
     </div>
   </div>
 
+  <div class="tabs" id="tabs" role="group" aria-label="보기 고르기"></div>
+
+  <div class="map-tools" id="mapTools" hidden>
+    <button class="chip" type="button" id="inViewBtn">지도에 보이는 곳만</button>
+    <button class="chip" type="button" id="courseBtn">나들이 코스 짜기</button>
+    <span class="hint" id="mapToolsHint"></span>
+  </div>
+  <div class="course-box" id="courseBox" hidden></div>
+
+  <div class="quick-add" id="quickAdd" hidden>
+    <button class="act" type="button" id="goNewTrip">📷 나들이 기록 만들기</button>
+    <button class="act" type="button" id="goNewPlace">📌 장소 넣기</button>
+  </div>
+
+  <!-- 나들이 기록(이벤트). 안쪽 id 는 옛 이벤트 목록 그대로다 — 스크립트가 그 이름으로 찾는다. -->
+  <div id="tripsPane">
   <div id="content">
     <div id="new-event-box">
-      <h2>+ 새 이벤트 만들기</h2>
+      <h2>+ 새 나들이 기록 만들기</h2>
+      <div id="pendingNote" hidden></div>
 
       <label id="quick-pick" for="quickFiles">📷 사진 골라서 바로 만들기</label>
       <input type="file" id="quickFiles" accept="image/*,video/*" multiple hidden>
@@ -321,9 +565,112 @@
     </div>
 
     <div id="past-section" class="past">
-      <h2>지난 이벤트</h2>
+      <h2>지난 나들이</h2>
       <div id="past-list"></div>
+      <button class="act" type="button" id="tripsMore" hidden></button>
     </div>
+  </div>
+  </div>
+
+  <!-- 장소 — 가본 곳과 가보고 싶은 곳 -->
+  <div id="placesPane">
+    <h2 id="placesHead">가본 곳 · 가보고 싶은 곳</h2>
+  <div class="season-tip" id="seasonTip" hidden></div>
+  <div class="again-tip" id="againTip" hidden></div>
+
+  <div class="filters" id="filters"></div>
+  <div class="filters" id="sorts"></div>
+  <div class="cards" id="cards"></div>
+  <div class="more-box" id="moreBox" hidden>
+    <button class="act" type="button" id="moreBtn">더 불러오기</button>
+  </div>
+
+  <div class="best" id="best" hidden></div>
+
+  <div class="add-box" id="addBox" hidden>
+    <h2>+ 장소 넣기</h2>
+    <label for="q">장소 찾기</label>
+    <input id="q" type="text" placeholder="예: 국립과천과학관" autocomplete="off">
+    <div class="search-out" id="searchOut" hidden></div>
+    <p class="hint">카카오에서 찾은 자리를 그대로 씁니다. 좌표와 주소가 같이 들어가므로 위 지도에 바로 찍힙니다.</p>
+
+    <div class="add-row">
+      <div>
+        <label for="cat">무엇</label>
+        <select id="cat"><option>먹거리</option><option>자연</option><option>체험</option><option>숙소</option></select>
+      </div>
+      <div>
+        <label for="season">언제쯤</label>
+        <select id="season"><option>아무때나</option><option>봄</option><option>여름</option><option>가을</option><option>겨울</option></select>
+      </div>
+      <div>
+        <label for="status">어디까지 왔나</label>
+        <select id="status">
+          <option value="want">가보고 싶은 곳</option>
+          <option value="done">가본 곳</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 가기 전에는 기대를, 다녀온 뒤에는 별을 쓴다. 둘을 한꺼번에 보여 주면
+         무엇을 적는 칸인지 헷갈린다. -->
+    <div class="add-row" id="hopeWrap">
+      <div>
+        <label for="hope">얼마나 가고 싶은지</label>
+        <select id="hope"><option value="0">보통</option><option value="1">★</option><option value="2" selected>★★</option><option value="3">★★★</option></select>
+      </div>
+    </div>
+
+    <div id="doneFields" hidden>
+      <div class="add-row">
+        <div>
+          <label for="visited">다녀온 날</label>
+          <input id="visited" type="date">
+        </div>
+        <div>
+          <label for="stars">별점</label>
+          <select id="stars">
+            <option value="">아직 안 매김</option>
+            <option value="1">★</option><option value="2">★★</option>
+            <option value="3">★★★</option><option value="4">★★★★</option><option value="5">★★★★★</option>
+          </select>
+        </div>
+      </div>
+      <label for="eventSel">이어진 이벤트</label>
+      <select id="eventSel"><option value="">— 이벤트 없음 —</option></select>
+      <p class="hint">고르면 카드에 「이벤트 보기」가 생깁니다. 다녀온 날을 비워 두었으면
+        그 이벤트의 시작일을 넣어 둡니다.</p>
+      <label for="review">다녀온 뒤 한마디</label>
+      <textarea id="review" placeholder="어땠는지 한 줄"></textarea>
+      <label><input id="again" type="checkbox" style="width:auto; margin-right:6px;">또 가고 싶다</label>
+    </div>
+
+    <label for="memo">메모</label>
+    <textarea id="memo" placeholder="왜 가고 싶은지, 무엇을 하면 좋을지"></textarea>
+
+    <label for="link">링크</label>
+    <textarea id="link" placeholder="https://&#10;여러 개면 줄을 바꿔 적습니다"></textarea>
+
+    <label for="pic">사진</label>
+    <input id="pic" type="file" accept="image/*">
+    <p class="hint">한 장만. 아직 안 가 본 곳이라 찍어 둔 사진이 없으면 비워 두세요 —
+      분류 아이콘이 대신 들어갑니다.</p>
+    <div class="pic-preview" id="picPreview" hidden><img alt="" id="picImg"></div>
+
+    <div style="margin-top:14px;">
+      <button class="act primary" id="addBtn" type="button">넣기</button>
+    </div>
+    <div class="msg" id="addMsg"></div>
+  </div>
+
+  <!-- 이벤트에서 물려받은 400px 사본을 쓰는 곳이 남아 있을 때만 나온다.
+       한 번 눌러 두면 다시 나오지 않는다. -->
+  <div class="tool-box" id="toolBox" hidden>
+    <button class="act" type="button" id="reThumbBtn">사진 사본 다시 만들기</button>
+    <button class="act" type="button" id="fillPicBtn">사진 없는 곳 채우기</button>
+    <span class="hint" id="fillPicMsg">이벤트가 이어진 곳에 그 이벤트 사진을 넣습니다.</span>
+    <span class="hint" id="reThumbMsg">카드에 쓰는 작은 사본을 160px 로 다시 만듭니다.
+      원본과 이벤트 쪽 사진은 그대로 둡니다.</span>
   </div>
 </main>
 
@@ -335,6 +682,7 @@
 <script src="/event/compress.js"></script>
 <script src="/pixel.js"></script>
 <script src="/common.js"></script>
-<script src="/pages/event-index.js"></script>
+<script src="/pages/outing-trips.js"></script>
+<script src="/pages/outing-places.js"></script>
 </body>
 </html>
