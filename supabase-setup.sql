@@ -1996,3 +1996,86 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke execute on function public.life_quest_xp() from public;
 grant  execute on function public.life_quest_xp() to anon, authenticated;
+
+
+-- ---------------------------------------------------------------------------
+-- 인생 퀘스트 3단계 (2026-09-17, migration life_quests_propose)
+-- 아이의 제안(proposed) · 모험단 잇기(quest_facts 에 honors·life_xp) · quest_facts 가 옛 이름으로 키를 찾던 버그 수정
+-- 위쪽의 life_quests_guard · quest_facts 정의는 이 아래 것이 덮어쓴다.
+-- ---------------------------------------------------------------------------
+
+-- ① 상태에 'proposed' 를 더하고, 아이는 자기 이름으로 제안만 넣을 수 있게
+alter table public.life_quests drop constraint if exists life_quests_status_check;
+alter table public.life_quests add constraint life_quests_status_check check (status in ('proposed','open','claimed','done'));
+drop policy if exists "child proposes quest" on public.life_quests;
+create policy "child proposes quest" on public.life_quests for insert
+  with check (public.my_role() = 'child' and who = public.my_author_key() and status = 'proposed');
+
+create or replace function public.life_quests_guard() returns trigger
+language plpgsql set search_path = public as $$
+declare cap_open constant int := 10; cap_prop constant int := 5; cap_month constant int := 150; k text; got int;
+begin
+  if auth.uid() is null then return new; end if;                    -- 대시보드·SQL 편집기(관리자)는 그대로
+  if tg_op = 'INSERT' then
+    new.claimed_at := null; new.claimed_by := null; new.claim_note := null; new.done_at := null;
+    if public.my_role() = 'child' then                               -- 아이의 제안: 늘 proposed · 경험치는 부모가 정한다
+      new.status := 'proposed'; new.xp := 10; new.due_on := null;
+      if (select count(*) from life_quests where status = 'proposed' and who = new.who) >= cap_prop then
+        raise exception '제안은 한 번에 %개까지예요', cap_prop;
+      end if;
+      return new;
+    end if;
+    new.status := 'open';
+    if (select count(*) from life_quests where status in ('open','claimed') and (who = new.who or who = 'both' or new.who = 'both')) >= cap_open then
+      raise exception '열려 있는 퀘스트는 아이마다 %개까지예요', cap_open;
+    end if;
+    return new;
+  end if;
+  if public.my_role() = 'child' then                                 -- 아이: 상태와 한마디만
+    if new.who is distinct from old.who or new.stat is distinct from old.stat or new.title is distinct from old.title
+       or new.xp is distinct from old.xp or new.due_on is distinct from old.due_on or new.created_at is distinct from old.created_at
+       or new.done_at is not null then
+      raise exception '아이는 「했어요」만 누를 수 있어요';
+    end if;
+    new.claimed_at := now(); new.claimed_by := public.my_author_key();
+    return new;
+  end if;
+  if new.status = 'done' and old.status <> 'done' then               -- 부모 확인: 날짜를 찍고 한 달 상한을 본다
+    new.done_at := coalesce(new.done_at, now());
+    foreach k in array (case new.who when 'both' then array['sua','yona'] else array[new.who] end) loop
+      select coalesce(sum(xp), 0) into got from life_quests
+        where status = 'done' and id <> new.id and who in (k, 'both') and date_trunc('month', done_at) = date_trunc('month', new.done_at);
+      if got + new.xp > cap_month then raise exception '퀘스트 경험치는 한 달에 %까지예요', cap_month; end if;
+    end loop;
+  elsif new.status = 'open' then                                     -- 「다시 해 보자」· 제안 수락
+    new.claimed_at := null; new.claimed_by := null; new.done_at := null;
+  end if;
+  return new;
+end $$;
+revoke execute on function public.life_quests_guard() from public, anon, authenticated;
+
+-- ② 모험단이 업적 수와 확인된 현실 퀘스트 경험치도 받는다. security invoker 그대로 — 부른 사람이 볼 수 있는 줄만 센다
+--    (life_quests 는 가족만 읽으니 손님에게는 life_xp 가 0 이다. 모험은 어차피 아이가 로그인해서 한다)
+create or replace function public.quest_facts(p_who text)
+returns jsonb
+language sql stable security invoker set search_path = public as $$
+  -- growth.who 는 2026-09 에 '수아'/'연아' → 'sua'/'yona' 로 바뀌었는데 이 함수만 옛 이름을 찾고 있어서 키가 늘 null 이었다(모험단 키 덤 0 · 숨은 무대 안 열림)
+  select jsonb_build_object(
+    'diaries',  (select count(*) from posts where author = p_who and status = 'published'),
+    'works',    (select count(*) from works where author = p_who),
+    'run_best', (select coalesce(max(score), 0) from run_scores where who = p_who),
+    'outings',  (select count(distinct event_id) from events where event_id is not null),
+    'height',   (select cm from growth where who = p_who and kind = 'height'
+                  order by measured_on desc limit 1),
+    'sfx',      (select sfx from works where author = p_who and sfx is not null
+                  order by created_at desc limit 1),
+    'grow_on',  (select l.measured_on from growth l
+                  where l.who = p_who and l.kind = 'height'
+                    and exists (select 1 from growth e
+                                 where e.who = l.who and e.kind = 'height'
+                                   and e.measured_on <= l.measured_on - 180 and e.cm < l.cm)
+                  order by l.measured_on desc limit 1),
+    'honors',   (select count(*) from honors where who in (p_who, 'both')),
+    'life_xp',  (select coalesce(sum(xp), 0) from life_quests where status = 'done' and who in (p_who, 'both'))
+  );
+$$;

@@ -16,7 +16,7 @@ buildChrome('life');
   const FONT = '"Suayona Sans", Pretendard, system-ui, sans-serif';
   const KIDS = ['sua', 'yona'], KID_NAME = { sua: '수아', yona: '연아' }, KID_COLOR = { sua: '#ff7f8a', yona: '#6cc7b3' };
   const KID_X = { sua: 128, yona: 384 };
-  const PROPOSE_ON = false;                                               // 3단계: 아이의 퀘스트 제안 — DB(migration life_quests_propose)를 적용한 뒤에 켠다
+  const PROPOSE_ON = true;                                                // 3단계: 아이의 퀘스트 제안(migration life_quests_propose, 2026-09-17)
   const ROOM_LV = 3, ROOM_BIG = 6;                                        // 벽 물건이 생기는 레벨 · 커지는 레벨
   const DAY = 86400000;
 
