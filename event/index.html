@@ -125,10 +125,18 @@
     transition:transform .18s steps(3), box-shadow .18s steps(3);}
   .card:hover{transform:translate(calc(var(--px) * -1), calc(var(--px) * -1));
     box-shadow:calc(var(--px) * 2) calc(var(--px) * 2) 0 rgba(47,42,36,.28);}
-  .card-link{display:block; text-decoration:none; color:inherit;}
+  /* 왼쪽에 표지 사진, 오른쪽에 이름과 날짜. 표지는 64px 네모 — 지도 핀과 같은 사진이다. */
+  .card-link{display:flex; gap:12px; align-items:flex-start; text-decoration:none; color:inherit;}
+  .card-cover{width:64px; height:64px; flex:0 0 64px; border:2px solid var(--ink); background:var(--paper);
+    overflow:hidden; display:flex; align-items:center; justify-content:center; font-size:26px;}
+  .card-cover img{width:100%; height:100%; object-fit:cover; display:block;}
+  .card-text{display:block; min-width:0; flex:1;}
   /* 이름이 두 줄이 되면 가운데 맞춤이던 「종료」 표가 두 줄 사이에 붕 떠 보였다.
      첫 줄에 맞춰 붙인다. */
-  .card-top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:4px; padding-right:56px;}
+  .card-top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:4px;}
+  /* 오른쪽 위의 자물쇠·지우기 단추 자리는 그 단추가 있을 때(부모)만 비운다 — 손님 화면에서는
+     그 56px 때문에 이름이 세 줄로 꺾였다. */
+  .card.has-admin .card-top{padding-right:56px;}
   .card-top .badge-group, .card-top .badge{margin-top:2px;}
   .card-name{font-size:17px; font-weight:800; color:var(--ink);}
   .badge{font-size:10.5px; font-weight:800; padding:3px 8px; border-radius:0; flex-shrink:0;

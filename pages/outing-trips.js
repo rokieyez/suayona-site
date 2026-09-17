@@ -28,6 +28,43 @@ function getStatus(ev){
   return 'done';
 }
 
+/* 카드 표지 — 그 나들이의 사진 한 장(부모 요청 2026-09-18).
+   일정에 붙여 둔 사진이 첫째고(지도 핀과 같은 것이라 새로 받는 것이 없다), 일정 사진이
+   하나도 없는 나들이(사진만 골라 만든 것)는 갤러리의 첫 사진으로 물러선다. 그것도 없으면
+   이벤트 아이콘. 파일이 사라졌으면 깨진 그림 대신 아이콘으로 돌아간다. */
+let TRIP_COVERS = {};
+async function loadTripCovers(events){
+  TRIP_COVERS = {};
+  EVENT_ROWS.forEach(r => {
+    const u = r.thumb_url || r.image_url;
+    if (u && !TRIP_COVERS[r.event_id]) TRIP_COVERS[r.event_id] = u;
+  });
+  const bare = events.map(e => e.slug).filter(sl => !TRIP_COVERS[sl]);
+  if (!bare.length) return;
+  const { data, error } = await sb.from('gallery_media')
+    .select('event_id, thumb_url, media_url')
+    .in('event_id', bare).eq('media_type', 'image')
+    .order('created_at', {ascending:true}).limit(60);
+  if (error) { console.warn('표지 사진을 못 읽었습니다:', error.message); return; }
+  (data || []).forEach(r => {
+    const u = r.thumb_url || r.media_url;
+    if (u && !TRIP_COVERS[r.event_id]) TRIP_COVERS[r.event_id] = u;
+  });
+}
+function coverHTML(ev){
+  const src = TRIP_COVERS[ev.slug];
+  const icon = escapeHTML(ev.icon || '🗓️');
+  return src
+    ? '<img alt="" src="' + escapeHTML(src) + '" data-icon="' + icon + '">'
+    : icon;
+}
+// 깨진 사진은 아이콘으로. error 는 거품처럼 올라오지 않아서 잡는 쪽(capture)에서 듣는다.
+document.addEventListener('error', (e) => {
+  const im = e.target;
+  if (im && im.tagName === 'IMG' && im.parentNode && im.parentNode.classList.contains('card-cover'))
+    im.parentNode.textContent = im.dataset.icon || '🗓️';
+}, true);
+
 function tripCardHTML(ev, status){
   const badgeText = status === 'ongoing' ? '진행중' : status === 'upcoming' ? '예정' : '종료';
   const adminBtns = (isAdmin && ev.isRegistry)
@@ -48,13 +85,15 @@ function tripCardHTML(ev, status){
   const linked = PLACES.filter(p => p.event_id === ev.slug).length;
   // 지금 열려 있는 이벤트는 테두리를 코랄로 둘러 한눈에 갈라 보이게 한다
   return '<div class="card' + (status === 'ongoing' ? ' is-now' : '') +
-    (ev.isPublic === false ? ' is-private' : '') + '" data-slug="' + ev.slug + '">' +
+    (ev.isPublic === false ? ' is-private' : '') + (adminBtns ? ' has-admin' : '') + '" data-slug="' + ev.slug + '">' +
     '<a class="card-link" href="' + ev.href + '">' +
+    '<span class="card-cover">' + coverHTML(ev) + '</span>' +
+    '<div class="card-text">' +
     '<div class="card-top"><span class="card-name">' + ev.orgName + ' · ' + ev.eventName + '</span>' +
     '<span class="badge-group">' + privateTag +
     '<span class="badge ' + status + '">' + badgeText + '</span></span></div>' +
     '<div class="card-sub">' + ev.dateRangeText +
-      (linked ? ' · 📍 장소 ' + linked + '곳' : '') + '</div></a>' +
+      (linked ? ' · 📍 장소 ' + linked + '곳' : '') + '</div></div></a>' +
     todo + adminBtns + '</div>';
 }
 
@@ -115,7 +154,7 @@ async function renderEvents(force){
   const current = [], past = [];
 
   const fresh = force || !TRIPS_CACHE;
-  if (fresh) TRIPS_CACHE = [...EVENTS, ...(await fetchRegistryEvents())];
+  if (fresh) { TRIPS_CACHE = [...EVENTS, ...(await fetchRegistryEvents())]; await loadTripCovers(TRIPS_CACHE); }
   const allEvents = TRIPS_CACHE;
 
   allEvents.forEach(ev => {
