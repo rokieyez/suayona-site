@@ -1072,10 +1072,10 @@
     mine.coins += Math.max(0, Math.min(1000, Math.floor(g.coins || 0)));
     return g;
   }
-  // (일기 하나에 비료 하나는 2026-09-17 에 뺐다 — fertFromDiaries 는 남겨 두되 아무도 부르지 않는다)
+  // (일기 하나에 비료 하나는 2026-09-17 에 뺐다. 저장에 남은 fertSpent 칸은 읽지 않는다)
   // 모험단 원정에서 주워 온 씨앗. 모험단 저장은 「지금까지 몇 개 주웠나」만 세고,
   // 농장은 「그중 몇 개를 가져갔나」를 제 저장에 적는다. 두 놀이가 서로의 저장에
-  // 손대지 않으므로 순서가 엇갈려도 두 번 받거나 잃을 일이 없다 — 일기→비료와 같은 꼴.
+  // 손대지 않으므로 순서가 엇갈려도 두 번 받거나 잃을 일이 없다.
   function seedsFromExpo(world, mine, seedsEver, now){
     const owed = Math.max(0, Math.floor(Number(seedsEver) || 0) - (mine.expoSeeds || 0));
     if (!owed || !world || !world.started) return [];
@@ -1091,12 +1091,6 @@
     }
     mine.expoSeeds = (mine.expoSeeds || 0) + owed;
     return got;
-  }
-  function fertFromDiaries(mine, diaries){
-    const owed = Math.max(0, (diaries || 0) - (mine.fertSpent || 0));
-    if (!owed) return 0;
-    give(mine, 'fert', owed); mine.fertSpent = diaries;
-    return owed;
   }
   // 하루가 열릴 때 한 번 — 계절, 동물, 꿀, 까마귀, 비 온 날의 물.
   function newDay(world, mine, now){
@@ -1236,7 +1230,6 @@
     fillOrder,
     donate,
     claimParentGift,
-    fertFromDiaries,
     seedsFromExpo,
     newDay,
   });

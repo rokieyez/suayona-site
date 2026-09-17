@@ -290,7 +290,7 @@ buildChrome('life');
     const l = events.filter(e => e.k === 'sua' && e.team && e.t <= viewAt()).sort((a, b) => b.t - a.t); box.hidden = !l.length; if (box.hidden) return;
     box.innerHTML = '<h2>🤝 자매 팀 <span style="font-weight:700; color:var(--ink-soft);">둘이 같이 해낸 일 ' + l.length + '</span></h2><ul class="stat-detail" style="margin:0;">' + l.slice(0, 5).map(e => { const d = new Date(e.t); return '<li>' + (e.icon || '🏅') + ' ' + escapeHTML(e.name || '') + '<time>' + d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '</time></li>'; }).join('') + (l.length > 5 ? '<li class="more">… 그리고 ' + (l.length - 5) + '개 더</li>' : '') + '</ul>';
   }
-  // 요즘 8주 — 하루 한 칸, 그날 기록이 있으면 그 능력치 색. 수치는 없다. 손님의 퀘스트 몫은 달 단위라 날짜가 없어 뺀다
+  // 요즘 8주 — 하루 한 칸, 그날 기록이 있으면 그 능력치 색. 수치는 없다
   function weeksHTML(){
     const today = new Date(); today.setHours(0, 0, 0, 0); const end = today.getTime() + (6 - (today.getDay() + 6) % 7) * DAY, start = end - 55 * DAY;
     const byDay = {}; events.forEach(e => { if (e.k !== sel || e.t < start || e.t > end + DAY ) return; const d = Math.floor((e.t - start) / DAY); if (d >= 0 && d < 56) (byDay[d] = byDay[d] || []).push(e.stat); });
@@ -555,7 +555,7 @@ buildChrome('life');
     grow.forEach(r => { const k = r.who === '수아' ? 'sua' : r.who === '연아' ? 'yona' : r.who; if (heights[k] && Number(r.cm) > 0) heights[k].push({ t: dayOf(r.measured_on), cm: Number(r.cm) }); });
     KIDS.forEach(k => heights[k].sort((a, b) => a.t - b.t));
     quests = qrows;                                                      // 손님 것은 함수가 준 목록 — 한마디·누가 눌렀는지·제안은 안 온다
-    qrows.forEach(x => {                                                 // 가족: 끝난 퀘스트 한 줄씩(길에 📜 로 선다) · 손님: 제목 없는 달별 합계
+    qrows.forEach(x => {                                                 // 끝난 퀘스트는 그날의 사건이 된다(길에 📜 로 선다) — 가족·손님 모두
       if (x.status === 'done' && STATS.some(s => s.key === x.stat)) add(x.who, { t: dayOf(x.done_at), stat: x.stat, xp: Number(x.xp) || 0, quest: true, team: x.who === 'both', name: '퀘스트 「' + (x.title || '') + '」', icon: '📜', label: '퀘스트 「' + (x.title || '') + '」' });
     });
     loaded = true;
