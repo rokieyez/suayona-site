@@ -125,12 +125,14 @@ async function renderEvents(force){
   $('#current-section').style.display = (brief && !current.length) ? 'none' : 'block';
   currentList.innerHTML = current.length ? current.map(c => tripCardHTML(c.ev, c.status)).join('') : '<div class="empty">진행중이거나 예정된 나들이가 없습니다</div>';
   $('#past-section').style.display = past.length ? 'block' : 'none';
-  // 「전체」에서는 지난 기록을 몇 장만 보여 주고 나머지는 「나들이 기록」 탭으로 보낸다.
-  const few = brief ? past.slice(0, TRIPS_BRIEF) : past;
+  // 지난 기록은 여섯 장까지만 먼저 보이고, 나머지는 단추를 눌러 여섯 장씩 더 편다(부모 요청).
+  // 「전체」와 「나들이 기록」 어느 탭에서나 같다.
+  const few = past.slice(0, tripsShown);
   pastList.innerHTML = few.map(c => tripCardHTML(c.ev, c.status)).join('');
   const more = $('#tripsMore');
-  more.hidden = !(brief && past.length > TRIPS_BRIEF);
-  if (!more.hidden) more.textContent = '지난 나들이 모두 보기 (' + past.length + ') →';
+  const left = past.length - few.length;
+  more.hidden = left <= 0;
+  if (left > 0) more.textContent = '지난 나들이 더 보기 (' + left + '개 남음)';
 
   // 목록을 다 그린 뒤에 지도 핀을 챙긴다 — 지도가 늦어도 목록은 먼저 보이도록.
   if (fresh) await loadTripPins(allEvents);
@@ -166,7 +168,8 @@ async function fetchEventPlaces(slugs){
    사진이 통째로 포개진다. 그래서 그 자리들의 한가운데에 한 장만 둔다. */
 let TRIP_PINS = [];
 let TRIP_COUNT = 0;
-const TRIPS_BRIEF = 3;
+const TRIPS_PAGE = 6;
+let tripsShown = TRIPS_PAGE;
 async function loadTripPins(events){
   const byEvent = await fetchEventPlaces(events.map(e => e.slug));
   TRIP_PINS = events.filter(e => byEvent[e.slug] && byEvent[e.slug].length).map(ev => {
@@ -480,4 +483,4 @@ $('#manualToggle').addEventListener('click', () => {
 
 // 목록은 누구나 볼 수 있고, 만들기·지우기는 부모에게만 — 그 갈림과 첫 실행은
 // outing-places.js 의 refreshAuthUI 가 한다.
-$('#tripsMore').addEventListener('click', () => setTab('trips'));
+$('#tripsMore').addEventListener('click', () => { tripsShown += TRIPS_PAGE; renderEvents(); });
