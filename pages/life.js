@@ -363,8 +363,6 @@ buildChrome('life');
     { icon: '🗺', name: '퀘스트 열 개',    f: e => e.quest, n: 10 },
     { icon: '🔥', name: '이레 연속',      calc: k => { const x = quests.filter(y => y.repeat && kidsOf(y.who).includes(k) && streakOf(y) >= 7)[0]; return x ? now() : null; }, hint: '되풀이 퀘스트를 이레 내리' },
     { icon: '🌟', name: '꿈을 이루다',    calc: k => { const t = dreamsOf(k).map(d => dreamState(d, now()).t).filter(Boolean).sort((a, b) => a - b)[0]; return t || null; }, hint: '꿈 목표 하나를 다 채우면' },
-    { icon: '📏', name: '키 150cm',      h: 150 },
-    { icon: '🦒', name: '키 160cm',      h: 160 },
     { icon: '✦', name: '첫 반짝 장비',    lv: st => STATS.some(s => st[s.key].lv >= SHINE_LV) },
     { icon: '★', name: '첫 전설 장비',    lv: st => STATS.some(s => st[s.key].lv >= LEGEND_LV), hint: '능력치 하나가 Lv.' + LEGEND_LV },
     { icon: '🌈', name: '팔방미인',        lv: st => STATS.every(s => st[s.key].lv >= ROOM_LV), hint: '여섯 능력치 모두 Lv.' + ROOM_LV },
@@ -377,7 +375,6 @@ buildChrome('life');
       let t = null;
       if (b.f){ const hit = mine.filter(b.f)[b.n - 1]; if (hit) t = hit.t; }
       else if (b.calc){ t = b.calc(k); }
-      else if (b.h){ const m = heights[k].filter(x => x.cm >= b.h)[0]; if (m) t = m.t; }
       else if (b.lv){ const seen = {}; for (const e of mine){ if (seen[e.t]) continue; seen[e.t] = 1; if (b.lv(statsAt(k, e.t))){ t = e.t; break; } } }
       return { b, t };
     });
@@ -387,7 +384,7 @@ buildChrome('life');
     const box = q('#lifeBadges'); if (!box) return;
     const at = viewAt(), list = badgesOf(sel), have = list.filter(x => x.t !== null && x.t <= at);
     box.innerHTML = '<h2>🏅 배지 <span style="font-weight:700; color:var(--ink-soft);">' + have.length + ' / ' + list.length + '</span></h2><ul class="badge-grid">' + list.map(x => {
-      const on = x.t !== null && x.t <= at, d = on ? new Date(x.t) : null, hint = x.b.hint || (x.b.h ? '키를 재서 ' + x.b.h + 'cm 가 넘으면' : x.b.name);
+      const on = x.t !== null && x.t <= at, d = on ? new Date(x.t) : null, hint = x.b.hint || x.b.name;
       return '<li class="' + (on ? 'on' : 'off') + '" title="' + escapeHTML(on ? x.b.name + ' · ' + d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') : '아직 — ' + hint) + '"><span class="bi">' + (on ? x.b.icon : '？') + '</span><span class="bn">' + x.b.name + '</span>' + (on ? '<time>' + d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '</time>' : '') + '</li>';
     }).join('') + '</ul>';
   }
