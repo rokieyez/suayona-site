@@ -16,6 +16,7 @@ buildChrome('life');
   const FONT = '"Suayona Sans", Pretendard, system-ui, sans-serif';
   const KIDS = ['sua', 'yona'], KID_NAME = { sua: '수아', yona: '연아' }, KID_COLOR = { sua: '#ff7f8a', yona: '#6cc7b3' };
   const KID_X = { sua: 128, yona: 384 };
+  const PROPOSE_ON = false;                                               // 3단계: 아이의 퀘스트 제안 — DB(migration life_quests_propose)를 적용한 뒤에 켠다
   const ROOM_LV = 3, ROOM_BIG = 6;                                        // 벽 물건이 생기는 레벨 · 커지는 레벨
   const DAY = 86400000;
 
@@ -62,6 +63,14 @@ buildChrome('life');
     for (let i = 1; i < h.length; i++) if (at <= h[i].t){ const a = h[i - 1], b = h[i]; return a.cm + (b.cm - a.cm) * (at - a.t) / Math.max(1, b.t - a.t); }
     return h[h.length - 1].cm;
   }
+  // 🎂 생일(가족만 안다) — 그날 하루 고깔모자를 쓰고, 레벨(나이)이 오른 걸 축하한다
+  function isBirthday(k){ const b = born[k]; if (!b || replay) return false; const d = new Date(), m = String(b).slice(5, 10); return m === String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function daysToBirthday(k){
+    const b = born[k]; if (!b) return null;
+    const t = new Date(); t.setHours(0, 0, 0, 0); const n = new Date(t.getFullYear(), Number(String(b).slice(5, 7)) - 1, Number(String(b).slice(8, 10)));
+    if (n < t) n.setFullYear(t.getFullYear() + 1);
+    return Math.round((n - t) / DAY);
+  }
   function topStat(st){ return STATS.slice().sort((a, b) => st[b.key].xp - st[a.key].xp)[0]; }
   function nickOf(st){ const s = topStat(st), o = st[s.key]; return o.xp <= 0 ? '이제 막 길을 나선 모험가' : s.nick[o.lv >= SHINE_LV ? 1 : 0]; }
   function ageYears(k, at){
@@ -76,7 +85,8 @@ buildChrome('life');
   const avatarBuf = {};
   function avatar(k, st, frame){
     const lv = s => st[s].lv, on = s => lv(s) >= GEAR_LV;
-    const key = [k, frame].concat(STATS.map(s => Math.min(lv(s.key), SHINE_LV))).join('|');
+    const hat = isBirthday(k);
+    const key = [k, frame, hat ? 'b' : ''].concat(STATS.map(s => Math.min(lv(s.key), SHINE_LV))).join('|');
     if (avatarBuf[key]) return avatarBuf[key];
     const rows = KIDART[k].down[frame], pal = Object.assign({}, KIDPAL[k]), W = rows[0].length, H = rows.length;
     if (on('body')){ pal.b = '#6cc7b3'; pal.B = '#3f9e8b'; }               // 🏃 민트 운동화
@@ -97,6 +107,7 @@ buildChrome('life');
     if (on('stage')){ dot(2, top + 21, INK, 5, 5); dot(3, top + 22, '#8d8d9b', 3, 3); dot(3, top + 22, '#d8d8e2', 1, 1); dot(3, top + 26, INK, 3, 5); dot(4, top + 26, '#4a4458', 1, 4); }   // 🎹 마이크
     if (on('grit')){ dot(11, top + 21, '#5b7fbf', 1, 3); dot(16, top + 21, '#5b7fbf', 1, 3); dot(12, top + 24, INK, 4, 4); dot(12, top + 24, '#ffd24d', 3, 3); dot(13, top + 25, '#fff3ae', 1, 1); }   // 🏆 금메달
     if (on('heart')){ dot(17, top + 25, '#ff5d7a', 1, 1); dot(19, top + 25, '#ff5d7a', 1, 1); dot(17, top + 26, '#ff5d7a', 3, 1); dot(18, top + 27, '#ff5d7a', 1, 1); }   // 💗 하트 배지
+    if (hat){ for (let i = 0; i < 7; i++){ dot(13 - Math.floor(i / 2) - (i > 4 ? 1 : 0), top - 7 + i, INK, 2 + i + (i > 4 ? 2 : 0), 1); dot(14 - Math.floor(i / 2) - (i > 4 ? 1 : 0), top - 7 + i, i % 2 ? '#ffd979' : '#ff7f8a', Math.max(1, i + (i > 4 ? 2 : 0)), 1); } dot(13, top - 9, '#6cc7b3', 2, 2); }   // 🎂 고깔모자
     return (avatarBuf[key] = c);
   }
   // Lv.5 넘은 장비 옆의 반짝임 자리(도트 좌표)
@@ -175,6 +186,14 @@ buildChrome('life');
     say(cele.text + (shown.length > 1 ? ' (그리고 ' + (shown.length - 1) + '개 더)' : ''));
     setTimeout(() => { cele = null; draw(); }, 5100); draw();
   }
+  function birthday(){
+    const k = KIDS.filter(isBirthday)[0]; if (!k || !fam) return;
+    const tag = new Date().toISOString().slice(0, 10) + k; let seen = ''; try { seen = localStorage.getItem('life_bday') || ''; localStorage.setItem('life_bday', tag); } catch (e) { /* 저장이 막히면 올 때마다 축하한다 */ }
+    if (seen === tag) return;
+    if (k !== sel) pick(k);
+    bubbleNow = null; cele = { k, text: '🎂 ' + KID_NAME[k] + ' 생일 축하해요! Lv.' + ageYears(k, now()) + (typeof josa === 'function' ? josa(String(ageYears(k, now())), '이', '가') : '가') + ' 됐어요', until: now() + 6000 };
+    say(cele.text); setTimeout(() => { cele = null; draw(); }, 6100); draw();
+  }
   const now = () => Date.now();
   function viewAt(){ return replay ? replay.at : now(); }
   let frameN = 0;
@@ -235,7 +254,7 @@ buildChrome('life');
     const at = viewAt(), st = statsAt(sel, at), past = statsAt(sel, at - 30 * DAY), age = fam ? ageYears(sel, at) : null;
     const who = q('#lifeWho'), box = q('#lifeStats'); if (!who || !box) return;
     who.innerHTML = '<div class="life-name"><b style="color:' + (sel === 'sua' ? 'var(--coral-ink)' : '#2f8f78') + '">' + KID_NAME[sel] + '</b>' + (age !== null ? '<span class="lv">Lv.' + age + '</span>' : '') + '</div>' +
-      '<p class="life-nick">「' + escapeHTML(nickOf(st)) + '」' + (age !== null ? ' · 레벨은 나이예요' : '') + (fam ? ' · 키 ' + Math.round(heightAt(sel, at) * 10) / 10 + 'cm' : '') + '</p>' + radarSVG(st) +
+      '<p class="life-nick">「' + escapeHTML(nickOf(st)) + '」' + (age !== null ? ' · 레벨은 나이예요' + (isBirthday(sel) ? ' · 🎂 오늘 생일!' : daysToBirthday(sel) !== null ? ' · 다음 레벨까지 ' + daysToBirthday(sel) + '일' : '') : '') + (fam ? ' · 키 ' + Math.round(heightAt(sel, at) * 10) / 10 + 'cm' : '') + '</p>' + radarSVG(st) +
       '<ul class="gear-list">' + STATS.map(s => '<li class="' + (st[s.key].lv >= GEAR_LV ? '' : 'off') + '">' + s.icon + ' ' + s.gear + (st[s.key].lv >= SHINE_LV ? ' ✦' : '') + '</li>').join('') + '</ul>';
     box.innerHTML = '<h2>능력치</h2>' + STATS.map(s => {
       const o = st[s.key], lo = need(o.lv), hi = need(o.lv + 1), f = o.lv >= MAX_LV ? 1 : (o.xp - lo) / (hi - lo), up = o.xp - past[s.key].xp;
@@ -275,15 +294,16 @@ buildChrome('life');
       const s = statOf(x.stat), late = x.status !== 'done' && x.due_on && dayOf(x.due_on) < today - DAY;
       let acts = '';
       if (x.status === 'open' && canClaim(x)) acts = noting === x.id ? '<div class="qb-note"><input type="text" maxlength="120" placeholder="한마디 (안 써도 돼요)" data-note="' + x.id + '"><button type="button" class="dot-btn small mint" data-send="' + x.id + '">보내기</button></div>' : '<div class="qb-acts"><button type="button" class="dot-btn small lemon" data-claim="' + x.id + '">✋ 했어요</button></div>';
-      if (isAdmin) acts = '<div class="qb-acts">' + (x.status === 'claimed' ? '<button type="button" class="dot-btn small mint" data-done="' + x.id + '">✔ 확인</button><button type="button" class="dot-btn small" data-redo="' + x.id + '">↩ 다시 해 보자</button>' : '') + (x.status !== 'done' ? '<button type="button" class="dot-btn small" data-del="' + x.id + '">지우기</button>' : '') + '</div>';
+      if (isAdmin) acts = '<div class="qb-acts">' + (x.status === 'proposed' ? '<select data-xp="' + x.id + '" aria-label="경험치"><option value="10">10</option><option value="20" selected>20</option><option value="30">30</option></select><button type="button" class="dot-btn small mint" data-accept="' + x.id + '">👍 좋아, 해 보자</button>' : '') + (x.status === 'claimed' ? '<button type="button" class="dot-btn small mint" data-done="' + x.id + '">✔ 확인</button><button type="button" class="dot-btn small" data-redo="' + x.id + '">↩ 다시 해 보자</button>' : '') + (x.status !== 'done' ? '<button type="button" class="dot-btn small" data-del="' + x.id + '">지우기</button>' : '') + '</div>';
       return '<div class="qb-item ' + x.status + '"><span class="ic">' + s.icon + '</span><div class="body"><b>' + escapeHTML(x.title) + '</b>' + (x.who === 'both' ? ' <span class="tag">둘 다</span>' : '') +
-        '<small>' + s.name + ' 경험치 +' + x.xp + (x.due_on && x.status !== 'done' ? ' · ' + mmdd(x.due_on) + '까지' : '') + (x.status === 'done' ? ' · ' + mmdd(x.done_at) + ' 해냄' : '') + '</small>' +
+        '<small>' + s.name + (x.status === 'proposed' ? ' · ' + KID_NAME[x.who] + '의 제안' + (isAdmin ? '' : ' — 엄마 아빠가 보고 있어요') : ' 경험치 +' + x.xp) + (x.due_on && x.status !== 'done' ? ' · ' + mmdd(x.due_on) + '까지' : '') + (x.status === 'done' ? ' · ' + mmdd(x.done_at) + ' 해냄' : '') + '</small>' +
         (late ? '<small class="late">기한이 지났어요 — 그래도 하면 돼요</small>' : '') +
         (x.status === 'claimed' ? '<small>✋ ' + KID_NAME[x.claimed_by] + (x.claim_note ? ': 「' + escapeHTML(x.claim_note) + '」' : '가 했대요') + '</small>' : '') + acts + '</div></div>';
     };
     const group = (t, st, lim) => { const l = mine.filter(x => x.status === st); return l.length ? '<p class="qb-group">' + t + ' ' + l.length + '</p>' + (lim ? l.slice(0, lim) : l).map(item).join('') : ''; };
-    const body = group('확인 기다리는 중', 'claimed') + group('진행 중', 'open') + group('해냄', 'done', 5);
-    box.innerHTML = '<div class="qb-head"><h2>📜 ' + KID_NAME[sel] + '의 퀘스트</h2>' + (isAdmin ? '<button type="button" class="dot-btn small primary" id="qbAdd">' + (adding ? '닫기' : '＋ 퀘스트 내기') + '</button>' : '') + '</div>' +
+    const body = group('💡 제안', 'proposed') + group('확인 기다리는 중', 'claimed') + group('진행 중', 'open') + group('해냄', 'done', 5);
+    box.innerHTML = '<div class="qb-head"><h2>📜 ' + KID_NAME[sel] + '의 퀘스트</h2>' + (isAdmin ? '<button type="button" class="dot-btn small primary" id="qbAdd">' + (adding ? '닫기' : '＋ 퀘스트 내기') + '</button>' : PROPOSE_ON && isChild && me && me.author_key === sel ? '<button type="button" class="dot-btn small lemon" id="qbAdd">' + (adding ? '닫기' : '💡 퀘스트 제안하기') + '</button>' : '') + '</div>' +
+      (adding && isChild && PROPOSE_ON ? '<form class="qb-form" id="qbPropose"><label class="wide">무엇에 도전하고 싶어요?<input name="title" maxlength="80" required placeholder="예: 책 한 권 끝까지 읽기"></label><label class="wide">어떤 능력치일까요<select name="stat">' + STATS.map(s => '<option value="' + s.key + '">' + s.icon + ' ' + s.name + '</option>').join('') + '</select></label><div class="wide"><button class="dot-btn small mint">제안 보내기</button></div></form>' : '') +
       (adding && isAdmin ? '<form class="qb-form" id="qbForm"><label class="wide">무엇을 하면 될까요<input name="title" maxlength="80" required placeholder="예: 줄넘기 100번"></label>' +
         '<label>누구에게<select name="who"><option value="' + sel + '">' + KID_NAME[sel] + '</option><option value="both">둘 다</option></select></label>' +
         '<label>능력치<select name="stat">' + STATS.map(s => '<option value="' + s.key + '">' + s.icon + ' ' + s.name + '</option>').join('') + '</select></label>' +
@@ -293,6 +313,7 @@ buildChrome('life');
     const on = (sel2, fn) => box.querySelectorAll(sel2).forEach(b => b.addEventListener('click', () => fn(Number(Object.values(b.dataset)[0]), b)));
     on('[data-claim]', id => { noting = id; renderBoard(); const i = box.querySelector('[data-note]'); if (i) i.focus(); });
     on('[data-send]', id => { const i = box.querySelector('[data-note="' + id + '"]'); change(id, { status: 'claimed', claim_note: i && i.value.trim() ? i.value.trim().slice(0, 120) : null }, '✋ 보냈어요 — 엄마 아빠가 확인하면 경험치가 들어와요'); });
+    on('[data-accept]', id => { const x = box.querySelector('[data-xp="' + id + '"]'); change(id, { status: 'open', xp: Number(x && x.value) || 20 }, '👍 퀘스트로 받아 줬어요'); });
     on('[data-done]', id => change(id, { status: 'done' }, '✔ 확인했어요 — 경험치가 들어갔어요'));
     on('[data-redo]', id => change(id, { status: 'open', claim_note: null }, '↩ 다시 진행 중으로 돌렸어요'));
     on('[data-del]', id => { if (window.confirm('이 퀘스트를 지울까요?')) sb.from('life_quests').delete().eq('id', id).select('id').then(after('지웠어요'), fail); });
@@ -300,6 +321,10 @@ buildChrome('life');
     const form = q('#qbForm'); if (form) form.addEventListener('submit', e => {
       e.preventDefault(); const f = new FormData(form), title = String(f.get('title') || '').trim(); if (!title) return;
       sb.from('life_quests').insert({ who: f.get('who'), stat: f.get('stat'), title: title.slice(0, 80), xp: Number(f.get('xp')), due_on: f.get('due') || null }).select('id').then(after('퀘스트를 냈어요 📜'), fail);
+    });
+    const pf = q('#qbPropose'); if (pf) pf.addEventListener('submit', e => {
+      e.preventDefault(); const f = new FormData(pf), title = String(f.get('title') || '').trim(); if (!title) return;
+      sb.from('life_quests').insert({ who: me.author_key, stat: f.get('stat'), title: title.slice(0, 80), xp: 10, status: 'proposed' }).select('id').then(after('💡 제안을 보냈어요 — 엄마 아빠가 보면 퀘스트가 돼요'), fail);
     });
     if (isChild){ try { localStorage.setItem('life_seen', new Date().toISOString()); sessionStorage.removeItem('life_wait'); } catch (e) { /* 저장이 막히면 메뉴의 점이 남을 뿐이다 */ } }
   }
@@ -327,12 +352,51 @@ buildChrome('life');
     box.innerHTML = '<h2>' + KID_NAME[sel] + '의 길</h2>' + (mine.length ? '<ul class="road">' + html + '</ul>' + (mine.length > shown.length ? '<p class="road-more"><button type="button" class="dot-btn small" id="roadMore">지난 길 더 보기 (' + (mine.length - shown.length) + ')</button></p>' : '') : '<p class="life-nick">아직 남은 기록이 없어요.</p>');
     const b = q('#roadMore'); if (b) b.addEventListener('click', () => { roadAll = true; renderRoad(); });
   }
+  // 🖼 캐릭터 카드 — 아바타·별명·능력치 모양·장비·방 물건을 그림 한 장으로. 레벨·키·나이 같은 수치는 안 넣는다(밖에 나눌 수 있는 그림이라)
+  function cardCanvas(k){
+    const W = 600, H = 800, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'), st = statsAt(k, now()); g.imageSmoothingEnabled = false;
+    g.fillStyle = INK; g.fillRect(0, 0, W, H); g.fillStyle = '#fff6e9'; g.fillRect(8, 8, W - 16, H - 16); g.fillStyle = KID_COLOR[k]; g.fillRect(8, 8, W - 16, 64);
+    g.fillStyle = INK; g.fillRect(8, 72, W - 16, 4);
+    g.textBaseline = 'top'; g.textAlign = 'left'; g.font = '800 26px ' + FONT; g.fillText('인생 퀘스트', 28, 26);
+    g.textAlign = 'right'; g.font = '700 15px ' + FONT; const d = new Date(); g.fillText(d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'), W - 28, 34);
+    g.fillStyle = '#f6e9d2'; g.fillRect(28, 96, 300, 380); g.fillStyle = '#c99a62'; g.fillRect(28, 436, 300, 40); g.strokeStyle = INK; g.lineWidth = 4; g.strokeRect(28, 96, 300, 380);
+    const img = avatar(k, st, 0), u = 6.6, aw = img.width * u, ah = img.height * u; g.drawImage(img, Math.round(178 - aw / 2), Math.round(452 - (img.height - MY) * u), Math.round(aw), Math.round(ah));
+    g.fillStyle = INK; g.textAlign = 'left'; g.font = '800 40px ' + FONT; g.fillText(KID_NAME[k], 352, 104);
+    g.font = '700 18px ' + FONT; g.fillStyle = '#6f6558'; g.fillText('「' + nickOf(st) + '」', 348, 156);
+    // 능력치 모양(육각형)
+    const cx = 460, cy = 330, R = 96, cap = Math.max(6, ...STATS.map(s => st[s.key].lv)), pt = (i, r) => { const a = -Math.PI / 2 + i * Math.PI / 3; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
+    g.strokeStyle = '#c9bfae'; g.lineWidth = 2; [1, 0.66, 0.33].forEach(f => { g.beginPath(); STATS.forEach((s, i) => { const p2 = pt(i, R * f); if (i) g.lineTo(p2[0], p2[1]); else g.moveTo(p2[0], p2[1]); }); g.closePath(); g.stroke(); });
+    g.beginPath(); STATS.forEach((s, i) => { const p2 = pt(i, 10 + (R - 10) * Math.min(1, st[s.key].lv / cap)); if (i) g.lineTo(p2[0], p2[1]); else g.moveTo(p2[0], p2[1]); }); g.closePath();
+    g.globalAlpha = 0.6; g.fillStyle = KID_COLOR[k]; g.fill(); g.globalAlpha = 1; g.strokeStyle = INK; g.lineWidth = 4; g.stroke();
+    g.font = '22px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; STATS.forEach((s, i) => { const p2 = pt(i, R + 22); g.fillText(s.icon, p2[0], p2[1]); });
+    // 방 물건 · 장비
+    g.textBaseline = 'top'; g.textAlign = 'left'; g.fillStyle = INK; g.font = '800 17px ' + FONT; g.fillText('내 방', 28, 500);
+    g.save(); g.translate(28, 524); g.scale(2, 2); STATS.forEach((s, i) => wallItem(g, s.key, i * 46, -4, st[s.key].lv)); g.restore();
+    g.fillStyle = INK; g.font = '800 17px ' + FONT; g.fillText('장비', 28, 636);
+    let gx = 28, gy = 664; g.font = '700 16px ' + FONT;
+    STATS.forEach(s => { const has = st[s.key].lv >= GEAR_LV, t = s.icon + ' ' + (has ? s.gear + (st[s.key].lv >= SHINE_LV ? ' ✦' : '') : '???'), w = Math.ceil(g.measureText(t).width) + 20; if (gx + w > W - 28){ gx = 28; gy += 40; }
+      g.globalAlpha = has ? 1 : 0.4; g.fillStyle = INK; g.fillRect(gx, gy, w, 32); g.fillStyle = '#fff'; g.fillRect(gx + 2, gy + 2, w - 4, 28); g.fillStyle = INK; g.fillText(t, gx + 10, gy + 8); g.globalAlpha = 1; gx += w + 8; });
+    g.font = '700 14px ' + FONT; g.fillStyle = '#6f6558'; g.textAlign = 'right'; g.fillText('suayona.com', W - 28, H - 38);
+    return c;
+  }
+  function saveCard(){
+    const c = cardCanvas(sel), name = 'suayona-life-' + sel + '-' + new Date().toISOString().slice(0, 10) + '.png';
+    return new Promise(res => c.toBlob(blob => {
+      if (!blob){ say('카드를 만들지 못했어요'); return res(false); }
+      const file = new File([blob], name, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: KID_NAME[sel] + '의 인생 퀘스트' }).then(() => res(true)).catch(() => res(false));
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000); say(KID_NAME[sel] + '의 캐릭터 카드를 내려받았어요'); res(true);
+    }, 'image/png'));
+  }
   function renderTools(){
     const box = q('#lifeTools'); if (!box) return;
     box.innerHTML = KIDS.map(k => '<button type="button" class="dot-btn small" data-kid="' + k + '" aria-pressed="' + (k === sel) + '">' + KID_NAME[k] + '</button>').join(' ') +
-      ' <button type="button" class="dot-btn small" id="lifeReplay">' + (replay ? '■ 그만 보기' : '⏪ 자라 온 길 다시 보기') + '</button>';
+      ' <button type="button" class="dot-btn small" id="lifeReplay">' + (replay ? '■ 그만 보기' : '⏪ 자라 온 길 다시 보기') + '</button>' + (replay ? '' : ' <button type="button" class="dot-btn small" id="lifeCard">🖼 캐릭터 카드</button>');
     box.querySelectorAll('[data-kid]').forEach(b => b.addEventListener('click', () => pick(b.dataset.kid)));
     q('#lifeReplay').addEventListener('click', () => { if (replay) stopReplay(); else startReplay(); });
+    const cb = q('#lifeCard'); if (cb) cb.addEventListener('click', () => { saveCard(); });
   }
   function pick(k){ if (!KIDS.includes(k) || k === sel){ return; } sel = k; roadAll = false; renderTools(); renderSheet(); renderRoad(); draw(); }
 
@@ -402,7 +466,7 @@ buildChrome('life');
     q('#lifeGuest').hidden = fam;
     renderTools(); renderSheet(); renderRoad(); draw();
     say(loadErr ? '기록을 다 불러오지 못했어요 — 잠시 뒤 다시 열어 주세요' : '아바타를 누르면 그 아이의 기록이 나와요 · 한 번 더 누르면 말해요');
-    if (!celebrated && !loadErr){ celebrated = true; celebrate(); }
+    if (!celebrated && !loadErr){ celebrated = true; celebrate(); birthday(); }
   }
 
   // ---------- 누르기·움직임 ----------
@@ -421,5 +485,5 @@ buildChrome('life');
     if (typeof initReveal === 'function') initReveal();
   })();
 
-  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _talk: talk, _celebrate: celebrate, _bubble: () => bubbleNow, _cele: () => cele, _tick: () => { frameN++; draw(); } };
+  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _talk: talk, _card: cardCanvas, _birthday: birthday, _celebrate: celebrate, _bubble: () => bubbleNow, _cele: () => cele, _tick: () => { frameN++; draw(); } };
 })();

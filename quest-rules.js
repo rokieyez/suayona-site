@@ -273,12 +273,17 @@ const QUEST = (() => {
     work:    { xp: 15, label: '작품' },
     outing:  { xp: 15, label: '나들이' },
     runDiv:  100, runCap: 300,
+    // 인생 퀘스트와 잇기(2026-09-17) — 업적 전시실의 상장·급수 하나에 10, 부모가 확인한 현실 퀘스트는 그 경험치의 두 배(20짜리 하나 = 일기 한 편)
+    honor:   { xp: 10, label: '업적' },
+    life:    { mul: 2, label: '현실 퀘스트' },
   };
   function realXp(f){
     f = f || {};
     return (f.diaries || 0) * REAL.diary.xp
          + (f.works || 0) * REAL.work.xp
          + (f.outings || 0) * REAL.outing.xp
+         + (f.honors || 0) * REAL.honor.xp
+         + (f.life_xp || 0) * REAL.life.mul
          + Math.min(REAL.runCap, Math.floor((f.run_best || 0) / REAL.runDiv));
   }
 

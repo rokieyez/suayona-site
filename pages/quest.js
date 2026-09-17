@@ -460,6 +460,8 @@ function renderReal(){
     ['🎨', '작품', (f.works || 0) + '점', [g('💪+' + p.str.works), g('🎨+' + (f.works || 0)), g('⭐+' + (f.works || 0) * Q.REAL.work.xp)]],
     ['🏃', '달리기 최고 점수', (f.run_best || 0) + '점', [g('⚡+' + p.agi.run), g('⭐+' + Math.min(Q.REAL.runCap, Math.floor((f.run_best || 0) / Q.REAL.runDiv)))]],
     ['🚗', '나들이', (f.outings || 0) + '번', [g('⭐+' + (f.outings || 0) * Q.REAL.outing.xp)]],
+    ['🏆', '업적', (f.honors || 0) + '개', [g('⭐+' + (f.honors || 0) * Q.REAL.honor.xp)]],
+    ['📜', '현실 퀘스트', '경험치 ' + (f.life_xp || 0), [g('⭐+' + (f.life_xp || 0) * Q.REAL.life.mul)]],
     ['📏', '키', f.height ? f.height + 'cm' : '—', [g('❤️+' + p.hp.height)].concat(
       left ? [g('🌳 ' + left + '일')] : [g('🌳', true)])],
     ['🎵', '작품 소리', sfxName ? '「' + sfxName + '」' : '—', [g(sfxName ? '💥 연속 강타' : '작품에 소리 붙이기', !sfxName)]],
