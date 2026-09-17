@@ -12,10 +12,11 @@ buildChrome('life');
   'use strict';
   const q = s => document.querySelector(s);
   const STILL = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const RW = 512, RH = 330, FLOOR = 296, PX_PER_CM = 1.5, INK = '#2f2a24';
+  const RW = 512, RH = 330, FLOOR = 296, PX_PER_CM = 1.2, INK = '#2f2a24';
   const FONT = '"Suayona Sans", Pretendard, system-ui, sans-serif';
   const KIDS = ['sua', 'yona'], KID_NAME = { sua: '수아', yona: '연아' }, KID_COLOR = { sua: '#ff7f8a', yona: '#6cc7b3' };
-  const KID_X = { sua: 150, yona: 366 };
+  const KID_X = { sua: 128, yona: 384 };
+  const ROOM_LV = 3, ROOM_BIG = 6;                                        // 벽 물건이 생기는 레벨 · 커지는 레벨
   const DAY = 86400000;
 
   // ---------- 규칙 ----------
@@ -35,7 +36,7 @@ buildChrome('life');
   function levelOf(xp){ let n = 0; while (n < MAX_LV && xp >= need(n + 1)) n++; return n; }
 
   // ---------- 상태 ----------
-  let quests = [], noting = null, adding = false;
+  let quests = [], noting = null, adding = false, celebrated = false;
   let fam = false, born = {}, events = [], heights = { sua: [], yona: [] }, sel = 'sua', replay = null, loaded = false, loadErr = false, roadAll = false;
   const dayOf = v => { if (!v) return NaN; const d = new Date(String(v).length <= 10 ? v + 'T00:00:00+09:00' : v); return d.getTime(); };
   // 적힌 날이 올린 날보다 뒤면(날짜를 잘못 적은 일기 1건이 있었다) 올린 날로 — 앞날의 기록은 오늘 경험치에서 빠지기 때문
@@ -126,6 +127,54 @@ buildChrome('life');
     g.font = '800 8px ' + FONT; g.fillStyle = '#8a7a66'; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('키 재는 자', RW / 2, FLOOR - 175 * PX_PER_CM - 12);
     return (bgCv = c);
   }
+  // ---------- 방이 자란다 — 능력치가 Lv.3 이 되면 그 아이 쪽 벽에 물건이 하나씩 걸리고, Lv.6 이면 커진다. 빈 자리는 점선 ----------
+  function wallItem(g, key, x, y, lv){
+    const R = (a, b, w, h, c) => { g.fillStyle = c; g.fillRect(x + a, y + b, w, h); };
+    if (lv < ROOM_LV){ g.fillStyle = 'rgba(47,42,36,.22)'; for (let d = 0; d < 30; d += 4){ g.fillRect(x + d, y + 6, 2, 1); g.fillRect(x + d, y + 41, 2, 1); } for (let d = 6; d < 42; d += 4){ g.fillRect(x, y + d, 1, 2); g.fillRect(x + 29, y + d, 1, 2); } return; }
+    const big = lv >= ROOM_BIG;
+    if (key === 'art'){ R(0, 6, 30, 36, INK); R(2, 8, 26, 32, big ? '#c9a24a' : '#a0714a'); R(4, 10, 22, 28, '#bfe4f7'); R(4, 28, 22, 10, '#6fb567'); R(8, 14, 6, 6, '#ffd979'); R(16, 22, 8, 8, '#2f7a3e'); R(19, 30, 2, 5, '#7a4a2a'); if (big){ R(6, 32, 4, 3, '#ff7f8a'); R(12, 34, 4, 3, '#fff'); } }
+    if (key === 'stage'){ R(1, 6, 28, 36, INK); R(3, 8, 24, 32, big ? '#3a2a5c' : '#4a4458'); R(16, 14, 2, 14, '#ffd979'); R(18, 14, 6, 3, '#ffd979'); R(11, 26, 7, 5, '#ffd979'); if (big){ R(6, 12, 2, 10, '#ff9fb0'); R(3, 20, 5, 4, '#ff9fb0'); R(8, 34, 14, 2, '#fff'); } else R(8, 35, 14, 1, '#b9a3d6'); }
+    if (key === 'write'){ R(0, 8, 30, 34, INK); R(2, 10, 26, 30, '#8a5a34'); R(2, 24, 26, 2, INK); const C = ['#ff7f8a', '#6cc7b3', '#ffd979', '#8ec9ee', '#b9a3d6', '#ff9f68']; for (let i = 0; i < 6; i++){ R(3 + i * 4, 12 + i % 2 * 2, 3, 12 - i % 2 * 2, C[i]); if (big || i < 3) R(3 + i * 4, 28 + (i + 1) % 2 * 2, 3, 12 - (i + 1) % 2 * 2, C[(i + 3) % 6]); } }
+    if (key === 'body'){ R(2, 6, 2, 36, INK); R(3, 6, 1, 36, '#8a5a34'); for (let i = 0; i < 22; i++){ const h = Math.max(2, 20 - i); R(4 + i, 8 + Math.floor(i / 2), 1, h, i % 6 < 3 ? '#6cc7b3' : '#fff'); } R(4, 7, 23, 1, INK); if (big){ R(10, 14, 6, 6, '#ffd979'); R(12, 16, 2, 2, '#fff'); } }
+    if (key === 'heart'){ g.fillStyle = INK; for (let d = 0; d < 30; d++) g.fillRect(x + d, y + 8 + Math.round(Math.sin(d / 29 * Math.PI) * 5), 1, 1); const H = (a, b, c) => { R(a, b, 2, 2, c); R(a + 3, b, 2, 2, c); R(a, b + 2, 5, 2, c); R(a + 1, b + 4, 3, 1, c); R(a + 2, b + 5, 1, 1, c); }; H(3, 14, '#ff5d7a'); H(13, 17, '#ff9fb0'); H(22, 14, '#ff5d7a'); if (big){ H(8, 26, '#ffd979'); H(18, 27, '#6cc7b3'); } }
+    if (key === 'grit'){ R(0, 36, 30, 3, INK); R(1, 37, 28, 1, '#c9a24a'); const T = (a, c) => { R(a, 18, 10, 9, INK); R(a + 1, 19, 8, 7, c); R(a + 3, 27, 4, 5, INK); R(a + 4, 27, 2, 5, c); R(a + 1, 32, 8, 4, INK); R(a + 2, 33, 6, 2, '#8a5a34'); R(a + 2, 20, 2, 3, '#fff3ae'); }; T(big ? 3 : 10, '#ffd24d'); if (big) T(17, '#d8d8e2'); }
+  }
+  // ---------- 말풍선 · 레벨 업 ----------
+  let bubbleNow = null, cele = null;
+  function wrap(g, text, maxW){ const out = []; let line = ''; text.split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > maxW && line){ out.push(line); line = w; } else line = t; }); if (line) out.push(line); return out; }
+  function drawBubble(g, cx, tipY, text){
+    g.font = '700 10px ' + FONT; const lines = wrap(g, text, 150), w = Math.ceil(Math.max(...lines.map(l => g.measureText(l).width))) + 14, h = lines.length * 13 + 9;
+    const x = Math.max(4, Math.min(RW - w - 4, Math.round(cx - w / 2))), y = Math.max(4, tipY - h - 6);
+    g.fillStyle = INK; g.fillRect(x - 1, y - 1, w + 2, h + 2); g.fillRect(cx - 3, y + h, 7, 4); g.fillStyle = '#fff'; g.fillRect(x, y, w, h); g.fillRect(cx - 2, y + h - 1, 5, 3);
+    g.fillStyle = INK; g.textAlign = 'left'; g.textBaseline = 'top'; lines.forEach((l, i) => g.fillText(l, x + 7, y + 5 + i * 13));
+  }
+  function talk(k){
+    const st = statsAt(k, now()), top = topStat(st), recent = events.filter(e => e.k === k && e.label).sort((a, b) => b.t - a.t)[0];
+    const lines = [st[top.key].xp > 0 ? '요즘 제일 자신 있는 건 ' + top.icon + ' ' + top.name + '!' : '이제 막 시작했어. 지켜봐 줘!'];
+    if (recent) lines.push('얼마 전에 이런 일이 있었어 — ' + recent.label + '!');
+    const bare = STATS.filter(s => st[s.key].lv < GEAR_LV)[0]; if (bare) lines.push(bare.icon + ' ' + bare.name + '도 키워서 「' + bare.gear + '」 갖고 싶어.');
+    const open = quests.filter(x => x.status === 'open' && (x.who === k || x.who === 'both'))[0]; if (fam && open) lines.push('퀘스트 「' + open.title + '」 하는 중이야!');
+    const shine = STATS.filter(s => st[s.key].lv >= SHINE_LV)[0]; if (shine) lines.push('내 ' + shine.gear + ', 반짝이는 거 봤어? ✦');
+    const i = ((bubbleNow && bubbleNow.k === k ? bubbleNow.i : -1) + 1) % lines.length;
+    cele = null; bubbleNow = { k, i, text: lines[i], until: now() + 3200 }; say(KID_NAME[k] + ': ' + lines[i]); draw();
+    setTimeout(() => { if (bubbleNow && now() >= bubbleNow.until){ bubbleNow = null; draw(); } }, 3300);
+  }
+  // 지난 방문 때의 레벨을 이 브라우저에만 적어 두고(localStorage life_lv) 올랐으면 축하한다. 첫 방문은 적기만 한다. 수치는 가족에게만 말한다
+  function celebrate(){
+    let old = null; const cur = {};
+    KIDS.forEach(k => { const st = statsAt(k, now()); cur[k] = {}; STATS.forEach(s => { cur[k][s.key] = st[s.key].lv; }); });
+    try { old = JSON.parse(localStorage.getItem('life_lv') || 'null'); localStorage.setItem('life_lv', JSON.stringify(cur)); } catch (e) { return; }
+    if (!old) return;
+    const ups = []; KIDS.forEach(k => STATS.forEach(s => { const a = (old[k] || {})[s.key], b = cur[k][s.key]; if (Number.isFinite(a) && b > a) ups.push({ k, s, lv: b, gear: a < GEAR_LV && b >= GEAR_LV, shine: a < SHINE_LV && b >= SHINE_LV, room: a < ROOM_LV && b >= ROOM_LV }); }));
+    const shown = fam ? ups : ups.filter(u => u.gear || u.shine || u.room); if (!shown.length) return;
+    const u = shown.find(x => x.k === sel) || shown[0];
+    const ga = w => (typeof josa === 'function' ? josa(w, '이', '가') : '가');   // josa 는 조사만 돌려준다
+    const what = u.gear ? '「' + u.s.gear + '」' + ga(u.s.gear) + ' 생겼어요!' : u.shine ? u.s.gear + ga(u.s.gear) + ' 반짝이기 시작했어요 ✦' : u.room ? '방에 새 물건이 걸렸어요!' : '';
+    bubbleNow = null; cele = { k: u.k, text: '🎉 ' + KID_NAME[u.k] + ' ' + u.s.icon + ' ' + u.s.name + (fam ? ' Lv.' + u.lv : ' 레벨 업') + (what ? ' — ' + what : ''), until: now() + 5000 };
+    if (u.k !== sel) pick(u.k);
+    say(cele.text + (shown.length > 1 ? ' (그리고 ' + (shown.length - 1) + '개 더)' : ''));
+    setTimeout(() => { cele = null; draw(); }, 5100); draw();
+  }
   const now = () => Date.now();
   function viewAt(){ return replay ? replay.at : now(); }
   let frameN = 0;
@@ -134,12 +183,13 @@ buildChrome('life');
     const g = cv.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); g.imageSmoothingEnabled = false;
     g.clearRect(0, 0, RW, RH); g.drawImage(background(), 0, 0, RW, RH);
     const at = viewAt();
+    KIDS.forEach(k => { const st = statsAt(k, at), x0 = k === 'sua' ? 10 : 274; STATS.forEach((s, i) => wallItem(g, s.key, x0 + i * 38, 10, st[s.key].lv)); });
     KIDS.forEach(k => {
       const st = statsAt(k, at), cm = heightAt(k, at), x = KID_X[k];
       const bob = !STILL && !replay && (frameN + (k === 'sua' ? 0 : 2)) % 8 < 1 ? 1 : 0;
       const img = avatar(k, st, 0), rows = KIDART[k].down[0], u = cm * PX_PER_CM / rows.length;   // 도트 한 칸의 화면 크기 — 머리끝~발끝이 실제 키
-      if (k === sel){ g.fillStyle = 'rgba(255,217,121,.75)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 62, 11, 0, 0, Math.PI * 2); g.fill(); }
-      g.fillStyle = 'rgba(47,42,36,.22)'; g.beginPath(); g.ellipse(x, FLOOR + 5, 40, 6, 0, 0, Math.PI * 2); g.fill();
+      if (k === sel){ g.fillStyle = 'rgba(255,217,121,.75)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 54, 10, 0, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = 'rgba(47,42,36,.22)'; g.beginPath(); g.ellipse(x, FLOOR + 5, 34, 5, 0, 0, Math.PI * 2); g.fill();
       const w = img.width * u, h = img.height * u, x0 = Math.round(x - w / 2), y0 = Math.round(FLOOR + 4 - (rows.length + MY) * u + bob);
       g.drawImage(img, x0, y0, Math.round(w), Math.round(h));
       if (!STILL) STATS.forEach(s => {                                   // ✦ 반짝임
@@ -154,6 +204,13 @@ buildChrome('life');
       g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(label, x, FLOOR + 17);
       if (fam){ const y = Math.round(FLOOR - cm * PX_PER_CM), dir = k === 'sua' ? 1 : -1; const mx = dir > 0 ? RW / 2 - 35 : RW / 2 + 10; g.fillStyle = KID_COLOR[k]; g.fillRect(mx, y, 25, 2); g.fillStyle = INK; g.fillRect(dir > 0 ? mx : mx + 23, y - 1, 2, 4); }   // 머리끝이 자에 닿는 자리
     });
+    if (cele && now() < cele.until){
+      const x = KID_X[cele.k], top = FLOOR - heightAt(cele.k, at) * PX_PER_CM;
+      for (let i = 0; i < 10; i++){ const a = i / 10 * Math.PI * 2 + frameN * 0.5, r = 70 + (frameN + i) % 3 * 8, sx = Math.round(x + Math.cos(a) * r), sy = Math.round(top + 90 + Math.sin(a) * r * 0.8); g.fillStyle = ['#ffd979', '#ff7f8a', '#6cc7b3', '#fff'][i % 4]; g.fillRect(sx - 3, sy, 7, 1); g.fillRect(sx, sy - 3, 1, 7); }
+      g.font = '800 11px ' + FONT; const tw = Math.min(RW - 16, Math.ceil(g.measureText(cele.text).width) + 16);
+      g.fillStyle = INK; g.fillRect(Math.round(RW / 2 - tw / 2) - 1, 62, tw + 2, 22); g.fillStyle = '#ffd979'; g.fillRect(Math.round(RW / 2 - tw / 2), 63, tw, 20); g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(cele.text, RW / 2, 67, tw - 10);
+    }
+    if (bubbleNow && !replay && now() < bubbleNow.until) drawBubble(g, KID_X[bubbleNow.k], Math.round(FLOOR - heightAt(bubbleNow.k, at) * PX_PER_CM) - 8, bubbleNow.text);
     if (replay){
       const d = new Date(replay.at), t = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0');
       g.font = '800 13px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'top';
@@ -185,8 +242,16 @@ buildChrome('life');
       return '<div class="stat-row"><span class="nm">' + s.icon + ' ' + s.name + '</span><span class="stat-bar" style="--c:' + s.color + '"><i style="width:' + (fam ? Math.round(f * 100) : Math.round(Math.min(1, o.lv / 8) * 100)) + '%"></i></span>' +
         '<span class="lvn">' + (fam ? 'Lv.' + o.lv + (up > 0 && !replay ? '<span class="up">▲' + up + '</span>' : '') : o.lv >= SHINE_LV ? '✦' : o.lv >= GEAR_LV ? '●' : '○') + '</span>' +
         '<p class="stat-from">' + s.from + (fam ? ' · ' + s.unit + ' ' + o.n + ' · 경험치 ' + o.xp + (o.lv < MAX_LV ? ' / ' + hi : '') : '') + '</p></div>';
-    }).join('') + (fam && !replay ? '<p class="stat-from" style="margin:6px 0 0;">▲ 는 지난달의 나보다 늘어난 경험치예요.</p>' : '');
+    }).join('') + (fam && !replay ? '<p class="stat-from" style="margin:6px 0 0;">▲ 는 지난달의 나보다 늘어난 경험치예요.</p>' : '') + (replay ? '' : weeksHTML());
     renderQuests(st); renderBoard();
+  }
+  // 요즘 8주 — 하루 한 칸, 그날 기록이 있으면 그 능력치 색. 수치는 없다. 손님의 퀘스트 몫은 달 단위라 날짜가 없어 뺀다
+  function weeksHTML(){
+    const today = new Date(); today.setHours(0, 0, 0, 0); const end = today.getTime() + (6 - (today.getDay() + 6) % 7) * DAY, start = end - 55 * DAY;
+    const byDay = {}; events.forEach(e => { if (e.k !== sel || e.t < start || e.t > end + DAY || (e.quest && !fam)) return; const d = Math.floor((e.t - start) / DAY); if (d >= 0 && d < 56) (byDay[d] = byDay[d] || []).push(e.stat); });
+    let cells = '', days = 0;
+    for (let d = 0; d < 56; d++){ const l = byDay[d], fut = start + d * DAY > today.getTime(); if (l) days++; cells += '<i' + (l ? ' style="background:' + statOf(l[0]).color + '" title="' + l.map(x => statOf(x).name).join('·') + '"' : fut ? ' class="fut"' : '') + '></i>'; }
+    return '<div class="weeks"><p class="stat-from" style="margin:12px 0 6px;"><b>요즘 8주</b> · 기록을 남긴 날 ' + days + '일</p><div class="weeks-grid" role="img" aria-label="최근 8주 동안 기록을 남긴 날 ' + days + '일">' + cells + '</div></div>';
   }
   // 다음 목표 — 1단계는 기록에서 저절로 나오는 것만(부모가 내는 퀘스트는 2단계). 가장 가까운 셋
   function renderQuests(st){
@@ -199,7 +264,7 @@ buildChrome('life');
       (x.o.lv + 1 === GEAR_LV ? ' — 「' + x.s.gear + '」가 생겨요' : x.o.lv + 1 === SHINE_LV ? ' — 장비가 반짝여요 ✦' : '') + '<small>' + how[x.s.key] + ' 경험치 +' + per[x.s.key] + ' · 남은 경험치 ' + x.left + '</small></span></li>').join('') + '</ul>';
   }
   // ---------- 퀘스트 판(가족만) — 고른 아이의 것과 「둘 다」 ----------
-  const statOf = key => STATS.find(s => s.key === key) || STATS[0];
+  function statOf(key){ return STATS.find(s => s.key === key) || STATS[0]; }
   const mmdd = v => { const d = new Date(dayOf(v)); return (d.getMonth() + 1) + '.' + d.getDate(); };
   function renderBoard(){
     const box = q('#lifeBoard'); if (!box) return;
@@ -336,14 +401,15 @@ buildChrome('life');
     loaded = true;
     q('#lifeGuest').hidden = fam;
     renderTools(); renderSheet(); renderRoad(); draw();
-    say(loadErr ? '기록을 다 불러오지 못했어요 — 잠시 뒤 다시 열어 주세요' : '아바타를 누르면 그 아이의 기록이 나와요');
+    say(loadErr ? '기록을 다 불러오지 못했어요 — 잠시 뒤 다시 열어 주세요' : '아바타를 누르면 그 아이의 기록이 나와요 · 한 번 더 누르면 말해요');
+    if (!celebrated && !loadErr){ celebrated = true; celebrate(); }
   }
 
   // ---------- 누르기·움직임 ----------
   function wire(){
     const cv = q('#lifeCv'); if (!cv) return;
     const kidAt = e => { const rc = cv.getBoundingClientRect(); if (!rc.width) return null; const x = (e.clientX - rc.left) / rc.width * RW; return x < RW / 2 ? 'sua' : 'yona'; };
-    cv.addEventListener('click', e => { const k = kidAt(e); if (k) pick(k); });
+    cv.addEventListener('click', e => { const k = kidAt(e); if (!k || replay) return; if (k === sel) talk(k); else pick(k); });
     cv.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') pick('sua'); if (e.key === 'ArrowRight') pick('yona'); });
     if (!STILL) setInterval(() => { if (document.hidden || replay || !loaded) return; const rc = cv.getBoundingClientRect(); if (rc.bottom < 0 || rc.top > (window.innerHeight || 800)) return; frameN++; draw(); }, 260);
   }
@@ -355,5 +421,5 @@ buildChrome('life');
     if (typeof initReveal === 'function') initReveal();
   })();
 
-  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _tick: () => { frameN++; draw(); } };
+  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _talk: talk, _celebrate: celebrate, _bubble: () => bubbleNow, _cele: () => cele, _tick: () => { frameN++; draw(); } };
 })();
