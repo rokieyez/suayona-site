@@ -645,7 +645,7 @@
     const p = world.plots[id];
     if (!p || !p.tilled) return fail('비료를 줄 땅이 아니에요');
     if (p.fert) return fail('이미 비료를 줬어요');
-    if (!take(mine, 'fert')) return fail('비료가 없어요. 일기를 쓰면 하나 생겨요');
+    if (!take(mine, 'fert')) return fail('비료가 없어요. 가게에서 살 수 있어요');
     tickPlot(p, now, id[0] === 'g');
     p.fert = true;
     return okay('비료를 줬어요. 1.5배 빨리 자라요');
@@ -1072,7 +1072,7 @@
     mine.coins += Math.max(0, Math.min(1000, Math.floor(g.coins || 0)));
     return g;
   }
-  // 일기 하나에 비료 하나 — 현실 연동. 서버가 센 일기 수에서 쓴 만큼 뺀다.
+  // (일기 하나에 비료 하나는 2026-09-17 에 뺐다 — fertFromDiaries 는 남겨 두되 아무도 부르지 않는다)
   // 모험단 원정에서 주워 온 씨앗. 모험단 저장은 「지금까지 몇 개 주웠나」만 세고,
   // 농장은 「그중 몇 개를 가져갔나」를 제 저장에 적는다. 두 놀이가 서로의 저장에
   // 손대지 않으므로 순서가 엇갈려도 두 번 받거나 잃을 일이 없다 — 일기→비료와 같은 꼴.

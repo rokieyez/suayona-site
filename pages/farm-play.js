@@ -95,8 +95,7 @@ function daily(w, m){
     changed = true;
   }
   if (R.refreshEnergy(w, m, now())) changed = true;
-  const fert = R.fertFromDiaries(m, facts.diaries || 0);
-  if (fert) { says.push('일기 덕분에 비료 ' + fert + '개가 생겼어요'); changed = true; }
+  // 일기 → 비료는 뺐다(2026-09-17 부모 요청). 이미 받은 비료는 그대로 두고, 비료는 가게에서 산다. 일기의 현실 연동은 인생 퀘스트·모험단에 남아 있다
   // 모험단 원정에서 주워 온 씨앗 — 이 계절에 심을 수 있는 것으로 온다
   const seeds = R.seedsFromExpo(w, m, expoSeedsEver, now());
   if (seeds.length){
@@ -253,7 +252,7 @@ function hintFor(){
   if (tool === 'hoe') return '밭의 풀밭을 눌러 땅을 갈아요. 누른 채 끌면 지나간 칸마다 이어서 갈려요. 기운 1.';
   if (tool === 'can') return '갈아 둔 땅을 눌러 물을 줘요. 누른 채 끌면 줄줄이 줘요. 스무 시간 촉촉해요. 비 오는 날은 안 줘도 돼요.';
   if (tool === 'seed') return seed ? R.CROPS[seed].name + ' — ' + R.CROPS[seed].hours + '시간이면 자라요. ' + (R.CROPS[seed].season.indexOf(cal.season) >= 0 || R.CROPS[seed].hardy ? '지금 심을 수 있어요.' : '지금은 ' + R.SEASON_NAME[cal.season] + '이라 밭에서는 안 자라요(온실은 돼요).') : '';
-  if (tool === 'fert') return '비료는 일기를 쓰면 하나씩 생겨요. 1.5배 빨리 자라요. 끌면 줄줄이 줘요.';
+  if (tool === 'fert') return '비료는 가게에서 사요. 1.5배 빨리 자라요. 끌면 줄줄이 줘요.';
   if (tool === 'pull') return '시든 작물이나 그만 키울 작물을 뽑아요. 큰 작물은 짝도 같이 뽑혀요.';
   if (tool === 'sprk'){
     const S = (R.SPRINKLERS && R.SPRINKLERS[sprk]) || R.SPRINKLER;
@@ -817,7 +816,7 @@ function renderShop(){
       sp2a.appendChild(buyBtn('sprinkler2:1', S2.cost, M.coins >= S2.cost && lv >= S2.lv));
       sp2.appendChild(sp2a); box.appendChild(sp2);
     }
-    const fc = document.createElement('div'); fc.className = 'item'; fc.innerHTML = '<div class="nm">🧪 비료</div><div class="pr">1.5배 빨리. 일기를 쓰면 공짜로 하나</div>';
+    const fc = document.createElement('div'); fc.className = 'item'; fc.innerHTML = '<div class="nm">🧪 비료</div><div class="pr">1.5배 빨리 자라요</div>';
     const fa = document.createElement('div'); fa.className = 'act'; fa.appendChild(buyBtn('fert:1', 30, M.coins >= 30)); fc.appendChild(fa); box.appendChild(fc);
     // 나무·돌 — 베고 캐는 것이 하루에 몇 번뿐이라, 짓다가 한 가지가 모자라면 며칠을 기다려야 했다
     [['wood', '🪵'], ['stone', '🪨']].forEach(([id, icon]) => {

@@ -2079,3 +2079,19 @@ language sql stable security invoker set search_path = public as $$
     'life_xp',  (select coalesce(sum(xp), 0) from life_quests where status = 'done' and who in (p_who, 'both'))
   );
 $$;
+
+
+-- ---------------------------------------------------------------------------
+-- 퀘스트 목록을 손님에게도 (2026-09-17 부모 요청, migration life_quest_list_for_guests)
+-- 표는 그대로 가족만 읽고, 손님은 이 함수로만 — 아이의 한마디(claim_note)·누가 눌렀는지·아직 받아 주지 않은 제안(proposed)은 주지 않는다.
+-- 달별 합계 함수 life_quest_xp 는 쓰임이 없어져 걷었다(위쪽 정의는 옛 기록).
+-- ---------------------------------------------------------------------------
+create or replace function public.life_quest_list()
+returns table (id bigint, who text, stat text, title text, xp smallint, due_on date, status text, done_at timestamptz, created_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select q.id, q.who, q.stat, q.title, q.xp, q.due_on, q.status, q.done_at, q.created_at
+    from life_quests q where q.status in ('open','claimed','done') order by q.created_at desc limit 200;
+$$;
+revoke execute on function public.life_quest_list() from public;
+grant  execute on function public.life_quest_list() to anon, authenticated;
+drop function if exists public.life_quest_xp();

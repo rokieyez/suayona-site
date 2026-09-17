@@ -2,9 +2,9 @@
 // 모험단(quest)은 기록을 전투력으로 바꿔 노는 곳이고, 여기는 기록 그 자체를 보여 주는 캐릭터 시트다. 전투·세이브가 없다.
 // 1단계는 새 표 없이 이미 있는 기록만 센다: 작품·영상(works) · 일기(posts) · 달리기(run_scores) · 업적(honors) · 박수(work_claps·honor_claps) · 키(growth).
 // 모든 경험치가 「날짜 달린 사건」이라 어느 날의 모습이든 다시 계산할 수 있다 — 「자라 온 길 다시 보기」와 「지난달의 나」가 그걸 쓴다.
-// 손님에게는 아바타·능력치 모양·별명만, 수치(레벨·키·나이·다음 목표)는 로그인한 가족에게만. 자매끼리 수치를 나란히 놓지 않는다(한 번에 한 아이).
+// 손님에게는 아바타·능력치 모양·별명·키·퀘스트 목록(2026-09-17 부모 요청으로 키·목록을 열었다), 나머지 수치(레벨·경험치·나이·다음 목표)는 로그인한 가족에게만. 자매끼리 수치를 나란히 놓지 않는다(한 번에 한 아이).
 // 2단계(같은 날): 부모가 내는 현실 퀘스트(life_quests 표). 부모가 내고 → 아이가 「했어요」 → 부모가 확인하면 그날 경험치. 칸 단위 규칙(아이는 상태·한마디만, 한 달 150)은 서버 트리거가 지킨다.
-// 손님은 표를 못 읽어서 제목 없는 달별 합계(rpc life_quest_xp)만 받아 아바타에 반영한다.
+// 손님은 표를 못 읽고 함수(rpc life_quest_list)로 목록만 받는다 — 제목·경험치·상태·날짜. 아이의 한마디·누가 눌렀는지·아직 안 받아 준 제안은 안 온다.
 // 밖으로는 window.LIFE 만 내놓는다(시험용).
 buildChrome('life');
 
@@ -133,7 +133,7 @@ buildChrome('life');
     for (let cm = 10; cm <= 170; cm += 5){
       const y = Math.round(FLOOR - cm * PX_PER_CM), big = cm % 10 === 0;
       g.fillStyle = big ? INK : '#9a8f80'; g.fillRect(rx, y, big ? 9 : 5, 1);
-      if (fam && big && cm >= 100){ g.font = '700 7px ' + FONT; g.fillStyle = INK; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String(cm), rx + 17, y); }
+      if (big && cm >= 100){ g.font = '700 7px ' + FONT; g.fillStyle = INK; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String(cm), rx + 17, y); }
     }
     g.font = '800 8px ' + FONT; g.fillStyle = '#8a7a66'; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('키 재는 자', RW / 2, FLOOR - 175 * PX_PER_CM - 12);
     return (bgCv = c);
@@ -164,7 +164,7 @@ buildChrome('life');
     const lines = [st[top.key].xp > 0 ? '요즘 제일 자신 있는 건 ' + top.icon + ' ' + top.name + '!' : '이제 막 시작했어. 지켜봐 줘!'];
     if (recent) lines.push('얼마 전에 이런 일이 있었어 — ' + recent.label + '!');
     const bare = STATS.filter(s => st[s.key].lv < GEAR_LV)[0]; if (bare) lines.push(bare.icon + ' ' + bare.name + '도 키워서 「' + bare.gear + '」 갖고 싶어.');
-    const open = quests.filter(x => x.status === 'open' && (x.who === k || x.who === 'both'))[0]; if (fam && open) lines.push('퀘스트 「' + open.title + '」 하는 중이야!');
+    const open = quests.filter(x => x.status === 'open' && (x.who === k || x.who === 'both'))[0]; if (open) lines.push('퀘스트 「' + open.title + '」 하는 중이야!');
     const shine = STATS.filter(s => st[s.key].lv >= SHINE_LV)[0]; if (shine) lines.push('내 ' + shine.gear + ', 반짝이는 거 봤어? ✦');
     const i = ((bubbleNow && bubbleNow.k === k ? bubbleNow.i : -1) + 1) % lines.length;
     cele = null; bubbleNow = { k, i, text: lines[i], until: now() + 3200 }; say(KID_NAME[k] + ': ' + lines[i]); draw();
@@ -221,7 +221,7 @@ buildChrome('life');
       g.font = '800 10px ' + FONT; const tw = Math.ceil(g.measureText(label).width) + 10;
       g.fillStyle = INK; g.fillRect(Math.round(x - tw / 2) - 1, FLOOR + 14, tw + 2, 15); g.fillStyle = KID_COLOR[k]; g.fillRect(Math.round(x - tw / 2), FLOOR + 15, tw, 13);
       g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(label, x, FLOOR + 17);
-      if (fam){ const y = Math.round(FLOOR - cm * PX_PER_CM), dir = k === 'sua' ? 1 : -1; const mx = dir > 0 ? RW / 2 - 35 : RW / 2 + 10; g.fillStyle = KID_COLOR[k]; g.fillRect(mx, y, 25, 2); g.fillStyle = INK; g.fillRect(dir > 0 ? mx : mx + 23, y - 1, 2, 4); }   // 머리끝이 자에 닿는 자리
+      { const y = Math.round(FLOOR - cm * PX_PER_CM), dir = k === 'sua' ? 1 : -1; const mx = dir > 0 ? RW / 2 - 35 : RW / 2 + 10; g.fillStyle = KID_COLOR[k]; g.fillRect(mx, y, 25, 2); g.fillStyle = INK; g.fillRect(dir > 0 ? mx : mx + 23, y - 1, 2, 4); }   // 머리끝이 자에 닿는 자리
     });
     if (cele && now() < cele.until){
       const x = KID_X[cele.k], top = FLOOR - heightAt(cele.k, at) * PX_PER_CM;
@@ -254,7 +254,7 @@ buildChrome('life');
     const at = viewAt(), st = statsAt(sel, at), past = statsAt(sel, at - 30 * DAY), age = fam ? ageYears(sel, at) : null;
     const who = q('#lifeWho'), box = q('#lifeStats'); if (!who || !box) return;
     who.innerHTML = '<div class="life-name"><b style="color:' + (sel === 'sua' ? 'var(--coral-ink)' : '#2f8f78') + '">' + KID_NAME[sel] + '</b>' + (age !== null ? '<span class="lv">Lv.' + age + '</span>' : '') + '</div>' +
-      '<p class="life-nick">「' + escapeHTML(nickOf(st)) + '」' + (age !== null ? ' · 레벨은 나이예요' + (isBirthday(sel) ? ' · 🎂 오늘 생일!' : daysToBirthday(sel) !== null ? ' · 다음 레벨까지 ' + daysToBirthday(sel) + '일' : '') : '') + (fam ? ' · 키 ' + Math.round(heightAt(sel, at) * 10) / 10 + 'cm' : '') + '</p>' + radarSVG(st) +
+      '<p class="life-nick">「' + escapeHTML(nickOf(st)) + '」' + (age !== null ? ' · 레벨은 나이예요' + (isBirthday(sel) ? ' · 🎂 오늘 생일!' : daysToBirthday(sel) !== null ? ' · 다음 레벨까지 ' + daysToBirthday(sel) + '일' : '') : '') + (heights[sel].length ? ' · 키 ' + Math.round(heightAt(sel, at) * 10) / 10 + 'cm' : '') + '</p>' + radarSVG(st) +
       '<ul class="gear-list">' + STATS.map(s => '<li class="' + (st[s.key].lv >= GEAR_LV ? '' : 'off') + '">' + s.icon + ' ' + s.gear + (st[s.key].lv >= SHINE_LV ? ' ✦' : '') + '</li>').join('') + '</ul>';
     box.innerHTML = '<h2>능력치</h2>' + STATS.map(s => {
       const o = st[s.key], lo = need(o.lv), hi = need(o.lv + 1), f = o.lv >= MAX_LV ? 1 : (o.xp - lo) / (hi - lo), up = o.xp - past[s.key].xp;
@@ -267,7 +267,7 @@ buildChrome('life');
   // 요즘 8주 — 하루 한 칸, 그날 기록이 있으면 그 능력치 색. 수치는 없다. 손님의 퀘스트 몫은 달 단위라 날짜가 없어 뺀다
   function weeksHTML(){
     const today = new Date(); today.setHours(0, 0, 0, 0); const end = today.getTime() + (6 - (today.getDay() + 6) % 7) * DAY, start = end - 55 * DAY;
-    const byDay = {}; events.forEach(e => { if (e.k !== sel || e.t < start || e.t > end + DAY || (e.quest && !fam)) return; const d = Math.floor((e.t - start) / DAY); if (d >= 0 && d < 56) (byDay[d] = byDay[d] || []).push(e.stat); });
+    const byDay = {}; events.forEach(e => { if (e.k !== sel || e.t < start || e.t > end + DAY ) return; const d = Math.floor((e.t - start) / DAY); if (d >= 0 && d < 56) (byDay[d] = byDay[d] || []).push(e.stat); });
     let cells = '', days = 0;
     for (let d = 0; d < 56; d++){ const l = byDay[d], fut = start + d * DAY > today.getTime(); if (l) days++; cells += '<i' + (l ? ' style="background:' + statOf(l[0]).color + '" title="' + l.map(x => statOf(x).name).join('·') + '"' : fut ? ' class="fut"' : '') + '></i>'; }
     return '<div class="weeks"><p class="stat-from" style="margin:12px 0 6px;"><b>요즘 8주</b> · 기록을 남긴 날 ' + days + '일</p><div class="weeks-grid" role="img" aria-label="최근 8주 동안 기록을 남긴 날 ' + days + '일">' + cells + '</div></div>';
@@ -287,7 +287,7 @@ buildChrome('life');
   const mmdd = v => { const d = new Date(dayOf(v)); return (d.getMonth() + 1) + '.' + d.getDate(); };
   function renderBoard(){
     const box = q('#lifeBoard'); if (!box) return;
-    box.hidden = !fam || !!replay; if (box.hidden) return;
+    box.hidden = !!replay; if (box.hidden) return;                       // 퀘스트 목록은 손님에게도(2026-09-17 부모 요청) — 단추는 가족에게만
     const mine = quests.filter(x => x.who === sel || x.who === 'both'), today = dayOf(new Date().toISOString().slice(0, 10));
     const canClaim = x => isChild && me && (x.who === me.author_key || x.who === 'both');
     const item = x => {
@@ -298,7 +298,7 @@ buildChrome('life');
       return '<div class="qb-item ' + x.status + '"><span class="ic">' + s.icon + '</span><div class="body"><b>' + escapeHTML(x.title) + '</b>' + (x.who === 'both' ? ' <span class="tag">둘 다</span>' : '') +
         '<small>' + s.name + (x.status === 'proposed' ? ' · ' + KID_NAME[x.who] + '의 제안' + (isAdmin ? '' : ' — 엄마 아빠가 보고 있어요') : ' 경험치 +' + x.xp) + (x.due_on && x.status !== 'done' ? ' · ' + mmdd(x.due_on) + '까지' : '') + (x.status === 'done' ? ' · ' + mmdd(x.done_at) + ' 해냄' : '') + '</small>' +
         (late ? '<small class="late">기한이 지났어요 — 그래도 하면 돼요</small>' : '') +
-        (x.status === 'claimed' ? '<small>✋ ' + KID_NAME[x.claimed_by] + (x.claim_note ? ': 「' + escapeHTML(x.claim_note) + '」' : '가 했대요') + '</small>' : '') + acts + '</div></div>';
+        (x.status === 'claimed' ? '<small>✋ ' + (x.claimed_by ? KID_NAME[x.claimed_by] + (x.claim_note ? ': 「' + escapeHTML(x.claim_note) + '」' : '가 했대요') : '했대요 — 확인을 기다려요') + '</small>' : '') + acts + '</div></div>';
     };
     const group = (t, st, lim) => { const l = mine.filter(x => x.status === st); return l.length ? '<p class="qb-group">' + t + ' ' + l.length + '</p>' + (lim ? l.slice(0, lim) : l).map(item).join('') : ''; };
     const body = group('💡 제안', 'proposed') + group('확인 기다리는 중', 'claimed') + group('진행 중', 'open') + group('해냄', 'done', 5);
@@ -309,7 +309,7 @@ buildChrome('life');
         '<label>능력치<select name="stat">' + STATS.map(s => '<option value="' + s.key + '">' + s.icon + ' ' + s.name + '</option>').join('') + '</select></label>' +
         '<label>경험치<select name="xp"><option value="10">10 — 그림 한 장만큼</option><option value="20" selected>20</option><option value="30">30 — 큰 도전</option></select></label>' +
         '<label>언제까지(없어도 돼요)<input name="due" type="date"></label><div class="wide"><button class="dot-btn small mint">퀘스트 내기</button></div></form>' : '') +
-      (body || '<p class="life-nick" style="margin:0;">' + (isAdmin ? '아직 낸 퀘스트가 없어요. 「＋ 퀘스트 내기」로 첫 퀘스트를 내 보세요.' : '아직 받은 퀘스트가 없어요.') + '</p>');
+      (body || '<p class="life-nick" style="margin:0;">' + (isAdmin ? '아직 낸 퀘스트가 없어요. 「＋ 퀘스트 내기」로 첫 퀘스트를 내 보세요.' : '아직 퀘스트가 없어요.') + '</p>');
     const on = (sel2, fn) => box.querySelectorAll(sel2).forEach(b => b.addEventListener('click', () => fn(Number(Object.values(b.dataset)[0]), b)));
     on('[data-claim]', id => { noting = id; renderBoard(); const i = box.querySelector('[data-note]'); if (i) i.focus(); });
     on('[data-send]', id => { const i = box.querySelector('[data-note="' + id + '"]'); change(id, { status: 'claimed', claim_note: i && i.value.trim() ? i.value.trim().slice(0, 120) : null }, '✋ 보냈어요 — 엄마 아빠가 확인하면 경험치가 들어와요'); });
@@ -432,7 +432,7 @@ buildChrome('life');
       ask('work_claps', 'work_id, created_at'),
       ask('honor_claps', 'honor_id, created_at'),
       fam ? ask('life_quests', 'id, who, stat, title, xp, due_on, status, claimed_by, claim_note, done_at, created_at', r => r.order('created_at', { ascending: false }))
-          : sb.rpc('life_quest_xp').then(x => x.error ? [] : x.data || []).catch(() => []),
+          : sb.rpc('life_quest_list').then(x => x.error ? [] : x.data || []).catch(() => []),
     ]);
     events = []; heights = { sua: [], yona: [] };
     const add = (who, e) => kidsOf(who).forEach(k => { if (Number.isFinite(e.t)) events.push(Object.assign({ k }, e)); });
@@ -457,10 +457,9 @@ buildChrome('life');
     hclaps.forEach(c => add(hWho[c.honor_id], { t: dayOf(c.created_at), stat: 'heart', xp: XP.clap }));
     grow.forEach(r => { const k = r.who === '수아' ? 'sua' : r.who === '연아' ? 'yona' : r.who; if (heights[k] && Number(r.cm) > 0) heights[k].push({ t: dayOf(r.measured_on), cm: Number(r.cm) }); });
     KIDS.forEach(k => heights[k].sort((a, b) => a.t - b.t));
-    quests = fam ? qrows : [];
+    quests = qrows;                                                      // 손님 것은 함수가 준 목록 — 한마디·누가 눌렀는지·제안은 안 온다
     qrows.forEach(x => {                                                 // 가족: 끝난 퀘스트 한 줄씩(길에 📜 로 선다) · 손님: 제목 없는 달별 합계
-      if (fam){ if (x.status === 'done') add(x.who, { t: dayOf(x.done_at), stat: x.stat, xp: x.xp, quest: true, icon: '📜', label: '퀘스트 「' + (x.title || '') + '」' }); }
-      else if (STATS.some(s => s.key === x.stat)) add(x.who, { t: dayOf(x.month), stat: x.stat, xp: Number(x.xp) || 0, quest: true });
+      if (x.status === 'done' && STATS.some(s => s.key === x.stat)) add(x.who, { t: dayOf(x.done_at), stat: x.stat, xp: Number(x.xp) || 0, quest: true, icon: '📜', label: '퀘스트 「' + (x.title || '') + '」' });
     });
     loaded = true;
     q('#lifeGuest').hidden = fam;
