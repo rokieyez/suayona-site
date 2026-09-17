@@ -73,6 +73,19 @@ buildChrome('life');
   }
   function topStat(st){ return STATS.slice().sort((a, b) => st[b.key].xp - st[a.key].xp)[0]; }
   function nickOf(st){ const s = topStat(st), o = st[s.key]; return o.xp <= 0 ? '이제 막 길을 나선 모험가' : s.nick[o.lv >= SHINE_LV ? 1 : 0]; }
+  // 🎭 직업 — 가장 높은 두 능력치의 짝으로 정한다. 으뜸 능력치 Lv.3 부터 직업이 생기고, Lv.5 숙련 · Lv.8 전설
+  const JOBS = { 'art+stage': '무대 미술가', 'art+write': '그림책 작가', 'art+body': '활동파 화가', 'art+heart': '마음을 그리는 화가', 'art+grit': '미술 장인',
+    'stage+write': '싱어송라이터', 'body+stage': '댄서', 'heart+stage': '모두의 연주자', 'grit+stage': '피아니스트',
+    'body+write': '모험 작가', 'heart+write': '편지 작가', 'grit+write': '꼬마 학자', 'body+heart': '팀의 주장', 'body+grit': '운동선수', 'grit+heart': '든든한 리더' };
+  function jobOf(st){
+    const two = STATS.slice().sort((a, b) => st[b.key].xp - st[a.key].xp).slice(0, 2), top = st[two[0].key];
+    if (top.lv < ROOM_LV || st[two[1].key].xp <= 0) return { name: '모험가 견습생', icons: '🌱' };
+    const name = JOBS[[two[0].key, two[1].key].sort().join('+')] || '모험가';
+    return { name: (top.lv >= LEGEND_LV ? '전설의 ' : top.lv >= SHINE_LV ? '숙련 ' : '') + name, icons: two[0].icon + two[1].icon };
+  }
+  // 🍂 계절 옷 — 보고 있는 날의 달을 따른다(시간 여행을 하면 그때의 계절). 자동 다시 보기 동안은 깜빡여서 뺀다
+  function seasonOf(at){ if (replay && replay.timer) return ''; const m = new Date(at).getMonth() + 1; return m <= 2 || m === 12 ? 'winter' : m <= 5 ? 'spring' : m <= 8 ? 'summer' : 'autumn'; }
+  const SEASON_NAME = { spring: '🌸 봄 — 꽃핀', summer: '😎 여름 — 선글라스', autumn: '🍁 가을 — 단풍잎', winter: '🧣 겨울 — 목도리' };
   function ageYears(k, at){
     const b = born[k]; if (!b) return null;
     const bd = new Date(b), d = new Date(at); let y = d.getFullYear() - bd.getFullYear();
@@ -83,11 +96,11 @@ buildChrome('life');
   // ---------- 아바타 — 도트 그림(kid-art.js)에 장비를 얹어 한 장으로 굽는다 ----------
   const MX = 8, MY = 8;                                                  // 장비가 삐져나갈 여백(도트)
   const avatarBuf = {};
-  function avatar(k, st, frame){
+  function avatar(k, st, frame, season){
     const lv = s => st[s].lv, on = s => lv(s) >= GEAR_LV, leg = s => lv(s) >= LEGEND_LV;
     const tier = n => n >= LEGEND_LV ? 3 : n >= SHINE_LV ? 2 : n >= GEAR_LV ? 1 : 0;
     const hat = isBirthday(k);
-    const key = [k, frame, hat ? 'b' : ''].concat(STATS.map(s => tier(lv(s.key)))).join('|');
+    const key = [k, frame, hat ? 'b' : '', season || ''].concat(STATS.map(s => tier(lv(s.key)))).join('|');
     if (avatarBuf[key]) return avatarBuf[key];
     const rows = KIDART[k].down[frame], pal = Object.assign({}, KIDPAL[k]), W = rows[0].length, H = rows.length;
     if (on('body')){ pal.b = leg('body') ? '#ffd24d' : '#6cc7b3'; pal.B = leg('body') ? '#c9a24a' : '#3f9e8b'; }   // 전설: 황금 날개 운동화               // 🏃 민트 운동화
@@ -106,6 +119,10 @@ buildChrome('life');
     }
     if (on('write')){ for (let i = 0; i < 5; i++){ dot(22 + Math.floor(i / 2), top + 12 - i, INK, 3, 1); dot(23 + Math.floor(i / 2), top + 12 - i, leg('write') ? (i === 0 ? '#2f2a24' : '#fff') : i === 4 ? '#ff7f8a' : '#ffd24d', 1, 1); } if (leg('write')){ dot(25, top + 6, INK, 3, 3); dot(26, top + 6, '#8ec9ee', 2, 2); } }   // 전설: 깃펜   // ✍️ 귀에 꽂은 연필
     if (on('stage')){ dot(2, top + 21, INK, 5, 5); dot(3, top + 22, leg('stage') ? '#ffd24d' : '#8d8d9b', 3, 3); dot(3, top + 22, leg('stage') ? '#fff3ae' : '#d8d8e2', 1, 1); dot(3, top + 26, INK, 3, 5); dot(4, top + 26, '#4a4458', 1, 4); }   // 🎹 마이크
+    if (season === 'winter'){ dot(6, top + 19, INK, 16, 4); dot(7, top + 20, '#d9453b', 14, 2); dot(9, top + 20, '#fff', 2, 2); dot(15, top + 20, '#fff', 2, 2); dot(7, top + 22, INK, 4, 5); dot(8, top + 22, '#d9453b', 2, 4); dot(8, top + 25, '#fff', 2, 1); }   // 🧣 목도리(메달·배지보다 먼저 — 그 위에 얹힌다)
+    if (season === 'summer'){ dot(7, top + 12, INK, 14, 5); dot(8, top + 13, '#2a2a3c', 5, 3); dot(15, top + 13, '#2a2a3c', 5, 3); dot(13, top + 13, '#fbdcc4', 2, 1); dot(9, top + 13, '#7f8cff', 2, 1); dot(16, top + 13, '#7f8cff', 2, 1); }   // 😎 선글라스
+    if (season === 'spring'){ dot(3, top + 7, '#ff9fb0', 2, 2); dot(6, top + 7, '#ff9fb0', 2, 2); dot(4, top + 5, '#ff9fb0', 3, 2); dot(4, top + 9, '#ff9fb0', 3, 2); dot(5, top + 7, '#ffd24d', 1, 2); }   // 🌸 꽃핀
+    if (season === 'autumn'){ dot(19, top + 3, '#e8672a', 5, 3); dot(20, top + 2, '#e8672a', 3, 1); dot(20, top + 6, '#e8672a', 3, 1); dot(21, top + 7, '#8a5a34', 1, 2); dot(21, top + 4, '#ffb36b', 1, 1); }   // 🍁 단풍잎
     if (on('grit')){ dot(11, top + 21, '#5b7fbf', 1, 3); dot(16, top + 21, '#5b7fbf', 1, 3); dot(12, top + 24, INK, 4, 4); dot(12, top + 24, '#ffd24d', 3, 3); dot(13, top + 25, '#fff3ae', 1, 1); if (leg('grit')){ dot(11, top + 23, INK, 6, 6); dot(12, top + 24, '#ffd24d', 4, 4); dot(13, top + 25, '#ff7f8a', 2, 2); } }   // 전설: 큰 메달에 붉은 보석   // 🏆 금메달
     if (on('heart')){ dot(17, top + 25, '#ff5d7a', 1, 1); dot(19, top + 25, '#ff5d7a', 1, 1); dot(17, top + 26, '#ff5d7a', 3, 1); dot(18, top + 27, '#ff5d7a', 1, 1); if (leg('heart')){ dot(16, top + 24, '#ffd24d', 1, 1); dot(20, top + 24, '#ffd24d', 1, 1); dot(18, top + 28, '#ffd24d', 1, 1); } }   // 전설: 금빛 테   // 💗 하트 배지
     if (hat){ for (let i = 0; i < 7; i++){ dot(13 - Math.floor(i / 2) - (i > 4 ? 1 : 0), top - 7 + i, INK, 2 + i + (i > 4 ? 2 : 0), 1); dot(14 - Math.floor(i / 2) - (i > 4 ? 1 : 0), top - 7 + i, i % 2 ? '#ffd979' : '#ff7f8a', Math.max(1, i + (i > 4 ? 2 : 0)), 1); } dot(13, top - 9, '#6cc7b3', 2, 2); }   // 🎂 고깔모자
@@ -177,6 +194,10 @@ buildChrome('life');
     let old = null; const cur = {};
     KIDS.forEach(k => { const st = statsAt(k, now()); cur[k] = {}; STATS.forEach(s => { cur[k][s.key] = st[s.key].lv; }); });
     try { old = JSON.parse(localStorage.getItem('life_lv') || 'null'); localStorage.setItem('life_lv', JSON.stringify(cur)); } catch (e) { return; }
+    const jobs = {}; KIDS.forEach(k => { jobs[k] = jobOf(statsAt(k, now())).name; }); let oldJobs = null;
+    try { oldJobs = JSON.parse(localStorage.getItem('life_job') || 'null'); localStorage.setItem('life_job', JSON.stringify(jobs)); } catch (e) { /* 기억을 못 하면 전직 축하는 건너뛴다 */ }
+    const jk = oldJobs ? KIDS.filter(k => oldJobs[k] && oldJobs[k] !== jobs[k] && jobs[k] !== '모험가 견습생')[0] : null;
+    if (jk){ if (jk !== sel) pick(jk); bubbleNow = null; cele = { k: jk, text: '🎭 ' + KID_NAME[jk] + ' 전직! 「' + jobs[jk] + '」', until: now() + 5000 }; fanfare(); say(cele.text); setTimeout(() => { cele = null; draw(); }, 5100); draw(); return; }
     if (!old) return;
     const ups = []; KIDS.forEach(k => STATS.forEach(s => { const a = (old[k] || {})[s.key], b = cur[k][s.key]; if (Number.isFinite(a) && b > a) ups.push({ k, s, lv: b, gear: a < GEAR_LV && b >= GEAR_LV, shine: a < SHINE_LV && b >= SHINE_LV, legend: a < LEGEND_LV && b >= LEGEND_LV, room: a < ROOM_LV && b >= ROOM_LV }); }));
     const shown = fam ? ups : ups.filter(u => u.gear || u.shine || u.legend || u.room); if (!shown.length) return;
@@ -208,7 +229,7 @@ buildChrome('life');
     KIDS.forEach(k => {
       const st = statsAt(k, at), cm = heightAt(k, at), x = KID_X[k];
       const bob = !STILL && !replay && (frameN + (k === 'sua' ? 0 : 2)) % 8 < 1 ? 1 : 0;
-      const img = avatar(k, st, 0), rows = KIDART[k].down[0], u = cm * PX_PER_CM / rows.length;   // 도트 한 칸의 화면 크기 — 머리끝~발끝이 실제 키
+      const img = avatar(k, st, 0, seasonOf(at)), rows = KIDART[k].down[0], u = cm * PX_PER_CM / rows.length;   // 도트 한 칸의 화면 크기 — 머리끝~발끝이 실제 키
       if (k === sel){ g.fillStyle = 'rgba(255,217,121,.75)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 54, 10, 0, 0, Math.PI * 2); g.fill(); }
       g.fillStyle = 'rgba(47,42,36,.22)'; g.beginPath(); g.ellipse(x, FLOOR + 5, 34, 5, 0, 0, Math.PI * 2); g.fill();
       const w = img.width * u, h = img.height * u, x0 = Math.round(x - w / 2), y0 = Math.round(FLOOR + 4 - (rows.length + MY) * u + bob);
@@ -256,8 +277,8 @@ buildChrome('life');
     const at = viewAt(), st = statsAt(sel, at), past = statsAt(sel, at - 30 * DAY), age = fam ? ageYears(sel, at) : null;
     const who = q('#lifeWho'), box = q('#lifeStats'); if (!who || !box) return;
     who.innerHTML = '<div class="life-name"><b style="color:' + (sel === 'sua' ? 'var(--coral-ink)' : '#2f8f78') + '">' + KID_NAME[sel] + '</b>' + (age !== null ? '<span class="lv">Lv.' + age + '</span>' : '') + '</div>' +
-      '<p class="life-nick">「' + escapeHTML(nickOf(st)) + '」' + (age !== null ? ' · 레벨은 나이예요' + (isBirthday(sel) ? ' · 🎂 오늘 생일!' : daysToBirthday(sel) !== null ? ' · 다음 레벨까지 ' + daysToBirthday(sel) + '일' : '') : '') + (heights[sel].length ? ' · 키 ' + Math.round(heightAt(sel, at) * 10) / 10 + 'cm' : '') + '</p>' + radarSVG(st) +
-      '<ul class="gear-list">' + STATS.map(s => '<li class="' + (st[s.key].lv >= GEAR_LV ? '' : 'off') + '">' + s.icon + ' ' + (st[s.key].lv >= LEGEND_LV ? '전설의 ' : '') + s.gear + (st[s.key].lv >= LEGEND_LV ? ' ★' : st[s.key].lv >= SHINE_LV ? ' ✦' : '') + '</li>').join('') + '</ul>';
+      '<p class="life-nick" style="margin-bottom:2px;"><b>' + jobOf(st).icons + ' ' + escapeHTML(jobOf(st).name) + '</b></p><p class="life-nick">「' + escapeHTML(nickOf(st)) + '」' + (age !== null ? ' · 레벨은 나이예요' + (isBirthday(sel) ? ' · 🎂 오늘 생일!' : daysToBirthday(sel) !== null ? ' · 다음 레벨까지 ' + daysToBirthday(sel) + '일' : '') : '') + (heights[sel].length ? ' · 키 ' + Math.round(heightAt(sel, at) * 10) / 10 + 'cm' : '') + '</p>' + radarSVG(st) +
+      '<ul class="gear-list">' + (seasonOf(at) ? '<li>' + SEASON_NAME[seasonOf(at)] + '</li>' : '') + STATS.map(s => '<li class="' + (st[s.key].lv >= GEAR_LV ? '' : 'off') + '">' + s.icon + ' ' + (st[s.key].lv >= LEGEND_LV ? '전설의 ' : '') + s.gear + (st[s.key].lv >= LEGEND_LV ? ' ★' : st[s.key].lv >= SHINE_LV ? ' ✦' : '') + '</li>').join('') + '</ul>';
     box.innerHTML = '<h2>능력치</h2>' + STATS.map(s => {
       const o = st[s.key], lo = need(o.lv), hi = need(o.lv + 1), f = o.lv >= MAX_LV ? 1 : (o.xp - lo) / (hi - lo), up = o.xp - past[s.key].xp;
       return '<div class="stat-row" data-stat="' + s.key + '" role="button" tabindex="0" aria-expanded="' + (openStat === s.key) + '"><span class="nm">' + s.icon + ' ' + s.name + '</span><span class="stat-bar" style="--c:' + s.color + '"><i style="width:' + (fam ? Math.round(f * 100) : Math.round(Math.min(1, o.lv / 8) * 100)) + '%"></i></span>' +
@@ -350,12 +371,49 @@ buildChrome('life');
   function renderMonth(){
     const box = q('#lifeMonth'); if (!box) return;
     box.hidden = !fam || !!replay; if (box.hidden) return;
-    const d = new Date(), m0 = new Date(d.getFullYear(), d.getMonth(), 1).getTime(), p0 = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
+    const t = new Date(), d = new Date(t.getFullYear(), t.getMonth() + monthOff, 1), m0 = d.getTime(), m1 = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime(), p0 = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
     const sum = (a, b) => { const o = { xp: 0, by: {} }; events.forEach(e => { if (e.k !== sel || e.t < a || e.t >= b) return; o.xp += e.xp; o.by[e.stat] = (o.by[e.stat] || 0) + 1; }); return o; };
-    const cur = sum(m0, now() + DAY), prev = sum(p0, m0), diff = cur.xp - prev.xp;
+    const cur = sum(m0, m1), prev = sum(p0, m0), diff = cur.xp - prev.xp, first = firstDay();
     const parts = STATS.filter(s => cur.by[s.key]).map(s => s.icon + ' ' + s.name + ' ' + cur.by[s.key] + '번');
-    box.innerHTML = '<h2>🗓 ' + (d.getMonth() + 1) + '월의 ' + KID_NAME[sel] + '</h2><p class="life-nick" style="margin:0;">' + (parts.length ? parts.join(' · ') + ' — 경험치 <b>+' + cur.xp + '</b>' : '이번 달은 아직 기록이 없어요. 하나 남겨 볼까요?') +
-      '<br>지난달은 +' + prev.xp + (parts.length ? diff > 0 ? ' · 지난달의 나보다 ' + diff + ' 더 모았어요 💪' : diff < 0 ? ' · 지난달의 나를 따라잡으려면 ' + (-diff + 1) + ' 더' : ' · 지난달과 똑같아요' : '') + '</p>';
+    box.innerHTML = '<div class="qb-head"><h2>🗓 ' + d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월의 ' + KID_NAME[sel] + '</h2><span><button type="button" class="dot-btn small" id="monPrev" aria-label="앞 달"' + (m0 <= first ? ' disabled' : '') + '>◀</button> <button type="button" class="dot-btn small" id="monNext" aria-label="다음 달"' + (monthOff >= 0 ? ' disabled' : '') + '>▶</button></span></div><p class="life-nick" style="margin:0;">' + (parts.length ? parts.join(' · ') + ' — 경험치 <b>+' + cur.xp + '</b>' : monthOff ? '이 달은 남은 기록이 없어요.' : '이번 달은 아직 기록이 없어요. 하나 남겨 볼까요?') +
+      '<br>지난달은 +' + prev.xp + (parts.length ? diff > 0 ? ' · 지난달의 나보다 ' + diff + ' 더 모았어요 💪' : diff < 0 ? ' · 지난달의 나를 따라잡으려면 ' + (-diff + 1) + ' 더' : ' · 지난달과 똑같아요' : '') + '</p>' +
+      (parts.length ? '<p style="margin:10px 0 0;"><button type="button" class="dot-btn small" id="monCard">💌 이 달의 편지 저장</button> <span class="stat-from">열두 장을 모으면 한 해 앨범이 돼요</span></p>' : '');
+    const pv = q('#monPrev'), nx = q('#monNext'), mc = q('#monCard');
+    if (pv) pv.addEventListener('click', () => { monthOff--; renderMonth(); }); if (nx) nx.addEventListener('click', () => { monthOff = Math.min(0, monthOff + 1); renderMonth(); });
+    if (mc) mc.addEventListener('click', () => { saveCanvas(monthCanvas(sel, m0, m1), 'suayona-life-' + sel + '-' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '.png', KID_NAME[sel] + '의 ' + (d.getMonth() + 1) + '월'); });
+  }
+  // 💌 이 달의 편지 — 그 달 끝날의 아바타(키·장비·계절 옷)와 그 달에 한 일을 그림 한 장으로. 가족 화면에서만 만든다(수치가 들어간다)
+  let monthOff = 0;
+  function monthCanvas(k, m0, m1){
+    const W = 600, H = 800, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'), at = Math.min(m1 - 1, now()), st = statsAt(k, at), d = new Date(m0); g.imageSmoothingEnabled = false;
+    const mine = events.filter(e => e.k === k && e.t >= m0 && e.t < m1).sort((a, b) => a.t - b.t), xp = mine.reduce((n, e) => n + e.xp, 0);
+    g.fillStyle = INK; g.fillRect(0, 0, W, H); g.fillStyle = '#fff6e9'; g.fillRect(8, 8, W - 16, H - 16); g.fillStyle = KID_COLOR[k]; g.fillRect(8, 8, W - 16, 64); g.fillStyle = INK; g.fillRect(8, 72, W - 16, 4);
+    g.textBaseline = 'top'; g.textAlign = 'left'; g.font = '800 26px ' + FONT; g.fillText(d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월의 ' + KID_NAME[k], 28, 26);
+    g.fillStyle = '#f6e9d2'; g.fillRect(28, 96, 230, 300); g.fillStyle = '#c99a62'; g.fillRect(28, 366, 230, 30); g.strokeStyle = INK; g.lineWidth = 4; g.strokeRect(28, 96, 230, 300);
+    const img = avatar(k, st, 0, seasonOf(at)), u = 5, aw = img.width * u; g.drawImage(img, Math.round(143 - aw / 2), Math.round(378 - (img.height - MY) * u), Math.round(aw), Math.round(img.height * u));
+    g.fillStyle = INK; g.font = '800 20px ' + FONT; g.fillText(jobOf(st).icons + ' ' + jobOf(st).name, 280, 100);
+    g.font = '700 16px ' + FONT; g.fillStyle = '#6f6558'; g.fillText('「' + nickOf(st) + '」' + (heights[k].length ? ' · 키 ' + Math.round(heightAt(k, at) * 10) / 10 + 'cm' : ''), 278, 132);
+    g.fillStyle = INK; g.font = '800 34px ' + FONT; g.fillText('경험치 +' + xp, 280, 176);
+    let y = 232; STATS.forEach(s => { const n = mine.filter(e => e.stat === s.key).length; if (!n) return; g.font = '700 17px ' + FONT; g.fillStyle = INK; g.fillText(s.icon + ' ' + s.name, 280, y); g.fillStyle = s.color; g.fillRect(380, y + 2, Math.min(180, n * 18), 14); g.strokeStyle = INK; g.lineWidth = 2; g.strokeRect(380, y + 2, Math.min(180, n * 18), 14); g.fillStyle = INK; g.fillText(String(n), 380 + Math.min(180, n * 18) + 8, y); y += 27; });
+    g.fillStyle = INK; g.font = '800 18px ' + FONT; g.fillText('이 달에 한 일', 28, 424); g.fillRect(28, 450, W - 56, 3);
+    const runs = mine.filter(e => e.score !== undefined);                  // 달리기는 판마다 적으면 목록을 다 차지한다 — 한 줄로 묶는다
+    const named = mine.filter(e => e.name && !isClap(e) && e.score === undefined).concat(runs.length ? [{ t: runs[runs.length - 1].t, stat: 'body', name: '달리기 ' + runs.length + '판 · 최고 ' + Math.max(...runs.map(e => e.score)).toLocaleString('ko-KR') + '점' }] : []).sort((x, z) => x.t - z.t).slice(-9); y = 466; g.font = '600 16px ' + FONT;
+    named.forEach(e => { const dd = new Date(e.t), s2 = statOf(e.stat); g.fillStyle = INK; g.fillText(fitW(g, s2.icon + ' ' + e.name, W - 140), 28, y); g.fillStyle = '#6f6558'; g.textAlign = 'right'; g.fillText((dd.getMonth() + 1) + '.' + dd.getDate(), W - 28, y); g.textAlign = 'left'; y += 28; });
+    if (!named.length){ g.fillStyle = '#6f6558'; g.fillText('조용히 쉬어 간 달이에요.', 28, y); }
+    const got = badgesOf(k).filter(x => x.t !== null && x.t >= m0 && x.t < m1); if (got.length){ g.fillStyle = INK; g.font = '800 16px ' + FONT; g.fillText(fitW(g, '🏅 새 배지: ' + got.map(x => x.b.icon + ' ' + x.b.name).join(' · '), W - 56), 28, H - 78); }
+    g.font = '700 14px ' + FONT; g.fillStyle = '#6f6558'; g.textAlign = 'right'; g.fillText('suayona.com · 인생 퀘스트', W - 28, H - 38);
+    return c;
+  }
+  function fitW(g, t, maxW){ t = String(t).normalize('NFC'); if (g.measureText(t).width <= maxW) return t; while (t.length > 1 && g.measureText(t + '…').width > maxW) t = t.slice(0, -1); return t.trimEnd() + '…'; }
+  function saveCanvas(c, name, title){
+    return new Promise(res => c.toBlob(blob => {
+      if (!blob){ say('그림을 만들지 못했어요'); return res(false); }
+      const file = new File([blob], name, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title }).then(() => res(true)).catch(() => res(false));
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000); say('「' + title + '」 그림을 내려받았어요'); res(true);
+    }, 'image/png'));
   }
   // 다음 목표 — 1단계는 기록에서 저절로 나오는 것만(부모가 내는 퀘스트는 2단계). 가장 가까운 셋
   function renderQuests(st){
@@ -449,9 +507,9 @@ buildChrome('life');
     g.textBaseline = 'top'; g.textAlign = 'left'; g.font = '800 26px ' + FONT; g.fillText('인생 퀘스트', 28, 26);
     g.textAlign = 'right'; g.font = '700 15px ' + FONT; const d = new Date(); g.fillText(d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'), W - 28, 34);
     g.fillStyle = '#f6e9d2'; g.fillRect(28, 96, 300, 380); g.fillStyle = '#c99a62'; g.fillRect(28, 436, 300, 40); g.strokeStyle = INK; g.lineWidth = 4; g.strokeRect(28, 96, 300, 380);
-    const img = avatar(k, st, 0), u = 6.6, aw = img.width * u, ah = img.height * u; g.drawImage(img, Math.round(178 - aw / 2), Math.round(452 - (img.height - MY) * u), Math.round(aw), Math.round(ah));
+    const img = avatar(k, st, 0, seasonOf(now())), u = 6.6, aw = img.width * u, ah = img.height * u; g.drawImage(img, Math.round(178 - aw / 2), Math.round(452 - (img.height - MY) * u), Math.round(aw), Math.round(ah));
     g.fillStyle = INK; g.textAlign = 'left'; g.font = '800 40px ' + FONT; g.fillText(KID_NAME[k], 352, 104);
-    g.font = '700 18px ' + FONT; g.fillStyle = '#6f6558'; g.fillText('「' + nickOf(st) + '」', 348, 156);
+    g.font = '700 18px ' + FONT; g.fillStyle = '#6f6558'; g.fillText('「' + nickOf(st) + '」', 348, 186); g.fillStyle = INK; g.font = '800 19px ' + FONT; g.fillText(jobOf(st).icons + ' ' + jobOf(st).name, 350, 156);
     // 능력치 모양(육각형)
     const cx = 460, cy = 330, R = 96, cap = Math.max(6, ...STATS.map(s => st[s.key].lv)), pt = (i, r) => { const a = -Math.PI / 2 + i * Math.PI / 3; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
     g.strokeStyle = '#c9bfae'; g.lineWidth = 2; [1, 0.66, 0.33].forEach(f => { g.beginPath(); STATS.forEach((s, i) => { const p2 = pt(i, R * f); if (i) g.lineTo(p2[0], p2[1]); else g.moveTo(p2[0], p2[1]); }); g.closePath(); g.stroke(); });
@@ -581,5 +639,5 @@ buildChrome('life');
     if (typeof initReveal === 'function') initReveal();
   })();
 
-  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _talk: talk, _badges: badgesOf, _card: cardCanvas, _birthday: birthday, _celebrate: celebrate, _bubble: () => bubbleNow, _cele: () => cele, _tick: () => { frameN++; draw(); } };
+  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _talk: talk, _job: jobOf, _monthCard: monthCanvas, _season: seasonOf, _badges: badgesOf, _card: cardCanvas, _birthday: birthday, _celebrate: celebrate, _bubble: () => bubbleNow, _cele: () => cele, _tick: () => { frameN++; draw(); } };
 })();
