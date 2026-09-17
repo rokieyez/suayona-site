@@ -73,8 +73,15 @@ async function fetchRegistryEvents(){
   const withRows = {};
   const slugs = rows.map(r => r.event_id);
   if (slugs.length) {
-    const { data: pr } = await sb.from('events').select('event_id, panel').in('event_id', slugs);
-    (pr || []).forEach(x => {
+    // 지도 핀에 쓸 장소·사진도 이 한 번에 같이 받는다. 전에는 같은 표를 같은 주소들로 두 번
+    // 물었다(panel 한 번, 좌표 한 번) — 재 보니 192B + 2,293B 가 2,696B 한 번이 되고 왕복이 하나 준다.
+    const { data: pr, error: prErr } = await sb.from('events')
+      .select('event_id, panel, place_name, place_lat, place_lng, thumb_url, image_url')
+      .in('event_id', slugs)
+      .order('panel', {ascending:true}).order('sort_order', {ascending:true});
+    if (prErr) console.error('일정 로딩 오류:', prErr);
+    EVENT_ROWS = pr || [];
+    EVENT_ROWS.forEach(x => {
       (withRows[x.event_id] = withRows[x.event_id] || new Set()).add(x.panel);
     });
   }
@@ -135,7 +142,7 @@ async function renderEvents(force){
   if (left > 0) more.textContent = '지난 나들이 더 보기 (' + left + '개 남음)';
 
   // 목록을 다 그린 뒤에 지도 핀을 챙긴다 — 지도가 늦어도 목록은 먼저 보이도록.
-  if (fresh) await loadTripPins(allEvents);
+  if (fresh) loadTripPins(allEvents);
 }
 
 /* =========================================================================
@@ -145,18 +152,12 @@ async function renderEvents(force){
    사진의 위치정보로는 못 만든다 — 올라와 있는 사진 중 좌표가 남은 것이 없다.
    그래서 관리 화면에서 장소를 적은 일정이 하나도 없는 나들이는 사진 핀이 안 나온다.
    ========================================================================= */
-// 목록에 실제로 보이는 이벤트만 물어본다 — 비공개 이벤트의 위치가
-// 로그인 안 한 사람의 지도에 찍히면 안 되므로.
-async function fetchEventPlaces(slugs){
-  if (!slugs.length) return {};
-  const { data, error } = await sb.from('events')
-    .select('event_id, place_name, place_lat, place_lng, thumb_url, image_url')
-    .in('event_id', slugs)
-    .not('place_lat', 'is', null)
-    .order('panel', {ascending:true}).order('sort_order', {ascending:true});
-  if (error) { console.error('장소 로딩 오류:', error); return {}; }
+// 목록에 실제로 보이는 이벤트의 일정만 들어 있다(fetchRegistryEvents 가 그 주소들로만 묻는다) —
+// 비공개 이벤트의 위치가 로그인 안 한 사람의 지도에 찍히면 안 되므로.
+let EVENT_ROWS = [];
+function eventPlaces(){
   const byEvent = {};
-  (data || []).forEach(r => {
+  EVENT_ROWS.forEach(r => {
     if (!Number.isFinite(r.place_lat) || !Number.isFinite(r.place_lng)) return;
     (byEvent[r.event_id] = byEvent[r.event_id] || []).push(r);
   });
@@ -170,8 +171,8 @@ let TRIP_PINS = [];
 let TRIP_COUNT = 0;
 const TRIPS_PAGE = 6;
 let tripsShown = TRIPS_PAGE;
-async function loadTripPins(events){
-  const byEvent = await fetchEventPlaces(events.map(e => e.slug));
+function loadTripPins(events){
+  const byEvent = eventPlaces();
   TRIP_PINS = events.filter(e => byEvent[e.slug] && byEvent[e.slug].length).map(ev => {
     const rows = byEvent[ev.slug];
     const names = rows.map(r => r.place_name).filter(Boolean);

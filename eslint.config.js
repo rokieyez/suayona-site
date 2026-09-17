@@ -75,11 +75,13 @@ const vendor = {
 //   · farm.js(손님도 받는 그림) ↔ farm-play.js(로그인해야 받는 놀이)
 //   · farm-rules.js(표와 셈) ↔ farm-rules-play.js(심기·거두기 같은 놀이 규칙)
 //   · index.js(첫 화면) ↔ run.js(화면 아래 달리기 게임)
+//   · outing-trips.js(나들이 기록) ↔ outing-places.js(장소·지도·탭) — 둘 다 처음부터 싣는다
 const pairs = [
   { files: ['pages/farm.js', 'pages/farm-play.js'] },
   { files: ['farm-rules.js', 'farm-rules-play.js'] },
   { files: ['pages/index.js', 'pages/run.js'] },
-  { files: ['pages/outing-trips.js', 'pages/outing-places.js'] },   // 「나들이」 한 쪽을 둘이 나눠 맡는다
+  // 「나들이」 한 쪽을 둘이 나눠 맡는다
+  { files: ['pages/outing-trips.js', 'pages/outing-places.js'] },
 ].map(p => ({
   files: p.files,
   languageOptions: { globals: Object.assign({}, ...p.files.map(topLevelNames)) },

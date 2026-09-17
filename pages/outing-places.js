@@ -468,7 +468,10 @@ function cardHTML(p){
       '<button class="act" type="button" data-edit-open="' + p.id + '">✏️ 고치기</button>' +
       '<button class="act ghost" type="button" data-del="' + p.id + '">🗑 지우기</button>'
     : '';
-  const eventAct = (p.status === 'done' && p.event_id)
+  // 그 나들이가 지금 이 사람에게 보일 때만 건너가는 단추를 둔다. 비공개 나들이에 이어 둔 곳이면
+  // 손님은 눌러 봐야 막힌 쪽으로 갈 뿐이고, 주소(날짜)만 괜히 내보이게 된다.
+  const tripSeen = (TRIPS_CACHE || []).some(ev => ev.slug === p.event_id);
+  const eventAct = (p.status === 'done' && p.event_id && tripSeen)
     ? '<a class="act ghost" href="/event/e/?slug=' + encodeURIComponent(p.event_id) + '">📖 나들이 기록 보기</a>'
     : '';
 

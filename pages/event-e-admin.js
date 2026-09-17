@@ -204,7 +204,7 @@ function makePlacePicker(host, init){
     Array.from(starsEl.children).forEach(b => b.classList.toggle('on', Number(b.dataset.n) <= vis.stars));
     starTxt.textContent = vis.stars ? vis.stars + '점' : '별점은 안 줘도 돼요';
     noteEl.textContent = known
-      ? '별점을 고치면 그 곳의 별점이 바뀌어요. 목록에서 내리는 건 「가볼 곳」 쪽에서 해요.'
+      ? '별점을 고치면 그 곳의 별점이 바뀌어요. 목록에서 내리는 건 「나들이」의 가본 곳에서 해요.'
       : (chkEl.checked ? '저장할 때 「가본 곳」에 다녀온 날짜와 함께 올라가요.' : '');
   }
   chkEl.addEventListener('change', drawVisit);
