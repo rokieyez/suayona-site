@@ -522,7 +522,7 @@ const WOOD = { hi: '#d6a878', mid: '#c79b6d', low: '#a97b4f', dark: '#8a5f3a', l
 const STONE = { hi: '#d5cec5', mid: '#c2bab0', low: '#a49c92', dark: '#857d75', line: '#665f59' };
 
 // ---------- 스프라이트 ----------
-// 아이 그림(KID_SHORT·KID_LONG·walkFrame·kidSet·KIDART·KIDPAL)은 pages/kid-art.js 로 옮겼다 — 업적 전시실에서도 같은 아이가 걷는다.
+// 아이 그림(KID_SHORT·KID_LONG·walkFrame·kidSet·KIDART·KIDPAL)은 pages/kid-art.js 로 옮겼다 — 업적전시실에서도 같은 아이가 걷는다.
 const KID = KIDART.yona;                       // 방 그림 등에서 기본으로 쓰는 것
 
 // 동물 — 종마다 그림 한 장과 색표 하나.

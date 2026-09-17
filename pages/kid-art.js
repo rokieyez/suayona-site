@@ -1,4 +1,4 @@
-/* 수아·연아 도트 그림 — 농장(farm.js)과 업적 전시실(honors.js)이 같이 쓴다.
+/* 수아·연아 도트 그림 — 농장(farm.js)과 업적전시실(honors.js)이 같이 쓴다.
    예전엔 farm.js 안에 있었다. 전시실에서도 같은 아이가 걸어 다니게 하려고 따로 뺐다(2026-09-15).
    farm.js·honors.js 보다 먼저 싣는다. 밖으로는 window.KIDART·window.KIDPAL 둘만 내놓고 나머지는 이 안에 가둔다 —
    배포 직후 새로고침하면 새 farm.html 이 캐시에 남은 옛 farm.js(같은 이름을 const 로 가진)와 짝지어질 수 있는데,

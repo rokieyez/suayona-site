@@ -1,4 +1,4 @@
-// honors.html 의 페이지 스크립트 — 업적 전시실.
+// honors.html 의 페이지 스크립트 — 업적전시실.
 // 싣는 순서: supabase → pixel → common → 이 파일.
 /* 학교·학원에서 받은 상장, 차근차근 올라간 급수, 처음 해낸 일을 아이마다 모아 전시한다(2026-09-14).
    모험단 보물 저장고와는 따로다 — 게임 보상과 잇지 않는다(상을 받는 일이 게임 점수가 되지 않게).
@@ -123,7 +123,7 @@ async function load(){
     missing = false;
     takeBoard(data);
   }
-  // 메뉴 「업적 전시실」의 새 자랑 점 — 여기까지 본 것을 적어 두면 점이 사라진다(common.js markNewHonors)
+  // 메뉴 「업적전시실」의 새 자랑 점 — 여기까지 본 것을 적어 두면 점이 사라진다(common.js markNewHonors)
   try {
     const latest = rows.reduce((m, r) => r.created_at > m ? r.created_at : m, '');
     localStorage.setItem('honors_seen', latest);
@@ -976,7 +976,7 @@ function buildRoom(k){
       '<p class="sub room-sub"></p>' +
       '<div class="title-sash" hidden><canvas class="sash-cv" width="' + SASH_W * 2 + '" height="' + SASH_H * 2 + '" aria-label="지금 맡은 직함"></canvas><div class="sash-terms" hidden></div></div>' +
       '<div class="museum-stage"><canvas class="museum" id="museum-' + k + '" width="' + RW * 2 + '" height="' + RH * 2 + '"' +
-        ' aria-label="' + heroName(k) + '의 업적 전시실. 오른쪽 벽에 상장 액자와 코르크판, 유리 진열장에 메달·트로피, 왼쪽 벽에 급수 사다리, 바닥 받침대에 처음 해낸 일이 있어요. 누르면 사진이 열려요."></canvas></div>' +
+        ' aria-label="' + heroName(k) + '의 업적전시실. 오른쪽 벽에 상장 액자와 코르크판, 유리 진열장에 메달·트로피, 왼쪽 벽에 급수 사다리, 바닥 받침대에 처음 해낸 일이 있어요. 누르면 사진이 열려요."></canvas></div>' +
       '<p class="museum-msg" id="museumMsg-' + k + '" aria-live="polite"></p>' +
       '<div class="room-tools"></div>' +
       '<p class="room-paper"></p>' +
@@ -993,7 +993,7 @@ function buildRoom(k){
 function render(){
   const note = $('#honorNote');
   note.hidden = !missing;
-  note.textContent = missing ? '업적 전시실을 준비하는 중이에요. 곧 열려요.' : '';
+  note.textContent = missing ? '업적전시실을 준비하는 중이에요. 곧 열려요.' : '';
   $('#adminBar').hidden = !isAdmin || missing;
   const box = $('#rooms');
   KIDS.forEach(k => {
@@ -1016,7 +1016,7 @@ function renderRoom(sec, k){
   const list = inYear(mineOf(k));
   const nA = list.filter(r => r.kind === 'award').length, nF = list.filter(r => r.kind === 'first').length;
   const nT = ladderTracks(mineOf(k)).length;
-  q('.room-title').textContent = heroName(k) + '의 업적 전시실' + (year === 'all' ? '' : ' · ' + year + '학년도');
+  q('.room-title').textContent = heroName(k) + '의 업적전시실' + (year === 'all' ? '' : ' · ' + year + '학년도');
   // 셈은 한 줄, 안내는 그 아래 줄 — 폰에서 「액자…」가 어중간하게 접혔다
   // 벽 칸(코르크판 + 액자)을 넘친 상장은 벽에 안 걸린다 — 조용히 사라진 것처럼 보이지 않게 몇 장이 목록에만 있는지 적는다
   const nPaper = list.filter(r => r.kind === 'award' && lookOf(r) === 'paper').length, wallSlots = PINS.length + FRAMES.length;
@@ -1712,7 +1712,7 @@ function yearCard(list){
     g.fillText(fmtDate(r.got_on) + (r.org ? ' · ' + fitText(g, r.org, 60) : ''), cx, cy + 77);
   });
   if (list.length > CARD_MAX){ g.fillStyle = '#7a6a58'; g.font = '700 10px ' + FONT; g.fillText('… 그리고 앞서 받은 ' + (list.length - CARD_MAX) + '개 더', CARD_W / 2, top + 4 * cellH + 2); }
-  g.fillStyle = '#7a6a58'; g.font = '700 9px ' + FONT; g.fillText('www.suayona.com · 업적 전시실 · ' + fmtDate(todayStr()), CARD_W / 2, CARD_H - 24);
+  g.fillStyle = '#7a6a58'; g.font = '700 9px ' + FONT; g.fillText('www.suayona.com · 업적전시실 · ' + fmtDate(todayStr()), CARD_W / 2, CARD_H - 24);
   return c;
 }
 function openYearCard(list){
@@ -1740,7 +1740,7 @@ function printSheet(list){
   sheet.innerHTML = '';
   const h = document.createElement('h1'); h.textContent = heroName(kid) + '의 ' + label; sheet.appendChild(h);
   const sub = document.createElement('p'); sub.className = 'ps-sub';
-  sub.textContent = '수아랑 연아랑 업적 전시실 · ' + fmtDate(todayStr()) + ' 뽑음'; sheet.appendChild(sub);
+  sub.textContent = '수아랑 연아랑 업적전시실 · ' + fmtDate(todayStr()) + ' 뽑음'; sheet.appendChild(sub);
   ['title', 'award', 'level', 'first'].forEach(kd => {
     const part = list.filter(r => r.kind === kd).slice().sort((a, b) => a.got_on < b.got_on ? -1 : 1);
     if (!part.length) return;
