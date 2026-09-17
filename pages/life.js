@@ -218,6 +218,24 @@ buildChrome('life');
     bubbleNow = null; cele = { k, text: '🎂 ' + KID_NAME[k] + ' 생일 축하해요! Lv.' + ageYears(k, now()) + (typeof josa === 'function' ? josa(String(ageYears(k, now())), '이', '가') : '가') + ' 됐어요', until: now() + 6000 };
     say(cele.text); setTimeout(() => { cele = null; draw(); }, 6100); draw();
   }
+  // 🔦 고른 아이에게 조명 — 방 전체를 한 겹 어둡게 덮고 고른 아이 쪽 절반만 걷어 낸다 — 안 고른 아이와 그 둘레가 어두워진다(2026-09-17 부모 요청).
+  // 이름표·띠·말풍선은 이 뒤에 그려서 또렷하다
+  const SPOT_DIM = 0.42;
+  const spotCv = document.createElement('canvas'); spotCv.width = RW * 2; spotCv.height = RH * 2;
+  function spotlight(g, at){
+    const L = spotCv.getContext('2d'); L.setTransform(2, 0, 0, 2, 0, 0); L.globalCompositeOperation = 'source-over'; L.clearRect(0, 0, RW, RH);
+    L.fillStyle = 'rgba(24,16,40,' + SPOT_DIM + ')'; L.fillRect(0, 0, RW, RH);
+    L.globalCompositeOperation = 'destination-out';
+    // 고른 아이 쪽 절반을 통째로 밝힌다 — 가운데(키 재는 자)에서 40px 에 걸쳐 부드럽게 어두워진다. 네모로 도려냈더니 벽 띠 가장자리가 딱 끊겨 보였다
+    const left = sel === 'sua', hg = L.createLinearGradient(left ? RW / 2 - 24 : RW / 2 + 24, 0, left ? RW / 2 + 16 : RW / 2 - 16, 0);
+    hg.addColorStop(0, 'rgba(0,0,0,1)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
+    L.fillStyle = hg; L.fillRect(left ? 0 : RW / 2 - 16, 0, RW / 2 + 16, RH);
+    L.globalCompositeOperation = 'source-over';
+    g.drawImage(spotCv, 0, 0, RW, RH);
+    // 이름표는 어둠 위에 다시 — 고른 아이는 노란 테와 ▼
+    const tagY = FLOOR + 14;
+    KIDS.forEach(k => { if (k !== sel) return; const kx = KID_X[k]; g.fillStyle = '#ffd979'; g.fillRect(kx - 5, tagY - 9, 11, 3); g.fillRect(kx - 3, tagY - 6, 7, 2); g.fillRect(kx - 1, tagY - 4, 3, 2); });
+  }
   const now = () => Date.now();
   function viewAt(){ return replay ? replay.at : now(); }
   let frameN = 0;
@@ -231,7 +249,8 @@ buildChrome('life');
       const st = statsAt(k, at), cm = heightAt(k, at), x = KID_X[k];
       const bob = !STILL && !replay && (frameN + (k === 'sua' ? 0 : 2)) % 8 < 1 ? 1 : 0;
       const img = avatar(k, st, 0, seasonOf(at)), rows = KIDART[k].down[0], u = cm * PX_PER_CM / rows.length;   // 도트 한 칸의 화면 크기 — 머리끝~발끝이 실제 키
-      if (k === sel){ g.fillStyle = 'rgba(255,217,121,.75)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 54, 10, 0, 0, Math.PI * 2); g.fill(); }
+      if (k === sel){ const hh = cm * PX_PER_CM, gl = g.createRadialGradient(x, FLOOR - hh * 0.5, 30, x, FLOOR - hh * 0.5, hh * 0.85); gl.addColorStop(0, 'rgba(255,240,180,.75)'); gl.addColorStop(1, 'rgba(255,240,180,0)'); g.fillStyle = gl; g.fillRect(x - 170, FLOOR - hh - 60, 340, hh + 60); }   // 뒤에서 비추는 따뜻한 빛
+      if (k === sel){ g.fillStyle = 'rgba(255,217,121,.95)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 66, 12, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,243,196,.9)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 46, 8, 0, 0, Math.PI * 2); g.fill(); }
       g.fillStyle = 'rgba(47,42,36,.22)'; g.beginPath(); g.ellipse(x, FLOOR + 5, 34, 5, 0, 0, Math.PI * 2); g.fill();
       const w = img.width * u, h = img.height * u, x0 = Math.round(x - w / 2), y0 = Math.round(FLOOR + 4 - (rows.length + MY) * u + bob);
       g.drawImage(img, x0, y0, Math.round(w), Math.round(h));
@@ -247,6 +266,7 @@ buildChrome('life');
       g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(label, x, FLOOR + 17);
       { const y = Math.round(FLOOR - cm * PX_PER_CM), dir = k === 'sua' ? 1 : -1; const mx = dir > 0 ? RW / 2 - 35 : RW / 2 + 10; g.fillStyle = KID_COLOR[k]; g.fillRect(mx, y, 25, 2); g.fillStyle = INK; g.fillRect(dir > 0 ? mx : mx + 23, y - 1, 2, 4); }   // 머리끝이 자에 닿는 자리
     });
+    spotlight(g, at);
     if (cele && now() < cele.until){
       const x = KID_X[cele.k], top = FLOOR - heightAt(cele.k, at) * PX_PER_CM;
       for (let i = 0; i < 10; i++){ const a = i / 10 * Math.PI * 2 + frameN * 0.5, r = 70 + (frameN + i) % 3 * 8, sx = Math.round(x + Math.cos(a) * r), sy = Math.round(top + 90 + Math.sin(a) * r * 0.8); g.fillStyle = ['#ffd979', '#ff7f8a', '#6cc7b3', '#fff'][i % 4]; g.fillRect(sx - 3, sy, 7, 1); g.fillRect(sx, sy - 3, 1, 7); }
