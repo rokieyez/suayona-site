@@ -240,9 +240,18 @@
 
 
   /* ===== 탭 — 목록과 지도를 함께 바꾼다 ===== */
-  .tabs{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 14px;}
+  /* 네 개가 손전화에서도 한 줄에 들어가야 한다(부모 요청). 줄바꿈을 끄고 글자와 여백을
+     줄였다 — 375px 에서 재어 맞춘 값이고, 더 좁은 320px 는 아래에서 한 번 더 줄인다. */
+  .tabs{display:flex; flex-wrap:nowrap; gap:5px; margin:0 0 14px;}
   /* 아래 분류 거르개와 같은 .chip 이라, 고른 탭은 먹빛으로 채워 한 단계 위라는 것을 보인다 */
-  .tabs .chip{font-size:13.5px; padding:8px 13px;}
+  .tabs .chip{font-size:13.5px; padding:8px 13px; white-space:nowrap; flex:0 1 auto; min-width:0;}
+  @media (max-width:520px){
+    .tabs .chip{font-size:12px; padding:7px 7px; letter-spacing:-.02em;}
+  }
+  @media (max-width:350px){
+    .tabs{gap:3px;}
+    .tabs .chip{font-size:11px; padding:6px 4px; letter-spacing:-.04em; box-shadow:1px 1px 0 var(--ink);}
+  }
   .tabs .chip.on{background:var(--ink); color:var(--paper);}
   .quick-add{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 18px;}
   .quick-add[hidden]{display:none;}
@@ -287,14 +296,6 @@
   /* ===== 지도 도구 ===== */
   .map-tools{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:10px 0 12px;}
   .map-tools .hint{font-size:11px; color:var(--ink-soft); font-weight:700;}
-  .course-box{border:2px solid var(--ink); background:var(--paper-card); padding:12px;
-    margin-bottom:14px;}
-  .course-box[hidden]{display:none;}
-  .course-box h3{margin:0 0 8px; font-size:13px;}
-  .course-box ol{margin:0; padding-left:20px;}
-  .course-box li{font-size:12.5px; line-height:1.9; font-weight:700;}
-  .course-box li .km{color:var(--ink-soft); font-weight:700; margin-left:5px; font-size:11px;}
-  .course-box .foot{margin-top:8px; font-size:11.5px; color:var(--ink-soft); font-weight:700;}
 
   /* ===== 거르개 ===== */
   .filters{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; align-items:center;}
@@ -507,10 +508,8 @@
 
   <div class="map-tools" id="mapTools" hidden>
     <button class="chip" type="button" id="inViewBtn">지도에 보이는 곳만</button>
-    <button class="chip" type="button" id="courseBtn">나들이 코스 짜기</button>
     <span class="hint" id="mapToolsHint"></span>
   </div>
-  <div class="course-box" id="courseBox" hidden></div>
 
   <div class="quick-add" id="quickAdd" hidden>
     <button class="act" type="button" id="goNewTrip">📷 나들이 기록 만들기</button>
