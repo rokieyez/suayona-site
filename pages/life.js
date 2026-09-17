@@ -97,18 +97,19 @@ buildChrome('life');
   // ---------- 아바타 — 도트 그림(kid-art.js)에 장비를 얹어 한 장으로 굽는다 ----------
   const MX = 8, MY = 8;                                                  // 장비가 삐져나갈 여백(도트)
   const avatarBuf = {};
-  function avatar(k, st, frame, season){
+  function avatar(k, st, frame, season, blink){
     const lv = s => st[s].lv, on = s => lv(s) >= GEAR_LV, leg = s => lv(s) >= LEGEND_LV;
     const tier = n => n >= LEGEND_LV ? 3 : n >= SHINE_LV ? 2 : n >= GEAR_LV ? 1 : 0;
     const hat = isBirthday(k);
-    const key = [k, frame, hat ? 'b' : '', season || ''].concat(STATS.map(s => tier(lv(s.key)))).join('|');
+    const key = [k, frame, hat ? 'b' : '', season || '', blink ? 'z' : ''].concat(STATS.map(s => tier(lv(s.key)))).join('|');
     if (avatarBuf[key]) return avatarBuf[key];
     const rows = KIDART[k].down[frame], pal = Object.assign({}, KIDPAL[k]), W = rows[0].length, H = rows.length;
     if (on('body')){ pal.b = leg('body') ? '#ffd24d' : '#6cc7b3'; pal.B = leg('body') ? '#c9a24a' : '#3f9e8b'; }   // 전설: 황금 날개 운동화               // 🏃 민트 운동화
     const c = document.createElement('canvas'); c.width = W + MX * 2; c.height = H + MY * 2;
     const g = c.getContext('2d');
     const dot = (x, y, col, w, h) => { g.fillStyle = col; g.fillRect(MX + x, MY + y, w || 1, h || 1); };
-    const paint = (ox, oy, one) => { for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){ const ch = rows[r][x]; if (ch !== '.') dot(x + ox, r + oy, one || pal[ch] || '#000'); } };
+    let eyeRow = -1; if (blink) rows.forEach((row, r) => { if (row.indexOf('e') >= 0) eyeRow = r; });   // 깜빡임: 눈 자리를 살색으로 덮고 맨 아랫줄만 먹선으로
+    const paint = (ox, oy, one) => { for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){ const ch = rows[r][x]; if (ch !== '.') dot(x + ox, r + oy, one || (blink && (ch === 'e' || ch === 'w') ? (r === eyeRow ? pal.e : pal.f) : pal[ch]) || '#000'); } };
     [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(o => paint(o[0], o[1], 'rgba(36,28,20,.78)'));
     paint(0, 0);
     const top = rows.findIndex(r => /[^.]/.test(r));                     // 걸음 둘째 장은 두 도트 내려앉는다
@@ -218,6 +219,50 @@ buildChrome('life');
     bubbleNow = null; cele = { k, text: '🎂 ' + KID_NAME[k] + ' 생일 축하해요! Lv.' + ageYears(k, now()) + (typeof josa === 'function' ? josa(String(ageYears(k, now())), '이', '가') : '가') + ' 됐어요', until: now() + 6000 };
     say(cele.text); setTimeout(() => { cele = null; draw(); }, 6100); draw();
   }
+  // ---------- 방 꾸밈 — 여섯 능력치 레벨의 합이 오르면 그 아이 쪽 방이 채워진다: 8 러그 · 14 창문(계절 하늘) · 20 화분 ----------
+  const sumLv = st => STATS.reduce((n, s) => n + st[s.key].lv, 0);
+  const ROOM_STEPS = [[8, '러그'], [14, '창문'], [20, '화분']];
+  function roomExtras(g, k, st, at){
+    const n = sumLv(st), left = k === 'sua', x = KID_X[k], R = (a, b, w, h, c) => { g.fillStyle = c; g.fillRect(a, b, w, h); };
+    if (n >= 8){ R(x - 70, FLOOR + 1, 140, 15, INK); R(x - 68, FLOOR + 2, 136, 13, KID_COLOR[k]); for (let i = 0; i < 136; i += 12) R(x - 68 + i, FLOOR + 2, 6, 13, 'rgba(255,255,255,.45)'); R(x - 68, FLOOR + 7, 136, 3, 'rgba(47,42,36,.18)'); }
+    if (n >= 14){
+      const wx = left ? 6 : RW - 44, wy = 72, se = seasonOf(at) || 'autumn', sky = { spring: '#cfeaf7', summer: '#8ec9ee', autumn: '#f7d9a8', winter: '#c9d4e6' }[se];
+      R(wx - 2, wy - 2, 42, 58, INK); R(wx, wy, 38, 54, '#a0714a'); R(wx + 3, wy + 3, 32, 48, sky); R(wx + 3, wy + 38, 32, 13, { spring: '#9bd08a', summer: '#6fb567', autumn: '#c98a4a', winter: '#f4f7fb' }[se]);
+      const P = (a, b, c) => R(wx + 3 + a, wy + 3 + b, 2, 2, c);
+      if (se === 'spring') [[4, 6], [14, 12], [24, 5], [9, 22], [21, 27], [27, 17]].forEach(q2 => P(q2[0], q2[1], '#ff9fb0'));
+      if (se === 'summer'){ R(wx + 22, wy + 7, 9, 9, '#ffd24d'); R(wx + 24, wy + 9, 5, 5, '#fff3ae'); }
+      if (se === 'autumn') [[5, 8], [16, 15], [25, 7], [10, 26], [22, 30]].forEach(q2 => P(q2[0], q2[1], '#e8672a'));
+      if (se === 'winter') [[4, 5], [13, 11], [24, 6], [8, 21], [20, 26], [28, 16], [15, 32]].forEach(q2 => P(q2[0], q2[1], '#fff'));
+      R(wx + 18, wy + 3, 2, 48, '#a0714a'); R(wx + 3, wy + 26, 32, 2, '#a0714a');
+    }
+    if (n >= 20){ const px = left ? 26 : RW - 26; R(px - 9, FLOOR - 14, 18, 16, INK); R(px - 8, FLOOR - 13, 16, 14, '#c8794a'); R(px - 8, FLOOR - 13, 16, 3, '#a0522d');
+      [[0, -34, 4, 22], [-8, -28, 5, 14], [5, -30, 5, 16], [-13, -20, 5, 8], [10, -22, 5, 8]].forEach((l, i) => { R(px + l[0] - 1, FLOOR + l[1] - 1, l[2] + 2, l[3] + 2, INK); R(px + l[0], FLOOR + l[1], l[2], l[3], i % 2 ? '#5cb85c' : '#2f7a3e'); }); }
+  }
+  // 🐣 짝꿍 새 — 능력치 레벨의 합으로 자란다: 알 → 아기새(6) → 병아리(12) → 파랑새(20) → 황금새(32). 아이와 키 재는 자 사이에 선다
+  const PET_STEPS = [[0, '알'], [6, '아기새'], [12, '병아리'], [20, '파랑새'], [32, '황금새']];
+  const PET_ART = [
+    ['....kkkk....', '...kwwwwk...', '..kwwwwwwk..', '.kwwwwwwwwk.', '.kwwwwwwwwk.', 'kwwwwwwwwwwk', 'kwwwwwwwwwwk', 'kwwwwwwwwwwk', '.kwwwwwwwwk.', '.kwwwwwwwwk.', '..kkwwwwkk..', '....kkkk....'],
+    ['............', '....kkkk....', '...kyyyyk...', '..kyeyyeyk..', '..kyyooyyk..', '.kkwkyykwkk.', 'kwwkwkkwkwwk', 'kwwwwwwwwwwk', '.kwwwwwwwwk.', '.kwwwwwwwwk.', '..kkwwwwkk..', '....kkkk....'],
+    ['............', '....kkkk....', '...kyyyyk...', '..kyeyyeyk..', '..kyyooyyk..', '.kyyyyyyyyk.', 'kyyyyyyyyyyk', 'kyYyyyyyyYyk', '.kyyyyyyyyk.', '..kyyyyyyk..', '...koKKok...', '...kk..kk...'],
+    ['....kkkk....', '...kbbbbk...', '..kbebbebk..', '..kbbooBbk..', '.kbbbbbbbbk.', 'kbBbbwwbbBbk', 'kbBbwwwwbBbk', 'kbBbwwwwbBbk', '.kbbbbbbbbk.', '..kbbbbbbk.k', '...koKKokkBk', '...kk..kk.k.'],
+    ['...k.kk.k...', '...kgkkgk...', '...kggggk...', '..kgeggegk..', '..kggooGgk..', '.kggggggggk.', 'kgGggwwggGgk', 'kgGgwwwwgGgk', '.kggggggggk.', '..kggggggk.k', '...koKKokkGk', '...kk..kk.k.'],
+  ];
+  const PET_PAL = { k: '#2f2a24', w: '#fffaf2', y: '#ffe27a', Y: '#f2c94c', e: '#2f2a24', o: '#ff9f43', K: '#c9772a', b: '#7fb8f0', B: '#4f8fd6', g: '#ffd24d', G: '#e0a92a' };
+  const petStage = st => { const n = sumLv(st); let i = 0; PET_STEPS.forEach((p2, j) => { if (n >= p2[0]) i = j; }); return i; };
+  const petX = k => (k === 'sua' ? RW / 2 - 40 : RW / 2 + 40);
+  function drawPet(g, k, st){
+    const i = petStage(st), art = PET_ART[i], x = petX(k) - 12, up = !STILL && !replay && (frameN + (k === 'sua' ? 3 : 7)) % 6 === 0 ? 1 : 0, y = FLOOR - 22 - (i > 0 ? up * 2 : 0);
+    g.fillStyle = 'rgba(47,42,36,.2)'; g.fillRect(x + 3, FLOOR + 1, 18, 2);
+    for (let r = 0; r < 12; r++) for (let c = 0; c < 12; c++){ const ch = art[r][k === 'sua' ? c : 11 - c]; if (ch !== '.'){ g.fillStyle = PET_PAL[ch]; g.fillRect(x + c * 2, y + r * 2, 2, 2); } }
+  }
+  function petTalk(k){
+    const st = statsAt(k, now()), i = petStage(st), n = sumLv(st), nx = PET_STEPS[i + 1];
+    const t = (i === 0 ? '(알이 살짝 흔들려요)' : ['', '삐… 삐약?', '삐약삐약!', '짹짹! 오늘도 같이 가자!', '✨ 찌르르 — 황금빛 노래!'][i]) + ' · ' + KID_NAME[k] + '의 짝꿍 ' + PET_STEPS[i][1] + (nx ? fam ? ' · 능력치 레벨을 ' + (nx[0] - n) + ' 더 올리면 ' + nx[1] : ' · 더 자라면 ' + nx[1] : ' · 다 자랐어요');
+    cele = null; bubbleNow = { k, i: -1, text: t.split(' · ')[0], until: now() + 2600, pet: true }; say(t); draw(); setTimeout(() => { if (bubbleNow && now() >= bubbleNow.until){ bubbleNow = null; draw(); } }, 2700);
+  }
+  // 고르면 폴짝
+  const HOP_MS = 520; let hop = null;
+  function startHop(k){ if (STILL) return; hop = { k, t0: now() }; const t = setInterval(() => { if (!hop || now() - hop.t0 >= HOP_MS){ clearInterval(t); hop = null; } draw(); }, 40); }
   // 🔦 고른 아이에게 조명 — 방 전체를 한 겹 어둡게 덮고 고른 아이 쪽 절반만 걷어 낸다 — 안 고른 아이와 그 둘레가 어두워진다(2026-09-17 부모 요청).
   // 이름표·띠·말풍선은 이 뒤에 그려서 또렷하다
   const SPOT_DIM = 0.42;
@@ -244,15 +289,18 @@ buildChrome('life');
     const g = cv.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); g.imageSmoothingEnabled = false;
     g.clearRect(0, 0, RW, RH); g.drawImage(background(), 0, 0, RW, RH);
     const at = viewAt();
+    KIDS.forEach(k => { const st = statsAt(k, at); roomExtras(g, k, st, at); });
     KIDS.forEach(k => { const st = statsAt(k, at), x0 = k === 'sua' ? 10 : 274; STATS.forEach((s, i) => wallItem(g, s.key, x0 + i * 38, 10, st[s.key].lv)); });
     KIDS.forEach(k => {
       const st = statsAt(k, at), cm = heightAt(k, at), x = KID_X[k];
       const bob = !STILL && !replay && (frameN + (k === 'sua' ? 0 : 2)) % 8 < 1 ? 1 : 0;
-      const img = avatar(k, st, 0, seasonOf(at)), rows = KIDART[k].down[0], u = cm * PX_PER_CM / rows.length;   // 도트 한 칸의 화면 크기 — 머리끝~발끝이 실제 키
+      const blink = !STILL && !replay && seasonOf(at) !== 'summer' && (frameN + (k === 'sua' ? 5 : 11)) % 15 === 0;   // 선글라스를 쓴 여름엔 눈이 안 보인다
+      const hopY = hop && hop.k === k ? -Math.round(Math.abs(Math.sin((now() - hop.t0) / HOP_MS * Math.PI * 2)) * 7 * (1 - (now() - hop.t0) / HOP_MS)) : 0;
+      const img = avatar(k, st, 0, seasonOf(at), blink), rows = KIDART[k].down[0], u = cm * PX_PER_CM / rows.length;   // 도트 한 칸의 화면 크기 — 머리끝~발끝이 실제 키
       if (k === sel){ const hh = cm * PX_PER_CM, gl = g.createRadialGradient(x, FLOOR - hh * 0.5, 30, x, FLOOR - hh * 0.5, hh * 0.85); gl.addColorStop(0, 'rgba(255,240,180,.75)'); gl.addColorStop(1, 'rgba(255,240,180,0)'); g.fillStyle = gl; g.fillRect(x - 170, FLOOR - hh - 60, 340, hh + 60); }   // 뒤에서 비추는 따뜻한 빛
       if (k === sel){ g.fillStyle = 'rgba(255,217,121,.95)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 66, 12, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,243,196,.9)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 46, 8, 0, 0, Math.PI * 2); g.fill(); }
       g.fillStyle = 'rgba(47,42,36,.22)'; g.beginPath(); g.ellipse(x, FLOOR + 5, 34, 5, 0, 0, Math.PI * 2); g.fill();
-      const w = img.width * u, h = img.height * u, x0 = Math.round(x - w / 2), y0 = Math.round(FLOOR + 4 - (rows.length + MY) * u + bob);
+      const w = img.width * u, h = img.height * u, x0 = Math.round(x - w / 2), y0 = Math.round(FLOOR + 4 - (rows.length + MY) * u + bob + hopY);
       g.drawImage(img, x0, y0, Math.round(w), Math.round(h));
       if (!STILL) STATS.forEach(s => {                                   // ✦ 반짝임
         if (st[s.key].lv < SHINE_LV || (frameN + s.key.length) % 6 > 2) return;
@@ -266,6 +314,7 @@ buildChrome('life');
       g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(label, x, FLOOR + 17);
       { const y = Math.round(FLOOR - cm * PX_PER_CM), dir = k === 'sua' ? 1 : -1; const mx = dir > 0 ? RW / 2 - 35 : RW / 2 + 10; g.fillStyle = KID_COLOR[k]; g.fillRect(mx, y, 25, 2); g.fillStyle = INK; g.fillRect(dir > 0 ? mx : mx + 23, y - 1, 2, 4); }   // 머리끝이 자에 닿는 자리
     });
+    KIDS.forEach(k => drawPet(g, k, statsAt(k, at)));
     spotlight(g, at);
     if (cele && now() < cele.until){
       const x = KID_X[cele.k], top = FLOOR - heightAt(cele.k, at) * PX_PER_CM;
@@ -273,7 +322,8 @@ buildChrome('life');
       g.font = '800 11px ' + FONT; const tw = Math.min(RW - 16, Math.ceil(g.measureText(cele.text).width) + 16);
       g.fillStyle = INK; g.fillRect(Math.round(RW / 2 - tw / 2) - 1, 62, tw + 2, 22); g.fillStyle = '#ffd979'; g.fillRect(Math.round(RW / 2 - tw / 2), 63, tw, 20); g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(cele.text, RW / 2, 67, tw - 10);
     }
-    if (bubbleNow && !replay && now() < bubbleNow.until) drawBubble(g, KID_X[bubbleNow.k], Math.round(FLOOR - heightAt(bubbleNow.k, at) * PX_PER_CM) - 8, bubbleNow.text);
+    if (bubbleNow && bubbleNow.pet && !replay && now() < bubbleNow.until) drawBubble(g, petX(bubbleNow.k), FLOOR - 30, bubbleNow.text);
+    else if (bubbleNow && !replay && now() < bubbleNow.until) drawBubble(g, KID_X[bubbleNow.k], Math.round(FLOOR - heightAt(bubbleNow.k, at) * PX_PER_CM) - 8, bubbleNow.text);
     if (replay){
       const d = new Date(replay.at), t = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0');
       g.font = '800 13px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'top';
@@ -299,7 +349,7 @@ buildChrome('life');
     const who = q('#lifeWho'), box = q('#lifeStats'); if (!who || !box) return;
     who.innerHTML = '<div class="life-name"><b style="color:' + (sel === 'sua' ? 'var(--coral-ink)' : '#2f8f78') + '">' + KID_NAME[sel] + '</b>' + (age !== null ? '<span class="lv">Lv.' + age + '</span>' : '') + '</div>' +
       '<p class="life-nick" style="margin-bottom:2px;"><b>' + jobOf(st).icons + ' ' + escapeHTML(jobOf(st).name) + '</b></p><p class="life-nick">「' + escapeHTML(nickOf(st)) + '」' + (age !== null ? ' · 레벨은 나이예요' + (isBirthday(sel) ? ' · 🎂 오늘 생일!' : daysToBirthday(sel) !== null ? ' · 다음 레벨까지 ' + daysToBirthday(sel) + '일' : '') : '') + (heights[sel].length ? ' · 키 ' + Math.round(heightAt(sel, at) * 10) / 10 + 'cm' : '') + '</p>' + radarSVG(st) +
-      '<ul class="gear-list">' + (seasonOf(at) ? '<li>' + SEASON_NAME[seasonOf(at)] + '</li>' : '') + STATS.map(s => '<li class="' + (st[s.key].lv >= GEAR_LV ? '' : 'off') + '">' + s.icon + ' ' + (st[s.key].lv >= LEGEND_LV ? '전설의 ' : '') + s.gear + (st[s.key].lv >= LEGEND_LV ? ' ★' : st[s.key].lv >= SHINE_LV ? ' ✦' : '') + '</li>').join('') + '</ul>';
+      '<p class="stat-from" style="margin:8px 0 0;">🐣 짝꿍 <b>' + PET_STEPS[petStage(st)][1] + '</b> · 방 ' + (ROOM_STEPS.filter(r2 => sumLv(st) >= r2[0]).map(r2 => r2[1]).join('·') || '아직 빈 방') + '</p><ul class="gear-list">' + (seasonOf(at) ? '<li>' + SEASON_NAME[seasonOf(at)] + '</li>' : '') + STATS.map(s => '<li class="' + (st[s.key].lv >= GEAR_LV ? '' : 'off') + '">' + s.icon + ' ' + (st[s.key].lv >= LEGEND_LV ? '전설의 ' : '') + s.gear + (st[s.key].lv >= LEGEND_LV ? ' ★' : st[s.key].lv >= SHINE_LV ? ' ✦' : '') + '</li>').join('') + '</ul>';
     box.innerHTML = '<h2>능력치</h2>' + STATS.map(s => {
       const o = st[s.key], lo = need(o.lv), hi = need(o.lv + 1), f = o.lv >= MAX_LV ? 1 : (o.xp - lo) / (hi - lo), up = o.xp - past[s.key].xp;
       return '<div class="stat-row" data-stat="' + s.key + '" role="button" tabindex="0" aria-expanded="' + (openStat === s.key) + '"><span class="nm">' + s.icon + ' ' + s.name + '</span><span class="stat-bar" style="--c:' + s.color + '"><i style="width:' + (fam ? Math.round(f * 100) : Math.round(Math.min(1, o.lv / 8) * 100)) + '%"></i></span>' +
@@ -307,7 +357,7 @@ buildChrome('life');
         '<p class="stat-from">' + s.from + (fam ? ' · ' + s.unit + ' ' + o.n + ' · 경험치 ' + o.xp + (o.lv < MAX_LV ? ' / ' + hi : '') : '') + ' · <u>무엇으로?</u></p></div>' + (openStat === s.key ? statDetail(s, at) : '');
     }).join('') + (fam && !replay ? '<p class="stat-from" style="margin:6px 0 0;">▲ 는 지난달의 나보다 늘어난 경험치예요.</p>' : '') + (replay ? '' : weeksHTML());
     box.querySelectorAll('[data-stat]').forEach(r => { const go = () => { openStat = openStat === r.dataset.stat ? null : r.dataset.stat; renderSheet(); }; r.addEventListener('click', go); r.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(); } }); });
-    renderQuests(st); renderBoard(); renderDreams(); renderBadges(); renderMonth(); renderYears(); renderTeam();
+    renderQuests(st); renderBoard(); renderDreams(); renderBadges(); renderMonth(); renderYears(); renderRecords(); renderTeam();
   }
   // 능력치를 누르면 「무엇으로 올랐나」 — 새것부터 여덟. 경험치 수치는 가족에게만
   let openStat = null;
@@ -325,6 +375,27 @@ buildChrome('life');
     box.innerHTML = '<h2>📊 해마다</h2>' + years.map(y => '<div class="year-row"><span class="yl">' + y + (fam && ageYears(sel, new Date(y, 11, 31).getTime()) !== null ? '<small>' + koNum(ageYears(sel, new Date(y, 11, 31).getTime())) + ' 살</small>' : '') + '</span><span class="yb" role="img" aria-label="' + y + '년에 모은 경험치">' +
       STATS.filter(s => by[y][s.key]).map(s => '<i style="width:' + (by[y][s.key] / max * 100).toFixed(1) + '%; background:' + s.color + '" title="' + s.name + '"></i>').join('') + '</span>' + (fam ? '<span class="yn">' + total(y) + '</span>' : '') + '</div>').join('') +
       '<p class="stat-from" style="margin:8px 0 0;">' + STATS.map(s => '<span style="white-space:nowrap;"><i class="lg" style="background:' + s.color + '"></i>' + s.name + '</span>').join(' ') + '</p>';
+  }
+  // 🏟 기록실 — 기록에서 뽑은 「가장 ○○한」 것들. 경험치 수치는 가족에게만
+  function renderRecords(){
+    const box = q('#lifeRecords'); if (!box) return;
+    const at = viewAt(), mine = events.filter(e => e.k === sel && e.t <= at); box.hidden = mine.length < 3; if (box.hidden) return;
+    const top = keyOf => { const m = {}; mine.forEach(e => { const k2 = keyOf(e); (m[k2] = m[k2] || { xp: 0, n: 0 }); m[k2].xp += e.xp; m[k2].n++; }); return Object.keys(m).map(k2 => Object.assign({ key: k2 }, m[k2])); };
+    const ym = e => { const d = new Date(e.t); return d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월'; }, ymd = e => { const d = new Date(e.t); return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); };
+    const bestMonth = top(ym).sort((a, b) => b.xp - a.xp)[0], bestYear = top(e => new Date(e.t).getFullYear() + '년').sort((a, b) => b.xp - a.xp)[0], bestDay = top(ymd).sort((a, b) => b.n - a.n)[0];
+    const first = mine.slice().sort((a, b) => a.t - b.t)[0], days = Math.floor((at - first.t) / DAY);
+    const kinds = STATS.filter(s => mine.some(e => e.stat === s.key)).length;
+    let run = 0; quests.filter(x => x.repeat && x.status === 'done' && kidsOf(x.who).includes(sel)).forEach(x => { run = Math.max(run, longestRun(x)); });
+    const rows = [['🌱', '첫 기록', ymd(first) + (first.name ? ' · ' + first.name : ''), '그로부터 ' + days.toLocaleString('ko-KR') + '일'],
+      ['📅', '가장 바빴던 달', bestMonth.key, fam ? '경험치 +' + bestMonth.xp : ''], ['📆', '가장 많이 자란 해', bestYear.key, fam ? '경험치 +' + bestYear.xp : ''],
+      ['⚡', '하루에 가장 많이', bestDay.key, '기록 ' + bestDay.n + '개'], ['🎯', '해 본 분야', kinds + ' / ' + STATS.length, kinds === STATS.length ? '여섯 가지를 다 해 봤어요' : '']];
+    if (run > 1) rows.push(['🔥', '가장 긴 연속', run + (run ? '번 내리' : ''), '']);
+    box.innerHTML = '<h2>🏟 기록실</h2><ul class="stat-detail" style="margin:0; border-style:solid;">' + rows.map(r => '<li><span>' + r[0] + ' <b>' + r[1] + '</b> — ' + escapeHTML(r[2]) + '</span><time>' + r[3] + '</time></li>').join('') + '</ul>';
+  }
+  function longestRun(x){
+    const key = x.series || x.id, no = x.repeat === 'weekly' ? weekNo : dayNo;
+    const days = [...new Set(quests.filter(y => (y.series || y.id) === key && y.status === 'done' && y.done_at).map(y => no(dayOf(y.done_at))))].sort((a, b) => a - b);
+    let best = days.length ? 1 : 0, cur = 1; for (let i = 1; i < days.length; i++){ cur = days[i] - days[i - 1] === 1 ? cur + 1 : 1; best = Math.max(best, cur); } return best;
   }
   // 🤝 자매 팀 — 둘이 같이 해낸 것(같이 만든 작품·같이 받은 업적·「둘 다」 퀘스트). 누구를 골라도 같은 카드
   function renderTeam(){
@@ -398,9 +469,10 @@ buildChrome('life');
     const parts = STATS.filter(s => cur.by[s.key]).map(s => s.icon + ' ' + s.name + ' ' + cur.by[s.key] + '번');
     box.innerHTML = '<div class="qb-head"><h2>🗓 ' + d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월의 ' + KID_NAME[sel] + '</h2><span><button type="button" class="dot-btn small" id="monPrev" aria-label="앞 달"' + (m0 <= first ? ' disabled' : '') + '>◀</button> <button type="button" class="dot-btn small" id="monNext" aria-label="다음 달"' + (monthOff >= 0 ? ' disabled' : '') + '>▶</button></span></div><p class="life-nick" style="margin:0;">' + (parts.length ? parts.join(' · ') + ' — 경험치 <b>+' + cur.xp + '</b>' : monthOff ? '이 달은 남은 기록이 없어요.' : '이번 달은 아직 기록이 없어요. 하나 남겨 볼까요?') +
       '<br>지난달은 +' + prev.xp + (parts.length ? diff > 0 ? ' · 지난달의 나보다 ' + diff + ' 더 모았어요 💪' : diff < 0 ? ' · 지난달의 나를 따라잡으려면 ' + (-diff + 1) + ' 더' : ' · 지난달과 똑같아요' : '') + '</p>' +
-      (parts.length ? '<p style="margin:10px 0 0;"><button type="button" class="dot-btn small" id="monCard">💌 이 달의 편지 저장</button> <span class="stat-from">열두 장을 모으면 한 해 앨범이 돼요</span></p>' : '');
+      (parts.length ? '<p style="margin:10px 0 0;"><button type="button" class="dot-btn small" id="monCard">💌 이 달의 편지 저장</button> <button type="button" class="dot-btn small" id="yearAlbum">📔 ' + d.getFullYear() + '년 앨범 저장</button></p>' : '');
     const pv = q('#monPrev'), nx = q('#monNext'), mc = q('#monCard');
     if (pv) pv.addEventListener('click', () => { monthOff--; renderMonth(); }); if (nx) nx.addEventListener('click', () => { monthOff = Math.min(0, monthOff + 1); renderMonth(); });
+    const ya = q('#yearAlbum'); if (ya) ya.addEventListener('click', () => { say('앨범을 만드는 중…'); setTimeout(() => saveCanvas(albumCanvas(sel, d.getFullYear()), 'suayona-life-' + sel + '-' + d.getFullYear() + '-album.png', KID_NAME[sel] + '의 ' + d.getFullYear() + '년 앨범'), 30); });
     if (mc) mc.addEventListener('click', () => { saveCanvas(monthCanvas(sel, m0, m1), 'suayona-life-' + sel + '-' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '.png', KID_NAME[sel] + '의 ' + (d.getMonth() + 1) + '월'); });
   }
   // 💌 이 달의 편지 — 그 달 끝날의 아바타(키·장비·계절 옷)와 그 달에 한 일을 그림 한 장으로. 가족 화면에서만 만든다(수치가 들어간다)
@@ -424,6 +496,18 @@ buildChrome('life');
     if (!named.length){ g.fillStyle = '#6f6558'; g.fillText('조용히 쉬어 간 달이에요.', 28, y); }
     const got = badgesOf(k).filter(x => x.t !== null && x.t >= m0 && x.t < m1); if (got.length){ g.fillStyle = INK; g.font = '800 16px ' + FONT; g.fillText(fitW(g, '🏅 새 배지: ' + got.map(x => x.b.icon + ' ' + x.b.name).join(' · '), W - 56), 28, H - 78); }
     g.font = '700 14px ' + FONT; g.fillStyle = '#6f6558'; g.textAlign = 'right'; g.fillText('suayona.com · 인생 퀘스트', W - 28, H - 38);
+    return c;
+  }
+  // 📔 한 해 앨범 — 그 해의 달 편지 열두 장(아직 안 온 달은 빈 칸)을 4×3 으로 한 장에
+  function albumCanvas(k, year){
+    const CW = 300, CH = 400, W = CW * 4 + 50, H = CH * 3 + 110, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'); g.fillStyle = INK; g.fillRect(0, 0, W, H); g.fillStyle = '#fff6e9'; g.fillRect(8, 8, W - 16, H - 16); g.fillStyle = KID_COLOR[k]; g.fillRect(8, 8, W - 16, 56);
+    g.fillStyle = INK; g.textBaseline = 'top'; g.font = '800 26px ' + FONT; g.fillText(year + '년의 ' + KID_NAME[k] + ' — 인생 퀘스트 앨범', 24, 22);
+    for (let m = 0; m < 12; m++){
+      const m0 = new Date(year, m, 1).getTime(), m1 = new Date(year, m + 1, 1).getTime(), x = 10 + (m % 4) * (CW + 10), y = 74 + Math.floor(m / 4) * (CH + 10);
+      if (m0 > now()){ g.fillStyle = 'rgba(47,42,36,.08)'; g.fillRect(x, y, CW, CH); g.fillStyle = '#6f6558'; g.font = '700 16px ' + FONT; g.textAlign = 'center'; g.fillText((m + 1) + '월 — 아직 오지 않은 달', x + CW / 2, y + CH / 2); g.textAlign = 'left'; continue; }
+      g.imageSmoothingEnabled = true; g.drawImage(monthCanvas(k, m0, m1), x, y, CW, CH);
+    }
     return c;
   }
   function fitW(g, t, maxW){ t = String(t).normalize('NFC'); if (g.measureText(t).width <= maxW) return t; while (t.length > 1 && g.measureText(t + '…').width > maxW) t = t.slice(0, -1); return t.trimEnd() + '…'; }
@@ -616,7 +700,7 @@ buildChrome('life');
     });
     sc.addEventListener('change', () => { clearTimeout(sheetTimer); sheetTimer = 0; renderSheet(); });
   }
-  function pick(k){ if (!KIDS.includes(k) || k === sel){ return; } sel = k; roadAll = false; renderTools(); renderSheet(); renderRoad(); draw(); }
+  function pick(k){ if (!KIDS.includes(k) || k === sel){ return; } sel = k; roadAll = false; renderTools(); renderSheet(); renderRoad(); draw(); startHop(k); }
 
   // ---------- 자라 온 길 다시 보기 — 첫 기록부터 오늘까지 6초. 시계는 setInterval(가려진 탭에서도 끝까지 간다) ----------
   const REPLAY_MS = 6000;
@@ -691,8 +775,9 @@ buildChrome('life');
   // ---------- 누르기·움직임 ----------
   function wire(){
     const cv = q('#lifeCv'); if (!cv) return;
+    const petAt = e => { const rc = cv.getBoundingClientRect(); if (!rc.width) return null; const x = (e.clientX - rc.left) / rc.width * RW, y = (e.clientY - rc.top) / rc.height * RH; return y > FLOOR - 30 && y < FLOOR + 6 ? KIDS.filter(k => Math.abs(x - petX(k)) < 15)[0] || null : null; };
     const kidAt = e => { const rc = cv.getBoundingClientRect(); if (!rc.width) return null; const x = (e.clientX - rc.left) / rc.width * RW; return x < RW / 2 ? 'sua' : 'yona'; };
-    cv.addEventListener('click', e => { const k = kidAt(e); if (!k || replay) return; if (k === sel) talk(k); else pick(k); });
+    cv.addEventListener('click', e => { if (replay) return; const p = petAt(e); if (p){ petTalk(p); return; } const k = kidAt(e); if (!k) return; if (k === sel) talk(k); else pick(k); });
     cv.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') pick('sua'); if (e.key === 'ArrowRight') pick('yona'); });
     wireScrub();
     if (!STILL) setInterval(() => { if (document.hidden || replay || !loaded) return; const rc = cv.getBoundingClientRect(); if (rc.bottom < 0 || rc.top > (window.innerHeight || 800)) return; frameN++; draw(); }, 260);
@@ -705,5 +790,5 @@ buildChrome('life');
     if (typeof initReveal === 'function') initReveal();
   })();
 
-  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _talk: talk, _streak: streakOf, _dreams: () => dreams, _job: jobOf, _monthCard: monthCanvas, _season: seasonOf, _badges: badgesOf, _card: cardCanvas, _birthday: birthday, _celebrate: celebrate, _bubble: () => bubbleNow, _cele: () => cele, _tick: () => { frameN++; draw(); } };
+  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _talk: talk, _pet: petStage, _petTalk: petTalk, _sumLv: sumLv, _album: albumCanvas, _streak: streakOf, _dreams: () => dreams, _job: jobOf, _monthCard: monthCanvas, _season: seasonOf, _badges: badgesOf, _card: cardCanvas, _birthday: birthday, _celebrate: celebrate, _bubble: () => bubbleNow, _cele: () => cele, _tick: () => { frameN++; draw(); } };
 })();
