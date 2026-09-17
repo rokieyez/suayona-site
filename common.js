@@ -494,7 +494,7 @@ function markLifeQuests(){
   try { cached = JSON.parse(sessionStorage.getItem('life_wait') || 'null'); seen = localStorage.getItem('life_seen') || ''; } catch (e) { /* 저장이 막힌 브라우저 — 매번 묻는다 */ }
   if (cached && cached.who === me.user_id && Date.now() - cached.at < 10 * 60 * 1000) return show(cached.n);
   let ask = sb.from('life_quests').select('id', { count: 'exact', head: true });
-  ask = isAdmin ? ask.eq('status', 'claimed') : ask.eq('status', 'open').in('who', [me.author_key, 'both']);
+  ask = isAdmin ? ask.eq('status', 'claimed') : ask.eq('status', 'open').in('who', [me.author_key, 'both', 'family']);
   if (isChild && seen) ask = ask.gt('created_at', seen);
   ask.then(({ count, error }) => {
     if (error) return;

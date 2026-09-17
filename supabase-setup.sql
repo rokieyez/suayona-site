@@ -2095,3 +2095,139 @@ $$;
 revoke execute on function public.life_quest_list() from public;
 grant  execute on function public.life_quest_list() to anon, authenticated;
 drop function if exists public.life_quest_xp();
+
+
+-- ---------------------------------------------------------------------------
+-- 인생 퀘스트 4단계 (2026-09-17, migration life_quests_repeat_family_dreams)
+-- 되풀이 퀘스트(repeat·series, 확인하면 다시 열림) · 가족 퀘스트(who=family) · 꿈 목표(life_dreams, dream_id)
+-- 위쪽의 life_quests_guard · life_quest_list · quest_facts 정의는 이 아래 것이 덮어쓴다.
+-- ---------------------------------------------------------------------------
+
+-- ⑩ 꿈 목표 — 큰 목표 하나에 작은 퀘스트들이 달려서 진행 막대를 채운다
+create table if not exists public.life_dreams (
+  id         bigint generated always as identity primary key,
+  who        text not null check (who in ('sua','yona','both','family')),
+  title      text not null check (char_length(title) between 1 and 80),
+  target     smallint not null check (target between 2 and 30),      -- 퀘스트 몇 개를 해내면 이루어지나
+  created_at timestamptz not null default now()
+);
+alter table public.life_dreams enable row level security;
+drop policy if exists "family reads life dreams" on public.life_dreams;
+create policy "family reads life dreams" on public.life_dreams for select using (public.my_role() is not null);
+drop policy if exists "parent writes life dreams" on public.life_dreams;
+create policy "parent writes life dreams" on public.life_dreams for all using (public.my_role() = 'parent') with check (public.my_role() = 'parent');
+
+-- ①⑨⑩ life_quests 에 칸 셋 · 허용 값 넓히기
+alter table public.life_quests add column if not exists repeat   text check (repeat in ('daily','weekly'));
+alter table public.life_quests add column if not exists series   bigint;                                   -- 반복 퀘스트의 첫 줄 id — 연속을 센다
+alter table public.life_quests add column if not exists dream_id bigint references public.life_dreams(id) on delete set null;
+create index if not exists life_quests_dream_idx on public.life_quests (dream_id);
+alter table public.life_quests drop constraint if exists life_quests_who_check;
+alter table public.life_quests add constraint life_quests_who_check check (who in ('sua','yona','both','family'));
+alter table public.life_quests drop constraint if exists life_quests_xp_check;
+alter table public.life_quests add constraint life_quests_xp_check check (xp in (5,10,20,30));             -- 5 는 날마다 하는 반복용
+
+-- 아이는 가족 퀘스트에도 「했어요」를 누를 수 있다
+drop policy if exists "child claims own quest" on public.life_quests;
+create policy "child claims own quest" on public.life_quests for update
+  using      (public.my_role() = 'child' and status = 'open'    and who in (public.my_author_key(), 'both', 'family'))
+  with check (public.my_role() = 'child' and status = 'claimed' and who in (public.my_author_key(), 'both', 'family'));
+
+create or replace function public.life_quests_guard() returns trigger
+language plpgsql set search_path = public as $$
+declare cap_open constant int := 10; cap_prop constant int := 5; cap_month constant int := 300; k text; got int;   -- 한 달 150 → 300(날마다 5 짜리 반복이 한 달에 150 을 다 쓴다)
+begin
+  if auth.uid() is null then return new; end if;
+  if tg_op = 'INSERT' then
+    new.claimed_at := null; new.claimed_by := null; new.claim_note := null; new.done_at := null;
+    if public.my_role() = 'child' then
+      new.status := 'proposed'; new.xp := 10; new.due_on := null; new.repeat := null; new.series := null; new.dream_id := null;
+      if (select count(*) from life_quests where status = 'proposed' and who = new.who) >= cap_prop then
+        raise exception '제안은 한 번에 %개까지예요', cap_prop;
+      end if;
+      return new;
+    end if;
+    new.status := 'open';
+    if (select count(*) from life_quests where status in ('open','claimed') and (who = new.who or who in ('both','family') or new.who in ('both','family'))) >= cap_open then
+      raise exception '열려 있는 퀘스트는 아이마다 %개까지예요', cap_open;
+    end if;
+    return new;
+  end if;
+  if public.my_role() = 'child' then
+    if new.who is distinct from old.who or new.stat is distinct from old.stat or new.title is distinct from old.title
+       or new.xp is distinct from old.xp or new.due_on is distinct from old.due_on or new.created_at is distinct from old.created_at
+       or new.repeat is distinct from old.repeat or new.series is distinct from old.series or new.dream_id is distinct from old.dream_id
+       or new.done_at is not null then
+      raise exception '아이는 「했어요」만 누를 수 있어요';
+    end if;
+    new.claimed_at := now(); new.claimed_by := public.my_author_key();
+    return new;
+  end if;
+  if new.status = 'done' and old.status <> 'done' then
+    new.done_at := coalesce(new.done_at, now());
+    foreach k in array (case when new.who in ('both','family') then array['sua','yona'] else array[new.who] end) loop
+      select coalesce(sum(xp), 0) into got from life_quests
+        where status = 'done' and id <> new.id and who in (k, 'both', 'family') and date_trunc('month', done_at) = date_trunc('month', new.done_at);
+      if got + new.xp > cap_month then raise exception '퀘스트 경험치는 한 달에 %까지예요', cap_month; end if;
+    end loop;
+  elsif new.status = 'open' then
+    new.claimed_at := null; new.claimed_by := null; new.done_at := null;
+  end if;
+  return new;
+end $$;
+revoke execute on function public.life_quests_guard() from public, anon, authenticated;
+
+-- ① 반복 퀘스트: 부모가 확인하면 같은 퀘스트가 다시 열린다(같은 series). 연속 🔥 은 화면이 done 줄의 날짜로 센다
+create or replace function public.life_quests_respawn() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if new.status = 'done' and old.status <> 'done' and new.repeat is not null
+     and not exists (select 1 from life_quests where series = coalesce(new.series, new.id) and status in ('open','claimed') and id <> new.id) then
+    insert into life_quests (who, stat, title, xp, repeat, series, dream_id)
+      values (new.who, new.stat, new.title, new.xp, new.repeat, coalesce(new.series, new.id), new.dream_id);
+  end if;
+  return null;
+end $$;
+revoke execute on function public.life_quests_respawn() from public, anon, authenticated;
+drop trigger if exists life_quests_respawn on public.life_quests;
+create trigger life_quests_respawn after update on public.life_quests for each row execute function public.life_quests_respawn();
+
+-- 손님 목록에 새 칸(반복·묶음·꿈)을 더한다 — 돌려주는 모양이 바뀌어 지우고 다시 만든다
+drop function if exists public.life_quest_list();
+create function public.life_quest_list()
+returns table (id bigint, who text, stat text, title text, xp smallint, due_on date, status text, done_at timestamptz, created_at timestamptz, repeat text, series bigint, dream_id bigint)
+language sql stable security definer set search_path = public as $$
+  select q.id, q.who, q.stat, q.title, q.xp, q.due_on, q.status, q.done_at, q.created_at, q.repeat, q.series, q.dream_id
+    from life_quests q where q.status in ('open','claimed','done') order by q.created_at desc limit 500;
+$$;
+revoke execute on function public.life_quest_list() from public;
+grant  execute on function public.life_quest_list() to anon, authenticated;
+
+create or replace function public.life_dream_list()
+returns table (id bigint, who text, title text, target smallint, created_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select d.id, d.who, d.title, d.target, d.created_at from life_dreams d order by d.created_at desc limit 50;
+$$;
+revoke execute on function public.life_dream_list() from public;
+grant  execute on function public.life_dream_list() to anon, authenticated;
+
+-- 모험단: 가족 퀘스트 경험치도 센다(quest_facts 의 life_xp 한 줄만 바뀐다 — 나머지는 그대로)
+create or replace function public.quest_facts(p_who text)
+returns jsonb
+language sql stable security invoker set search_path = public as $$
+  select jsonb_build_object(
+    'diaries',  (select count(*) from posts where author = p_who and status = 'published'),
+    'works',    (select count(*) from works where author = p_who),
+    'run_best', (select coalesce(max(score), 0) from run_scores where who = p_who),
+    'outings',  (select count(distinct event_id) from events where event_id is not null),
+    'height',   (select cm from growth where who = p_who and kind = 'height' order by measured_on desc limit 1),
+    'sfx',      (select sfx from works where author = p_who and sfx is not null order by created_at desc limit 1),
+    'grow_on',  (select l.measured_on from growth l
+                  where l.who = p_who and l.kind = 'height'
+                    and exists (select 1 from growth e where e.who = l.who and e.kind = 'height'
+                                   and e.measured_on <= l.measured_on - 180 and e.cm < l.cm)
+                  order by l.measured_on desc limit 1),
+    'honors',   (select count(*) from honors where who in (p_who, 'both')),
+    'life_xp',  (select coalesce(sum(xp), 0) from life_quests where status = 'done' and who in (p_who, 'both', 'family'))
+  );
+$$;

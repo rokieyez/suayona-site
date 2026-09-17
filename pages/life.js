@@ -37,12 +37,13 @@ buildChrome('life');
   function levelOf(xp){ let n = 0; while (n < MAX_LV && xp >= need(n + 1)) n++; return n; }
 
   // ---------- 상태 ----------
+  let dreams = [], addingDream = false;
   let quests = [], noting = null, adding = false, celebrated = false;
   let fam = false, born = {}, events = [], heights = { sua: [], yona: [] }, sel = 'sua', replay = null, loaded = false, loadErr = false, roadAll = false;
   const dayOf = v => { if (!v) return NaN; const d = new Date(String(v).length <= 10 ? v + 'T00:00:00+09:00' : v); return d.getTime(); };
   // 적힌 날이 올린 날보다 뒤면(날짜를 잘못 적은 일기 1건이 있었다) 올린 날로 — 앞날의 기록은 오늘 경험치에서 빠지기 때문
   const whenOf = (on, made) => { const a = dayOf(on), b = dayOf(made); return Number.isFinite(a) && Number.isFinite(b) ? Math.min(a, b) : Number.isFinite(a) ? a : b; };
-  const kidsOf = who => who === 'together' || who === 'both' ? KIDS : KIDS.includes(who) ? [who] : [];
+  const kidsOf = who => who === 'together' || who === 'both' || who === 'family' ? KIDS : KIDS.includes(who) ? [who] : [];
 
   // 어느 날(at)까지의 능력치 — { art: { xp, lv, n }, … }
   function statsAt(k, at){
@@ -183,7 +184,7 @@ buildChrome('life');
     const lines = [st[top.key].xp > 0 ? '요즘 제일 자신 있는 건 ' + top.icon + ' ' + top.name + '!' : '이제 막 시작했어. 지켜봐 줘!'];
     if (recent) lines.push('얼마 전에 이런 일이 있었어 — ' + recent.label + '!');
     const bare = STATS.filter(s => st[s.key].lv < GEAR_LV)[0]; if (bare) lines.push(bare.icon + ' ' + bare.name + '도 키워서 「' + bare.gear + '」 갖고 싶어.');
-    const open = quests.filter(x => x.status === 'open' && (x.who === k || x.who === 'both'))[0]; if (open) lines.push('퀘스트 「' + open.title + '」 하는 중이야!');
+    const open = quests.filter(x => x.status === 'open' && (x.who === k || x.who === 'both' || x.who === 'family'))[0]; if (open) lines.push('퀘스트 「' + open.title + '」 하는 중이야!');
     const shine = STATS.filter(s => st[s.key].lv >= SHINE_LV)[0]; if (shine) lines.push('내 ' + shine.gear + ', 반짝이는 거 봤어? ✦');
     const i = ((bubbleNow && bubbleNow.k === k ? bubbleNow.i : -1) + 1) % lines.length;
     cele = null; bubbleNow = { k, i, text: lines[i], until: now() + 3200 }; say(KID_NAME[k] + ': ' + lines[i]); draw();
@@ -286,7 +287,7 @@ buildChrome('life');
         '<p class="stat-from">' + s.from + (fam ? ' · ' + s.unit + ' ' + o.n + ' · 경험치 ' + o.xp + (o.lv < MAX_LV ? ' / ' + hi : '') : '') + ' · <u>무엇으로?</u></p></div>' + (openStat === s.key ? statDetail(s, at) : '');
     }).join('') + (fam && !replay ? '<p class="stat-from" style="margin:6px 0 0;">▲ 는 지난달의 나보다 늘어난 경험치예요.</p>' : '') + (replay ? '' : weeksHTML());
     box.querySelectorAll('[data-stat]').forEach(r => { const go = () => { openStat = openStat === r.dataset.stat ? null : r.dataset.stat; renderSheet(); }; r.addEventListener('click', go); r.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(); } }); });
-    renderQuests(st); renderBoard(); renderBadges(); renderMonth(); renderYears(); renderTeam();
+    renderQuests(st); renderBoard(); renderDreams(); renderBadges(); renderMonth(); renderYears(); renderTeam();
   }
   // 능력치를 누르면 「무엇으로 올랐나」 — 새것부터 여덟. 경험치 수치는 가족에게만
   let openStat = null;
@@ -309,7 +310,7 @@ buildChrome('life');
   function renderTeam(){
     const box = q('#lifeTeam'); if (!box) return;
     const l = events.filter(e => e.k === 'sua' && e.team && e.t <= viewAt()).sort((a, b) => b.t - a.t); box.hidden = !l.length; if (box.hidden) return;
-    box.innerHTML = '<h2>🤝 자매 팀 <span style="font-weight:700; color:var(--ink-soft);">둘이 같이 해낸 일 ' + l.length + '</span></h2><ul class="stat-detail" style="margin:0;">' + l.slice(0, 5).map(e => { const d = new Date(e.t); return '<li>' + (e.icon || '🏅') + ' ' + escapeHTML(e.name || '') + '<time>' + d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '</time></li>'; }).join('') + (l.length > 5 ? '<li class="more">… 그리고 ' + (l.length - 5) + '개 더</li>' : '') + '</ul>';
+    box.innerHTML = '<h2>🤝 ' + (l.some(e => e.family) ? '우리 가족 팀' : '자매 팀') + ' <span style="font-weight:700; color:var(--ink-soft);">같이 해낸 일 ' + l.length + '</span></h2><ul class="stat-detail" style="margin:0;">' + l.slice(0, 5).map(e => { const d = new Date(e.t); return '<li>' + (e.icon || '🏅') + ' ' + escapeHTML(e.name || '') + '<time>' + d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '</time></li>'; }).join('') + (l.length > 5 ? '<li class="more">… 그리고 ' + (l.length - 5) + '개 더</li>' : '') + '</ul>';
   }
   // 요즘 8주 — 하루 한 칸, 그날 기록이 있으면 그 능력치 색. 수치는 없다
   function weeksHTML(){
@@ -340,6 +341,8 @@ buildChrome('life');
     { icon: '🤝', name: '같이 해낸 일',    f: e => e.stat === 'heart' && !isClap(e) && !e.quest, n: 1 },
     { icon: '📜', name: '첫 퀘스트',      f: e => e.quest, n: 1 },
     { icon: '🗺', name: '퀘스트 열 개',    f: e => e.quest, n: 10 },
+    { icon: '🔥', name: '이레 연속',      calc: k => { const x = quests.filter(y => y.repeat && kidsOf(y.who).includes(k) && streakOf(y) >= 7)[0]; return x ? now() : null; }, hint: '되풀이 퀘스트를 이레 내리' },
+    { icon: '🌟', name: '꿈을 이루다',    calc: k => { const t = dreamsOf(k).map(d => dreamState(d, now()).t).filter(Boolean).sort((a, b) => a - b)[0]; return t || null; }, hint: '꿈 목표 하나를 다 채우면' },
     { icon: '📏', name: '키 150cm',      h: 150 },
     { icon: '🦒', name: '키 160cm',      h: 160 },
     { icon: '✦', name: '첫 반짝 장비',    lv: st => STATS.some(s => st[s.key].lv >= SHINE_LV) },
@@ -348,11 +351,12 @@ buildChrome('life');
   ];
   let badgeMemo = { key: '', list: [] };
   function badgesOf(k){                                                  // [{ b, t }] — t 는 딴 날(없으면 아직)
-    const key = k + '|' + events.length + '|' + heights[k].length; if (badgeMemo.key === key) return badgeMemo.list;
+    const key = k + '|' + events.length + '|' + heights[k].length + '|' + quests.length + '|' + dreams.length; if (badgeMemo.key === key) return badgeMemo.list;
     const mine = events.filter(e => e.k === k).sort((a, b) => a.t - b.t);
     const list = BADGES.map(b => {
       let t = null;
       if (b.f){ const hit = mine.filter(b.f)[b.n - 1]; if (hit) t = hit.t; }
+      else if (b.calc){ t = b.calc(k); }
       else if (b.h){ const m = heights[k].filter(x => x.cm >= b.h)[0]; if (m) t = m.t; }
       else if (b.lv){ const seen = {}; for (const e of mine){ if (seen[e.t]) continue; seen[e.t] = 1; if (b.lv(statsAt(k, e.t))){ t = e.t; break; } } }
       return { b, t };
@@ -425,48 +429,77 @@ buildChrome('life');
     box.innerHTML = '<h2>다음 목표</h2><ul class="quest-list">' + list.map(x => '<li><span class="ic">' + x.s.icon + '</span><span><b>' + x.s.name + ' Lv.' + (x.o.lv + 1) + '</b> 까지 ' + x.s.unit + ' ' + x.times + '번' +
       (x.o.lv + 1 === GEAR_LV ? ' — 「' + x.s.gear + '」가 생겨요' : x.o.lv + 1 === SHINE_LV ? ' — 장비가 반짝여요 ✦' : x.o.lv + 1 === LEGEND_LV ? ' — 전설 장비가 돼요 ★' : '') + '<small>' + how[x.s.key] + ' 경험치 +' + per[x.s.key] + ' · 남은 경험치 ' + x.left + '</small></span></li>').join('') + '</ul>';
   }
+  // 🔥 연속 — 같은 묶음(series)의 확인한 날을 거꾸로 세어, 하루(주마다면 한 주)도 안 거른 만큼. 어제(지난주)까지 이어졌어야 살아 있다
+  const dayNo = t => Math.floor((t + 9 * 3600000) / DAY), weekNo = t => Math.floor((dayNo(t) + 3) / 7);   // 서울 날짜 · 월요일에 바뀌는 주
+  function streakOf(x){
+    const key = x.series || x.id, no = x.repeat === 'weekly' ? weekNo : dayNo;
+    const days = [...new Set(quests.filter(y => (y.series || y.id) === key && y.status === 'done' && y.done_at).map(y => no(dayOf(y.done_at))))].sort((a, b) => b - a);
+    if (!days.length || no(now()) - days[0] > 1) return 0;
+    let n = 1; while (n < days.length && days[n - 1] - days[n] === 1) n++;
+    return n;
+  }
+  // 🌟 꿈 목표 — 큰 목표 하나에 퀘스트가 달리고, 해낸 수가 막대를 채운다. 다 채운 날이 이룬 날
+  function dreamsOf(k){ return dreams.filter(d => d.who === k || d.who === 'both' || d.who === 'family'); }
+  function dreamState(d, at){ const done = quests.filter(x => x.dream_id === d.id && x.status === 'done' && dayOf(x.done_at) <= at).sort((a, b) => dayOf(a.done_at) - dayOf(b.done_at)); return { n: done.length, t: done.length >= d.target ? dayOf(done[d.target - 1].done_at) : null, open: quests.filter(x => x.dream_id === d.id && (x.status === 'open' || x.status === 'claimed')).length }; }
+  function renderDreams(){
+    const box = q('#lifeDreams'); if (!box) return;
+    const l = dreamsOf(sel), at = viewAt(); box.hidden = !!replay || (!l.length && !isAdmin); if (box.hidden) return;
+    box.innerHTML = '<div class="qb-head"><h2>🌟 ' + KID_NAME[sel] + '의 꿈 목표</h2>' + (isAdmin ? '<button type="button" class="dot-btn small primary" id="drAdd">' + (addingDream ? '닫기' : '＋ 꿈 세우기') + '</button>' : '') + '</div>' +
+      (addingDream && isAdmin ? '<form class="qb-form" id="drForm"><label class="wide">어떤 꿈인가요<input name="title" maxlength="80" required placeholder="예: 피아노 콩쿠르 나가기"></label><label>누구의 꿈<select name="who"><option value="' + sel + '">' + KID_NAME[sel] + '</option><option value="both">둘 다</option><option value="family">온 가족</option></select></label><label>퀘스트 몇 개로 이룰까요<input name="target" type="number" min="2" max="30" value="5" required></label><div class="wide"><button class="dot-btn small mint">꿈 세우기</button></div></form>' : '') +
+      (l.length ? l.map(d => { const s = dreamState(d, at), f = Math.min(1, s.n / d.target), dd = s.t ? new Date(s.t) : null;
+        return '<div class="dream' + (s.t ? ' won' : '') + '"><b>' + (s.t ? '🌟 ' : '☆ ') + escapeHTML(d.title) + '</b>' + (d.who === 'family' ? ' <span class="tag">온 가족</span>' : d.who === 'both' ? ' <span class="tag">둘 다</span>' : '') +
+          '<span class="stat-bar" style="--c:var(--lemon); display:block; margin:6px 0 4px;"><i style="width:' + Math.round(f * 100) + '%"></i></span><small>' + (s.t ? dd.getFullYear() + '.' + String(dd.getMonth() + 1).padStart(2, '0') + ' 에 이루었어요! 퀘스트 ' + d.target + '개를 해냈어요' : '퀘스트 ' + s.n + ' / ' + d.target + (s.open ? ' · 하는 중 ' + s.open + '개' : isAdmin ? ' · 「＋ 퀘스트 내기」에서 이 꿈에 달 수 있어요' : '')) + '</small>' +
+          (isAdmin ? ' <button type="button" class="goal-x" data-drop="' + d.id + '" aria-label="이 꿈 지우기">지우기</button>' : '') + '</div>'; }).join('') : '<p class="life-nick" style="margin:0;">아직 세운 꿈이 없어요. 큰 목표를 하나 세우고 작은 퀘스트로 채워 가요.</p>');
+    const ab = q('#drAdd'); if (ab) ab.addEventListener('click', () => { addingDream = !addingDream; renderDreams(); });
+    const fm = q('#drForm'); if (fm) fm.addEventListener('submit', e => { e.preventDefault(); const f = new FormData(fm), title = String(f.get('title') || '').trim(); if (!title) return;
+      sb.from('life_dreams').insert({ who: f.get('who'), title: title.slice(0, 80), target: Math.max(2, Math.min(30, Number(f.get('target')) || 5)) }).select('id').then(res => { addingDream = false; after('🌟 꿈을 세웠어요')(res); }, fail); });
+    box.querySelectorAll('[data-drop]').forEach(b => b.addEventListener('click', () => { if (window.confirm('이 꿈 목표를 지울까요? 달려 있던 퀘스트는 그대로 남아요.')) sb.from('life_dreams').delete().eq('id', Number(b.dataset.drop)).select('id').then(after('꿈 목표를 지웠어요'), fail); }));
+  }
   // ---------- 퀘스트 판(가족만) — 고른 아이의 것과 「둘 다」 ----------
   // 퀘스트 본보기 — 누르면 입력 칸이 채워진다(고쳐서 내면 된다)
-  const QUEST_IDEAS = [['줄넘기 100번', 'body', 20], ['책 한 권 끝까지 읽기', 'write', 30], ['피아노 30분 연습', 'stage', 10], ['그림 한 장 완성하기', 'art', 20], ['동생·언니 도와주기', 'heart', 10], ['방 정리 혼자 하기', 'grit', 10], ['일주일 일기 쓰기', 'write', 30], ['자전거 30분 타기', 'body', 20]];
+  const QUEST_IDEAS = [['줄넘기 100번', 'body', 20], ['책 한 권 끝까지 읽기', 'write', 30], ['피아노 30분 연습', 'stage', 10], ['그림 한 장 완성하기', 'art', 20], ['동생·언니 도와주기', 'heart', 10], ['방 정리 혼자 하기', 'grit', 10], ['피아노 30분', 'stage', 5, 'daily'], ['주말 가족 산책', 'body', 20, 'weekly'], ['일주일 일기 쓰기', 'write', 30], ['자전거 30분 타기', 'body', 20]];
   function statOf(key){ return STATS.find(s => s.key === key) || STATS[0]; }
   const mmdd = v => { const d = new Date(dayOf(v)); return (d.getMonth() + 1) + '.' + d.getDate(); };
   function renderBoard(){
     const box = q('#lifeBoard'); if (!box) return;
     box.hidden = !!replay; if (box.hidden) return;                       // 퀘스트 목록은 손님에게도(2026-09-17 부모 요청) — 단추는 가족에게만
-    const mine = quests.filter(x => x.who === sel || x.who === 'both'), today = dayOf(new Date().toISOString().slice(0, 10));
-    const canClaim = x => isChild && me && (x.who === me.author_key || x.who === 'both');
+    const mine = quests.filter(x => x.who === sel || x.who === 'both' || x.who === 'family'), today = dayOf(new Date().toISOString().slice(0, 10));
+    const canClaim = x => isChild && me && (x.who === me.author_key || x.who === 'both' || x.who === 'family');
     const item = x => {
       const s = statOf(x.stat), late = x.status !== 'done' && x.due_on && dayOf(x.due_on) < today - DAY;
       let acts = '';
       if (x.status === 'open' && canClaim(x)) acts = noting === x.id ? '<div class="qb-note"><input type="text" maxlength="120" placeholder="한마디 (안 써도 돼요)" data-note="' + x.id + '"><button type="button" class="dot-btn small mint" data-send="' + x.id + '">보내기</button></div>' : '<div class="qb-acts"><button type="button" class="dot-btn small lemon" data-claim="' + x.id + '">✋ 했어요</button></div>';
       if (isAdmin) acts = '<div class="qb-acts">' + (x.status === 'proposed' ? '<select data-xp="' + x.id + '" aria-label="경험치"><option value="10">10</option><option value="20" selected>20</option><option value="30">30</option></select><button type="button" class="dot-btn small mint" data-accept="' + x.id + '">👍 좋아, 해 보자</button>' : '') + (x.status === 'claimed' ? '<button type="button" class="dot-btn small mint" data-done="' + x.id + '">✔ 확인</button><button type="button" class="dot-btn small" data-redo="' + x.id + '">↩ 다시 해 보자</button>' : '') + (x.status !== 'done' ? '<button type="button" class="dot-btn small" data-del="' + x.id + '">지우기</button>' : '') + '</div>';
-      return '<div class="qb-item ' + x.status + '"><span class="ic">' + s.icon + '</span><div class="body"><b>' + escapeHTML(x.title) + '</b>' + (x.who === 'both' ? ' <span class="tag">둘 다</span>' : '') +
-        '<small>' + s.name + (x.status === 'proposed' ? ' · ' + KID_NAME[x.who] + '의 제안' + (isAdmin ? '' : ' — 엄마 아빠가 보고 있어요') : ' 경험치 +' + x.xp) + (x.due_on && x.status !== 'done' ? ' · ' + mmdd(x.due_on) + '까지' : '') + (x.status === 'done' ? ' · ' + mmdd(x.done_at) + ' 해냄' : '') + '</small>' +
+      return '<div class="qb-item ' + x.status + '"><span class="ic">' + s.icon + '</span><div class="body"><b>' + escapeHTML(x.title) + '</b>' + (x.who === 'both' ? ' <span class="tag">둘 다</span>' : x.who === 'family' ? ' <span class="tag">온 가족</span>' : '') + (x.repeat ? ' <span class="tag">🔁 ' + (x.repeat === 'daily' ? '날마다' : '주마다') + (streakOf(x) ? ' · 🔥 ' + streakOf(x) : '') + '</span>' : '') +
+        '<small>' + s.name + (x.status === 'proposed' ? ' · ' + KID_NAME[x.who] + '의 제안' + (isAdmin ? '' : ' — 엄마 아빠가 보고 있어요') : ' 경험치 +' + x.xp) + (x.due_on && x.status !== 'done' ? ' · ' + mmdd(x.due_on) + '까지' : '') + (x.status === 'done' ? ' · ' + mmdd(x.done_at) + ' 해냄' + (x.repeat && times[x.series || x.id] > 1 ? ' · 지금까지 ' + times[x.series || x.id] + '번' : '') : '') + '</small>' +
         (late ? '<small class="late">기한이 지났어요 — 그래도 하면 돼요</small>' : '') +
         (x.status === 'claimed' ? '<small>✋ ' + (x.claimed_by ? KID_NAME[x.claimed_by] + (x.claim_note ? ': 「' + escapeHTML(x.claim_note) + '」' : '가 했대요') : '했대요 — 확인을 기다려요') + '</small>' : '') + acts + '</div></div>';
     };
-    const group = (t, st, lim) => { const l = mine.filter(x => x.status === st); return l.length ? '<p class="qb-group">' + t + ' ' + l.length + '</p>' + (lim ? l.slice(0, lim) : l).map(item).join('') : ''; };
+    const times = {}; mine.forEach(x => { if (x.repeat && x.status === 'done') times[x.series || x.id] = (times[x.series || x.id] || 0) + 1; });
+    const group = (t, st, lim) => { const seen = {}; const l = mine.filter(x => x.status === st).filter(x => { if (st !== 'done' || !x.repeat) return true; const k2 = x.series || x.id; if (seen[k2]) return false; seen[k2] = 1; return true; });   // 되풀이 퀘스트의 「해냄」은 묶음마다 한 줄(가장 새것)
+      return l.length ? '<p class="qb-group">' + t + ' ' + l.length + '</p>' + (lim ? l.slice(0, lim) : l).map(item).join('') : ''; };
     const body = group('💡 제안', 'proposed') + group('확인 기다리는 중', 'claimed') + group('진행 중', 'open') + group('해냄', 'done', 5);
     box.innerHTML = '<div class="qb-head"><h2>📜 ' + KID_NAME[sel] + '의 퀘스트</h2>' + (isAdmin ? '<button type="button" class="dot-btn small primary" id="qbAdd">' + (adding ? '닫기' : '＋ 퀘스트 내기') + '</button>' : PROPOSE_ON && isChild && me && me.author_key === sel ? '<button type="button" class="dot-btn small lemon" id="qbAdd">' + (adding ? '닫기' : '💡 퀘스트 제안하기') + '</button>' : '') + '</div>' +
       (adding && isChild && PROPOSE_ON ? '<form class="qb-form" id="qbPropose"><label class="wide">무엇에 도전하고 싶어요?<input name="title" maxlength="80" required placeholder="예: 책 한 권 끝까지 읽기"></label><label class="wide">어떤 능력치일까요<select name="stat">' + STATS.map(s => '<option value="' + s.key + '">' + s.icon + ' ' + s.name + '</option>').join('') + '</select></label><div class="wide"><button class="dot-btn small mint">제안 보내기</button></div></form>' : '') +
       (adding && isAdmin ? '<form class="qb-form" id="qbForm"><div class="wide qb-chips">' + QUEST_IDEAS.map((t, i) => '<button type="button" class="chip" data-idea="' + i + '">' + statOf(t[1]).icon + ' ' + t[0] + '</button>').join('') + '</div><label class="wide">무엇을 하면 될까요<input name="title" maxlength="80" required placeholder="예: 줄넘기 100번"></label>' +
-        '<label>누구에게<select name="who"><option value="' + sel + '">' + KID_NAME[sel] + '</option><option value="both">둘 다</option></select></label>' +
+        '<label>누구에게<select name="who"><option value="' + sel + '">' + KID_NAME[sel] + '</option><option value="both">둘 다</option><option value="family">온 가족</option></select></label>' +
         '<label>능력치<select name="stat">' + STATS.map(s => '<option value="' + s.key + '">' + s.icon + ' ' + s.name + '</option>').join('') + '</select></label>' +
-        '<label>경험치<select name="xp"><option value="10">10 — 그림 한 장만큼</option><option value="20" selected>20</option><option value="30">30 — 큰 도전</option></select></label>' +
-        '<label>언제까지(없어도 돼요)<input name="due" type="date"></label><div class="wide"><button class="dot-btn small mint">퀘스트 내기</button></div></form>' : '') +
+        '<label>경험치<select name="xp"><option value="5">5 — 날마다 하는 것</option><option value="10">10 — 그림 한 장만큼</option><option value="20" selected>20</option><option value="30">30 — 큰 도전</option></select></label>' +
+        '<label>되풀이<select name="repeat"><option value="">한 번</option><option value="daily">🔁 날마다</option><option value="weekly">🔁 주마다</option></select></label>' +
+        '<label>언제까지(없어도 돼요)<input name="due" type="date"></label>' + (dreamsOf(sel).length ? '<label class="wide">꿈 목표에 달기<select name="dream"><option value="">안 달기</option>' + dreamsOf(sel).map(d => '<option value="' + d.id + '">🌟 ' + escapeHTML(d.title) + '</option>').join('') + '</select></label>' : '') + '<div class="wide"><button class="dot-btn small mint">퀘스트 내기</button></div></form>' : '') +
       (body || '<p class="life-nick" style="margin:0;">' + (isAdmin ? '아직 낸 퀘스트가 없어요. 「＋ 퀘스트 내기」로 첫 퀘스트를 내 보세요.' : '아직 퀘스트가 없어요.') + '</p>');
     const on = (sel2, fn) => box.querySelectorAll(sel2).forEach(b => b.addEventListener('click', () => fn(Number(Object.values(b.dataset)[0]), b)));
     on('[data-claim]', id => { noting = id; renderBoard(); const i = box.querySelector('[data-note]'); if (i) i.focus(); });
     on('[data-send]', id => { const i = box.querySelector('[data-note="' + id + '"]'); change(id, { status: 'claimed', claim_note: i && i.value.trim() ? i.value.trim().slice(0, 120) : null }, '✋ 보냈어요 — 엄마 아빠가 확인하면 경험치가 들어와요'); });
     on('[data-accept]', id => { const x = box.querySelector('[data-xp="' + id + '"]'); change(id, { status: 'open', xp: Number(x && x.value) || 20 }, '👍 퀘스트로 받아 줬어요'); });
-    on('[data-done]', id => { const x = quests.find(y => y.id === id); change(id, { status: 'done' }, '✔ 확인했어요 — 경험치가 들어갔어요', () => { if (!x) return; const s = statOf(x.stat); bubbleNow = null; fanfare(); cele = { k: sel, text: '📜 퀘스트 완료! ' + s.icon + ' ' + s.name + ' +' + x.xp, until: now() + 4000 }; setTimeout(() => { cele = null; draw(); }, 4100); draw(); }); });
+    on('[data-done]', id => { const x = quests.find(y => y.id === id); change(id, { status: 'done' }, x && x.repeat ? '✔ 확인했어요 — 같은 퀘스트가 다시 열렸어요 🔁' : '✔ 확인했어요 — 경험치가 들어갔어요', () => { if (!x) return; const s = statOf(x.stat); bubbleNow = null; fanfare(); cele = { k: sel, text: '📜 퀘스트 완료! ' + s.icon + ' ' + s.name + ' +' + x.xp, until: now() + 4000 }; setTimeout(() => { cele = null; draw(); }, 4100); draw(); }); });
     on('[data-redo]', id => change(id, { status: 'open', claim_note: null }, '↩ 다시 진행 중으로 돌렸어요'));
     on('[data-del]', id => { if (window.confirm('이 퀘스트를 지울까요?')) sb.from('life_quests').delete().eq('id', id).select('id').then(after('지웠어요'), fail); });
     const add = q('#qbAdd'); if (add) add.addEventListener('click', () => { adding = !adding; renderBoard(); });
-    box.querySelectorAll('[data-idea]').forEach(b => b.addEventListener('click', () => { const t = QUEST_IDEAS[Number(b.dataset.idea)], f = q('#qbForm'); if (!f) return; f.title.value = t[0]; f.stat.value = t[1]; f.xp.value = String(t[2]); f.title.focus(); }));
+    box.querySelectorAll('[data-idea]').forEach(b => b.addEventListener('click', () => { const t = QUEST_IDEAS[Number(b.dataset.idea)], f = q('#qbForm'); if (!f) return; f.title.value = t[0]; f.stat.value = t[1]; f.xp.value = String(t[2]); f.repeat.value = t[3] || ''; f.title.focus(); }));
     const form = q('#qbForm'); if (form) form.addEventListener('submit', e => {
       e.preventDefault(); const f = new FormData(form), title = String(f.get('title') || '').trim(); if (!title) return;
-      sb.from('life_quests').insert({ who: f.get('who'), stat: f.get('stat'), title: title.slice(0, 80), xp: Number(f.get('xp')), due_on: f.get('due') || null }).select('id').then(after('퀘스트를 냈어요 📜'), fail);
+      sb.from('life_quests').insert({ who: f.get('who'), stat: f.get('stat'), title: title.slice(0, 80), xp: Number(f.get('xp')), due_on: f.get('due') || null, repeat: f.get('repeat') || null, dream_id: Number(f.get('dream')) || null }).select('id').then(after('퀘스트를 냈어요 📜'), fail);
     });
     const pf = q('#qbPropose'); if (pf) pf.addEventListener('submit', e => {
       e.preventDefault(); const f = new FormData(pf), title = String(f.get('title') || '').trim(); if (!title) return;
@@ -578,7 +611,7 @@ buildChrome('life');
     if (fam){ try { born = await loadKids(); } catch (e) { born = {}; } }
     if (!loaded && isChild && me && KIDS.includes(me.author_key)) sel = me.author_key;
     const ask = (t, cols, f) => { let r = sb.from(t).select(cols); if (f) r = f(r); return r.then(x => x.error ? [] : x.data || []).catch(() => { loadErr = true; return []; }); };
-    const [works, posts, runs, honors, grow, wclaps, hclaps, qrows] = await Promise.all([
+    const [works, posts, runs, honors, grow, wclaps, hclaps, qrows, drows] = await Promise.all([
       ask('works', 'id, author, media_type, title, made_on, created_at', r => r.eq('status', 'published')),
       ask('posts', 'author, title, happened_on, created_at', r => r.eq('status', 'published')),
       ask('run_scores', 'who, score, created_at', r => r.in('who', KIDS)),
@@ -586,8 +619,9 @@ buildChrome('life');
       ask('growth', 'who, cm, measured_on', r => r.eq('kind', 'height').order('measured_on')),
       ask('work_claps', 'work_id, created_at'),
       ask('honor_claps', 'honor_id, created_at'),
-      fam ? ask('life_quests', 'id, who, stat, title, xp, due_on, status, claimed_by, claim_note, done_at, created_at', r => r.order('created_at', { ascending: false }))
+      fam ? ask('life_quests', 'id, who, stat, title, xp, due_on, status, claimed_by, claim_note, done_at, created_at, repeat, series, dream_id', r => r.order('created_at', { ascending: false }))
           : sb.rpc('life_quest_list').then(x => x.error ? [] : x.data || []).catch(() => []),
+      fam ? ask('life_dreams', 'id, who, title, target, created_at', r => r.order('created_at', { ascending: false })) : sb.rpc('life_dream_list').then(x => x.error ? [] : x.data || []).catch(() => []),
     ]);
     events = []; heights = { sua: [], yona: [] };
     const add = (who, e) => kidsOf(who).forEach(k => { if (Number.isFinite(e.t)) events.push(Object.assign({ k }, e)); });
@@ -612,9 +646,9 @@ buildChrome('life');
     hclaps.forEach(c => add(hWho[c.honor_id], { t: dayOf(c.created_at), stat: 'heart', xp: XP.clap, name: '「' + (hTitle[c.honor_id] || '업적') + '」에 받은 박수' }));
     grow.forEach(r => { const k = r.who === '수아' ? 'sua' : r.who === '연아' ? 'yona' : r.who; if (heights[k] && Number(r.cm) > 0) heights[k].push({ t: dayOf(r.measured_on), cm: Number(r.cm) }); });
     KIDS.forEach(k => heights[k].sort((a, b) => a.t - b.t));
-    quests = qrows;                                                      // 손님 것은 함수가 준 목록 — 한마디·누가 눌렀는지·제안은 안 온다
+    dreams = drows; quests = qrows;                                                      // 손님 것은 함수가 준 목록 — 한마디·누가 눌렀는지·제안은 안 온다
     qrows.forEach(x => {                                                 // 끝난 퀘스트는 그날의 사건이 된다(길에 📜 로 선다) — 가족·손님 모두
-      if (x.status === 'done' && STATS.some(s => s.key === x.stat)) add(x.who, { t: dayOf(x.done_at), stat: x.stat, xp: Number(x.xp) || 0, quest: true, team: x.who === 'both', name: '퀘스트 「' + (x.title || '') + '」', icon: '📜', label: '퀘스트 「' + (x.title || '') + '」' });
+      if (x.status === 'done' && STATS.some(s => s.key === x.stat)) add(x.who, { t: dayOf(x.done_at), stat: x.stat, xp: Number(x.xp) || 0, quest: true, team: x.who === 'both' || x.who === 'family', family: x.who === 'family', name: '퀘스트 「' + (x.title || '') + '」', icon: '📜', label: x.repeat ? '' : '퀘스트 「' + (x.title || '') + '」' });   // 되풀이 퀘스트는 길에 세우지 않는다(날마다 한 줄씩 늘어난다) — 「무엇으로?」에는 나온다
     });
     loaded = true;
     q('#lifeGuest').hidden = fam;
@@ -639,5 +673,5 @@ buildChrome('life');
     if (typeof initReveal === 'function') initReveal();
   })();
 
-  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _talk: talk, _job: jobOf, _monthCard: monthCanvas, _season: seasonOf, _badges: badgesOf, _card: cardCanvas, _birthday: birthday, _celebrate: celebrate, _bubble: () => bubbleNow, _cele: () => cele, _tick: () => { frameN++; draw(); } };
+  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _talk: talk, _streak: streakOf, _dreams: () => dreams, _job: jobOf, _monthCard: monthCanvas, _season: seasonOf, _badges: badgesOf, _card: cardCanvas, _birthday: birthday, _celebrate: celebrate, _bubble: () => bubbleNow, _cele: () => cele, _tick: () => { frameN++; draw(); } };
 })();
