@@ -32,7 +32,7 @@ buildChrome('life');
   ];
   const XP = { work: 10, video: 10, diary: 10, run: 3, clap: 5, together: 10, award: 10, level: 10, title: 15, first: 10 };
   const RUN_BEST_CAP = 50;                                               // 달리기 최고 점수 덤(1000점에 1) 상한
-  const GEAR_LV = 2, SHINE_LV = 5, MAX_LV = 12;
+  const GEAR_LV = 2, SHINE_LV = 5, LEGEND_LV = 8, MAX_LV = 12;          // 장비가 생김 · 반짝임 · 전설 장비(모양이 바뀐다)
   const need = n => 5 * n * (n + 1);                                     // Lv.n 이 되는 누적 경험치: 10 · 30 · 60 · 100 · 150 · 210 …
   function levelOf(xp){ let n = 0; while (n < MAX_LV && xp >= need(n + 1)) n++; return n; }
 
@@ -84,12 +84,13 @@ buildChrome('life');
   const MX = 8, MY = 8;                                                  // 장비가 삐져나갈 여백(도트)
   const avatarBuf = {};
   function avatar(k, st, frame){
-    const lv = s => st[s].lv, on = s => lv(s) >= GEAR_LV;
+    const lv = s => st[s].lv, on = s => lv(s) >= GEAR_LV, leg = s => lv(s) >= LEGEND_LV;
+    const tier = n => n >= LEGEND_LV ? 3 : n >= SHINE_LV ? 2 : n >= GEAR_LV ? 1 : 0;
     const hat = isBirthday(k);
-    const key = [k, frame, hat ? 'b' : ''].concat(STATS.map(s => Math.min(lv(s.key), SHINE_LV))).join('|');
+    const key = [k, frame, hat ? 'b' : ''].concat(STATS.map(s => tier(lv(s.key)))).join('|');
     if (avatarBuf[key]) return avatarBuf[key];
     const rows = KIDART[k].down[frame], pal = Object.assign({}, KIDPAL[k]), W = rows[0].length, H = rows.length;
-    if (on('body')){ pal.b = '#6cc7b3'; pal.B = '#3f9e8b'; }               // 🏃 민트 운동화
+    if (on('body')){ pal.b = leg('body') ? '#ffd24d' : '#6cc7b3'; pal.B = leg('body') ? '#c9a24a' : '#3f9e8b'; }   // 전설: 황금 날개 운동화               // 🏃 민트 운동화
     const c = document.createElement('canvas'); c.width = W + MX * 2; c.height = H + MY * 2;
     const g = c.getContext('2d');
     const dot = (x, y, col, w, h) => { g.fillStyle = col; g.fillRect(MX + x, MY + y, w || 1, h || 1); };
@@ -97,16 +98,16 @@ buildChrome('life');
     [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(o => paint(o[0], o[1], 'rgba(36,28,20,.78)'));
     paint(0, 0);
     const top = rows.findIndex(r => /[^.]/.test(r));                     // 걸음 둘째 장은 두 도트 내려앉는다
-    if (on('body')){ dot(9, H - 3, '#fff', 3, 1); dot(16, H - 3, '#fff', 3, 1); }
+    if (on('body')){ dot(9, H - 3, '#fff', 3, 1); dot(16, H - 3, '#fff', 3, 1); if (leg('body')){ dot(5, H - 5, INK, 3, 3); dot(5, H - 5, '#fff', 2, 2); dot(20, H - 5, INK, 3, 3); dot(21, H - 5, '#fff', 2, 2); } }
     if (on('art')){                                                      // 🎨 베레모 + 붓
-      const b1 = lv('art') >= SHINE_LV ? '#c03a4b' : '#d9534f', b2 = '#8f2a35';
+      const b1 = leg('art') ? '#ffd24d' : lv('art') >= SHINE_LV ? '#c03a4b' : '#d9534f', b2 = leg('art') ? '#c9a24a' : '#8f2a35';   // 전설: 황금 베레모
       dot(7, top - 1, INK, 14, 1); dot(6, top, INK, 16, 3); dot(7, top, b1, 14, 2); dot(8, top - 1, b1, 12, 1); dot(7, top + 2, b2, 14, 1); dot(13, top - 3, INK, 2, 2); dot(13, top - 2, b1, 1, 1);
       dot(23, top + 20, INK, 3, 11); dot(24, top + 23, '#a0522d', 1, 7); dot(23, top + 19, INK, 3, 1); dot(24, top + 20, '#ffd979', 1, 3);
     }
-    if (on('write')){ for (let i = 0; i < 5; i++){ dot(22 + Math.floor(i / 2), top + 12 - i, INK, 3, 1); dot(23 + Math.floor(i / 2), top + 12 - i, i === 4 ? '#ff7f8a' : '#ffd24d', 1, 1); } }   // ✍️ 귀에 꽂은 연필
-    if (on('stage')){ dot(2, top + 21, INK, 5, 5); dot(3, top + 22, '#8d8d9b', 3, 3); dot(3, top + 22, '#d8d8e2', 1, 1); dot(3, top + 26, INK, 3, 5); dot(4, top + 26, '#4a4458', 1, 4); }   // 🎹 마이크
-    if (on('grit')){ dot(11, top + 21, '#5b7fbf', 1, 3); dot(16, top + 21, '#5b7fbf', 1, 3); dot(12, top + 24, INK, 4, 4); dot(12, top + 24, '#ffd24d', 3, 3); dot(13, top + 25, '#fff3ae', 1, 1); }   // 🏆 금메달
-    if (on('heart')){ dot(17, top + 25, '#ff5d7a', 1, 1); dot(19, top + 25, '#ff5d7a', 1, 1); dot(17, top + 26, '#ff5d7a', 3, 1); dot(18, top + 27, '#ff5d7a', 1, 1); }   // 💗 하트 배지
+    if (on('write')){ for (let i = 0; i < 5; i++){ dot(22 + Math.floor(i / 2), top + 12 - i, INK, 3, 1); dot(23 + Math.floor(i / 2), top + 12 - i, leg('write') ? (i === 0 ? '#2f2a24' : '#fff') : i === 4 ? '#ff7f8a' : '#ffd24d', 1, 1); } if (leg('write')){ dot(25, top + 6, INK, 3, 3); dot(26, top + 6, '#8ec9ee', 2, 2); } }   // 전설: 깃펜   // ✍️ 귀에 꽂은 연필
+    if (on('stage')){ dot(2, top + 21, INK, 5, 5); dot(3, top + 22, leg('stage') ? '#ffd24d' : '#8d8d9b', 3, 3); dot(3, top + 22, leg('stage') ? '#fff3ae' : '#d8d8e2', 1, 1); dot(3, top + 26, INK, 3, 5); dot(4, top + 26, '#4a4458', 1, 4); }   // 🎹 마이크
+    if (on('grit')){ dot(11, top + 21, '#5b7fbf', 1, 3); dot(16, top + 21, '#5b7fbf', 1, 3); dot(12, top + 24, INK, 4, 4); dot(12, top + 24, '#ffd24d', 3, 3); dot(13, top + 25, '#fff3ae', 1, 1); if (leg('grit')){ dot(11, top + 23, INK, 6, 6); dot(12, top + 24, '#ffd24d', 4, 4); dot(13, top + 25, '#ff7f8a', 2, 2); } }   // 전설: 큰 메달에 붉은 보석   // 🏆 금메달
+    if (on('heart')){ dot(17, top + 25, '#ff5d7a', 1, 1); dot(19, top + 25, '#ff5d7a', 1, 1); dot(17, top + 26, '#ff5d7a', 3, 1); dot(18, top + 27, '#ff5d7a', 1, 1); if (leg('heart')){ dot(16, top + 24, '#ffd24d', 1, 1); dot(20, top + 24, '#ffd24d', 1, 1); dot(18, top + 28, '#ffd24d', 1, 1); } }   // 전설: 금빛 테   // 💗 하트 배지
     if (hat){ for (let i = 0; i < 7; i++){ dot(13 - Math.floor(i / 2) - (i > 4 ? 1 : 0), top - 7 + i, INK, 2 + i + (i > 4 ? 2 : 0), 1); dot(14 - Math.floor(i / 2) - (i > 4 ? 1 : 0), top - 7 + i, i % 2 ? '#ffd979' : '#ff7f8a', Math.max(1, i + (i > 4 ? 2 : 0)), 1); } dot(13, top - 9, '#6cc7b3', 2, 2); }   // 🎂 고깔모자
     return (avatarBuf[key] = c);
   }
@@ -152,6 +153,7 @@ buildChrome('life');
   }
   // ---------- 말풍선 · 레벨 업 ----------
   let bubbleNow = null, cele = null;
+  function fanfare(){ if (typeof tone === 'function') [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.16, 'triangle', 0.05, i * 0.1)); }   // 소리를 꺼 두었거나 아직 화면을 안 눌렀으면 조용히 넘어간다
   function wrap(g, text, maxW){ const out = []; let line = ''; text.split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > maxW && line){ out.push(line); line = w; } else line = t; }); if (line) out.push(line); return out; }
   function drawBubble(g, cx, tipY, text){
     g.font = '700 10px ' + FONT; const lines = wrap(g, text, 150), w = Math.ceil(Math.max(...lines.map(l => g.measureText(l).width))) + 14, h = lines.length * 13 + 9;
@@ -176,14 +178,14 @@ buildChrome('life');
     KIDS.forEach(k => { const st = statsAt(k, now()); cur[k] = {}; STATS.forEach(s => { cur[k][s.key] = st[s.key].lv; }); });
     try { old = JSON.parse(localStorage.getItem('life_lv') || 'null'); localStorage.setItem('life_lv', JSON.stringify(cur)); } catch (e) { return; }
     if (!old) return;
-    const ups = []; KIDS.forEach(k => STATS.forEach(s => { const a = (old[k] || {})[s.key], b = cur[k][s.key]; if (Number.isFinite(a) && b > a) ups.push({ k, s, lv: b, gear: a < GEAR_LV && b >= GEAR_LV, shine: a < SHINE_LV && b >= SHINE_LV, room: a < ROOM_LV && b >= ROOM_LV }); }));
-    const shown = fam ? ups : ups.filter(u => u.gear || u.shine || u.room); if (!shown.length) return;
+    const ups = []; KIDS.forEach(k => STATS.forEach(s => { const a = (old[k] || {})[s.key], b = cur[k][s.key]; if (Number.isFinite(a) && b > a) ups.push({ k, s, lv: b, gear: a < GEAR_LV && b >= GEAR_LV, shine: a < SHINE_LV && b >= SHINE_LV, legend: a < LEGEND_LV && b >= LEGEND_LV, room: a < ROOM_LV && b >= ROOM_LV }); }));
+    const shown = fam ? ups : ups.filter(u => u.gear || u.shine || u.legend || u.room); if (!shown.length) return;
     const u = shown.find(x => x.k === sel) || shown[0];
     const ga = w => (typeof josa === 'function' ? josa(w, '이', '가') : '가');   // josa 는 조사만 돌려준다
-    const what = u.gear ? '「' + u.s.gear + '」' + ga(u.s.gear) + ' 생겼어요!' : u.shine ? u.s.gear + ga(u.s.gear) + ' 반짝이기 시작했어요 ✦' : u.room ? '방에 새 물건이 걸렸어요!' : '';
+    const what = u.legend ? '전설의 ' + u.s.gear + ga(u.s.gear) + ' 됐어요 ★' : u.gear ? '「' + u.s.gear + '」' + ga(u.s.gear) + ' 생겼어요!' : u.shine ? u.s.gear + ga(u.s.gear) + ' 반짝이기 시작했어요 ✦' : u.room ? '방에 새 물건이 걸렸어요!' : '';
     bubbleNow = null; cele = { k: u.k, text: '🎉 ' + KID_NAME[u.k] + ' ' + u.s.icon + ' ' + u.s.name + (fam ? ' Lv.' + u.lv : ' 레벨 업') + (what ? ' — ' + what : ''), until: now() + 5000 };
     if (u.k !== sel) pick(u.k);
-    say(cele.text + (shown.length > 1 ? ' (그리고 ' + (shown.length - 1) + '개 더)' : ''));
+    fanfare(); say(cele.text + (shown.length > 1 ? ' (그리고 ' + (shown.length - 1) + '개 더)' : ''));
     setTimeout(() => { cele = null; draw(); }, 5100); draw();
   }
   function birthday(){
@@ -255,14 +257,38 @@ buildChrome('life');
     const who = q('#lifeWho'), box = q('#lifeStats'); if (!who || !box) return;
     who.innerHTML = '<div class="life-name"><b style="color:' + (sel === 'sua' ? 'var(--coral-ink)' : '#2f8f78') + '">' + KID_NAME[sel] + '</b>' + (age !== null ? '<span class="lv">Lv.' + age + '</span>' : '') + '</div>' +
       '<p class="life-nick">「' + escapeHTML(nickOf(st)) + '」' + (age !== null ? ' · 레벨은 나이예요' + (isBirthday(sel) ? ' · 🎂 오늘 생일!' : daysToBirthday(sel) !== null ? ' · 다음 레벨까지 ' + daysToBirthday(sel) + '일' : '') : '') + (heights[sel].length ? ' · 키 ' + Math.round(heightAt(sel, at) * 10) / 10 + 'cm' : '') + '</p>' + radarSVG(st) +
-      '<ul class="gear-list">' + STATS.map(s => '<li class="' + (st[s.key].lv >= GEAR_LV ? '' : 'off') + '">' + s.icon + ' ' + s.gear + (st[s.key].lv >= SHINE_LV ? ' ✦' : '') + '</li>').join('') + '</ul>';
+      '<ul class="gear-list">' + STATS.map(s => '<li class="' + (st[s.key].lv >= GEAR_LV ? '' : 'off') + '">' + s.icon + ' ' + (st[s.key].lv >= LEGEND_LV ? '전설의 ' : '') + s.gear + (st[s.key].lv >= LEGEND_LV ? ' ★' : st[s.key].lv >= SHINE_LV ? ' ✦' : '') + '</li>').join('') + '</ul>';
     box.innerHTML = '<h2>능력치</h2>' + STATS.map(s => {
       const o = st[s.key], lo = need(o.lv), hi = need(o.lv + 1), f = o.lv >= MAX_LV ? 1 : (o.xp - lo) / (hi - lo), up = o.xp - past[s.key].xp;
-      return '<div class="stat-row"><span class="nm">' + s.icon + ' ' + s.name + '</span><span class="stat-bar" style="--c:' + s.color + '"><i style="width:' + (fam ? Math.round(f * 100) : Math.round(Math.min(1, o.lv / 8) * 100)) + '%"></i></span>' +
+      return '<div class="stat-row" data-stat="' + s.key + '" role="button" tabindex="0" aria-expanded="' + (openStat === s.key) + '"><span class="nm">' + s.icon + ' ' + s.name + '</span><span class="stat-bar" style="--c:' + s.color + '"><i style="width:' + (fam ? Math.round(f * 100) : Math.round(Math.min(1, o.lv / 8) * 100)) + '%"></i></span>' +
         '<span class="lvn">' + (fam ? 'Lv.' + o.lv + (up > 0 && !replay ? '<span class="up">▲' + up + '</span>' : '') : o.lv >= SHINE_LV ? '✦' : o.lv >= GEAR_LV ? '●' : '○') + '</span>' +
-        '<p class="stat-from">' + s.from + (fam ? ' · ' + s.unit + ' ' + o.n + ' · 경험치 ' + o.xp + (o.lv < MAX_LV ? ' / ' + hi : '') : '') + '</p></div>';
+        '<p class="stat-from">' + s.from + (fam ? ' · ' + s.unit + ' ' + o.n + ' · 경험치 ' + o.xp + (o.lv < MAX_LV ? ' / ' + hi : '') : '') + ' · <u>무엇으로?</u></p></div>' + (openStat === s.key ? statDetail(s, at) : '');
     }).join('') + (fam && !replay ? '<p class="stat-from" style="margin:6px 0 0;">▲ 는 지난달의 나보다 늘어난 경험치예요.</p>' : '') + (replay ? '' : weeksHTML());
-    renderQuests(st); renderBoard(); renderBadges(); renderMonth();
+    box.querySelectorAll('[data-stat]').forEach(r => { const go = () => { openStat = openStat === r.dataset.stat ? null : r.dataset.stat; renderSheet(); }; r.addEventListener('click', go); r.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(); } }); });
+    renderQuests(st); renderBoard(); renderBadges(); renderMonth(); renderYears(); renderTeam();
+  }
+  // 능력치를 누르면 「무엇으로 올랐나」 — 새것부터 여덟. 경험치 수치는 가족에게만
+  let openStat = null;
+  function statDetail(s, at){
+    const l = events.filter(e => e.k === sel && e.stat === s.key && e.t <= at).sort((a, b) => b.t - a.t);
+    if (!l.length) return '<ul class="stat-detail"><li>아직 기록이 없어요 — ' + s.from + '</li></ul>';
+    return '<ul class="stat-detail">' + l.slice(0, 8).map(e => { const d = new Date(e.t); return '<li>' + escapeHTML(e.name || s.from) + '<time>' + d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + (fam ? ' · +' + e.xp : '') + '</time></li>'; }).join('') + (l.length > 8 ? '<li class="more">… 그리고 ' + (l.length - 8) + '개 더</li>' : '') + '</ul>';
+  }
+  // 해마다 — 그 해에 모은 경험치를 능력치 색으로 쌓은 막대. 길이는 가장 많이 모은 해가 기준. 합계 수치는 가족에게만
+  function renderYears(){
+    const box = q('#lifeYears'); if (!box) return;
+    const at = viewAt(), by = {}; events.forEach(e => { if (e.k !== sel || e.t > at) return; const y = new Date(e.t).getFullYear(); (by[y] = by[y] || {})[e.stat] = ((by[y] || {})[e.stat] || 0) + e.xp; });
+    const years = Object.keys(by).map(Number).sort((a, b) => b - a); box.hidden = !years.length; if (box.hidden) return;
+    const total = y => STATS.reduce((n, s) => n + (by[y][s.key] || 0), 0), max = Math.max(...years.map(total));
+    box.innerHTML = '<h2>📊 해마다</h2>' + years.map(y => '<div class="year-row"><span class="yl">' + y + (fam && ageYears(sel, new Date(y, 11, 31).getTime()) !== null ? '<small>' + koNum(ageYears(sel, new Date(y, 11, 31).getTime())) + ' 살</small>' : '') + '</span><span class="yb" role="img" aria-label="' + y + '년에 모은 경험치">' +
+      STATS.filter(s => by[y][s.key]).map(s => '<i style="width:' + (by[y][s.key] / max * 100).toFixed(1) + '%; background:' + s.color + '" title="' + s.name + '"></i>').join('') + '</span>' + (fam ? '<span class="yn">' + total(y) + '</span>' : '') + '</div>').join('') +
+      '<p class="stat-from" style="margin:8px 0 0;">' + STATS.map(s => '<span style="white-space:nowrap;"><i class="lg" style="background:' + s.color + '"></i>' + s.name + '</span>').join(' ') + '</p>';
+  }
+  // 🤝 자매 팀 — 둘이 같이 해낸 것(같이 만든 작품·같이 받은 업적·「둘 다」 퀘스트). 누구를 골라도 같은 카드
+  function renderTeam(){
+    const box = q('#lifeTeam'); if (!box) return;
+    const l = events.filter(e => e.k === 'sua' && e.team && e.t <= viewAt()).sort((a, b) => b.t - a.t); box.hidden = !l.length; if (box.hidden) return;
+    box.innerHTML = '<h2>🤝 자매 팀 <span style="font-weight:700; color:var(--ink-soft);">둘이 같이 해낸 일 ' + l.length + '</span></h2><ul class="stat-detail" style="margin:0;">' + l.slice(0, 5).map(e => { const d = new Date(e.t); return '<li>' + (e.icon || '🏅') + ' ' + escapeHTML(e.name || '') + '<time>' + d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '</time></li>'; }).join('') + (l.length > 5 ? '<li class="more">… 그리고 ' + (l.length - 5) + '개 더</li>' : '') + '</ul>';
   }
   // 요즘 8주 — 하루 한 칸, 그날 기록이 있으면 그 능력치 색. 수치는 없다. 손님의 퀘스트 몫은 달 단위라 날짜가 없어 뺀다
   function weeksHTML(){
@@ -296,6 +322,7 @@ buildChrome('life');
     { icon: '📏', name: '키 150cm',      h: 150 },
     { icon: '🦒', name: '키 160cm',      h: 160 },
     { icon: '✦', name: '첫 반짝 장비',    lv: st => STATS.some(s => st[s.key].lv >= SHINE_LV) },
+    { icon: '★', name: '첫 전설 장비',    lv: st => STATS.some(s => st[s.key].lv >= LEGEND_LV), hint: '능력치 하나가 Lv.' + LEGEND_LV },
     { icon: '🌈', name: '팔방미인',        lv: st => STATS.every(s => st[s.key].lv >= ROOM_LV), hint: '여섯 능력치 모두 Lv.' + ROOM_LV },
   ];
   let badgeMemo = { key: '', list: [] };
@@ -338,7 +365,7 @@ buildChrome('life');
     const how = { art: '그림이나 만들기를 올리면', stage: '연주·영상을 올리면', write: '일기를 쓰면', body: '달리기 놀이를 하면', heart: '박수를 받으면', grit: '상장·급수를 올리면' };
     const list = STATS.filter(s => st[s.key].lv < MAX_LV).map(s => { const o = st[s.key], left = need(o.lv + 1) - o.xp; return { s, o, left, times: Math.ceil(left / per[s.key]) }; }).sort((a, b) => a.times - b.times).slice(0, 3);
     box.innerHTML = '<h2>다음 목표</h2><ul class="quest-list">' + list.map(x => '<li><span class="ic">' + x.s.icon + '</span><span><b>' + x.s.name + ' Lv.' + (x.o.lv + 1) + '</b> 까지 ' + x.s.unit + ' ' + x.times + '번' +
-      (x.o.lv + 1 === GEAR_LV ? ' — 「' + x.s.gear + '」가 생겨요' : x.o.lv + 1 === SHINE_LV ? ' — 장비가 반짝여요 ✦' : '') + '<small>' + how[x.s.key] + ' 경험치 +' + per[x.s.key] + ' · 남은 경험치 ' + x.left + '</small></span></li>').join('') + '</ul>';
+      (x.o.lv + 1 === GEAR_LV ? ' — 「' + x.s.gear + '」가 생겨요' : x.o.lv + 1 === SHINE_LV ? ' — 장비가 반짝여요 ✦' : x.o.lv + 1 === LEGEND_LV ? ' — 전설 장비가 돼요 ★' : '') + '<small>' + how[x.s.key] + ' 경험치 +' + per[x.s.key] + ' · 남은 경험치 ' + x.left + '</small></span></li>').join('') + '</ul>';
   }
   // ---------- 퀘스트 판(가족만) — 고른 아이의 것과 「둘 다」 ----------
   // 퀘스트 본보기 — 누르면 입력 칸이 채워진다(고쳐서 내면 된다)
@@ -374,7 +401,7 @@ buildChrome('life');
     on('[data-claim]', id => { noting = id; renderBoard(); const i = box.querySelector('[data-note]'); if (i) i.focus(); });
     on('[data-send]', id => { const i = box.querySelector('[data-note="' + id + '"]'); change(id, { status: 'claimed', claim_note: i && i.value.trim() ? i.value.trim().slice(0, 120) : null }, '✋ 보냈어요 — 엄마 아빠가 확인하면 경험치가 들어와요'); });
     on('[data-accept]', id => { const x = box.querySelector('[data-xp="' + id + '"]'); change(id, { status: 'open', xp: Number(x && x.value) || 20 }, '👍 퀘스트로 받아 줬어요'); });
-    on('[data-done]', id => { const x = quests.find(y => y.id === id); change(id, { status: 'done' }, '✔ 확인했어요 — 경험치가 들어갔어요', () => { if (!x) return; const s = statOf(x.stat); bubbleNow = null; cele = { k: sel, text: '📜 퀘스트 완료! ' + s.icon + ' ' + s.name + ' +' + x.xp, until: now() + 4000 }; setTimeout(() => { cele = null; draw(); }, 4100); draw(); }); });
+    on('[data-done]', id => { const x = quests.find(y => y.id === id); change(id, { status: 'done' }, '✔ 확인했어요 — 경험치가 들어갔어요', () => { if (!x) return; const s = statOf(x.stat); bubbleNow = null; fanfare(); cele = { k: sel, text: '📜 퀘스트 완료! ' + s.icon + ' ' + s.name + ' +' + x.xp, until: now() + 4000 }; setTimeout(() => { cele = null; draw(); }, 4100); draw(); }); });
     on('[data-redo]', id => change(id, { status: 'open', claim_note: null }, '↩ 다시 진행 중으로 돌렸어요'));
     on('[data-del]', id => { if (window.confirm('이 퀘스트를 지울까요?')) sb.from('life_quests').delete().eq('id', id).select('id').then(after('지웠어요'), fail); });
     const add = q('#qbAdd'); if (add) add.addEventListener('click', () => { adding = !adding; renderBoard(); });
@@ -508,28 +535,28 @@ buildChrome('life');
     const add = (who, e) => kidsOf(who).forEach(k => { if (Number.isFinite(e.t)) events.push(Object.assign({ k }, e)); });
     const firsts = {};
     const firstOf = (k, tag) => { const key = k + tag; if (firsts[key]) return false; firsts[key] = 1; return true; };
-    const wAuthor = {}, hWho = {};
+    const wAuthor = {}, hWho = {}, wTitle = {}, hTitle = {};
     works.slice().sort((a, b) => whenOf(a.made_on, a.created_at) - whenOf(b.made_on, b.created_at)).forEach(w => {
-      wAuthor[w.id] = w.author;
+      wAuthor[w.id] = w.author; wTitle[w.id] = w.title || '';
       const vid = w.media_type === 'youtube' || w.media_type === 'video', t = whenOf(w.made_on, w.created_at), both = w.author === 'together';
       kidsOf(w.author).forEach(k => {
         const first = firstOf(k, vid ? 'v' : 'w');
-        events.push({ k, t, stat: vid ? 'stage' : 'art', xp: vid ? XP.video : XP.work, icon: vid ? '🎹' : '🎨', label: first ? (vid ? '첫 영상 「' : '첫 작품 「') + (w.title || '') + '」' : '' });
-        if (both) events.push({ k, t, stat: 'heart', xp: XP.together });
+        events.push({ k, t, stat: vid ? 'stage' : 'art', xp: vid ? XP.video : XP.work, icon: vid ? '🎹' : '🎨', name: w.title || (vid ? '영상' : '작품'), team: both, label: first ? (vid ? '첫 영상 「' : '첫 작품 「') + (w.title || '') + '」' : '' });
+        if (both) events.push({ k, t, stat: 'heart', xp: XP.together, name: '같이 만든 「' + (w.title || '') + '」' });
       });
     });
     posts.slice().sort((a, b) => whenOf(a.happened_on, a.created_at) - whenOf(b.happened_on, b.created_at)).forEach(p => kidsOf(p.author).forEach(k => {
-      events.push({ k, t: whenOf(p.happened_on, p.created_at), stat: 'write', xp: XP.diary, icon: '✍️', label: firstOf(k, 'p') ? '첫 일기 「' + (p.title || '') + '」' : '' });
+      events.push({ k, t: whenOf(p.happened_on, p.created_at), stat: 'write', xp: XP.diary, icon: '✍️', name: p.title || '일기', label: firstOf(k, 'p') ? '첫 일기 「' + (p.title || '') + '」' : '' });
     }));
-    runs.forEach(r => add(r.who, { t: dayOf(r.created_at), stat: 'body', xp: XP.run, score: Number(r.score) || 0 }));
-    honors.forEach(h => { hWho[h.id] = h.who; add(h.who, { t: whenOf(h.got_on, h.created_at), stat: 'grit', xp: XP[h.kind] || XP.award, kind: h.kind, label: h.title || '업적' }); if (h.who === 'both') add('both', { t: whenOf(h.got_on, h.created_at), stat: 'heart', xp: XP.together }); });
-    wclaps.forEach(c => add(wAuthor[c.work_id], { t: dayOf(c.created_at), stat: 'heart', xp: XP.clap }));
-    hclaps.forEach(c => add(hWho[c.honor_id], { t: dayOf(c.created_at), stat: 'heart', xp: XP.clap }));
+    runs.forEach(r => add(r.who, { t: dayOf(r.created_at), stat: 'body', xp: XP.run, score: Number(r.score) || 0, name: '달리기 ' + (Number(r.score) || 0).toLocaleString('ko-KR') + '점' }));
+    honors.forEach(h => { hWho[h.id] = h.who; hTitle[h.id] = h.title || ''; add(h.who, { t: whenOf(h.got_on, h.created_at), stat: 'grit', xp: XP[h.kind] || XP.award, kind: h.kind, name: h.title || '업적', team: h.who === 'both', label: h.title || '업적' }); if (h.who === 'both') add('both', { t: whenOf(h.got_on, h.created_at), stat: 'heart', xp: XP.together, name: '같이 해낸 「' + (h.title || '') + '」' }); });
+    wclaps.forEach(c => add(wAuthor[c.work_id], { t: dayOf(c.created_at), stat: 'heart', xp: XP.clap, name: '「' + (wTitle[c.work_id] || '작품') + '」에 받은 박수' }));
+    hclaps.forEach(c => add(hWho[c.honor_id], { t: dayOf(c.created_at), stat: 'heart', xp: XP.clap, name: '「' + (hTitle[c.honor_id] || '업적') + '」에 받은 박수' }));
     grow.forEach(r => { const k = r.who === '수아' ? 'sua' : r.who === '연아' ? 'yona' : r.who; if (heights[k] && Number(r.cm) > 0) heights[k].push({ t: dayOf(r.measured_on), cm: Number(r.cm) }); });
     KIDS.forEach(k => heights[k].sort((a, b) => a.t - b.t));
     quests = qrows;                                                      // 손님 것은 함수가 준 목록 — 한마디·누가 눌렀는지·제안은 안 온다
     qrows.forEach(x => {                                                 // 가족: 끝난 퀘스트 한 줄씩(길에 📜 로 선다) · 손님: 제목 없는 달별 합계
-      if (x.status === 'done' && STATS.some(s => s.key === x.stat)) add(x.who, { t: dayOf(x.done_at), stat: x.stat, xp: Number(x.xp) || 0, quest: true, icon: '📜', label: '퀘스트 「' + (x.title || '') + '」' });
+      if (x.status === 'done' && STATS.some(s => s.key === x.stat)) add(x.who, { t: dayOf(x.done_at), stat: x.stat, xp: Number(x.xp) || 0, quest: true, team: x.who === 'both', name: '퀘스트 「' + (x.title || '') + '」', icon: '📜', label: '퀘스트 「' + (x.title || '') + '」' });
     });
     loaded = true;
     q('#lifeGuest').hidden = fam;
