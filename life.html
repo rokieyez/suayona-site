@@ -47,6 +47,22 @@
   .quest-list li:first-child{border-top:0; padding-top:0;}
   .quest-list .ic{flex:none; width:1.6em; text-align:center;}
   .quest-list small{display:block; color:var(--ink-soft); font-size:12px;}
+  .qb-group{font-size:12px; font-weight:800; color:var(--ink-soft); margin:14px 0 6px;}
+  .qb-group:first-of-type{margin-top:0;}
+  .qb-item{display:flex; gap:10px; align-items:flex-start; padding:9px 10px; border:2px solid var(--ink); background:#fff; margin:0 0 6px; font-size:13.5px; line-height:1.55;}
+  .qb-item.claimed{background:#fff7d6;} .qb-item.done{background:var(--paper); border-style:dashed;}
+  .qb-item .ic{flex:none; width:1.6em; text-align:center;}
+  .qb-item .body{flex:1; min-width:0;}
+  .qb-item small{display:block; color:var(--ink-soft); font-size:12px;}
+  .qb-item small.late{color:var(--coral-ink); font-weight:800;}
+  .qb-acts{display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 0;}
+  .qb-acts .dot-btn{padding:5px 10px; font-size:12px;}
+  .qb-note{display:flex; gap:6px; margin:6px 0 0;} .qb-note input{flex:1; min-width:0; padding:6px 8px; font-size:13px;}
+  .qb-form{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin:10px 0 0; padding:12px; border:2px dashed var(--ink-soft);}
+  .qb-form label{font-size:12px; font-weight:800; display:flex; flex-direction:column; gap:4px;}
+  .qb-form .wide{grid-column:1 / 3;}
+  .qb-form input, .qb-form select{padding:7px 9px; font-size:13px;}
+  .qb-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 10px;} .qb-head h2{margin:0;}
   .life-guest{font-size:12.5px; color:var(--ink-soft); text-align:center; margin:0 0 18px; line-height:1.7;}
   .road{position:relative; margin:0; padding:0 0 0 22px; list-style:none; border-left:var(--px) dashed var(--ink-soft);}
   .road .age{position:relative; margin:18px 0 8px; font-size:14px; font-weight:800;}
@@ -78,6 +94,7 @@
       <div class="life-card dot-card" id="lifeWho"></div>
       <div class="life-card dot-card" id="lifeStats"></div>
     </div>
+    <div class="life-card dot-card" id="lifeBoard" hidden style="margin:0 0 22px;"></div>
     <div class="life-card dot-card" id="lifeQuests" hidden style="margin:0 0 22px;"></div>
     <div class="life-card dot-card" id="lifeRoad"></div>
   </div>

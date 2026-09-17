@@ -3,6 +3,8 @@
 // 1단계는 새 표 없이 이미 있는 기록만 센다: 작품·영상(works) · 일기(posts) · 달리기(run_scores) · 업적(honors) · 박수(work_claps·honor_claps) · 키(growth).
 // 모든 경험치가 「날짜 달린 사건」이라 어느 날의 모습이든 다시 계산할 수 있다 — 「자라 온 길 다시 보기」와 「지난달의 나」가 그걸 쓴다.
 // 손님에게는 아바타·능력치 모양·별명만, 수치(레벨·키·나이·다음 목표)는 로그인한 가족에게만. 자매끼리 수치를 나란히 놓지 않는다(한 번에 한 아이).
+// 2단계(같은 날): 부모가 내는 현실 퀘스트(life_quests 표). 부모가 내고 → 아이가 「했어요」 → 부모가 확인하면 그날 경험치. 칸 단위 규칙(아이는 상태·한마디만, 한 달 150)은 서버 트리거가 지킨다.
+// 손님은 표를 못 읽어서 제목 없는 달별 합계(rpc life_quest_xp)만 받아 아바타에 반영한다.
 // 밖으로는 window.LIFE 만 내놓는다(시험용).
 buildChrome('life');
 
@@ -33,6 +35,7 @@ buildChrome('life');
   function levelOf(xp){ let n = 0; while (n < MAX_LV && xp >= need(n + 1)) n++; return n; }
 
   // ---------- 상태 ----------
+  let quests = [], noting = null, adding = false;
   let fam = false, born = {}, events = [], heights = { sua: [], yona: [] }, sel = 'sua', replay = null, loaded = false, loadErr = false, roadAll = false;
   const dayOf = v => { if (!v) return NaN; const d = new Date(String(v).length <= 10 ? v + 'T00:00:00+09:00' : v); return d.getTime(); };
   // 적힌 날이 올린 날보다 뒤면(날짜를 잘못 적은 일기 1건이 있었다) 올린 날로 — 앞날의 기록은 오늘 경험치에서 빠지기 때문
@@ -45,7 +48,7 @@ buildChrome('life');
     let best = 0;
     events.forEach(e => {
       if (e.k !== k || !(e.t <= at)) return;
-      const o = out[e.stat]; o.xp += e.xp; o.n++;
+      const o = out[e.stat]; o.xp += e.xp; if (!e.quest) o.n++;        // 퀘스트 경험치는 「작품 n」 같은 개수에는 안 센다
       if (e.score > best) best = e.score;
     });
     out.body.xp += Math.min(RUN_BEST_CAP, Math.floor(best / 1000));
@@ -183,7 +186,7 @@ buildChrome('life');
         '<span class="lvn">' + (fam ? 'Lv.' + o.lv + (up > 0 && !replay ? '<span class="up">▲' + up + '</span>' : '') : o.lv >= SHINE_LV ? '✦' : o.lv >= GEAR_LV ? '●' : '○') + '</span>' +
         '<p class="stat-from">' + s.from + (fam ? ' · ' + s.unit + ' ' + o.n + ' · 경험치 ' + o.xp + (o.lv < MAX_LV ? ' / ' + hi : '') : '') + '</p></div>';
     }).join('') + (fam && !replay ? '<p class="stat-from" style="margin:6px 0 0;">▲ 는 지난달의 나보다 늘어난 경험치예요.</p>' : '');
-    renderQuests(st);
+    renderQuests(st); renderBoard();
   }
   // 다음 목표 — 1단계는 기록에서 저절로 나오는 것만(부모가 내는 퀘스트는 2단계). 가장 가까운 셋
   function renderQuests(st){
@@ -195,6 +198,56 @@ buildChrome('life');
     box.innerHTML = '<h2>다음 목표</h2><ul class="quest-list">' + list.map(x => '<li><span class="ic">' + x.s.icon + '</span><span><b>' + x.s.name + ' Lv.' + (x.o.lv + 1) + '</b> 까지 ' + x.s.unit + ' ' + x.times + '번' +
       (x.o.lv + 1 === GEAR_LV ? ' — 「' + x.s.gear + '」가 생겨요' : x.o.lv + 1 === SHINE_LV ? ' — 장비가 반짝여요 ✦' : '') + '<small>' + how[x.s.key] + ' 경험치 +' + per[x.s.key] + ' · 남은 경험치 ' + x.left + '</small></span></li>').join('') + '</ul>';
   }
+  // ---------- 퀘스트 판(가족만) — 고른 아이의 것과 「둘 다」 ----------
+  const statOf = key => STATS.find(s => s.key === key) || STATS[0];
+  const mmdd = v => { const d = new Date(dayOf(v)); return (d.getMonth() + 1) + '.' + d.getDate(); };
+  function renderBoard(){
+    const box = q('#lifeBoard'); if (!box) return;
+    box.hidden = !fam || !!replay; if (box.hidden) return;
+    const mine = quests.filter(x => x.who === sel || x.who === 'both'), today = dayOf(new Date().toISOString().slice(0, 10));
+    const canClaim = x => isChild && me && (x.who === me.author_key || x.who === 'both');
+    const item = x => {
+      const s = statOf(x.stat), late = x.status !== 'done' && x.due_on && dayOf(x.due_on) < today - DAY;
+      let acts = '';
+      if (x.status === 'open' && canClaim(x)) acts = noting === x.id ? '<div class="qb-note"><input type="text" maxlength="120" placeholder="한마디 (안 써도 돼요)" data-note="' + x.id + '"><button type="button" class="dot-btn small mint" data-send="' + x.id + '">보내기</button></div>' : '<div class="qb-acts"><button type="button" class="dot-btn small lemon" data-claim="' + x.id + '">✋ 했어요</button></div>';
+      if (isAdmin) acts = '<div class="qb-acts">' + (x.status === 'claimed' ? '<button type="button" class="dot-btn small mint" data-done="' + x.id + '">✔ 확인</button><button type="button" class="dot-btn small" data-redo="' + x.id + '">↩ 다시 해 보자</button>' : '') + (x.status !== 'done' ? '<button type="button" class="dot-btn small" data-del="' + x.id + '">지우기</button>' : '') + '</div>';
+      return '<div class="qb-item ' + x.status + '"><span class="ic">' + s.icon + '</span><div class="body"><b>' + escapeHTML(x.title) + '</b>' + (x.who === 'both' ? ' <span class="tag">둘 다</span>' : '') +
+        '<small>' + s.name + ' 경험치 +' + x.xp + (x.due_on && x.status !== 'done' ? ' · ' + mmdd(x.due_on) + '까지' : '') + (x.status === 'done' ? ' · ' + mmdd(x.done_at) + ' 해냄' : '') + '</small>' +
+        (late ? '<small class="late">기한이 지났어요 — 그래도 하면 돼요</small>' : '') +
+        (x.status === 'claimed' ? '<small>✋ ' + KID_NAME[x.claimed_by] + (x.claim_note ? ': 「' + escapeHTML(x.claim_note) + '」' : '가 했대요') + '</small>' : '') + acts + '</div></div>';
+    };
+    const group = (t, st, lim) => { const l = mine.filter(x => x.status === st); return l.length ? '<p class="qb-group">' + t + ' ' + l.length + '</p>' + (lim ? l.slice(0, lim) : l).map(item).join('') : ''; };
+    const body = group('확인 기다리는 중', 'claimed') + group('진행 중', 'open') + group('해냄', 'done', 5);
+    box.innerHTML = '<div class="qb-head"><h2>📜 ' + KID_NAME[sel] + '의 퀘스트</h2>' + (isAdmin ? '<button type="button" class="dot-btn small primary" id="qbAdd">' + (adding ? '닫기' : '＋ 퀘스트 내기') + '</button>' : '') + '</div>' +
+      (adding && isAdmin ? '<form class="qb-form" id="qbForm"><label class="wide">무엇을 하면 될까요<input name="title" maxlength="80" required placeholder="예: 줄넘기 100번"></label>' +
+        '<label>누구에게<select name="who"><option value="' + sel + '">' + KID_NAME[sel] + '</option><option value="both">둘 다</option></select></label>' +
+        '<label>능력치<select name="stat">' + STATS.map(s => '<option value="' + s.key + '">' + s.icon + ' ' + s.name + '</option>').join('') + '</select></label>' +
+        '<label>경험치<select name="xp"><option value="10">10 — 그림 한 장만큼</option><option value="20" selected>20</option><option value="30">30 — 큰 도전</option></select></label>' +
+        '<label>언제까지(없어도 돼요)<input name="due" type="date"></label><div class="wide"><button class="dot-btn small mint">퀘스트 내기</button></div></form>' : '') +
+      (body || '<p class="life-nick" style="margin:0;">' + (isAdmin ? '아직 낸 퀘스트가 없어요. 「＋ 퀘스트 내기」로 첫 퀘스트를 내 보세요.' : '아직 받은 퀘스트가 없어요.') + '</p>');
+    const on = (sel2, fn) => box.querySelectorAll(sel2).forEach(b => b.addEventListener('click', () => fn(Number(Object.values(b.dataset)[0]), b)));
+    on('[data-claim]', id => { noting = id; renderBoard(); const i = box.querySelector('[data-note]'); if (i) i.focus(); });
+    on('[data-send]', id => { const i = box.querySelector('[data-note="' + id + '"]'); change(id, { status: 'claimed', claim_note: i && i.value.trim() ? i.value.trim().slice(0, 120) : null }, '✋ 보냈어요 — 엄마 아빠가 확인하면 경험치가 들어와요'); });
+    on('[data-done]', id => change(id, { status: 'done' }, '✔ 확인했어요 — 경험치가 들어갔어요'));
+    on('[data-redo]', id => change(id, { status: 'open', claim_note: null }, '↩ 다시 진행 중으로 돌렸어요'));
+    on('[data-del]', id => { if (window.confirm('이 퀘스트를 지울까요?')) sb.from('life_quests').delete().eq('id', id).select('id').then(after('지웠어요'), fail); });
+    const add = q('#qbAdd'); if (add) add.addEventListener('click', () => { adding = !adding; renderBoard(); });
+    const form = q('#qbForm'); if (form) form.addEventListener('submit', e => {
+      e.preventDefault(); const f = new FormData(form), title = String(f.get('title') || '').trim(); if (!title) return;
+      sb.from('life_quests').insert({ who: f.get('who'), stat: f.get('stat'), title: title.slice(0, 80), xp: Number(f.get('xp')), due_on: f.get('due') || null }).select('id').then(after('퀘스트를 냈어요 📜'), fail);
+    });
+    if (isChild){ try { localStorage.setItem('life_seen', new Date().toISOString()); sessionStorage.removeItem('life_wait'); } catch (e) { /* 저장이 막히면 메뉴의 점이 남을 뿐이다 */ } }
+  }
+  // RLS 에 막힌 update 는 오류 없이 0줄이다 — 돌아온 줄 수로 성공을 가린다
+  const fail = () => say('저장하지 못했어요 — 잠시 뒤 다시 해 주세요');
+  const after = okMsg => res => {
+    if (res.error){ say(/까지예요|누를 수/.test(res.error.message || '') ? res.error.message : '저장하지 못했어요 — 로그인한 계정을 확인해 주세요'); return; }
+    if (!res.data || !res.data.length){ say('바뀐 것이 없어요 — 이미 처리됐거나 권한이 없어요'); return; }
+    noting = null; adding = false; try { sessionStorage.removeItem('life_wait'); } catch (e) { /* 점이 10분 늦게 바뀔 뿐 */ }
+    load().then(() => say(okMsg));
+  };
+  function change(id, patch, okMsg){ sb.from('life_quests').update(patch).eq('id', id).select('id').then(after(okMsg), fail); }
+
   function renderRoad(){
     const box = q('#lifeRoad'); if (!box) return;
     const ICON = { award: '🏅', level: '📈', title: '🎖', first: '✨' };
@@ -239,9 +292,9 @@ buildChrome('life');
   async function load(){
     fam = !!(isLoggedIn && me);
     if (fam){ try { born = await loadKids(); } catch (e) { born = {}; } }
-    if (isChild && me && KIDS.includes(me.author_key)) sel = me.author_key;
+    if (!loaded && isChild && me && KIDS.includes(me.author_key)) sel = me.author_key;
     const ask = (t, cols, f) => { let r = sb.from(t).select(cols); if (f) r = f(r); return r.then(x => x.error ? [] : x.data || []).catch(() => { loadErr = true; return []; }); };
-    const [works, posts, runs, honors, grow, wclaps, hclaps] = await Promise.all([
+    const [works, posts, runs, honors, grow, wclaps, hclaps, qrows] = await Promise.all([
       ask('works', 'id, author, media_type, title, made_on, created_at', r => r.eq('status', 'published')),
       ask('posts', 'author, title, happened_on, created_at', r => r.eq('status', 'published')),
       ask('run_scores', 'who, score, created_at', r => r.in('who', KIDS)),
@@ -249,6 +302,8 @@ buildChrome('life');
       ask('growth', 'who, cm, measured_on', r => r.eq('kind', 'height').order('measured_on')),
       ask('work_claps', 'work_id, created_at'),
       ask('honor_claps', 'honor_id, created_at'),
+      fam ? ask('life_quests', 'id, who, stat, title, xp, due_on, status, claimed_by, claim_note, done_at, created_at', r => r.order('created_at', { ascending: false }))
+          : sb.rpc('life_quest_xp').then(x => x.error ? [] : x.data || []).catch(() => []),
     ]);
     events = []; heights = { sua: [], yona: [] };
     const add = (who, e) => kidsOf(who).forEach(k => { if (Number.isFinite(e.t)) events.push(Object.assign({ k }, e)); });
@@ -273,6 +328,11 @@ buildChrome('life');
     hclaps.forEach(c => add(hWho[c.honor_id], { t: dayOf(c.created_at), stat: 'heart', xp: XP.clap }));
     grow.forEach(r => { const k = r.who === '수아' ? 'sua' : r.who === '연아' ? 'yona' : r.who; if (heights[k] && Number(r.cm) > 0) heights[k].push({ t: dayOf(r.measured_on), cm: Number(r.cm) }); });
     KIDS.forEach(k => heights[k].sort((a, b) => a.t - b.t));
+    quests = fam ? qrows : [];
+    qrows.forEach(x => {                                                 // 가족: 끝난 퀘스트 한 줄씩(길에 📜 로 선다) · 손님: 제목 없는 달별 합계
+      if (fam){ if (x.status === 'done') add(x.who, { t: dayOf(x.done_at), stat: x.stat, xp: x.xp, quest: true, icon: '📜', label: '퀘스트 「' + (x.title || '') + '」' }); }
+      else if (STATS.some(s => s.key === x.stat)) add(x.who, { t: dayOf(x.month), stat: x.stat, xp: Number(x.xp) || 0, quest: true });
+    });
     loaded = true;
     q('#lifeGuest').hidden = fam;
     renderTools(); renderSheet(); renderRoad(); draw();
@@ -295,5 +355,5 @@ buildChrome('life');
     if (typeof initReveal === 'function') initReveal();
   })();
 
-  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _tick: () => { frameN++; draw(); } };
+  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _tick: () => { frameN++; draw(); } };
 })();

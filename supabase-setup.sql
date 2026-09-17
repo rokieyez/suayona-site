@@ -1911,3 +1911,88 @@ create or replace function public.concert_clap_counts() returns table(work_id bi
 language sql stable set search_path = public as $$ select work_id, count(*) from concert_claps group by work_id $$;
 
 -- 2026-09-15 — 연주회장 응원 스티커(concert_cheers)는 같은 밤 부모 요청으로 화면에서 빼고 표·함수도 지웠다(migration drop_concert_cheers).
+
+
+-- ---------------------------------------------------------------------------
+-- 인생 퀘스트 2단계 (2026-09-17, migration life_quests) — 부모가 내는 현실 퀘스트
+-- 부모가 내고 → 아이가 「했어요」 → 부모가 확인하면 그날 경험치(life.html). 손님은 표를 못 읽고 달별 합계 함수만 부른다.
+-- ---------------------------------------------------------------------------
+create table if not exists public.life_quests (
+  id         bigint generated always as identity primary key,
+  who        text not null check (who in ('sua','yona','both')),
+  stat       text not null check (stat in ('art','stage','write','body','heart','grit')),
+  title      text not null check (char_length(title) between 1 and 80),
+  xp         smallint not null check (xp in (10,20,30)),
+  due_on     date,
+  status     text not null default 'open' check (status in ('open','claimed','done')),
+  claimed_at timestamptz,
+  claimed_by text check (claimed_by in ('sua','yona')),
+  claim_note text check (char_length(claim_note) <= 120),
+  done_at    timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists life_quests_who_status_idx on public.life_quests (who, status);
+alter table public.life_quests enable row level security;
+
+-- 읽기: 가족만. 쓰기·지우기: 부모만. 아이는 자기(또는 '둘 다') 퀘스트를 open → claimed 로만.
+drop policy if exists "family reads life quests" on public.life_quests;
+create policy "family reads life quests" on public.life_quests for select using (public.my_role() is not null);
+drop policy if exists "parent adds life quests" on public.life_quests;
+create policy "parent adds life quests" on public.life_quests for insert with check (public.my_role() = 'parent');
+drop policy if exists "parent edits life quests" on public.life_quests;
+create policy "parent edits life quests" on public.life_quests for update using (public.my_role() = 'parent') with check (public.my_role() = 'parent');
+drop policy if exists "parent drops life quests" on public.life_quests;
+create policy "parent drops life quests" on public.life_quests for delete using (public.my_role() = 'parent');
+drop policy if exists "child claims own quest" on public.life_quests;
+create policy "child claims own quest" on public.life_quests for update
+  using      (public.my_role() = 'child' and status = 'open'    and who in (public.my_author_key(), 'both'))
+  with check (public.my_role() = 'child' and status = 'claimed' and who in (public.my_author_key(), 'both'));
+
+-- 정책은 「어느 줄을」만 막는다. 「어느 칸을」은 트리거가 막는다 — 아이가 콘솔에서 xp·제목·done 을 못 바꾸게.
+create or replace function public.life_quests_guard() returns trigger
+language plpgsql set search_path = public as $$
+declare cap_open constant int := 10; cap_month constant int := 150; k text; got int;
+begin
+  if auth.uid() is null then return new; end if;                    -- 대시보드·SQL 편집기(관리자)는 그대로
+  if tg_op = 'INSERT' then
+    new.status := 'open'; new.claimed_at := null; new.claimed_by := null; new.claim_note := null; new.done_at := null;
+    if (select count(*) from life_quests where status <> 'done' and (who = new.who or who = 'both' or new.who = 'both')) >= cap_open then
+      raise exception '열려 있는 퀘스트는 아이마다 %개까지예요', cap_open;
+    end if;
+    return new;
+  end if;
+  if public.my_role() = 'child' then                                 -- 아이: 상태와 한마디만
+    if new.who is distinct from old.who or new.stat is distinct from old.stat or new.title is distinct from old.title
+       or new.xp is distinct from old.xp or new.due_on is distinct from old.due_on or new.created_at is distinct from old.created_at
+       or new.done_at is not null then
+      raise exception '아이는 「했어요」만 누를 수 있어요';
+    end if;
+    new.claimed_at := now(); new.claimed_by := public.my_author_key();
+    return new;
+  end if;
+  if new.status = 'done' and old.status <> 'done' then               -- 부모 확인: 날짜를 찍고 한 달 상한을 본다
+    new.done_at := coalesce(new.done_at, now());
+    foreach k in array (case new.who when 'both' then array['sua','yona'] else array[new.who] end) loop
+      select coalesce(sum(xp), 0) into got from life_quests
+        where status = 'done' and id <> new.id and who in (k, 'both') and date_trunc('month', done_at) = date_trunc('month', new.done_at);
+      if got + new.xp > cap_month then raise exception '퀘스트 경험치는 한 달에 %까지예요', cap_month; end if;
+    end loop;
+  elsif new.status = 'open' then                                     -- 「다시 해 보자」
+    new.claimed_at := null; new.claimed_by := null; new.done_at := null;
+  end if;
+  return new;
+end $$;
+revoke execute on function public.life_quests_guard() from public, anon, authenticated;   -- 트리거로만 돈다
+drop trigger if exists life_quests_guard on public.life_quests;
+create trigger life_quests_guard before insert or update on public.life_quests
+  for each row execute function public.life_quests_guard();
+
+-- 손님 아바타용 — 제목·한마디·날짜는 안 주고, 아이·능력치·달별 합계만. 표는 가족만 읽으니 SECURITY DEFINER.
+create or replace function public.life_quest_xp()
+returns table (who text, stat text, month date, xp int)
+language sql stable security definer set search_path = public as $$
+  select q.who, q.stat, date_trunc('month', q.done_at)::date, sum(q.xp)::int
+    from life_quests q where q.status = 'done' group by 1, 2, 3;
+$$;
+revoke execute on function public.life_quest_xp() from public;
+grant  execute on function public.life_quest_xp() to anon, authenticated;

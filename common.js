@@ -453,6 +453,7 @@ function syncPrivateMenu(){
   });
   markUnreadNotes();
   markParentWaiting();
+  markLifeQuests();
 }
 
 // 자물쇠(공개 설정) 아이콘에 「부모가 볼 것」 개수를 붙인다.
@@ -472,6 +473,33 @@ function markParentWaiting(){
     b.textContent = n > 9 ? '9+' : String(n);
     b.setAttribute('aria-label', '확인할 것 ' + n + '개');
     btn.appendChild(b);
+  }, () => {});
+}
+
+// 메뉴 「인생 퀘스트」에 점 — 부모에겐 「확인 기다리는 퀘스트」, 아이에겐 「아직 안 본 새 퀘스트」가 있을 때.
+// 가족만 묻고(손님은 표를 못 읽는다) 개수만 세며, 한 세션에 10분에 한 번. 아이가 본 시각은 life.js 가 localStorage life_seen 에 적는다.
+let lifeAsked = false;
+function markLifeQuests(){
+  const a = document.querySelector('#nav a[href="/life.html"]');
+  if (!a || lifeAsked || !me || !(isAdmin || isChild) || ACTIVE_KEY === 'life') return;
+  lifeAsked = true;
+  const show = n => {
+    if (!n || a.querySelector('.nav-new')) return;
+    const dot = document.createElement('span'); dot.className = 'nav-new'; dot.title = isAdmin ? '확인을 기다리는 퀘스트가 있어요' : '새 퀘스트가 왔어요'; dot.setAttribute('aria-label', dot.title);
+    a.appendChild(dot);
+    const t = document.getElementById('menuToggle');
+    if (t && !t.querySelector('.nav-new')){ const d2 = dot.cloneNode(true); d2.classList.add('on-toggle'); t.appendChild(d2); }
+  };
+  let cached = null, seen = '';
+  try { cached = JSON.parse(sessionStorage.getItem('life_wait') || 'null'); seen = localStorage.getItem('life_seen') || ''; } catch (e) { /* 저장이 막힌 브라우저 — 매번 묻는다 */ }
+  if (cached && cached.who === me.user_id && Date.now() - cached.at < 10 * 60 * 1000) return show(cached.n);
+  let ask = sb.from('life_quests').select('id', { count: 'exact', head: true });
+  ask = isAdmin ? ask.eq('status', 'claimed') : ask.eq('status', 'open').in('who', [me.author_key, 'both']);
+  if (isChild && seen) ask = ask.gt('created_at', seen);
+  ask.then(({ count, error }) => {
+    if (error) return;
+    try { sessionStorage.setItem('life_wait', JSON.stringify({ at: Date.now(), who: me.user_id, n: count || 0 })); } catch (e) { /* 위와 같다 */ }
+    show(count || 0);
   }, () => {});
 }
 
