@@ -56,8 +56,11 @@
   .year-row{display:grid; grid-template-columns:4.6em minmax(0, 1fr) auto; gap:8px; align-items:center; margin:0 0 6px; font-size:12.5px; font-weight:800;}
   .year-row .yl small{display:block; font-weight:700; font-size:10.5px; color:var(--ink-soft);} .year-row .yb{display:flex; height:14px; border:2px solid var(--ink); background:#fff;} .year-row .yb i{display:block; height:100%;}
   .year-row .yn{font-variant-numeric:tabular-nums; min-width:2.2em; text-align:right;} i.lg{display:inline-block; width:9px; height:9px; border:1px solid var(--ink); margin-right:3px; vertical-align:-1px;}
-  .life-scrub{display:flex; align-items:center; gap:8px; flex:1 1 100%; max-width:420px; margin:4px auto 0; font-size:12px; font-weight:800; color:var(--ink-soft);}
-  .life-scrub span{white-space:nowrap;} .life-scrub input{flex:1; min-width:0; padding:0; accent-color:var(--coral);}
+  .life-scrub{display:flex; align-items:center; gap:10px; max-width:460px; margin:0 auto 22px; font-size:12px; font-weight:800; color:var(--ink-soft);}
+  .life-scrub span{white-space:nowrap;}
+  /* 공통 input 규칙(테두리·안여백·흰 바탕·초점 안쪽 선)이 끌개에도 걸려 네모 상자 안에 든 것처럼 보였다 — 끌개만 걷어 낸다 */
+  .life-scrub input[type=range]{flex:1; min-width:0; width:auto; height:28px; margin:0; padding:0; border:0; background:transparent; box-shadow:none; accent-color:var(--coral); cursor:pointer; touch-action:pan-y;}
+  .life-scrub input[type=range]:focus{box-shadow:none;} .life-scrub input[type=range]:focus-visible{outline:2px solid var(--ink); outline-offset:2px;}
   .badge-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(92px, 1fr)); gap:8px; margin:0; padding:0; list-style:none;}
   .badge-grid li{display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 4px; border:2px solid var(--ink); background:#fff; text-align:center; font-size:11.5px; font-weight:800; line-height:1.35;}
   .badge-grid li.off{border-style:dashed; opacity:.5; background:transparent;}
@@ -105,7 +108,8 @@
 
     <div class="life-stage"><canvas class="life-cv" id="lifeCv" width="1024" height="660" tabindex="0" aria-label="수아와 연아의 도트 아바타. 실제 키만큼 자라고, 능력치가 오르면 장비가 생겨요. 아바타를 누르면 그 아이의 기록이 아래에 나와요."></canvas></div>
     <p class="life-msg" id="lifeMsg" aria-live="polite"></p>
-    <div class="life-tools" id="lifeTools"></div>
+    <div class="life-tools" id="lifeTools" style="margin-bottom:6px;"></div>
+    <label class="life-scrub"><span>🕰 시간 여행</span><input type="range" id="lifeScrub" min="0" max="1000" value="1000" aria-label="첫 기록부터 오늘까지 — 끌면 그때의 모습"></label>
 
     <p class="life-guest" id="lifeGuest" hidden>레벨·경험치 같은 자세한 수치와 다음 목표는 가족이 로그인하면 보여요.</p>
 

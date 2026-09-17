@@ -592,18 +592,32 @@ buildChrome('life');
   function renderTools(){
     const box = q('#lifeTools'); if (!box) return;
     box.innerHTML = KIDS.map(k => '<button type="button" class="dot-btn small" data-kid="' + k + '" aria-pressed="' + (k === sel) + '">' + KID_NAME[k] + '</button>').join(' ') +
-      ' <button type="button" class="dot-btn small" id="lifeReplay">' + (replay ? '■ 그만 보기' : '⏪ 자라 온 길 다시 보기') + '</button>' + (replay ? '' : ' <button type="button" class="dot-btn small" id="lifeCard">🖼 캐릭터 카드</button>') +
-      '<label class="life-scrub"><span>🕰 시간 여행</span><input type="range" id="lifeScrub" min="0" max="1000" value="' + (replay ? Math.round((replay.at - replay.from) / Math.max(1, now() - replay.from) * 1000) : 1000) + '" aria-label="첫 기록부터 오늘까지 — 끌면 그때의 모습"></label>';
+      ' <button type="button" class="dot-btn small" id="lifeReplay">' + (replay ? '■ 그만 보기' : '⏪ 자라 온 길 다시 보기') + '</button>' + (replay ? '' : ' <button type="button" class="dot-btn small" id="lifeCard">🖼 캐릭터 카드</button>');
+    syncScrub();
     box.querySelectorAll('[data-kid]').forEach(b => b.addEventListener('click', () => pick(b.dataset.kid)));
     q('#lifeReplay').addEventListener('click', () => { if (replay) stopReplay(); else startReplay(); });
-    const sc = q('#lifeScrub'); if (sc) sc.addEventListener('input', () => {
-      const v = Number(sc.value); if (v >= 1000){ if (replay) stopReplay(); return; }
-      const first = firstDay(); if (replay && replay.timer) clearInterval(replay.timer);
-      const was = !!replay; replay = { from: first, at: first + (now() - first) * v / 1000, t0: 0, timer: null };
-      if (!was){ const rb = q('#lifeReplay'), cb2 = q('#lifeCard'); if (rb) rb.textContent = '■ 오늘로 돌아오기'; if (cb2) cb2.hidden = true; }   // 단추 줄을 다시 그리면 끌던 손잡이가 사라진다 — 글자만 바꾼다
-      draw(); renderSheet(); const d = new Date(replay.at); say(d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월의 모습 — 끝까지 밀면 오늘로 돌아와요');
-    });
     const cb = q('#lifeCard'); if (cb) cb.addEventListener('click', () => { saveCard(); });
+  }
+  // 🕰 시간 여행 끌개 — 단추 줄과 따로, 제 줄에 한 번만 만든다. 단추 줄 안에 있을 땐 끄는 순간 단추가 숨고 글자가 바뀌어 줄이 밀렸고,
+  // 끝까지 밀면 줄을 통째로 다시 그려 잡고 있던 손잡이가 사라졌다(2026-09-18 부모: 「제대로 드래그가 안 됨」). 끄는 동안 아래 카드들은 0.12초에 한 번만 다시 그린다
+  let sheetTimer = 0;
+  function syncScrub(){
+    const sc = q('#lifeScrub'); if (!sc || sc.matches(':active')) return;
+    sc.value = String(replay ? Math.round((replay.at - replay.from) / Math.max(1, now() - replay.from) * 1000) : 1000);
+  }
+  function wireScrub(){
+    const sc = q('#lifeScrub'); if (!sc) return;
+    sc.addEventListener('input', () => {
+      const v = Number(sc.value), first = firstDay();
+      if (replay && replay.timer) clearInterval(replay.timer);
+      const was = !!replay;
+      if (v >= 1000){ replay = null; say('오늘의 모습이에요'); }
+      else { replay = { from: first, at: first + (now() - first) * v / 1000, t0: 0, timer: null }; const d = new Date(replay.at); say(d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월의 모습 — 끝까지 밀면 오늘로 돌아와요'); }
+      if (was !== !!replay) renderTools();                                // 끌개는 단추 줄 밖이라 다시 그려도 손잡이가 남는다
+      draw();
+      if (!sheetTimer) sheetTimer = setTimeout(() => { sheetTimer = 0; renderSheet(); }, 120);
+    });
+    sc.addEventListener('change', () => { clearTimeout(sheetTimer); sheetTimer = 0; renderSheet(); });
   }
   function pick(k){ if (!KIDS.includes(k) || k === sel){ return; } sel = k; roadAll = false; renderTools(); renderSheet(); renderRoad(); draw(); }
 
@@ -620,7 +634,7 @@ buildChrome('life');
     if (!replay) return;
     const p = Math.min(1, (performance.now() - replay.t0) / REPLAY_MS);
     replay.at = replay.from + (now() - replay.from) * p;
-    draw(); renderSheet(); const sc = q('#lifeScrub'); if (sc) sc.value = String(Math.round(p * 1000));
+    draw(); renderSheet(); syncScrub();
     if (p >= 1) stopReplay();
   }
   function stopReplay(){ if (!replay) return; clearInterval(replay.timer); replay = null; renderTools(); renderSheet(); draw(); say('오늘의 모습이에요'); }
@@ -683,6 +697,7 @@ buildChrome('life');
     const kidAt = e => { const rc = cv.getBoundingClientRect(); if (!rc.width) return null; const x = (e.clientX - rc.left) / rc.width * RW; return x < RW / 2 ? 'sua' : 'yona'; };
     cv.addEventListener('click', e => { const k = kidAt(e); if (!k || replay) return; if (k === sel) talk(k); else pick(k); });
     cv.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') pick('sua'); if (e.key === 'ArrowRight') pick('yona'); });
+    wireScrub();
     if (!STILL) setInterval(() => { if (document.hidden || replay || !loaded) return; const rc = cv.getBoundingClientRect(); if (rc.bottom < 0 || rc.top > (window.innerHeight || 800)) return; frameN++; draw(); }, 260);
   }
 
