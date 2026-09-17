@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="robots" content="noindex, nofollow">
+<title>인생 퀘스트 · 수아랑 연아랑</title>
+<meta name="description" content="수아랑 연아랑의 인생 퀘스트 — 현실에서 그리고, 쓰고, 뛰고, 해낸 것들이 경험치가 되어 도트 아바타가 자라는 곳.">
+
+<link rel="preload" href="/fonts/PretendardVariable.subset.woff2" as="font" type="font/woff2" crossorigin>
+<link href="/fonts/dot.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  /* 인생 퀘스트 — 모험단이 기록을 전투력으로 바꿔 노는 곳이라면, 여기는 기록 그 자체가 주인공인 캐릭터 시트 */
+  .life-wrap{max-width:860px; margin:0 auto;}
+  .life-stage{line-height:0; border:var(--px) solid var(--ink); background:#f3e6cf; box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28);}
+  .life-cv{display:block; width:100%; aspect-ratio:512/330; image-rendering:pixelated; cursor:pointer; touch-action:manipulation; -webkit-user-select:none; user-select:none;}
+  .life-msg{min-height:1.6em; text-align:center; font-size:12.5px; color:var(--ink-soft); margin:8px 0 0; line-height:1.6;}
+  .life-tools{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:8px 0 22px;}
+  .life-tools .dot-btn[aria-pressed="true"]{background:var(--lemon);}
+  .life-sheet{display:grid; grid-template-columns:minmax(0, 300px) minmax(0, 1fr); gap:16px; align-items:start; margin:0 0 22px;}
+  @media (max-width:700px){ .life-sheet{grid-template-columns:minmax(0, 1fr);} }
+  .life-card{padding:14px 16px;}
+  .life-card h2{font-size:15px; margin:0 0 10px;}
+  .life-name{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin:0 0 4px;}
+  .life-name b{font-size:20px;}
+  .life-name .lv{font-size:13px; font-weight:800; padding:1px 8px; border:2px solid var(--ink); background:var(--lemon);}
+  .life-nick{font-size:13px; color:var(--ink-soft); margin:0 0 10px; line-height:1.6;}
+  .life-radar{display:block; width:100%; max-width:260px; height:auto; margin:0 auto;}
+  .stat-row{display:grid; grid-template-columns:5.6em minmax(0, 1fr) auto; gap:8px; align-items:center; font-size:13px; margin:0 0 9px;}
+  .stat-row .nm{font-weight:800; white-space:nowrap;}
+  .stat-bar{position:relative; height:12px; border:2px solid var(--ink); background:#fff;}
+  .stat-bar i{display:block; height:100%; background:var(--c, var(--lemon));}
+  .stat-row .lvn{font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .stat-row .up{font-size:11px; font-weight:800; color:#2f8f78; margin-left:4px;}
+  .stat-from{grid-column:2 / 4; font-size:11.5px; color:var(--ink-soft); margin:-5px 0 0; line-height:1.5;}
+  .gear-list{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 0; padding:0; list-style:none;}
+  .gear-list li{font-size:12px; font-weight:700; padding:3px 8px; border:2px solid var(--ink); background:#fff;}
+  .gear-list li.off{opacity:.45; border-style:dashed;}
+  .quest-list{margin:0; padding:0; list-style:none;}
+  .quest-list li{display:flex; gap:10px; align-items:flex-start; padding:9px 0; border-top:2px dashed rgba(47,42,36,.18); font-size:13.5px; line-height:1.6;}
+  .quest-list li:first-child{border-top:0; padding-top:0;}
+  .quest-list .ic{flex:none; width:1.6em; text-align:center;}
+  .quest-list small{display:block; color:var(--ink-soft); font-size:12px;}
+  .life-guest{font-size:12.5px; color:var(--ink-soft); text-align:center; margin:0 0 18px; line-height:1.7;}
+  .road{position:relative; margin:0; padding:0 0 0 22px; list-style:none; border-left:var(--px) dashed var(--ink-soft);}
+  .road .age{position:relative; margin:18px 0 8px; font-size:14px; font-weight:800;}
+  .road .age:first-child{margin-top:0;}
+  .road .age::before{content:''; position:absolute; left:-30px; top:3px; width:12px; height:12px; background:var(--lemon); border:2px solid var(--ink);}
+  .road .ev{position:relative; font-size:13px; line-height:1.6; margin:0 0 6px; color:var(--ink);}
+  .road .ev::before{content:''; position:absolute; left:-26px; top:8px; width:6px; height:6px; background:var(--ink-soft);}
+  .road .ev time{color:var(--ink-soft); font-size:11.5px; margin-left:6px; font-variant-numeric:tabular-nums;}
+  .road-more{margin:12px 0 0; text-align:center;}
+</style>
+</head>
+<body>
+
+<section class="page-top section-pad">
+  <div class="wrap life-wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">LIFE QUEST</span>
+      <h1>인생 퀘스트</h1>
+      <p>현실에서 그리고, 쓰고, 뛰고, 해낸 것들이 경험치가 돼요. 키가 크면 아바타도 자라요.</p>
+    </div>
+
+    <div class="life-stage"><canvas class="life-cv" id="lifeCv" width="1024" height="660" tabindex="0" aria-label="수아와 연아의 도트 아바타. 실제 키만큼 자라고, 능력치가 오르면 장비가 생겨요. 아바타를 누르면 그 아이의 기록이 아래에 나와요."></canvas></div>
+    <p class="life-msg" id="lifeMsg" aria-live="polite"></p>
+    <div class="life-tools" id="lifeTools"></div>
+
+    <p class="life-guest" id="lifeGuest" hidden>손님에게는 아바타와 능력치 모양만 보여요. 자세한 수치와 다음 목표는 가족이 로그인하면 보여요.</p>
+
+    <div class="life-sheet">
+      <div class="life-card dot-card" id="lifeWho"></div>
+      <div class="life-card dot-card" id="lifeStats"></div>
+    </div>
+    <div class="life-card dot-card" id="lifeQuests" hidden style="margin:0 0 22px;"></div>
+    <div class="life-card dot-card" id="lifeRoad"></div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        onerror="window.__sbFailed=1"></script>
+<script src="./common.js"></script>
+<script src="/pages/kid-art.js"></script>
+<script src="/pages/life.js"></script>
+</body>
+</html>

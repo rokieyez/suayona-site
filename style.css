@@ -175,14 +175,15 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
 .hdr-icon:focus-visible{outline:3px solid var(--ink); outline-offset:2px;}
 
 /* 메뉴가 일곱(농장까지)이 되면서 860~980 사이에서 로고 글씨가 세로로 눌렸다 — 햄버거를 조금 일찍 연다. */
-@media (max-width:980px){
+/* 메뉴가 아홉(인생 퀘스트까지, 2026-09-17)이 되어 980 → 1080. 부모로 로그인하면 이름·아이콘 둘이 더 붙어 메뉴 한 줄에 1040px 쯤 든다 */
+@media (max-width:1080px){
   header.site nav{
     position:fixed; top:var(--header-h); left:0; right:0; flex-direction:column; gap:0;
     /* 닫혀 있을 땐 아래 테를 없앤다 — 높이 0이어도 테 4px 이 헤더 테 바로 밑에 붙어 줄이 두 배(8px)로 보였다 */
     background:var(--cream); border-bottom:0 solid var(--ink);
     max-height:0; overflow:hidden; transition:max-height .3s ease;
   }
-  header.site nav.open{max-height:420px; border-bottom-width:var(--px);}   /* 항목 일곱이 다 보이게 */
+  header.site nav.open{max-height:520px; border-bottom-width:var(--px);}   /* 항목 아홉이 다 보이게(한 줄 49px × 9 = 441px) */
   header.site nav a{padding:14px 20px; border:none; border-top:2px solid rgba(47,42,36,.12); font-size:14px;}
   .menu-toggle{display:block;}
 }
