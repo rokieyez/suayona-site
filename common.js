@@ -156,6 +156,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
 
 const MENU = [
   { href: '/',              label: '홈',        key: 'home' },
+  { href: '/life.html',     label: '수아연아',  key: 'life' },   // 인생 퀘스트 — 현실의 기록이 경험치가 되어 아바타가 자란다 (2026-09-17). 2026-09-18 부모 요청으로 메뉴 이름을 「수아연아」로, 자리를 홈 다음으로
   { href: '/portfolio.html',label: '작품전시실', key: 'portfolio' },   // 2026-09-15 포트폴리오 → 작품전시실(부모 요청). 주소는 그대로
   { href: '/event/',        label: '이벤트',    key: 'event' },
   { href: '/wish/',         label: '가볼 곳',   key: 'wish' },
@@ -166,7 +167,6 @@ const MENU = [
   { href: '/games.html',    label: '게임',      key: 'games' },
   { href: '/honors.html',   label: '업적 전시실', key: 'honors' },   // 현실의 상장·급수·처음 해낸 것 (2026-09-14)
   { href: '/farm.html',     label: '수아연아 농장',   key: 'farm' },
-  { href: '/life.html',     label: '인생 퀘스트', key: 'life' },   // 현실의 기록이 경험치가 되어 아바타가 자란다 (2026-09-17)
 ];
 
 // 로그인한 가족에게만 보이는 곳. 메뉴 목록에 섞지 않고 헤더에 아이콘 단추로 따로 둔다 —
