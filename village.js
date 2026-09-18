@@ -478,6 +478,37 @@ P.foliage = (q, blobs, pal, seed, opt) => {
 P.TREE_PAL = ['#b9e08a', '#8fcb6d', '#6cb457', '#4f9747', '#3a7a3a', '#2c5f30'];
 P.PINE_PAL = ['#8fc98a', '#5fa66a', '#437f52', '#2f6540', '#224d33'];
 P.BLOSSOM_PAL = ['#ffe4ec', '#ffc3d6', '#f7a2bd', '#e88aa6', '#c9698a'];
+// ---------- 계절 ----------
+/* 계절마다 풀·나무·꽃·먼 밭 색이 바뀐다. 농장 방(pages/farm.js 의 GROUND)과 같은 생각으로,
+   여름이 본디 색이고 봄·가을은 그 위에 물들며 겨울은 농장처럼 땅이 눈에 덮인다.
+   첫화면이 render 에 season 을 넘긴다 — 안 넘기면 여름(예전 그림 그대로)이다. */
+let SEASON = 'summer';
+const SEASON_P = {
+  spring: { grass: ['#8fcb6f', '#86c267', '#9ad478', '#7eb862', '#93cc74'], speck: '#6fb567', tuft: '#5fae55', edge: '#6fb567',
+            tree: ['#d4f0a0', '#a8dd7c', '#86cc66', '#63b552', '#4a9444', '#357a38'], pine: P.PINE_PAL,
+            flowerP: 0.36, flowers: ['#ffb7d5', '#fff3a0', '#ffffff', '#c9a8ff', '#ff9aa2'],
+            far: ['#a8c98e', '#b7cf8f', '#9cc08c', '#c0cb92', '#95bd8a', '#d0d69a'], farTree: '#5f8a68', farFade: '#7f9d88' },
+  summer: { grass: ['#7db663', '#74ad5b', '#86bf6c', '#6da456', '#80b868'], speck: '#5f9a4c', tuft: '#4f9747', edge: '#5f9a4c',
+            tree: P.TREE_PAL, pine: P.PINE_PAL,
+            flowerP: 0.28, flowers: ['#ff8fb8', '#ffd166', '#ffffff', '#c9a8ff', '#ff7f7f'],
+            far: ['#a3bd8e', '#aec08a', '#95b58a', '#b4bd8c', '#8fb287', '#c2c48e'], farTree: '#5f8a68', farFade: '#7f9d88' },
+  autumn: { grass: ['#c4b56e', '#b9aa66', '#cdbf76', '#ad9f5f', '#c0b26b'], speck: '#8f8a48', tuft: '#9c8a4f', edge: '#9c8a4f',
+            tree: ['#ffd27a', '#f0a95c', '#e08a45', '#dd7b3f', '#b85a2c', '#8a4020'],
+            // 가을은 나무마다 주황·노랑·빨강이 섞여야 숲으로 읽힌다 — 씨앗으로 셋 중 하나
+            treeAlt: [['#ffe28a', '#f2c14e', '#e0a83a', '#c9922c', '#a37220', '#7a5418'], ['#ff9a7a', '#ef6f4e', '#d9603c', '#b84a30', '#8f3a26', '#6b2a1c']],
+            pine: P.PINE_PAL,
+            flowerP: 0.07, flowers: ['#e8874a', '#f2c14e', '#d9603c', '#c9a8ff'], litter: ['#d9603c', '#e8874a', '#c9a227'],
+            far: ['#c8b57a', '#d3bd7e', '#b9a86e', '#d9c48a', '#a99a62', '#e0cd8e'], farTree: '#8a6a3a', farFade: '#a89a6e' },
+  winter: { grass: ['#f4f8fa', '#e9f0f4', '#f8fbfc', '#dfe8ed', '#eef4f7'], speck: '#c8d6dc', tuft: '#b3c3cb', edge: '#e9f0f4',
+            tree: ['#eef5f1', '#cfdcd4', '#b8ccbe', '#9db4a5', '#7d9488', '#5f7469'],
+            pine: ['#d6e6db', '#8fb59a', '#5f8a6e', '#3f6a52', '#2c4d3c'],
+            flowerP: 0, flowers: [], snow: true,
+            far: ['#e6ecef', '#edf2f4', '#dfe6ea', '#f0f4f6', '#d8e0e5', '#f4f7f9'], farTree: '#8a9a90', farFade: '#b9c6cc' },
+};
+const SP = () => SEASON_P[SEASON] || SEASON_P.summer;
+P.leafPal = seed => { const s = SP(); return s.treeAlt ? [s.tree].concat(s.treeAlt)[(seed || 0) % 3] : s.tree; };
+// 겨울 물 — 살얼음이 낀 듯 희게. 농장 연못이 겨울에 어는 것과 짝
+const icy = c => SEASON === 'winter' ? mix(c, '#e6f1f8', 0.5) : c;
 // 줄기 — 껍질 결, 오른쪽이 어둡다
 P.trunk = (q, X, Y, w, h, pal) => {
   pal = pal || ['#a67a52', '#8d6440', '#70502f', '#4e3722'];
@@ -494,7 +525,7 @@ P.trunk = (q, X, Y, w, h, pal) => {
 };
 // 둥근 나무. size 1(작은)~3(큰)
 P.tree = (q, X, Y, size, seed, pal) => {
-  pal = pal || P.TREE_PAL;
+  pal = pal || P.leafPal(seed);
   const s = 8 + size * 5, th = 10 + size * 5;
   P.trunk(q, X, Y, 3 + size, th + 4);
   // 가지 두 개
@@ -513,7 +544,7 @@ let SHADOW_Q = null;
 P.shadow = (q, X, Y, rx, ry) => ellipse(SHADOW_Q || q, X, Y - 1, rx, ry, 'rgba(30,40,20,0.22)');
 // 침엽수 — 세 층
 P.pine = (q, X, Y, size, seed) => {
-  const pal = P.PINE_PAL, h = 26 + size * 8, w = 10 + size * 3;
+  const pal = SP().pine, h = 26 + size * 8, w = 10 + size * 3;
   P.trunk(q, X, Y, 3, 8);
   for (let k = 2; k >= 0; k--){
     const top = Y - h + k * (h * 0.24), base = top + h * 0.42, hw = w * (0.55 + k * 0.25);
@@ -529,13 +560,13 @@ P.pine = (q, X, Y, size, seed) => {
   P.shadow(q, X, Y, w, 3);
 };
 P.bush = (q, X, Y, w, seed, pal) => {
-  pal = pal || P.TREE_PAL;
+  pal = pal || P.leafPal(seed);
   P.foliage(q, [[X - w * 0.3, Y - w * 0.32, w * 0.42, w * 0.32], [X + w * 0.3, Y - w * 0.3, w * 0.4, w * 0.3], [X, Y - w * 0.45, w * 0.45, w * 0.36]], pal, seed, { bias: 0.15 });
   P.shadow(q, X, Y, w * 0.5, 2);
 };
 // 산울타리 — 세상 상자에 잎 재질
 P.hedge = (q, x, y, w, d, h, seed) => {
-  const pal = ['#8fcb6d', '#6cb457', '#4f9747', '#3a7a3a'];
+  const pal = SP().tree.slice(1, 5);
   const tex = lit => (u, v) => { const n = hash(u >> 1, v >> 1, seed) * 0.6 + hash(u, v, seed + 1) * 0.4; let c = pal[Math.min(3, Math.floor(n * 3.4))]; return shade(c, lit); };
   box(q, x, y, 0, w, d, h, tex(0), tex(-26), tex(18));
 };
@@ -659,7 +690,7 @@ P.bunting = (q, a, b, cols) => {
   }
 };
 // 꽃·풀 — 땅에 직접
-P.flower = (q, X, Y, col) => { q(X, Y - 2, 1, 2, '#4f9747'); q(X - 1, Y - 3, 3, 1, col); q(X, Y - 4, 1, 1, col); q(X, Y - 3, 1, 1, shade(col, 40)); };
+P.flower = (q, X, Y, col, stem) => { q(X, Y - 2, 1, 2, stem || '#4f9747'); q(X - 1, Y - 3, 3, 1, col); q(X, Y - 4, 1, 1, col); q(X, Y - 3, 1, 1, shade(col, 40)); };
 P.tuft = (q, X, Y, col) => { q(X - 1, Y - 2, 1, 2, col); q(X + 1, Y - 3, 1, 3, col); q(X, Y - 1, 1, 1, col); };
 P.rock = (q, X, Y, w) => { ellipse(q, X, Y - w * 0.25, w * 0.5, w * 0.3, (x, y) => { const nx = (x - X) / w, ny = (y - Y + w * 0.25) / w; return nx + ny < -0.15 ? '#c2bab0' : nx + ny < 0.1 ? '#a49c92' : '#857d75'; }); };
 // 고양이 — 옆모습, 앉아 있음
@@ -887,7 +918,7 @@ P.kite = (q, X, Y, ph) => { P.kiteBody(q, X, Y); P.kiteTail(q, X, Y, ph); };
 P.hotAir = (q, X, Y) => { ellipse(q, X, Y - 14, 7, 8, (x, y) => { const k = Math.floor((x - X + 7) / 3); return ['#e8463a', '#ffd166', '#5aa9e6', '#e8463a', '#ffd166'][k % 5]; }); q(X - 2, Y - 5, 5, 2, '#8d6440'); q(X - 2, Y - 1, 5, 3, '#a67a52'); q(X - 2, Y - 4, 1, 3, '#5a3f2b'); q(X + 2, Y - 4, 1, 3, '#5a3f2b'); };
 P.noticeBoard = (q, X, Y) => { q(X - 8, Y - 22, 2, 22, '#8d6440'); q(X + 6, Y - 22, 2, 22, '#8d6440'); q(X - 11, Y - 30, 22, 12, '#5a3f2b'); q(X - 10, Y - 29, 20, 10, '#8fb5a0'); q(X - 8, Y - 27, 5, 6, '#fff6e9'); q(X - 2, Y - 28, 6, 7, '#fff3a0'); q(X + 5, Y - 26, 4, 5, '#ffd9d0'); q(X - 7, Y - 25, 3, 1, '#8a7a66'); q(X - 1, Y - 26, 4, 1, '#8a7a66'); q(X - 1, Y - 24, 4, 1, '#8a7a66'); q(X - 11, Y - 32, 22, 2, '#7a5636'); };
 P.bin = (q, X, Y) => { cylinder(q, X, Y, 4, 9, (a, v) => v === 0 ? '#5a6a5a' : a < 0.4 ? '#4f6650' : a < 0.7 ? '#3f5440' : '#2f4030'); ellipse(q, X, Y - 9, 4, 2, '#6a7a6a'); q(X - 2, Y - 10, 4, 1, '#2a2622'); };
-P.planter = (q, wx, wy, w, seed) => { box(q, wx, wy, 0, w, 0.28, 5, M.planks(PLANK_P, 50 + seed, 0), M.planks(PLANK_P, 51 + seed, -26, true), () => '#5c4230'); for (let i = 0; i < Math.round(w * 8); i++){ const fx = wx + 0.05 + hash(i, 1, seed) * (w - 0.1), fy = wy + 0.05 + hash(i, 2, seed) * 0.18; const Pp = proj(fx, fy, 5).map(Math.round); P.flower(q, Pp[0], Pp[1], ['#ff8fb8', '#ffd166', '#ff7f7f', '#ffffff', '#c9a8ff'][i % 5]); } };
+P.planter = (q, wx, wy, w, seed) => { box(q, wx, wy, 0, w, 0.28, 5, M.planks(PLANK_P, 50 + seed, 0), M.planks(PLANK_P, 51 + seed, -26, true), () => '#5c4230'); for (let i = 0; i < Math.round(w * 8); i++){ const fx = wx + 0.05 + hash(i, 1, seed) * (w - 0.1), fy = wy + 0.05 + hash(i, 2, seed) * 0.18; const Pp = proj(fx, fy, 5).map(Math.round); if (SEASON === 'winter') q(Pp[0] - 1, Pp[1] - 2, 3, 2, i % 2 ? '#ffffff' : '#eef4f7'); else P.flower(q, Pp[0], Pp[1], ['#ff8fb8', '#ffd166', '#ff7f7f', '#ffffff', '#c9a8ff'][i % 5]); } };   // 겨울엔 꽃 대신 눈
 P.icecream = (q, wx, wy) => { const bx = { x: wx, y: wy, z: 0, w: 0.5, d: 0.35, h: 12 }; B.walls(q, bx, (u, v) => v < 2 ? '#c9584f' : v > 10 ? '#8a8a86' : u % 6 < 3 ? '#fff6e9' : '#ffd9d0', (u, v) => shade(v < 2 ? '#c9584f' : v > 10 ? '#8a8a86' : '#fff6e9', -24)); B.on(q, 'L', bx, 2, 3, 8, 6, (u, v) => (u + v) % 4 === 0 ? '#ff8fb8' : (u + v) % 4 === 2 ? '#8fd9c8' : '#fff6e9'); const Pp = proj(wx + 0.25, wy + 0.18, 12).map(Math.round); q(Pp[0], Pp[1] - 22, 1, 22, '#5a3f2b'); cone(q, Pp[0], Pp[1] - 22, 12, 8, (a, v) => shade(Math.floor(Math.acos(1 - 2 * a) / Math.PI * 8) % 2 ? '#ff8fb8' : '#fff6e9', a < 0.5 ? 6 : -16)); const W0 = proj(wx + 0.05, wy + 0.35, 0).map(Math.round); ellipse(q, W0[0], W0[1] - 3, 3, 3, (x, y) => Math.hypot(x + 0.5 - W0[0], y + 0.5 - (W0[1] - 3)) > 2.2 ? '#2a2622' : '#8a8a86'); };
 P.stairs = (q, wx, wy, n, dir) => { for (let i = 0; i < n; i++){ const h = 46 / n; box(q, wx + (dir === 'x' ? i * 0.3 : 0), wy + (dir === 'y' ? i * 0.3 : 0), 0, dir === 'x' ? 0.3 : 0.5, dir === 'y' ? 0.3 : 0.5, Math.round(h * (i + 1)), () => '#a99f8f', () => '#8a8071', () => '#cfc6b6'); } };
 P.puddle = (q, X, Y, w) => ellipse(q, X, Y, w, w * 0.45, (x, y) => (x - X) + (y - Y) * 2 < -w * 0.5 ? '#c9dde8' : (x + y) % 5 === 0 ? '#a9c9dc' : '#8fb8d0');
@@ -920,12 +951,12 @@ function kindAt(tx, ty){
   if (inR(tx, ty, 7.0, 0, 9, 2.3)) return 'garden';                    // 일기장집 뒤뜰
   return 'grass';
 }
-const GR = ['#7db663', '#74ad5b', '#86bf6c', '#6da456', '#80b868'];
 function groundColor(kind, tx, ty, x, y){
   if (kind === 'grass' || kind === 'garden'){
-    let c = GR[Math.floor(hash(x >> 1, y >> 1, 1) * GR.length)];
+    const s = SP(), G = s.grass;
+    let c = G[Math.floor(hash(x >> 1, y >> 1, 1) * G.length)];
     if (hash(x >> 3, y >> 3, 2) < 0.3) c = shade(c, -7);
-    if (kind === 'garden' && hash(x, y, 3) < 0.05) c = '#5f9a4c';
+    if (kind === 'garden' && hash(x, y, 3) < 0.05) c = s.speck;
     return c;
   }
   if (kind === 'cobble'){
@@ -971,7 +1002,7 @@ function groundColor(kind, tx, ty, x, y){
     let c = e < 0.5 ? '#6fb3da' : '#5aa3cf';
     if ((x + y * 2 + Math.floor(hash(x >> 3, y >> 2, 14) * 4)) % 13 < 2) c = '#8ec7e8';
     if (hash(x, y, 15) < 0.015) c = '#dff2fb';
-    return c;
+    return icy(c);
   }
   if (kind === 'moat'){
     const e = Math.min(ty - 5.05, 5.6 - ty, tx - 8.8);   // 왼쪽 끝도 돌로 막는다 — 우체국이 가려 주던 자리라 물이 잘려 보였다
@@ -979,7 +1010,7 @@ function groundColor(kind, tx, ty, x, y){
     let c = e < 0.16 ? '#6fb3da' : '#4a90bf';
     if ((x + y * 2 + Math.floor(hash(x >> 3, y >> 2, 14) * 4)) % 13 < 2) c = '#6fb3da';
     if (hash(x, y, 16) < 0.015) c = '#bfe4f4';
-    return c;
+    return icy(c);
   }
   return '#ff00ff';
 }
@@ -1080,12 +1111,12 @@ function drawSky(q, W, H){
   for (let y = HZ; y < H; y++){
     const t = (y - HZ) / (H - HZ), band = Math.floor((y - HZ) / 9);
     const bh = hash(band, 1, 77);
-    let base = ['#a3bd8e', '#aec08a', '#95b58a', '#b4bd8c', '#8fb287', '#c2c48e'][Math.floor(bh * 6)];
+    let base = SP().far[Math.floor(bh * 6)];
     const nseg = 3 + Math.floor(hash(band, 2, 77) * 4);
     for (let x = 0; x < W; x++){
       const seg = Math.floor((x + band * 37) / (W / nseg));
       let c = hash(band, seg + 5, 78) < 0.4 ? shade(base, Math.floor(hash(band, seg, 79) * 24) - 12) : base;
-      c = mix(c, '#7f9d88', t * 0.55);
+      c = mix(c, SP().farFade, t * 0.55);
       c = mix(c, '#c0ced4', Math.max(0, 0.6 - t * 1.5));                       // 안개
       if ((y - HZ) % 9 === 8) c = shade(c, -14);                                  // 밭두렁
       if ((x + band * 37) % Math.floor(W / nseg) === 0) c = shade(c, -12);        // 밭 경계
@@ -1093,7 +1124,7 @@ function drawSky(q, W, H){
     }
   }
   // 나무 줄과 굽이치는 강
-  for (let i = 0; i < 140; i++){ const x = Math.round(hash(i, 1, 7) * W), y = HZ + 8 + Math.round(hash(i, 2, 7) * (H - HZ - 8)); const t = (y - HZ) / (H - HZ); const c = mix('#5f8a68', '#c0ced4', Math.max(0, 0.6 - t * 1.5)); q(x, y - 2, 2 + (i % 3), 3, c); q(x + 1, y - 3, 1 + (i % 2), 1, c); }
+  for (let i = 0; i < 140; i++){ const x = Math.round(hash(i, 1, 7) * W), y = HZ + 8 + Math.round(hash(i, 2, 7) * (H - HZ - 8)); const t = (y - HZ) / (H - HZ); const c = mix(SP().farTree, '#c0ced4', Math.max(0, 0.6 - t * 1.5)); q(x, y - 2, 2 + (i % 3), 3, c); q(x + 1, y - 3, 1 + (i % 2), 1, c); }
   let rx = W * 0.78;
   for (let y = HZ + 2; y < H; y++){ const t = (y - HZ) / (H - HZ); rx += Math.sin(y * 0.09) * 1.6 - 0.9; const wdt = 2 + Math.round(t * 5); q(Math.round(rx), y, wdt, 1, mix('#8fc0d8', '#c0ced4', Math.max(0, 0.6 - t * 1.5))); if (y % 5 === 0) q(Math.round(rx) + 1, y, 1, 1, '#e0f0f8'); }
 }
@@ -1108,8 +1139,8 @@ function drawGround(q){
   // 절벽 — 왼앞(L)과 오른앞(R) 두 면. 위에서부터 풀 뿌리, 흙, 바위 켜
   const cliffTex = lit => (u, v) => {
     let c;
-    if (v < 2) c = '#5f9a4c';                                                    // 잔디가 넘어온 가장자리
-    else if (v < 5) c = hash(u, v, 21) < 0.5 ? '#7a5a3c' : '#5f9a4c';            // 뿌리와 흙이 섞인 켜
+    if (v < 2) c = SP().edge;                                                    // 잔디가 넘어온 가장자리 — 계절 색
+    else if (v < 5) c = hash(u, v, 21) < 0.5 ? '#7a5a3c' : SP().edge;            // 뿌리와 흙이 섞인 켜
     else if (v < 20){                                                             // 흙
       c = ['#8a6a4a', '#7d5f42', '#70543a'][Math.floor(hash(u >> 1, v >> 1, 22) * 3)];
       if (hash(u, v, 23) < 0.06) c = '#a58a68';                                   // 잔돌
@@ -1137,7 +1168,7 @@ function drawGround(q){
   // 물이 있는 자리는 절벽 위쪽이 물빛 — 도랑의 단면
   const waterCut = (tex, isL) => (u, v, x, y) => {
     const wat = isL ? true : u < 1.2 * S;
-    if (wat && v < 6) return v < 1 ? '#8ec7e8' : v < 5 ? '#4f97c4' : '#3d7ba6';
+    if (wat && v < 6) return icy(v < 1 ? '#8ec7e8' : v < 5 ? '#4f97c4' : '#3d7ba6');
     return tex(u, v, x, y);
   };
   const left = proj(0, PD, 0), front = proj(PW, PD, 0);
@@ -1154,8 +1185,12 @@ function drawDecals(q){
       const [X, Y] = proj(fx, fy, 0).map(Math.round);
       const r = hash(tx, ty, 50 + k);
       if (kind === 'grass' || kind === 'garden'){
-        if (r < 0.28) P.flower(q, X, Y, ['#ff8fb8', '#ffd166', '#ffffff', '#c9a8ff', '#ff7f7f'][Math.floor(hash(tx, ty, 60 + k) * 5)]);
-        else if (r < 0.7) P.tuft(q, X, Y, '#4f9747');
+        // 꽃 몫(r < 0.28)을 계절이 나눠 갖는다 — 봄엔 꽃이 풀 몫까지 넘보고, 가을엔 남는 자리에 낙엽, 겨울엔 눈 더미
+        const s = SP();
+        if (r < s.flowerP) P.flower(q, X, Y, s.flowers[Math.floor(hash(tx, ty, 60 + k) * s.flowers.length)], s.tuft);
+        else if (r < 0.28 && s.litter){ const c = s.litter[Math.floor(hash(tx, ty, 61 + k) * s.litter.length)]; q(X - 1, Y - 1, 3, 1, c); q(X, Y, 2, 1, shade(c, -26)); }
+        else if (r < 0.28 && s.snow){ q(X - 3, Y - 2, 6, 2, '#ffffff'); q(X - 2, Y, 4, 1, '#cfdbe2'); }
+        else if (r < 0.7) P.tuft(q, X, Y, s.tuft);
         else if (r < 0.76) P.rock(q, X, Y, 4 + Math.round(hash(tx, ty, 70 + k) * 4));
         else if (r < 0.79 && SPR.S.mushroom) spr(q, X - 3, Y - 6, SPR.S.mushroom, SPR.PAL);
       } else if (kind === 'water' && r < 0.25 && fy > 11.0 && fy < 11.9){
@@ -1194,7 +1229,7 @@ function drawDecals(q){
     }
   }
   // 벚꽃잎, 웅덩이, 맨홀, 디딤돌, 연잎, 물고기, 낙엽
-  for (let i = 0; i < 34; i++){ const a = hash(i, 1, 90) * 6.28, r = hash(i, 2, 90) * 0.75; const Pp = proj(8.2 + Math.cos(a) * r, 1.8 + Math.sin(a) * r * 0.8, 0).map(Math.round); if (kindAt(8.2 + Math.cos(a) * r, 1.8 + Math.sin(a) * r * 0.8) !== 'cobble') q(Pp[0], Pp[1], 2, 1, i % 3 ? '#ffc3d6' : '#f7a2bd'); }
+  if (SEASON === 'spring') for (let i = 0; i < 34; i++){ const a = hash(i, 1, 90) * 6.28, r = hash(i, 2, 90) * 0.75; const Pp = proj(8.2 + Math.cos(a) * r, 1.8 + Math.sin(a) * r * 0.8, 0).map(Math.round); if (kindAt(8.2 + Math.cos(a) * r, 1.8 + Math.sin(a) * r * 0.8) !== 'cobble') q(Pp[0], Pp[1], 2, 1, i % 3 ? '#ffc3d6' : '#f7a2bd'); }
   P.puddle(q, ...proj(10.85, 9.3, 0).map(Math.round), 9); P.puddle(q, ...proj(9.05, 10.55, 0).map(Math.round), 6);
   P.manhole(q, ...proj(5.6, 5.4, 0).map(Math.round));
   [[5.4, 1.95], [5.45, 2.15]].forEach(([x, y]) => P.stone(q, ...proj(x, y, 0).map(Math.round)));
@@ -1546,7 +1581,7 @@ VS.draw = function(env){
   add(3.0, 2.2, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(3.05, 2.25), NIGHT), 12);
   // 일기장집 뒤뜰 — 빨래, 꽃나무
   add(7.2, 0.5, 1.4, 0.2, 30, q2 => P.laundry(q2, at(7.25, 0.6), at(8.55, 0.6)), 8);
-  add(7.9, 1.5, 0.6, 0.6, 50, q2 => P.tree(q2, ...at(8.2, 1.8), 2, 7, P.BLOSSOM_PAL), 26, 'tree');
+  add(7.9, 1.5, 0.6, 0.6, 50, q2 => P.tree(q2, ...at(8.2, 1.8), 2, 7, SEASON === 'spring' ? P.BLOSSOM_PAL : null), 26, 'tree');   // 벚나무 — 봄에만 분홍
   add(3.4, 0.4, 0.8, 0.8, 70, q2 => P.tree(q2, ...at(3.8, 0.8), 3, 8), 34, 'tree');
   // 광장 — 분수, 벤치, 가로등, 꽃밭, 아이들, 고양이
   add(6.6, 4.9, 0.9, 0.9, 44, q2 => P.fountain(q2, ...at(7.05, 5.35)), 24, 'fountain');
@@ -1573,7 +1608,7 @@ VS.draw = function(env){
   add(13.45, 6.0, 0.5, 0.5, 60, q2 => P.tree(q2, ...at(13.7, 6.25), 2, 23), 26, 'tree');   // 성문 진입로 앞(13.1, 6.8)에 서 있어 길을 가렸다 — 길 오른쪽 잔디로(2026-09-15 부모 요청)
   add(3.0, 11.0, 0.8, 0.5, 16, q2 => P.boat(q2, ...at(1.2, 11.35)), 14, 'boat');
   [[5.15, 3.65], [8.85, 3.65], [8.85, 7.35]].forEach(([x, y], i) => add(x - 0.05, y - 0.05, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(x, y), NIGHT), 12));   // 앞왼쪽 자리는 비워 둔다 — 수아가 그 자리에 서서 가로등을 가렸다
-  const bed = (x, y, w, d, seed) => add(x, y, w, d, 8, q2 => { box(q2, x, y, 0, w, d, 4, () => '#a89f91', () => '#8a8071', () => '#6f4f38'); for (let i = 0; i < 12; i++){ const fx = x + 0.08 + hash(i, 1, seed) * (w - 0.16), fy = y + 0.08 + hash(i, 2, seed) * (d - 0.16); const Pp = proj(fx, fy, 4).map(Math.round); P.flower(q2, Pp[0], Pp[1], ['#ff8fb8', '#ffd166', '#ff7f7f', '#ffffff', '#c9a8ff'][i % 5]); } }, 6);
+  const bed = (x, y, w, d, seed) => add(x, y, w, d, 8, q2 => { box(q2, x, y, 0, w, d, 4, () => '#a89f91', () => '#8a8071', () => '#6f4f38'); for (let i = 0; i < 12; i++){ const fx = x + 0.08 + hash(i, 1, seed) * (w - 0.16), fy = y + 0.08 + hash(i, 2, seed) * (d - 0.16); const Pp = proj(fx, fy, 4).map(Math.round); if (SEASON === 'winter') q2(Pp[0] - 1, Pp[1] - 2, 3, 2, i % 2 ? '#ffffff' : '#eef4f7'); else P.flower(q2, Pp[0], Pp[1], ['#ff8fb8', '#ffd166', '#ff7f7f', '#ffffff', '#c9a8ff'][i % 5]); } }, 6);   // 겨울엔 꽃 대신 눈
   bed(5.3, 6.8, 1.0, 0.4, 3); bed(7.7, 6.8, 1.0, 0.4, 4);
   VS.cat = { tx: 9.15, ty: 7.15 };   // 광장 고양이도 여기 그리지 않는다 — 부르면 걸어오므로 첫화면이 그린다
   // 우체국 앞 — 우체통, 자전거, 가로등
@@ -1786,11 +1821,12 @@ function snowCaps(R, w, h){
 
 // ---------- 밖에서 부르는 문 ----------
 /* o = { w, h (도트), hs (도트 한 개의 px), orgX, orgY (땅 뒤 꼭짓점 자리, 도트), night, litP (불 켜진 창 비율 0~1),
-         cliff (절벽 두께, 도트 — 없으면 40), sprites, pal (사이트의 도트 그림), frames: [캔버스|null, 캔버스|null], snow (지붕에 눈), env (시험용) }
+         cliff (절벽 두께, 도트 — 없으면 40), season ('spring'|'summer'|'autumn'|'winter' — 없으면 여름), sprites, pal (사이트의 도트 그림), frames: [캔버스|null, 캔버스|null], snow (지붕에 눈), env (시험용) }
    돌려주는 것: 캔버스와, 첫화면 코드가 놀이를 얹는 데 쓰는 자리들(전부 도트 단위). */
 function render(o){
   SPR = { S: o.sprites || {}, PAL: o.pal || {} };
   NIGHT = !!o.night; LIT_P = o.litP == null ? 0.6 : o.litP; LIGHTS.length = 0; HITS.length = 0;
+  SEASON = SEASON_P[o.season] ? o.season : 'summer';
   VS.w = Math.max(64, Math.ceil(o.w)); VS.h = Math.max(64, Math.ceil(o.h)); VS.orgX = o.orgX; SKY = o.orgY;
   CLIFF_H = Math.max(24, Math.min(160, Math.round(o.cliff || 40)));   // 절벽 두께 — 세로가 긴 화면일수록 두껍게
   VS.liveCrops = !!o.liveCrops;      // 켜면 밭 작물을 굽지 않는다 — 첫화면이 진짜 농장을 덧그린다
@@ -1811,7 +1847,8 @@ function render(o){
   // 눈 오는 날 — 지붕과 나무 꼭대기에 눈이 쌓인다. 물건마다 따로 그리지 않고,
   // 겹을 얹을 때 적어 둔 번호판(ids)으로 열마다 「맨 위 물건 도트」를 찾아 그 위에 흰 점을 놓는다.
   // 하늘에 그린 것(도시·능선)에는 번호가 없어서 저절로 빠진다 — 먼 산까지 하얘지면 과하다.
-  if (R && o.snow) snowCaps(R, VS.w, VS.h);
+  // 겨울은 날씨와 상관없이 눈이 얹혀 있다 — 땅이 흰데 지붕만 맨살이면 이상하다
+  if (R && (o.snow || SEASON === 'winter')) snowCaps(R, VS.w, VS.h);
   if (R){
     // 도트 그림을 캔버스에 옮기고 hs 배로 키운다 — 보간을 끄면 도트가 그대로 커진다
     const small = document.createElement('canvas'); small.width = VS.w; small.height = VS.h;

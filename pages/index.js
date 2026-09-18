@@ -753,6 +753,7 @@ const belowFold = (() => {
     roadBaked = null;
     VG = Village.render({
       w: vw, h: vh, hs: HS * dpr, orgX: Math.round(vw / 2 - 24), orgY, cliff, night: dim, litP: CLOCK.litP, snow: weather.snow,
+      season: SEASON,                                  // 풀·나무·꽃·먼 밭이 계절 색을 입는다 (농장과 같은 넉 달 갈아입기)
       liveCrops: true,                                 // 밭은 비워 두고, 진짜 농장을 보고 여기서 심는다
       sprites: SPRITES, pal: PAL,
       frames: hung.map(h => h ? drawingToCanvas(h) : null),
