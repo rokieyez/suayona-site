@@ -2742,9 +2742,10 @@ belowFold(async () => {
   async function draw(){
     if (!rows.length){
       const { data } = await sb.from('growth')
-        .select('who, measured_on, cm, kind').order('measured_on', { ascending: true });
+        .select('id, who, measured_on, cm, kind').order('measured_on', { ascending: true });
       rows = data || [];
     }
+    listRows();
     const K = KINDS[kind];
     const data = rows.filter(r => (r.kind || 'height') === kind);
     // 종류 단추는 실제로 잰 적이 있는 것만 켠다 — 눌렀는데 빈 그래프가 나오면 고장 같다.
@@ -2965,6 +2966,31 @@ belowFold(async () => {
     cv.setAttribute('aria-label', K2.label + ' 그래프. ' + lines.map(l => l.head + ', ' + l.say).join('. '));
   }
 
+  /* ---- 잘못 새긴 눈금 고치기·지우기 ----
+     DB 는 처음부터 가족의 고치기와 부모의 지우기를 받아 줬는데 화면에 단추가 없었다.
+     같은 날짜로 다시 새기면 덮어써지긴 했지만, 날짜나 아이를 잘못 고른 눈금은 없앨 길이 없었다.
+     목록은 지금 보고 있는 종류(키·발·몸무게)만, 새 것이 위로. canFix 는 로그인한 뒤에 켜진다. */
+  let canFix = false, editing = null;          // editing = 고치고 있는 줄의 id
+  function listRows(){
+    const box = $('#growthList'); if (!box) return;
+    const K = KINDS[kind];
+    const mine = rows.filter(r => (r.kind || 'height') === kind && r.id != null)
+      .sort((a, b) => a.measured_on < b.measured_on ? 1 : a.measured_on > b.measured_on ? -1 : 0);
+    box.hidden = !canFix || !mine.length;
+    if (box.hidden) return;
+    $('#gRows').innerHTML = mine.map(r =>
+      '<li data-id="' + Number(r.id) + '"' + (editing === r.id ? ' class="editing"' : '') + '>' +
+      '<i style="background:' + (COLORS[r.who] || '#ffd979') + '"></i><b>' + escapeHTML(heroName(r.who)) + '</b>' +
+      '<span class="when">' + escapeHTML(String(r.measured_on)) + ' · ' + escapeHTML(String(Number(r.cm))) + K.unit + '</span>' +
+      '<button type="button" data-act="edit">고치기</button>' +
+      (isAdmin ? '<button type="button" class="del" data-act="del">지우기</button>' : '') + '</li>').join('');
+  }
+  function stopEdit(){
+    editing = null;
+    $('#gSave').textContent = '눈금 새기기'; $('#gCancel').hidden = true; $('#gCm').value = '';
+    listRows();
+  }
+
   // CSS 폭을 캔버스 픽셀과 딱 맞추려고 폭을 직접 적는다. 쓸 수 있는 폭은 잠깐 풀고 잰다.
   function roomCss(){
     const was = cv.style.width;
@@ -2989,6 +3015,7 @@ belowFold(async () => {
       box.placeholder = K.label + '(' + K.unit + ')';
       box.min = K.min; box.max = K.max; box.value = '';
     }
+    if (editing != null) stopEdit();                       // 키를 고치다 말고 몸무게로 넘어가면 고치기는 접는다
     draw();
   }));
 
@@ -2999,6 +3026,31 @@ belowFold(async () => {
   await authOnce;
   if (!isLoggedIn) return;
   $('#growthAdd').hidden = false;
+  canFix = true; listRows();
+  $('#gCancel').addEventListener('click', () => { stopEdit(); $('#gMsg').textContent = ''; });
+  $('#gRows').addEventListener('click', async e => {
+    const b = e.target.closest('button[data-act]'); if (!b) return;
+    const id = Number(b.closest('li').dataset.id), r = rows.find(x => x.id === id); if (!r) return;
+    const msg = $('#gMsg');
+    if (b.dataset.act === 'edit'){
+      // 고칠 값을 위 입력칸에 올려 준다 — 아이·날짜·값 어느 것이든 바꿔서 다시 새기면 된다
+      editing = id;
+      $('#gWho').value = r.who; $('#gWhen').value = r.measured_on; $('#gCm').value = Number(r.cm);
+      $('#gSave').textContent = '고쳐 새기기'; $('#gCancel').hidden = false;
+      msg.textContent = '위 칸에서 고친 뒤 「고쳐 새기기」를 눌러요';
+      listRows(); $('#gCm').focus();
+      return;
+    }
+    const K = KINDS[kind];
+    if (!confirm(heroName(r.who) + ' ' + r.measured_on + ' · ' + Number(r.cm) + K.unit + ' 눈금을 지울까요?')) return;
+    msg.textContent = '지우는 중...';
+    // 막힌 지우기는 오류 없이 0줄로 돌아온다 — 지워진 줄을 받아서 센다
+    const { data, error } = await sb.from('growth').delete().eq('id', id).select('id');
+    if (error || !data || !data.length){ msg.textContent = '안 지워졌어요' + (error ? ': ' + readableError(error) : ' — 부모 계정만 지울 수 있어요'); return; }
+    msg.textContent = '지웠어요';
+    if (editing === id) stopEdit();
+    rows = []; await draw();
+  });
   const today = new Date();
   $('#gWhen').value = today.toISOString().slice(0, 10);
   $('#gSave').addEventListener('click', async () => {
@@ -3019,6 +3071,16 @@ belowFold(async () => {
     const when = $('#gWhen').value;
     if (!when) { msg.textContent = '잰 날짜를 골라주세요'; return; }
     msg.textContent = '새기는 중...';
+    if (editing != null){
+      // 고치기 — 줄 번호로 바꾼다(날짜나 아이를 바꿔도 같은 줄이다). 막힌 고치기는 오류 없이 0줄이라 받아서 센다
+      const { data: fixed, error: fixErr } = await sb.from('growth')
+        .update({ who: $('#gWho').value, measured_on: when, cm: Math.round(cm * 10) / 10 }).eq('id', editing).select('id');
+      if (fixErr && fixErr.code === '23505') { msg.textContent = '그 날짜에는 이미 다른 눈금이 있어요. 그 눈금을 고치거나 지워주세요'; return; }
+      if (fixErr || !fixed || !fixed.length) { msg.textContent = '안 고쳐졌어요' + (fixErr ? ': ' + readableError(fixErr) : ''); return; }
+      msg.textContent = '고쳤어요!';
+      stopEdit(); rows = []; await draw();
+      return;
+    }
     const { error } = await sb.from('growth').upsert({
       who: $('#gWho').value, measured_on: when, kind, cm: Math.round(cm * 10) / 10,
     }, { onConflict: 'who,measured_on,kind' });
