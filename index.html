@@ -215,10 +215,6 @@
   }
   .relay-note span{font-size:12.5px; font-weight:800;}
 
-  .cap-video{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0 4px;}
-  .cap-video video{width:100%; max-width:240px; border:2px solid var(--ink); display:block;}
-  .cap-vstate{font-size:12px; font-weight:800; color:var(--ink-soft);}
-  .cap-open-video{width:100%; margin-top:10px; border:2px solid var(--ink); display:block;}
   .duel-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:14px; max-width:520px; margin:0 auto;}
   .duel-cell{
     border:var(--px) solid var(--ink); background:var(--paper); padding:10px; text-align:center;
@@ -308,7 +304,7 @@
   /* 구간이 연달아 오면 아래 72px + 위 72px 로 사이가 144px 이 된다. 한 화면에
      제목 하나만 남는 셈이라 스크롤이 끝없이 길어진다. 앞 구간의 아래 여백을 빼서
      한 칸(72px)으로 맞춘다.
-     ※ 목록을 고칠 때는 마지막(#capsule) 앞까지 전부 들어 있는지 볼 것. 나중에
+     ※ 목록을 고칠 때는 마지막(#guest) 앞까지 전부 들어 있는지 볼 것. 나중에
         구간을 끼우면서 이 목록에 안 넣는 바람에, 메뉴↔그리기와
         도장↔숫자만 144px 로 벌어진 적이 있다(그 출석 도장 구간은 2026-09-11 에 뺐다). */
   #menu, #draw-cta, #counts, #duel, #growth, #map, #quiz{padding-bottom:0;}
@@ -316,7 +312,7 @@
   /* 메뉴 아래로는 구간이 여섯 개가 연달아 온다. 한 칸을 72px 로 두면 화면마다
      제목 하나씩만 보여서 스크롤이 길다. 이 줄부터는 52px 로 좁힌다 —
      구간이 나뉘어 보이기에는 충분하고, 다음 것이 화면 끝에 걸쳐 보인다. */
-  #draw-cta, #counts, #duel, #growth, #map, #quiz, #capsule{padding-top:52px;}
+  #draw-cta, #counts, #duel, #growth, #map, #quiz, #guest{padding-top:52px;}
 
   /* ===== 사진 퀴즈 ===== */
   .quiz-card{max-width:560px; margin:0 auto; overflow:hidden;}
@@ -335,24 +331,6 @@
   .quiz-choices button:disabled{cursor:default;}
   .quiz-msg{margin:6px 16px 16px; min-height:1.4em; font-size:14px; font-weight:800; text-align:center;}
   .quiz-msg a{color:var(--coral-ink);}
-
-  /* ===== 타임캡슐 ===== */
-  .capsule-form{max-width:560px; margin:0 auto; padding:18px 18px 16px;}
-  .cap-who{display:flex; gap:6px; margin-bottom:12px;}
-  .cap-who button{
-    flex:1; padding:8px 0; font-size:13px; font-weight:800; font-family:inherit; cursor:pointer;
-    border:2px solid var(--ink); background:var(--paper); color:var(--ink-soft);
-  }
-  .cap-who button.on{background:var(--ink); color:var(--cream);}
-  #capBody{
-    width:100%; padding:11px 12px; font-size:14px; font-family:inherit; line-height:1.6; resize:vertical;
-    border:2px solid var(--ink); background:var(--cream); color:var(--ink);
-  }
-  .cap-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px;}
-  #capCount{font-size:12px; color:var(--ink-soft); font-variant-numeric:tabular-nums;}
-  .cap-msg{margin:10px 0 0; min-height:1.2em; font-size:13px; font-weight:800; color:#2a8a4a;}
-  .cap-msg.err{color:#c0392b;}
-  .cap-locked{margin:8px 0 0; font-size:12.5px; color:var(--ink-soft);}
 
   /* 방명록 도장 */
   .guest-card{max-width:600px; margin:0 auto; padding:20px 22px;}
@@ -373,9 +351,6 @@
     flex-wrap:wrap; margin-top:16px;}
   .gb-msg{font-size:12.5px; font-weight:800; color:var(--ink-soft);}
   .gb-msg.err{color:#c0392b;}
-  .cap-open{max-width:560px; margin:0 auto 14px; padding:16px 18px; background:var(--lemon);}
-  .cap-open .from{font-size:12px; font-weight:800; color:#6a5a2a; margin-bottom:6px;}
-  .cap-open .body{margin:0; font-size:15px; line-height:1.7; white-space:pre-wrap; word-break:keep-all;}
 
   /* ===== 도트 그리기 안내 띠 ===== */
   .draw-band{display:flex; align-items:center; gap:20px; padding:20px; flex-wrap:wrap;}
@@ -681,39 +656,6 @@
       <div class="quiz-photo"><img id="quizImg" alt="퀴즈 사진"></div>
       <div class="quiz-choices" id="quizChoices"></div>
       <p class="quiz-msg" id="quizMsg"></p>
-    </div>
-  </div>
-</section>
-
-<!-- 「N년 전 오늘」의 반대 방향. 지금 쓰면 서버가 잠그고, 1년 뒤 오늘부터만 읽힌다. -->
-<section class="section-pad" id="capsule">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow pixel">TIME CAPSULE</span>
-      <h2>1년 뒤의 나에게</h2>
-      <p>지금 쓰면 잠기고, 딱 1년 뒤 오늘 여기서 열려요</p>
-    </div>
-    <div id="capsuleOpened"></div>
-    <div class="dot-card capsule-form reveal">
-      <div class="cap-who" id="capWho">
-        <button type="button" data-who="sua" class="on">수아</button>
-        <button type="button" data-who="yona">연아</button>
-        <button type="button" data-who="together">같이</button>
-      </div>
-      <textarea id="capBody" maxlength="200" rows="3" placeholder="1년 뒤의 나에게 하고 싶은 말"></textarea>
-      <!-- 영상은 로그인한 가족만. 손님에게 열면 로그인 없이 저장소를 채울 길이 생긴다. -->
-      <div class="cap-video" id="capVideoRow" hidden>
-        <button type="button" class="dot-btn small mint" id="capRec">🎬 영상으로 남기기</button>
-        <span class="cap-vstate" id="capVState"></span>
-        <video id="capVPlay" playsinline controls hidden></video>
-        <button type="button" class="dot-btn small" id="capVDrop" hidden>지우기</button>
-      </div>
-      <div class="cap-row">
-        <span id="capCount">0/200</span>
-        <button class="dot-btn small primary" id="capSend" type="button">🔒 1년 뒤에 열기</button>
-      </div>
-      <p class="cap-msg" id="capMsg"></p>
-      <p class="cap-locked" id="capLocked"></p>
     </div>
   </div>
 </section>

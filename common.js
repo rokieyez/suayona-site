@@ -469,7 +469,7 @@ function markParentWaiting(){
   waitingAsked = true;
   sb.rpc('parent_digest').then(({ data }) => {
     if (!data) return;
-    const n = (data.posts || 0) + (data.works || 0) + (data.capsules || 0);
+    const n = (data.posts || 0) + (data.works || 0);
     if (!n) return;
     const b = document.createElement('span');
     b.className = 'hdr-new pixel';
@@ -1412,79 +1412,6 @@ async function startVoiceRecorder(onTick){
     },
     cancel: () => { stop(); },
   };
-}
-
-// ---------- 영상 녹화 (타임캡슐) ----------
-// 목소리와 같은 방식인데 카메라가 붙는다. 길이를 60초로 자르는 이유는 화질보다
-// 용량이다 — 무료 저장공간이 1GB 뿐이라 긴 영상 몇 개면 금방 찬다.
-const VIDEO_TYPES = [
-  { mime: 'video/webm;codecs=vp8,opus', ext: 'webm' },
-  { mime: 'video/webm',                 ext: 'webm' },
-  { mime: 'video/mp4',                  ext: 'mp4'  },
-];
-const CAPSULE_MAX_SECS = 60;
-const CAPSULE_MAX_BYTES = 20 * 1024 * 1024;   // 20MB — 60초면 대개 5MB 안쪽이다
-
-function canRecordVideo(){
-  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) &&
-         typeof MediaRecorder !== 'undefined';
-}
-
-// preview 에 <video> 를 주면 찍는 동안 제 얼굴이 보인다.
-async function startVideoRecorder(preview, onTick){
-  let type = { mime: '', ext: 'webm' };
-  for (const t of VIDEO_TYPES) {
-    try { if (MediaRecorder.isTypeSupported(t.mime)) { type = t; break; } } catch (e) { /* 옛 브라우저는 이 호출 자체가 던진다 — 다음 형식을 본다 */ }
-  }
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
-    audio: true,
-  });
-  if (preview) {
-    preview.srcObject = stream; preview.muted = true; preview.hidden = false;
-    preview.play().catch(() => {});
-  }
-  const rec = new MediaRecorder(stream, Object.assign(
-    type.mime ? { mimeType: type.mime } : {}, { videoBitsPerSecond: 700000 }));
-  const chunks = [];
-  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-
-  let secs = 0;
-  const timer = setInterval(() => {
-    secs++;
-    if (onTick) onTick(secs);
-    if (secs >= CAPSULE_MAX_SECS) stop();
-  }, 1000);
-
-  const done = new Promise(res => { rec.onstop = () => res(); });
-  function stop(){
-    if (rec.state !== 'inactive') rec.stop();
-    clearInterval(timer);
-    stream.getTracks().forEach(t => t.stop());     // 카메라·마이크 끄기
-    if (preview) { preview.srcObject = null; preview.muted = false; }
-  }
-
-  rec.start();
-  return {
-    ext: type.ext,
-    stop: async () => {
-      stop();
-      await done;
-      return { blob: new Blob(chunks, { type: chunks[0] ? chunks[0].type : type.mime }), secs };
-    },
-    cancel: () => { stop(); },
-  };
-}
-
-async function uploadCapsuleVideo(blob, ext){
-  if (blob.size > CAPSULE_MAX_BYTES)
-    throw new Error('영상이 너무 커요 (' + Math.round(blob.size / 1048576) + 'MB). 더 짧게 찍어 주세요.');
-  const path = 'suayona/capsule/' + Date.now() + '-' +
-    Math.random().toString(36).slice(2, 8) + '.' + ext;
-  const file = new File([blob], path.split('/').pop(), { type: blob.type || 'video/webm' });
-  const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, file);
-  if (error) throw new Error('영상 올리기 실패: ' + error.message);
-  return sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 async function uploadVoice(blob, ext){

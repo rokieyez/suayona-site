@@ -172,7 +172,6 @@ const DIGEST_ROWS = [
   // 저절로 남은 초안뿐이라, 「아이가 쓴 일기」라고 부르면 부모가 헷갈린다.
   { k:'posts',    icon:'📖', label:'확인을 기다리는 일기 초안',   href:'/board.html',     unit:'편' },
   { k:'works',    icon:'🖼', label:'아이가 낸 그림이 기다려요',   href:'/portfolio.html', unit:'점' },
-  { k:'capsules', icon:'⏳', label:'오늘 열리는 1년 편지가 있어요', href:'/#capsule',       unit:'통' },
 ];
 async function renderDigest(){
   const { data, error } = await sb.rpc('parent_digest');
