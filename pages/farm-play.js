@@ -2,6 +2,9 @@
 // pages/farm.js 가 로그인한 사람에게만 받아 온다(loadPlay). 손님은 이 파일을 안 받는다.
 // 최상위 let/const 는 farm.js 것을 그대로 쓴다 — 고전 스크립트라 전역 렉시컬 환경이 하나다.
 
+// 오늘 날짜를 이 자리 시각으로. toISOString 은 협정시라 한국 00~09시에는 어제가 된다.
+function todayISO(){ const d = new Date(), z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); }
+
 /* 답을 못 받은 저장들. 창을 덮는 순간 보낸 저장은 서버에 들어가도 페이지가 얼어서 답을
    못 받을 수 있다. 그러면 판 번호가 뒤처져 다음 저장이 겹치는데, 그때 옛 기준점에서
    다시 하면 이미 올라간 수확·판매가 「못 한 일」로 버려져 돈과 작물이 줄었다.
@@ -1423,7 +1426,7 @@ async function sendSnap(cv, b){
       author: key,
       media_type: 'image',
       media_url: pub.publicUrl,
-      made_on: new Date().toISOString().slice(0, 10),
+      made_on: todayISO(),
       status: 'pending',
       written_by: user.id,
     });

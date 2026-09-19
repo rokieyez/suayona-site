@@ -3,6 +3,8 @@
 // 싣는 순서는 그대로다 — supabase → (compress) → pixel → common → 이 파일.
 
 buildChrome('home');
+// 오늘 날짜를 이 자리 시각으로. toISOString 은 협정시라 한국 00~09시에는 어제가 된다.
+function todayISO(){ const d = new Date(), z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); }
 
 // ================= 첫 화면이 함께 쓰는 조회 =================
 // 아래 조각들이 같은 표를 각자 물어보고 있었다. 「N년 전 오늘」과 「여긴 어디였을까」가
@@ -2345,7 +2347,7 @@ const belowFold = (() => {
       if (row) towerVisit[key] = ymLabel(dateOf[row.event_id]);
     });
     // 게시판 — 앞으로 올 일이 있으면 그것을, 없으면 가장 가까운 지난 일을 적는다
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayISO();
     const ahead = metas.filter(m => m.start_date && m.start_date >= today).sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
     const past = metas.filter(m => m.start_date && m.start_date < today).sort((a, b) => b.start_date.localeCompare(a.start_date))[0];
     const pick = ahead || past;
@@ -3051,8 +3053,7 @@ belowFold(async () => {
     if (editing === id) stopEdit();
     rows = []; await draw();
   });
-  const today = new Date();
-  $('#gWhen').value = today.toISOString().slice(0, 10);
+  $('#gWhen').value = todayISO();
   $('#gSave').addEventListener('click', async () => {
     const msg = $('#gMsg');
     const K = KINDS[kind];

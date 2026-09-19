@@ -10,6 +10,8 @@ buildChrome('life');
 
 (function(){
   'use strict';
+  // 오늘 날짜를 이 자리 시각으로. toISOString 은 협정시라 한국 00~09시에는 어제가 된다.
+  function todayISO(){ const d = new Date(), z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); }
   const q = s => document.querySelector(s);
   const STILL = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const RW = 512, RH = 330, FLOOR = 296, PX_PER_CM = 1.2, INK = '#2f2a24';
@@ -243,7 +245,7 @@ buildChrome('life');
   }
   function birthday(){
     const k = KIDS.filter(isBirthday)[0]; if (!k || !fam) return;
-    const tag = new Date().toISOString().slice(0, 10) + k; let seen = ''; try { seen = localStorage.getItem('life_bday') || ''; localStorage.setItem('life_bday', tag); } catch (e) { /* 저장이 막히면 올 때마다 축하한다 */ }
+    const tag = todayISO() + k; let seen = ''; try { seen = localStorage.getItem('life_bday') || ''; localStorage.setItem('life_bday', tag); } catch (e) { /* 저장이 막히면 올 때마다 축하한다 */ }
     if (seen === tag) return;
     if (k !== sel) pick(k);
     bubbleNow = null; cele = { k, text: '🎂 ' + KID_NAME[k] + ' 생일 축하해요! Lv.' + ageYears(k, now()) + (typeof josa === 'function' ? josa(String(ageYears(k, now())), '이', '가') : '가') + ' 됐어요', until: now() + 6000 };
@@ -611,7 +613,7 @@ buildChrome('life');
           '<span class="stat-bar" style="--c:var(--lemon); display:block; margin:6px 0 4px;"><i style="width:' + Math.round(f * 100) + '%"></i></span><small>' + (s.t ? dd.getFullYear() + '.' + String(dd.getMonth() + 1).padStart(2, '0') + ' 에 이루었어요! 퀘스트 ' + d.target + '개를 해냈어요' : '퀘스트 ' + s.n + ' / ' + d.target + (s.open ? ' · 하는 중 ' + s.open + '개' : isAdmin ? ' · 「＋ 퀘스트 내기」에서 이 꿈에 달 수 있어요' : '')) + '</small>' +
           (isAdmin ? ' <button type="button" class="goal-x" data-drop="' + d.id + '" aria-label="이 꿈 지우기">지우기</button>' : '') + '</div>'; }).join('') : '<p class="life-nick" style="margin:0;">아직 세운 꿈이 없어요. 큰 목표를 하나 세우고 작은 퀘스트로 채워 가요.</p>');
     const ab = q('#drAdd'); if (ab) ab.addEventListener('click', () => { addingDream = !addingDream; renderDreams(); });
-    const fm = q('#drForm'); if (fm) fm.addEventListener('submit', e => { e.preventDefault(); const f = new FormData(fm), title = String(f.get('title') || '').trim(); if (!title) return;
+    const fm = q('#drForm'); if (fm) fm.addEventListener('submit', e => { e.preventDefault(); const f = new FormData(fm), title = String(f.get('title') || '').trim(); if (!title || sending) return; sending = true;
       sb.from('life_dreams').insert({ who: f.get('who'), title: title.slice(0, 80), target: Math.max(2, Math.min(30, Number(f.get('target')) || 5)) }).select('id').then(res => { addingDream = false; after('🌟 꿈을 세웠어요')(res); }, fail); });
     box.querySelectorAll('[data-drop]').forEach(b => b.addEventListener('click', () => { if (window.confirm('이 꿈 목표를 지울까요? 달려 있던 퀘스트는 그대로 남아요.')) sb.from('life_dreams').delete().eq('id', Number(b.dataset.drop)).select('id').then(after('꿈 목표를 지웠어요'), fail); }));
   }
@@ -623,7 +625,7 @@ buildChrome('life');
   function renderBoard(){
     const box = q('#lifeBoard'); if (!box) return;
     box.hidden = !!replay; if (box.hidden) return;                       // 퀘스트 목록은 손님에게도(2026-09-17 부모 요청) — 단추는 가족에게만
-    const mine = quests.filter(x => x.who === sel || x.who === 'both' || x.who === 'family'), today = dayOf(new Date().toISOString().slice(0, 10));
+    const mine = quests.filter(x => x.who === sel || x.who === 'both' || x.who === 'family'), today = dayOf(todayISO());
     const canClaim = x => isChild && me && (x.who === me.author_key || x.who === 'both' || x.who === 'family');
     const item = x => {
       const s = statOf(x.stat), late = x.status !== 'done' && x.due_on && dayOf(x.due_on) < today - DAY;
@@ -658,18 +660,21 @@ buildChrome('life');
     const add = q('#qbAdd'); if (add) add.addEventListener('click', () => { adding = !adding; renderBoard(); });
     box.querySelectorAll('[data-idea]').forEach(b => b.addEventListener('click', () => { const t = QUEST_IDEAS[Number(b.dataset.idea)], f = q('#qbForm'); if (!f) return; f.title.value = t[0]; f.stat.value = t[1]; f.xp.value = String(t[2]); f.repeat.value = t[3] || ''; f.title.focus(); }));
     const form = q('#qbForm'); if (form) form.addEventListener('submit', e => {
-      e.preventDefault(); const f = new FormData(form), title = String(f.get('title') || '').trim(); if (!title) return;
+      e.preventDefault(); const f = new FormData(form), title = String(f.get('title') || '').trim(); if (!title || sending) return; sending = true;
       sb.from('life_quests').insert({ who: f.get('who'), stat: f.get('stat'), title: title.slice(0, 80), xp: Number(f.get('xp')), due_on: f.get('due') || null, repeat: f.get('repeat') || null, dream_id: Number(f.get('dream')) || null }).select('id').then(after('퀘스트를 냈어요 📜'), fail);
     });
     const pf = q('#qbPropose'); if (pf) pf.addEventListener('submit', e => {
-      e.preventDefault(); const f = new FormData(pf), title = String(f.get('title') || '').trim(); if (!title) return;
+      e.preventDefault(); const f = new FormData(pf), title = String(f.get('title') || '').trim(); if (!title || sending) return; sending = true;
       sb.from('life_quests').insert({ who: me.author_key, stat: f.get('stat'), title: title.slice(0, 80), xp: 10, status: 'proposed' }).select('id').then(after('💡 제안을 보냈어요 — 엄마 아빠가 보면 퀘스트가 돼요'), fail);
     });
     if (isChild){ try { localStorage.setItem('life_seen', new Date().toISOString()); sessionStorage.removeItem('life_wait'); } catch (e) { /* 저장이 막히면 메뉴의 점이 남을 뿐이다 */ } }
   }
   // RLS 에 막힌 update 는 오류 없이 0줄이다 — 돌아온 줄 수로 성공을 가린다
-  const fail = () => say('저장하지 못했어요 — 잠시 뒤 다시 해 주세요');
+  // 새 줄을 넣는 폼 셋은 답이 올 때까지 다시 받지 않는다 — 두 번 누르면 같은 꿈·퀘스트가 두 줄 들어갔다.
+  let sending = false;
+  const fail = () => { sending = false; say('저장하지 못했어요 — 잠시 뒤 다시 해 주세요'); };
   const after = (okMsg, then) => res => {
+    sending = false;
     if (res.error){ say(/까지예요|누를 수/.test(res.error.message || '') ? res.error.message : '저장하지 못했어요 — 로그인한 계정을 확인해 주세요'); return; }
     if (!res.data || !res.data.length){ say('바뀐 것이 없어요 — 이미 처리됐거나 권한이 없어요'); return; }
     noting = null; adding = false; try { sessionStorage.removeItem('life_wait'); } catch (e) { /* 점이 10분 늦게 바뀔 뿐 */ }
@@ -720,7 +725,7 @@ buildChrome('life');
     return c;
   }
   function saveCard(){
-    const c = cardCanvas(sel), name = 'suayona-life-' + sel + '-' + new Date().toISOString().slice(0, 10) + '.png';
+    const c = cardCanvas(sel), name = 'suayona-life-' + sel + '-' + todayISO() + '.png';
     return new Promise(res => c.toBlob(blob => {
       if (!blob){ say('카드를 만들지 못했어요'); return res(false); }
       const file = new File([blob], name, { type: 'image/png' });
@@ -781,10 +786,11 @@ buildChrome('life');
 
   // ---------- 불러오기 — 부른 사람이 볼 수 있는 줄만 온다(RLS). 표마다 필요한 열만 ----------
   async function load(){
+    loadErr = false;
     fam = !!(isLoggedIn && me);
     if (fam){ try { born = await loadKids(); } catch (e) { born = {}; } }
     if (!loaded && isChild && me && KIDS.includes(me.author_key)) sel = me.author_key;
-    const ask = (t, cols, f) => { let r = sb.from(t).select(cols); if (f) r = f(r); return r.then(x => x.error ? [] : x.data || []).catch(() => { loadErr = true; return []; }); };
+    const ask = (t, cols, f) => { let r = sb.from(t).select(cols); if (f) r = f(r); return r.then(x => { if (x.error){ loadErr = true; return []; } return x.data || []; }).catch(() => { loadErr = true; return []; }); };
     const [works, posts, runs, honors, grow, wclaps, hclaps, qrows, drows] = await Promise.all([
       ask('works', 'id, author, media_type, title, made_on, created_at', r => r.eq('status', 'published')),
       ask('posts', 'author, title, happened_on, created_at', r => r.eq('status', 'published')),

@@ -348,7 +348,16 @@ $('#fQuick').addEventListener('click', e => {
   $('#fEnd').value = hhmm(Math.min(23 * 60 + 59, from + (+b.dataset.len)));
 });
 
-$('#fSave').addEventListener('click', async () => {
+// 저장이 도는 동안 단추를 잠근다 — 두 번 누르면 같은 줄이 두 개 들어갔다.
+function lockWhile(btn, fn){
+  return async function(ev){
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try { await fn.call(this, ev); } finally { btn.disabled = false; }
+  };
+}
+
+$('#fSave').addEventListener('click', lockWhile($('#fSave'), async () => {
   const msg = $('#fMsg');
   const title = $('#fTitle').value.trim();
   if (!title) { msg.className = 'msg err'; msg.textContent = '이름을 적어주세요.'; return; }
@@ -421,7 +430,7 @@ $('#fSave').addEventListener('click', async () => {
 
   closeSheet();
   await load();
-});
+}));
 
 $('#fDel').addEventListener('click', async () => {
   if (!editing) return;
@@ -548,6 +557,13 @@ async function load(){
   const { data, error } = await sb.from('schedules').select('*');
   all = error ? [] : (data || []);
   render();
+  // 못 읽은 것을 「비어 있어요, 채워보세요」로 보여 주면 부모가 있는 시간표를 다시 넣게 된다.
+  if (error) {
+    console.error('시간표 로딩 오류:', error);
+    $('#tools').innerHTML = '';
+    $('#hint').textContent = '시간표를 불러오지 못했어요 — 인터넷을 확인하고 새로 고쳐 주세요.';
+    return;
+  }
 
   $('#tools').innerHTML = isAdmin
     ? '<button class="dot-btn primary small" id="addBtn">＋ 일정 넣기</button>' +

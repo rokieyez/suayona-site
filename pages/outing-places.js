@@ -326,6 +326,7 @@ function dateText(d){
 async function load(){
   const { data, error } = await sb.from('places').select('*')
     .order('created_at', { ascending: false });
+  window.outingPlacesFailed = !!error;      // 못 읽은 것과 없는 것을 가른다
   if (error) { console.error('가볼 곳 로딩 오류:', error); PLACES = []; return; }
   PLACES = data || [];
 }
@@ -511,7 +512,8 @@ function drawCards(){
   const list = shown();
   if (!list.length){
     box.innerHTML = '<p class="empty-msg">' +
-      (PLACES.length ? '고른 조건에 맞는 곳이 없습니다' : '아직 적어 둔 곳이 없습니다') + '</p>';
+      (window.outingPlacesFailed ? '장소를 불러오지 못했어요 — 인터넷을 확인하고 새로 고쳐 주세요'
+        : PLACES.length ? '고른 조건에 맞는 곳이 없습니다' : '아직 적어 둔 곳이 없습니다') + '</p>';
     $('#moreBox').hidden = true;
     return;
   }

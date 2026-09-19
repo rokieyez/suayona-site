@@ -358,7 +358,10 @@ async function buildStashBox(){
     box.querySelectorAll('[data-stash]').forEach(c => { c.checked = 켤까; });
   });
 
-  box.querySelector('.stash-go').addEventListener('click', async () => {
+  // 담는 동안 단추를 잠근다 — 두 번 누르면 같은 곳이 places 에 두 번 들어갔다.
+  const goBtn = box.querySelector('.stash-go');
+  goBtn.addEventListener('click', async () => {
+    if (goBtn.disabled) return;
     const 고른 = [...box.querySelectorAll('[data-stash]')]
       .filter(c => c.checked).map(c => 남은[+c.dataset.stash]);
     if (!고른.length) { msg.textContent = '담을 곳을 골라 주세요.'; return; }
@@ -379,7 +382,10 @@ async function buildStashBox(){
     }));
 
     msg.textContent = '담는 중...';
-    const { data: 넣은것, error: err } = await sb.from('places').insert(rows).select();
+    goBtn.disabled = true;
+    const { data: 넣은것, error: err } = await sb.from('places').insert(rows).select()
+      .then(r => r, e => ({ data: null, error: e }));
+    goBtn.disabled = false;
     if (err) { msg.textContent = '담지 못했습니다: ' + err.message; return; }
     if (!넣은것 || !넣은것.length) { msg.textContent = '담기지 않았습니다 (권한 확인)'; return; }
     msg.textContent = 넣은것.length + '군데를 담았습니다.';

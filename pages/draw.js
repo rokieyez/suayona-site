@@ -3,6 +3,8 @@
 // 싣는 순서는 그대로다 — supabase → (compress) → pixel → common → 이 파일.
 
 buildChrome('draw');
+// 오늘 날짜를 이 자리 시각으로. toISOString 은 협정시라 한국 00~09시에는 어제가 된다.
+function todayISO(){ const d = new Date(), z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); }
 // 배포 직후 10분은 옛 common.js 와 짝이 될 수 있어 없으면 열쇠 그대로 둔다.
 const NM = k => (typeof heroName === 'function' ? heroName(k) : k);
 
@@ -458,7 +460,7 @@ $('#toWork').addEventListener('click', async () => {
       author: myKey,
       media_type: 'image',
       media_url: pub.publicUrl,
-      made_on: new Date().toISOString().slice(0, 10),
+      made_on: todayISO(),
       status: 'pending',
       written_by: user.id,
     });

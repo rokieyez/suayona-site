@@ -103,6 +103,8 @@ async function fetchRegistryEvents(){
   let q = sb.from('event_meta').select('*').not('start_date', 'is', null).not('end_date', 'is', null);
   if (!isAdmin) q = q.eq('is_public', true);
   const { data, error } = await q;
+  // 못 읽은 것을 「없다」로 보여 주면 안 된다 — 표시를 남겨 빈 자리 문구가 바뀌게 한다.
+  window.outingTripsFailed = !!error;
   if (error) { console.error('이벤트 목록 로딩 오류:', error); return []; }
   const rows = data.filter(r => !legacySlugs.has(r.event_id));
 
@@ -168,8 +170,10 @@ async function renderEvents(force){
   TRIP_COUNT = allEvents.length;
   // 「전체」에서는 진행중·예정이 없으면 그 칸을 통째로 접는다 — 빈 안내가 장소 목록을 밀어낸다.
   const brief = currentTab() === 'all';
-  $('#current-section').style.display = (brief && !current.length) ? 'none' : 'block';
-  currentList.innerHTML = current.length ? current.map(c => tripCardHTML(c.ev, c.status)).join('') : '<div class="empty">진행중이거나 예정된 나들이가 없습니다</div>';
+  const failed = !!window.outingTripsFailed;
+  $('#current-section').style.display = (brief && !current.length && !failed) ? 'none' : 'block';
+  currentList.innerHTML = current.length ? current.map(c => tripCardHTML(c.ev, c.status)).join('')
+    : '<div class="empty" role="status">' + (failed ? '나들이를 불러오지 못했어요 — 인터넷을 확인하고 새로 고쳐 주세요' : '진행중이거나 예정된 나들이가 없습니다') + '</div>';
   $('#past-section').style.display = past.length ? 'block' : 'none';
   // 지난 기록은 여섯 장까지만 먼저 보이고, 나머지는 단추를 눌러 여섯 장씩 더 편다(부모 요청).
   // 「전체」와 「나들이 기록」 어느 탭에서나 같다.
@@ -229,18 +233,31 @@ function loadTripPins(events){
 
 // ----- 이벤트 삭제 (2단계 확인: 🗑 클릭 → 인라인 확인 → 삭제 버튼 클릭) -----
 async function deleteEvent(slug){
-  const buckets = ['event-images', 'gallery-uploads'];
-  for (const bucket of buckets) {
-    const { data: files } = await sb.storage.from(bucket).list(slug, { limit: 1000 });
-    if (files && files.length) {
-      const paths = files.map(f => slug + '/' + f.name);
-      await sb.storage.from(bucket).remove(paths);
+  // 줄을 먼저 지우고 파일을 나중에 치운다(common.js 의 removeStored 와 같은 순서) — 거꾸로 하면
+  // 줄 지우기가 막혔을 때 사진 없는 나들이가 남는다. 단계마다 결과를 본다: 전에는 중간 실패를
+  // 버렸고, RLS 에 막힌 delete 는 오류 없이 0줄이라 「지웠다」고 나왔다.
+  const must = (res, what) => { if (res.error) throw new Error(what + ': ' + res.error.message); return res; };
+
+  // 이 나들이에 이어 둔 장소·작품은 남기고 끈만 푼다.
+  must(await sb.from('places').update({ event_id: null }).eq('event_id', slug), '장소 연결 풀기');
+  must(await sb.from('works').update({ event_id: null }).eq('event_id', slug), '작품 연결 풀기');
+  must(await sb.from('custom_tabs').delete().eq('event_id', slug), '탭 지우기');
+  must(await sb.from('events').delete().eq('event_id', slug), '일정 지우기');
+  must(await sb.from('gallery_media').delete().eq('event_id', slug), '사진 줄 지우기');
+  const meta = must(await sb.from('event_meta').delete().eq('event_id', slug).select('event_id'), '나들이 지우기');
+  if (!meta.data || !meta.data.length) throw new Error('지워지지 않았어요 — 부모 계정인지 확인해 주세요');
+
+  // 파일은 천 개씩 끝까지. 여기서 실패해도 화면은 멀쩡하고, 남은 파일은 작품전시실의 「치우기」가 거둔다.
+  for (const bucket of ['event-images', 'gallery-uploads']) {
+    for (let round = 0; round < 20; round++) {
+      const { data: files, error } = await sb.storage.from(bucket).list(slug, { limit: 1000 });
+      if (error) { console.warn('파일 목록 실패:', bucket, error.message); break; }
+      const paths = (files || []).filter(f => f.id).map(f => slug + '/' + f.name);
+      if (!paths.length) break;
+      const rm = await sb.storage.from(bucket).remove(paths);
+      if (rm.error) { console.warn('파일 치우기 실패:', bucket, rm.error.message); break; }
     }
   }
-  await sb.from('events').delete().eq('event_id', slug);
-  await sb.from('gallery_media').delete().eq('event_id', slug);
-  const { error } = await sb.from('event_meta').delete().eq('event_id', slug);
-  if (error) throw error;
 }
 
 $('#content').addEventListener('click', async (e) => {
