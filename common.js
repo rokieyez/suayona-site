@@ -268,6 +268,8 @@ function buildChrome(activeKey){
           '>' + m.label + '</a>'
         ).join('') +
       '</nav>' +
+      // 찾기 — 누구에게나 보인다. 작품·일기·자랑·나들이·장소를 한 칸에서(find.html).
+      '<a class="hdr-icon hdr-find' + (activeKey === 'find' ? ' active' : '') + '" href="/find.html" title="찾기" aria-label="찾기">🔍</a>' +
       '<button class="hdr-auth" id="hdrAuth" aria-label="로그인">로그인</button>' +
       PRIVATE_LINKS.map(L =>
         '<a class="hdr-icon' + (L.key === activeKey ? ' active' : '') + '"' +

@@ -103,6 +103,48 @@ const belowFold = (() => {
   document.getElementById('memory').hidden = false;
 })().catch(() => {});                            // 이건 덤이다 — 실패해도 홈은 홈이어야 한다
 
+// ================= 새 소식 띠 — 지난번 들른 뒤로 새로 올라온 것 =================
+// 업적전시실의 「새 자랑 점」(common.js markNewHonors)과 같은 생각을 작품·일기·상장·사진·장소로 넓혔다.
+// 마지막으로 들른 때는 이 브라우저에만 적어 둔다(localStorage) — 서버는 누가 언제 왔는지 모른다.
+// 이번에 둘러보는 동안에는 띠가 그대로 있어야 하므로 기준 시각을 sessionStorage 에 붙들어 둔다:
+// 안 그러면 첫 화면을 다시 열자마자 「방금」이 기준이 되어 띠가 사라진다.
+// 손님에게는 RLS 가 공개된 것만 세어 준다 — 비공개 일기가 숫자로 새지 않는다.
+(async function freshBand(){
+  const KEY = 'home_last_visit', now = new Date().toISOString();
+  let since = null;
+  try {
+    since = sessionStorage.getItem('home_since') || localStorage.getItem(KEY);
+    if (since) sessionStorage.setItem('home_since', since);
+    localStorage.setItem(KEY, now);
+  } catch (e) { return; }                       // 저장이 막힌 브라우저 — 띠 없이 간다
+  if (!since || isNaN(Date.parse(since))) return;  // 처음 온 사람에게는 전부 새것이라 뜻이 없다
+
+  const KINDS = [
+    { t:'works',         icon:'🖼', label:'작품', unit:'점', href:'/portfolio.html', f: q => q.eq('status', 'published') },
+    { t:'posts',         icon:'📔', label:'일기', unit:'편', href:'/board.html',     f: q => q.eq('status', 'published') },
+    { t:'honors',        icon:'🏅', label:'자랑', unit:'개', href:'/honors.html',    f: q => q },
+    { t:'gallery_media', icon:'📷', label:'나들이 사진', unit:'장', href:'/event/',  f: q => q },
+    { t:'places',        icon:'📍', label:'장소', unit:'곳', href:'/event/#want',    f: q => q },
+  ];
+  let counts = null;
+  try { const c = JSON.parse(sessionStorage.getItem('home_fresh') || 'null'); if (c && c.since === since && Date.now() - c.at < 10 * 60 * 1000) counts = c.n; } catch (e) { /* 다시 세면 된다 */ }
+  if (!counts) {
+    const got = await Promise.all(KINDS.map(k =>
+      k.f(sb.from(k.t).select('id', { count: 'exact', head: true }).gt('created_at', since))
+        .then(r => (r.error ? 0 : r.count || 0), () => 0)));
+    counts = got;
+    try { sessionStorage.setItem('home_fresh', JSON.stringify({ since, at: Date.now(), n: counts })); } catch (e) { /* 위와 같다 */ }
+  }
+  if (!counts.some(n => n > 0)) return;
+
+  const d = new Date(since), days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  const when = days <= 0 ? '오늘 들른 뒤로' : days === 1 ? '어제 들른 뒤로' : (d.getMonth() + 1) + '월 ' + d.getDate() + '일에 들른 뒤로';
+  $('#freshWhen').textContent = when + ' 새로 올라왔어요';
+  $('#freshList').innerHTML = KINDS.map((k, i) => counts[i] > 0
+    ? '<a href="' + k.href + '">' + k.icon + ' ' + k.label + ' <b>' + Number(counts[i]) + '</b>' + k.unit + '</a>' : '').join('');
+  $('#fresh').hidden = false;
+})().catch(() => {});                            // 이것도 덤이다 — 실패해도 홈은 홈이어야 한다
+
 // ================= 히어로 도트 풍경 =================
 (function(){
   const canvas = $('#heroCanvas');

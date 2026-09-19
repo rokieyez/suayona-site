@@ -144,6 +144,16 @@
   }
 
   /* ===== N년 전 오늘 ===== */
+  /* 새 소식 띠 — 한 줄짜리. 좁은 화면에서는 칩이 아래로 흐른다. */
+  #fresh{padding:22px 0 0;}
+  .fresh-band{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; max-width:760px; margin:0 auto; padding:12px 16px; background:#fff;}
+  .fresh-head{font-size:11px; padding:3px 7px; background:var(--lemon); border:2px solid var(--ink); line-height:1;}
+  .fresh-when{font-size:13px; font-weight:800;}
+  .fresh-list{display:flex; flex-wrap:wrap; gap:6px 8px;}
+  .fresh-list a{font-size:13px; padding:6px 10px; min-height:32px; display:inline-flex; align-items:center; gap:5px;
+    color:var(--ink); text-decoration:none; background:var(--cream, #fffaf2); border:2px solid var(--ink);}
+  .fresh-list a b{color:var(--coral-ink);}
+  .fresh-list a:hover, .fresh-list a:focus-visible{background:var(--lemon);}
   #memory{padding-bottom:0;}          /* 아래 메뉴 구간이 이미 위 여백을 가진다 */
   .mem-card{display:flex; gap:0; max-width:560px; margin:0 auto; text-decoration:none;
     color:inherit; overflow:hidden; align-items:stretch;}
@@ -408,6 +418,18 @@
     <button class="dot-btn small primary" type="submit">짓기</button>
   </form>
   <div class="scroll-cue pixel">▼ SCROLL</div>
+</section>
+
+<!-- 지난번 들른 뒤로 새로 올라온 것. 가끔 들르는 친척이 「뭐가 새로 생겼지?」를 찾아 헤매지 않게.
+     처음 온 사람, 새것이 없는 날에는 나타나지 않는다(pages/index.js 의 「새 소식 띠」). -->
+<section id="fresh" hidden aria-label="새로 올라온 것">
+  <div class="wrap">
+    <div class="fresh-band dot-card">
+      <span class="fresh-head pixel">NEW</span>
+      <span class="fresh-when" id="freshWhen"></span>
+      <span class="fresh-list" id="freshList"></span>
+    </div>
+  </div>
 </section>
 
 <!-- N년 전 오늘. 오늘 날짜와 같은 월·일에 찍은 사진이 있을 때만 나타난다.

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>찾기 · 수아랑 연아랑</title>
+<meta name="description" content="작품·일기·자랑·나들이·장소를 한 칸에서 찾아요.">
+<!-- 찾은 결과는 보는 사람마다 다르다(로그인하면 비공개 글도 나온다). 검색에 올리지 않는다. -->
+<meta name="robots" content="noindex, nofollow">
+
+<link rel="preload" href="/fonts/PretendardVariable.subset.woff2" as="font" type="font/woff2" crossorigin>
+<link href="/fonts/dot.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .find-wrap{max-width:720px; margin:0 auto;}
+  .find-box{display:flex; gap:8px; align-items:stretch;}
+  .find-box input{flex:1; min-width:0; font-size:16px; padding:13px 14px;}   /* 16px — 아이폰이 확대하지 않게 */
+  .find-box .dot-btn{flex:0 0 auto;}
+  .find-kinds{display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 0;}
+  .find-kinds button{font:inherit; font-size:13px; padding:7px 11px; min-height:34px; cursor:pointer;
+    color:var(--ink); background:#fff; border:2px solid var(--ink);}
+  .find-kinds button[aria-pressed="true"]{background:var(--lemon); font-weight:800;}
+  .find-kinds button:disabled{opacity:.45; cursor:default;}
+  .find-kinds button:focus-visible{outline:3px solid var(--ink); outline-offset:2px;}
+  .find-note{font-size:13px; color:var(--ink-soft); margin:16px 2px 10px; min-height:1.4em;}
+  .find-note.err{color:#c0392b;}
+
+  .find-try{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
+  .find-try button{font:inherit; font-size:13px; padding:6px 10px; min-height:32px; cursor:pointer;
+    color:var(--ink); background:var(--cream); border:2px dashed var(--ink-soft);}
+  .find-try button:hover, .find-try button:focus-visible{background:var(--lemon); border-style:solid; border-color:var(--ink);}
+
+  .find-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px;}
+  .find-row{display:flex; gap:12px; align-items:center; padding:10px 12px; text-decoration:none; color:var(--ink); background:#fff;}
+  .find-row:hover, .find-row:focus-visible{background:var(--paper);}
+  .find-thumb{flex:0 0 56px; width:56px; height:56px; border:2px solid var(--ink); background:var(--cream);
+    display:flex; align-items:center; justify-content:center; font-size:24px; overflow:hidden;}
+  .find-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .find-main{flex:1; min-width:0;}
+  .find-meta{font-size:11.5px; font-weight:800; color:var(--ink-soft); display:flex; flex-wrap:wrap; gap:4px 8px;}
+  .find-meta .k{color:var(--coral-ink);}
+  .find-title{font-size:15px; font-weight:800; line-height:1.45; margin:2px 0; word-break:break-word;}
+  .find-snip{font-size:13px; line-height:1.6; color:var(--ink-soft); word-break:break-word;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .find-row mark{background:var(--lemon); color:inherit; padding:0 1px;}
+  .find-more{display:block; margin:16px auto 0;}
+</style>
+</head>
+<body>
+
+<main class="section-pad page-top">
+  <div class="wrap find-wrap">
+    <div class="section-head">      <!-- reveal 을 달지 않는다 — 찾으러 온 쪽은 바로 보여야 한다 -->
+      <span class="eyebrow pixel">FIND</span>
+      <h1>찾기</h1>
+      <p>작품·일기·자랑·나들이·장소를 한 칸에서 찾아요</p>
+    </div>
+
+    <form class="find-box" id="findForm" role="search">
+      <label class="sr-only" for="q" style="position:absolute; left:-9999px;">찾을 말</label>
+      <input id="q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off"
+             maxlength="40" placeholder="제주, 수영, 그림 제목 …">
+      <button class="dot-btn primary" type="submit">찾기</button>
+    </form>
+
+    <div class="find-kinds" id="kinds" role="group" aria-label="종류로 거르기"></div>
+    <p class="find-note" id="note" role="status" aria-live="polite">불러오는 중…</p>
+    <div class="find-try" id="tryBox" hidden></div>
+
+    <ul class="find-list" id="list"></ul>
+    <button class="dot-btn find-more" id="more" type="button" hidden>더 보기</button>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
+        crossorigin="anonymous"></script>
+<script src="./common.js"></script>
+<script src="/pages/find.js"></script>
+</body>
+</html>
