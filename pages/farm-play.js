@@ -185,9 +185,9 @@ function syncTop(){
   const fc = R.forecast ? R.forecast(W, now()) : null;
   cw.textContent = R.WEATHER[wk].icon + ' ' + R.WEATHER[wk].name + ' · ' + when + (cal.lastDay ? ' · 축제!' : '')
     + (fc ? ' · 내일 ' + fc.icon : '');
-  // 진짜 자양동 날씨를 받아 온 날은 그렇다고 알려 준다 — 창밖과 화면이 같다는 걸 알아야 재밌다
+  // 진짜 서울 날씨를 받아 온 날은 그렇다고 알려 준다 — 창밖과 화면이 같다는 걸 알아야 재밌다
   const real = R.skyOf ? R.skyOf(R.dayKey(now())) : null;
-  cw.title = (real ? '서울 자양동 오늘 날씨예요' + (fc ? ' · ' : '') : '') + (fc ? '내일은 ' + fc.name : '');
+  cw.title = (real ? '서울 오늘 날씨예요' + (fc ? ' · ' : '') : '') + (fc ? '내일은 ' + fc.name : '');
   cw.classList.toggle('night', night);
   const mx = R.maxEnergy(W, M);
   $('#enFill').style.width = Math.round(100 * M.energy / mx) + '%'; $('#enText').textContent = M.energy + '/' + mx;

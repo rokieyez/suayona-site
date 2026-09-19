@@ -14,7 +14,11 @@ const OFFLINE = '/offline.html';
 // 사람에게도 미리 담아 둔다. 하나라도 없으면 addAll 은 통째로 실패하므로 한 장씩 담고 실패는 넘긴다.
 const PRECACHE = [OFFLINE, '/draw.html', '/pages/draw.js', '/mine.html', '/pages/mine.js',
                   '/games.html', '/pages/games.js', '/run.html', '/pages/run-page.js', '/pages/run.js',
-                  '/pixel.js', '/common.js', '/style.css'];
+                  '/pixel.js', '/common.js', '/style.css',
+                  // 글꼴도 같이 — 빠져 있어서, 첫 방문 직후 신호가 끊기면 놀이가 기본 글꼴로 떴다.
+                  // 어느 쪽이든 어차피 받는 파일들이라 더 받는 것은 없다.
+                  '/fonts/dot.css', '/fonts/Galmuri11.subset.woff2', '/fonts/Galmuri11-Bold.subset.woff2',
+                  '/fonts/PretendardVariable.subset.woff2'];
 
 // 담아 둘 수 있는 최대 벌수. 캐시는 주소가 한 글자만 달라도 다른 자리를 차지하는데,
 // 이 사이트의 주소에는 ?tab=, ?work=, ?year= 처럼 뜻이 있는 꼬리표가 붙는다. 그래서

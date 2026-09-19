@@ -98,7 +98,7 @@ async function boot(){
     initReveal();
   }
 }
-/* 진짜 하늘 받아 오기 — 대한민국 서울 자양동. 열쇠 없이 좌표만 주면 되는 open-meteo 를 쓴다.
+/* 진짜 하늘 받아 오기 — 서울. 열쇠 없이 좌표만 주면 되는 open-meteo 를 쓴다.
    지난 사흘과 앞으로 사흘을 함께 받는다: 지난 날은 하루가 늦게 열렸을 때, 앞날은 일기예보에 쓴다.
    신호가 없거나 4초가 넘으면 그냥 포기한다 — 그러면 규칙이 날짜로 날씨를 지어낸다. */
 const SKY_KEEP = 'suayona.farm.sky';
@@ -131,7 +131,7 @@ async function loadSky(){
   const today = R.dayKey(now());
   const kept = keptSky();
   if (kept) return kept;
-  const at = R.SKY_AT || { lat: 37.5340, lng: 127.0823 };
+  const at = R.SKY_AT || { lat: 37.53, lng: 127.08 };
   const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + at.lat + '&longitude=' + at.lng +
     '&daily=weather_code,wind_speed_10m_max,sunrise,sunset&timezone=Asia%2FSeoul&past_days=3&forecast_days=4';
   const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 4000);
@@ -654,7 +654,6 @@ function drawPeddler(t){
   art(SHOPKEEP, X + 60, G - 30 - bob, PEDPAL, true);
   px(X + 60, G - 32 - bob, 20, 3, '#5f3f96');     // 챙
 }
-function beastW(kind){ return (BEAST[kind] || BEAST.chicken).w; }
 // 도감·카드에서도 쓰는 그림. s 는 도트 한 개의 크기.
 function drawAnimalAt(g, kind, X, Y, s, flip, k){
   const B = BEAST[kind] || BEAST.chicken;
@@ -1055,9 +1054,6 @@ function ditherRow(X, Y, w, c, amt, row, P){
   for (let x = 0; x < w; x++){
     if (BAYER[r4 * 4 + (((X + x) % 4) + 4) % 4] < th) put(X + x, Y, 1, 1, c);
   }
-}
-function ditherRect(X, Y, w, h, c, amt, P){
-  for (let y = 0; y < h; y++) ditherRow(X, Y + y, w, c, amt, Y + y, P);
 }
 
 // ---------- 건물 ----------
@@ -1861,7 +1857,6 @@ function yardPoint(kind){
   if (y.home) return nearTile(y.home, 2);
   return { x: y.x + Math.random() * y.w, y: y.y + Math.random() * y.h };
 }
-function inYard(y, p){ return { x: Math.max(y.x, Math.min(y.x + y.w, p.x)), y: Math.max(y.y, Math.min(y.y + y.h, p.y)) }; }
 function ensureActors(){
   if (!walkers){
     const h = spot('house');

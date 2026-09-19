@@ -2231,3 +2231,95 @@ language sql stable security invoker set search_path = public as $$
     'life_xp',  (select coalesce(sum(xp), 0) from life_quests where status = 'done' and who in (p_who, 'both', 'family'))
   );
 $$;
+
+
+-- ============================================================================
+-- 2026-09-19 — 저장소 쓰임새를 DB 가 답한다 · 캡슐을 걷는다 · 옛 느슨한 정책을 못 박아 지운다
+-- ============================================================================
+
+-- (1) 이 파일 맨 위의 두 정책은 실제 DB 에는 없다(family/parent 정책으로 바뀌었다). 그런데 파일에는
+--     지우는 줄이 없어서, 이 파일을 처음부터 다시 돌리면 아이 계정이 모든 작품·글을 고치고 지울 수 있게 된다.
+drop policy if exists "authenticated can write works" on works;
+drop policy if exists "authenticated can write posts" on posts;
+
+-- (2) 저장소 파일이 「어디에든 적혀 있는지」. 치우기 단추(common.js findUnusedFiles)와 백업(tools/backup.mjs)이 부른다.
+--     전에는 두 도구가 각자 「주소가 든 칸」 목록을 들고 있었고, 그 목록이 honors·places·목소리 일기를
+--     따라가지 못해 살아 있는 사진 115개를 안 쓰는 파일로 셌다. public 의 모든 표를 글자로 바꿔 파일 이름을
+--     찾으므로 표가 늘어도 낡지 않는다. 이름에 낯선 글자가 든 파일은 무조건 「쓰임」으로 둔다.
+create or replace function public.storage_file_usage()
+returns table(bucket text, name text, size bigint, created_at timestamptz, is_public boolean, used boolean)
+language plpgsql security definer set search_path = '' as $$
+declare
+  blob text := '';
+  part text;
+  t record;
+begin
+  if (select public.my_role()) is distinct from 'parent' then
+    raise exception '부모만 쓸 수 있어요' using errcode = '42501';
+  end if;
+  for t in
+    select c.oid::regclass as rel
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind = 'r'
+  loop
+    execute format('select coalesce(string_agg(to_jsonb(x)::text, '' ''), '''') from %s x', t.rel) into part;
+    blob := blob || ' ' || part;
+  end loop;
+  return query
+    select o.bucket_id::text, o.name::text,
+           coalesce((o.metadata->>'size')::bigint, 0),
+           o.created_at, b.public,
+           (o.name !~ '^[A-Za-z0-9._/-]+$' or position(o.name in blob) > 0)
+    from storage.objects o
+    join storage.buckets b on b.id = o.bucket_id;
+end
+$$;
+-- EXECUTE 는 public 에서 거둬야 막힌다(역할에서만 거두면 PUBLIC 몫이 남는다).
+revoke all on function public.storage_file_usage() from public, anon, authenticated;
+grant execute on function public.storage_file_usage() to authenticated;
+
+-- 백업이 「지금 있는 표 전부」를 받도록 표 이름을 알려 준다. 부모만.
+create or replace function public.backup_table_names()
+returns setof text
+language plpgsql security definer set search_path = '' as $$
+begin
+  if (select public.my_role()) is distinct from 'parent' then
+    raise exception '부모만 쓸 수 있어요' using errcode = '42501';
+  end if;
+  return query
+    select c.relname::text
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind = 'r'
+    order by 1;
+end
+$$;
+revoke all on function public.backup_table_names() from public, anon, authenticated;
+grant execute on function public.backup_table_names() to authenticated;
+
+-- (3) 「1년 뒤의 나에게」를 걷는다 — 화면은 2026-09-18 에 뺐다. 묻혀 있던 한 줄은 부모 백업 폴더에 떠 두었다.
+--     parent_digest 가 capsules 를 세고 있었으므로 표보다 먼저 고친다(안 그러면 부모 요약이 통째로 깨진다).
+create or replace function public.parent_digest()
+returns jsonb
+language sql stable security definer set search_path to 'public' as $function$
+  select case when public.my_role() is distinct from 'parent' then null else jsonb_build_object(
+    'posts',    (select count(*) from posts    where status = 'pending'),
+    'works',    (select count(*) from works    where status = 'pending'),
+    'messages', (select count(*) from messages where created_at > now() - interval '7 days'),
+    'stamps',   (select count(*) from stamps   where created_at > now() - interval '1 day'),
+    'garden',   (select count(*) from garden   where created_at > now() - interval '1 day'),
+    'scores',   (select count(*) from run_scores where created_at > now() - interval '1 day')
+  ) end
+$function$;
+
+drop table if exists public.capsules;
+drop function if exists public.capsules_locked();
+drop function if exists public.capsules_flood_guard();
+
+-- 저장소 올리기 정책에서 캡슐 길만 뺀다. 목소리 길은 글자 그대로 — 경로 앞머리를 바꾸면 아이 계정만 조용히 막힌다.
+drop policy if exists "family uploads voice and capsule" on storage.objects;
+drop policy if exists "family uploads voice" on storage.objects;
+create policy "family uploads voice" on storage.objects
+  for insert to authenticated
+  with check ((bucket_id = 'event-images') and (my_role() is not null) and (name like 'suayona/voice/%'));

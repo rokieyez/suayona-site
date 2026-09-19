@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<meta name="color-scheme" content="light">
 <title>인터넷이 끊겼어요 · 수아랑 연아랑</title>
 <!-- 오프라인일 때만 보이는 페이지라 바깥 파일을 하나도 부르지 않는다.
      글꼴도 스크립트도 못 받는 상황이므로 전부 이 안에 담았다. -->
 <style>
   body{
-    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    margin:0; min-height:100vh; min-height:100svh; display:flex; align-items:center; justify-content:center;
     background:#fffaf2; color:#2f2a24; text-align:center; padding:24px;
     font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   }
@@ -22,6 +23,8 @@
     background:#ffd979; color:#2f2a24; border:2px solid #2f2a24; box-shadow:2px 2px 0 #2f2a24;
   }
   button:active{transform:translate(3px,3px); box-shadow:0 0 0 #2f2a24;}
+  .play{margin-top:26px; font-size:13px; color:#6f6558;}
+  .play a{display:inline-block; margin:8px 4px 0; padding:8px 12px; color:#2f2a24; text-decoration:none; background:#fff; border:2px solid #2f2a24;}
 </style>
 </head>
 <body>
@@ -30,6 +33,10 @@
     <h1>인터넷이 안 닿아요</h1>
     <p>신호가 돌아오면 다시 열려요.<br>한 번 봤던 쪽은 그대로 볼 수 있어요.</p>
     <button type="button" onclick="location.reload()">다시 시도</button>
+    <!-- 이 셋은 sw.js 가 미리 담아 두어 인터넷 없이도 열린다 -->
+    <div class="play">기다리는 동안 이건 할 수 있어요<br>
+      <a href="/draw.html">🎨 도트 그리기</a><a href="/mine.html">💣 지뢰찾기</a><a href="/run.html">🏃 달리기</a>
+    </div>
   </div>
 </body>
 </html>

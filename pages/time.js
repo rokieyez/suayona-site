@@ -178,7 +178,7 @@ function renderWeek(){
       const w = 100 / of;
       const long = h >= (narrow ? 36 : 40);
       const when = spanLabel(it, narrow ? ' ~' : '-');
-      html += '<button type="button" class="it k-' + it.kind + (it.on_date ? ' once' : '') +
+      html += '<button type="button" class="it k-' + escapeHTML(it.kind) + (it.on_date ? ' once' : '') +
         (isAdmin ? ' editable' : '') + '" data-id="' + it.id + '"' +
         (isAdmin ? '' : ' tabindex="-1"') +
         ' title="' + escapeHTML(spanLabel(it) + ' ' + it.title + (it.place ? ' · ' + it.place : '')) + '"' +

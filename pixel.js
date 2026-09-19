@@ -641,23 +641,6 @@ function drawTallGrass(ctx, x0, x1, baseY, s, seed, shades, dense){
   }
 }
 
-// 바위 — 전경/중경에 흩뿌려 초록 면을 덜 심심하게 만듦
-function drawRock(ctx, cx, baseY, s, scale, shades){
-  const w = s * 3 * scale, h = s * 2 * scale;
-  for (let y = 0; y < h; y += s) {
-    const t = y / h;
-    const half = w * Math.sqrt(Math.max(0, 1 - t * t * 0.6)) * 0.5;
-    const px = Math.round((cx - half) / s) * s;
-    const pw = Math.max(s, Math.round((half * 2) / s) * s);
-    ctx.fillStyle = shades[1];
-    ctx.fillRect(px, Math.round((baseY - h + y) / s) * s, pw, s);
-    ctx.fillStyle = t < 0.34 ? shades[0] : shades[2];
-    ctx.fillRect(px, Math.round((baseY - h + y) / s) * s, s, s);
-  }
-  ctx.fillStyle = shades[3];
-  ctx.fillRect(Math.round((cx - w / 2) / s) * s, Math.round(baseY / s) * s,
-               Math.max(s, Math.round(w / s) * s), s);
-}
 
 // 픽셀 느낌으로 색 단계가 끊기는 가로 줄무늬 하늘
 function drawSkyBands(ctx, w, h, s, stops) {
@@ -712,28 +695,6 @@ function drawFluffyCloud(ctx, cx, cy, scale, s, seed){
   blobs.forEach(b => pixelCircle(ctx, b.x, b.y - scale * 0.05, b.r * 0.92, s));
 }
 
-// 지평선 위의 원경 건물들. 멀수록 흐린 색을 써서 거리감을 만듦.
-function drawSkyline(ctx, baseY, W, s, seed){
-  let x = -20;
-  let i = 0;
-  while (x < W + 20) {
-    const r = prand(seed + i * 3);
-    const w = Math.round((10 + r * 18) / s) * s;
-    const h = Math.round((10 + prand(seed + i * 5) * 34) / s) * s;
-    const shade = SCENE.city[i % SCENE.city.length];
-    ctx.fillStyle = shade;
-    ctx.fillRect(Math.round(x/s)*s, Math.round((baseY - h)/s)*s, w, h);
-    // 창문 몇 개
-    ctx.fillStyle = 'rgba(255,255,255,.18)';
-    for (let wy = baseY - h + s*2; wy < baseY - s*2; wy += s*3) {
-      for (let wx = x + s; wx < x + w - s; wx += s*3) {
-        if (prand(wx * 0.7 + wy * 1.3 + seed) > 0.55) ctx.fillRect(Math.round(wx/s)*s, Math.round(wy/s)*s, s, s);
-      }
-    }
-    x += w + s * (1 + Math.floor(prand(seed + i * 11) * 2));
-    i++;
-  }
-}
 
 // 겹겹이 쌓인 수풀 덩어리. 화면 맨 앞을 채워서 깊이를 만드는 용도.
 function drawBushMass(ctx, x0, x1, yTop, yBot, s, seed, shades){
@@ -750,92 +711,8 @@ function drawBushMass(ctx, x0, x1, yTop, yBot, s, seed, shades){
   });
 }
 
-// 잔디 위에 흩뿌리는 풀포기 — 밋밋한 초록 면을 덜 심심하게 만듦
-function drawGrassTufts(ctx, x0, x1, yTop, yBot, s, seed, density){
-  const n = Math.floor((x1 - x0) / s * (density || 0.10));
-  for (let i = 0; i < n; i++) {
-    const x = x0 + prand(seed + i * 3.1) * (x1 - x0);
-    const y = yTop + prand(seed + i * 5.9) * (yBot - yTop);
-    ctx.fillStyle = prand(seed + i * 7.7) > 0.5 ? SCENE.grass.tuft : SCENE.grass.light;
-    const px = Math.round(x/s)*s, py = Math.round(y/s)*s;
-    ctx.fillRect(px, py, s, s);
-    ctx.fillRect(px - s, py + s, s, s);
-    ctx.fillRect(px + s, py + s, s, s);
-  }
-}
 
-// 화면 오른쪽 가장자리를 타고 올라가 위쪽을 덮는 큰 나무.
-// 참조 이미지처럼 잎이 화면 위로 걸쳐 나가면서 장면을 감싸는 역할을 함.
-function drawBigTree(ctx, W, H, s){
-  // 줄기는 화면 밖에 걸쳐 두고 옆면만 살짝 보이게 — 참조 이미지처럼 잘린 느낌
-  const baseX = W * 1.04, topX = W * 1.00;
-  const baseW = s * 9, topW = s * 6;
 
-  for (let y = H; y > -s; y -= s) {
-    const t = 1 - (y / H);
-    const x = baseX + (topX - baseX) * t + Math.sin(t * 2.2) * s * 1.5;
-    const w = baseW + (topW - baseW) * t;
-    const px = Math.round((x - w/2)/s)*s, pw = Math.round(w/s)*s;
-    ctx.fillStyle = SCENE.trunk.mid;   ctx.fillRect(px, y, pw, s);
-    ctx.fillStyle = SCENE.trunk.light; ctx.fillRect(px, y, s, s);
-    if (prand(y * 0.37) > 0.7) {       // 껍질 결
-      ctx.fillStyle = SCENE.trunk.line;
-      ctx.fillRect(px + s * 2, y, s, s);
-    }
-  }
-
-  // 줄기에서 왼쪽 위로 뻗는 가지 — 끝으로 갈수록 가늘어지게.
-  // 길이는 반드시 화면 폭 비율로 잡는다. 절대 px 로 두면 잎(비율로 배치됨)보다 길게 뻗어
-  // 좁은 화면에서 하늘에 갈색 줄만 덩그러니 남는다.
-  const reach = W * 0.22;                       // 잎 덩어리(0.73W 안쪽)에 가려지는 범위
-  const steps = Math.max(4, Math.round(reach / (s * 2.4)));
-  for (let i = 0; i < steps; i++) {
-    const t = i / steps;
-    const bx = W * 1.00 - i * s * 2.4;
-    const by = H * 0.17 + Math.sin(t * 1.4) * s * 5;
-    ctx.fillStyle = SCENE.trunk.dark;
-    ctx.fillRect(Math.round(bx/s)*s, Math.round(by/s)*s, s * 3, Math.max(s, Math.round((s * 2.5 * (1 - t))/s)*s));
-  }
-
-  // 잎 — 위쪽 오른편을 덮되, 진한 색을 먼저 넓게 깔고 밝은 색을 위에 얹어 입체감
-  const clusters = [
-    { cx:0.99, cy:0.06, r:1.35 }, { cx:0.90, cy:0.02, r:1.25 },
-    { cx:0.82, cy:0.09, r:1.05 }, { cx:0.73, cy:0.05, r:0.85 },
-    { cx:0.95, cy:0.20, r:1.00 }, { cx:0.85, cy:0.22, r:0.80 },
-    { cx:0.66, cy:0.13, r:0.60 },
-  ];
-  SCENE.leaf.forEach((color, li) => {
-    ctx.fillStyle = color;
-    clusters.forEach((c, ci) => {
-      const n = 10;
-      for (let i = 0; i < n; i++) {
-        const a = prand(li * 40 + ci * 13 + i * 3.3) * Math.PI * 2;
-        const d = prand(li * 70 + ci * 17 + i * 5.1) * s * 9 * c.r;
-        pixelCircle(ctx,
-          W * c.cx + Math.cos(a) * d * 1.6,
-          H * c.cy + Math.sin(a) * d - li * s * 1.5,
-          s * (4 + prand(li * 90 + ci * 23 + i) * 5) * c.r, s);
-      }
-    });
-  });
-}
-
-// 계단식 산봉우리. 능선을 살짝 흔들어 밋밋하지 않게 함.
-// 꼭대기 좌표를 돌려줘서 그 위에 타워를 올릴 수 있게 함.
-function drawMountain(ctx, cx, baseY, halfW, height, s, colors, seed){
-  const peakY = baseY - height;
-  for (let x = cx - halfW; x <= cx + halfW; x += s) {
-    const t = Math.abs(x - cx) / halfW;              // 0(꼭대기) ~ 1(기슭)
-    const jag = Math.sin((x + seed * 37) * 0.06) * s * 1.5;
-    const top = Math.round((peakY + Math.pow(t, 1.45) * height + jag) / s) * s;
-    ctx.fillStyle = colors.body;
-    ctx.fillRect(Math.round(x / s) * s, top, s, baseY - top);
-    // 능선 왼쪽에 빛, 오른쪽에 그늘
-    ctx.fillStyle = x < cx ? colors.light : colors.shade;
-    ctx.fillRect(Math.round(x / s) * s, top, s, s * 2);
-  }
-  return { x: cx, y: peakY };
-}
 
 // 오솔길. 지평선 쪽(xTop)에서 화면 앞(xBot)으로 이어지며, 아래로 갈수록 급격히 넓어져
 // 원근이 드러나게 함. 색 네 단으로 가장자리와 바퀴자국을 표현.
@@ -1013,14 +890,6 @@ function phaseWash(sprite, phase){
   return v;
 }
 
-// 스프라이트에서 고른 문자만 그리기 위한 팔레트.
-// 나머지를 null 로 눌러 두면 drawSprite 가 색 없는 칸으로 보고 건너뛴다.
-// 밤에 집 창문(v)만 노랗게 다시 얹을 때 쓴다 — 덮개색이 묻지 않게 그 뒤에 그려야 해서.
-function onlyChars(map){
-  const pal = {};
-  Object.keys(PAL).forEach(ch => { pal[ch] = null; });
-  return Object.assign(pal, map);
-}
 
 // 밤하늘의 별. 자리는 씨앗으로 고정하고 밝기만 흔든다 —
 // 자리까지 매번 바뀌면 별이 아니라 노이즈로 보인다.

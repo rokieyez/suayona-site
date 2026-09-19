@@ -14,7 +14,6 @@ Allow: /
 
 # 사람이 볼 것이 없는 자리
 Disallow: /event/e/admin.html
-Disallow: /event/e/preview.html
 
 # 대표 이미지는 두 아이 얼굴 사진이다 — 구글 이미지 수집기만 막는다.
 # 모두를 막으면 카톡·메신저의 링크 미리보기까지 그림을 못 가져갈 수 있다.

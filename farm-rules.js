@@ -50,15 +50,15 @@ const FARM = (() => {
     snow:  { name: '눈',    icon: '🌨️' },
     wind:  { name: '바람',  icon: '🍃' },
   };
-  /* 진짜 하늘 — 대한민국 서울 자양동 기준. 페이지가 open-meteo 에서 받아다 setSky 로
+  /* 진짜 하늘 — 서울 기준. 페이지가 open-meteo 에서 받아다 setSky 로
      넣어 주면, 그날 농장 날씨는 지어내지 않고 밖에 실제로 내리는 것을 그대로 쓴다.
      「오늘 비 왔지?」가 농장에서도 비여야 아이가 창밖과 화면을 잇는다.
      못 받아 오면(신호가 없거나 표에 없는 날짜) 지금까지처럼 날짜로 지어낸다. */
-  const SKY_AT = { lat: 37.5340, lng: 127.0823, name: '서울 자양동' };
+  const SKY_AT = { lat: 37.53, lng: 127.08, name: '서울' };
   let sky = {};
   function setSky(map){ sky = (map && typeof map === 'object') ? map : {}; }
   function skyOf(key){ const w = sky[key]; return WEATHER[w] ? w : null; }
-  /* 해 뜨고 지는 시각도 같은 자리에서 받아 둔다(자양동 기준, 시각은 시간 단위 실수).
+  /* 해 뜨고 지는 시각도 같은 자리에서 받아 둔다(서울 기준, 시각은 시간 단위 실수).
      농장 하루의 빛은 지금까지 시각이 박혀 있었다 — 겨울에도 일곱 시에 밝아졌다.
      진짜 시각을 알면 겨울엔 다섯 시에 저물고 여름엔 여덟 시까지 환하다. */
   let sun = {};
@@ -765,6 +765,9 @@ const FARM = (() => {
       o.rooms[r] = Math.max(0, Math.min(ROOM_GROW.length - 1, Math.round(Number(o.rooms[r]) || 0)));
     });
     if (!Array.isArray(o.animals)) o.animals = [];
+    // 이름은 안내 줄에 HTML 로 들어간다. rename 은 <> 를 걸러 받지만 그건 이 화면을 거칠 때뿐이고,
+    // 저장 함수(farm_commit)는 값의 모양을 안 본다 — 서버에서 온 이름도 같은 규칙으로 한 번 더 거른다.
+    o.animals.forEach(a => { if (a && a.name != null) a.name = String(a.name).replace(/[<>]/g, '').slice(0, 8); });
     if (!Array.isArray(o.log)) o.log = [];
     if (!o.house) o.house = base.house;
     Object.keys(ROOMS).forEach(r => {

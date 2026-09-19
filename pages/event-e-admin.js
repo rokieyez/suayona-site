@@ -545,7 +545,7 @@ async function loadCustomTabsAdmin(){
   listEl.innerHTML = '불러오는 중...';
   const { data, error } = await sb.from('custom_tabs').select('*')
     .eq('event_id', CONFIG.eventSlug).order('sort_order', {ascending:true}).order('id', {ascending:true});
-  if (error) { listEl.innerHTML = '<div class="empty">불러오기 실패: ' + error.message + '</div>'; return; }
+  if (error) { listEl.innerHTML = '<div class="empty">불러오기 실패: ' + escapeHTML(error.message) + '</div>'; return; }
   if (!data.length) { listEl.innerHTML = '<div class="empty">아직 만든 탭이 없습니다</div>'; return; }
   listEl.innerHTML = '';
   data.forEach(row => listEl.appendChild(renderCustomTabCard(row)));
@@ -779,7 +779,7 @@ async function loadList(){
   const { data, error } = await sb.from('events').select('*')
     .eq('event_id', CONFIG.eventSlug)
     .order('panel', {ascending:true}).order('sort_order', {ascending:true});
-  if (error) { listEl.innerHTML = '<div class="empty">불러오기 실패: ' + error.message + '</div>'; return; }
+  if (error) { listEl.innerHTML = '<div class="empty">불러오기 실패: ' + escapeHTML(error.message) + '</div>'; return; }
 
   const byPanel = {};
   data.forEach(r => (byPanel[r.panel] = byPanel[r.panel] || []).push(r));
@@ -832,7 +832,7 @@ function renderCard(r){
     (r.place_name ? '<div class="item-detail">' +
         (Number.isFinite(r.place_lat) ? '📍 ' : '🔎 ') + escapeHTML(r.place_name) + '</div>' : '') +
     (r.detail ? '<div class="item-detail">' + escapeHTML(r.detail) + '</div>' : '') +
-    (r.image_url ? '<img class="item-img" loading="lazy" decoding="async" src="' + (r.thumb_url || r.image_url) + '" alt="">' : '') +
+    (r.image_url ? '<img class="item-img" loading="lazy" decoding="async" src="' + escapeHTML(r.thumb_url || r.image_url) + '" alt="">' : '') +
     '<div class="item-actions">' +
       '<button class="btn ghost editBtn">수정</button>' +
       '<button class="btn ghost afterBtn">＋ 여기 아래</button>' +

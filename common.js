@@ -1736,13 +1736,26 @@ function escapeHTML(s){
 // 사용자가 <script> 를 적어도 그대로 글자로만 남는다.
 function inlineFmt(s){
   let t = escapeHTML(s);
-  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-    (m, txt, url) => '<a class="note-link" href="' + url + '" target="_blank" rel="noopener">' + txt + '</a>');
-  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  t = t.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
-  t = t.replace(/~~([^~]+)~~/g, '<s>$1</s>');
-  t = t.replace(/==([^=]+)==/g, '<mark class="note-mark">$1</mark>');
-  return t;
+  // 링크는 먼저 자리표로 빼 두었다가 맨 끝에 되돌린다. 주소 안의 == · ** · ~~ 가 아래 서식에 걸려
+  // href 속에 태그가 끼어들었다 — [a](http://x/==b==) 가 <a> 를 깨뜨리고 target·rel 을 날렸다.
+  // 자리표의 < > 는 escapeHTML 을 거친 글에는 나올 수 없는 글자라 본문과 부딪히지 않는다.
+  const links = [];
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, txt, url) => {
+    links.push({ txt, url });
+    return '<' + (links.length - 1) + '>';
+  });
+  const fmt = x => x
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/~~([^~]+)~~/g, '<s>$1</s>')
+    .replace(/==([^=]+)==/g, '<mark class="note-mark">$1</mark>');
+  // 되돌리기를 서식보다 먼저 하면 안 된다(주소가 다시 서식에 걸린다). 그래서 자리표인 채로 서식을 입히고,
+  // 자리표는 서식이 만든 태그(<strong> 등)와 헷갈리지 않게 숫자만 든 꼴로 찾는다.
+  t = fmt(t);
+  return t.replace(/<(\d+)>/g, (m, i) => {
+    const L = links[+i];
+    return L ? '<a class="note-link" href="' + L.url + '" target="_blank" rel="noopener">' + fmt(L.txt) + '</a>' : '';
+  });
 }
 
 function renderNoteContent(text){

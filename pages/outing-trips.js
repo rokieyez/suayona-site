@@ -66,12 +66,14 @@ document.addEventListener('error', (e) => {
 }, true);
 
 function tripCardHTML(ev, status){
+  // 이름·기간은 부모가 적는 값이지만 「<」 하나로 손님 쪽 카드가 깨지므로 글자로만 넣는다.
+  const slugAttr = escapeHTML(ev.slug);
   const badgeText = status === 'ongoing' ? '진행중' : status === 'upcoming' ? '예정' : '종료';
   const adminBtns = (isAdmin && ev.isRegistry)
-    ? '<button class="card-lock" data-slug="' + ev.slug + '" title="' +
+    ? '<button class="card-lock" data-slug="' + slugAttr + '" title="' +
         (ev.isPublic ? '공개 상태 — 눌러서 비공개로' : '비공개 상태 — 눌러서 공개로') + '">' +
         (ev.isPublic ? '🌏' : '🔒') + '</button>' +
-      '<button class="card-del" data-slug="' + ev.slug + '" title="나들이 삭제">🗑</button>'
+      '<button class="card-del" data-slug="' + slugAttr + '" title="나들이 삭제">🗑</button>'
     : '';
   const privateTag = (isAdmin && ev.isRegistry && !ev.isPublic)
     ? '<span class="badge private">🔒 비공개</span>' : '';
@@ -85,14 +87,14 @@ function tripCardHTML(ev, status){
   const linked = PLACES.filter(p => p.event_id === ev.slug).length;
   // 지금 열려 있는 이벤트는 테두리를 코랄로 둘러 한눈에 갈라 보이게 한다
   return '<div class="card' + (status === 'ongoing' ? ' is-now' : '') +
-    (ev.isPublic === false ? ' is-private' : '') + (adminBtns ? ' has-admin' : '') + '" data-slug="' + ev.slug + '">' +
-    '<a class="card-link" href="' + ev.href + '">' +
+    (ev.isPublic === false ? ' is-private' : '') + (adminBtns ? ' has-admin' : '') + '" data-slug="' + slugAttr + '">' +
+    '<a class="card-link" href="' + escapeHTML(ev.href) + '">' +
     '<span class="card-cover">' + coverHTML(ev) + '</span>' +
     '<div class="card-text">' +
-    '<div class="card-top"><span class="card-name">' + ev.orgName + ' · ' + ev.eventName + '</span>' +
+    '<div class="card-top"><span class="card-name">' + escapeHTML(ev.orgName) + ' · ' + escapeHTML(ev.eventName) + '</span>' +
     '<span class="badge-group">' + privateTag +
     '<span class="badge ' + status + '">' + badgeText + '</span></span></div>' +
-    '<div class="card-sub">' + ev.dateRangeText +
+    '<div class="card-sub">' + escapeHTML(ev.dateRangeText) +
       (linked ? ' · 📍 장소 ' + linked + '곳' : '') + '</div></div></a>' +
     todo + adminBtns + '</div>';
 }

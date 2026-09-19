@@ -989,6 +989,8 @@ const QUEST = (() => {
   function fixSave(s){
     const n = newSave();
     s = Object.assign(n, s || {});
+    // 숫자 칸은 숫자로. 가방 줄이 이 값들을 HTML 에 그대로 넣는데, 세이브는 아이 계정이 쓴 JSON 이라 모양을 믿을 수 없다.
+    ['gold', 'potions', 'weapon', 'armor', 'chests', 'xp'].forEach(k => { if (k in s) s[k] = Math.max(0, Math.floor(Number(s[k]) || 0)); });
     s.wins = AREAS.map((_, i) => (s.wins && s.wins[i]) || 0);
     s.boss = AREAS.map((_, i) => !!(s.boss && s.boss[i]));
     s.week = Object.assign(n.week, s.week || {});
