@@ -878,7 +878,6 @@ function readableError(e){
       growth_kind_ok:       '키·발 크기·몸무게 중에서 골라주세요.',
       run_scores_name_len:  '이름은 1~8글자로 적어주세요.',
       run_scores_score_ok:  '점수가 저장할 수 있는 범위를 넘었어요.',
-      capsules_body_check:  '편지는 200자까지 쓸 수 있어요.',
       doodles_theme_len:    '주제가 너무 길어요.',
     };
     return SAY[c] || ('적어주신 값이 규칙에 안 맞아요 (' + (c || m) + ')');
@@ -921,79 +920,35 @@ async function removeStored(bucket, urls){
 //
 // 예전 삭제들이 줄만 지우고 파일을 남겨 둔 탓에 쌓인 것들을 치우기 위한 도구.
 // 파일을 지우는 일이라 되돌릴 수 없다. 그래서 확실하지 않으면 무조건 남기는 쪽으로 만들었다:
-//   · 표를 하나라도 다 못 읽으면 아예 그만둔다 (반만 읽고 지우면 멀쩡한 사진이 날아간다)
+//   · 「쓰이는지」는 DB 가 답한다(storage_file_usage) — public 의 모든 표를 통째로 훑어
+//     파일 이름이 어디에든 적혀 있으면 쓰이는 것으로 친다. 전에는 여기서 「주소가 든 칸」
+//     목록을 들고 있었는데, 그 목록이 새 표(honors·places)와 목소리 일기를 따라가지 못해
+//     살아 있는 사진 115개를 안 쓰는 파일로 내밀었다(2026-09-19). 목록은 낡는다.
+//   · 그 답을 못 받으면 아예 그만둔다 (반만 알고 지우면 멀쩡한 사진이 날아간다)
 //   · 올린 지 한 시간이 안 된 파일은 건드리지 않는다 (올리는 중일 수 있다)
 // ---------------------------------------------------------------------------
 const CLEANUP_BUCKETS = ['event-images', 'gallery-uploads'];
 const CLEANUP_MIN_AGE_MS = 60 * 60 * 1000;
 
-// 버킷 안의 파일을 모두 훑는다. 폴더가 두 겹까지 있어서(suayona/works) 재귀로 내려간다.
-async function listAllFiles(bucket, prefix, out){
-  out = out || [];
-  const { data, error } = await sb.storage.from(bucket)
-    .list(prefix || '', { limit: 1000, sortBy: { column: 'name', order: 'asc' } });
-  if (error) throw new Error(bucket + ' 파일 목록을 읽지 못했어요: ' + error.message);
-  for (const f of (data || [])) {
-    const full = prefix ? prefix + '/' + f.name : f.name;
-    if (f.id) out.push({ path: full, size: (f.metadata && f.metadata.size) || 0, at: f.created_at });
-    else await listAllFiles(bucket, full, out);      // 폴더면 한 겹 더 내려간다
-  }
-  return out;
-}
-
-// 표를 통째로 읽되, 다 읽었는지 반드시 확인한다.
-// 서버가 줄 수를 제한해 반만 돌려주면 나머지가 "안 쓰는 파일"로 보여 진짜 사진이 지워진다.
-async function selectAllRows(table, cols){
-  const { data, error, count } = await sb.from(table).select(cols, { count: 'exact' });
-  if (error) throw new Error(table + ' 을 읽지 못했어요: ' + error.message);
-  const rows = data || [];
-  if (count != null && rows.length < count)
-    throw new Error(table + ' 을 다 읽지 못했어요 (' + rows.length + '/' + count + '). 안전을 위해 그만둡니다.');
-  return rows;
-}
-
-// 지금 쓰이고 있는 파일 경로를 버킷별로 모은다
-async function collectUsedPaths(){
-  const used = {};
-  CLEANUP_BUCKETS.forEach(b => used[b] = new Set());
-  const add = url => {
-    if (!url) return;
-    for (const b of CLEANUP_BUCKETS) {
-      const path = pathFromPublicUrl(b, url);
-      if (path) { used[b].add(path); return; }
-    }
-  };
-
-  const [works, posts, events, gallery] = await Promise.all([
-    selectAllRows('works',         'media_url, thumb_url, audio_url'),
-    selectAllRows('posts',         'image_url, thumb_url, extra_images'),
-    selectAllRows('events',        'image_url, thumb_url, extra_images'),
-    selectAllRows('gallery_media', 'media_url, thumb_url'),
-  ]);
-  works.forEach(w => { add(w.media_url); add(w.thumb_url); add(w.audio_url); });
-  posts.forEach(x => { add(x.image_url); add(x.thumb_url); urlsIn(x.extra_images).forEach(add); });
-  events.forEach(x => { add(x.image_url); add(x.thumb_url); urlsIn(x.extra_images).forEach(add); });
-  gallery.forEach(g => { add(g.media_url); add(g.thumb_url); });
-  return used;
-}
-
 // 안 쓰는 파일 목록. 지우지는 않는다 — 먼저 보여주고 확인을 받기 위해.
 async function findUnusedFiles(){
-  // 부모가 아니면 표를 반만 읽게 된다(비공개 글은 안 보임). 반만 읽고 지우면 멀쩡한 사진이 날아간다.
+  // 부모가 아니면 DB 가 거절한다. 여기서도 먼저 막아 헛걸음을 줄인다.
   if (!isAdmin) throw new Error('부모로 로그인했을 때만 쓸 수 있어요.');
-  const used = await collectUsedPaths();
+  const { data, error } = await sb.rpc('storage_file_usage');
+  if (error) throw new Error('파일 쓰임새를 읽지 못했어요: ' + error.message);
+  const all = data || [];
   const cutoff = Date.now() - CLEANUP_MIN_AGE_MS;
   const found = [];
   let bytes = 0, tooNew = 0;
   for (const bucket of CLEANUP_BUCKETS) {
-    const all = await listAllFiles(bucket);
-    // 목록 권한이 없으면 오류 없이 빈 배열이 온다. 그걸 "파일이 없다"로 읽으면 안 된다.
-    if (!all.length) throw new Error(bucket + ' 의 파일 목록이 비어 있어요. 권한을 확인해 주세요.');
-    for (const f of all) {
-      if (used[bucket].has(f.path)) continue;
-      if (f.at && new Date(f.at).getTime() > cutoff) { tooNew++; continue; }
-      found.push({ bucket, path: f.path, size: f.size });
-      bytes += f.size;
+    const mine = all.filter(f => f.bucket === bucket);
+    // 버킷이 통째로 비어 보이면 무언가 잘못 읽은 것이다. "파일이 없다"로 읽으면 안 된다.
+    if (!mine.length) throw new Error(bucket + ' 의 파일 목록이 비어 있어요. 권한을 확인해 주세요.');
+    for (const f of mine) {
+      if (f.used !== false) continue;                 // true 가 아니라 「false 가 아니면」 남긴다
+      if (!f.created_at || new Date(f.created_at).getTime() > cutoff) { tooNew++; continue; }
+      found.push({ bucket, path: f.name, size: Number(f.size) || 0 });
+      bytes += Number(f.size) || 0;
     }
   }
   return { found, bytes, tooNew };
