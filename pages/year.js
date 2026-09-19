@@ -201,7 +201,7 @@ function render(){
       '<b>' + escapeHTML([e.org_name, e.event_name].filter(Boolean).join(' · ') || e.event_id) + '</b>' +
       '<span>' + escapeHTML(e.date_range_text || e.start_date || '') + '</span>' +
     '</a>').join('') + '</div>'
-    : '<div class="yr-empty">이 해에 있었던 이벤트가 없어요.</div>';
+    : '<div class="yr-empty">이 해에 있었던 나들이가 없어요.</div>';
   html += '</div>';
 
   $('#body').innerHTML = html;

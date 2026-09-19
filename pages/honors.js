@@ -1523,11 +1523,13 @@ function smallModal(html){
   overlay.innerHTML = '<div class="modal-box dot-card"><div class="inner">' + html + '</div></div>';
   document.body.appendChild(overlay);
   document.body.style.overflow = 'hidden';
-  const close = () => { overlay.remove(); document.body.style.overflow = ''; };
+  // onClose: 어떻게 닫히든(바깥 누르기·취소·저장 뒤) 한 번 부른다 — 녹음 창이 바깥 누르기로 닫히면 녹음기가 계속 돌았다.
+  const api = { onClose: null };
+  const close = () => { if (api.onClose){ try { api.onClose(); } catch (e) { /* 닫는 일은 멈추지 않는다 */ } api.onClose = null; } overlay.remove(); document.body.style.overflow = ''; };
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   const q = sel => overlay.querySelector(sel);
   const cancel = q('.mCancel'); if (cancel) cancel.addEventListener('click', close);
-  return { q, close, overlay };
+  return Object.assign(api, { q, close, overlay });
 }
 
 // ---------- 아이: 다음 목표 ----------
@@ -1604,7 +1606,7 @@ function openVoice(r){
     '<div class="modal-actions"><button type="button" class="dot-btn mCancel">닫기</button></div>');
   const box = m.q('.vBox'), msg = m.q('.vMsg');
   const stopAll = () => { if (rec){ rec.cancel(); rec = null; } if (draft && draft.url) URL.revokeObjectURL(draft.url); draft = null; };
-  m.q('.mCancel').addEventListener('click', stopAll);
+  m.onClose = stopAll;
   async function put(url, secs){
     if (isAdmin){
       const res = await sb.from('honors').update({ audio_url: url, audio_secs: secs }).eq('id', r.id).select('id');

@@ -2013,7 +2013,11 @@ const belowFold = (() => {
   }
 
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function loop(){ t += 0.016; ct += 0.016 * weather.wind; draw(); requestAnimationFrame(loop); }
+  // 화면 밖으로 밀려나면 그리기를 쉰다. 첫 화면은 긴 쪽이라 아래를 읽는 동안에도 마을을 매 프레임 다시 그리고 있었다.
+  // 관찰자가 없거나 아직 답이 없으면 「보인다」로 둔다 — 멈춘 마을보다 도는 마을이 낫다.
+  let heroSeen = true;
+  if ('IntersectionObserver' in window) new IntersectionObserver(es => { heroSeen = es[es.length - 1].isIntersecting; }).observe(canvas);
+  function loop(){ if (heroSeen){ t += 0.016; ct += 0.016 * weather.wind; draw(); } requestAnimationFrame(loop); }
 
   // 움직임을 줄인 설정에서는 화면이 멈춰 있으니, 살아 있는 것이 있는 동안만 따로 돌린다.
   let ticking = false;
@@ -3514,7 +3518,9 @@ belowFold(async () => {
     }
   }
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function loop(){ t += 0.016; draw(); requestAnimationFrame(loop); }
+  let stripSeen = true;      // 위의 마을과 같은 까닭 — 안 보일 때는 그리지 않는다
+  if ('IntersectionObserver' in window) new IntersectionObserver(es => { stripSeen = es[es.length - 1].isIntersecting; }).observe(cv);
+  function loop(){ if (stripSeen){ t += 0.016; draw(); } requestAnimationFrame(loop); }
   window.addEventListener('resize', () => { resize(); draw(); });
   resize();
   if (reduce) draw(); else loop();

@@ -69,8 +69,9 @@ let curArea = 0;
 // 바뀔 때마다 조금 기다렸다가 한 번만 쓴다. 전투 한 턴마다 쓰면 요청이 너무 잦다.
 let saveTimer = 0, saveChain = Promise.resolve(), dirty = false;
 function persist(now){
-  clearTimeout(saveTimer); dirty = false;
-  const go = () => { saveChain = saveChain.then(() => doSave()).catch(() => {}); };
+  clearTimeout(saveTimer); saveTimer = 0; dirty = false;
+  // 타이머가 돌고 나면 0 으로 되돌린다 — 안 그러면 첫 저장 뒤로 탭을 가릴 때마다 세이브를 다시 올렸다.
+  const go = () => { saveTimer = 0; saveChain = saveChain.then(() => doSave()).catch(() => {}); };
   if (now) go(); else saveTimer = setTimeout(go, 600);
 }
 async function doSave(){

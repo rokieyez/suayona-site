@@ -192,14 +192,15 @@ function openEditModal(w){
 
   fillEventSelect(overlay.querySelector('.eEvent'), w.event_id);
 
-  const close = () => { overlay.remove(); document.body.style.overflow = ''; };
+  // 어떻게 닫히든 Esc 귀를 같이 뗀다 — 남아 있으면 다음 Esc 에 옛 close 가 돌아 뒤 창의 스크롤 잠금을 푼다.
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  const close = () => { overlay.remove(); document.body.style.overflow = ''; document.removeEventListener('keydown', onKey); };
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   overlay.querySelector('.eSfxTry').addEventListener('click', () => {
     const k = overlay.querySelector('.eSfx').value;
     if (k) sfx(k); else alert('먼저 소리를 골라 주세요.');
   });
   overlay.querySelector('.eCancel').addEventListener('click', close);
-  const onKey = e => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
 
   overlay.querySelector('.eSave').addEventListener('click', async () => {

@@ -6,7 +6,7 @@ buildChrome('event');
 
 const CONFIG = {
   eventSlug: new URLSearchParams(location.search).get('slug') || '',
-  orgName: '이벤트', eventName: '일정', dateRangeText: '',
+  orgName: '나들이', eventName: '일정', dateRangeText: '',
   startDate: null, endDate: null,
   panels: [],
 };
@@ -338,9 +338,9 @@ async function buildStashBox(){
   if (!남은.length) return;
 
   box.hidden = false;
-  box.innerHTML = '<b>📌 이 일정의 장소를 가볼 곳으로 담기</b>' +
-    '<p class="stash-hint">담긴 곳은 「가본 곳」으로 들어가고 이 이벤트에 이어집니다. ' +
-    '무엇인지(먹거리·자연·체험·숙소)는 가볼 곳 쪽에서 정하세요.</p>' +
+  box.innerHTML = '<b>📌 이 일정의 장소를 「가본 곳」으로 담기</b>' +
+    '<p class="stash-hint">담긴 곳은 「가본 곳」으로 들어가고 이 나들이에 이어집니다. ' +
+    '무엇인지(먹거리·자연·체험·숙소)는 나들이 쪽의 「가본 곳」에서 정하세요.</p>' +
     '<div class="stash-list">' +
       남은.map((s, i) => '<label><input type="checkbox" data-stash="' + i + '">' +
         '<span>' + escapeHTML(s.place || s.title) + '</span>' +
@@ -428,7 +428,7 @@ async function showNearbyWishes(){
 
   near.sort((a, b) => a.m - b.m);
   box.hidden = false;
-  box.innerHTML = '<b>📌 이 근처에 적어 둔 가볼 곳 ' + near.length + '군데</b>' +
+  box.innerHTML = '<b>📌 이 근처에 적어 둔 가보고 싶은 곳 ' + near.length + '군데</b>' +
     near.slice(0, 6).map(w =>
       '<a href="/event/#want">' + escapeHTML(w.name) +
       '<span>' + (w.m < 1000 ? w.m + 'm' : (w.m / 1000).toFixed(1) + 'km') + '</span></a>').join('');
@@ -1527,11 +1527,11 @@ function isPageZoomed(){
 
 // ----- 초기 로딩 -----
 (async () => {
-  if (!CONFIG.eventSlug) { showNotFound('이벤트 주소가 올바르지 않습니다.'); return; }
+  if (!CONFIG.eventSlug) { showNotFound('나들이 주소가 올바르지 않습니다.'); return; }
 
   const { data, error } = await sb.from('event_meta').select('*').eq('event_id', CONFIG.eventSlug).maybeSingle();
   if (error || !data || !data.start_date || !data.end_date) {
-    showNotFound('이벤트를 찾을 수 없습니다.');
+    showNotFound('나들이를 찾을 수 없습니다.');
     return;
   }
 

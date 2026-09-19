@@ -479,7 +479,7 @@ function markParentWaiting(){
   }, () => {});
 }
 
-// 메뉴 「인생 퀘스트」에 점 — 부모에겐 「확인 기다리는 퀘스트」, 아이에겐 「아직 안 본 새 퀘스트」가 있을 때.
+// 메뉴 「수아연아」(인생 퀘스트)에 점 — 부모에겐 「확인 기다리는 퀘스트」, 아이에겐 「아직 안 본 새 퀘스트」가 있을 때.
 // 가족만 묻고(손님은 표를 못 읽는다) 개수만 세며, 한 세션에 10분에 한 번. 아이가 본 시각은 life.js 가 localStorage life_seen 에 적는다.
 let lifeAsked = false;
 function markLifeQuests(){

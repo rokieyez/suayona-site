@@ -43,7 +43,7 @@ function drawMetaPreview(){
   const name = $('#mEventName').value.trim();
   const icon = $('#mIcon').value.trim() || '🗓️';
   const big = name || org, small = name ? org : '';
-  $('#metaPreview').innerHTML = '이벤트 페이지에서는 이렇게 보여요<br>' +
+  $('#metaPreview').innerHTML = '나들이 페이지에서는 이렇게 보여요<br>' +
     (small ? escapeHTML(icon + ' ' + small) : '') +
     '<b>' + escapeHTML(big || '(이름 없음)') + '</b>';
 }
@@ -72,7 +72,7 @@ $('#mSaveBtn').addEventListener('click', async () => {
   if (error) { msg.className = 'err'; msg.textContent = '저장 실패: ' + error.message; return; }
   EVENT_META = Object.assign({}, EVENT_META, patch);
   applyAdminTitle();
-  msg.className = 'ok'; msg.textContent = '저장했어요. 이벤트 페이지를 새로고침하면 바뀌어 있습니다.';
+  msg.className = 'ok'; msg.textContent = '저장했어요. 나들이 페이지를 새로고침하면 바뀌어 있습니다.';
 });
 
 /* =========================================================================
@@ -408,7 +408,7 @@ async function toggleWishPick(){
   box.innerHTML = '<div class="none">불러오는 중…</div>';
   const list = await loadWishPlaces();
   if (!list.length) {
-    box.innerHTML = '<div class="none">가볼 곳에 적어 둔 「가보고 싶은 곳」이 없습니다.</div>';
+    box.innerHTML = '<div class="none">적어 둔 「가보고 싶은 곳」이 없습니다.</div>';
     return;
   }
   box.innerHTML = '';

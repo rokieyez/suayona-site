@@ -150,7 +150,7 @@ async function load(){
       label: r => r.title || '(제목 없음)',
       sub: r => [who[r.author] || '', formatDate(r.happened_on || r.created_at),
                  r.status === 'pending' ? '확인 기다림' : ''].filter(Boolean).join(' · ') },
-    { key:'events', table:'event_meta', pk:'event_id', title:'📅 이벤트', rows:E.rows, more:E.more,
+    { key:'events', table:'event_meta', pk:'event_id', title:'📅 나들이', rows:E.rows, more:E.more,
       label: r => r.event_name || r.event_id,
       sub: r => [r.org_name || '', r.start_date ? formatDate(r.start_date) : ''].filter(Boolean).join(' · ') },
     { key:'works', table:'works', pk:'id', title:'🎨 작품', rows:W.rows, more:W.more,

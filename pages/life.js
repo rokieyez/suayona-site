@@ -556,14 +556,14 @@ buildChrome('life');
     named.forEach(e => { const dd = new Date(e.t), s2 = statOf(e.stat); g.fillStyle = INK; g.fillText(fitW(g, s2.icon + ' ' + e.name, W - 140), 28, y); g.fillStyle = '#6f6558'; g.textAlign = 'right'; g.fillText((dd.getMonth() + 1) + '.' + dd.getDate(), W - 28, y); g.textAlign = 'left'; y += 28; });
     if (!named.length){ g.fillStyle = '#6f6558'; g.fillText('조용히 쉬어 간 달이에요.', 28, y); }
     const got = badgesOf(k).filter(x => x.t !== null && x.t >= m0 && x.t < m1); if (got.length){ g.fillStyle = INK; g.font = '800 16px ' + FONT; g.fillText(fitW(g, '🏅 새 배지: ' + got.map(x => x.b.icon + ' ' + x.b.name).join(' · '), W - 56), 28, H - 78); }
-    g.font = '700 14px ' + FONT; g.fillStyle = '#6f6558'; g.textAlign = 'right'; g.fillText('suayona.com · 인생 퀘스트', W - 28, H - 38);
+    g.font = '700 14px ' + FONT; g.fillStyle = '#6f6558'; g.textAlign = 'right'; g.fillText('suayona.com · 수아연아', W - 28, H - 38);
     return c;
   }
   // 📔 한 해 앨범 — 그 해의 달 편지 열두 장(아직 안 온 달은 빈 칸)을 4×3 으로 한 장에
   function albumCanvas(k, year){
     const CW = 300, CH = 400, W = CW * 4 + 50, H = CH * 3 + 110, c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d'); g.fillStyle = INK; g.fillRect(0, 0, W, H); g.fillStyle = '#fff6e9'; g.fillRect(8, 8, W - 16, H - 16); g.fillStyle = KID_COLOR[k]; g.fillRect(8, 8, W - 16, 56);
-    g.fillStyle = INK; g.textBaseline = 'top'; g.font = '800 26px ' + FONT; g.fillText(year + '년의 ' + KID_NAME[k] + ' — 인생 퀘스트 앨범', 24, 22);
+    g.fillStyle = INK; g.textBaseline = 'top'; g.font = '800 26px ' + FONT; g.fillText(year + '년의 ' + KID_NAME[k] + ' — 수아연아 앨범', 24, 22);
     for (let m = 0; m < 12; m++){
       const m0 = new Date(year, m, 1).getTime(), m1 = new Date(year, m + 1, 1).getTime(), x = 10 + (m % 4) * (CW + 10), y = 74 + Math.floor(m / 4) * (CH + 10);
       if (m0 > now()){ g.fillStyle = 'rgba(47,42,36,.08)'; g.fillRect(x, y, CW, CH); g.fillStyle = '#6f6558'; g.font = '700 16px ' + FONT; g.textAlign = 'center'; g.fillText((m + 1) + '월 — 아직 오지 않은 달', x + CW / 2, y + CH / 2); g.textAlign = 'left'; continue; }
@@ -702,7 +702,7 @@ buildChrome('life');
     const g = c.getContext('2d'), st = statsAt(k, now()); g.imageSmoothingEnabled = false;
     g.fillStyle = INK; g.fillRect(0, 0, W, H); g.fillStyle = '#fff6e9'; g.fillRect(8, 8, W - 16, H - 16); g.fillStyle = KID_COLOR[k]; g.fillRect(8, 8, W - 16, 64);
     g.fillStyle = INK; g.fillRect(8, 72, W - 16, 4);
-    g.textBaseline = 'top'; g.textAlign = 'left'; g.font = '800 26px ' + FONT; g.fillText('인생 퀘스트', 28, 26);
+    g.textBaseline = 'top'; g.textAlign = 'left'; g.font = '800 26px ' + FONT; g.fillText('수아연아', 28, 26);
     g.textAlign = 'right'; g.font = '700 15px ' + FONT; const d = new Date(); g.fillText(d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'), W - 28, 34);
     g.fillStyle = '#f6e9d2'; g.fillRect(28, 96, 300, 380); g.fillStyle = '#c99a62'; g.fillRect(28, 436, 300, 40); g.strokeStyle = INK; g.lineWidth = 4; g.strokeRect(28, 96, 300, 380);
     const img = avatar(k, st, 0, seasonOf(now())), u = 6.6, aw = img.width * u, ah = img.height * u; g.drawImage(img, Math.round(178 - aw / 2), Math.round(452 - (img.height - MY) * u), Math.round(aw), Math.round(ah));
@@ -729,7 +729,7 @@ buildChrome('life');
     return new Promise(res => c.toBlob(blob => {
       if (!blob){ say('카드를 만들지 못했어요'); return res(false); }
       const file = new File([blob], name, { type: 'image/png' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: KID_NAME[sel] + '의 인생 퀘스트' }).then(() => res(true)).catch(() => res(false));
+      if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: KID_NAME[sel] + ' · 수아연아' }).then(() => res(true)).catch(() => res(false));
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000); say(KID_NAME[sel] + '의 캐릭터 카드를 내려받았어요'); res(true);
     }, 'image/png'));

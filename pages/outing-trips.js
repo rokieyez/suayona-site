@@ -71,7 +71,7 @@ function tripCardHTML(ev, status){
     ? '<button class="card-lock" data-slug="' + ev.slug + '" title="' +
         (ev.isPublic ? '공개 상태 — 눌러서 비공개로' : '비공개 상태 — 눌러서 공개로') + '">' +
         (ev.isPublic ? '🌏' : '🔒') + '</button>' +
-      '<button class="card-del" data-slug="' + ev.slug + '" title="이벤트 삭제">🗑</button>'
+      '<button class="card-del" data-slug="' + ev.slug + '" title="나들이 삭제">🗑</button>'
     : '';
   const privateTag = (isAdmin && ev.isRegistry && !ev.isPublic)
     ? '<span class="badge private">🔒 비공개</span>' : '';
@@ -283,7 +283,7 @@ $('#content').addEventListener('click', async (e) => {
     const box = document.createElement('div');
     box.className = 'card-confirm';
     box.innerHTML =
-      '<p>정말 삭제할까요? 이 이벤트의 모든 일정과 사진이 함께 삭제되며 되돌릴 수 없어요.</p>' +
+      '<p>정말 삭제할까요? 이 나들이의 모든 일정과 사진이 함께 삭제되며 되돌릴 수 없어요.</p>' +
       '<div class="card-confirm-btns">' +
       '<button type="button" class="card-confirm-cancel">취소</button>' +
       '<button type="button" class="card-confirm-ok">삭제</button>' +
@@ -455,7 +455,7 @@ async function createEventFromPhotos(fileList){
   const startVal = isoDay(days[0]), endVal = isoDay(days[days.length - 1]);
 
   // 3) 자리부터 잡는다 — 사진이 저장되는 경로에 주소가 쓰이므로 사진보다 먼저.
-  msg.textContent = '이벤트 만드는 중...';
+  msg.textContent = '나들이 만드는 중...';
   const slug = await freeSlug(startVal);
   const forPlace = pendingPlace;
   const { error: metaErr } = await sb.from('event_meta').insert({
@@ -509,11 +509,11 @@ async function createEventFromPhotos(fileList){
   const what = [okPhoto ? '사진 ' + okPhoto + '장' : '', okVideo ? '영상 ' + okVideo + '개' : '']
     .filter(Boolean).join(' · ');
   const lines = [okCount
-    ? '<b>' + span + '</b> 이벤트를 만들고 ' + what + ' 올렸어요.'
-    : '<b>' + span + '</b> 이벤트는 만들었는데 올라간 것이 하나도 없어요.'];
-  if (from === 'file')  lines.push('촬영 날짜를 못 찾아 <b>파일 날짜</b>로 잡았어요. 다르면 이벤트 안에서 고쳐주세요.');
-  if (from === 'today') lines.push('날짜를 찾지 못해 <b>오늘</b>로 잡았어요. 이벤트 안에서 고쳐주세요.');
-  if (slug !== startVal) lines.push('그날 이벤트가 이미 있어서 주소는 <b>' + slug + '</b> 로 했어요.');
+    ? '<b>' + span + '</b> 나들이를 만들고 ' + what + ' 올렸어요.'
+    : '<b>' + span + '</b> 나들이는 만들었는데 올라간 것이 하나도 없어요.'];
+  if (from === 'file')  lines.push('촬영 날짜를 못 찾아 <b>파일 날짜</b>로 잡았어요. 다르면 나들이 안에서 고쳐주세요.');
+  if (from === 'today') lines.push('날짜를 찾지 못해 <b>오늘</b>로 잡았어요. 나들이 안에서 고쳐주세요.');
+  if (slug !== startVal) lines.push('그날 나들이가 이미 있어서 주소는 <b>' + slug + '</b> 로 했어요.');
   if (rejected.length) lines.push(rejected.length + '개는 올리지 않았어요 — ' + escapeHTML(rejected[0]));
   if (firstFail) lines.push('올리다 실패한 것이 있어요 — ' + escapeHTML(firstFail));
   if (placeLine) lines.push(placeLine);

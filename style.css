@@ -14,6 +14,7 @@
   /* 도트 한 칸 크기(테두리/그림자용). 2026-09-15 부모 요청으로 4px → 2px: 「머리줄·메뉴·단추 선이 너무 굵다, 연주회장 단추만큼 줄여 줘」 */
   --px:2px;
   --ink-bg-safe:#5c5448;       /* 배경 겹 위에 맨살로 앉는 글자용 — 크림 대비 7.17:1 */
+  --mint-ink:#22705d;          /* 글씨로 쓰는 민트 — #2f8f78 은 종이색 위에서 3.69:1 이었다 */
   --coral-ink:#c03a4b;         /* 글씨로 쓰는 코랄 — 원래 코랄은 종이색 위에서 2.27:1 뿐이다(4.97:1) */
   --header-h:69px;              /* 스크립트가 실제 높이로 다시 덮어쓴다(common.js syncHeaderHeight) */
 }
@@ -76,6 +77,12 @@ input, textarea, select{
   width:100%; padding:11px 13px; font-size:14px; font-family:inherit;
   color:var(--ink); background:#fff;
   border:var(--px) solid var(--ink); border-radius:0;
+}
+/* 손전화에서는 입력 글자를 16px 로. 아이폰은 16px 보다 작은 칸에 초점이 가면 화면을 확대하고
+   되돌리지 않는다 — 로그인·일기·쪽지에서 매번 그랬다. 쪽마다 12~14px 로 따로 정한 규칙들을
+   한 번에 이기려고 !important 를 쓴다. 마우스를 쓰는 화면은 그대로다. */
+@media (pointer:coarse){
+  input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]), textarea, select{font-size:16px !important;}
 }
 /* 어디에 초점이 가 있는지 — 키보드로 다니는 사람에게는 이게 커서다.
    레몬빛 안쪽 선만 두었더니 흰 바탕과 1.35:1 이라 사실상 안 보였다(기준 3:1).
@@ -168,7 +175,7 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
 .honor-peek{display:flex; flex-direction:column; gap:4px; margin:8px 0 2px;}
 .honor-peek .hp-row{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-soft);}
 .honor-peek .hp-name{font-weight:800; min-width:2.2em;}
-.honor-peek .hp-name.sua{color:var(--coral);} .honor-peek .hp-name.yona{color:#2f8f78;}
+.honor-peek .hp-name.sua{color:var(--coral-ink);} .honor-peek .hp-name.yona{color:var(--mint-ink);}
 .honor-peek canvas{width:60px; height:20px; image-rendering:pixelated; flex:none;}
 .hdr-icon:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--ink);}
 .hdr-icon.active{background:var(--lemon);}
@@ -289,7 +296,7 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
 .login-box{max-width:340px; margin:0 auto 26px;}
 .login-box .inner{padding:22px;}
 .msg{font-size:12.5px; margin-top:10px; min-height:1em; color:var(--ink-soft);}
-.msg.ok{color:#2a8a4a;}
+.msg.ok{color:#1f7a3d;}
 .msg.err{color:#c0392b;}
 .empty-msg{text-align:center; padding:44px 10px; color:var(--ink-soft); font-size:13.5px;}
 
@@ -454,7 +461,7 @@ body.has-backdrop .empty-msg{color:var(--ink-bg-safe);}
 /* ===== 글 서식 (일정표 커스텀 탭 · 일기장 공용) =====
    이벤트 페이지는 자기 색 변수(--accent 등)를 따로 쓰므로 그쪽 값을 먼저 보고,
    없으면 메인 사이트 토큰으로 떨어지게 var() 를 두 겹으로 씀. */
-.note-content{--nc-ink:var(--ink); --nc-soft:var(--ink-soft); --nc-accent:var(--coral);}
+.note-content{--nc-ink:var(--ink); --nc-soft:var(--ink-soft); --nc-accent:var(--coral-ink);}      /* 소제목·링크 글씨에 쓰인다 — 밝은 코랄은 2.27:1 */
 .note-heading{font-size:17px; font-weight:900; margin:18px 0 8px; color:var(--nc-ink);}
 .note-content .note-heading:first-child{margin-top:0;}
 .note-subheading{font-size:14.5px; font-weight:800; margin:14px 0 6px; color:var(--nc-accent);}

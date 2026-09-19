@@ -203,7 +203,7 @@ async function fillMissingPhotos(){
   const 대상 = PLACES.filter(needsPhoto);
   if (!대상.length) { msg.textContent = '사진을 채울 곳이 없습니다.'; return; }
   btn.disabled = true;
-  msg.textContent = '이벤트 사진을 찾는 중…';
+  msg.textContent = '나들이 사진을 찾는 중…';
 
   const ids = [...new Set(대상.map(p => p.event_id))];
   // 이벤트마다 따로 묻지 않고 한 번에 받아 온다
@@ -404,7 +404,7 @@ function rateRows(p){
 function editHTML(p){
   const opt = (list, cur) => list.map(v =>
     '<option' + (v === cur ? ' selected' : '') + '>' + escapeHTML(v) + '</option>').join('');
-  const evOpt = ['<option value="">— 이벤트 없음 —</option>'].concat(
+  const evOpt = ['<option value="">— 나들이 없음 —</option>'].concat(
     EVENT_LIST.map(e => '<option value="' + escapeHTML(e.event_id) + '"' +
       (e.event_id === p.event_id ? ' selected' : '') + '>' +
       escapeHTML((e.event_name || e.event_id) + (e.org_name ? ' · ' + e.org_name : '')) +
@@ -425,7 +425,7 @@ function editHTML(p){
       '<div><label>다녀온 날</label><input class="e-visited" type="date" value="' +
         escapeHTML(p.visited_on || '') + '"></div>' +
     '</div>' +
-    '<label>이어진 이벤트</label><select class="e-event">' + evOpt + '</select>' +
+    '<label>이어진 나들이</label><select class="e-event">' + evOpt + '</select>' +
     '<label>메모</label><textarea class="e-memo">' + escapeHTML(p.memo || '') + '</textarea>' +
     '<label>다녀온 뒤 한마디</label><textarea class="e-review">' + escapeHTML(p.review || '') + '</textarea>' +
     '<label>링크 (한 줄에 하나)</label><textarea class="e-links">' +
@@ -1095,7 +1095,7 @@ async function fillEventSelect(){
   if (!sel || sel.dataset.filled) return;
   await loadEventList();
   if (!EVENT_LIST.length) return;
-  sel.innerHTML = '<option value="">— 이벤트 없음 —</option>' +
+  sel.innerHTML = '<option value="">— 나들이 없음 —</option>' +
     EVENT_LIST.map(e => '<option value="' + escapeHTML(e.event_id) + '">' +
       escapeHTML((e.event_name || e.event_id) + (e.org_name ? ' · ' + e.org_name : '')) +
       '</option>').join('');
