@@ -666,8 +666,50 @@ function cropIcon(c){
   drawCrop(0, 0, c, 4, false, P);
   return cv;
 }
+/* 요리 그림 — 16x16 도트를 2배로. 그릇·접시·병·잔 틀 위에 음식마다 색과 고명을 얹는다.
+   틀 도우미는 전역에 두지 않는다 — 늦게 받는 짝 스크립트라 farm.js 이름과 부딪히면 통째로 멈춘다. */
+const DISH_ART = (() => {
+  const plate = p => { p(1, 11, 14, 2, '#f7f4ee'); p(1, 11, 14, 1, '#ffffff'); p(2, 13, 12, 1, '#d8cfbf'); };
+  const bowl = (p, c) => { p(3, 5, 10, 1, c); p(2, 6, 12, 3, c); p(1, 8, 14, 1, '#f7f4ee'); p(2, 9, 12, 2, '#ece5d8'); p(3, 11, 10, 1, '#ddd4c4'); p(5, 12, 6, 1, '#c9bfae'); };
+  const jar = (p, c, lid) => { p(4, 4, 8, 10, '#dcecef'); p(5, 5, 6, 8, c); p(4, 2, 8, 2, lid); p(4, 3, 8, 1, shade(lid, -24)); p(5, 6, 1, 5, '#ffffffaa'); };
+  const pieDish = (p, fill) => { p(1, 7, 14, 3, '#d9a060'); p(2, 7, 12, 2, fill); p(2, 7, 12, 1, shade(fill, 22)); p(2, 10, 12, 2, '#c98a4b'); p(3, 12, 10, 1, '#a56a35'); };
+  const fishOn = (p, c) => { plate(p); p(3, 8, 9, 3, c); p(4, 7, 7, 1, shade(c, 18)); p(12, 7, 2, 5, shade(c, -18)); p(4, 9, 1, 1, '#2a2a2a'); };
+  return {
+    salad:   p => { plate(p); p(4, 8, 8, 3, '#f3dc8a'); p(5, 7, 5, 1, '#f7e7a6'); p(3, 9, 2, 2, '#8fcf7a'); p(11, 8, 2, 2, '#8fcf7a'); p(7, 8, 2, 1, '#6fae5c'); p(9, 9, 1, 1, '#fff6e9'); },
+    jam:     p => { jar(p, '#d8323f', '#f2f2f2'); p(5, 2, 2, 1, '#e05a5a'); p(9, 2, 2, 1, '#e05a5a'); p(7, 3, 2, 1, '#e05a5a'); p(6, 8, 4, 3, '#fff6e9'); p(7, 9, 2, 1, '#d8323f'); },
+    soup:    p => { bowl(p, '#f5c542'); p(5, 6, 1, 1, '#ffe27a'); p(8, 5, 1, 1, '#ffe27a'); p(10, 7, 1, 1, '#ffe27a'); p(7, 7, 1, 1, '#ffffff'); p(6, 2, 1, 2, '#ffffff88'); p(9, 1, 1, 2, '#ffffff88'); },
+    pasta:   p => { plate(p); p(3, 8, 10, 3, '#f0c862'); p(4, 7, 8, 1, '#f0c862'); p(4, 9, 2, 1, '#d9a93e'); p(9, 8, 2, 1, '#d9a93e'); p(5, 7, 6, 2, '#d6452f'); p(7, 6, 2, 1, '#e8604a'); p(10, 7, 2, 1, '#6fae5c'); },
+    pie:     p => { pieDish(p, '#f08a24'); p(4, 7, 2, 1, '#ffb45a'); p(9, 8, 3, 1, '#d4731a'); },
+    cookie:  p => { plate(p); p(2, 8, 6, 3, '#d9a060'); p(3, 7, 4, 1, '#e5b377'); p(8, 7, 6, 4, '#c98a4b'); p(9, 6, 4, 1, '#d9a060'); p(4, 9, 1, 1, '#6b3f1f'); p(10, 8, 1, 1, '#6b3f1f'); p(12, 9, 1, 1, '#6b3f1f'); p(9, 5, 3, 1, '#f7b733'); },
+    juice:   p => { p(5, 3, 6, 11, '#e6f4f7'); p(6, 5, 4, 8, '#7b3fa0'); p(6, 5, 4, 1, '#a060c8'); p(9, 1, 1, 5, '#ff6b8a'); p(10, 1, 2, 1, '#ff6b8a'); p(4, 14, 8, 1, '#cfe3e8'); p(6, 7, 1, 4, '#ffffff66'); },
+    kimchi:  p => { plate(p); p(3, 8, 10, 3, '#e04a2a'); p(4, 7, 8, 1, '#e8653f'); p(5, 8, 2, 2, '#f5e6c8'); p(9, 9, 2, 1, '#f5e6c8'); p(7, 7, 2, 1, '#8fcf7a'); p(11, 8, 1, 1, '#b8321c'); },
+    omelet:  p => { plate(p); p(3, 8, 10, 3, '#f7d23e'); p(4, 7, 8, 1, '#fbe27a'); p(4, 10, 8, 1, '#e0b52a'); p(5, 8, 6, 1, '#d8323f'); p(6, 9, 1, 1, '#d8323f'); p(9, 9, 1, 1, '#d8323f'); },
+    risotto: p => { plate(p); p(3, 8, 10, 3, '#f3ead2'); p(4, 7, 8, 1, '#fbf5e4'); p(5, 8, 2, 1, '#4a3526'); p(9, 7, 2, 1, '#4a3526'); p(7, 9, 2, 1, '#4a3526'); p(11, 9, 1, 1, '#6fae5c'); },
+    stew:    p => { bowl(p, '#d8452f'); p(5, 6, 3, 2, '#f7ecde'); p(9, 5, 2, 1, '#8fcf7a'); p(10, 7, 2, 1, '#f5f0e8'); p(4, 5, 1, 1, '#ff7a5a'); },
+    sushi:   p => { p(1, 11, 14, 3, '#b9824f'); p(1, 11, 14, 1, '#d19a63'); p(2, 8, 5, 3, '#ffffff'); p(9, 8, 5, 3, '#ffffff'); p(2, 6, 5, 2, '#ff8c5a'); p(9, 6, 5, 2, '#ff8c5a'); p(3, 7, 3, 1, '#ffc0a0'); p(10, 7, 3, 1, '#ffc0a0'); },
+    shrimprice: p => { plate(p); p(3, 8, 10, 3, '#e9c46a'); p(4, 7, 8, 1, '#f0d488'); p(5, 7, 2, 2, '#ff8c7a'); p(9, 8, 2, 2, '#ff8c7a'); p(7, 9, 1, 1, '#6fae5c'); p(11, 8, 1, 1, '#6fae5c'); p(8, 7, 1, 1, '#fff6e9'); },
+    ayu:     p => { fishOn(p, '#9aa88a'); p(6, 8, 1, 2, '#5e4a36'); p(9, 8, 1, 2, '#5e4a36'); p(5, 8, 1, 1, '#ffffff'); p(8, 7, 1, 1, '#ffffff'); p(10, 9, 1, 1, '#ffffff'); },
+    crayfish:p => { plate(p); p(5, 8, 6, 3, '#e0432a'); p(3, 7, 3, 2, '#e0432a'); p(10, 7, 3, 2, '#e0432a'); p(11, 9, 3, 2, '#c33520'); p(6, 7, 4, 1, '#f26a4f'); p(7, 9, 1, 1, '#2a2a2a'); p(9, 9, 1, 1, '#2a2a2a'); },
+    carpsteam:p => { fishOn(p, '#d99a45'); p(5, 8, 5, 1, '#d8452f'); p(7, 10, 2, 1, '#8fcf7a'); },
+    smeltfry:p => { plate(p); p(3, 7, 9, 2, '#e7b04a'); p(4, 9, 9, 2, '#dba03a'); p(3, 11, 8, 1, '#e7b04a'); p(4, 7, 7, 1, '#f5cf6e'); p(12, 7, 1, 2, '#c98a2b'); p(13, 9, 1, 2, '#c98a2b'); },
+    catstew: p => { bowl(p, '#a83222'); p(5, 6, 4, 2, '#8a7a6a'); p(10, 5, 2, 1, '#8fcf7a'); p(10, 7, 2, 1, '#f5f0e8'); p(4, 5, 1, 1, '#d8452f'); },
+    eelbowl: p => { bowl(p, '#fbf7ee'); p(3, 5, 10, 2, '#8a4a22'); p(4, 5, 8, 1, '#b36a35'); p(6, 5, 1, 2, '#5e2f14'); p(9, 5, 1, 2, '#5e2f14'); p(11, 7, 2, 1, '#f7d23e'); },
+    pufferstew: p => { bowl(p, '#e9eee4'); p(4, 6, 3, 2, '#ffffff'); p(8, 5, 3, 2, '#ffffff'); p(10, 7, 2, 1, '#f5f0e8'); p(7, 7, 2, 1, '#8fcf7a'); p(5, 5, 1, 1, '#6fae5c'); },
+    pickle:  p => { jar(p, '#e8dc9a', '#8a5f3a'); p(6, 6, 2, 6, '#6fae5c'); p(9, 5, 2, 7, '#5d9a4c'); p(6, 7, 1, 1, '#9fd88a'); p(9, 6, 1, 1, '#8fcf7a'); },
+    starpie: p => { pieDish(p, '#8a5fd0'); p(7, 3, 2, 1, '#ffd84a'); p(5, 4, 6, 2, '#ffd84a'); p(6, 6, 1, 1, '#ffd84a'); p(9, 6, 1, 1, '#ffd84a'); p(7, 4, 1, 1, '#fff6c0'); },
+    _plate: plate,
+  };
+})();
+function dishIcon(v){
+  const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  const P = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x * 2, y * 2, w * 2, h * 2); };
+  P(0, 0, 16, 16, '#e6d7b5');
+  (DISH_ART[v] || (p => { DISH_ART._plate(p); p(4, 8, 8, 3, '#ffb3a7'); }))(P);   // 그림 없는 새 요리는 접시에 담긴 덩어리
+  return cv;
+}
 function itemIcon(id){
   const [k, v] = id.split(':');
+  if (k === 'dish') return dishIcon(v);
   if (k === 'gold'){                                    // 반짝 작물 — 같은 그림에 금테와 반짝임을 두른다
     const cv = cropIcon(v), g = cv.getContext('2d');
     g.fillStyle = '#ffd979'; g.fillRect(0, 0, 32, 2); g.fillRect(0, 30, 32, 2); g.fillRect(0, 0, 2, 32); g.fillRect(30, 0, 2, 32);
@@ -696,7 +738,7 @@ function itemIcon(id){
     return cv;
   }
   const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; const g = cv.getContext('2d');
-  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', sprinkler2: '#c9d6e0', firefly: '#ffe66d' }[id] || (k === 'dish' ? '#ffb3a7' : k === 'f' ? R.FURNITURE[v].c : '#ddd');
+  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', sprinkler2: '#c9d6e0', firefly: '#ffe66d' }[id] || (k === 'f' ? R.FURNITURE[v].c : '#ddd');
   g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, 32, 32); g.fillStyle = col; g.fillRect(8, 8, 16, 16); g.fillStyle = '#3a3226'; g.fillRect(8, 8, 16, 2); g.fillRect(8, 22, 16, 2); g.fillRect(8, 8, 2, 16); g.fillRect(22, 8, 2, 16);
   return cv;
 }
