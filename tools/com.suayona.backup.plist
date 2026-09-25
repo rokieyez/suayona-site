@@ -22,7 +22,7 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/mac/Downloads/suayona-site/tools/backup-weekly.sh</string>
+    <string>/Users/mac/Desktop/Projects/Active/suayona-site/tools/backup-weekly.sh</string>
   </array>
 
   <!-- 일요일 밤 9시. 새벽으로 잡으면 노트북이 자고 있어서 건너뛰기 쉽다.

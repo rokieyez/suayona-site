@@ -10,7 +10,7 @@
 import pathlib, subprocess, sys, os
 
 HERE = pathlib.Path(__file__).parent
-REPO = pathlib.Path('/Users/mac/Downloads/suayona-site')
+REPO = pathlib.Path('/Users/mac/Desktop/Projects/Active/suayona-site')
 OUT  = REPO / 'fonts'
 OUT.mkdir(exist_ok=True)
 
