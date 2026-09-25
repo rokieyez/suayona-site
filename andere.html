@@ -422,7 +422,10 @@ dialog.confirm { max-width: min(92vw, 380px); }
 #eventDlg { max-width: min(92vw, 560px); }
 
 @media (max-width: 620px) {
-  .sound-btn span { display: none; }
+  /* 좁은 화면에서는 떠 있는 단추가 내용을 가린다 — 그림만 남기고 글자는 뺀다.
+     aria-label 이 따로 있어 읽어 주는 이름은 그대로다. */
+  .float-btn span { display: none; }
+  .float-btn { padding: 9px 11px; }
   #relGraph { overflow-x: auto; }
   #relGraph svg { min-width: 560px; }
   .modal { grid-template-columns: 1fr; }
@@ -815,6 +818,12 @@ function saveEvents(list) {
   return lsSet(EVENTS_KEY, JSON.stringify(list));
 }
 
+/* ── 소리 ── */
+// 기본값은 켜짐. 끈 사람만 "off" 가 남아 다음에 와도 꺼진 채다.
+const SOUND_KEY = "andere-sound";
+const loadSound = () => lsGet(SOUND_KEY) !== "off";
+const saveSound = isOn => lsSet(SOUND_KEY, isOn ? null : "off");
+
 /* ── 낮/밤 ── */
 const DAYTIME_KEY = "andere-daytime";
 const loadDaytime = () => lsGet(DAYTIME_KEY) === "day";
@@ -942,7 +951,26 @@ const Sound = (() => {
     toggle() {
       if (on) stop();
       else if (!start()) unsupported = true;
+      saveSound(on);
       renderButton();
+    },
+
+    // 처음 들어왔을 때. 브라우저는 사람이 한 번 건드리기 전에는 소리를 못 내게 막으므로,
+    // 켜 두기만 하고 실제 울리는 것은 첫 누름·첫 글쇠까지 기다린다.
+    boot() {
+      if (!loadSound()) { renderButton(); return; }
+      if (!start()) unsupported = true;
+      renderButton();
+      if (!ctx || ctx.state !== "suspended") return;
+      const wake = () => {
+        document.removeEventListener("pointerdown", wake);
+        document.removeEventListener("keydown", wake);
+        if (!on) return;
+        ctx.resume();
+        nextTime = ctx.currentTime + 0.1;
+      };
+      document.addEventListener("pointerdown", wake);
+      document.addEventListener("keydown", wake);
     },
     renderButton,
     watchClasses,
@@ -1185,6 +1213,7 @@ function renderRelationGraph(box) {
 
 /* 얼굴에 마우스를 올리거나 키보드로 고르면 그 캐릭터의 선만 강조 */
 function highlightGraph(id) {
+  if (!id) graphTapped = null; // 강조가 풀리면 「한 번 눌러 고른 얼굴」도 같이 푼다
   const svg = document.querySelector("#relGraph svg");
   if (!svg) return;
   svg.classList.toggle("focusing", !!id);
@@ -1197,12 +1226,27 @@ function highlightGraph(id) {
   svg.querySelectorAll(".gnode").forEach(n => n.classList.toggle("hl", linked.has(n.dataset.node)));
 }
 
+// 손가락에는 「마우스를 올린 상태」가 없다. 그래서 첫 번째 누름은 마우스를 올린 것처럼
+// 그 캐릭터의 선만 밝히고, 같은 얼굴을 한 번 더 눌러야 자세히 보기를 연다.
+// 마우스는 올리는 것만으로 이미 밝아지므로 예전처럼 한 번 눌러 바로 열린다.
+let graphTapped = null;   // 손가락으로 눌러 고른 얼굴
+let graphByTouch = false; // 마지막으로 누른 것이 손가락·펜이었나
+
 function wireGraphHighlight(box) {
   const pick = e => e.target.closest?.(".gnode")?.dataset.node || null;
   box.addEventListener("pointerover", e => highlightGraph(pick(e)));
   box.addEventListener("pointerleave", () => highlightGraph(null));
   box.addEventListener("focusin", e => highlightGraph(pick(e)));
   box.addEventListener("focusout", () => highlightGraph(null));
+  box.addEventListener("pointerdown", e => { graphByTouch = e.pointerType !== "mouse"; });
+  box.addEventListener("click", e => {
+    const id = pick(e);
+    if (!id || !graphByTouch) return;                       // 마우스는 예전 그대로 한 번에 열린다
+    if (graphTapped === id) { graphTapped = null; return; }  // 두 번째 누름 — 열리게 두고, 고른 것은 푼다
+    highlightGraph(id);
+    graphTapped = id;
+    e.stopPropagation(); // 이번 누름은 고르기까지만 — 자세히 보기는 열지 않는다
+  });
 }
 </script>
 <script>
@@ -1947,7 +1991,7 @@ async function init() {
   renderScans();
   wireAddDialog();
   wireEventDialog();
-  Sound.renderButton();
+  Sound.boot();
   // 직접 추가한 캐릭터의 사진은 저장소에서 늦게 불러오므로, 다 불러온 뒤 한 번 더 그림
   if (customCharacters.length) {
     await loadCustomPortraits();
