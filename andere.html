@@ -430,7 +430,8 @@ dialog.confirm { max-width: min(92vw, 380px); }
   #relGraph svg { min-width: 560px; }
   .modal { grid-template-columns: 1fr; }
   .main-pic { max-height: 46vh; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  /* 선생님 반은 넓은 화면에서만 큰 칸(.big)을 쓴다 — 좁은 화면에서는 학생과 같은 2칸 */
+  .grid, .grid.big { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
   .moon { width: 52px; height: 52px; top: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
