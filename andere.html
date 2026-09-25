@@ -341,6 +341,13 @@ dialog.scan { max-width: 96vw; width: auto; background: #111; }
 dialog.scan img { display: block; max-width: 96vw; max-height: 90vh; }
 
 /* ── 확인 창 ── */
+dialog.crop { width: min(96vw, 720px); max-width: none; --deep: var(--ink); }
+.crop-canvas { display: block; margin: 0 auto 12px; max-width: 100%; max-height: 58vh; touch-action: none; cursor: crosshair; border-radius: 8px; background: #000; }
+.crop-row { display: flex; align-items: center; gap: 14px; }
+.crop-preview { width: 72px; height: 72px; border-radius: 12px; border: 2px solid var(--parchment-edge); flex: none; }
+.crop-size { flex: 1; margin: 0; }
+.char-actions { margin-top: 18px; }
+.char-actions .danger { margin-top: 0; }
 dialog.confirm { max-width: min(92vw, 380px);
   --deep: var(--ink); } /* 단추 색은 반 테마(--deep)에서 오는데, 확인·로그인 창은 어느 반에도 안 속해 흰 글자만 떠 있었다 */
 .confirm-box { padding: 22px; margin: 0; }
@@ -422,8 +429,8 @@ dialog.confirm { max-width: min(92vw, 380px);
 .when-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 8px; }
 .people-pick { border: none; padding: 0; margin: 0 0 6px; }
 .people-pick legend { font-size: 13px; color: var(--ink-soft); margin-bottom: 4px; }
-#eventDlg input.people-filter { width: 100%; margin-bottom: 8px; color: var(--ink); background: #fffaf0; border-color: var(--parchment-edge); }
-#eventDlg input.people-filter::placeholder { color: var(--ink-soft); }
+dialog input.people-filter { width: 100%; margin-bottom: 8px; color: var(--ink); background: #fffaf0; border-color: var(--parchment-edge); }
+dialog input.people-filter::placeholder { color: var(--ink-soft); }
 .people-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 200px; overflow-y: auto; padding: 2px; }
 .pchip { display: flex; align-items: center; gap: 5px; border: 1px solid var(--parchment-edge); background: #fff; color: var(--ink); border-radius: 999px;
   padding: 3px 10px 3px 3px; font-size: 13px; cursor: pointer; }
@@ -579,6 +586,7 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
 <dialog id="confirmDlg" class="confirm" aria-labelledby="confirmMsg"></dialog>
 <dialog id="eventDlg" aria-labelledby="eventTitle"></dialog>
 <dialog id="loginDlg" class="confirm" aria-labelledby="loginMsg"></dialog>
+<dialog id="cropDlg" class="crop" aria-labelledby="cropTitle"></dialog>
 <button id="themeBtn" class="float-btn theme-btn" aria-pressed="false" aria-label="낮과 밤 바꾸기"></button>
 <button id="soundBtn" class="float-btn sound-btn" aria-pressed="false" aria-label="배경음악과 효과음 켜기/끄기"></button>
 
@@ -662,7 +670,7 @@ const TAGS = { sib: "형제/자매/남매", rival: "라이벌", main: "주연/�
 const TAG_COLORS = { sib: "var(--t-sib)", rival: "var(--t-rival)", main: "var(--t-main-on-dark)", secret: "var(--t-secret-on-dark)" };
 
 // 기본 서사 (id: "이야기"). 파일에 적혀 있어 누가 열어도 보임.
-// 페이지에서 직접 적은 서사는 그 브라우저에만 저장되고, 있으면 이 기본값보다 먼저 보임.
+// 가족이 페이지에서 적은 서사는 서버(andere_items)에 저장되고, 있으면 이 기본값보다 먼저 보임.
 const STORIES = {};
 
 const SCANS = [
@@ -822,8 +830,14 @@ function cleanCharacters(list) {
       role: typeof c.role === "string" ? c.role.slice(0, LIMITS.role) : undefined,
       full: typeof c.full === "string" ? c.full : undefined,
       tags: Array.isArray(c.tags) ? c.tags.filter(t => t === "main" || t === "secret") : [],
+      rivals: relIds(c.rivals, c.id),
+      sibs: relIds(c.sibs, c.id),
     }));
 }
+// 관계로 이은 캐릭터 id 목록 (자기 자신·이상한 값 빼고, 너무 많으면 자른다)
+const relIds = (list, self) => Array.isArray(list)
+  ? [...new Set(list.filter(id => typeof id === "string" && /^[A-Z]\d{1,2}$|^N[0-9a-z]+$/.test(id) && id !== self))].slice(0, 30)
+  : [];
 const loadCustomCharacters = () => cleanCharacters(Cloud.list("character").map(r => ({ ...r.data, id: r.id })));
 // 줄에는 id 를 빼고 담는다 (id 는 줄의 열쇠)
 const characterData = ({ id, ...rest }) => JSON.parse(JSON.stringify(rest));
@@ -994,7 +1008,7 @@ const saveDaytime = isDay => lsSet(DAYTIME_KEY, isDay ? "day" : null);
 </script>
 <script>
 /* 소리: 반마다 분위기가 다른 배경음악 + 문 열리는 소리 + 카드 여는 반짝 소리
-   음원 파일 없이 브라우저(Web Audio)로 직접 만든다. 기본은 꺼짐, 오른쪽 아래 버튼으로 켠다. */
+   음원 파일 없이 브라우저(Web Audio)로 직접 만든다. 기본은 켜짐(끄면 그 기기에서 기억), 오른쪽 아래 버튼. */
 
 const Sound = (() => {
   // root: 기준 음(MIDI), scale: 음계, wave: 음색, bpm: 빠르기, bright: 밝기(필터)
@@ -1216,6 +1230,28 @@ function refreshPeople() {
   customCharacters = loadCustomCharacters();
   people = buildPeople();
   byId = Object.fromEntries(people.map(p => [p.id, p]));
+  applyCustomRelations();
+}
+
+/* 추가 캐릭터가 고른 관계를 파일의 관계 목록(RIVALS·SIBLINGS) 뒤에 붙인다.
+   지도·카드의 관계 줄·짝 목록·찾기·통계가 모두 이 목록을 읽는다. 지도는 이 목록에 든 캐릭터만
+   그리므로, 관계가 없는 추가 캐릭터는 저절로 지도에 안 나온다. 기호는 수아의 표시와 가르려고 ✎. */
+const BASE_RIVALS = RIVALS.length, BASE_SIBLINGS = SIBLINGS.length;
+function applyCustomRelations() {
+  RIVALS.length = BASE_RIVALS;
+  SIBLINGS.length = BASE_SIBLINGS;
+  const seen = new Set();
+  for (const c of customCharacters) {
+    for (const [kind, list] of [["rival", c.rivals], ["sib", c.sibs]]) {
+      for (const other of list) {
+        const key = `${kind}:${[c.id, other].sort().join("|")}`; // 두 캐릭터가 서로 고른 것은 한 번만
+        if (!byId[other] || seen.has(key)) continue;
+        seen.add(key);
+        if (kind === "rival") RIVALS.push({ sym: "✎", ids: [c.id, other], custom: true });
+        else SIBLINGS.push({ sym: "✎", ids: [c.id, other], word: "형제·자매", custom: true });
+      }
+    }
+  }
 }
 
 function loadCustomPortraits() {
@@ -1248,7 +1284,7 @@ function askConfirm(message, okLabel = "확인") {
 }
 
 /* ── 관계 ── */
-const othersIn = (sets, id) => sets.filter(s => s.ids.includes(id)).flatMap(s => s.ids.filter(x => x !== id).map(x => ({ id: x, sym: s.sym })));
+const othersIn = (sets, id) => sets.filter(s => s.ids.includes(id)).flatMap(s => s.ids.filter(x => x !== id).map(x => ({ id: x, sym: s.sym, custom: !!s.custom })));
 const relsOf = id => ({ rival: othersIn(RIVALS, id), sib: othersIn(SIBLINGS, id) });
 const hasTag = (p, t) => (t === "rival" || t === "sib") ? relsOf(p.id)[t].length > 0 : p.tags.includes(t);
 const sibWordOf = id => SIBLINGS.find(x => x.ids.includes(id))?.word || "형제·자매";
@@ -1494,6 +1530,7 @@ function renderStats() {
 /* 캐릭터가 추가·삭제됐을 때 한꺼번에 다시 그리기 */
 function renderPeopleViews() {
   renderStats();
+  renderRelations(); // 추가 캐릭터의 관계가 바뀌면 지도·짝 목록도 다시
   renderFavorites();
   renderClasses();
   renderTimeline();
@@ -1711,7 +1748,7 @@ async function openPerson(id) {
     : [["반", `${g.title} ${p.no}번`], ["기숙사", g.dorm], ...(p.age ? [["나이", `${p.age}살`]] : []), ...(p.note ? [["특징", p.note]] : [])];
   const r = relsOf(id);
   const relBlock = (title, list) => list.length
-    ? `<h4>${title}</h4><div class="mini">${list.map(o => whoHtml(o.id, `<small>${o.sym} 표시</small>`)).join("")}</div>` : "";
+    ? `<h4>${title}</h4><div class="mini">${list.map(o => whoHtml(o.id, `<small>${o.custom ? "✎ 직접 이은 관계" : `${o.sym} 표시`}</small>`)).join("")}</div>` : "";
   dlg.className = `th-${p.group}`;
   dlg.innerHTML = `<button class="close" aria-label="닫기">×</button><div class="modal">
       <div class="gallery" data-gallery="${id}">
@@ -1727,11 +1764,11 @@ async function openPerson(id) {
           <h4>📝 프로필</h4>
           <div data-prof-box="${id}">${profileHtml(id, false)}</div>
           <p class="story-note" id="profNote" role="status"></p>
-          <p class="hint-small">프로필·서사·추가 그림은 이 기기의 이 브라우저에만 저장돼요.</p>
+          <p class="hint-small">프로필·서사·그림은 가족 모두에게 보여요. 쓰기는 가족 계정만 돼요.</p>
           ${relBlock("⚔️ 라이벌", r.rival)}
           ${relBlock(`🌟 ${sibWordOf(id)}`, r.sib)}
           ${eventsBlock(id)}
-          ${p.custom ? `<button class="danger" data-del-char="${id}">🗑 이 캐릭터 지우기</button>` : ""}
+          ${p.custom ? `<div class="story-actions char-actions"><button data-edit-char="${id}">✏️ 캐릭터 고치기</button><button class="danger" data-del-char="${id}">🗑 이 캐릭터 지우기</button></div>` : ""}
         </div>
       </div>
     </div>`;
@@ -1755,35 +1792,175 @@ function openScan(file, label) {
 // form.name 식으로 쓰면 폼 자체 속성과 헷갈릴 수 있어서 이름으로 입력칸을 찾는다
 const field = (form, name) => form.elements.namedItem(name);
 
-function openAddCharacter(gid = "A") {
+/* ── 사진 자르기 ── 카드 그림은 정사각형이라, 고른 그림에서 정사각형 한 칸을 고른다.
+   수아의 스캔처럼 여러 명이 든 그림에서 한 명만 잘라 쓸 수 있다: 끌어서 네모를 새로 그리거나
+   네모 안을 끌어 옮기고, 크기는 막대로. 손그림에서 얼굴을 저절로 찾는 것은 믿을 만하지 않아 손으로 고른다.
+   돌려주는 것: { blob, partial } — partial 은 그림의 절반도 안 되는 부분을 골랐는지(= 여러 명이 든 그림). */
+async function cropPhoto(file) {
+  const bitmap = await createImageBitmap(file);
+  const W = bitmap.width, H = bitmap.height, most = Math.min(W, H);
+  const least = Math.max(24, Math.round(most * 0.04));
+  const k = Math.min(1, 1200 / Math.max(W, H)); // 화면에 그릴 크기 (큰 스캔을 그대로 그리면 느리다)
+  const sel = { s: Math.round(most * 0.8) };
+  sel.x = Math.round((W - sel.s) / 2); sel.y = Math.round((H - sel.s) / 2);
+  const fit = () => {
+    sel.s = Math.max(least, Math.min(sel.s, most));
+    sel.x = Math.max(0, Math.min(sel.x, W - sel.s));
+    sel.y = Math.max(0, Math.min(sel.y, H - sel.s));
+  };
+  const dlg = document.getElementById("cropDlg");
+  dlg.innerHTML = `<form method="dialog" class="confirm-box crop-box">
+      <p id="cropTitle"><b>쓸 부분을 네모로 골라 주세요</b><br><small>끌어서 새로 그리거나, 네모 안을 끌어 옮겨요.</small></p>
+      <canvas class="crop-canvas" width="${Math.round(W * k)}" height="${Math.round(H * k)}"></canvas>
+      <div class="crop-row">
+        <canvas class="crop-preview" width="96" height="96" aria-label="잘린 모습 미리 보기" role="img"></canvas>
+        <label class="prof-field crop-size"><span>크기</span><input type="range" name="size" min="${least}" max="${most}" value="${sel.s}"></label>
+      </div>
+      <div class="story-actions"><button value="ok" class="primary">✂️ 이렇게 자르기</button><button value="cancel">취소</button></div>
+    </form>`;
+  const cv = dlg.querySelector(".crop-canvas"), ctx = cv.getContext("2d");
+  const pv = dlg.querySelector(".crop-preview").getContext("2d");
+  const size = dlg.querySelector("[name=size]");
+  const draw = () => {
+    ctx.drawImage(bitmap, 0, 0, cv.width, cv.height);
+    const x = sel.x * k, y = sel.y * k, z = sel.s * k;
+    ctx.fillStyle = "rgba(0, 0, 0, .55)";
+    ctx.fillRect(0, 0, cv.width, y);
+    ctx.fillRect(0, y + z, cv.width, cv.height - y - z);
+    ctx.fillRect(0, y, x, z);
+    ctx.fillRect(x + z, y, cv.width - x - z, z);
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = Math.max(2, cv.width / 300);
+    ctx.strokeRect(x, y, z, z);
+    pv.fillStyle = "#fff";
+    pv.fillRect(0, 0, 96, 96);
+    pv.drawImage(bitmap, sel.x, sel.y, sel.s, sel.s, 0, 0, 96, 96);
+  };
+  // 화면 좌표 → 그림 좌표
+  const at = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; };
+  let drag = null;
+  cv.addEventListener("pointerdown", e => {
+    const p = at(e);
+    const inside = p.x >= sel.x && p.x <= sel.x + sel.s && p.y >= sel.y && p.y <= sel.y + sel.s;
+    drag = inside ? { move: true, dx: p.x - sel.x, dy: p.y - sel.y } : { move: false, ax: p.x, ay: p.y };
+    cv.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!drag) return;
+    const p = at(e);
+    if (drag.move) {
+      sel.x = Math.round(p.x - drag.dx); sel.y = Math.round(p.y - drag.dy);
+    } else {
+      const side = Math.max(Math.abs(p.x - drag.ax), Math.abs(p.y - drag.ay));
+      if (side < least / 2) return; // 콕 누른 것은 그리기로 치지 않는다
+      sel.s = Math.round(side);
+      sel.x = Math.round(p.x < drag.ax ? drag.ax - sel.s : drag.ax);
+      sel.y = Math.round(p.y < drag.ay ? drag.ay - sel.s : drag.ay);
+    }
+    fit(); size.value = sel.s; draw();
+  });
+  const stop = () => { drag = null; };
+  cv.addEventListener("pointerup", stop);
+  cv.addEventListener("pointercancel", stop);
+  size.addEventListener("input", () => {
+    const cx = sel.x + sel.s / 2, cy = sel.y + sel.s / 2;
+    sel.s = Number(size.value);
+    sel.x = Math.round(cx - sel.s / 2); sel.y = Math.round(cy - sel.s / 2);
+    fit(); draw();
+  });
+  fit(); draw();
+  dlg.returnValue = "";
+  dlg.showModal();
+  const ok = await new Promise(r => dlg.addEventListener("close", () => r(dlg.returnValue === "ok"), { once: true }));
+  if (!ok) { bitmap.close(); return null; }
+  const out = document.createElement("canvas");
+  out.width = out.height = Math.min(sel.s, 1200);
+  out.getContext("2d").drawImage(bitmap, sel.x, sel.y, sel.s, sel.s, 0, 0, out.width, out.height);
+  bitmap.close();
+  const blob = await new Promise((res, rej) => out.toBlob(b => (b ? res(b) : rej(new Error("그림을 자르지 못했어요"))), "image/jpeg", 0.92));
+  return { blob, partial: sel.s * sel.s < W * H / 2 };
+}
+
+/* 캐릭터 추가하기 / 추가한 캐릭터 고치기 (editId 가 있으면 고치기) */
+function openAddCharacter(gid = "A", editId = null) {
+  const c = editId ? customCharacters.find(x => x.id === editId) : null;
+  if (editId && !c) return;
+  if (c) gid = c.group;
+  relDraft = new Map([...(c?.rivals || []).map(id => [id, "rival"]), ...(c?.sibs || []).map(id => [id, "sib"])].filter(([id]) => byId[id]));
   const dlg = document.getElementById("addDlg");
   const options = GROUPS.map(g => `<option value="${g.id}"${g.id === gid ? " selected" : ""}>${g.title} (${g.dorm})</option>`).join("");
+  const has = t => (c?.tags || []).includes(t) ? " checked" : "";
   dlg.className = `th-${gid}`;
   dlg.innerHTML = `<button class="close" aria-label="닫기">×</button>
-    <form class="add-form" novalidate>
-      <div class="band"><div class="kicker">✨ 새 캐릭터</div><h3 id="addTitle">도감에 캐릭터 추가하기</h3></div>
+    <form class="add-form" novalidate data-edit-id="${c?.id || ""}">
+      <div class="band"><div class="kicker">${c ? "✏️ 캐릭터 고치기" : "✨ 새 캐릭터"}</div><h3 id="addTitle">${c ? esc(c.name) : "도감에 캐릭터 추가하기"}</h3></div>
       <div class="content">
         <label class="photo-pick">
-          <img class="photo-preview" src="${NO_PHOTO}" alt="">
-          <span>📷 사진 고르기 <small>(없어도 돼요)</small></span>
+          <img class="photo-preview" src="${c ? portrait(c.id) : NO_PHOTO}" alt="">
+          <span>📷 ${c ? "사진 바꾸기" : "사진 고르기"} <small>(없어도 돼요 · 스캔에서 한 명만 잘라 쓸 수 있어요)</small></span>
           <input type="file" name="photo" class="sr" accept="image/*">
         </label>
-        <label class="prof-field"><span>이름 *</span><input name="name" maxlength="${LIMITS.name}" required autocomplete="off"></label>
+        <label class="prof-field"><span>이름 *</span><input name="name" maxlength="${LIMITS.name}" required autocomplete="off" value="${esc(c?.name || "")}"></label>
         <label class="prof-field"><span>반 *</span><select name="group">${options}</select></label>
-        <label class="prof-field" data-when="student"><span>나이</span><input name="age" type="number" min="1" max="999" inputmode="numeric"></label>
-        <label class="prof-field" data-when="teacher" hidden><span>담당</span><input name="role" maxlength="${LIMITS.role}" placeholder="예: 별자리 수업 담당"></label>
+        <label class="prof-field" data-when="student"><span>나이</span><input name="age" type="number" min="1" max="999" inputmode="numeric" value="${c?.age ?? ""}"></label>
+        <label class="prof-field" data-when="teacher" hidden><span>담당</span><input name="role" maxlength="${LIMITS.role}" placeholder="예: 별자리 수업 담당" value="${esc(c?.role || "")}"></label>
         <fieldset class="checks"><legend>수아의 표시</legend>
-          <label><input type="checkbox" name="main"> 주연/조연</label>
-          <label><input type="checkbox" name="secret"> 수상함/비밀</label>
+          <label><input type="checkbox" name="main"${has("main")}> 주연/조연</label>
+          <label><input type="checkbox" name="secret"${has("secret")}> 수상함/비밀</label>
+        </fieldset>
+        <fieldset class="people-pick"><legend>관계 <small>누를 때마다 ⚔ 라이벌 → ♥ 형제·자매 → 없음</small></legend>
+          <input type="search" class="people-filter" placeholder="이름으로 찾기…" aria-label="관계 맺을 캐릭터 이름 찾기">
+          <div class="people-chips" data-rel-chips></div>
         </fieldset>
         <p class="form-error" role="alert"></p>
-        <div class="story-actions"><button class="primary" type="submit">＋ 추가하기</button><button type="button" data-add-cancel>취소</button></div>
-        <p class="hint-small">추가한 캐릭터는 이 브라우저에만 저장돼요.</p>
+        <div class="story-actions"><button class="primary" type="submit">${c ? "💾 저장" : "＋ 추가하기"}</button><button type="button" data-add-cancel>취소</button></div>
+        <p class="hint-small">관계를 하나라도 이으면 관계 지도에도 나와요. 추가한 캐릭터는 가족 모두에게 보여요.</p>
       </div>
     </form>`;
-  syncAddForm(dlg.querySelector("form"));
+  const form = dlg.querySelector("form");
+  syncAddForm(form);
+  renderRelChips();
+  form.dataset.initial = addSnapshot(form);
   dlg.showModal();
   dlg.querySelector("[name=name]").focus();
+}
+
+/* ── 관계 고르기 칩: 누를 때마다 라이벌 → 형제·자매 → 없음 ── */
+let relDraft = new Map(); // id → "rival" | "sib"
+const REL_LABEL = { rival: "⚔ 라이벌", sib: "♥ 형제·자매" };
+
+function relChipHtml(p) {
+  const kind = relDraft.get(p.id);
+  return `<button type="button" class="pchip th-${p.group}" data-rel-pick="${p.id}" aria-pressed="${!!kind}"
+      aria-label="${esc(p.name)}, ${kind ? REL_LABEL[kind] : "관계 없음"}"><img src="${portrait(p.id)}" alt="">${esc(p.name)}<small>${kind ? REL_LABEL[kind] : groupOf(p.group).title}</small></button>`;
+}
+// 이은 캐릭터를 앞에, 나머지는 반 순서대로
+function renderRelChips(filter = "") {
+  const box = document.querySelector("#addDlg [data-rel-chips]");
+  if (!box) return;
+  const self = box.closest("form").dataset.editId;
+  const match = p => !filter || [p.name, p.full].some(t => t && t.includes(filter));
+  const others = people.filter(p => p.id !== self);
+  box.innerHTML = [...others.filter(p => relDraft.has(p.id)), ...others.filter(p => !relDraft.has(p.id) && match(p))].map(relChipHtml).join("");
+}
+function cycleRel(id) {
+  const cur = relDraft.get(id);
+  const next = cur === undefined ? "rival" : cur === "rival" ? "sib" : undefined;
+  if (next) relDraft.set(id, next); else relDraft.delete(id);
+  const btn = document.querySelector(`#addDlg [data-rel-pick="${id}"]`);
+  if (!btn || !byId[id]) return;
+  btn.outerHTML = relChipHtml(byId[id]);
+  document.querySelector(`#addDlg [data-rel-pick="${id}"]`)?.focus();
+}
+
+// 연 뒤로 바뀐 게 있는지 (고치기 창은 처음부터 칸이 차 있으므로 「비었나」로는 못 가린다)
+function addSnapshot(form) {
+  return JSON.stringify({
+    ...Object.fromEntries(["name", "group", "age", "role"].map(n => [n, field(form, n).value.trim()])),
+    ...Object.fromEntries(["main", "secret"].map(n => [n, field(form, n).checked])),
+    rel: [...relDraft].sort(), photo: !!form._photo,
+  });
 }
 
 // 반을 바꾸면 테마색·입력칸(나이 ↔ 담당)이 바뀜
@@ -1806,11 +1983,13 @@ function readAddForm(form) {
   }
   return {
     value: {
-      id: `N${Date.now().toString(36)}`,
+      id: form.dataset.editId || `N${Date.now().toString(36)}`,
       group: field(form, "group").value,
       name,
       ...(teacher ? { role: field(form, "role").value.trim() || "선생님", full: name } : { age: age ? Number(age) : null }),
       tags: ["main", "secret"].filter(k => field(form, k).checked),
+      rivals: [...relDraft].filter(([, k]) => k === "rival").map(([id]) => id).sort(),
+      sibs: [...relDraft].filter(([, k]) => k === "sib").map(([id]) => id).sort(),
     },
   };
 }
@@ -1824,19 +2003,20 @@ async function submitAddForm(form) {
   const submitBtn = form.querySelector('[type="submit"]');
   form.dataset.busy = "1";
   submitBtn.disabled = true;
+  const editing = !!form.dataset.editId;
+  const photo = form._photo || null, scan = form._scan || null;
   try {
-    const photo = field(form, "photo").files[0];
     try {
       if (photo) await Pictures.put(`portrait:${value.id}`, await shrinkImage(photo, 900));
     } catch (e) {
       errorBox.textContent = `사진을 저장하지 못했어요 (${e.message}). 사진 없이 다시 해 보세요.`;
       return;
     }
-    if (!dlg.open) { if (photo) Pictures.remove(`portrait:${value.id}`).catch(() => {}); return; } // 저장 중에 창을 닫음
+    if (!dlg.open) { if (photo && !editing) Pictures.remove(`portrait:${value.id}`).catch(() => {}); return; } // 저장 중에 창을 닫음
     try {
       await Cloud.put("character", value.id, characterData(value));
     } catch (e) {
-      if (photo) Pictures.remove(`portrait:${value.id}`).catch(() => {});
+      if (photo && !editing) Pictures.remove(`portrait:${value.id}`).catch(() => {});
       errorBox.textContent = `저장하지 못했어요 (${e.message})`;
       return;
     }
@@ -1848,16 +2028,20 @@ async function submitAddForm(form) {
   refreshPeople();
   loadCustomPortraits();
   renderPeopleViews();
-  focusAfterClose = `[data-id="${value.id}"] .card-open`; // 상세 창을 닫으면 새 카드로
+  // 여러 명이 든 스캔에서 한 명을 잘랐다면, 같은 그림에서 다음 사람을 바로 자를 수 있게
+  if (!editing && scan && await askConfirm(`${value.name}을(를) 추가했어요. 같은 그림에서 한 명 더 잘라 만들까요?`, "한 명 더")) {
+    openAddCharacter(value.group);
+    await pickPhoto(document.querySelector("#addDlg form"), scan);
+    return;
+  }
+  focusAfterClose = `[data-id="${value.id}"] .card-open`; // 상세 창을 닫으면 그 카드로
   openPerson(value.id);
 }
 
 // 입력한 게 있으면 닫기 전에 확인
 function addFormIsDirty() {
   const form = document.querySelector("#addDlg form");
-  if (!form) return false;
-  return ["name", "age", "role"].some(n => field(form, n).value.trim()) || field(form, "photo").files.length > 0 ||
-    ["main", "secret"].some(n => field(form, n).checked);
+  return !!form && document.getElementById("addDlg").open && addSnapshot(form) !== form.dataset.initial;
 }
 
 function wireAddDialog() {
@@ -1871,11 +2055,26 @@ function wireAddDialog() {
     const form = e.target.form;
     if (e.target.name === "group") syncAddForm(form);
     if (e.target.name === "photo" && e.target.files[0]) {
-      const preview = form.querySelector(".photo-preview");
-      if (preview.src.startsWith("blob:")) URL.revokeObjectURL(preview.src);
-      preview.src = URL.createObjectURL(e.target.files[0]);
+      const file = e.target.files[0];
+      e.target.value = ""; // 같은 파일을 다시 골라도 알 수 있게
+      pickPhoto(form, file);
     }
   });
+  dlg.addEventListener("input", e => { if (e.target.matches(".people-filter")) renderRelChips(e.target.value.trim()); });
+}
+
+// 고른 그림을 잘라 이 창의 사진으로 삼는다. 여러 명이 든 큰 그림이면 「한 명 더」를 위해 원본을 기억
+async function pickPhoto(form, file) {
+  const errorBox = form.querySelector(".form-error");
+  errorBox.textContent = "";
+  let got;
+  try { got = await cropPhoto(file); } catch (err) { errorBox.textContent = `그림을 열지 못했어요 (${err.message})`; return; }
+  if (!got || !form.isConnected) return;
+  form._photo = got.blob;
+  form._scan = got.partial ? file : null;
+  const preview = form.querySelector(".photo-preview");
+  if (preview.src.startsWith("blob:")) URL.revokeObjectURL(preview.src);
+  preview.src = URL.createObjectURL(got.blob);
 }
 </script>
 <script>
@@ -1948,7 +2147,7 @@ function openEventEditor(id = null) {
         </fieldset>
         <p class="form-error" role="alert"></p>
         <div class="story-actions"><button class="primary" type="submit">💾 저장</button><button type="button" data-event-cancel>취소</button></div>
-        <p class="hint-small">연대기는 이 기기의 이 브라우저에만 저장돼요.</p>
+        <p class="hint-small">연대기는 가족 모두에게 보여요. 쓰기는 가족 계정만 돼요.</p>
       </div>
     </form>`;
   dlg.dataset.initial = JSON.stringify(readEventForm(dlg.querySelector("form")));
@@ -2112,6 +2311,8 @@ const CLICKS = [
   ["[data-event-cancel]", () => closeDialog(document.getElementById("eventDlg"))],
   ["[data-goto-event]", b => goToEvent(b.dataset.gotoEvent)],
   ["[data-pick]", b => togglePick(b.dataset.pick)],
+  ["[data-rel-pick]", b => cycleRel(b.dataset.relPick)],
+  ["[data-edit-char]", b => { const id = b.dataset.editChar; document.getElementById("dlg").close(); openAddCharacter(undefined, id); }],
   ["[data-gate]", b => openGate(b.dataset.gate)],
   ["[data-relview]", b => showRelView(b.dataset.relview)],
   ["#soundBtn", () => Sound.toggle()],
@@ -2123,7 +2324,7 @@ const CLICKS = [
 ];
 
 // 표의 규칙이 진짜로 막고, 여기서는 누르는 순간 알려 주기만 한다
-const WRITES = '[data-prof-act="edit"], [data-pic-del], [data-del-char], [data-add], #timelineAdd, [data-event-edit], [data-event-del], .thumb.add';
+const WRITES = '[data-prof-act="edit"], [data-pic-del], [data-del-char], [data-edit-char], [data-add], #timelineAdd, [data-event-edit], [data-event-del], .thumb.add';
 
 document.addEventListener("click", e => {
   const t = e.target;
