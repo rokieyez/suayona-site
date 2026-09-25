@@ -366,7 +366,11 @@ dialog.confirm { max-width: min(92vw, 380px); }
 #relGraph .edge.rival circle { stroke: #ff6b6b; }
 #relGraph .edge.sib circle { stroke: #f2c400; }
 #relGraph .edge text { fill: var(--map-label); font-size: 11px; text-anchor: middle; dominant-baseline: central; }
-#relGraph .gnode { cursor: pointer; outline: none; }
+/* 손가락으로 누를 때 브라우저가 칠하는 하늘색 네모를 끈다 — 이제 첫 누름으로 열리지 않고
+   고르기만 하므로 그 네모가 남아 거슬린다. 고른 얼굴은 테두리(.hl)로 이미 알 수 있다.
+   이름 글자가 길게 눌러 잡히는 것도 같이 막는다. */
+#relGraph .gnode { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none; user-select: none; }
 #relGraph .gnode .ring { fill: var(--c1); stroke: var(--rim); stroke-width: 2.5; transition: stroke-width .2s; }
 #relGraph .gnode .gname { fill: var(--map-label); font-size: 14px; dominant-baseline: middle; paint-order: stroke; stroke: var(--map-halo); stroke-width: 3px; }
 #relGraph .gnode:focus-visible .ring, #relGraph .gnode.hl .ring { stroke-width: 5; }
