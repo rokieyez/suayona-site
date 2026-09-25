@@ -79,6 +79,13 @@ body.day {
 /* 손가락으로 누를 때 브라우저가 칠하는 하늘색 네모를 쪽 전체에서 끈다.
    물려받는 성질이라 html 에 한 번만 적으면 아래 모든 것에 걸린다. */
 html { -webkit-tap-highlight-color: transparent; }
+/* 대신 누르는 동안 살짝 작아져 눌렸다는 걸 알린다.
+   카드는 이름 단추(.card-open)가 카드 전체를 덮으므로 그걸 누를 때 카드째 작아지고,
+   카드 안의 별·관계 이름을 누를 때는 그 단추만 작아진다(.card:active 로 쓰면 카드까지 같이 줄어든다). */
+button:not(.card-open):active, [role="button"]:active { transform: scale(.96); }
+.card:has(.card-open:active) { transform: scale(.96); } /* :has 를 모르는 브라우저가 윗줄까지 버리지 않게 따로 */
+/* SVG 무리는 기준점이 지도 왼쪽 위라, 그대로 줄이면 얼굴이 그쪽으로 끌려간다 — 제자리에서 줄게 */
+#relGraph .gnode { transform-box: fill-box; transform-origin: center; }
 [hidden] { display: none !important; } /* display를 지정한 요소도 hidden이면 확실히 숨김 */
 .modal dd, .story-view, .card .name, .who span, .prof-view dd { overflow-wrap: anywhere; }
 body { margin: 0; color: var(--text); min-height: 100vh; font-family: "Gowun Dodum", system-ui, sans-serif; line-height: 1.5; background: var(--night-1); }
@@ -1240,7 +1247,9 @@ let graphByTouch = false; // 마지막으로 누른 것이 손가락·펜이었�
 function wireGraphHighlight(box) {
   const pick = e => e.target.closest?.(".gnode")?.dataset.node || null;
   box.addEventListener("pointerover", e => highlightGraph(pick(e)));
-  box.addEventListener("pointerleave", () => highlightGraph(null));
+  // 손가락은 뗄 때마다 pointerleave 가 온다 — 그걸로 풀면 고른 얼굴이 매번 지워져
+  // 두 번 눌러도 영영 「첫 누름」이 되고 자세히 보기가 안 열렸다. 마우스일 때만 푼다.
+  box.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") highlightGraph(null); });
   box.addEventListener("focusin", e => highlightGraph(pick(e)));
   box.addEventListener("focusout", () => highlightGraph(null));
   box.addEventListener("pointerdown", e => { graphByTouch = e.pointerType !== "mouse"; });
@@ -1980,6 +1989,9 @@ document.getElementById("q").addEventListener("input", e => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => { state.q = e.target.value.trim(); renderFinder(); }, 150);
 });
+
+// 아이폰 사파리는 touchstart 를 듣는 이가 하나도 없으면 누르는 동안의 :active 모양을 칠하지 않는다
+document.addEventListener("touchstart", () => {}, { passive: true });
 
 async function init() {
   applyDaytime(loadDaytime());
