@@ -341,7 +341,8 @@ dialog.scan { max-width: 96vw; width: auto; background: #111; }
 dialog.scan img { display: block; max-width: 96vw; max-height: 90vh; }
 
 /* ── 확인 창 ── */
-dialog.confirm { max-width: min(92vw, 380px); }
+dialog.confirm { max-width: min(92vw, 380px);
+  --deep: var(--ink); } /* 단추 색은 반 테마(--deep)에서 오는데, 확인·로그인 창은 어느 반에도 안 속해 흰 글자만 떠 있었다 */
 .confirm-box { padding: 22px; margin: 0; }
 .confirm-box p { margin: 0 0 16px; font-size: 16px; line-height: 1.6; }
 
@@ -450,6 +451,8 @@ dialog.confirm { max-width: min(92vw, 380px); }
   *, *::before, *::after { transition: none !important; }
 }
 footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 30px 16px 50px; }
+#cloudStatus { margin: 10px 0 0; }
+#cloudStatus button { font: inherit; color: var(--gold); background: none; border: 0; text-decoration: underline; cursor: pointer; padding: 6px; }
 </style>
 </head>
 <body>
@@ -563,7 +566,7 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
   </section>
 </main>
 
-<footer>이름·나이·관계는 손글씨와 표시를 읽어 옮긴 것이라 일부 틀릴 수 있어요.</footer>
+<footer>이름·나이·관계는 손글씨와 표시를 읽어 옮긴 것이라 일부 틀릴 수 있어요.<p id="cloudStatus" aria-live="polite"></p></footer>
 
 <div class="doors" id="doors" hidden aria-hidden="true">
   <div class="door l"></div><div class="door r"></div>
@@ -575,6 +578,7 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
 <dialog id="addDlg" aria-labelledby="addTitle"></dialog>
 <dialog id="confirmDlg" class="confirm" aria-labelledby="confirmMsg"></dialog>
 <dialog id="eventDlg" aria-labelledby="eventTitle"></dialog>
+<dialog id="loginDlg" class="confirm" aria-labelledby="loginMsg"></dialog>
 <button id="themeBtn" class="float-btn theme-btn" aria-pressed="false" aria-label="낮과 밤 바꾸기"></button>
 <button id="soundBtn" class="float-btn sound-btn" aria-pressed="false" aria-label="배경음악과 효과음 켜기/끄기"></button>
 
@@ -670,9 +674,13 @@ const SCANS = [
   ["Scan_20260925_123733.jpg", "선생님"],
 ];
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
+        crossorigin="anonymous"></script>
 <script>
-/* 브라우저 저장소: 글(프로필·추가 캐릭터)은 localStorage, 그림은 IndexedDB
-   모두 이 기기·이 브라우저에만 저장된다. 저장소를 못 쓰는 환경에서는 조용히 기본값으로 동작한다. */
+/* 저장: 가족이 적는 것(프로필·서사·추가 캐릭터·연대기·그림)은 수파베이스, 기기마다 다른 것
+   (즐겨찾기·낮밤·소리)은 이 브라우저의 localStorage.
+   서버에 닿지 않으면 파일에 든 원래 도감만 보이고 쓰기는 막힌다. */
 
 const PROFILE_FIELDS = [
   ["birthday", "생일"],
@@ -700,35 +708,111 @@ function parseJson(text, fallback) {
   try { return text ? JSON.parse(text) : fallback; } catch (e) { return fallback; }
 }
 
-/* ── 프로필 (생일, 좋아하는 것 … + 서사) ── */
-const profileKey = id => `andere-profile-${id}`;
-const oldStoryKey = id => `andere-story-${id}`; // 예전 버전에서 쓰던 서사 저장 키
+/* ── 수파베이스 (수아연아 사이트와 같은 곳) ──
+   표 andere_items 한 줄이 하나: 프로필(캐릭터 id)·추가 캐릭터(N…)·연대기 사건(V…)·그림(portrait:/extra:).
+   읽기는 누구나, 쓰기는 가족 계정만 — 표의 규칙(RLS)이 막는다. 화면이 막는 것은 안내일 뿐이다.
+   같은 주소(www.suayona.com)라 수아연아 사이트에 로그인해 있으면 여기서도 로그인된 채다.
+   페이지의 나머지 코드는 예전처럼 곧바로 읽는 함수(loadProfile 등)를 부르므로, 처음에 표를
+   통째로 받아 rows 에 두고 그걸 읽는다. 쓰면 서버가 돌려준 줄로 rows 를 고친다.
+   ponytail: 표를 한 번에 다 받는다 — 줄이 수천 개가 되면 종류별로 나눠 받을 것. */
+const SB_URL = "https://ifiemaypzjwdrljmmkgb.supabase.co";
+const SB_KEY = "sb_publishable_uhn46d4RFI5DeIUjtz3IRA_U9X8iPZj";
 
+const Cloud = (() => {
+  const sb = window.supabase?.createClient ? window.supabase.createClient(SB_URL, SB_KEY) : null;
+  const COLS = "kind,id,data,path,created_at";
+  const rows = new Map(); // "kind/id" → 서버 줄
+  const at = (kind, id) => `${kind}/${id}`;
+  let loaded = false, failed = !sb, uid = null, role = null, who = "";
+
+  async function load() {
+    if (!sb) return;
+    const { data, error } = await sb.from("andere_items").select(COLS);
+    if (error) { failed = true; return; }
+    rows.clear();
+    data.forEach(r => rows.set(at(r.kind, r.id), r));
+    loaded = true;
+    failed = false;
+  }
+
+  // 누가 로그인했나. 수파베이스는 탭으로 돌아올 때마다 같은 사람으로 SIGNED_IN 을 다시 쏘므로
+  // 같은 사람이면 다시 묻지 않는다
+  async function whoAmI() {
+    if (!sb) return;
+    const { data } = await sb.auth.getSession();
+    const next = data?.session?.user?.id || null;
+    if (next === uid) return;
+    uid = next;
+    role = null;
+    who = "";
+    if (!uid) return;
+    const { data: me } = await sb.from("profiles").select("role,display").eq("user_id", uid).maybeSingle();
+    role = me?.role || null;
+    who = me?.display || "";
+  }
+
+  const canWrite = () => !!(sb && loaded && role);
+  const need = () => { if (!canWrite()) throw new Error("가족 계정으로 로그인해야 저장할 수 있어요"); };
+
+  // 서버가 받아 준 줄이 돌아와야 성공이다 — 규칙에 막힌 쓰기는 오류 없이 0줄로 올 수 있다
+  async function put(kind, id, data, path = null) {
+    need();
+    const { data: got, error } = await sb.from("andere_items").upsert({ kind, id, data, path }).select(COLS);
+    if (error) throw new Error(error.message);
+    if (!got?.length) throw new Error("저장이 막혔어요. 다시 로그인해 보세요");
+    rows.set(at(kind, id), got[0]);
+    return got[0];
+  }
+  async function remove(kind, id) {
+    need();
+    const had = rows.has(at(kind, id));
+    const { data: got, error } = await sb.from("andere_items").delete().eq("kind", kind).eq("id", id).select("id");
+    if (error) throw new Error(error.message);
+    if (had && !got?.length) throw new Error("지우기가 막혔어요. 다시 로그인해 보세요");
+    rows.delete(at(kind, id));
+  }
+
+  // 만든 차례대로 (id 에 든 시각보다 서버가 적은 시각을 믿는다)
+  const list = kind => [...rows.values()].filter(r => r.kind === kind)
+    .sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0));
+  const get = (kind, id) => rows.get(at(kind, id)) || null;
+
+  return {
+    sb, load, whoAmI, canWrite, put, remove, list, get,
+    get failed() { return failed; },
+    get loaded() { return loaded; },
+    get role() { return role; },
+    get who() { return who; },
+    get signedIn() { return !!uid; },
+  };
+})();
+
+/* ── 프로필 (생일, 좋아하는 것 … + 서사) ── */
 function emptyProfile() {
   return Object.fromEntries(PROFILE_KEYS.map(k => [k, ""]));
 }
+const cleanProfile = p => Object.fromEntries(PROFILE_KEYS.map(k =>
+  [k, String(p?.[k] ?? "").trim().slice(0, k === "story" ? LIMITS.story : LIMITS.field)]));
 
 function loadProfile(id) {
-  const saved = parseJson(lsGet(profileKey(id)), null);
-  if (saved) return { ...emptyProfile(), ...saved };
-  return { ...emptyProfile(), story: lsGet(oldStoryKey(id)) ?? (STORIES[id] || "") };
+  const saved = Cloud.get("profile", id)?.data;
+  if (saved) return { ...emptyProfile(), ...cleanProfile(saved) };
+  return { ...emptyProfile(), story: STORIES[id] || "" };
 }
 
-function saveProfile(id, profile) {
-  const clean = Object.fromEntries(PROFILE_KEYS.map(k => [k, String(profile[k] || "").trim()]));
+// 실패하면 던진다 — 부른 쪽이 까닭을 보여 준다
+async function saveProfile(id, profile) {
+  const clean = cleanProfile(profile);
   const isEmpty = PROFILE_KEYS.every(k => !clean[k]);
-  // 기본 서사가 있는 캐릭터를 비우면 빈 값으로 저장해 기본값이 다시 나오지 않게 함
-  const value = isEmpty && !STORIES[id] ? null : JSON.stringify(clean);
-  if (!lsSet(profileKey(id), value)) return false;
-  lsSet(oldStoryKey(id), null); // 새 형식으로 저장된 뒤에만 예전 서사 키 삭제
-  return true;
+  // 기본 서사가 있는 캐릭터를 비우면 빈 줄로 남겨 기본값이 다시 나오지 않게 함
+  if (isEmpty && !STORIES[id]) await Cloud.remove("profile", id);
+  else await Cloud.put("profile", id, clean);
 }
 
 /* ── 직접 추가한 캐릭터 ── */
-const CUSTOM_KEY = "andere-custom-characters";
+const CUSTOM_KEY = "andere-custom-characters"; // 서버 연결 전에 이 브라우저에 적던 자리 (옮기기에만 쓴다)
 
-function loadCustomCharacters() {
-  const list = parseJson(lsGet(CUSTOM_KEY), []);
+function cleanCharacters(list) {
   if (!Array.isArray(list)) return [];
   return list
     .filter(c => c && /^N[0-9a-z]+$/.test(c.id) && typeof c.name === "string" && c.name && GROUPS.some(g => g.id === c.group))
@@ -740,45 +824,79 @@ function loadCustomCharacters() {
       tags: Array.isArray(c.tags) ? c.tags.filter(t => t === "main" || t === "secret") : [],
     }));
 }
-function saveCustomCharacters(list) {
-  return lsSet(CUSTOM_KEY, JSON.stringify(list));
-}
+const loadCustomCharacters = () => cleanCharacters(Cloud.list("character").map(r => ({ ...r.data, id: r.id })));
+// 줄에는 id 를 빼고 담는다 (id 는 줄의 열쇠)
+const characterData = ({ id, ...rest }) => JSON.parse(JSON.stringify(rest));
 
-/* ── 그림 저장 (IndexedDB) ── 키: "portrait:<id>" 또는 "extra:<id>:<시각>" */
+/* ── 그림 ── 열쇠: "portrait:<id>" 또는 "extra:<id>:<시각>"
+   파일은 event-images 버킷의 suayona/posts/andere/ 아래. 가족이 올릴 수 있고 올린 사람은 지울 수 있는
+   자리다(저장소 규칙이 이름의 앞머리로 막는다 — 앞머리를 바꾸면 아이 계정만 조용히 막힌다).
+   같은 이름에 덮어쓰기는 부모만 되므로, 올릴 때마다 새 이름을 짓고 옛 파일은 지운다.
+   남이 올린 파일은 못 지우는데, 그건 표에서 빠졌으니 부모의 「안 쓰는 파일 치우기」가 나중에 찾는다.
+   올리기 전에 shrinkImage 가 캔버스로 다시 구우므로 사진 속 찍은 곳(Exif GPS)은 따라가지 않는다. */
+const PIC_BUCKET = "event-images";
+const PIC_DIR = "suayona/posts/andere/";
+
 const Pictures = (() => {
-  let dbPromise = null;
-  function db() {
-    if (!dbPromise) {
-      dbPromise = new Promise((resolve, reject) => {
-        if (!window.indexedDB) { reject(new Error("IndexedDB 없음")); return; }
-        const req = indexedDB.open("andere-pictures", 1);
-        req.onupgradeneeded = () => req.result.createObjectStore("pictures");
-        req.onsuccess = () => { req.result.onversionchange = () => req.result.close(); resolve(req.result); };
-        req.onerror = () => reject(req.error);
-        req.onblocked = () => reject(new Error("다른 창에서 저장소를 쓰고 있어요"));
-      }).catch(e => { dbPromise = null; throw e; }); // 실패하면 다음에 다시 시도
-    }
-    return dbPromise;
-  }
-  async function run(mode, fn) {
-    const d = await db();
-    return new Promise((resolve, reject) => {
-      const tx = d.transaction("pictures", mode);
-      const req = fn(tx.objectStore("pictures"));
-      tx.oncomplete = () => resolve(req && req.result);
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error || new Error("저장 공간이 부족해요"));
-    });
-  }
-  const range = prefix => IDBKeyRange.bound(prefix, `${prefix}￿`);
+  const bucket = () => Cloud.sb.storage.from(PIC_BUCKET);
+  const dropFile = path => bucket().remove([path]).catch(() => {}); // 남의 것이면 조용히 못 지운다
   return {
-    put: (key, blob) => run("readwrite", s => s.put(blob, key)),
-    get: key => run("readonly", s => s.get(key)),
-    remove: key => run("readwrite", s => s.delete(key)),
-    keys: prefix => run("readonly", s => s.getAllKeys(range(prefix))),
-    removeAll: prefix => run("readwrite", s => s.delete(range(prefix))),
+    url(key) {
+      const path = Cloud.get("picture", key)?.path;
+      return path ? bucket().getPublicUrl(path).data.publicUrl : null;
+    },
+    async keys(prefix) {
+      return Cloud.list("picture").map(r => r.id).filter(id => id.startsWith(prefix));
+    },
+    async put(key, blob) {
+      if (!Cloud.canWrite()) throw new Error("가족 계정으로 로그인해야 올릴 수 있어요");
+      const old = Cloud.get("picture", key)?.path;
+      const path = `${PIC_DIR}${key.replace(/:/g, "-")}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}.jpg`;
+      const { error } = await bucket().upload(path, blob, { contentType: "image/jpeg", cacheControl: "31536000", upsert: false });
+      if (error) throw new Error(error.message);
+      try { await Cloud.put("picture", key, {}, path); } catch (e) { dropFile(path); throw e; }
+      if (old) dropFile(old);
+    },
+    async remove(key) {
+      const path = Cloud.get("picture", key)?.path;
+      await Cloud.remove("picture", key);
+      if (path) dropFile(path);
+    },
+    async removeAll(prefix) {
+      for (const key of await this.keys(prefix)) await this.remove(key);
+    },
   };
 })();
+
+// 서버 연결 전에 이 브라우저에 그림을 담던 곳. 옮기기에만 읽는다
+const LegacyPictures = {
+  open() {
+    return new Promise((resolve, reject) => {
+      if (!window.indexedDB) { reject(new Error("IndexedDB 없음")); return; }
+      const req = indexedDB.open("andere-pictures", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("pictures");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async all() {
+    const d = await this.open();
+    return new Promise((resolve, reject) => {
+      const store = d.transaction("pictures").objectStore("pictures");
+      const keys = store.getAllKeys(), vals = store.getAll();
+      vals.onsuccess = () => { resolve(keys.result.map((key, i) => ({ key, blob: vals.result[i] }))); d.close(); };
+      vals.onerror = () => { reject(vals.error); d.close(); };
+    });
+  },
+  async clear() {
+    const d = await this.open();
+    return new Promise(resolve => {
+      const tx = d.transaction("pictures", "readwrite");
+      tx.objectStore("pictures").clear();
+      tx.oncomplete = tx.onerror = () => { d.close(); resolve(); };
+    });
+  },
+};
 
 /* 올린 사진을 적당한 크기의 JPEG로 줄인다 (긴 변 maxSide px) */
 async function shrinkImage(file, maxSide = 1000) {
@@ -811,8 +929,7 @@ function saveFavorites(set) {
 const EVENTS_KEY = "andere-timeline";
 const EVENT_LIMITS = { title: 40, body: 2000 };
 
-function loadEvents() {
-  const list = parseJson(lsGet(EVENTS_KEY), []);
+function cleanEvents(list) {
   if (!Array.isArray(list)) return [];
   const num = (v, max) => (Number.isInteger(v) && v >= 1 && v <= max ? v : null);
   return list
@@ -826,9 +943,7 @@ function loadEvents() {
       created: Number.isFinite(e.created) ? e.created : 0,
     }));
 }
-function saveEvents(list) {
-  return lsSet(EVENTS_KEY, JSON.stringify(list));
-}
+const loadEvents = () => cleanEvents(Cloud.list("event").map(r => ({ ...r.data, id: r.id })));
 
 /* ── 소리 ── */
 // 기본값은 켜짐. 끈 사람만 "off" 가 남아 다음에 와도 꺼진 채다.
@@ -1045,7 +1160,7 @@ const NO_PHOTO = "data:image/svg+xml," + encodeURIComponent(
 
 /* ── 캐릭터 목록: 원래 데이터 + 직접 추가한 캐릭터 ── */
 let customCharacters = loadCustomCharacters();
-let customPortraits = {}; // id → blob URL (IndexedDB에서 불러옴)
+let customPortraits = {}; // id → 그림 주소 (서버)
 
 function buildPeople() {
   const base = [
@@ -1067,17 +1182,9 @@ function refreshPeople() {
   byId = Object.fromEntries(people.map(p => [p.id, p]));
 }
 
-async function loadCustomPortraits() {
-  const entries = await Promise.all(customCharacters.map(async c => {
-    try {
-      const blob = await Pictures.get(`portrait:${c.id}`);
-      return blob ? [c.id, URL.createObjectURL(blob)] : null;
-    } catch (e) {
-      return null;
-    }
-  }));
-  Object.values(customPortraits).forEach(url => URL.revokeObjectURL(url));
-  customPortraits = Object.fromEntries(entries.filter(Boolean));
+function loadCustomPortraits() {
+  customPortraits = Object.fromEntries(customCharacters
+    .map(c => [c.id, Pictures.url(`portrait:${c.id}`)]).filter(([, url]) => url));
 }
 
 // 원래 캐릭터는 portraits/ 그림, 직접 추가했거나 (방금 지워져) 목록에 없는 캐릭터는 저장된 사진 또는 기본 그림
@@ -1414,13 +1521,7 @@ function renderScans() {
 <script>
 /* 캐릭터 상세 창: 그림 모음(추가 그림 포함), 프로필(생일·좋아하는 것…·서사) 보기/수정, 추가 캐릭터 삭제 */
 
-let galleryUrls = []; // 창이 바뀌거나 닫힐 때 정리할 blob URL
-let galleryGen = 0;   // 그림 모음을 여러 번 동시에 그릴 때 마지막 것만 반영
-
-function releaseGallery() {
-  galleryUrls.forEach(u => URL.revokeObjectURL(u));
-  galleryUrls = [];
-}
+let galleryGen = 0; // 그림 모음을 여러 번 동시에 그릴 때 마지막 것만 반영
 
 /* ── 프로필 ── */
 function profileHtml(id, editing) {
@@ -1455,7 +1556,7 @@ function profileIsDirty() {
 }
 const okToLeaveProfile = async () => !profileIsDirty() || askConfirm("저장하지 않은 내용이 있어요. 저장하지 않고 넘어갈까요?", "저장 안 하고 넘어가기");
 
-function handleProfile(btn) {
+async function handleProfile(btn) {
   const box = btn.closest("[data-prof-box]");
   const id = box.dataset.profBox;
   const act = btn.dataset.profAct;
@@ -1468,7 +1569,20 @@ function handleProfile(btn) {
     box.innerHTML = profileHtml(id, false);
     box.querySelector('[data-prof-act="edit"]').focus();
   } else if (act === "save") {
-    if (!saveProfile(id, readProfileForm(box))) { note.textContent = "이 브라우저에서는 저장할 수 없어요"; return; }
+    if (box.dataset.busy) return; // 두 번 누르기 방지
+    box.dataset.busy = "1";
+    btn.disabled = true;
+    note.textContent = "저장하는 중…";
+    try {
+      await saveProfile(id, readProfileForm(box));
+    } catch (e) {
+      note.textContent = `저장하지 못했어요 (${e.message})`;
+      btn.disabled = false;
+      return;
+    } finally {
+      delete box.dataset.busy;
+    }
+    if (!box.isConnected) return; // 저장하는 사이 창을 닫았거나 다른 캐릭터로 넘어감
     box.innerHTML = profileHtml(id, false);
     note.textContent = "✓ 저장됐어요";
     box.querySelector('[data-prof-act="edit"]').focus();
@@ -1478,17 +1592,10 @@ function handleProfile(btn) {
 /* ── 그림 모음 ── */
 async function renderGallery(id, selectKey = "main") {
   const token = ++galleryGen;
-  const urls = [];
-  let extras = [];
-  try {
-    const keys = await Pictures.keys(`extra:${id}:`);
-    const blobs = await Promise.all(keys.map(key => Pictures.get(key)));
-    extras = keys.map((key, i) => blobs[i] ? { key, url: urls[urls.push(URL.createObjectURL(blobs[i])) - 1] } : null).filter(Boolean);
-  } catch (e) { /* 그림 저장소를 못 쓰면 원래 그림만 */ }
+  const keys = await Pictures.keys(`extra:${id}:`);
+  const extras = keys.map(key => ({ key, url: Pictures.url(key) })).filter(p => p.url);
   const box = document.querySelector(`#dlg [data-gallery="${id}"]`);
-  if (token !== galleryGen || !box) { urls.forEach(u => URL.revokeObjectURL(u)); return; } // 그 사이 다시 그렸거나 다른 캐릭터로 바뀜
-  releaseGallery();
-  galleryUrls = urls;
+  if (token !== galleryGen || !box) return; // 그 사이 다시 그렸거나 다른 캐릭터로 바뀜
   const pics = [{ key: "main", url: portrait(id) }, ...extras];
   const current = pics.find(p => p.key === selectKey) || pics[0];
   box.querySelector(".main-pic").src = current.url;
@@ -1502,6 +1609,7 @@ async function renderGallery(id, selectKey = "main") {
 
 async function addPictures(id, files) {
   const note = document.querySelector("#dlg .gallery-note");
+  note.textContent = "그림을 올리는 중…";
   try {
     for (const file of files) {
       await Pictures.put(`extra:${id}:${Date.now()}${Math.random().toString(36).slice(2, 6)}`, await shrinkImage(file, 1200));
@@ -1531,16 +1639,18 @@ async function deletePicture(id, key) {
 async function deleteCustomCharacter(id) {
   const p = byId[id];
   if (!p?.custom || !(await askConfirm(`${p.name}을(를) 도감에서 지울까요? 프로필과 그림도 함께 지워져요.`, "지우기"))) return;
-  if (!saveCustomCharacters(loadCustomCharacters().filter(c => c.id !== id))) {
-    document.querySelector("#dlg .gallery-note").textContent = "이 브라우저에서는 지울 수 없어요";
+  try {
+    await Cloud.remove("character", id);
+  } catch (e) {
+    document.querySelector("#dlg .gallery-note").textContent = `지우지 못했어요 (${e.message})`;
     return;
   }
-  saveProfile(id, {});
-  await Promise.all([Pictures.remove(`portrait:${id}`), Pictures.removeAll(`extra:${id}:`)]).catch(() => {});
+  // 캐릭터가 지워진 뒤라 남은 것은 화면에 안 나온다 — 하나 실패해도 나머지는 치운다
+  await Promise.allSettled([saveProfile(id, {}), Pictures.remove(`portrait:${id}`).catch(() => {}), Pictures.removeAll(`extra:${id}:`)]);
   focusAfterClose = `#class-${p.group} [data-add]`;
   document.getElementById("dlg").close();
   refreshPeople();
-  await loadCustomPortraits();
+  loadCustomPortraits();
   renderPeopleViews();
   restoreFocus();
 }
@@ -1686,15 +1796,21 @@ async function submitAddForm(form) {
       errorBox.textContent = `사진을 저장하지 못했어요 (${e.message}). 사진 없이 다시 해 보세요.`;
       return;
     }
-    if (!dlg.open) { Pictures.remove(`portrait:${value.id}`).catch(() => {}); return; } // 저장 중에 창을 닫음
-    if (!saveCustomCharacters([...loadCustomCharacters(), value])) { errorBox.textContent = "이 브라우저에서는 저장할 수 없어요."; return; }
+    if (!dlg.open) { if (photo) Pictures.remove(`portrait:${value.id}`).catch(() => {}); return; } // 저장 중에 창을 닫음
+    try {
+      await Cloud.put("character", value.id, characterData(value));
+    } catch (e) {
+      if (photo) Pictures.remove(`portrait:${value.id}`).catch(() => {});
+      errorBox.textContent = `저장하지 못했어요 (${e.message})`;
+      return;
+    }
   } finally {
     delete form.dataset.busy;
     submitBtn.disabled = false;
   }
   dlg.close();
   refreshPeople();
-  await loadCustomPortraits();
+  loadCustomPortraits();
   renderPeopleViews();
   focusAfterClose = `[data-id="${value.id}"] .card-open`; // 상세 창을 닫으면 새 카드로
   openPerson(value.id);
@@ -1843,28 +1959,43 @@ function validateEvent(v, form) {
   return "";
 }
 
-function submitEventForm(form) {
+async function submitEventForm(form) {
+  if (form.dataset.busy) return; // 두 번 누르기 방지
   const v = readEventForm(form);
+  const errorBox = form.querySelector(".form-error");
   const error = validateEvent(v, form);
-  if (error) { form.querySelector(".form-error").textContent = error; return; }
+  if (error) { errorBox.textContent = error; return; }
   const id = form.dataset.eventId;
-  const next = id
-    ? events.map(e => (e.id === id ? { ...e, ...v } : e))
-    : [...events, { id: `V${Date.now().toString(36)}`, created: Date.now(), ...v }];
-  if (!saveEvents(next)) { form.querySelector(".form-error").textContent = "이 브라우저에서는 저장할 수 없어요."; return; }
-  events = next;
+  const ev = id ? { ...events.find(e => e.id === id), ...v } : { id: `V${Date.now().toString(36)}`, created: Date.now(), ...v };
+  const submitBtn = form.querySelector('[type="submit"]');
+  form.dataset.busy = "1";
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    const { id: evId, ...data } = ev;
+    await Cloud.put("event", evId, data);
+  } catch (e) {
+    errorBox.textContent = `저장하지 못했어요 (${e.message})`;
+    return;
+  } finally {
+    delete form.dataset.busy;
+    if (submitBtn) submitBtn.disabled = false;
+  }
+  events = loadEvents();
   document.getElementById("eventDlg").close();
   renderTimeline();
-  const saved = id || next[next.length - 1].id;
-  document.getElementById(`event-${saved}`)?.focus();
+  document.getElementById(`event-${ev.id}`)?.focus();
 }
 
 async function deleteEvent(id) {
   const e = events.find(x => x.id === id);
   if (!e || !(await askConfirm(`"${e.title}" 사건을 지울까요?`, "지우기"))) return;
-  const next = events.filter(x => x.id !== id);
-  if (!saveEvents(next)) return;
-  events = next;
+  try {
+    await Cloud.remove("event", id);
+  } catch (err) {
+    await askConfirm(`지우지 못했어요 (${err.message})`, "확인");
+    return;
+  }
+  events = loadEvents();
   renderTimeline();
   document.getElementById("timelineAdd").focus();
 }
@@ -1928,7 +2059,7 @@ Object.keys(DIRTY).forEach(id => {
   dlg.addEventListener("keydown", e => { if (e.key === "Escape") guard(e); });
   dlg.addEventListener("cancel", guard);
 });
-document.getElementById("dlg").addEventListener("close", () => { releaseGallery(); galleryGen += 1; setTimeout(restoreFocus); });
+document.getElementById("dlg").addEventListener("close", () => { galleryGen += 1; setTimeout(restoreFocus); });
 
 /* ── 누르기: 위에서부터 먼저 맞는 것 하나만 실행 ── */
 const CLICKS = [
@@ -1955,8 +2086,18 @@ const CLICKS = [
   ["[data-scan]", b => openScan(b.dataset.scan, b.dataset.label)],
 ];
 
+// 표의 규칙이 진짜로 막고, 여기서는 누르는 순간 알려 주기만 한다
+const WRITES = '[data-prof-act="edit"], [data-pic-del], [data-del-char], [data-add], #timelineAdd, [data-event-edit], [data-event-del], .thumb.add';
+
 document.addEventListener("click", e => {
   const t = e.target;
+  if (t.closest(WRITES) && !Cloud.canWrite()) {
+    e.preventDefault(); // 그림 고르기 창도 열리지 않게
+    askLogin();
+    return;
+  }
+  if (t.closest("[data-login]")) { askLogin(); return; }
+  if (t.closest("[data-logout]")) { logout(); return; }
   for (const [sel, run] of CLICKS) {
     const hit = t.closest(sel);
     if (hit) { run(hit); return; }
@@ -1993,6 +2134,130 @@ document.getElementById("q").addEventListener("input", e => {
 // 아이폰 사파리는 touchstart 를 듣는 이가 하나도 없으면 누르는 동안의 :active 모양을 칠하지 않는다
 document.addEventListener("touchstart", () => {}, { passive: true });
 
+/* ── 가족 로그인 ── 수아연아 사이트와 같은 계정 */
+function renderCloudStatus() {
+  const box = document.getElementById("cloudStatus");
+  if (Cloud.failed) {
+    box.textContent = "지금은 서버에 닿지 않아 가족이 적은 프로필·그림은 보이지 않아요.";
+  } else if (Cloud.role) {
+    box.innerHTML = `✏️ ${esc(Cloud.who || "가족")}(으)로 로그인했어요 · <button data-logout>로그아웃</button>`;
+  } else if (Cloud.signedIn) {
+    box.innerHTML = `이 계정은 가족 계정이 아니라 쓸 수는 없어요 · <button data-logout>로그아웃</button>`;
+  } else {
+    box.innerHTML = `프로필·그림·연대기는 가족만 쓸 수 있어요 · <button data-login>가족 로그인</button>`;
+  }
+}
+
+function askLogin() {
+  const dlg = document.getElementById("loginDlg");
+  if (dlg.open) return;
+  if (Cloud.failed) {
+    askConfirm("지금은 서버에 닿지 않아 저장할 수 없어요. 인터넷을 확인하고 새로고침해 주세요.", "확인");
+    return;
+  }
+  if (Cloud.signedIn && !Cloud.role) {
+    askConfirm("이 계정은 가족 계정이 아니라서 쓸 수 없어요.", "확인");
+    return;
+  }
+  dlg.innerHTML = `<form class="confirm-box">
+      <p id="loginMsg"><b>가족만 쓸 수 있어요.</b><br>수아랑 연아랑 사이트 계정으로 로그인해 주세요.</p>
+      <label class="prof-field"><span>이메일</span><input name="email" type="email" autocomplete="username" required></label>
+      <label class="prof-field"><span>비밀번호</span><input name="pw" type="password" autocomplete="current-password" required></label>
+      <p class="form-error" role="alert"></p>
+      <div class="story-actions"><button class="primary">로그인</button><button type="button" data-login-cancel>취소</button></div>
+    </form>`;
+  const form = dlg.querySelector("form");
+  const err = form.querySelector(".form-error");
+  form.querySelector("[data-login-cancel]").addEventListener("click", () => dlg.close());
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    if (form.dataset.busy) return;
+    form.dataset.busy = "1";
+    err.textContent = "로그인하는 중…";
+    const { error } = await Cloud.sb.auth.signInWithPassword({ email: form.email.value.trim(), password: form.pw.value });
+    delete form.dataset.busy;
+    if (error) { err.textContent = "이메일이나 비밀번호가 맞지 않아요."; return; }
+    await Cloud.whoAmI();
+    if (!Cloud.role) { err.textContent = "이 계정은 가족 계정이 아니라서 쓸 수 없어요."; renderCloudStatus(); return; }
+    dlg.close();
+    await afterSignIn();
+  });
+  dlg.showModal();
+  form.email.focus();
+}
+
+async function logout() {
+  await Cloud.sb?.auth.signOut();
+  await Cloud.whoAmI();
+  renderCloudStatus();
+}
+
+// 로그인한 뒤: 예전에 이 브라우저에만 적어 둔 것을 올리고 다시 그린다
+async function afterSignIn() {
+  renderCloudStatus();
+  const moved = await moveLegacyToCloud().catch(e => { console.warn("[andere] 옮기기 실패:", e.message); return 0; });
+  if (moved) {
+    refreshFromCloud();
+    await askConfirm(`이 브라우저에만 적혀 있던 ${moved}가지를 서버로 옮겼어요. 이제 가족 모두에게 보여요.`, "확인");
+  }
+}
+
+/* 서버에 연결하기 전(2026-09-25)에는 적은 것을 그 브라우저에만 담았다. 가족이 로그인하면 한 번 올린다.
+   서버에 같은 것이 있으면 서버 것을 둔다. 전부 올라간 뒤에야 이 브라우저의 사본을 지우므로,
+   중간에 끊기면 다음 로그인에 남은 것부터 다시 한다(이미 올라간 것은 서버에 있어 건너뛴다). */
+const LEGACY_DONE_KEY = "andere-moved-to-cloud";
+async function moveLegacyToCloud() {
+  if (!Cloud.canWrite() || lsGet(LEGACY_DONE_KEY)) return 0;
+  let moved = 0;
+  const profKeys = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (/^andere-(profile|story)-[A-Za-z0-9]+$/.test(key)) profKeys.push(key);
+    }
+  } catch (e) { /* 저장소를 못 읽는 브라우저 — 옮길 것도 없다 */ }
+  for (const key of profKeys) {
+    const id = key.replace(/^andere-(profile|story)-/, "");
+    if (!byId[id] && !/^N/.test(id)) continue;
+    if (Cloud.get("profile", id)) continue;
+    const clean = cleanProfile(key.startsWith("andere-profile-") ? parseJson(lsGet(key), {}) : { story: lsGet(key) });
+    if (PROFILE_KEYS.every(k => !clean[k])) continue;
+    await Cloud.put("profile", id, clean);
+    moved++;
+  }
+  for (const c of cleanCharacters(parseJson(lsGet(CUSTOM_KEY), []))) {
+    if (Cloud.get("character", c.id)) continue;
+    await Cloud.put("character", c.id, characterData(c));
+    moved++;
+  }
+  for (const ev of cleanEvents(parseJson(lsGet(EVENTS_KEY), []))) {
+    if (Cloud.get("event", ev.id)) continue;
+    const { id, ...data } = ev;
+    await Cloud.put("event", id, data);
+    moved++;
+  }
+  const pics = await LegacyPictures.all().catch(() => []);
+  for (const { key, blob } of pics) {
+    if (typeof key !== "string" || !(blob instanceof Blob) || Cloud.get("picture", key)) continue;
+    await Pictures.put(key, blob);
+    moved++;
+  }
+  profKeys.forEach(k => lsSet(k, null));
+  lsSet(CUSTOM_KEY, null);
+  lsSet(EVENTS_KEY, null);
+  if (pics.length) await LegacyPictures.clear().catch(() => {});
+  lsSet(LEGACY_DONE_KEY, "1");
+  return moved;
+}
+
+// 서버에서 받은 것으로 캐릭터·연대기·그림을 다시 그린다
+function refreshFromCloud() {
+  refreshPeople();
+  events = loadEvents();
+  loadCustomPortraits();
+  renderPeopleViews();
+}
+
 async function init() {
   applyDaytime(loadDaytime());
   makeSky();
@@ -2009,11 +2274,19 @@ async function init() {
   wireAddDialog();
   wireEventDialog();
   Sound.boot();
-  // 직접 추가한 캐릭터의 사진은 저장소에서 늦게 불러오므로, 다 불러온 뒤 한 번 더 그림
-  if (customCharacters.length) {
-    await loadCustomPortraits();
-    renderPeopleViews();
-  }
+  // 가족이 적은 것은 서버에서 늦게 오므로, 받은 뒤 한 번 더 그린다
+  renderCloudStatus();
+  await Promise.all([Cloud.load(), Cloud.whoAmI()]);
+  refreshFromCloud();
+  renderCloudStatus();
+  if (Cloud.role) afterSignIn();
+  // 다른 탭에서 로그아웃하거나 로그인이 풀리면 따라간다
+  Cloud.sb?.auth.onAuthStateChange(() => setTimeout(async () => {
+    const was = Cloud.role;
+    await Cloud.whoAmI();
+    renderCloudStatus();
+    if (!was && Cloud.role) afterSignIn();
+  }));
 }
 init();
 </script>
