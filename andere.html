@@ -865,6 +865,26 @@ const Pictures = (() => {
     async removeAll(prefix) {
       for (const key of await this.keys(prefix)) await this.remove(key);
     },
+    // 목록에 없는데 파일만 남은 그림을 치운다 — 올리다 창을 닫았거나, 예전에 아이 계정의 지우기가
+    // 저장소 규칙에 막혀 파일만 남은 것. 다른 기기가 막 올리는 중인 파일은 건드리지 않게 한 시간 지난 것만.
+    // 쓰는 파일 목록은 서버에서 새로 받는다(이 페이지가 오래 열려 있었으면 들고 있는 rows 가 낡았다).
+    // ponytail: 파일 1000개까지만 본다 — 넘으면 나눠 받을 것.
+    async sweep() {
+      if (!Cloud.canWrite()) return 0;
+      const [listed, used] = await Promise.all([
+        bucket().list(PIC_DIR.slice(0, -1), { limit: 1000 }),
+        Cloud.sb.from("andere_items").select("path").eq("kind", "picture"),
+      ]);
+      if (listed.error || used.error || !listed.data || !used.data) return 0; // 하나라도 못 받으면 하나도 안 지운다
+      const keep = new Set(used.data.map(r => r.path));
+      const hourAgo = Date.now() - 3600e3;
+      const gone = listed.data
+        .filter(f => f.id && Date.parse(f.created_at) < hourAgo) // id 없는 것은 폴더 자리표시
+        .map(f => PIC_DIR + f.name)
+        .filter(path => !keep.has(path));
+      if (gone.length) await bucket().remove(gone);
+      return gone.length;
+    },
   };
 })();
 
@@ -898,21 +918,36 @@ const LegacyPictures = {
   },
 };
 
-/* 올린 사진을 적당한 크기의 JPEG로 줄인다 (긴 변 maxSide px) */
+/* 올린 사진을 JPEG 로 다시 굽는다 — 긴 변 maxSide px, 800 KB 이하.
+   작은 사진도 원본을 그대로 올리지 않는다: 다시 굽는 것이 사진 속 찍은 곳(Exif GPS)을 지운다.
+   800 KB 가 넘으면 화질을 조금씩 낮추고, 그래도 크면 크기를 20%씩 줄인다. */
+const MAX_UPLOAD_BYTES = 800 * 1024;
 async function shrinkImage(file, maxSide = 1000) {
   if (!file.type.startsWith("image/")) throw new Error("그림 파일만 올릴 수 있어요");
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  return new Promise((resolve, reject) =>
-    canvas.toBlob(b => (b ? resolve(b) : reject(new Error("그림을 바꾸지 못했어요"))), "image/jpeg", 0.85));
+  const encode = q => new Promise((resolve, reject) =>
+    canvas.toBlob(b => (b ? resolve(b) : reject(new Error("그림을 바꾸지 못했어요"))), "image/jpeg", q));
+  try {
+    let scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    for (;;) {
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      for (const q of [0.85, 0.75, 0.65]) {
+        const blob = await encode(q);
+        if (blob.size <= MAX_UPLOAD_BYTES) return blob;
+      }
+      // 긴 변 300px 이면 날것으로도 270 KB 라 넘을 수가 없다 — 여기서 끝낸다
+      if (Math.max(canvas.width, canvas.height) <= 300) return await encode(0.5);
+      scale *= 0.8;
+    }
+  } finally {
+    bitmap.close();
+  }
 }
 
 /* ── 즐겨찾기 ── */
@@ -2196,6 +2231,7 @@ async function logout() {
 async function afterSignIn() {
   renderCloudStatus();
   const moved = await moveLegacyToCloud().catch(e => { console.warn("[andere] 옮기기 실패:", e.message); return 0; });
+  Pictures.sweep().catch(() => {});
   if (moved) {
     refreshFromCloud();
     await askConfirm(`이 브라우저에만 적혀 있던 ${moved}가지를 서버로 옮겼어요. 이제 가족 모두에게 보여요.`, "확인");
@@ -2239,7 +2275,7 @@ async function moveLegacyToCloud() {
   const pics = await LegacyPictures.all().catch(() => []);
   for (const { key, blob } of pics) {
     if (typeof key !== "string" || !(blob instanceof Blob) || Cloud.get("picture", key)) continue;
-    await Pictures.put(key, blob);
+    await Pictures.put(key, blob.size > MAX_UPLOAD_BYTES ? await shrinkImage(blob, 1200) : blob);
     moved++;
   }
   profKeys.forEach(k => lsSet(k, null));
