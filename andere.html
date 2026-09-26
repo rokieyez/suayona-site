@@ -1007,77 +1007,17 @@ const loadDaytime = () => lsGet(DAYTIME_KEY) === "day";
 const saveDaytime = isDay => lsSet(DAYTIME_KEY, isDay ? "day" : null);
 </script>
 <script>
-/* 소리: 배경음악 「닿지 못한 메아리」 + 문 열리는 소리 + 카드 여는 반짝 소리
-   음원 파일 없이 브라우저(Web Audio)로 직접 만든다. 곡은 하나이고, 반마다 악기 소리·음역만 다르다.
-   기본은 켜짐(끄면 그 기기에서 기억), 오른쪽 아래 버튼. */
+/* 소리: 배경음악 「닿지 못한 메아리」(andere-bgm.m4a, 되풀이) + 문 열리는 소리 + 카드 여는 반짝 소리
+   효과음은 브라우저(Web Audio)로 직접 만든다. 기본은 켜짐(끄면 그 기기에서 기억), 오른쪽 아래 버튼. */
 
 const Sound = (() => {
-  // 반마다 다른 악기 소리. wave: 음색, bright: 밝기(필터), oct: 멜로디를 몇 옥타브 옮길지
-  const THEMES = {
-    HALL: { wave: "triangle", bright: 1800, oct: 0 },   // 복도: 잔잔하게
-    A: { wave: "sawtooth", bright: 1300, oct: 0 },      // 붉은 반: 강렬하게
-    B: { wave: "sine", bright: 2600, oct: 1 },          // 연보라: 몽환적으로 높게
-    C: { wave: "triangle", bright: 3000, oct: 1 },      // 노랑→핑크: 사랑스럽게
-    D: { wave: "sine", bright: 2800, oct: 0 },          // 민트: 산뜻하게
-    E: { wave: "square", bright: 1500, oct: 0 },        // 노랑: 경쾌하게
-    F: { wave: "triangle", bright: 1400, oct: -1 },     // 군청: 깊은 바다처럼 낮게
-    G: { wave: "sawtooth", bright: 750, oct: -1 },      // 검정: 어둡고 낮게
-    S: { wave: "sine", bright: 3600, oct: 1 },          // 하늘색: 구름처럼 가볍게
-    T: { wave: "triangle", bright: 2000, oct: 0 },      // 선생님: 차분하게
-  };
+  // 원곡을 크기만 키워(+17 dB, 잡음 제거는 할 것이 없었음) 96 kbps 로 줄인 파일
+  const bgm = new Audio("andere-bgm.m4a");
+  bgm.loop = true;
+  bgm.volume = 0.5;
+  bgm.preload = "none"; // 소리를 끈 사람은 1.6 MB 를 받지 않게
 
-  // 「닿지 못한 메아리」에서 따 온 곡. F장조, 99 BPM, 32마디(절 16 + 후렴 16).
-  // 한 마디 = [화음, [[음(MIDI), 8분음표 몇 칸], …]] — 칸 합은 8. 음이 null 이면 쉼.
-  const BPM = 99;
-  const CHORD_NOTES = { F: [53, 57, 60], Dm: [50, 53, 57], Bb: [46, 50, 53], Am: [45, 48, 52] };
-  const BARS = [
-    // 절
-    ["F", [[69, 1], [69, 1], [67, 1], [69, 1], [69, 1], [70, 1], [67, 1], [70, 1]]],
-    ["F", [[69, 3], [null, 5]]],
-    ["Dm", [[69, 1], [69, 1], [65, 1], [69, 1], [69, 1], [70, 1], [65, 1], [70, 1]]],
-    ["F", [[69, 1], [69, 1], [65, 2], [null, 4]]],
-    ["F", [[null, 1], [65, 1], [65, 1], [70, 1], [69, 1], [72, 1], [67, 1], [70, 1]]],
-    ["F", [[69, 1], [69, 1], [67, 2], [null, 4]]],
-    ["Dm", [[72, 1], [72, 1], [72, 1], [72, 1], [72, 1], [72, 1], [65, 1], [72, 1]]],
-    ["Bb", [[72, 2], [null, 1], [70, 1], [74, 4]]],
-    ["Bb", [[null, 2], [74, 2], [72, 4]]],
-    ["F", [[72, 2], [65, 1], [72, 3], [null, 2]]],
-    ["F", [[null, 3], [70, 1], [70, 1], [74, 3]]],
-    ["Bb", [[74, 1], [null, 3], [72, 2], [65, 1], [72, 1]]],
-    ["Bb", [[72, 2], [65, 1], [60, 1], [null, 4]]],
-    ["F", [[null, 4], [70, 2], [null, 2]]],
-    ["F", [[null, 1], [69, 1], [67, 1], [72, 3], [null, 2]]],
-    ["F", [[72, 2], [65, 1], [60, 1], [72, 2], [null, 2]]],
-    // 후렴
-    ["F", [[65, 6], [64, 2]]],
-    ["Am", [[76, 2], [74, 6]]],
-    ["Dm", [[74, 3], [null, 3], [72, 2]]],
-    ["F", [[65, 6], [null, 2]]],
-    ["F", [[65, 6], [64, 2]]],
-    ["Am", [[76, 2], [74, 6]]],
-    ["Dm", [[74, 1], [null, 3], [69, 2], [74, 2]]],
-    ["Bb", [[74, 3], [72, 1], [74, 2], [null, 2]]],
-    ["Bb", [[70, 4], [74, 4]]],
-    ["F", [[74, 1], [69, 2], [null, 5]]],
-    ["F", [[null, 2], [74, 5], [72, 1]]],
-    ["F", [[72, 2], [null, 6]]],
-    ["Bb", [[70, 4], [74, 4]]],
-    ["F", [[72, 4], [69, 4]]],
-    ["F", [[65, 8]]],
-    ["F", [[null, 8]]],
-  ];
-  // 8분음표 칸마다 [화음 | null, 멜로디 [음, 길이] | null] 로 펼쳐 둔다
-  const SONG = BARS.flatMap(([chord, notes]) => {
-    const cells = Array.from({ length: 8 }, (_, i) => [i === 0 ? chord : null, null]);
-    let at = 0;
-    notes.forEach(([midi, len]) => { if (midi !== null) cells[at][1] = [midi, len]; at += len; });
-    return cells;
-  });
-
-  const PHRASE = 32; // 4마디. 반이 바뀌어도 이만큼 끝나야 악기 소리가 바뀐다(곡은 끊기지 않고 이어짐)
-  let ctx = null, master = null, on = false, unsupported = false, theme = "HALL", nextTheme = "HALL", step = 0, nextTime = 0, timer = null;
-  const ratios = new Map();
-  let observer = null;
+  let ctx = null, master = null, on = false, unsupported = false;
 
   const freq = midi => 440 * Math.pow(2, (midi - 69) / 12);
 
@@ -1095,26 +1035,6 @@ const Sound = (() => {
     osc.stop(time + dur + 0.05);
   }
 
-  // 8분음표마다 멜로디, 마디 첫 박에 화음·베이스를 미리 예약해 둔다
-  function schedule() {
-    const eighth = 60 / BPM / 2;
-    if (nextTime < ctx.currentTime) nextTime = ctx.currentTime + 0.05; // 밀린 음표를 한꺼번에 몰아 치지 않게
-    while (nextTime < ctx.currentTime + 0.15) {
-      if (step % PHRASE === 0) theme = nextTheme; // 4마디 첫 박에서만 반 악기를 갈아 끼운다
-      const t = THEMES[theme];
-      const [chord, note] = SONG[step % SONG.length];
-      if (chord) {
-        const pad = CHORD_NOTES[chord];
-        pad.forEach(m => tone(nextTime, m, { dur: eighth * 8, vol: 0.03, bright: t.bright * 0.6, attack: 0.4 }));
-        tone(nextTime, pad[0] - 12, { dur: eighth * 3, vol: 0.06, bright: 600 });
-        tone(nextTime + eighth * 4, pad[0] - 12, { dur: eighth * 3, vol: 0.045, bright: 600 });
-      }
-      if (note) tone(nextTime, note[0] + 12 * t.oct, { wave: t.wave, dur: eighth * (note[1] + 0.8), vol: 0.05, bright: t.bright, attack: note[1] > 2 ? 0.05 : 0.01 });
-      nextTime += eighth;
-      step += 1;
-    }
-  }
-
   function ensureContext() {
     if (ctx) return true;
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -1130,16 +1050,13 @@ const Sound = (() => {
     if (!ensureContext()) return false;
     ctx.resume();
     on = true;
-    step = 0;
-    nextTime = ctx.currentTime + 0.1;
-    timer = setInterval(schedule, 40);
+    bgm.play().catch(() => {}); // 첫 누름 전이면 막힌다 — boot 의 wake 가 다시 튼다
     return true;
   }
 
   function stop() {
     on = false;
-    clearInterval(timer);
-    timer = null;
+    bgm.pause();
     if (ctx) ctx.suspend();
   }
 
@@ -1149,25 +1066,11 @@ const Sound = (() => {
     btn.innerHTML = unsupported ? `🔇 <span>이 브라우저는 소리를 못 내요</span>` : on ? `🔊 <span>소리 켜짐</span>` : `🔇 <span>소리 꺼짐</span>`;
   }
 
-  // 화면에 가장 많이 보이는 반의 음악으로 바뀜 — 지금 곡조가 끝난 다음에
-  function watchClasses() {
-    if (!("IntersectionObserver" in window)) return;
-    observer?.disconnect();
-    ratios.clear();
-    // 화면을 얼마나 차지하는지로 비교 (긴 반도 화면을 가득 채우면 그 반 음악)
-    observer = new IntersectionObserver(entries => {
-      entries.forEach(e => ratios.set(e.target.dataset.class, e.rootBounds ? e.intersectionRect.height / e.rootBounds.height : e.intersectionRatio));
-      const [best, share] = [...ratios.entries()].sort((a, b) => b[1] - a[1])[0] || ["HALL", 0];
-      nextTheme = share > 0.35 ? best : "HALL";
-    }, { threshold: Array.from({ length: 11 }, (_, i) => i / 10) });
-    document.querySelectorAll("[data-class]").forEach(el => observer.observe(el));
-  }
-
   // 탭이 가려지면 멈췄다가 돌아오면 이어서
   document.addEventListener("visibilitychange", () => {
     if (!ctx || !on) return;
-    if (document.hidden) ctx.suspend();
-    else { ctx.resume(); nextTime = ctx.currentTime + 0.1; }
+    if (document.hidden) { ctx.suspend(); bgm.pause(); }
+    else { ctx.resume(); bgm.play().catch(() => {}); }
   });
 
   return {
@@ -1184,19 +1087,18 @@ const Sound = (() => {
       if (!loadSound()) { renderButton(); return; }
       if (!start()) unsupported = true;
       renderButton();
-      if (!ctx || ctx.state !== "suspended") return;
+      if (!ctx) return;
       const wake = () => {
         document.removeEventListener("pointerdown", wake);
         document.removeEventListener("keydown", wake);
         if (!on) return;
         ctx.resume();
-        nextTime = ctx.currentTime + 0.1;
+        if (bgm.paused) bgm.play().catch(() => {});
       };
       document.addEventListener("pointerdown", wake);
       document.addEventListener("keydown", wake);
     },
     renderButton,
-    watchClasses,
     // 문 열리는 소리: 삐걱(걸러진 잡음) + 곡 조성(F장조)으로 올라가는 종소리
     door(gid) {
       if (!on) return;
@@ -1215,8 +1117,7 @@ const Sound = (() => {
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
       noise.connect(band).connect(gain).connect(master);
       noise.start(now);
-      const t = THEMES[gid] || THEMES.HALL;
-      [77, 81, 84, 89].forEach((m, i) => tone(now + 0.7 + i * 0.11, m + 12 * Math.min(t.oct, 0), { dur: 0.9, vol: 0.08, bright: 5000 })); // F장조 종소리
+      [77, 81, 84, 89].forEach((m, i) => tone(now + 0.7 + i * 0.11, m, { dur: 0.9, vol: 0.08, bright: 5000 })); // F장조 종소리
     },
     // 카드를 열 때 반짝
     sparkle() {
@@ -1507,7 +1408,6 @@ function renderClasses() {
       <div class="grid${g.id === "T" ? " big" : ""}">${list.map(cardHtml).join("")}${addTile}</div>
     </section>`;
   }).join("");
-  Sound.watchClasses();
 }
 
 /* 문이 열린 뒤 해당 반으로 이동 */
