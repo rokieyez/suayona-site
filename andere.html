@@ -551,6 +551,7 @@ dialog input.people-filter::placeholder { color: var(--ink-soft); }
   .card .name { font-size: 15px; gap: 3px; }
   .card .name small { font-size: 11px; }
   .card .sub { font-size: 11px; line-height: 1.35; }
+  .card .sub-dorm { display: none; } /* 반 머리에 이미 기숙사가 있다 */
   .card .rels { gap: 3px; margin-top: 5px; }
   .card .rel { font-size: 11px; gap: 3px; flex-wrap: wrap; }
   .card .rel .ico { width: 16px; height: 16px; font-size: 9px; }
@@ -1435,7 +1436,7 @@ function tagHtml(p) {
 
 function cardHtml(p) {
   const g = groupOf(p.group);
-  const sub = p.group === "T" ? esc(p.role || "선생님") : `${g.title} ${p.no}번 · ${g.dorm}`;
+  const sub = p.group === "T" ? esc(p.role || "선생님") : `${g.title} ${p.no}번<span class="sub-dorm"> · ${g.dorm}</span>`; // 폰에서는 기숙사를 뺀다
   const age = p.age ? `<small>${p.age}살</small>` : "";
   const rels = relLines(p);
   return `<article class="card th-${p.group}" data-id="${p.id}">
