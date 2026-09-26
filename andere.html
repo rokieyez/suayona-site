@@ -453,25 +453,39 @@ dialog input.people-filter::placeholder { color: var(--ink-soft); }
 .map-board { position: relative; aspect-ratio: 5 / 3; min-width: 560px; }
 .map-art { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 12px 22px rgba(0, 0, 0, .55)); }
 .am-ink { fill: none; stroke: #4a2e14; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.am-thin { stroke-width: 1.1; }
 .am-fill { fill: #f4e3bb; }
 .am-inkfill { fill: #4a2e14; }
 .am-red { fill: #a8241c; stroke: #a8241c; }
-.am-rhumb { stroke: #4a2e14; stroke-width: 1; opacity: .13; fill: none; }
-.am-coast { stroke-width: 2.6; }
-.am-water { stroke: #3d5a6c; stroke-width: 1.4; }
-.am-tufts { stroke-width: 1.3; opacity: .6; }
-.am-waves { stroke: #3d5a6c; stroke-width: 1.5; opacity: .7; }
-.am-lake { fill: #c9d3bf; stroke: #3d5a6c; }
-.am-river-out { stroke: #3d5a6c; stroke-width: 9; }
-.am-river-in { stroke: #cdd6c2; stroke-width: 5; }
-.am-road { stroke-width: 2.4; stroke-dasharray: 2 7; }
+.am-redfill { fill: #a8241c; }
+.am-gold { fill: #c8901c; stroke: #7a5208; stroke-width: .8; }
+.am-gold-line { stroke: #c8901c; }
+.am-rhumb { stroke: #4a2e14; stroke-width: .8; opacity: .12; fill: none; }
+.am-wash { mix-blend-mode: multiply; }
+.am-foxing { fill: #8a5a22; opacity: .35; }
+.am-ring { fill: none; stroke: #8a5a22; stroke-width: 3; opacity: .22; }
+.am-coast { stroke-width: 2.8; }
+.am-water { stroke: #3d5a6c; stroke-width: 1.3; }
+.am-wave { stroke: #3d5a6c; stroke-width: 1.4; opacity: .75; fill: none; }
+.am-sand { fill: #4a2e14; stroke: none; opacity: .55; }
+.am-tufts { stroke-width: 1.2; opacity: .55; }
+.am-furrow { fill: none; stroke-width: 1.4; }
+.am-lake { fill: #bccbc0; stroke: #3d5a6c; }
+.am-river-out { stroke: #3d5a6c; stroke-width: 10; }
+.am-river-in { stroke: #c6d2c2; stroke-width: 6; }
+.am-road { stroke-width: 2.2; stroke-dasharray: 2 7; }
 .am-trail { stroke: #a8241c; stroke-width: 3; stroke-dasharray: 9 8; }
 .am-x { stroke: #a8241c; stroke-width: 5; }
 .am-n { font-family: "Gowun Batang", serif; font-weight: 700; font-size: 24px; fill: #4a2e14; stroke: none; text-anchor: middle; }
 .am-title { font-family: "Gowun Batang", serif; font-weight: 700; font-size: 27px; fill: #4a2e14; stroke: none; text-anchor: middle; letter-spacing: 2px; }
-.am-scale text { font-family: "Gowun Batang", serif; font-size: 13px; fill: #4a2e14; stroke: none; }
+.map-art text { stroke: none; }
+.am-ink text:not(.am-n):not(.am-title) { font-family: "Gowun Batang", serif; font-size: 13px; fill: #4a2e14; }
+.am-fold { stroke: #6b4a20; stroke-width: 1.2; opacity: .22; fill: none; }
+.am-fold-light { stroke: #fff8e6; stroke-width: 1.5; opacity: .35; fill: none; }
+.am-frame { fill: none; stroke: #4a2e14; stroke-width: 1.3; opacity: .8; }
+.am-band { fill: none; stroke: #4a2e14; stroke-width: 9; stroke-dasharray: 26 26; opacity: .75; }
+.am-corner { fill: #4a2e14; opacity: .8; }
 .am-edge { fill: none; stroke: #3b2008; stroke-width: 3; }
-.am-frame { fill: none; stroke: #4a2e14; stroke-width: 1.6; stroke-dasharray: 22 4 2 4; opacity: .7; }
 .pin { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; border: none; background: none;
   padding: 0; cursor: pointer; color: var(--ink); font: inherit; }
 .pin-ico { font-size: 30px; line-height: 1; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .35)); transition: transform .2s; }
@@ -2373,11 +2387,14 @@ const entriesOf = type => entries.filter(e => e.type === type).sort((a, b) => a.
 const entryPic = id => Pictures.url(`entry:${id}`);
 const entryIcon = e => e.emoji || ENTRY_TYPES[e.type].icon;
 
-/* 지도 바탕 그림 — 옛 보물 지도 양식: 그을린 양피지, 먹선 그림 기호(산·숲·성), 해안 물결선,
-   나침반 장미와 방위선, 바다뱀·범선, 빨간 점선 끝의 X, 두루마리 제목과 축척.
+/* 지도 바탕 그림 — 옛 보물 지도 양식. 아래에서 위로 레이어를 쌓는다:
+   ① 종이(그라데이션·얼룩·결·검버섯·커피 자국, 오른쪽 아래 찢긴 모서리)
+   ② 수채 물감(바다 띠·땅·숲·산·성 언덕 — 번지게 흐림)
+   ③ 방위선  ④ 먹선(손그림처럼 살짝 떨림): 물결선·바위·절벽·모래·강·다리·길·밭·마을·
+      산·숲·성·등대·풍차·돌 원·용·바다뱀·배·소용돌이·바람 얼굴·나침반·두루마리·축척
+   ⑤ 탄 가장자리·접힌 자국·경위도 눈금 띠·모서리 장식
    핀 자리는 이 그림 위의 가로·세로 % 로 적는다 (viewBox 1000×600 = 지도 칸 5:3).
    매번 같은 그림이 나오게 난수는 씨앗을 고정한다. 필터·무늬는 한 번만 #mapDefs 에 둔다. */
-const MAP_PAPER = "#f1dfb3";
 const MAP_ART = (() => {
   let seed = 11;
   const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -2388,157 +2405,305 @@ const MAP_ART = (() => {
     const m0 = mid(pts[pts.length - 1], pts[0]);
     return `M${m0} ` + pts.map((p, i) => `Q${r1(p[0])} ${r1(p[1])} ${mid(p, pts[(i + 1) % pts.length])}`).join(" ") + "Z";
   };
+  const sparkle = (x, y, s = 6) => `<path class="am-gold" d="M${x} ${y - s} L${x + s * .25} ${y - s * .25} L${x + s} ${y} L${x + s * .25} ${y + s * .25} L${x} ${y + s} L${x - s * .25} ${y + s * .25} L${x - s} ${y} L${x - s * .25} ${y - s * .25}Z"/>`;
 
-  // 종이: 가장자리가 들쭉날쭉 (탄 자국)
+  /* ① 종이: 가장자리가 들쭉날쭉(탄 자국), 오른쪽 아래 모서리는 비스듬히 찢겼다 */
   const edge = [];
   const jag = () => (rand() - 0.5) * 9;
-  for (let x = 10; x < 990; x += 18) edge.push([x, 10 + jag()]);
-  for (let y = 10; y < 590; y += 18) edge.push([990 + jag(), y]);
-  for (let x = 990; x > 10; x -= 18) edge.push([x, 590 + jag()]);
-  for (let y = 590; y > 10; y -= 18) edge.push([10 + jag(), y]);
-  const paper = "M" + edge.map(p => p.map(r1).join(" ")).join(" L") + "Z";
+  for (let x = 10; x < 990; x += 16) edge.push([x, 10 + jag()]);
+  for (let y = 10; y < 590; y += 16) edge.push([990 + jag(), y]);
+  for (let x = 990; x > 10; x -= 16) edge.push([x, 590 + jag()]);
+  for (let y = 590; y > 10; y -= 16) edge.push([10 + jag(), y]);
+  const TEAR = 1515; // x + y 가 이보다 크면 찢겨 나간 자리
+  const paperPts = edge.map(([x, y]) => {
+    const over = x + y - TEAR;
+    return over > 0 ? [x - over / 2 + (rand() - 0.5) * 6, y - over / 2 + (rand() - 0.5) * 6] : [x, y];
+  });
+  const paper = "M" + paperPts.map(p => p.map(r1).join(" ")).join(" L") + "Z";
+  const foxing = Array.from({ length: 30 }, () =>
+    `<circle cx="${r1(30 + rand() * 940)}" cy="${r1(30 + rand() * 540)}" r="${r1(1 + rand() * 3.5)}"/>`).join("");
 
-  // 섬(학교 터): 타원에 물결을 섞은 해안선
+  /* 섬(학교 터): 타원에 물결을 섞은 해안선 */
   const cx = 520, cy = 330, rx = 380, ry = 225;
-  const coastPts = Array.from({ length: 60 }, (_, i) => {
-    const a = (i / 60) * Math.PI * 2;
-    const k = 1 + 0.07 * Math.sin(3 * a + 1) + 0.045 * Math.sin(5 * a + 2) + 0.025 * Math.sin(11 * a) + (rand() - 0.5) * 0.03;
-    return [cx + rx * k * Math.cos(a), cy + ry * k * Math.sin(a)];
+  const coastPts = Array.from({ length: 72 }, (_, i) => {
+    const a = (i / 72) * Math.PI * 2;
+    const k = 1 + 0.07 * Math.sin(3 * a + 1) + 0.045 * Math.sin(5 * a + 2) + 0.025 * Math.sin(11 * a) + (rand() - 0.5) * 0.025;
+    return [cx + rx * k * Math.cos(a), cy + ry * k * Math.sin(a), a];
   });
   const coast = smooth(coastPts);
   const scaled = s => smooth(coastPts.map(([x, y]) => [cx + (x - cx) * s, cy + (y - cy) * s]));
-  const inIsland = (x, y, s = 1) => ((x - cx) / (rx * s)) ** 2 + ((y - cy) / (ry * s)) ** 2 <= 1;
+  // 실제 해안선 안쪽인가 (각도로 가장 가까운 해안 점과 거리를 견준다)
+  const inIsland = (x, y, s = 1) => {
+    const a = (Math.atan2((y - cy) / ry, (x - cx) / rx) + Math.PI * 2) % (Math.PI * 2);
+    const [px, py] = coastPts[Math.round((a / (Math.PI * 2)) * 72) % 72];
+    return Math.hypot(x - cx, y - cy) <= Math.hypot(px - cx, py - cy) * s;
+  };
+  const free = (x, y, zones) => !zones.some(([a, b, c, d]) => x > a && x < c && y > b && y < d);
 
-  // 바다 물결 무늬 (섬·장식 자리는 피해서)
-  const busy = [[30, 30, 340, 110], [820, 30, 975, 175], [40, 120, 260, 200], [45, 470, 190, 575], [770, 540, 960, 585]];
-  const waves = [];
-  for (let i = 0; i < 90 && waves.length < 34; i++) {
+  // 모래 점: 해안선 바로 안쪽에 촘촘히
+  const sand = coastPts.flatMap(([x, y], i) => {
+    const [nx, ny] = coastPts[(i + 1) % 72];
+    return [0.15, 0.5, 0.85].map(t => {
+      const s = 0.955 + rand() * 0.03;
+      const px = cx + (x + (nx - x) * t - cx) * s, py = cy + (y + (ny - y) * t - cy) * s;
+      return `<circle cx="${r1(px)}" cy="${r1(py)}" r=".9"/>`;
+    });
+  }).join("");
+  // 북쪽 절벽: 해안에서 바다 쪽으로 짧은 빗금
+  const cliffs = coastPts.filter(([, , a]) => a > Math.PI * 1.22 && a < Math.PI * 1.75).flatMap(([x, y]) => {
+    const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy);
+    return [0, 0.5].map(o => {
+      const bx = x + (dx / d) * 2 + o * 6, by = y + (dy / d) * 2;
+      return `<path d="M${r1(bx)} ${r1(by)} l${r1((dx / d) * 9)} ${r1((dy / d) * 9)}"/>`;
+    });
+  }).join("");
+
+  /* 바다 무늬: 물결·바위 (섬과 장식 자리는 피해서) */
+  const seaBusy = [[26, 26, 350, 110], [410, 30, 540, 105], [650, 30, 760, 100], [820, 30, 975, 175],
+    [40, 118, 262, 200], [45, 460, 190, 575], [760, 525, 975, 580], [850, 420, 975, 520], [200, 520, 290, 580]];
+  const waves = [], rocks = [];
+  for (let i = 0; i < 400 && waves.length < 60; i++) {
     const x = 40 + rand() * 920, y = 40 + rand() * 520;
-    if (inIsland(x, y, 1.2) || busy.some(([a, b, c, d]) => x > a && x < c && y > b && y < d)) continue;
-    waves.push(`<path d="M${r1(x)} ${r1(y)} q6 -6 12 0 q6 -6 12 0"/>`);
+    if (inIsland(x, y, 1.14) || !free(x, y, seaBusy)) continue;
+    if (rocks.length < 7 && rand() < 0.12) {
+      rocks.push(`<path class="am-fill" d="M${r1(x - 7)} ${r1(y)} l3 -7 l6 -2 l5 4 l1 5Z"/><path d="M${r1(x + 2)} ${r1(y - 7)} l-2 6 M${r1(x + 6)} ${r1(y - 5)} l-2 5"/>` +
+        `<path class="am-wave" d="M${r1(x - 10)} ${r1(y + 3)} q5 3 10 0 q5 3 10 0"/>`);
+    } else {
+      waves.push(`<path class="am-wave" d="M${r1(x)} ${r1(y)} q5 -5 10 0 q5 -5 10 0${rand() < 0.4 ? " q5 -5 10 0" : ""}"/>`);
+    }
   }
 
-  // 산: 먹선 윤곽 + 오른쪽 비탈 빗금
-  const mountain = (x, base, h, w) => {
-    const hatch = [0.25, 0.42, 0.59, 0.76].map(t => {
-      const px = x + w * t, py = base - h * (1 - t);
-      return `<path d="M${r1(px)} ${r1(py + 4)} l${r1(-w * 0.18)} ${r1(h * 0.22)}"/>`;
-    }).join("");
-    return `<path class="am-fill" d="M${x - w} ${base} Q${r1(x - w * 0.35)} ${r1(base - h * 0.55)} ${x} ${base - h} Q${r1(x + w * 0.4)} ${r1(base - h * 0.5)} ${x + w} ${base}"/>${hatch}`;
-  };
-  const mountains = [[270, 250, 62, 42], [330, 240, 88, 52], [395, 252, 58, 40], [300, 272, 44, 32], [365, 276, 40, 30], [440, 262, 34, 26]]
-    .sort((a, b) => a[1] - b[1]).map(m => mountain(...m)).join(""); // 앞(아래)에 있는 산이 뒤 산을 가리게
+  /* 강: 산에서 호수로, 호수에서 동쪽 바다로. 다리는 강과 남쪽 길이 만나는 곳 */
+  const river = "M420 262 C470 330 540 360 620 372 S700 392 720 392 M792 400 C830 410 860 425 925 440";
+  const bez = (t, a, b, c, d) => (1 - t) ** 3 * a + 3 * (1 - t) ** 2 * t * b + 3 * (1 - t) * t ** 2 * c + t ** 3 * d;
+  let bt = 0;
+  for (let t = 0; t <= 1; t += 0.005) if (Math.abs(bez(t, 420, 470, 540, 620) - 560) < Math.abs(bez(bt, 420, 470, 540, 620) - 560)) bt = t;
+  const bridgeY = r1(bez(bt, 262, 330, 360, 372));
+  const bridge = `<g transform="translate(560 ${bridgeY})"><path class="am-fill" d="M-9 -12 h18 v24 h-18Z"/><path d="M-9 -6 h18 M-9 0 h18 M-9 6 h18 M-12 -12 h24 M-12 12 h24"/></g>`;
 
-  // 풀 표시: 빈 땅에 작은 ʌʌ 무늬 (산·숲·성·호수·길 자리는 피해서)
-  const taken = [[195, 150, 470, 285], [195, 320, 405, 485], [445, 130, 680, 305], [650, 330, 815, 445], [275, 465, 455, 525], [535, 535, 585, 580]];
+  /* 산: 먹선 윤곽 + 오른쪽 비탈 빗금 + 높은 산은 눈 모자 */
+  const mountain = (x, base, h, w) => {
+    const hatch = [0.18, 0.32, 0.46, 0.6, 0.74].map(t => {
+      const px = x + w * t, py = base - h * (1 - t);
+      return `<path d="M${r1(px)} ${r1(py + 3)} l${r1(-w * 0.2)} ${r1(h * 0.25)}"/>`;
+    }).join("");
+    const snow = h > 55 ? `<path d="M${r1(x - w * 0.22)} ${r1(base - h * 0.74)} l${r1(w * 0.08)} 5 l${r1(w * 0.08)} -4 l${r1(w * 0.08)} 5 l${r1(w * 0.07)} -5"/>` : "";
+    return `<path class="am-fill" d="M${x - w} ${base} Q${r1(x - w * 0.35)} ${r1(base - h * 0.55)} ${x} ${base - h} Q${r1(x + w * 0.4)} ${r1(base - h * 0.5)} ${x + w} ${base}"/>${hatch}${snow}`;
+  };
+  const mountains = [[250, 238, 58, 40], [300, 226, 80, 48], [355, 232, 96, 56], [415, 236, 62, 42], [455, 250, 40, 30],
+    [270, 262, 46, 34], [330, 270, 50, 36], [390, 272, 44, 32], [225, 270, 34, 26], [440, 282, 30, 24]]
+    .sort((a, b) => a[1] - b[1]).map(m => mountain(...m)).join(""); // 앞(아래)에 있는 산이 뒤 산을 가리게
+  // 산기슭 작은 언덕
+  const hills = [[210, 296], [262, 300], [318, 302], [372, 300], [428, 302]].map(([x, y]) =>
+    `<path class="am-fill" d="M${x - 22} ${y} q22 -22 44 0"/><path d="M${x + 6} ${y - 12} l-4 8 M${x + 12} ${y - 8} l-4 7"/>`).join("");
+
+  /* 숲 두 곳: 남서쪽 둥근 나무, 북동쪽 바늘잎 나무. 나무마다 오른쪽 아래 그림자 빗금 */
+  const trees = [];
+  for (let row = 0; row < 6; row++) {
+    for (let col = 0; col < 8; col++) {
+      const x = 205 + col * 24 + (row % 2) * 12 + (rand() - 0.5) * 8, y = 338 + row * 23 + (rand() - 0.5) * 8;
+      if (rand() < 0.14 || !inIsland(x, y, 0.94)) continue;
+      trees.push({ x, y, r: 7 + rand() * 3, kind: "round" });
+    }
+  }
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 6; col++) {
+      const x = 690 + col * 20 + (row % 2) * 10 + (rand() - 0.5) * 6, y = 196 + row * 22 + (rand() - 0.5) * 6;
+      if (rand() < 0.15 || !inIsland(x, y, 0.92)) continue;
+      trees.push({ x, y, r: 8 + rand() * 4, kind: "pine" });
+    }
+  }
+  const forest = trees.sort((a, b) => a.y - b.y).map(({ x, y, r, kind }) => {
+    const X = r1(x), Y = r1(y);
+    const shade = `<path class="am-thin" d="M${r1(x + 2)} ${r1(y + 2)} l${r1(r * 0.9)} -1 M${r1(x + 3)} ${r1(y + 4)} l${r1(r * 0.7)} -1"/>`;
+    if (kind === "pine") {
+      return `${shade}<path d="M${X} ${Y} v4"/><path class="am-fill" d="M${X} ${r1(y - r * 2)} l${r1(-r * 0.55)} ${r1(r * 0.9)} h${r1(r * 0.25)} l${r1(-r * 0.4)} ${r1(r * 0.8)} h${r1(r * 1.4)} l${r1(-r * 0.4)} ${r1(-r * 0.8)} h${r1(r * 0.25)}Z"/>`;
+    }
+    return `${shade}<path d="M${X} ${Y} v${r1(r * 0.8)}"/><circle class="am-fill" cx="${X}" cy="${r1(y - r * 0.6)}" r="${r1(r)}"/>` +
+      `<path class="am-thin" d="M${r1(x + r * 0.3)} ${r1(y - r * 1.3)} a${r1(r * 0.9)} ${r1(r * 0.9)} 0 0 1 ${r1(r * 0.35)} ${r1(r * 1.2)}"/>`;
+  }).join("");
+
+  /* 성: 언덕 빗금 위에 성벽 고리(작은 탑 넷), 가운데 큰 탑과 양옆 탑, 창·돌 줄·깃발, 둘레에 반짝이 */
+  const tower = (x, top, w, base, flag = true) => {
+    const roof = top - w * 1.15;
+    const bricks = [0.35, 0.6, 0.85].map(t => `<path class="am-thin" d="M${x + 2} ${r1(top + (base - top) * t)} h${w - 4}"/>`).join("");
+    return `<rect class="am-fill" x="${x}" y="${top}" width="${w}" height="${base - top}"/>${bricks}
+      <path class="am-fill" d="M${x - 4} ${top} L${r1(x + w / 2)} ${r1(roof)} L${x + w + 4} ${top}Z"/>
+      <path class="am-thin" d="M${r1(x + w / 2 + 3)} ${r1(roof + 7)} l${r1(w * 0.2)} ${r1(top - roof - 9)} M${r1(x + w / 2 + 8)} ${r1(roof + 13)} l${r1(w * 0.14)} ${r1(top - roof - 15)}"/>
+      ${flag ? `<path d="M${r1(x + w / 2)} ${r1(roof)} v-15"/><path class="am-red" d="M${r1(x + w / 2)} ${r1(roof - 15)} q8 1 14 4 q-6 3 -14 4Z"/>` : ""}
+      <path class="am-inkfill" d="M${r1(x + w / 2 - 3)} ${top + 18} v-5 a3 3 0 0 1 6 0 v5Z"/>`;
+  };
+  const castleHill = Array.from({ length: 26 }, (_, i) => {
+    const a = Math.PI * (0.05 + (i / 25) * 0.9);
+    const x = 560 + Math.cos(a) * 140, y = 300 + Math.sin(a) * 22;
+    return `<path class="am-thin" d="M${r1(x)} ${r1(y)} l${r1(Math.cos(a) * 8)} ${r1(8 + Math.sin(a) * 4)}"/>`;
+  }).join("");
+  const wallTowers = [[445, 262], [663, 262], [470, 292], [638, 292]].map(([x, y]) => tower(x - 8, y - 22, 16, y, false)).join("");
+  const castle = `<g class="am-castle">
+    ${castleHill}
+    <path class="am-fill" d="M437 262 Q560 238 671 262 L646 292 Q560 312 462 292Z"/>
+    <path class="am-thin" d="M450 268 Q560 248 660 268 M455 280 Q560 262 655 280"/>
+    ${wallTowers}
+    <rect class="am-fill" x="480" y="222" width="160" height="62"/>
+    <path class="am-fill" d="M480 222 v-10 h12 v10 h12 v-10 h12 v10 h12 v-10 h12 v10 h12 v-10 h12 v10 h12 v-10 h12 v10 h12 v-10 h12 v10 h12 v-10 h16 v10"/>
+    <path class="am-thin" d="M484 240 h152 M484 258 h152 M484 274 h152 M500 222 v18 M530 240 v18 M590 240 v18 M620 222 v18 M515 258 v16 M605 258 v16"/>
+    ${tower(460, 190, 30, 284)}${tower(630, 190, 30, 284)}${tower(538, 148, 44, 284)}${tower(505, 176, 22, 222)}${tower(593, 176, 22, 222)}
+    <path class="am-fill" d="M547 284 v-26 a13 13 0 0 1 26 0 v26"/><path class="am-thin" d="M553 284 v-24 M560 284 v-27 M567 284 v-24 M549 268 h22"/>
+    <path class="am-inkfill" d="M497 250 v-6 a3.5 3.5 0 0 1 7 0 v6Z M616 250 v-6 a3.5 3.5 0 0 1 7 0 v6Z M522 250 v-6 a3.5 3.5 0 0 1 7 0 v6Z M591 250 v-6 a3.5 3.5 0 0 1 7 0 v6Z"/>
+    ${sparkle(470, 150, 6)}${sparkle(655, 140, 7)}${sparkle(610, 110, 4)}${sparkle(505, 120, 4)}${sparkle(700, 180, 4)}
+  </g>`;
+
+  /* 호수: 물결 고리, 가운데 작은 섬과 나무, 쪽배 */
+  const lake = `<path class="am-lake" d="M672 392 q8 -42 62 -44 q64 0 66 40 q-4 40 -66 42 q-58 0 -62 -38Z"/>
+    <path class="am-water" d="M686 392 q8 -30 48 -32 q50 0 52 30" opacity=".6"/><path class="am-water" d="M700 410 q30 14 70 0" opacity=".5"/>
+    <path class="am-fill" d="M748 384 q10 -12 24 0 q-12 8 -24 0Z"/><path d="M760 380 v-8"/><circle class="am-fill" cx="760" cy="368" r="6"/>
+    <path class="am-fill" d="M700 380 h16 l-3 4 h-10Z"/><path class="am-thin" d="M708 380 l6 -8"/>`;
+
+  /* 남쪽 선착장 마을: 지붕 집들과 뾰족탑 하나, 옆에 밭(고랑 줄) */
+  const house = (x, y, w, h) => `<rect class="am-fill" x="${x}" y="${y - h}" width="${w}" height="${h}"/>
+    <path class="am-fill" d="M${x - 3} ${y - h} L${r1(x + w / 2)} ${r1(y - h - w * 0.55)} L${x + w + 3} ${y - h}Z"/>
+    <path class="am-thin" d="M${r1(x + w / 2 + 2)} ${r1(y - h - w * 0.4)} l${r1(w * 0.3)} ${r1(w * 0.35)}"/>
+    <rect class="am-inkfill" x="${r1(x + w / 2 - 1.5)}" y="${y - 6}" width="3" height="6"/>`;
+  const village = [[486, 505, 16, 12], [508, 500, 14, 11], [528, 508, 18, 13], [590, 505, 16, 12], [612, 500, 14, 11], [498, 526, 14, 10], [606, 526, 16, 11]]
+    .map(h => house(...h)).join("") +
+    `<rect class="am-fill" x="572" y="480" width="14" height="30"/><path class="am-fill" d="M570 480 L579 452 L588 480Z"/><path d="M579 452 v-8 M575 447 h8"/>`;
+  // 밭: 칠은 수채 물감 층이 하고, 여기서는 테두리와 고랑 줄만
+  const FIELDS = ["M632 470 l40 -6 l8 26 l-42 6Z", "M640 502 l36 -6 l6 20 l-38 6Z", "M782 356 l40 -4 l4 22 l-42 4Z"];
+  const fields = FIELDS.map(d => `<path class="am-furrow" d="${d}"/>`).join("") +
+    `<path class="am-thin" d="M635 477 l40 -6 M636 484 l41 -6 M637 491 l41 -6 M643 509 l36 -6 M644 516 l37 -6 M783 363 l40 -4 M784 370 l40 -4"/>`;
+  const dock = `<path class="am-fill" d="M548 540 h24 v14 h-24Z"/><path d="M552 554 v10 M568 554 v10 M560 540 v14"/>
+    <path class="am-fill" d="M578 560 h18 l-4 5 h-10Z"/><path class="am-thin" d="M587 560 v-12 l6 10"/>`;
+
+  /* 동쪽 풍차, 호수 남쪽 돌 원, 서쪽 바위섬 등대 */
+  const windmill = `<g transform="translate(855 336)"><path class="am-fill" d="M-8 22 l3 -26 h10 l3 26Z"/><path class="am-fill" d="M-6 -4 l6 -8 l6 8Z"/>
+    <path d="M0 -8 l-18 -16 M0 -8 l18 -16 M0 -8 l-18 12 M0 -8 l18 12"/><path class="am-fill" d="M-18 -24 l5 -2 l7 7 l-4 3Z M18 -24 l-5 -2 l-7 7 l4 3Z"/>
+    <rect class="am-inkfill" x="-2" y="14" width="4" height="8"/></g>`;
+  const stones = Array.from({ length: 9 }, (_, i) => {
+    const a = (i / 9) * Math.PI * 2, x = 470 + Math.cos(a) * 17, y = 432 + Math.sin(a) * 7;
+    return `<rect class="am-fill" x="${r1(x - 2)}" y="${r1(y - 7)}" width="4" height="7"/>`;
+  }).join("") + sparkle(470, 424, 4);
+  const lighthouse = `<g transform="translate(905 488)"><path class="am-fill" d="M-24 10 q10 -16 24 -14 q18 0 26 14Z"/>
+    <path class="am-fill" d="M-6 0 l2 -34 h8 l2 34Z"/><path class="am-red" d="M-5 -10 h10 l-.5 -6 h-9Z M-4.3 -24 h8.6 l-.3 -5 h-8Z"/>
+    <path class="am-fill" d="M-6 -34 h12 v-7 h-12Z"/><path class="am-inkfill" d="M-7 -41 L0 -48 L7 -41Z"/>
+    <path class="am-thin am-gold-line" d="M-10 -38 l-16 -6 M10 -38 l16 -6 M-10 -34 l-18 2 M10 -34 l18 2"/>
+    <path class="am-wave" d="M-30 14 q5 3 10 0 q5 3 10 0 q5 3 10 0 q5 3 10 0 q5 3 10 0 q5 3 10 0"/></g>`;
+
+  /* 바다의 생물과 배 */
+  const serpent = `<g>
+    <path class="am-fill" d="M70 175 q14 -34 28 0 M116 175 q14 -38 28 0 M162 175 q12 -30 24 0"/>
+    <path class="am-thin" d="M76 168 l6 -6 M84 160 l6 -2 M122 166 l6 -6 M130 158 l6 -2 M167 168 l5 -6"/>
+    <path class="am-fill" d="M186 175 q4 -34 22 -40 q16 -2 18 10 q-6 8 -20 6 q-6 10 -6 24"/>
+    <path d="M200 138 l-4 -8 l8 4 M208 136 l0 -9 l5 7"/>
+    <circle cx="214" cy="140" r="1.8" class="am-inkfill"/><path class="am-red" d="M226 146 l10 2 l-4 3"/>
+    <path class="am-wave" d="M60 178 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0"/>
+  </g>`;
+  const ship = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})">
+    <path class="am-fill" d="M-45 0 h90 l-14 20 h-62Z"/><path class="am-thin" d="M-40 7 h80 M-36 13 h72"/><path d="M0 0 v-62 M-24 0 v-40"/>
+    <path class="am-fill" d="M2 -56 q26 22 0 50Z M-2 -50 q-22 18 0 44Z M-22 -36 q14 12 0 30Z"/><path class="am-red" d="M0 -62 l14 -4 l-14 -4Z"/>
+    <path class="am-wave" d="M-55 26 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0"/></g>`;
+  const whirl = `<path class="am-water" d="M245 556 m-14 0 a14 7 0 1 1 28 0 a11 5.5 0 1 1 -22 0 a8 4 0 1 1 16 0 a5 2.5 0 1 1 -10 0"/>`;
+  const dragon = `<g transform="translate(418 106)"><path class="am-inkfill" d="M-26 6 q12 -6 26 -2 q10 2 18 -4 l6 -2 l-3 5 q-8 8 -22 8 q-14 2 -26 -1 q-8 2 -12 8 q2 -8 13 -12Z"/>
+    <path class="am-inkfill" d="M-4 2 l-8 -20 l18 14Z M4 2 l10 -18 l4 16Z"/></g>`;
+  // 바람 얼굴: 구름 뭉치 속 볼 부푼 얼굴이 동쪽으로 바람을 분다
+  const wind = `<g transform="translate(455 68)">
+    <path class="am-fill" d="M-30 10 q-10 -14 4 -20 q2 -14 18 -10 q10 -10 22 0 q16 -2 14 14 q10 10 -4 18 q-4 12 -20 8 q-14 8 -24 -2 q-14 2 -10 -8Z"/>
+    <circle class="am-fill" cx="2" cy="2" r="13"/><path class="am-thin" d="M-5 -2 q3 -3 6 0 M5 -3 q3 -3 6 0 M10 6 a3 3 0 1 1 0 .1 M-3 8 q3 3 6 0"/>
+    <path class="am-thin" d="M18 2 q20 -6 44 2 M18 8 q24 2 52 -2 M16 -4 q18 -10 36 -6"/></g>`;
+
+  /* 나침반 장미: 72개 눈금 고리, 큰 방위 넷은 먹, 사이 방위 넷은 빨강, 작은 방위 여덟 */
+  const rose = Array.from({ length: 16 }, (_, i) => {
+    const len = i % 4 === 0 ? 54 : i % 2 === 0 ? 38 : 25, wid = i % 4 === 0 ? 9 : 6;
+    const dark = i % 4 === 2 ? "am-redfill" : "am-inkfill";
+    return `<g transform="rotate(${i * 22.5})"><path class="${dark}" d="M0 0 L0 ${-len} L${wid} ${-wid}Z"/><path class="am-fill" d="M0 0 L0 ${-len} L${-wid} ${-wid}Z"/></g>`;
+  }).reverse().join("");
+  const ticks = Array.from({ length: 72 }, (_, i) => {
+    const a = (i / 72) * Math.PI * 2, l = i % 9 === 0 ? 7 : 3.5;
+    return `M${r1(Math.cos(a) * 58)} ${r1(Math.sin(a) * 58)} L${r1(Math.cos(a) * (58 - l))} ${r1(Math.sin(a) * (58 - l))}`;
+  }).join(" ");
+  const rhumbs = Array.from({ length: 32 }, (_, i) => {
+    const a = (i / 32) * Math.PI * 2;
+    return `M895 100 L${r1(895 + Math.cos(a) * 1300)} ${r1(100 + Math.sin(a) * 1300)}`;
+  }).join(" ");
+  const compass = `<g transform="translate(895 100)">
+    <circle r="62" class="am-fill"/><circle r="62"/><circle r="58"/><path class="am-thin" d="${ticks}"/><circle r="34" stroke-dasharray="2 4"/>
+    ${rose}<circle r="5" class="am-fill"/><circle r="2" class="am-inkfill"/>
+    <text y="-68" class="am-n">N</text>${sparkle(0, -84, 5)}</g>`;
+
+  /* 두루마리 제목: 양 끝이 말린 띠, 안쪽 두 줄 테 */
+  const cartouche = `<g>
+    <path class="am-fill" d="M52 50 q-18 0 -18 18 q0 18 18 18 h8 v-36Z M322 50 q18 0 18 18 q0 18 -18 18 h-8 v-36Z"/>
+    <path class="am-thin" d="M46 60 q-6 8 0 16 M328 60 q6 8 0 16"/>
+    <path class="am-fill" d="M60 40 h254 v56 h-254Z"/><path class="am-thin" d="M66 46 h242 v44 h-242Z"/>
+    <path d="M60 96 q-8 0 -8 -10 M314 96 q8 0 8 -10"/>
+    ${sparkle(76, 68, 4)}${sparkle(298, 68, 4)}
+    <text x="187" y="76" class="am-title">안데레 마법학교</text></g>`;
+  const scale = `<g transform="translate(795 548)">
+    <path class="am-inkfill" d="M0 0 h28 v6 h-28Z M56 0 h28 v6 h-28Z"/><path class="am-fill" d="M28 0 h28 v6 h-28Z M84 0 h28 v6 h-28Z"/><path d="M0 0 h112 v6 h-112Z"/>
+    <text x="0" y="-5">0</text><text x="112" y="-5" text-anchor="end">200 걸음</text></g>`;
+
+  // 풀 표시: 빈 땅에 작은 ʌʌ 무늬 (산·숲·성·호수·마을·길 자리는 피해서)
+  const taken = [[195, 130, 480, 312], [195, 320, 405, 485], [430, 110, 690, 312], [660, 330, 815, 445], [270, 465, 460, 530],
+    [470, 440, 700, 580], [675, 170, 830, 310], [825, 300, 880, 365], [445, 410, 495, 445]];
   const tufts = [];
-  for (let i = 0; i < 200 && tufts.length < 42; i++) {
-    const x = 150 + rand() * 740, y = 110 + rand() * 440;
-    if (!inIsland(x, y, 0.88) || taken.some(([a, b, c, d]) => x > a && x < c && y > b && y < d)) continue;
+  for (let i = 0; i < 400 && tufts.length < 55; i++) {
+    const x = 150 + rand() * 760, y = 110 + rand() * 440;
+    if (!inIsland(x, y, 0.9) || !free(x, y, taken)) continue;
     tufts.push(`<path d="M${r1(x)} ${r1(y)} l3 -7 l3 7 m2 0 l3 -5 l3 5"/>`);
   }
 
-  // 숲: 둥근 나무 그림 기호, 아래쪽 나무가 위에 오게 y 순서로
-  const trees = [];
-  for (let row = 0; row < 5; row++) {
-    for (let col = 0; col < 7; col++) {
-      const x = 210 + col * 26 + (row % 2) * 13 + (rand() - 0.5) * 8, y = 345 + row * 26 + (rand() - 0.5) * 8;
-      if (rand() < 0.15) continue;
-      trees.push([x, y, 8 + rand() * 3]);
-    }
-  }
-  const forest = trees.sort((a, b) => a[1] - b[1]).map(([x, y, r]) =>
-    `<path d="M${r1(x)} ${r1(y)} v${r1(r)}"/><circle class="am-fill" cx="${r1(x)}" cy="${r1(y - r * 0.6)}" r="${r1(r)}"/>` +
-    `<path d="M${r1(x + r * 0.35)} ${r1(y - r * 1.2)} a${r1(r * 0.9)} ${r1(r * 0.9)} 0 0 1 ${r1(r * 0.3)} ${r1(r * 1.1)}"/>`).join("");
+  // 경위도 눈금 띠: 두 줄 테 사이를 먹·종이로 번갈아 칠한다
+  const band = `<rect x="22" y="22" width="956" height="556" class="am-frame"/><rect x="32" y="32" width="936" height="536" class="am-frame"/>
+    <rect x="27" y="27" width="946" height="546" class="am-band"/>
+    <path class="am-corner" d="M22 22 h10 v10 h-10Z M968 22 h10 v10 h-10Z M22 568 h10 v10 h-10Z"/>`;
 
-  // 성: 가운데 큰 탑, 양옆 탑, 성벽, 깃발
-  const tower = (x, top, w, base) => {
-    const roof = top - w * 1.1;
-    return `<rect class="am-fill" x="${x}" y="${top}" width="${w}" height="${base - top}"/>
-      <path class="am-fill" d="M${x - 5} ${top} L${x + w / 2} ${roof} L${x + w + 5} ${top}Z"/>
-      <path d="M${x + w / 2 + 3} ${roof + 8} l6 ${top - roof - 10} M${x + w / 2 + 8} ${roof + 12} l5 ${top - roof - 16}"/>
-      <path d="M${x + w / 2} ${roof} v-16"/><path class="am-red" d="M${x + w / 2} ${roof - 16} l14 4 l-14 4Z"/>
-      <path d="M${x + w / 2 - 4} ${top + 22} v-6 a4 4 0 0 1 8 0 v6Z"/>`;
-  };
-  const castle = `<g class="am-castle">
-    <rect class="am-fill" x="480" y="235" width="160" height="60"/>
-    <path class="am-fill" d="M480 235 v-10 h12 v10 h12 v-10 h12 v10 h12 v-10 h12 v10 h12 v-10 h12 v10 h12 v-10 h12 v10 h12 v-10 h12 v10 h12 v-10 h16 v10"/>
-    ${tower(462, 200, 30, 295)}${tower(628, 200, 30, 295)}${tower(540, 160, 40, 295)}
-    <path class="am-fill" d="M548 295 v-26 a12 12 0 0 1 24 0 v26"/><path d="M554 295 v-24 M560 295 v-27 M566 295 v-24 M550 280 h20"/>
-    <path d="M500 255 v-6 a4 4 0 0 1 8 0 v6Z M612 255 v-6 a4 4 0 0 1 8 0 v6Z"/>
-  </g>`;
-
-  // 나침반 장미: 큰 방위 4개·작은 방위 12개를 반쪽씩 칠하고, 둘레 고리 두 줄
-  const rose = Array.from({ length: 16 }, (_, i) => {
-    const len = i % 4 === 0 ? 52 : i % 2 === 0 ? 36 : 24, wid = i % 4 === 0 ? 9 : 6;
-    return `<g transform="rotate(${i * 22.5})"><path class="am-inkfill" d="M0 0 L0 ${-len} L${wid} ${-wid}Z"/><path class="am-fill" d="M0 0 L0 ${-len} L${-wid} ${-wid}Z"/></g>`;
-  }).reverse().join("");
-  const rhumbs = Array.from({ length: 16 }, (_, i) => {
-    const a = (i / 16) * Math.PI * 2;
-    return `M895 100 L${r1(895 + Math.cos(a) * 1200)} ${r1(100 + Math.sin(a) * 1200)}`;
-  }).join(" ");
-
-  // 바다뱀: 물 위로 솟은 고리 셋 + 머리
-  const serpent = `<g class="am-serpent">
-    <path class="am-fill" d="M70 175 q14 -34 28 0 M116 175 q14 -38 28 0 M162 175 q12 -30 24 0"/>
-    <path class="am-fill" d="M186 175 q4 -34 22 -40 q16 -2 18 10 q-6 8 -20 6 q-6 10 -6 24"/>
-    <circle cx="214" cy="140" r="1.8" class="am-inkfill"/><path class="am-red" d="M226 146 l10 2 l-4 3"/>
-    <path d="M60 178 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0"/>
-    <path d="M80 158 l4 -3 M126 155 l4 -3 M170 160 l4 -3"/>
-  </g>`;
-  // 범선
-  const ship = `<g class="am-ship">
-    <path class="am-fill" d="M70 530 h90 l-14 20 h-62Z"/><path d="M115 530 v-62"/>
-    <path class="am-fill" d="M117 474 q26 22 0 50Z M113 480 q-24 18 0 44Z"/><path class="am-red" d="M115 468 l14 -4 l-14 -4Z"/>
-    <path d="M60 556 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0 q10 5 20 0"/>
-  </g>`;
-
-  return `<svg class="map-art" viewBox="0 0 1000 600" aria-hidden="true">
-  <path d="${paper}" fill="url(#am-paper)"/>
-  <path d="${paper}" fill="${MAP_PAPER}" filter="url(#am-grain)"/>
-  <g clip-path="url(#am-clip)">
+  const svg = `<svg class="map-art" viewBox="0 0 1000 600" aria-hidden="true">
+  <g clip-path="url(#am-paperclip)">
+    <path d="${paper}" fill="url(#am-paper)"/>
+    <path d="${paper}" fill="#f1dfb3" filter="url(#am-grain)"/>
+    <g class="am-foxing" filter="url(#am-soft)">${foxing}</g>
+    <circle cx="178" cy="112" r="42" class="am-ring" filter="url(#am-soft)"/>
+    <g class="am-wash" filter="url(#am-wash)">
+      <path d="${coast}" fill="none" stroke="#6f97a6" stroke-width="70" opacity=".45"/>
+      <path d="${coast}" fill="#e9dcae"/>
+      <path d="${scaled(0.9)}" fill="#b9c48a" opacity=".45"/>
+      <ellipse cx="300" cy="405" rx="115" ry="82" fill="#6f8f4c" opacity=".45"/>
+      <ellipse cx="750" cy="245" rx="75" ry="62" fill="#55784a" opacity=".45"/>
+      <ellipse cx="345" cy="245" rx="140" ry="60" fill="#a57a4a" opacity=".45"/>
+      <ellipse cx="560" cy="275" rx="140" ry="40" fill="#b99a64" opacity=".4"/>
+      <path d="${FIELDS.join(" ")}" fill="#c8a95a" opacity=".7"/>
+    </g>
     <path d="${rhumbs}" class="am-rhumb"/>
-    <path d="${coast}" fill="#f6e8c4"/>
+    <g class="am-ink" filter="url(#am-wobble)">
+      <path d="${scaled(1.035)}" class="am-water" opacity=".6"/><path d="${scaled(1.07)}" class="am-water" opacity=".42"/>
+      <path d="${scaled(1.11)}" class="am-water" opacity=".28"/><path d="${scaled(1.16)}" class="am-water" opacity=".15"/>
+      <g>${waves.join("")}${rocks.join("")}</g>
+      <path class="am-river-out" d="${river}"/><path class="am-river-in" d="${river}"/>
+      <path d="${coast}" class="am-coast"/>
+      <g class="am-sand">${sand}</g>
+      <g class="am-thin">${cliffs}</g>
+      ${lake}
+      <path class="am-road" d="M560 300 C520 330 450 350 400 392 M560 300 C600 330 640 360 672 382 M560 300 C555 380 560 470 560 540 M560 300 C520 290 480 285 460 282 M672 382 C700 330 720 300 740 300 M608 500 C640 470 700 450 760 440"/>
+      ${bridge}
+      <path class="am-trail" d="M292 482 C330 522 380 532 420 507"/>
+      <path class="am-x" d="M422 495 l20 20 M442 495 l-20 20"/>
+      <g class="am-tufts">${tufts.join("")}</g>
+      ${fields}
+      <g>${hills}${mountains}</g>
+      <g>${forest}</g>
+      ${stones}
+      ${castle}
+      ${village}${dock}${windmill}${lighthouse}
+      ${dragon}${serpent}${ship(110, 530, 1)}${ship(705, 72, 0.55)}${whirl}${wind}
+      ${compass}${cartouche}${scale}
+    </g>
+    <path d="${paper}" fill="url(#am-burn)"/>
+    <path class="am-fold" d="M500 12 V588 M12 300 H988"/>
+    <path class="am-fold-light" d="M502 12 V588 M12 302 H988"/>
+    ${band}
   </g>
-  <g class="am-ink" filter="url(#am-wobble)">
-    <path d="${scaled(1.035)}" class="am-water" opacity=".55"/><path d="${scaled(1.075)}" class="am-water" opacity=".35"/><path d="${scaled(1.12)}" class="am-water" opacity=".2"/>
-    <g class="am-waves">${waves.join("")}</g>
-    <path class="am-river-out" d="M420 262 C470 330 540 360 620 372 S700 392 720 392 M792 400 C830 410 860 425 915 438"/>
-    <path class="am-river-in" d="M420 262 C470 330 540 360 620 372 S700 392 720 392 M792 400 C830 410 860 425 915 438"/>
-    <path d="${coast}" class="am-coast"/>
-    <path class="am-lake" d="M672 392 q8 -42 62 -44 q64 0 66 40 q-4 40 -66 42 q-58 0 -62 -38Z"/>
-    <path class="am-water" d="M690 392 q8 -28 46 -30 q48 0 48 28" opacity=".6"/>
-    <path class="am-road" d="M560 296 C520 330 450 350 395 392 M560 296 C600 330 640 360 672 382 M560 296 C555 380 560 470 560 548 M560 296 C520 280 470 270 445 262"/>
-    <path class="am-trail" d="M292 480 C330 520 380 530 420 505"/>
-    <path class="am-x" d="M422 493 l20 20 M442 493 l-20 20"/>
-    <g class="am-tufts">${tufts.join("")}</g>
-    <g>${mountains}</g>
-    <g>${forest}</g>
-    ${castle}
-    <path class="am-fill" d="M548 548 h24 v14 h-24Z M552 562 v10 M568 562 v10"/>
-    ${serpent}
-    ${ship}
-    <g transform="translate(895 100)">
-      <circle r="58" class="am-fill"/><circle r="52"/><circle r="30" stroke-dasharray="2 4"/>
-      ${rose}
-      <circle r="4" class="am-inkfill"/>
-      <text y="-64" class="am-n">N</text>
-    </g>
-    <g class="am-scroll">
-      <path class="am-fill" d="M52 50 q-18 0 -18 18 q0 18 18 18 h8 v-36Z M322 50 q18 0 18 18 q0 18 -18 18 h-8 v-36Z"/>
-      <path class="am-fill" d="M60 40 h254 v56 h-254Z"/>
-      <path d="M60 96 q-8 0 -8 -10 M314 96 q8 0 8 -10"/>
-      <text x="187" y="76" class="am-title">안데레 마법학교</text>
-    </g>
-    <g class="am-scale" transform="translate(790 566)">
-      <path class="am-inkfill" d="M0 0 h30 v6 h-30Z M60 0 h30 v6 h-30Z"/><path class="am-fill" d="M30 0 h30 v6 h-30Z M90 0 h30 v6 h-30Z"/>
-      <text x="0" y="-5">0</text><text x="120" y="-5">200 걸음</text>
-    </g>
-  </g>
-  <path d="${paper}" fill="url(#am-burn)"/>
   <path d="${paper}" class="am-edge"/>
-  <rect x="26" y="26" width="948" height="548" class="am-frame"/>
 </svg>`;
+  return { svg, paper };
 })();
 
 // 지도 필터·무늬 (지도가 두 곳에 그려져도 한 번만 있게)
@@ -2547,7 +2712,7 @@ document.getElementById("mapDefs").innerHTML = `<defs>
     <stop offset="0" stop-color="#f6e7c1"/><stop offset=".65" stop-color="#ecd5a0"/><stop offset="1" stop-color="#d4a867"/>
   </radialGradient>
   <radialGradient id="am-burn" cx="50%" cy="50%" r="72%">
-    <stop offset=".72" stop-color="#5a3208" stop-opacity="0"/><stop offset=".93" stop-color="#5a3208" stop-opacity=".35"/><stop offset="1" stop-color="#2e1804" stop-opacity=".75"/>
+    <stop offset=".7" stop-color="#5a3208" stop-opacity="0"/><stop offset=".92" stop-color="#5a3208" stop-opacity=".38"/><stop offset="1" stop-color="#2e1804" stop-opacity=".8"/>
   </radialGradient>
   <filter id="am-grain" x="0" y="0" width="100%" height="100%">
     <feTurbulence type="fractalNoise" baseFrequency=".012" numOctaves="3" seed="5" result="stain"/>
@@ -2557,11 +2722,17 @@ document.getElementById("mapDefs").innerHTML = `<defs>
     <feMerge><feMergeNode in="stainA"/><feMergeNode in="fiberA"/></feMerge>
     <feComposite operator="in" in2="SourceGraphic"/>
   </filter>
+  <filter id="am-wash" x="-10%" y="-10%" width="120%" height="120%">
+    <feTurbulence type="fractalNoise" baseFrequency=".02" numOctaves="2" seed="4" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="26" xChannelSelector="R" yChannelSelector="G" result="d"/>
+    <feGaussianBlur in="d" stdDeviation="5"/>
+  </filter>
+  <filter id="am-soft"><feGaussianBlur stdDeviation="1.2"/></filter>
   <filter id="am-wobble" x="-2%" y="-2%" width="104%" height="104%">
     <feTurbulence type="turbulence" baseFrequency=".035" numOctaves="2" seed="9"/>
-    <feDisplacementMap in="SourceGraphic" scale="2.6" xChannelSelector="R" yChannelSelector="G"/>
+    <feDisplacementMap in="SourceGraphic" scale="2.4" xChannelSelector="R" yChannelSelector="G"/>
   </filter>
-  <clipPath id="am-clip"><rect x="26" y="26" width="948" height="548"/></clipPath>
+  <clipPath id="am-paperclip"><path d="${MAP_ART.paper}"/></clipPath>
 </defs>`;
 
 const peopleFacesHtml = ids => ids.filter(id => byId[id]).map(id => whoHtml(id)).join("");
@@ -2576,7 +2747,7 @@ function renderMap() {
       <span class="pin-ico" aria-hidden="true">${esc(entryIcon(e))}</span><span class="pin-name">${esc(e.name)}</span>${n ? `<span class="pin-count" aria-hidden="true">${n}</span>` : ""}</button>`;
   };
   document.getElementById("schoolMap").innerHTML =
-    `<div class="map-scroll"><div class="map-board">${MAP_ART}${places.map(pin).join("")}</div></div>` +
+    `<div class="map-scroll"><div class="map-board">${MAP_ART.svg}${places.map(pin).join("")}</div></div>` +
     (places.length ? "" : `<p class="empty">아직 지도에 장소가 없어요. <b>＋ 장소 추가</b>를 눌러 첫 장소를 찍어 보세요.</p>`);
 }
 
@@ -2722,7 +2893,7 @@ function openEntryEditor(id = null, type = "place") {
         </div>
         ${e.type === "spell" ? `<label class="prof-field"><span>주문 말</span><input name="words" maxlength="${ENTRY_LIMITS.words}" value="${esc(e.words)}" placeholder="예: 루미나 페렐!"></label>` : ""}
         ${e.type === "place" ? `<div class="prof-field"><span id="mapPickLabel">지도에서 자리를 눌러 핀을 옮기세요 (화살표 키도 돼요)</span>
-          <div class="map-scroll"><div class="map-board map-pick" tabindex="0" role="application" aria-labelledby="mapPickLabel" data-x="${e.x}" data-y="${e.y}">${MAP_ART}
+          <div class="map-scroll"><div class="map-board map-pick" tabindex="0" role="application" aria-labelledby="mapPickLabel" data-x="${e.x}" data-y="${e.y}">${MAP_ART.svg}
             <span class="pin draft" style="left:${e.x}%;top:${e.y}%"><span class="pin-ico">${esc(entryIcon(e))}</span></span></div></div></div>` : ""}
         ${e.type === "creature" ? `<label class="prof-field"><span>🏡 사는 곳</span><select name="place">${placeOptions(e.place)}</select></label>` : ""}
         <label class="photo-pick"><img src="${pic || NO_PHOTO}" alt="" data-entry-preview>
