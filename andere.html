@@ -442,6 +442,7 @@ dialog input.people-filter::placeholder { color: var(--ink-soft); }
 /* ── 관계 지도 움직임 ── */
 #relGraph .edge.sib > path { animation: sib-flow 1.6s linear infinite; }
 @keyframes sib-flow { to { stroke-dashoffset: -24; } }
+#relGraph.paused * { animation-play-state: paused !important; }
 #relGraph .spark { pointer-events: none; }
 #relGraph .edge.rival .spark circle { fill: #ffd27a; filter: drop-shadow(0 0 3px #ff6b6b); }
 #relGraph .edge .heart { fill: #ff6f9f; font-size: 14px; text-anchor: middle; dominant-baseline: central; }
@@ -1131,7 +1132,12 @@ const ENTRY_TYPES = {
   creature: { icon: "🐉", word: "마법 생물", body: "어떤 생물인가요?", people: "함께 지내는 캐릭터", ph: "예: 구름 여우" },
   lore:     { icon: "📖", word: "규칙·교가", body: "내용", people: null, ph: "예: 안데레 교가" },
 };
-const ENTRY_LIMITS = { name: 30, emoji: 4, words: 60, body: 3000 };
+const ENTRY_LIMITS = { name: 30, emoji: 2, words: 60, body: 3000 }; // emoji 는 눈에 보이는 글자 수
+// 👨‍👩‍👧 처럼 여러 코드가 합쳐진 이모지를 반으로 자르지 않게, 보이는 글자 단위로 자른다
+function firstGraphemes(text, n) {
+  if (!window.Intl?.Segmenter) return [...text].slice(0, n * 4).join("");
+  return [...new Intl.Segmenter("ko", { granularity: "grapheme" }).segment(text)].slice(0, n).map(x => x.segment).join("");
+}
 function isEntryId(id) { return typeof id === "string" && /^L[0-9a-z]+$/.test(id); }
 
 function cleanEntries(list) {
@@ -1143,7 +1149,7 @@ function cleanEntries(list) {
     .map(e => ({
       id: e.id, type: e.type,
       name: e.name.slice(0, ENTRY_LIMITS.name),
-      emoji: typeof e.emoji === "string" ? [...e.emoji].slice(0, ENTRY_LIMITS.emoji).join("") : "",
+      emoji: typeof e.emoji === "string" ? firstGraphemes(e.emoji, ENTRY_LIMITS.emoji) : "",
       words: e.type === "spell" ? str(e.words, ENTRY_LIMITS.words) : "",
       body: str(e.body, ENTRY_LIMITS.body),
       people: e.type !== "lore" && Array.isArray(e.people) ? e.people.filter(id => typeof id === "string") : [],
@@ -1529,6 +1535,7 @@ function renderRelationGraph(box) {
       ${RIVALS.map(s => edgesSvg(s, "rival", pos)).join("")}${SIBLINGS.map(s => edgesSvg(s, "sib", pos)).join("")}
       ${ids.map(id => nodeSvg(id, pos[id], angleOf[id])).join("")}
     </svg>`;
+  if (box.classList.contains("paused")) box.querySelector("svg").pauseAnimations?.(); // 멈춘 채 다시 그려졌을 때
 }
 
 /* 얼굴에 마우스를 올리거나 키보드로 고르면 그 캐릭터의 선만 강조 */
@@ -1551,6 +1558,17 @@ function highlightGraph(id) {
 // 마우스는 올리는 것만으로 이미 밝아지므로 예전처럼 한 번 눌러 바로 열린다.
 let graphTapped = null;   // 손가락으로 눌러 고른 얼굴
 let graphByTouch = false; // 마지막으로 누른 것이 손가락·펜이었나
+
+// 관계 지도가 화면 밖에 있으면 움직임(SMIL 불꽃·하트, CSS 선 흐름)을 멈춘다 — 안 보이는데 폰 배터리를 쓰지 않게.
+// 지도는 다시 그려질 때마다 svg 가 새로 생기므로 상자(box)를 지켜보고, 멈춤 상태는 클래스로 둔다.
+function wireGraphPause(box) {
+  if (!("IntersectionObserver" in window)) return;
+  new IntersectionObserver(([entry]) => {
+    const svg = box.querySelector("svg");
+    box.classList.toggle("paused", !entry.isIntersecting);
+    if (entry.isIntersecting) svg?.unpauseAnimations?.(); else svg?.pauseAnimations?.();
+  }).observe(box);
+}
 
 function wireGraphHighlight(box) {
   const pick = e => e.target.closest?.(".gnode")?.dataset.node || null;
@@ -2749,6 +2767,8 @@ function renderMap() {
   document.getElementById("schoolMap").innerHTML =
     `<div class="map-scroll"><div class="map-board">${MAP_ART.svg}${places.map(pin).join("")}</div></div>` +
     (places.length ? "" : `<p class="empty">아직 지도에 장소가 없어요. <b>＋ 장소 추가</b>를 눌러 첫 장소를 찍어 보세요.</p>`);
+  const scroller = document.querySelector("#schoolMap .map-scroll");
+  scroller.scrollLeft = (scroller.scrollWidth - scroller.clientWidth) / 2;
 }
 
 function entryCardHtml(e) {
@@ -2889,7 +2909,7 @@ function openEntryEditor(id = null, type = "place") {
       <div class="content">
         <div class="name-row">
           <label class="prof-field"><span>이름 *</span><input name="name" maxlength="${ENTRY_LIMITS.name}" value="${esc(e.name)}" placeholder="${t.ph}"></label>
-          <label class="prof-field"><span>그림 글자</span><input name="emoji" maxlength="8" value="${esc(e.emoji)}" placeholder="${t.icon}" aria-label="그림 글자 (이모지)"></label>
+          <label class="prof-field"><span>그림 글자</span><input name="emoji" maxlength="24" value="${esc(e.emoji)}" placeholder="${t.icon}" aria-label="그림 글자 (이모지)"></label>
         </div>
         ${e.type === "spell" ? `<label class="prof-field"><span>주문 말</span><input name="words" maxlength="${ENTRY_LIMITS.words}" value="${esc(e.words)}" placeholder="예: 루미나 페렐!"></label>` : ""}
         ${e.type === "place" ? `<div class="prof-field"><span id="mapPickLabel">지도에서 자리를 눌러 핀을 옮기세요 (화살표 키도 돼요)</span>
@@ -3006,6 +3026,17 @@ async function deleteEntry(id) {
   try {
     await Cloud.remove("entry", id);
     if (Cloud.get("picture", `entry:${id}`)) await Pictures.remove(`entry:${id}`);
+    if (e.type === "place") {
+      for (const ev of events.filter(v => v.place === id)) {
+        const { id: evId, ...data } = { ...ev, place: "" };
+        await Cloud.put("event", evId, data);
+      }
+      for (const c of entries.filter(x => x.place === id)) {
+        const { id: cId, ...data } = { ...c, place: "" };
+        await Cloud.put("entry", cId, data);
+      }
+      events = loadEvents();
+    }
   } catch (err) {
     await askConfirm(`지우지 못했어요 (${err.message})`, "확인");
     return;
@@ -3303,6 +3334,7 @@ async function init() {
   renderClasses();
   renderRelations();
   wireGraphHighlight(document.getElementById("relGraph"));
+  wireGraphPause(document.getElementById("relGraph"));
   renderTimeline();
   renderChips();
   renderFinder();
