@@ -1027,7 +1027,8 @@ const Sound = (() => {
   const MELODY = [0, 2, 4, 2, 5, 4, 2, 1, 0, 2, 4, 6, 5, 4, 2, 4]; // 16칸(8분음표) 반복 무늬, 음계 번호
   const CHORDS = [0, 5, 3, 4];                                       // 마디마다 바뀌는 화음(음계 번호)
 
-  let ctx = null, master = null, on = false, unsupported = false, theme = "HALL", step = 0, nextTime = 0, timer = null;
+  const PHRASE = 8 * CHORDS.length; // 화음 한 바퀴(4마디) = 한 곡조. 반이 바뀌어도 이게 끝나야 넘어간다
+  let ctx = null, master = null, on = false, unsupported = false, theme = "HALL", nextTheme = "HALL", step = 0, nextTime = 0, timer = null;
   const ratios = new Map();
   let observer = null;
 
@@ -1053,10 +1054,11 @@ const Sound = (() => {
 
   // 8분음표마다 멜로디, 마디 첫 박에 화음을 미리 예약해 둔다
   function schedule() {
-    const t = THEMES[theme];
-    const eighth = 60 / t.bpm / 2;
     if (nextTime < ctx.currentTime) nextTime = ctx.currentTime + 0.05; // 밀린 음표를 한꺼번에 몰아 치지 않게
     while (nextTime < ctx.currentTime + 0.15) {
+      if (step % PHRASE === 0) theme = nextTheme; // 곡조 첫 박에서만 반 음악을 갈아 끼운다
+      const t = THEMES[theme];
+      const eighth = 60 / t.bpm / 2;
       const bar = Math.floor(step / 8) % CHORDS.length;
       const chord = CHORDS[bar];
       if (step % 8 === 0) {
@@ -1103,7 +1105,7 @@ const Sound = (() => {
     btn.innerHTML = unsupported ? `🔇 <span>이 브라우저는 소리를 못 내요</span>` : on ? `🔊 <span>소리 켜짐</span>` : `🔇 <span>소리 꺼짐</span>`;
   }
 
-  // 화면에 가장 많이 보이는 반의 음악으로 자연스럽게 바뀜
+  // 화면에 가장 많이 보이는 반의 음악으로 바뀜 — 지금 곡조가 끝난 다음에
   function watchClasses() {
     if (!("IntersectionObserver" in window)) return;
     observer?.disconnect();
@@ -1112,7 +1114,7 @@ const Sound = (() => {
     observer = new IntersectionObserver(entries => {
       entries.forEach(e => ratios.set(e.target.dataset.class, e.rootBounds ? e.intersectionRect.height / e.rootBounds.height : e.intersectionRatio));
       const [best, share] = [...ratios.entries()].sort((a, b) => b[1] - a[1])[0] || ["HALL", 0];
-      theme = share > 0.35 ? best : "HALL";
+      nextTheme = share > 0.35 ? best : "HALL";
     }, { threshold: Array.from({ length: 11 }, (_, i) => i / 10) });
     document.querySelectorAll("[data-class]").forEach(el => observer.observe(el));
   }
