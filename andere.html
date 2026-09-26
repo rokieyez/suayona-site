@@ -545,7 +545,21 @@ dialog input.people-filter::placeholder { color: var(--ink-soft); }
   .modal { grid-template-columns: 1fr; }
   .main-pic { max-height: 46vh; }
   /* 선생님 반은 넓은 화면에서만 큰 칸(.big)을 쓴다 — 좁은 화면에서는 학생과 같은 2칸 */
-  .grid, .grid.big { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .grid, .grid.big { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  /* 한 줄에 세 명 — 칸이 110px 남짓이라 글자·단추를 같이 줄인다 */
+  .card .info { padding: 6px 7px 8px; }
+  .card .name { font-size: 15px; gap: 3px; }
+  .card .name small { font-size: 11px; }
+  .card .sub { font-size: 11px; line-height: 1.35; }
+  .card .rels { gap: 3px; margin-top: 5px; }
+  .card .rel { font-size: 11px; gap: 3px; flex-wrap: wrap; }
+  .card .rel .ico { width: 16px; height: 16px; font-size: 9px; }
+  .card .rel .lbl { display: none; }
+  .card .tags { gap: 3px; margin-top: 5px; }
+  .card .tag { font-size: 10px; padding: 0 4px; }
+  .card .fav-btn { top: 4px; right: 4px; width: 28px; height: 28px; font-size: 15px; line-height: 28px; }
+  .add-tile { min-height: 110px; font-size: 12px; padding: 8px; }
+  .add-tile span { font-size: 26px; }
   .moon { width: 52px; height: 52px; top: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
