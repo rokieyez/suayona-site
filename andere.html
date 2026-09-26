@@ -1007,36 +1007,79 @@ const loadDaytime = () => lsGet(DAYTIME_KEY) === "day";
 const saveDaytime = isDay => lsSet(DAYTIME_KEY, isDay ? "day" : null);
 </script>
 <script>
-/* 소리: 반마다 분위기가 다른 배경음악 + 문 열리는 소리 + 카드 여는 반짝 소리
-   음원 파일 없이 브라우저(Web Audio)로 직접 만든다. 기본은 켜짐(끄면 그 기기에서 기억), 오른쪽 아래 버튼. */
+/* 소리: 배경음악 「닿지 못한 메아리」 + 문 열리는 소리 + 카드 여는 반짝 소리
+   음원 파일 없이 브라우저(Web Audio)로 직접 만든다. 곡은 하나이고, 반마다 악기 소리·음역만 다르다.
+   기본은 켜짐(끄면 그 기기에서 기억), 오른쪽 아래 버튼. */
 
 const Sound = (() => {
-  // root: 기준 음(MIDI), scale: 음계, wave: 음색, bpm: 빠르기, bright: 밝기(필터)
+  // 반마다 다른 악기 소리. wave: 음색, bright: 밝기(필터), oct: 멜로디를 몇 옥타브 옮길지
   const THEMES = {
-    HALL: { root: 60, scale: [0, 2, 4, 7, 9], wave: "triangle", bpm: 76, bright: 1800 },          // 복도: 잔잔한 오음음계
-    A: { root: 57, scale: [0, 2, 3, 5, 7, 8, 10], wave: "sawtooth", bpm: 108, bright: 1300 },      // 붉은 반: 강렬한 단조
-    B: { root: 64, scale: [0, 2, 4, 6, 7, 9, 11], wave: "sine", bpm: 66, bright: 2600 },           // 연보라: 몽환적인 리디안
-    C: { root: 65, scale: [0, 2, 4, 5, 7, 9, 11], wave: "triangle", bpm: 94, bright: 3000 },       // 노랑→핑크: 사랑스러운 장조
-    D: { root: 62, scale: [0, 2, 4, 7, 9], wave: "sine", bpm: 86, bright: 2800 },                  // 민트: 산뜻한 오음음계
-    E: { root: 67, scale: [0, 2, 4, 5, 7, 9, 11], wave: "square", bpm: 116, bright: 1500 },        // 노랑: 밝고 경쾌
-    F: { root: 55, scale: [0, 2, 3, 5, 7, 9, 10], wave: "triangle", bpm: 72, bright: 1400 },       // 군청: 깊은 바다 같은 도리안
-    G: { root: 50, scale: [0, 1, 3, 5, 7, 8, 10], wave: "sawtooth", bpm: 60, bright: 750 },        // 검정: 어둡고 신비로운 프리지안
-    S: { root: 69, scale: [0, 2, 4, 7, 9], wave: "sine", bpm: 80, bright: 3600 },                  // 하늘색: 구름처럼 가벼움
-    T: { root: 60, scale: [0, 2, 4, 5, 7, 9, 11], wave: "triangle", bpm: 70, bright: 2000 },       // 선생님: 차분한 장조
+    HALL: { wave: "triangle", bright: 1800, oct: 0 },   // 복도: 잔잔하게
+    A: { wave: "sawtooth", bright: 1300, oct: 0 },      // 붉은 반: 강렬하게
+    B: { wave: "sine", bright: 2600, oct: 1 },          // 연보라: 몽환적으로 높게
+    C: { wave: "triangle", bright: 3000, oct: 1 },      // 노랑→핑크: 사랑스럽게
+    D: { wave: "sine", bright: 2800, oct: 0 },          // 민트: 산뜻하게
+    E: { wave: "square", bright: 1500, oct: 0 },        // 노랑: 경쾌하게
+    F: { wave: "triangle", bright: 1400, oct: -1 },     // 군청: 깊은 바다처럼 낮게
+    G: { wave: "sawtooth", bright: 750, oct: -1 },      // 검정: 어둡고 낮게
+    S: { wave: "sine", bright: 3600, oct: 1 },          // 하늘색: 구름처럼 가볍게
+    T: { wave: "triangle", bright: 2000, oct: 0 },      // 선생님: 차분하게
   };
-  const MELODY = [0, 2, 4, 2, 5, 4, 2, 1, 0, 2, 4, 6, 5, 4, 2, 4]; // 16칸(8분음표) 반복 무늬, 음계 번호
-  const CHORDS = [0, 5, 3, 4];                                       // 마디마다 바뀌는 화음(음계 번호)
 
-  const PHRASE = 8 * CHORDS.length; // 화음 한 바퀴(4마디) = 한 곡조. 반이 바뀌어도 이게 끝나야 넘어간다
+  // 「닿지 못한 메아리」에서 따 온 곡. F장조, 99 BPM, 32마디(절 16 + 후렴 16).
+  // 한 마디 = [화음, [[음(MIDI), 8분음표 몇 칸], …]] — 칸 합은 8. 음이 null 이면 쉼.
+  const BPM = 99;
+  const CHORD_NOTES = { F: [53, 57, 60], Dm: [50, 53, 57], Bb: [46, 50, 53], Am: [45, 48, 52] };
+  const BARS = [
+    // 절
+    ["F", [[69, 1], [69, 1], [67, 1], [69, 1], [69, 1], [70, 1], [67, 1], [70, 1]]],
+    ["F", [[69, 3], [null, 5]]],
+    ["Dm", [[69, 1], [69, 1], [65, 1], [69, 1], [69, 1], [70, 1], [65, 1], [70, 1]]],
+    ["F", [[69, 1], [69, 1], [65, 2], [null, 4]]],
+    ["F", [[null, 1], [65, 1], [65, 1], [70, 1], [69, 1], [72, 1], [67, 1], [70, 1]]],
+    ["F", [[69, 1], [69, 1], [67, 2], [null, 4]]],
+    ["Dm", [[72, 1], [72, 1], [72, 1], [72, 1], [72, 1], [72, 1], [65, 1], [72, 1]]],
+    ["Bb", [[72, 2], [null, 1], [70, 1], [74, 4]]],
+    ["Bb", [[null, 2], [74, 2], [72, 4]]],
+    ["F", [[72, 2], [65, 1], [72, 3], [null, 2]]],
+    ["F", [[null, 3], [70, 1], [70, 1], [74, 3]]],
+    ["Bb", [[74, 1], [null, 3], [72, 2], [65, 1], [72, 1]]],
+    ["Bb", [[72, 2], [65, 1], [60, 1], [null, 4]]],
+    ["F", [[null, 4], [70, 2], [null, 2]]],
+    ["F", [[null, 1], [69, 1], [67, 1], [72, 3], [null, 2]]],
+    ["F", [[72, 2], [65, 1], [60, 1], [72, 2], [null, 2]]],
+    // 후렴
+    ["F", [[65, 6], [64, 2]]],
+    ["Am", [[76, 2], [74, 6]]],
+    ["Dm", [[74, 3], [null, 3], [72, 2]]],
+    ["F", [[65, 6], [null, 2]]],
+    ["F", [[65, 6], [64, 2]]],
+    ["Am", [[76, 2], [74, 6]]],
+    ["Dm", [[74, 1], [null, 3], [69, 2], [74, 2]]],
+    ["Bb", [[74, 3], [72, 1], [74, 2], [null, 2]]],
+    ["Bb", [[70, 4], [74, 4]]],
+    ["F", [[74, 1], [69, 2], [null, 5]]],
+    ["F", [[null, 2], [74, 5], [72, 1]]],
+    ["F", [[72, 2], [null, 6]]],
+    ["Bb", [[70, 4], [74, 4]]],
+    ["F", [[72, 4], [69, 4]]],
+    ["F", [[65, 8]]],
+    ["F", [[null, 8]]],
+  ];
+  // 8분음표 칸마다 [화음 | null, 멜로디 [음, 길이] | null] 로 펼쳐 둔다
+  const SONG = BARS.flatMap(([chord, notes]) => {
+    const cells = Array.from({ length: 8 }, (_, i) => [i === 0 ? chord : null, null]);
+    let at = 0;
+    notes.forEach(([midi, len]) => { if (midi !== null) cells[at][1] = [midi, len]; at += len; });
+    return cells;
+  });
+
+  const PHRASE = 32; // 4마디. 반이 바뀌어도 이만큼 끝나야 악기 소리가 바뀐다(곡은 끊기지 않고 이어짐)
   let ctx = null, master = null, on = false, unsupported = false, theme = "HALL", nextTheme = "HALL", step = 0, nextTime = 0, timer = null;
   const ratios = new Map();
   let observer = null;
 
   const freq = midi => 440 * Math.pow(2, (midi - 69) / 12);
-  const noteOf = (t, degree) => {
-    const L = t.scale.length, oct = Math.floor(degree / L), i = ((degree % L) + L) % L;
-    return t.root + t.scale[i] + 12 * oct;
-  };
 
   function tone(time, midi, { wave = "sine", dur = 0.4, vol = 0.1, bright = 2000, attack = 0.01 } = {}) {
     const osc = ctx.createOscillator(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
@@ -1052,20 +1095,21 @@ const Sound = (() => {
     osc.stop(time + dur + 0.05);
   }
 
-  // 8분음표마다 멜로디, 마디 첫 박에 화음을 미리 예약해 둔다
+  // 8분음표마다 멜로디, 마디 첫 박에 화음·베이스를 미리 예약해 둔다
   function schedule() {
+    const eighth = 60 / BPM / 2;
     if (nextTime < ctx.currentTime) nextTime = ctx.currentTime + 0.05; // 밀린 음표를 한꺼번에 몰아 치지 않게
     while (nextTime < ctx.currentTime + 0.15) {
-      if (step % PHRASE === 0) theme = nextTheme; // 곡조 첫 박에서만 반 음악을 갈아 끼운다
+      if (step % PHRASE === 0) theme = nextTheme; // 4마디 첫 박에서만 반 악기를 갈아 끼운다
       const t = THEMES[theme];
-      const eighth = 60 / t.bpm / 2;
-      const bar = Math.floor(step / 8) % CHORDS.length;
-      const chord = CHORDS[bar];
-      if (step % 8 === 0) {
-        [0, 2, 4].forEach(d => tone(nextTime, noteOf(t, chord + d) - 12, { dur: eighth * 8, vol: 0.035, bright: t.bright * 0.6, attack: 0.4 }));
+      const [chord, note] = SONG[step % SONG.length];
+      if (chord) {
+        const pad = CHORD_NOTES[chord];
+        pad.forEach(m => tone(nextTime, m, { dur: eighth * 8, vol: 0.03, bright: t.bright * 0.6, attack: 0.4 }));
+        tone(nextTime, pad[0] - 12, { dur: eighth * 3, vol: 0.06, bright: 600 });
+        tone(nextTime + eighth * 4, pad[0] - 12, { dur: eighth * 3, vol: 0.045, bright: 600 });
       }
-      const deg = MELODY[step % MELODY.length];
-      if (step % 16 !== 15) tone(nextTime, noteOf(t, chord + deg), { wave: t.wave, dur: eighth * 1.8, vol: 0.05, bright: t.bright });
+      if (note) tone(nextTime, note[0] + 12 * t.oct, { wave: t.wave, dur: eighth * (note[1] + 0.8), vol: 0.05, bright: t.bright, attack: note[1] > 2 ? 0.05 : 0.01 });
       nextTime += eighth;
       step += 1;
     }
@@ -1153,7 +1197,7 @@ const Sound = (() => {
     },
     renderButton,
     watchClasses,
-    // 문 열리는 소리: 삐걱(걸러진 잡음) + 그 반 음계로 올라가는 종소리
+    // 문 열리는 소리: 삐걱(걸러진 잡음) + 곡 조성(F장조)으로 올라가는 종소리
     door(gid) {
       if (!on) return;
       const now = ctx.currentTime;
@@ -1172,7 +1216,7 @@ const Sound = (() => {
       noise.connect(band).connect(gain).connect(master);
       noise.start(now);
       const t = THEMES[gid] || THEMES.HALL;
-      [0, 2, 4, 7].forEach((d, i) => tone(now + 0.7 + i * 0.11, noteOf(t, d) + 12, { dur: 0.9, vol: 0.08, bright: 5000 }));
+      [77, 81, 84, 89].forEach((m, i) => tone(now + 0.7 + i * 0.11, m + 12 * Math.min(t.oct, 0), { dur: 0.9, vol: 0.08, bright: 5000 })); // F장조 종소리
     },
     // 카드를 열 때 반짝
     sparkle() {
