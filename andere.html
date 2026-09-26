@@ -439,6 +439,75 @@ dialog input.people-filter::placeholder { color: var(--ink-soft); }
 .pchip[aria-pressed="true"] small { color: inherit; }
 #eventDlg { max-width: min(92vw, 560px); }
 
+/* ── 관계 지도 움직임 ── */
+#relGraph .edge.sib > path { animation: sib-flow 1.6s linear infinite; }
+@keyframes sib-flow { to { stroke-dashoffset: -24; } }
+#relGraph .spark { pointer-events: none; }
+#relGraph .edge.rival .spark circle { fill: #ffd27a; filter: drop-shadow(0 0 3px #ff6b6b); }
+#relGraph .edge .heart { fill: #ff6f9f; font-size: 14px; text-anchor: middle; dominant-baseline: central; }
+#relGraph .edge.rival .sym { transform-box: fill-box; transform-origin: center; animation: clash 2.4s linear infinite; animation-delay: var(--delay); }
+@keyframes clash { 0%, 42%, 60%, 100% { transform: scale(1); } 47% { transform: scale(1.5); fill: #ff6b6b; } }
+
+/* ── 학교 지도 ── */
+.map-scroll { overflow-x: auto; border-radius: 16px; }
+.map-board { position: relative; aspect-ratio: 5 / 3; min-width: 520px; border-radius: 16px; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #fbf3dd, #e8d6ab); box-shadow: inset 0 0 0 3px #c9ad73, inset 0 0 40px rgba(122, 90, 40, .35); }
+.map-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.m-river { fill: none; stroke: #9ec9e0; stroke-width: 16; stroke-linecap: round; }
+.m-water { fill: #9ec9e0; stroke: #7fb0cc; stroke-width: 3; }
+.m-mount { fill: #c9b288; stroke: #a58c5f; stroke-width: 3; stroke-linejoin: round; }
+.m-tree { fill: #7aa66a; }
+.m-road { fill: none; stroke: #b59a6b; stroke-width: 5; stroke-dasharray: 12 9; stroke-linecap: round; }
+.m-castle { fill: #7a68b3; }
+.m-compass { fill: #a58c5f; }
+.m-compass text { font-family: "Jua"; font-size: 22px; text-anchor: middle; }
+.pin { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; border: none; background: none;
+  padding: 0; cursor: pointer; color: var(--ink); font: inherit; }
+.pin-ico { font-size: 30px; line-height: 1; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .35)); transition: transform .2s; }
+/* 핀 끝(그림 글자 아래)이 찍은 자리다 — 이름표는 그 밑에 떠 있어 쓰기 창의 핀과 자리가 같다 */
+.pin-name { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); font-family: "Jua"; font-size: 14px;
+  background: rgba(255, 250, 240, .92); border: 1px solid #c9ad73; border-radius: 999px; padding: 1px 9px; margin-top: 2px; white-space: nowrap; }
+.pin-count { position: absolute; top: -6px; right: -10px; background: var(--gold-deep); color: #fff; border-radius: 999px; font-size: 11px; min-width: 18px; padding: 1px 5px; }
+.pin:hover .pin-ico, .pin:focus-visible .pin-ico { transform: translateY(-4px) scale(1.12); }
+.pin:focus-visible { outline: none; }
+.pin:focus-visible .pin-name { outline: 3px solid var(--gold-deep); }
+.map-pick { cursor: crosshair; touch-action: none; min-width: 0; }
+.map-pick:focus-visible { outline: 3px solid var(--c2); outline-offset: 2px; }
+.pin.draft { pointer-events: none; }
+.tl-place { margin: 0 0 6px; font-size: 14px; }
+
+/* ── 주문·생물·규칙 ── */
+.entry-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 8px; }
+.entry-card { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; cursor: pointer; font: inherit;
+  background: var(--parchment); color: var(--ink); border: 1px solid var(--parchment-edge); border-radius: 16px; padding: 14px 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .3); transition: transform .2s, box-shadow .2s; }
+.entry-card:hover, .entry-card:focus-visible { transform: translateY(-3px); box-shadow: 0 0 0 3px var(--gold), 0 10px 22px rgba(0, 0, 0, .35); outline: none; }
+.entry-emoji { font-size: 44px; line-height: 1.1; }
+.entry-pic { width: 96px; height: 96px; object-fit: cover; border-radius: 14px; background: #fff; }
+.entry-pic.face { border-radius: 50%; border: 3px solid var(--c2); }
+.entry-name { font-family: "Jua"; font-size: 18px; }
+.entry-words { font-family: "Gowun Batang", serif; color: var(--ink-soft); font-size: 14px; }
+.entry-sub { font-size: 13px; color: var(--ink-soft); }
+.entry-faces { display: flex; }
+.entry-faces img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 2px solid var(--parchment); margin-left: -6px; }
+.entry-faces img:first-child { margin-left: 0; }
+.sub-head { color: var(--gold); font-size: 18px; margin: 18px 0 10px; }
+.lore-card { background: var(--parchment); color: var(--ink); border-radius: 14px; padding: 18px 20px; margin-bottom: 14px;
+  border: 1px solid var(--parchment-edge); box-shadow: inset 0 10px 0 -4px #e3d2a8, inset 0 -10px 0 -4px #e3d2a8, 0 6px 16px rgba(0, 0, 0, .3); }
+.lore-card:focus { outline: none; }
+.lore-card:focus-visible { box-shadow: 0 0 0 3px var(--gold), 0 0 24px var(--gold); }
+.lore-card h3 { margin: 0 0 10px; font-size: 22px; text-align: center; }
+.lore-body { white-space: pre-wrap; overflow-wrap: anywhere; font-family: "Gowun Batang", serif; line-height: 1.8; text-align: center; }
+.lore-pic { display: block; max-width: 100%; max-height: 320px; margin: 0 auto 12px; border-radius: 10px; }
+.lore-card .story-actions { justify-content: center; }
+.lore-card .story-actions button { border-color: #7a6448; color: #5a4630; }
+#entryDlg { max-width: min(92vw, 560px); }
+.entry-big-pic { display: block; max-width: 100%; max-height: 50vh; margin: 0 auto 12px; border-radius: 12px; }
+.spell-words { font-family: "Gowun Batang", serif; font-size: 22px; text-align: center; margin: 4px 0 12px; color: var(--deep, var(--ink)); }
+.name-row { display: grid; grid-template-columns: 1fr 96px; gap: 8px; }
+.entry-form .map-board { min-width: 0; margin-top: 4px; }
+.entry-form .pin-ico { font-size: 26px; }
+
 @media (max-width: 620px) {
   /* 좁은 화면에서는 떠 있는 단추가 내용을 가린다 — 그림만 남기고 글자는 뺀다.
      aria-label 이 따로 있어 읽어 주는 이름은 그대로다. */
@@ -453,7 +522,8 @@ dialog input.people-filter::placeholder { color: var(--ink-soft); }
   .moon { width: 52px; height: 52px; top: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .star, .shooting, .moon { animation: none !important; }
+  .star, .shooting, .moon, #relGraph .edge > path, #relGraph .sym { animation: none !important; }
+  #relGraph .spark { display: none; }
   *, *::before, *::after { transition: none !important; }
 }
 footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 30px 16px 50px; }
@@ -551,10 +621,38 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
   </section>
 
   <section class="block">
+    <div class="block-head"><h2>🗺 학교 지도</h2></div>
+    <p class="intro">학교 곳곳의 장소예요. 핀을 누르면 그곳에서 일어난 일과 사는 생물을 볼 수 있어요.</p>
+    <button class="chip add-event" data-entry-add="place">＋ 장소 추가</button>
+    <div id="schoolMap"></div>
+  </section>
+
+  <section class="block">
     <div class="block-head"><h2>📜 학교 연대기</h2></div>
     <p class="intro">학교에서 일어난 일을 순서대로 적어 두는 곳이에요. 사건마다 등장한 캐릭터를 이어 둘 수 있어요.</p>
     <button class="chip add-event" id="timelineAdd">＋ 사건 추가</button>
     <div id="timeline"></div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2>🪄 주문 사전</h2></div>
+    <p class="intro">안데레에서 쓰는 주문을 모아 두는 곳이에요. 캐릭터 프로필에 적은 마인드주문도 여기에 저절로 모여요.</p>
+    <button class="chip add-event" data-entry-add="spell">＋ 주문 추가</button>
+    <div id="spells"></div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2>🐉 마법 생물 도감</h2></div>
+    <p class="intro">학교에 사는 동물·요정·마법 생물이에요.</p>
+    <button class="chip add-event" data-entry-add="creature">＋ 생물 추가</button>
+    <div id="creatures"></div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2>📖 학교 규칙 · 교가</h2></div>
+    <p class="intro">안데레 마법학교의 규칙, 교가, 그 밖의 설정을 적어 두는 곳이에요.</p>
+    <button class="chip add-event" data-entry-add="lore">＋ 규칙·교가 적기</button>
+    <div id="lore"></div>
   </section>
 
   <section class="block">
@@ -584,6 +682,7 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
 <dialog id="addDlg" aria-labelledby="addTitle"></dialog>
 <dialog id="confirmDlg" class="confirm" aria-labelledby="confirmMsg"></dialog>
 <dialog id="eventDlg" aria-labelledby="eventTitle"></dialog>
+<dialog id="entryDlg" aria-labelledby="entryTitle"></dialog>
 <dialog id="loginDlg" class="confirm" aria-labelledby="loginMsg"></dialog>
 <dialog id="cropDlg" class="crop" aria-labelledby="cropTitle"></dialog>
 <button id="soundBtn" class="float-btn sound-btn" aria-pressed="false" aria-label="배경음악과 효과음 켜기/끄기"></button>
@@ -990,10 +1089,44 @@ function cleanEvents(list) {
       title: e.title.slice(0, EVENT_LIMITS.title),
       body: typeof e.body === "string" ? e.body.slice(0, EVENT_LIMITS.body) : "",
       people: Array.isArray(e.people) ? e.people.filter(id => typeof id === "string") : [],
+      place: isEntryId(e.place) ? e.place : "",
       created: Number.isFinite(e.created) ? e.created : 0,
     }));
 }
 const loadEvents = () => cleanEvents(Cloud.list("event").map(r => ({ ...r.data, id: r.id })));
+
+/* ── 세계관 항목: 장소(지도)·주문·마법 생물·규칙과 교가 ──
+   네 가지 모두 표의 kind "entry" 한 줄씩이고, data.type 으로 가른다. id 는 L…
+   그림은 캐릭터 그림과 같은 자리에 열쇠 "entry:<id>" 로 담는다. */
+const ENTRY_TYPES = {
+  place:    { icon: "📍", word: "장소", body: "어떤 곳인가요?", people: "자주 오는 캐릭터", ph: "예: 달빛 도서관" },
+  spell:    { icon: "🪄", word: "주문", body: "주문을 쓰면 어떻게 되나요?", people: "이 주문을 쓰는 캐릭터", ph: "예: 반짝 불꽃" },
+  creature: { icon: "🐉", word: "마법 생물", body: "어떤 생물인가요?", people: "함께 지내는 캐릭터", ph: "예: 구름 여우" },
+  lore:     { icon: "📖", word: "규칙·교가", body: "내용", people: null, ph: "예: 안데레 교가" },
+};
+const ENTRY_LIMITS = { name: 30, emoji: 4, words: 60, body: 3000 };
+function isEntryId(id) { return typeof id === "string" && /^L[0-9a-z]+$/.test(id); }
+
+function cleanEntries(list) {
+  if (!Array.isArray(list)) return [];
+  const str = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
+  const pct = v => (Number.isFinite(v) ? Math.min(97, Math.max(3, v)) : 50); // 핀이 지도 밖으로 안 나가게
+  return list
+    .filter(e => e && isEntryId(e.id) && ENTRY_TYPES[e.type] && typeof e.name === "string" && e.name)
+    .map(e => ({
+      id: e.id, type: e.type,
+      name: e.name.slice(0, ENTRY_LIMITS.name),
+      emoji: typeof e.emoji === "string" ? [...e.emoji].slice(0, ENTRY_LIMITS.emoji).join("") : "",
+      words: e.type === "spell" ? str(e.words, ENTRY_LIMITS.words) : "",
+      body: str(e.body, ENTRY_LIMITS.body),
+      people: e.type !== "lore" && Array.isArray(e.people) ? e.people.filter(id => typeof id === "string") : [],
+      place: e.type === "creature" && isEntryId(e.place) ? e.place : "",
+      x: e.type === "place" ? pct(e.x) : null,
+      y: e.type === "place" ? pct(e.y) : null,
+      created: Number.isFinite(e.created) ? e.created : 0,
+    }));
+}
+const loadEntries = () => cleanEntries(Cloud.list("entry").map(r => ({ ...r.data, id: r.id })));
 
 /* ── 소리 ── */
 // 기본값은 켜짐. 끈 사람만 "off" 가 남아 다음에 와도 꺼진 채다.
@@ -1306,7 +1439,28 @@ function bandsSvg(ids, angleOf, step) {
   }).join("");
 }
 
+/* 선 위의 움직임: 라이벌은 양 끝에서 불꽃이 달려와 가운데 기호에서 부딪치고,
+   형제·자매는 하트가 두 사람 사이를 오간다. 선마다 시작을 어긋나게 해서 한꺼번에 깜빡이지 않게.
+   움직임 줄이기를 켠 사람에게는 CSS 가 불꽃·하트를 숨긴다. */
+const SPARK_DUR = { rival: 2.4, sib: 5 };
+function motionSvg(pathId, dur, delay, keyPoints, keyTimes, opacity = "") {
+  const common = `dur="${dur}s" begin="-${delay}s" repeatCount="indefinite"`;
+  return `<animateMotion ${common} calcMode="linear" keyPoints="${keyPoints}" keyTimes="${keyTimes}"><mpath href="#${pathId}"/></animateMotion>` +
+    (opacity ? `<animate attributeName="opacity" ${common} values="${opacity}" keyTimes="0;.42;.5;1"/>` : "");
+}
+function sparksSvg(kind, pathId, delay) {
+  const dur = SPARK_DUR[kind];
+  if (kind === "rival") {
+    return `<g class="spark" aria-hidden="true">
+      <circle r="4">${motionSvg(pathId, dur, delay, "0;0.5;0.5", "0;0.45;1", "1;1;0;0")}</circle>
+      <circle r="4">${motionSvg(pathId, dur, delay, "1;0.5;0.5", "0;0.45;1", "1;1;0;0")}</circle>
+    </g>`;
+  }
+  return `<g class="spark" aria-hidden="true"><text class="heart">♥${motionSvg(pathId, dur, delay, "0;1;0", "0;0.5;1")}</text></g>`;
+}
+
 // 관계 선: 원 안쪽으로 살짝 휘게, 가운데에 수아의 기호
+let edgeSeq = 0;
 function edgesSvg(set, kind, pos) {
   const c = GRAPH.size / 2;
   return set.ids.slice(1).map(b => {
@@ -1314,9 +1468,13 @@ function edgesSvg(set, kind, pos) {
     const p = pos[a], q = pos[b];
     const ctrl = { x: c + ((p.x + q.x) / 2 - c) * 0.2, y: c + ((p.y + q.y) / 2 - c) * 0.2 };
     const mid = { x: 0.25 * p.x + 0.5 * ctrl.x + 0.25 * q.x, y: 0.25 * p.y + 0.5 * ctrl.y + 0.25 * q.y };
-    return `<g class="edge ${kind}" data-a="${a}" data-b="${b}">
-      <path d="M${p.x} ${p.y} Q${ctrl.x} ${ctrl.y} ${q.x} ${q.y}"/>
-      <circle cx="${mid.x}" cy="${mid.y}" r="10"/><text x="${mid.x}" y="${mid.y}">${esc(set.sym)}</text>
+    const n = edgeSeq++;
+    const pathId = `edge-path-${n}`;
+    const delay = ((n * 0.37) % SPARK_DUR[kind]).toFixed(2);
+    return `<g class="edge ${kind}" data-a="${a}" data-b="${b}" style="--delay:-${delay}s">
+      <path id="${pathId}" d="M${p.x} ${p.y} Q${ctrl.x} ${ctrl.y} ${q.x} ${q.y}"/>
+      ${sparksSvg(kind, pathId, delay)}
+      <circle class="sym" cx="${mid.x}" cy="${mid.y}" r="10"/><text x="${mid.x}" y="${mid.y}">${esc(set.sym)}</text>
     </g>`;
   }).join("");
 }
@@ -1477,6 +1635,7 @@ function renderPeopleViews() {
   renderFavorites();
   renderClasses();
   renderTimeline();
+  renderCodex();
   renderFinder();
 }
 
@@ -1672,6 +1831,7 @@ async function openPerson(id) {
   if (dlg.open && !(await okToLeaveProfile())) return;
   const p = byId[id];
   if (!p) return;
+  closeEntryView();
   const g = groupOf(p.group);
   const rows = p.group === "T"
     ? [["이름", p.full || p.name], ["담당", p.role || "선생님"]]
@@ -1698,6 +1858,7 @@ async function openPerson(id) {
           ${relBlock("⚔️ 라이벌", r.rival)}
           ${relBlock(`🌟 ${sibWordOf(id)}`, r.sib)}
           ${eventsBlock(id)}
+          ${entryLinksBlock(id)}
           ${p.custom ? `<div class="story-actions char-actions"><button data-edit-char="${id}">✏️ 캐릭터 고치기</button><button class="danger" data-del-char="${id}">🗑 이 캐릭터 지우기</button></div>` : ""}
         </div>
       </div>
@@ -2042,6 +2203,7 @@ function renderTimeline() {
       <div class="tl-when">${esc(whenText(e))}</div>
       <div class="tl-card">
         <h3>${esc(e.title)}</h3>
+        ${entryById(e.place) ? `<p class="tl-place">📍 <button class="rel-name" data-entry="${e.place}">${esc(entryById(e.place).name)}</button></p>` : ""}
         ${e.body ? `<p class="tl-body">${esc(e.body)}</p>` : ""}
         ${faces ? `<div class="mini tl-people">${faces}</div>` : ""}
         <div class="story-actions"><button data-event-edit="${e.id}">✏️ 수정</button><button data-event-del="${e.id}">🗑 지우기</button></div>
@@ -2051,11 +2213,11 @@ function renderTimeline() {
 }
 
 /* ── 사건 쓰기 창 ── */
-let eventDraftPeople = new Set();
+let draftPeople = new Set(); // 사건·세계관 항목 쓰기 창이 같이 쓴다 (한 번에 하나만 열린다)
 
 function openEventEditor(id = null) {
-  const e = events.find(x => x.id === id) || { id: null, year: null, month: null, day: null, title: "", body: "", people: [] };
-  eventDraftPeople = new Set(e.people.filter(pid => byId[pid]));
+  const e = events.find(x => x.id === id) || { id: null, year: null, month: null, day: null, title: "", body: "", people: [], place: "" };
+  draftPeople = new Set(e.people.filter(pid => byId[pid]));
   const dlg = document.getElementById("eventDlg");
   dlg.className = "th-T"; // 연대기 창은 보라·금색 (선생님 테마)
   const months = [`<option value="">모름</option>`, ...Array.from({ length: 12 }, (_, i) =>
@@ -2069,6 +2231,7 @@ function openEventEditor(id = null) {
           <label class="prof-field"><span>월</span><select name="month">${months}</select></label>
           <label class="prof-field"><span>일</span><input name="day" type="number" min="1" max="31" inputmode="numeric" value="${e.day ?? ""}"></label>
         </div>
+        <label class="prof-field"><span>📍 어디서 일어났나요?</span><select name="place">${placeOptions(e.place)}</select></label>
         <label class="prof-field"><span>제목 *</span><input name="title" maxlength="${EVENT_LIMITS.title}" value="${esc(e.title)}" placeholder="예: 입학식 날 생긴 일"></label>
         <label class="prof-field"><span>무슨 일이 있었나요?</span><textarea class="story" name="body" maxlength="${EVENT_LIMITS.body}">${esc(e.body)}</textarea></label>
         <fieldset class="people-pick"><legend>등장한 캐릭터 <small data-picked-count></small></legend>
@@ -2081,34 +2244,33 @@ function openEventEditor(id = null) {
       </div>
     </form>`;
   dlg.dataset.initial = JSON.stringify(readEventForm(dlg.querySelector("form")));
-  renderPeopleChips("");
+  renderPeopleChips(dlg, "");
   dlg.showModal();
   field(dlg.querySelector("form"), "title").focus();
 }
 
 // 고른 캐릭터를 앞에, 나머지는 반 순서대로
-function renderPeopleChips(filter) {
-  const dlg = document.getElementById("eventDlg");
+function renderPeopleChips(dlg, filter) {
   const match = p => !filter || [p.name, p.full].some(s => s && s.includes(filter));
-  const list = [...people.filter(p => eventDraftPeople.has(p.id)), ...people.filter(p => !eventDraftPeople.has(p.id) && match(p))];
+  const list = [...people.filter(p => draftPeople.has(p.id)), ...people.filter(p => !draftPeople.has(p.id) && match(p))];
   dlg.querySelector(".people-chips").innerHTML = list.map(p =>
-    `<button type="button" class="pchip th-${p.group}" data-pick="${p.id}" aria-pressed="${eventDraftPeople.has(p.id)}">
+    `<button type="button" class="pchip th-${p.group}" data-pick="${p.id}" aria-pressed="${draftPeople.has(p.id)}">
       <img src="${portrait(p.id)}" alt="">${esc(p.name)}<small>${groupOf(p.group).title}</small></button>`).join("");
-  dlg.querySelector("[data-picked-count]").textContent = eventDraftPeople.size ? `${eventDraftPeople.size}명 골랐어요` : "";
+  dlg.querySelector("[data-picked-count]").textContent = draftPeople.size ? `${draftPeople.size}명 골랐어요` : "";
 }
 
-function togglePick(id) {
-  if (eventDraftPeople.has(id)) eventDraftPeople.delete(id);
-  else eventDraftPeople.add(id);
-  const btn = document.querySelector(`#eventDlg [data-pick="${id}"]`);
-  btn?.setAttribute("aria-pressed", String(eventDraftPeople.has(id)));
-  document.querySelector("#eventDlg [data-picked-count]").textContent = eventDraftPeople.size ? `${eventDraftPeople.size}명 골랐어요` : "";
+function togglePick(btn) {
+  const id = btn.dataset.pick;
+  if (draftPeople.has(id)) draftPeople.delete(id);
+  else draftPeople.add(id);
+  btn.setAttribute("aria-pressed", String(draftPeople.has(id)));
+  btn.closest("dialog").querySelector("[data-picked-count]").textContent = draftPeople.size ? `${draftPeople.size}명 골랐어요` : "";
 }
 
 function readEventForm(form) {
   const n = name => { const v = field(form, name).value.trim(); return v === "" ? null : Number(v); };
   return { year: n("year"), month: n("month"), day: n("day"), title: field(form, "title").value.trim(),
-    body: field(form, "body").value.trim(), people: [...eventDraftPeople].sort() };
+    body: field(form, "body").value.trim(), place: field(form, "place").value, people: [...draftPeople].sort() };
 }
 
 function eventFormIsDirty() {
@@ -2167,6 +2329,7 @@ async function deleteEvent(id) {
 
 // 상세 창에서 사건을 누르면 연대기의 그 사건으로 이동
 async function goToEvent(id) {
+  closeEntryView();
   const dlg = document.getElementById("dlg");
   if (dlg.open) {
     if (!(await okToLeaveProfile())) return;
@@ -2184,7 +2347,346 @@ async function goToEvent(id) {
 function wireEventDialog() {
   const dlg = document.getElementById("eventDlg");
   dlg.addEventListener("submit", e => { e.preventDefault(); submitEventForm(e.target); });
-  dlg.addEventListener("input", e => { if (e.target.matches(".people-filter")) renderPeopleChips(e.target.value.trim()); });
+  dlg.addEventListener("input", e => { if (e.target.matches(".people-filter")) renderPeopleChips(dlg, e.target.value.trim()); });
+}
+</script>
+<script>
+/* 세계관: 학교 지도(장소)·주문 사전·마법 생물 도감·규칙과 교가
+   보기는 누구나, 쓰기는 가족 계정만 (연대기와 같다). 저장 모양은 cleanEntries 를 볼 것. */
+
+let entries = loadEntries();
+const entryById = id => (id ? entries.find(e => e.id === id) : undefined);
+const entriesOf = type => entries.filter(e => e.type === type).sort((a, b) => a.created - b.created);
+const entryPic = id => Pictures.url(`entry:${id}`);
+const entryIcon = e => e.emoji || ENTRY_TYPES[e.type].icon;
+
+// 지도 바탕 그림 (장식). 핀 자리는 이 그림 위의 가로·세로 % 로 적는다
+const MAP_TREES = Array.from({ length: 18 }, (_, i) => {
+  const x = 40 + (i % 6) * 42 + (i % 2) * 14, y = 400 + Math.floor(i / 6) * 55 + (i % 3) * 8;
+  return `<path d="M${x} ${y} l18 -44 l18 44z"/>`;
+}).join("");
+const MAP_ART = `<svg class="map-art" viewBox="0 0 1000 600" aria-hidden="true">
+  <path class="m-river" d="M0 250 Q200 300 330 262 T700 450"/>
+  <path class="m-water" d="M700 420 q80 -60 180 -20 q60 40 20 100 q-60 60 -170 30 q-80 -30 -30 -110z"/>
+  <path class="m-mount" d="M40 180 L130 50 L220 180Z M160 180 L260 70 L360 180Z"/>
+  <g class="m-tree">${MAP_TREES}</g>
+  <path class="m-road" d="M500 250 Q420 380 250 470 M500 250 Q640 320 760 300 M500 250 L500 600 M500 250 Q640 150 860 170"/>
+  <g class="m-castle">
+    <rect x="440" y="170" width="120" height="80"/><rect x="425" y="140" width="26" height="110"/><rect x="549" y="140" width="26" height="110"/>
+    <rect x="482" y="120" width="36" height="130"/>
+    <path d="M420 142 L438 104 L456 142Z M544 142 L562 104 L580 142Z M476 122 L500 72 L524 122Z"/>
+  </g>
+  <g class="m-compass" transform="translate(920 90)">
+    <path d="M0 -40 L9 0 L0 40 L-9 0Z M-40 0 L0 -9 L40 0 L0 9Z"/><text y="-50">N</text>
+  </g>
+</svg>`;
+
+const peopleFacesHtml = ids => ids.filter(id => byId[id]).map(id => whoHtml(id)).join("");
+const eventsAt = placeId => sortedEvents().filter(e => e.place === placeId);
+
+/* ── 목록 그리기 ── */
+function renderMap() {
+  const places = entriesOf("place");
+  const pin = e => {
+    const n = eventsAt(e.id).length;
+    return `<button class="pin" style="left:${e.x}%;top:${e.y}%" data-entry="${e.id}" aria-label="${esc(e.name)} 자세히 보기${n ? ` (사건 ${n}개)` : ""}">
+      <span class="pin-ico" aria-hidden="true">${esc(entryIcon(e))}</span><span class="pin-name">${esc(e.name)}</span>${n ? `<span class="pin-count" aria-hidden="true">${n}</span>` : ""}</button>`;
+  };
+  document.getElementById("schoolMap").innerHTML =
+    `<div class="map-scroll"><div class="map-board">${MAP_ART}${places.map(pin).join("")}</div></div>` +
+    (places.length ? "" : `<p class="empty">아직 지도에 장소가 없어요. <b>＋ 장소 추가</b>를 눌러 첫 장소를 찍어 보세요.</p>`);
+}
+
+function entryCardHtml(e) {
+  const pic = entryPic(e.id);
+  const faces = e.people.filter(id => byId[id]).slice(0, 5).map(id => `<img src="${portrait(id)}" alt="">`).join("");
+  return `<button class="entry-card" data-entry="${e.id}">
+    ${pic ? `<img class="entry-pic" loading="lazy" src="${pic}" alt="">` : `<span class="entry-emoji" aria-hidden="true">${esc(entryIcon(e))}</span>`}
+    <span class="entry-name">${esc(e.name)}</span>
+    ${e.words ? `<span class="entry-words">「${esc(e.words)}」</span>` : ""}
+    ${faces ? `<span class="entry-faces" aria-hidden="true">${faces}</span>` : ""}
+  </button>`;
+}
+
+function renderSpells() {
+  // 캐릭터 프로필에 적힌 마인드주문도 사전에 같이 모은다 (고치는 곳은 그 캐릭터의 프로필)
+  // 「없음」처럼 없다는 뜻으로 적은 칸은 빼고
+  const minds = people.map(p => ({ p, spell: loadProfile(p.id).mindspell }))
+    .filter(x => x.spell && !/^(없음|없다|없어요|모름|x|-)$/i.test(x.spell));
+  const mindHtml = minds.map(({ p, spell }) => `<button class="entry-card mind th-${p.group}" data-open="${p.id}">
+      <img class="entry-pic face" loading="lazy" src="${portrait(p.id)}" alt="">
+      <span class="entry-name">「${esc(spell)}」</span><span class="entry-sub">🧠 ${esc(p.name)}의 마인드주문</span></button>`).join("");
+  const list = entriesOf("spell");
+  document.getElementById("spells").innerHTML =
+    (list.length ? `<div class="entry-grid">${list.map(entryCardHtml).join("")}</div>` : "") +
+    (minds.length ? `<h3 class="sub-head">🧠 마인드주문</h3><div class="entry-grid">${mindHtml}</div>` : "") +
+    (list.length || minds.length ? "" : `<p class="empty">아직 적힌 주문이 없어요. 캐릭터 프로필의 마인드주문도 여기에 모여요.</p>`);
+}
+
+function renderCreatures() {
+  const list = entriesOf("creature");
+  document.getElementById("creatures").innerHTML = list.length
+    ? `<div class="entry-grid">${list.map(entryCardHtml).join("")}</div>`
+    : `<p class="empty">아직 적힌 마법 생물이 없어요.</p>`;
+}
+
+// 규칙·교가는 눌러 여는 대신 두루마리째 바로 읽힌다
+function renderLore() {
+  const list = entriesOf("lore");
+  document.getElementById("lore").innerHTML = list.length
+    ? list.map(e => {
+      const pic = entryPic(e.id);
+      return `<article class="lore-card" id="entry-${e.id}" tabindex="-1">
+        <h3>${esc(entryIcon(e))} ${esc(e.name)}</h3>
+        ${pic ? `<img class="lore-pic" loading="lazy" src="${pic}" alt="">` : ""}
+        ${e.body ? `<div class="lore-body">${esc(e.body)}</div>` : ""}
+        <div class="story-actions"><button data-entry-edit="${e.id}">✏️ 수정</button><button data-entry-del="${e.id}">🗑 지우기</button></div>
+      </article>`;
+    }).join("")
+    : `<p class="empty">아직 적힌 규칙이나 교가가 없어요.</p>`;
+}
+
+function renderCodex() {
+  renderMap();
+  renderSpells();
+  renderCreatures();
+  renderLore();
+}
+
+// 캐릭터 상세 창: 이 캐릭터가 이어진 장소·주문·생물
+function entryLinksBlock(id) {
+  const list = entries.filter(e => e.people.includes(id));
+  if (!list.length) return "";
+  return `<h4>🗺 장소 · 주문 · 생물</h4><ul class="ev-links">${list.map(e =>
+    `<li><button class="rel-name" data-entry="${e.id}">${esc(entryIcon(e))} ${ENTRY_TYPES[e.type].word} · ${esc(e.name)}</button></li>`).join("")}</ul>`;
+}
+
+/* ── 자세히 보기 (장소·주문·생물) ── 규칙·교가는 목록에서 바로 읽으므로 그 자리로 옮겨 간다 */
+function closeEntryView() {
+  const dlg = document.getElementById("entryDlg");
+  if (dlg.open && !entryFormIsDirty()) dlg.close();
+}
+
+async function openEntry(id) {
+  const e = entryById(id);
+  if (!e) return;
+  const personDlg = document.getElementById("dlg");
+  if (personDlg.open) {
+    if (!(await okToLeaveProfile())) return;
+    personDlg.close();
+  }
+  if (e.type === "lore") {
+    closeEntryView();
+    const card = document.getElementById(`entry-${id}`);
+    card?.scrollIntoView({ behavior: reduceMotion() ? "instant" : "smooth", block: "center" });
+    card?.focus({ preventScroll: true });
+    return;
+  }
+  const t = ENTRY_TYPES[e.type];
+  const pic = entryPic(id);
+  const faces = peopleFacesHtml(e.people);
+  const home = entryById(e.place);
+  const evs = e.type === "place" ? eventsAt(id) : [];
+  const beasts = e.type === "place" ? entriesOf("creature").filter(c => c.place === id) : [];
+  const dlg = document.getElementById("entryDlg");
+  dlg.className = "th-T";
+  dlg.innerHTML = `<button class="close" aria-label="닫기">×</button>
+    <div class="add-form entry-view">
+      <div class="band"><div class="kicker">${t.icon} ${t.word}</div><h3 id="entryTitle" tabindex="-1">${esc(entryIcon(e))} ${esc(e.name)}</h3></div>
+      <div class="content">
+        ${pic ? `<img class="entry-big-pic" src="${pic}" alt="${esc(e.name)}">` : ""}
+        ${e.words ? `<p class="spell-words">「${esc(e.words)}」</p>` : ""}
+        ${e.body ? `<div class="story-view">${esc(e.body)}</div>` : ""}
+        ${home ? `<h4>🏡 사는 곳</h4><p><button class="rel-name" data-entry="${home.id}">${esc(entryIcon(home))} ${esc(home.name)}</button></p>` : ""}
+        ${faces ? `<h4>${t.people}</h4><div class="mini">${faces}</div>` : ""}
+        ${evs.length ? `<h4>📜 여기서 일어난 일</h4><ul class="ev-links">${evs.map(v =>
+          `<li><button class="rel-name" data-goto-event="${v.id}">${esc(whenText(v))} · ${esc(v.title)}</button></li>`).join("")}</ul>` : ""}
+        ${beasts.length ? `<h4>🐉 여기 사는 생물</h4><ul class="ev-links">${beasts.map(c =>
+          `<li><button class="rel-name" data-entry="${c.id}">${esc(entryIcon(c))} ${esc(c.name)}</button></li>`).join("")}</ul>` : ""}
+        ${!e.body && !pic && !faces && !evs.length && !beasts.length && !e.words ? `<div class="story-view empty">아직 적힌 이야기가 없어요.</div>` : ""}
+        <div class="story-actions char-actions"><button data-entry-edit="${id}">✏️ 고치기</button><button class="danger" data-entry-del="${id}">🗑 지우기</button></div>
+      </div>
+    </div>`;
+  if (!dlg.open) dlg.showModal();
+  dlg.scrollTop = 0;
+  dlg.querySelector("#entryTitle").focus();
+  Sound.sparkle();
+}
+
+/* ── 쓰기 창 ── */
+let entryDraftPic = null; // 새로 고른 그림 (저장할 때 올린다)
+
+function placeOptions(selected, exceptId = "") {
+  return [`<option value="">모름 · 없음</option>`, ...entriesOf("place").filter(p => p.id !== exceptId).map(p =>
+    `<option value="${p.id}"${p.id === selected ? " selected" : ""}>${esc(entryIcon(p))} ${esc(p.name)}</option>`)].join("");
+}
+
+function openEntryEditor(id = null, type = "place") {
+  const e = entryById(id) || { id: null, type, name: "", emoji: "", words: "", body: "", people: [], place: "", x: 50, y: 50 };
+  const t = ENTRY_TYPES[e.type];
+  const pic = e.id ? entryPic(e.id) : null;
+  entryDraftPic = null;
+  draftPeople = new Set(e.people.filter(pid => byId[pid]));
+  const dlg = document.getElementById("entryDlg");
+  dlg.className = "th-T";
+  dlg.innerHTML = `<button class="close" aria-label="닫기">×</button>
+    <form class="add-form entry-form" data-entry-id="${e.id || ""}" data-type="${e.type}" novalidate>
+      <div class="band"><div class="kicker">${t.icon} ${t.word}</div><h3 id="entryTitle">${e.id ? `${esc(e.name)} 고치기` : `새 ${t.word} 적기`}</h3></div>
+      <div class="content">
+        <div class="name-row">
+          <label class="prof-field"><span>이름 *</span><input name="name" maxlength="${ENTRY_LIMITS.name}" value="${esc(e.name)}" placeholder="${t.ph}"></label>
+          <label class="prof-field"><span>그림 글자</span><input name="emoji" maxlength="8" value="${esc(e.emoji)}" placeholder="${t.icon}" aria-label="그림 글자 (이모지)"></label>
+        </div>
+        ${e.type === "spell" ? `<label class="prof-field"><span>주문 말</span><input name="words" maxlength="${ENTRY_LIMITS.words}" value="${esc(e.words)}" placeholder="예: 루미나 페렐!"></label>` : ""}
+        ${e.type === "place" ? `<div class="prof-field"><span id="mapPickLabel">지도에서 자리를 눌러 핀을 옮기세요 (화살표 키도 돼요)</span>
+          <div class="map-scroll"><div class="map-board map-pick" tabindex="0" role="application" aria-labelledby="mapPickLabel" data-x="${e.x}" data-y="${e.y}">${MAP_ART}
+            <span class="pin draft" style="left:${e.x}%;top:${e.y}%"><span class="pin-ico">${esc(entryIcon(e))}</span></span></div></div></div>` : ""}
+        ${e.type === "creature" ? `<label class="prof-field"><span>🏡 사는 곳</span><select name="place">${placeOptions(e.place)}</select></label>` : ""}
+        <label class="photo-pick"><img src="${pic || NO_PHOTO}" alt="" data-entry-preview>
+          <span>그림 고르기<br><small>없어도 돼요 · 긴 변 1000px 로 줄여 올려요</small></span>
+          <input type="file" accept="image/*" class="sr" data-entry-pic></label>
+        ${pic ? `<label class="checks"><span><input type="checkbox" name="dropPic"> 지금 그림 빼기</span></label>` : ""}
+        <label class="prof-field"><span>${t.body}</span><textarea class="story" name="body" maxlength="${ENTRY_LIMITS.body}">${esc(e.body)}</textarea></label>
+        ${t.people ? `<fieldset class="people-pick"><legend>${t.people} <small data-picked-count></small></legend>
+          <input type="search" class="people-filter" placeholder="이름으로 찾기…" aria-label="캐릭터 이름 찾기">
+          <div class="people-chips"></div>
+        </fieldset>` : ""}
+        <p class="form-error" role="alert"></p>
+        <div class="story-actions"><button class="primary" type="submit">💾 저장</button><button type="button" data-entry-cancel>취소</button></div>
+        <p class="hint-small">가족 모두에게 보여요. 쓰기는 가족 계정만 돼요.</p>
+      </div>
+    </form>`;
+  const form = dlg.querySelector("form");
+  dlg.dataset.initial = JSON.stringify(readEntryForm(form));
+  if (t.people) renderPeopleChips(dlg, "");
+  if (!dlg.open) dlg.showModal();
+  dlg.scrollTop = 0;
+  field(form, "name").focus();
+}
+
+function readEntryForm(form) {
+  const val = name => field(form, name)?.value.trim() ?? "";
+  const board = form.querySelector(".map-pick");
+  return {
+    type: form.dataset.type, name: val("name"), emoji: val("emoji"), words: val("words"), body: val("body"), place: val("place"),
+    x: board ? Number(board.dataset.x) : null, y: board ? Number(board.dataset.y) : null,
+    people: ENTRY_TYPES[form.dataset.type].people ? [...draftPeople].sort() : [],
+    pic: entryDraftPic ? "new" : field(form, "dropPic")?.checked ? "drop" : "",
+  };
+}
+
+function entryFormIsDirty() {
+  const dlg = document.getElementById("entryDlg");
+  const form = dlg.querySelector("form.entry-form");
+  return !!form && dlg.open && JSON.stringify(readEntryForm(form)) !== dlg.dataset.initial;
+}
+
+async function pickEntryPicture(input) {
+  const form = input.closest("form");
+  const errorBox = form.querySelector(".form-error");
+  try {
+    entryDraftPic = await shrinkImage(input.files[0]);
+    form.querySelector("[data-entry-preview]").src = URL.createObjectURL(entryDraftPic);
+    errorBox.textContent = "";
+  } catch (e) {
+    errorBox.textContent = `그림을 읽지 못했어요 (${e.message})`;
+  }
+  input.value = "";
+}
+
+function moveDraftPin(board, x, y) {
+  const clamp = v => Math.round(Math.min(97, Math.max(3, v)) * 10) / 10;
+  board.dataset.x = clamp(x);
+  board.dataset.y = clamp(y);
+  const pin = board.querySelector(".pin.draft");
+  pin.style.left = `${board.dataset.x}%`;
+  pin.style.top = `${board.dataset.y}%`;
+}
+
+async function submitEntryForm(form) {
+  if (form.dataset.busy) return;
+  const v = readEntryForm(form);
+  const errorBox = form.querySelector(".form-error");
+  if (!v.name) { errorBox.textContent = "이름을 적어 주세요."; field(form, "name").focus(); return; }
+  const id = form.dataset.entryId || `L${Date.now().toString(36)}`;
+  const { pic, ...data } = v;
+  data.created = entryById(id)?.created || Date.now();
+  const submitBtn = form.querySelector('[type="submit"]');
+  form.dataset.busy = "1";
+  submitBtn.disabled = true;
+  try {
+    await Cloud.put("entry", id, data);
+    entries = loadEntries();
+    // 글이 먼저 저장된다 — 그림이 실패하면 글은 남기고 그림만 다시 하게 알린다
+    try {
+      if (pic === "new") await Pictures.put(`entry:${id}`, entryDraftPic);
+      else if (pic === "drop") await Pictures.remove(`entry:${id}`);
+    } catch (e) {
+      form.dataset.entryId = id;
+      dlgInitialFrom(form);
+      errorBox.textContent = `글은 저장했지만 그림은 못 올렸어요 (${e.message})`;
+      renderCodex();
+      return;
+    }
+  } catch (e) {
+    errorBox.textContent = `저장하지 못했어요 (${e.message})`;
+    return;
+  } finally {
+    delete form.dataset.busy;
+    submitBtn.disabled = false;
+  }
+  renderCodex();
+  renderTimeline(); // 장소 이름이 바뀌면 연대기의 📍 도
+  if (data.type === "lore") { document.getElementById("entryDlg").close(); openEntry(id); }
+  else openEntry(id); // 같은 창을 보기 모양으로 바꾼다
+}
+// 그림만 실패했을 때: 지금 적힌 글은 저장된 것으로 친다(다시 저장하면 그림만 또 시도)
+function dlgInitialFrom(form) {
+  const dlg = form.closest("dialog");
+  dlg.dataset.initial = JSON.stringify({ ...readEntryForm(form), pic: "" });
+}
+
+async function deleteEntry(id) {
+  const e = entryById(id);
+  if (!e || !(await askConfirm(`"${e.name}"을(를) 지울까요?`, "지우기"))) return;
+  try {
+    await Cloud.remove("entry", id);
+    if (Cloud.get("picture", `entry:${id}`)) await Pictures.remove(`entry:${id}`);
+  } catch (err) {
+    await askConfirm(`지우지 못했어요 (${err.message})`, "확인");
+    return;
+  }
+  entries = loadEntries();
+  const dlg = document.getElementById("entryDlg");
+  if (dlg.open) dlg.close();
+  renderCodex();
+  renderTimeline();
+}
+
+function wireEntryDialog() {
+  const dlg = document.getElementById("entryDlg");
+  dlg.addEventListener("submit", e => { e.preventDefault(); submitEntryForm(e.target); });
+  dlg.addEventListener("input", e => { if (e.target.matches(".people-filter")) renderPeopleChips(dlg, e.target.value.trim()); });
+  // 지도 핀 옮기기: 누른 자리로, 또는 화살표 키로 조금씩
+  dlg.addEventListener("pointerdown", e => {
+    const board = e.target.closest?.(".map-pick");
+    if (!board) return;
+    const r = board.getBoundingClientRect();
+    moveDraftPin(board, ((e.clientX - r.left) / r.width) * 100, ((e.clientY - r.top) / r.height) * 100);
+  });
+  dlg.addEventListener("keydown", e => {
+    const board = e.target.closest?.(".map-pick");
+    const step = { ArrowLeft: [-2, 0], ArrowRight: [2, 0], ArrowUp: [0, -2], ArrowDown: [0, 2] }[e.key];
+    if (!board || !step) return;
+    e.preventDefault();
+    moveDraftPin(board, Number(board.dataset.x) + step[0], Number(board.dataset.y) + step[1]);
+  });
+  // 그림 글자를 바꾸면 지도 핀도 같이
+  dlg.addEventListener("input", e => {
+    if (!e.target.matches('[name="emoji"]')) return;
+    const ico = dlg.querySelector(".pin.draft .pin-ico");
+    if (ico) ico.textContent = e.target.value.trim() || ENTRY_TYPES.place.icon;
+  });
 }
 </script>
 <script>
@@ -2209,6 +2711,7 @@ const DIRTY = {
   dlg: { isDirty: () => profileIsDirty(), ask: () => okToLeaveProfile() },
   addDlg: { isDirty: () => addFormIsDirty(), ask: () => askConfirm("입력한 내용이 사라져요. 닫을까요?", "닫기") },
   eventDlg: { isDirty: () => eventFormIsDirty(), ask: () => askConfirm("적던 사건이 사라져요. 닫을까요?", "닫기") },
+  entryDlg: { isDirty: () => entryFormIsDirty(), ask: () => askConfirm("적던 내용이 사라져요. 닫을까요?", "닫기") },
 };
 
 async function closeDialog(dlg) {
@@ -2240,20 +2743,25 @@ const CLICKS = [
   ["[data-event-del]", b => deleteEvent(b.dataset.eventDel)],
   ["[data-event-cancel]", () => closeDialog(document.getElementById("eventDlg"))],
   ["[data-goto-event]", b => goToEvent(b.dataset.gotoEvent)],
-  ["[data-pick]", b => togglePick(b.dataset.pick)],
+  ["[data-pick]", b => togglePick(b)],
   ["[data-rel-pick]", b => cycleRel(b.dataset.relPick)],
   ["[data-edit-char]", b => { const id = b.dataset.editChar; document.getElementById("dlg").close(); openAddCharacter(undefined, id); }],
   ["[data-gate]", b => openGate(b.dataset.gate)],
   ["[data-relview]", b => showRelView(b.dataset.relview)],
   ["#soundBtn", () => Sound.toggle()],
   ["[data-tag]", b => { state.tag = state.tag === b.dataset.tag ? null : b.dataset.tag; renderFinder(); }],
+  ["[data-entry-add]", b => openEntryEditor(null, b.dataset.entryAdd)],
+  ["[data-entry-edit]", b => openEntryEditor(b.dataset.entryEdit)],
+  ["[data-entry-del]", b => deleteEntry(b.dataset.entryDel)],
+  ["[data-entry-cancel]", () => closeDialog(document.getElementById("entryDlg"))],
+  ["[data-entry]", b => openEntry(b.dataset.entry)],
   ["[data-open]", b => openPerson(b.dataset.open)],
   [".card", b => openPerson(b.dataset.id)],
   ["[data-scan]", b => openScan(b.dataset.scan, b.dataset.label)],
 ];
 
 // 표의 규칙이 진짜로 막고, 여기서는 누르는 순간 알려 주기만 한다
-const WRITES = '[data-prof-act="edit"], [data-pic-del], [data-del-char], [data-edit-char], [data-add], #timelineAdd, [data-event-edit], [data-event-del], .thumb.add';
+const WRITES = '[data-prof-act="edit"], [data-pic-del], [data-del-char], [data-edit-char], [data-add], #timelineAdd, [data-event-edit], [data-event-del], .thumb.add, [data-entry-add], [data-entry-edit], [data-entry-del]';
 
 document.addEventListener("click", e => {
   const t = e.target;
@@ -2283,6 +2791,8 @@ function showPicture(b) {
 document.addEventListener("change", e => {
   const input = e.target.closest?.("[data-pic-add]");
   if (input && input.files.length) addPictures(input.dataset.picAdd, [...input.files]);
+  const entryPicInput = e.target.closest?.("[data-entry-pic]");
+  if (entryPicInput && entryPicInput.files.length) pickEntryPicture(entryPicInput);
 });
 
 // 관계 지도의 얼굴(SVG): Enter/Space로 열기 — 카드는 진짜 버튼이라 따로 처리할 필요 없음
@@ -2426,6 +2936,7 @@ async function moveLegacyToCloud() {
 function refreshFromCloud() {
   refreshPeople();
   events = loadEvents();
+  entries = loadEntries();
   loadCustomPortraits();
   renderPeopleViews();
 }
@@ -2444,6 +2955,8 @@ async function init() {
   renderScans();
   wireAddDialog();
   wireEventDialog();
+  wireEntryDialog();
+  renderCodex();
   Sound.boot();
   // 가족이 적은 것은 서버에서 늦게 오므로, 받은 뒤 한 번 더 그린다
   renderCloudStatus();
