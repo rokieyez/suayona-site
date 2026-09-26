@@ -691,11 +691,16 @@ const SCANS = [
    서버에 닿지 않으면 파일에 든 원래 도감만 보이고 쓰기는 막힌다. */
 
 const PROFILE_FIELDS = [
+  ["fullname", "풀네임"],
+  ["level", "레벨"],
+  ["key", "키"], // 키스톤 같은 것 (키 높이 아님)
   ["birthday", "생일"],
   ["likes", "좋아하는 것"],
   ["dislikes", "싫어하는 것"],
   ["magic", "마법 능력"],
+  ["mindspell", "마인드주문"],
   ["personality", "성격"],
+  ["buddy", "동무"],
 ];
 const PROFILE_KEYS = [...PROFILE_FIELDS.map(([k]) => k), "story"];
 const LIMITS = { name: 20, field: 60, story: 5000, role: 30 };
