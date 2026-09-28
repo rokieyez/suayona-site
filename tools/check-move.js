@@ -25,7 +25,7 @@ assert.deepStrictEqual(w.decor, {}); assert.deepStrictEqual(w.layout, {});
 assert(!w.buildings.coop && w.buildings.kitchen && w.buildings.barn, '다 지은 것만 두고 간다');
 assert.strictEqual(w.animals.length, 10);
 assert.strictEqual(w.mail.sua.filter(g => g.from === 'move').length, 1);
-assert.strictEqual(w.past[0].farm, 'meadow'); assert(!w.moveAsk);
+assert.strictEqual(w.past[0].farm, 'meadow'); assert.deepStrictEqual(w.past[0].layout, { statue: { x: 3, y: 3 } }); assert(w.past[0].buildings.coop && w.past[0].decor.statue); assert(!w.moveAsk);
 // 저장·불러오기 뒤에도 그대로
 const w2 = R.fixWorld(JSON.parse(JSON.stringify(w)), now);
 assert.strictEqual(R.farmOf(w2).id, 'seaside');

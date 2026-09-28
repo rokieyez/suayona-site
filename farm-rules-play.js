@@ -426,7 +426,10 @@
       if (MOVE_KEEP[b] || !B || !B.done) return;
       left.push(b); delete world.buildings[b];
     });
-    world.past.push({ farm: s.farm.id, until: dayKey(now), decor: Object.keys(world.decor || {}), buildings: left });
+    // 옛 농장을 언제든 다시 구경할 수 있게 놓인 자리까지 통째로 적어 둔다(2026-09-28 로키즈 요청)
+    const kept = {}; left.forEach(b => { kept[b] = { done: true }; });
+    world.past.push({ farm: s.farm.id, until: dayKey(now), decor: JSON.parse(JSON.stringify(world.decor || {})),
+      buildings: kept, layout: JSON.parse(JSON.stringify(world.layout || {})), expand: world.expand || 0 });
     world.decor = {}; world.layout = {}; world.farm = (world.farm || 0) + 1;
     delete world.moveAsk;
     ['sua', 'yona'].forEach(k => { (world.mail[k] = world.mail[k] || []).push({ id: 'coins', n: MOVE_GIFT, from: 'move', note: s.next.name + ' 이사 선물', t: now }); });
