@@ -517,6 +517,26 @@ const GROUND = {
   winter: { g: ['#f7fbfc', '#ecf3f6', '#e0e9ee', '#d2dee5'], tuft: ['#c8d6dc', '#b3c3cb'], ink: '#6d8798',
             dry: '#d5dee1', bloom: ['#ffffff', '#eaf6ff'], rock: '#cdd6da' },
 };
+// 농장마다 풍경 — 이사 가면 땅 빛깔과 아래 가장자리가 바뀐다(규칙은 farm-rules.js 의 FARMS).
+// tint 쪽으로 계절 빛깔을 조금 끌어당기므로 봄·여름·가을·겨울은 그대로 읽힌다.
+const FARM_LOOK = {
+  seaside:  { tint: '#d9e6a0', amt: 0.32, dry: '#efdcaa', rock: '#f4e2d6', bloom: ['#ffffff', '#ffd6e0', '#bfe8ff', '#fff3a0'], front: 'sea' },
+  mountain: { tint: '#5f8f7a', amt: 0.3,  dry: '#aaa396', rock: '#9ea4a9', bloom: ['#ffffff', '#c9a8ff', '#8fb8ff', '#fff3a0'], front: 'rocks', pebble: 0.84 },
+  cloud:    { tint: '#d6f2e6', amt: 0.4,  dry: '#fbe6f1', rock: '#ffffff', bloom: ['#ffb7d5', '#c9a8ff', '#fff3a0', '#9ad8ff', '#ffffff'], front: 'cloud', bloomX: 2.4 },
+};
+function farmLook(){ return (W && R.farmOf && FARM_LOOK[R.farmOf(W).id]) || null; }
+const palMemo = {};
+function groundPal(season){
+  const L = farmLook(), P = GROUND[season];
+  if (!L) return P;
+  const k = R.farmOf(W).id + season;
+  if (palMemo[k]) return palMemo[k];
+  const a = season === 'winter' ? L.amt * 0.35 : L.amt, cold = season === 'winter';
+  return (palMemo[k] = Object.assign({}, P, {
+    g: P.g.map(c => mix(c, L.tint, a)), tuft: P.tuft.map(c => mix(c, L.tint, a * 0.7)),
+    dry: cold ? P.dry : L.dry, rock: cold ? P.rock : L.rock, bloom: cold ? P.bloom : L.bloom,
+  }));
+}
 const SOIL = { wet: ['#6d4c30', '#7d5a3c', '#5a3f28'], dry: ['#b5885c', '#c49a6d', '#9f7550'] };
 const WOOD = { hi: '#d6a878', mid: '#c79b6d', low: '#a97b4f', dark: '#8a5f3a', line: '#6f4a2c' };
 const STONE = { hi: '#d5cec5', mid: '#c2bab0', low: '#a49c92', dark: '#857d75', line: '#665f59' };
@@ -715,7 +735,7 @@ function hash2(x, y, s){
 // 칸 크기를 sc 로 묶은 얼룩. noise2 와 같은 자리에 쓰되 셈이 훨씬 싸다.
 const noise2i = (x, y, sc, s) => hash2(Math.floor(x / sc), Math.floor(y / sc), s);
 function drawGround(season){
-  const P = GROUND[season], Wp = COLS * T, Hp = ROWS * T;
+  const P = groundPal(season), Wp = COLS * T, Hp = ROWS * T, LK = farmLook() || {};
   // 1) 큰 얼룩 — 칸 경계를 넘어 이어지게. 이게 없으면 열여섯 칸짜리 바둑판이 눈에 띈다.
   px(0, 0, Wp, Hp, P.g[1]);
   // 얼룩 칸을 여덟 도트에서 네 도트로 줄였다 — 같은 넓이에 얼룩이 네 배라 「초록 벽」이 덜하다
@@ -747,13 +767,13 @@ function drawGround(season){
       px(gx, gy + 2, 2, 6, c); px(gx + 2, gy, 2, 8, shade(c, 14)); px(gx + 4, gy + 4, 2, 4, shade(c, -10));
     }
     // 조약돌 — 외곽선을 두르고 빛을 왼쪽 위에 얹으면 「회색 네모」가 아니라 돌이 된다
-    if (r0 > 0.93){
+    if (r0 > (LK.pebble || 0.93)){
       px(X + 11, Y + 17, 10, 8, P.ink);
       px(X + 12, Y + 18, 8, 5, P.rock);
       px(X + 12, Y + 18, 5, 2, shade(P.rock, 22));
       px(X + 13, Y + 21, 7, 2, shade(P.rock, -26));
     }
-    const bloomP = season === 'spring' ? 0.2 : season === 'summer' ? 0.14 : season === 'autumn' ? 0.07 : 0;
+    const bloomP = (season === 'spring' ? 0.2 : season === 'summer' ? 0.14 : season === 'autumn' ? 0.07 : 0) * (LK.bloomX || 1);
     if (R.prand('f' + tx + '_' + ty) < bloomP){
       const c = P.bloom[Math.floor(R.prand('fc' + tx + '_' + ty) * P.bloom.length)];
       const fx = X + 8 + Math.floor(R.prand('fx' + tx + '_' + ty) * 14), fy = Y + 10 + Math.floor(R.prand('fy' + tx + '_' + ty) * 12);
@@ -805,7 +825,7 @@ function drawGround(season){
 function drawPath(season){
   const c = season === 'winter' ? ['#dcd6c8', '#cfc7b6', '#e6e0d3'] : ['#e0cfa8', '#d2bf95', '#ece0bf'];
   const edge = season === 'winter' ? '#c6bfae' : '#c2ac7e';        // 밟혀 다져진 가장자리
-  const P = GROUND[season];
+  const P = groundPal(season);
   /* 길은 먼저 「어느 칸을 지나는가」만 모아 두고, 그다음에 칸마다 이웃을 보고 그린다.
      전에는 칸마다 가로 띠(y+8..y+24)만 깔아서, 세로로 내려가는 길은 띠 사이가 벌어져
      토막토막 끊겨 보였다. 이웃이 있는 쪽으로 끝까지 채우면 모퉁이까지 이어진다. */
@@ -1360,7 +1380,7 @@ function drawPasture(season){
   const b = spot('pasture'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
   if (!here('pasture')){ ghost(X, Y, w, h); return; }
   // 안쪽 풀은 조금 더 진하게 — 여기가 목장이라는 게 한눈에
-  const P = GROUND[season];
+  const P = groundPal(season);
   px(X + 4, Y + 4, w - 8, h - 8, shade(P.g[2], -8));
   // 밟혀 풀이 눕고 흙이 드러난 자리 — 얼룩을 좌표 난수로 깔아 밋밋함을 없앤다
   for (let dy = 4; dy < h - 4; dy += 4) for (let dx = 4; dx < w - 4; dx += 4){
@@ -1450,6 +1470,26 @@ function ghost(X, Y, w, h){
     px(sx + 1, sy + 10, 4, 2, '#00000022');                       // 말뚝 그림자
     px(sx, sy, 4, 11, WOOD.dark); px(sx, sy, 2, 11, WOOD.mid); px(sx - 1, sy - 2, 6, 2, WOOD.hi);
   });
+}
+// ---------- 별 동상 도우미 ----------
+// 금: 0 가장 밝음 → 5 테두리. 대리석: 0 밝음 → 4 그늘.
+const STAR_GOLD = ['#fff3b8', '#ffe066', '#f5c030', '#e0a01c', '#b8740e', '#7a4608'];
+const STAR_MARBLE = ['#fbf9f5', '#ece7df', '#dcd5ca', '#bdb4a7', '#9c9285'];
+function starGeom(X, Y){ return { cx: X + 16, cy: Y + 15, R: 13, r: 5.6 }; }
+// 별 안이면 면 색 번호(0~4), 밖이면 -1. 뾰족한 끝 다섯, 오목한 곳 다섯 → 열 조각.
+// 조각마다 바깥 방향이 왼쪽 위(빛)를 볼수록 밝다.
+function starFace(g, x, y){
+  const a = Math.atan2(y, x) + Math.PI / 2;                                    // 위쪽 끝이 0
+  const seg = Math.PI / 5, k = ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) / seg;
+  const i = Math.floor(k), f = k - i;
+  const r0 = i % 2 ? g.r : g.R, r1 = i % 2 ? g.R : g.r;
+  const d = Math.hypot(x, y), lim = (r0 * r1 * Math.sin(seg)) / (r0 * Math.sin(seg * f) + r1 * Math.sin(seg * (1 - f)));
+  if (d > lim) return -1;
+  // 조각 가운데 방향과 빛(왼쪽 위) 사이 — 1이면 빛을 정면으로
+  const mid = (i + 0.5) * seg - Math.PI / 2, lit = Math.cos(mid) * -0.62 + Math.sin(mid) * -0.78;
+  // 한 끝을 가르는 두 면 중 한쪽은 밝고 한쪽은 어두워야 입체로 읽힌다
+  const v = lit + (i % 2 ? -0.35 : 0.35);
+  return v > 0.75 ? 0 : v > 0.25 ? 1 : v > -0.2 ? 2 : v > -0.65 ? 3 : 4;
 }
 // ---------- 꾸미개 ----------
 function drawDecor(season, night){
@@ -1547,14 +1587,48 @@ function drawDecor(season, night){
     if (night) lamp(X + 16, Y + 14, 30, '#ffb055');
   }
   if (d.statue){
-    const b = spot('statue'), X = b.x * T, Y = b.y * T, h = b.h * T;
-    px(X + 4, Y + h - 6, 24, 4, '#00000018');
-    px(X + 4, Y + h - 20, 24, 16, STONE.mid); px(X + 4, Y + h - 20, 24, 2, STONE.hi); px(X + 6, Y + h - 10, 20, 2, STONE.low);
-    px(X + 10, Y + h - 44, 12, 24, STONE.low); px(X + 10, Y + h - 44, 4, 24, STONE.mid);
-    const sx = X + 16, sy = Y + h - 60;
-    px(sx - 2, sy, 6, 18, '#ffd979'); px(sx - 8, sy + 6, 18, 6, '#ffd979');
-    px(sx - 6, sy + 2, 4, 4, '#ffe9a8'); px(sx + 4, sy + 10, 4, 4, '#e8b74a');
-    if (night) lamp(sx, sy + 8, 22, '#ffe6a0');
+    /* 별 동상 — 농장에서 가장 비싼 꾸미개라 가장 번쩍여야 한다.
+       아래부터 겹겹이: 그림자 → 대리석 세 단(금테·보석·명판) → 홈 파인 기둥 → 금 잔 → 입체 금별.
+       별은 열 조각 면으로 나눠 왼쪽 위에서 빛을 받게 칠한다 — 깎은 보석처럼 보인다.
+       빛살·반짝임·빛줄기는 움직이는 겹(drawDecorLive)에서 돈다. */
+    const b = spot('statue'), X = b.x * T, Y = b.y * T, h = b.h * T, G = STAR_GOLD, M2 = STAR_MARBLE;
+    const B = Y + h;                                                           // 바닥 줄
+    px(X + 1, B - 5, 30, 3, '#00000022'); px(X + 4, B - 3, 24, 2, '#00000014');   // 그림자
+    // 맨 아래 단 — 넓은 대리석, 윗면에 금테
+    px(X + 2, B - 13, 28, 9, M2[2]); grainy(X + 2, B - 13, 28, 9, M2[2], 'stone', 'st1');
+    px(X + 2, B - 13, 28, 2, G[2]); px(X + 2, B - 13, 28, 1, G[0]); px(X + 2, B - 11, 28, 1, G[4]);
+    px(X + 2, B - 6, 28, 2, M2[3]); px(X + 2, B - 13, 1, 9, M2[3]); px(X + 29, B - 13, 1, 9, M2[4]);
+    [6, 16, 25].forEach(ox => px(X + ox, B - 9, 1, 1, G[1]));                  // 금 못
+    // 가운데 단 — 금 명판에 작은 별, 양옆에 루비
+    px(X + 5, B - 21, 22, 8, M2[1]); grainy(X + 5, B - 21, 22, 8, M2[1], 'stone', 'st2');
+    px(X + 5, B - 21, 22, 1, M2[0]); px(X + 5, B - 14, 22, 1, M2[3]); px(X + 26, B - 21, 1, 8, M2[3]);
+    px(X + 4, B - 22, 24, 2, G[2]); px(X + 4, B - 22, 24, 1, G[0]); px(X + 4, B - 20, 24, 1, G[4]);
+    px(X + 10, B - 19, 12, 6, G[4]); px(X + 11, B - 19, 10, 5, G[2]); px(X + 11, B - 19, 10, 1, G[0]);   // 명판
+    [[2, 0, 1], [0, 1, 5], [1, 2, 3], [0, 3, 1], [4, 3, 1]].forEach(([ox, oy, w]) => px(X + 14 + ox, B - 18 + oy, w, 1, G[5]));   // 새긴 별
+    [X + 6, X + 23].forEach(gx => { px(gx, B - 18, 3, 3, '#b3203a'); px(gx, B - 18, 2, 2, '#e8364f'); px(gx, B - 18, 1, 1, '#ffb3c0'); });
+    // 기둥 — 홈 셋, 위아래 금가락지, 가운데 사파이어
+    px(X + 10, B - 38, 12, 16, M2[1]);
+    for (let i = 0; i < 16; i++) if (i % 5 === 2) px(X + 10, B - 38 + i, 12, 1, M2[0]);   // 대리석 결
+    px(X + 12, B - 38, 1, 16, M2[3]); px(X + 15, B - 38, 1, 16, M2[3]); px(X + 18, B - 38, 1, 16, M2[3]);
+    px(X + 10, B - 38, 2, 16, M2[0]); px(X + 20, B - 38, 2, 16, M2[3]); px(X + 21, B - 38, 1, 16, M2[4]);
+    px(X + 16, B - 34, 1, 5, '#c7bfb3');                                       // 실금 한 줄 — 돌맛
+    px(X + 9, B - 25, 14, 3, G[2]); px(X + 9, B - 25, 14, 1, G[0]); px(X + 9, B - 23, 14, 1, G[4]);
+    px(X + 9, B - 40, 14, 3, G[2]); px(X + 9, B - 40, 14, 1, G[0]); px(X + 9, B - 38, 14, 1, G[4]);
+    px(X + 14, B - 33, 4, 4, '#1f4f9a'); px(X + 14, B - 33, 3, 3, '#3a7bd5'); px(X + 14, B - 33, 1, 1, '#b8dcff');
+    // 금 잔 — 별을 받쳐 든다
+    px(X + 8, B - 44, 16, 4, G[2]); px(X + 8, B - 44, 16, 1, G[0]); px(X + 9, B - 41, 14, 1, G[4]);
+    px(X + 10, B - 45, 12, 1, G[1]); px(X + 8, B - 44, 2, 3, G[1]); px(X + 22, B - 44, 2, 3, G[3]);
+    // 별 — 도트 하나하나를 면에 따라 칠한다
+    const sc = starGeom(X, Y);
+    for (let yy = -sc.R - 1; yy <= sc.R + 1; yy++) for (let xx = -sc.R - 1; xx <= sc.R + 1; xx++){
+      const f = starFace(sc, xx + 0.5, yy + 0.5);
+      if (f < 0) continue;
+      const edge = starFace(sc, xx + 1.5, yy + 0.5) < 0 || starFace(sc, xx - 0.5, yy + 0.5) < 0 || starFace(sc, xx + 0.5, yy + 1.5) < 0 || starFace(sc, xx + 0.5, yy - 0.5) < 0;
+      px(sc.cx + xx, sc.cy + yy, 1, 1, edge ? (xx + yy < -2 ? G[3] : G[5]) : G[f]);
+    }
+    px(sc.cx - 1, sc.cy - 1, 3, 3, '#fff6c8'); px(sc.cx, sc.cy, 1, 1, '#ffffff');  // 한가운데 박힌 빛
+    px(sc.cx - 4, sc.cy - 6, 2, 1, '#ffffff'); px(sc.cx - 5, sc.cy - 5, 1, 2, '#ffffff');   // 윗면에 맺힌 빛
+    if (night){ lamp(sc.cx, sc.cy, 40, '#ffe6a0'); lamp(sc.cx, B - 20, 18, '#ffd36a'); }
   }
   if (d.sign){
     // 나무 팻말. 글자는 도트로 못 쓰니 하트 하나 — 「우리 농장」이라는 뜻
@@ -2276,6 +2350,39 @@ function drawPondLive(season, t, L){
 }
 function drawDecorLive(season, t, L){
   const d = W.decor || {};
+  if (d.statue){
+    /* 번쩍임 세 겹 — 별 뒤로 천천히 도는 빛살, 별 위를 쓸고 지나가는 빛줄기, 둘레에서 터지는 네모꼴 반짝임.
+       빛살은 별 바깥에만 찍어 바탕에 구운 별을 가리지 않는다. */
+    const b = spot('statue'), sc = starGeom(b.x * T, b.y * T), G = STAR_GOLD;
+    const glow = 0.45 + 0.2 * Math.sin(t / 700) + L.dark * 0.3;
+    ctx.globalAlpha = Math.min(0.85, glow);
+    for (let i = 0; i < 8; i++){
+      const a = t / 4200 + i * Math.PI / 4, long = i % 2 ? 17 : 21;
+      for (let s2 = 11; s2 <= long; s2++){
+        const x = Math.round(sc.cx + Math.cos(a) * s2), y = Math.round(sc.cy + Math.sin(a) * s2);
+        if (y > sc.cy + 6 || starFace(sc, x - sc.cx + 0.5, y - sc.cy + 0.5) >= 0) continue;   // 기둥 위는 긋지 않는다
+        px(x, y, 1, 1, s2 < 15 ? '#ffffff' : G[0]);
+      }
+    }
+    ctx.globalAlpha = 1;
+    // 빛줄기 — 네 초마다 한 번, 왼쪽 위에서 오른쪽 아래로
+    const sw = (t % 4000) / 700;
+    if (sw < 1){
+      const k = -sc.R * 2 + sw * sc.R * 4;
+      for (let yy = -sc.R; yy <= sc.R; yy++) for (let dd = 0; dd < 3; dd++){
+        const xx = Math.round(k - yy) + dd;
+        if (starFace(sc, xx + 0.5, yy + 0.5) >= 0) px(sc.cx + xx, sc.cy + yy, 1, 1, dd === 1 ? '#ffffff' : G[0]);
+      }
+    }
+    // 반짝임 다섯 — 자리마다 제 박자로 켜졌다 꺼진다
+    [[-12, -9, 0], [11, -11, 1.3], [13, 4, 2.6], [-13, 6, 3.7], [1, -16, 5.1]].forEach(([dx, dy, ph]) => {
+      const v = Math.sin(t / 520 + ph * 1.7);
+      if (v < 0.35) return;
+      const x = sc.cx + dx, y = sc.cy + dy, n = v > 0.8 ? 3 : v > 0.6 ? 2 : 1;
+      px(x, y - n, 1, n * 2 + 1, '#ffffff'); px(x - n, y, n * 2 + 1, 1, '#ffffff');
+      if (n > 1) px(x, y, 1, 1, G[0]);
+    });
+  }
   if (d.pond) drawPondLive(season, t, L);
   if (d.swing){
     const b = spot('swing'), X = b.x * T, Y = b.y * T, w = b.w * T, h = b.h * T;
@@ -2608,9 +2715,9 @@ function paintShade(cw, ch){
   return L.cv;
 }
 // ---- 겹마다의 표 ----
-function sigGround(season, wk){ return season + '|' + wk; }
+function sigGround(season, wk){ return season + '|' + wk + '|' + (W.farm || 0); }
 function sigBuilt(cal, night){
-  let s = cal.season + '|' + (night ? 'n' : 'd') + '|' + (W.expand || 0);
+  let s = cal.season + '|' + (night ? 'n' : 'd') + '|' + (W.expand || 0) + '|' + (W.farm || 0);
   Object.keys(R.BUILDINGS).forEach(b => { if (W.buildings[b] && W.buildings[b].done) s += b; });
   s += '|' + Object.keys(W.decor || {}).sort().join(',') + '|' + JSON.stringify(W.layout || {});
   s += '|' + ((W.buildings.hive && W.buildings.hive.honey) || 0) + '|' + (key ? (W.mail[key] || []).length : 0);
@@ -2627,7 +2734,7 @@ function sigCrops(windStep){
   R.plotIds(W, 'field').forEach(id => { const p = W.plots[id]; s += p && p.crop ? p.crop.charAt(0) + R.stageOf(p) + (p.wilted ? 'x' : '') + (p.giant ? 'G' : '') : '.'; });
   return s;
 }
-function sigFront(season){ return season + '|' + JSON.stringify(W.layout || {}) + '|' + (W.expand || 0) + '|' + (W.buildings.pasture && W.buildings.pasture.done ? 1 : 0); }
+function sigFront(season){ return season + '|' + (W.farm || 0) + '|' + JSON.stringify(W.layout || {}) + '|' + (W.expand || 0) + '|' + (W.buildings.pasture && W.buildings.pasture.done ? 1 : 0); }
 function sigGlow(dark){ return Math.round(dark * 20) + '|' + lamps.map(l => l.x + ',' + l.y + ',' + l.r + l.c).join(';'); }
 
 // ---- 겹 6: 앞겹 ----
@@ -2656,9 +2763,12 @@ function drawFront(season){
 // 화면 맨 아래를 두르는 앞쪽 수풀. 눈에서 가장 가까우니 가장 진하고, 아이가 그 사이로 지나간다.
 // 풀포기는 늘 같은 자리에 나도록 좌표로 난수를 만든다 — 담아 두는 겹이라 흔들리지도 않는다.
 function drawFrontGrass(season){
-  const Wp = COLS * T, base = ROWS * T;
+  const Wp = COLS * T, base = ROWS * T, LK = farmLook();
+  if (LK && LK.front === 'sea') return drawFrontSea(season);
+  if (LK && LK.front === 'cloud') return drawFrontCloud(season);
   const C = season === 'autumn' ? ['#8a6a2e', '#6f5424', '#54401b', '#a8853c']
           : season === 'winter' ? ['#7f9a8c', '#67806f', '#4e6356', '#9db4a5']
+          : LK && LK.front === 'rocks' ? ['#3f6f58', '#335e4a', '#264a3a', '#4f8468']
           : ['#3f7d3c', '#336633', '#264d27', '#4f9a48'];
   // 1) 바닥에 깔리는 그늘 — 수풀이 화면 밖에서 이어져 오는 느낌
   for (let i = 0; i < 4; i++) px(0, base - 8 + i * 2, Wp, 2, 'rgba(0,0,0,' + (0.05 + i * 0.03).toFixed(3) + ')');
@@ -2688,6 +2798,68 @@ function drawFrontGrass(season){
     const r1 = R.prand('fsx' + i), r2 = R.prand('fsh' + i);
     const x = Math.floor(r1 * (Wp + 20)) - 10, h = Math.round(18 + r2 * 14);
     blob(x, base - h, 16, h, C[2], C[1], C[2], 'fs' + i);
+  }
+  if (LK && LK.front === 'rocks') drawFrontRocks(season);
+}
+// 산골 농장 — 수풀 사이로 바위가 솟고 어린 소나무가 선다
+function drawFrontRocks(season){
+  const Wp = COLS * T, base = ROWS * T, snow = season === 'winter';
+  for (let i = 0; i < 9; i++){
+    const x = Math.floor(R.prand('frx' + i) * (Wp - 20)) + 10, w = 16 + Math.floor(R.prand('frw' + i) * 16), h = 12 + Math.floor(R.prand('frh' + i) * 12);
+    blob(x, base - h, w, h + 2, STONE.low, STONE.hi, STONE.dark, 'fr' + i);
+    px(x - w / 4, base - h + 3, w / 3, 1, STONE.line);                      // 금 한 줄
+    if (snow) px(x - w / 3, base - h, (w * 2) / 3, 2, '#f2f9ff');
+  }
+  for (let i = 0; i < 7; i++){
+    const x = Math.floor(R.prand('fpx' + i) * (Wp - 30)) + 15, h = 30 + Math.floor(R.prand('fph' + i) * 16);
+    const c = ['#2f6a4a', '#3c7d57', '#23533a'];
+    for (let r = 0; r < h - 6; r += 2){                                    // 층층이 넓어지는 잎
+      const tier = (r % 10) / 10, ww = 2 + Math.round((r / h) * 18 * (0.6 + tier * 0.5));
+      px(x - ww / 2, base - h + r, ww, 2, r % 10 < 4 ? c[1] : c[0]);
+      px(x + ww / 2 - 2, base - h + r, 2, 2, c[2]);
+      if (snow && r % 10 === 0) px(x - ww / 2, base - h + r, ww / 2, 1, '#f2f9ff');
+    }
+    px(x - 2, base - 6, 4, 6, WOOD.dark);
+  }
+}
+// 바닷가 농장 — 풀밭이 모래사장으로 이어지고 맨 아래에 파도가 친다
+function drawFrontSea(season){
+  const Wp = COLS * T, base = ROWS * T, snow = season === 'winter';
+  const sand = snow ? ['#eef0ec', '#dfe4e2'] : ['#f2dfae', '#e3c890'];
+  for (let x = 0; x < Wp; x += 2){                                         // 모래 — 윗가장자리를 물결치게
+    const top = base - 16 + Math.round(Math.sin(x / 23) * 2 + hash2(x, 0, 301) * 2);
+    px(x, top, 2, base - top, sand[0]);
+    if (hash2(x, 1, 302) > 0.7) px(x, top + 3 + Math.floor(hash2(x, 2, 303) * 6), 1, 1, sand[1]);
+  }
+  for (let x = 0; x < Wp; x += 2){                                         // 바다와 흰 거품
+    const top = base - 6 + Math.round(Math.sin(x / 17 + 1) * 1.5);
+    px(x, top, 2, base - top, '#4fa6db'); px(x, top + 3, 2, base - top - 3, '#3b8cc6');
+    if (hash2(x, 3, 304) > 0.35) px(x, top - 1, 2, 2, '#ffffff');
+  }
+  for (let i = 0; i < 12; i++){                                            // 조개와 불가사리
+    const x = Math.floor(R.prand('fsh' + i) * Wp), y = base - 13 + Math.floor(R.prand('fsy' + i) * 4);
+    if (i % 3 === 0){ px(x, y, 5, 1, '#ff9a7a'); px(x + 2, y - 2, 1, 5, '#ff9a7a'); px(x + 2, y, 1, 1, '#ffd0b8'); }
+    else { px(x, y, 4, 3, '#fbe3dc'); px(x, y, 4, 1, '#ffffff'); px(x + 1, y + 2, 2, 1, '#e8b8a8'); }
+  }
+  for (let i = 0; i < 40; i++){                                            // 모래언덕 풀
+    const x = Math.floor(R.prand('fdx' + i) * (Wp + 8)) - 4, h = 8 + Math.floor(R.prand('fdh' + i) * 12);
+    const c = snow ? '#9db4a5' : i % 2 ? '#8fb865' : '#a9c877';
+    px(x, base - 14 - h, 1, h, c); px(x + 2, base - 12 - h, 1, h - 2, shade(c, -18)); px(x - 2, base - 11 - h + 4, 1, h - 5, c);
+  }
+}
+// 꽃구름 농장 — 가장자리가 뭉게구름이라 땅이 하늘에 떠 있다
+function drawFrontCloud(season){
+  const Wp = COLS * T, base = ROWS * T;
+  const tone = [['#f4eefe', '#ffffff', '#ddd2f2'], ['#fdeef5', '#ffffff', '#efcfe0'], ['#eef7fe', '#ffffff', '#cfe2f2']];
+  for (let i = 0; i < 26; i++){
+    const x = Math.floor(R.prand('fcx' + i) * (Wp + 40)) - 20, w = 30 + Math.floor(R.prand('fcw' + i) * 34), h = 16 + Math.floor(R.prand('fch' + i) * 14);
+    const tn = tone[i % 3];
+    blob(x, base - h + 4, w, h, tn[0], tn[1], tn[2], 'fc' + i);
+  }
+  if (season !== 'winter') for (let i = 0; i < 18; i++){                  // 구름 위에 핀 꽃
+    const x = Math.floor(R.prand('fcf' + i) * Wp), y = base - 10 - Math.floor(R.prand('fcg' + i) * 12);
+    const c = ['#ffb7d5', '#c9a8ff', '#fff3a0', '#9ad8ff'][i % 4];
+    px(x, y, 2, 2, c); px(x - 2, y + 2, 6, 2, c); px(x, y + 4, 2, 2, c); px(x, y + 2, 2, 2, '#fff6c0');
   }
 }
 // ---- 겹 8: 빛무리 ----

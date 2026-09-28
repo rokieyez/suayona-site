@@ -120,6 +120,17 @@
   .item .fprev canvas{image-rendering:pixelated; max-height:84px; width:auto; display:block;}
   .item .pr{font-size:11.5px; color:var(--ink-soft);}
   .item .act{display:flex; gap:4px; flex-wrap:wrap;}
+  /* 이사 카드 — 가게 칸을 가로로 다 쓰고 금빛으로 */
+  .item.move{grid-column:1 / -1; border-color:#c9921e; background:linear-gradient(135deg,#fff8dc,#ffeaa8);}
+  .build.move{border-color:#c9921e; background:linear-gradient(135deg,#fff8dc,#ffeaa8);}
+  .movehint{display:flex; align-items:center; gap:10px; width:100%; margin:8px 0; padding:10px 14px; font:inherit; font-size:13px; font-weight:800;
+    text-align:left; cursor:pointer; color:#5a3a06; border:2px solid #c9921e; background:linear-gradient(135deg,#fff8dc,#ffeaa8); box-shadow:3px 3px 0 #c9921e;}
+  .movehint .mv-bar{flex:none; width:72px; height:8px; border:2px solid #c9921e; background:#fff; margin-left:auto;}
+  .movehint .mv-bar i{display:block; height:100%; background:#f5c030;}
+  .movehint.ready{animation:mvGlow 1.6s ease-in-out infinite;}
+  @keyframes mvGlow{50%{box-shadow:3px 3px 0 #c9921e, 0 0 14px #ffd966;}}
+  @media (prefers-reduced-motion: reduce){ .movehint.ready{animation:none;} }
+  .build.move .act{display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;}
   .item .act button, .sm{font:inherit; font-size:11.5px; font-weight:800; cursor:pointer; padding:4px 8px; min-height:32px;
     border:2px solid var(--ink); background:var(--cream); color:var(--ink); border-radius:0;}
   .item .act button:disabled, .sm:disabled{opacity:.45; cursor:not-allowed;}
@@ -300,6 +311,8 @@
         <button type="button" class="dot-btn small mailbtn" id="mailBtn">📮 우편함<span class="n" id="mailN" hidden></span></button>
       </div>
 
+      <!-- 이사 알림 — 꾸미개가 몇 개 남았는지. 누르면 가게 꾸미기 칸이 열린다 -->
+      <button type="button" class="movehint" id="moveHint" hidden></button>
       <div class="tools" id="tools"></div>
       <div class="seeds" id="seedRow" hidden></div>
       <div class="stage reveal"><canvas id="farmCanvas" width="960" height="768" aria-label="농장 지도"></canvas></div>

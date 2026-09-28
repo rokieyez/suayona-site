@@ -5,7 +5,7 @@
 // farm-rules.js 가 먼저 돌아야 한다. 저 파일의 닫힘 안에 있는 것들은 FARM.__inner 로 받는다.
 (() => {
   if (typeof FARM === 'undefined' || !FARM.__inner) throw new Error('farm-rules.js 를 먼저 실어야 해요');
-  const { ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
+  const { FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
 
   function dayEndMs(t){ return dayStartMs(dayKey(t)) + DAY_MS; }
   function nextSeason(s){ return SEASONS[(SEASONS.indexOf(s) + 1) % 4]; }
@@ -384,6 +384,54 @@
     if (F.want === 'value') return k === 'crop' || k === 'gold' || k === 'giant' ? sellPrice(id, world, now) : 0;
     if (F.want === 'crop:watermelon') return v === 'watermelon' ? (k === 'giant' ? 3 : k === 'gold' ? 2 : k === 'crop' ? 1 : 0) : 0;
     return 0;
+  }
+  // ---------- 이사 ----------
+  function moveState(world, mine){
+    const next = FARMS[(world.farm || 0) + 1] || null, ask = world.moveAsk || null;
+    const ids = Object.keys(DECOR), have = ids.filter(d => world.decor && world.decor[d]).length;
+    const conds = [{ id: 'decor', icon: '🌼', name: '꾸미개', have, need: ids.length, unit: '개' }];
+    if (next){
+      ['sua', 'yona', 'living'].forEach(r => conds.push({ id: 'room:' + r, icon: '🛋️', name: ROOMS[r].name + ' 가구',
+        have: Object.keys((world.house && world.house[r]) || {}).length, need: next.room, unit: '개' }));
+      conds.push({ id: 'animals', icon: '🐾', name: '동물', have: (world.animals || []).length, need: next.animals, unit: '마리' });
+    }
+    conds.forEach(c => { c.left = Math.max(0, c.need - c.have); });
+    return { farm: farmOf(world), next, have, need: ids.length, conds, ready: !!next && conds.every(c => !c.left),
+      ask, mineAsked: !!(ask && ask.by === mine.key), otherAsked: !!(ask && ask.by !== mine.key) };
+  }
+  // 남은 조건을 한 줄로 — 「꾸미개 4개 · 연아 방 가구 3개 · 동물 2마리」
+  function moveLeftText(s){ return s.conds.filter(c => c.left).map(c => c.name + ' ' + c.left + c.unit).join(' · '); }
+  // 먼저 누른 아이는 묻기만 하고, 자매가 「좋아」를 누르면 그때 떠난다 — 둘의 농장이라 혼자 못 옮긴다
+  function askMove(world, mine, now){
+    const s = moveState(world, mine);
+    if (!s.next) return fail('여기가 마지막 농장이에요');
+    if (!MOVE_OPEN) return fail(s.next.name + '은 아직 짓고 있어요. 곧 열려요');
+    if (!s.ready) return fail('이사까지 ' + moveLeftText(s) + ' 더 있어야 해요');
+    if (s.mineAsked) return fail(NAME[OTHER[mine.key]] + '의 대답을 기다려요');
+    if (s.otherAsked) return moveFarm(world, mine, s, now);
+    world.moveAsk = { by: mine.key, on: dayKey(now) };
+    logAdd(world, mine.key, NAME[mine.key] + '가 ' + s.next.name + '으로 이사 가자고 했어요', now);
+    return okay(NAME[OTHER[mine.key]] + '에게 물어봤어요. 둘 다 좋다고 하면 ' + s.next.icon + ' ' + s.next.name + '으로 떠나요');
+  }
+  function cancelMove(world, mine, now){
+    if (!world.moveAsk) return fail('이사 이야기가 없어요');
+    delete world.moveAsk;
+    logAdd(world, mine.key, NAME[mine.key] + '가 이사는 다음에 가자고 했어요', now);
+    return okay('이사는 다음에 가기로 했어요');
+  }
+  function moveFarm(world, mine, s, now){
+    const left = [];
+    Object.keys(world.buildings).forEach(b => {
+      const B = world.buildings[b];
+      if (MOVE_KEEP[b] || !B || !B.done) return;
+      left.push(b); delete world.buildings[b];
+    });
+    world.past.push({ farm: s.farm.id, until: dayKey(now), decor: Object.keys(world.decor || {}), buildings: left });
+    world.decor = {}; world.layout = {}; world.farm = (world.farm || 0) + 1;
+    delete world.moveAsk;
+    ['sua', 'yona'].forEach(k => { (world.mail[k] = world.mail[k] || []).push({ id: 'coins', n: MOVE_GIFT, from: 'move', note: s.next.name + ' 이사 선물', t: now }); });
+    logAdd(world, mine.key, '수아와 연아가 ' + s.next.name + '으로 이사 왔어요', now);
+    return okay(s.next.icon + ' <b>' + s.next.name + '</b>으로 이사 왔어요! 우편함에 이사 선물이 있어요. 건물은 둘이 다시 지어요', { moved: true });
   }
   function medalState(world, mine){
     return MEDALS.map(M => ({
@@ -1156,6 +1204,10 @@
     peddlerWant,
     peddlerSoldLeft,
     sellToPeddler,
+    moveState,
+    moveLeftText,
+    askMove,
+    cancelMove,
     medalState,
     claimMedal,
     neighborsOf,

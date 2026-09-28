@@ -296,6 +296,28 @@ const FARM = (() => {
     windmill: { name: '풍차',       icon: '🌀', cost: 3000, lv: 6, desc: '날개가 빙글빙글 돌아가요' },
   };
 
+  // ---------- 이사 ----------
+  /* 꾸미개를 모두 놓으면 다음 농장으로 이사 갈 수 있다(2026-09-28). 둘 다 좋다고 해야 떠난다.
+     꾸미개와 다 지은 건물은 옛 농장에 두고 가서 새 땅에서 둘이 다시 짓는다.
+     동전·레벨·가방·동물·집 안 가구·밭·스프링클러는 가져간다. 짓던 건물은 짓던 채로 따라온다.
+     부엌은 집 안에 있어 집과 함께 간다. 동물은 새 우리가 생길 때까지 빈 터 둘레에서 논다.
+     풍경(땅 빛깔·가장자리)은 farm.js 의 FARM_LOOK 이 농장마다 바꾼다. */
+  const FARMS = [
+    { id: 'meadow',   name: '들판 농장',   icon: '🌾', desc: '처음 연 농장이에요' },
+    { id: 'seaside',  name: '바닷가 농장', icon: '🌊', desc: '모래밭 너머로 파도가 쳐요',        room: 12, animals: 10 },
+    { id: 'mountain', name: '산골 농장',   icon: '⛰️', desc: '바위와 소나무 사이 서늘한 땅이에요', room: 16, animals: 14 },
+    { id: 'cloud',    name: '꽃구름 농장', icon: '☁️', desc: '구름 위에 꽃이 흐드러져요',        room: 20, animals: 16 },
+  ];
+  /* 꾸미개만 사서 이사를 서두르지 않게 방 가구와 동물 수도 본다(2026-09-28 로키즈 요청).
+     room 은 수아 방·연아 방·거실 「각각」에 놓인 가구 수 — 한 아이 방만 채우고 떠나지 않게.
+     가구와 동물은 이사 때 가져가니 갈수록 조금씩 높다. 동물은 우리를 다 채우면 18마리까지 산다. */
+  const MOVE_KEEP = { kitchen: true };
+  // 새 농장(아이소 화면)을 다 그릴 때까지 조건과 알림만 보이고 떠나지는 못한다. 다 되면 true 로.
+  const MOVE_OPEN = false;
+  const MOVE_GIFT = 2000;                 // 이삿날 두 아이에게 우편으로 가는 동전
+  function farmIndex(world){ return Math.max(0, Math.min(FARMS.length - 1, Math.floor(Number(world && world.farm) || 0))); }
+  function farmOf(world){ return FARMS[farmIndex(world)]; }
+
   // ---------- 농장 배치 ----------
   // 지도는 20×12 칸. 밭은 늘 가운데(6..15, 2..7)에 있고, 나머지는 아이들이 옮길 수 있다.
   // 자리는 world.layout 에만 적는다 — 표(PLACE)의 x,y 는 아무도 옮기지 않았을 때의 처음 자리다.
@@ -731,7 +753,7 @@ const FARM = (() => {
   function newWorld(now){
     return {
       v: 1, started: dayKey(now), seasonLen: SEASON_LEN_DEFAULT, seasonIndex: 0,
-      expand: 0, rooms: {}, plots: {}, buildings: {}, animals: [], layout: {}, decor: {}, sprinklers: {},
+      farm: 0, past: [], expand: 0, rooms: {}, plots: {}, buildings: {}, animals: [], layout: {}, decor: {}, sprinklers: {},
       house: { living: {}, sua: { '0,0': { f: 'bed1', r: 0 } }, yona: { '0,0': { f: 'bed1', r: 0 } } },
       orders: {}, festival: {}, mail: { sua: [], yona: [] }, log: [], seen: {},
     };
@@ -817,6 +839,9 @@ const FARM = (() => {
       if (p && p.crop && (p.picks || 0) > 0 && !p.pickedAt) p.pickedAt = now;
     });
     if (!o.mail) o.mail = { sua: [], yona: [] };
+    o.farm = farmIndex(o);
+    if (!Array.isArray(o.past)) o.past = [];
+    if (o.moveAsk && (typeof o.moveAsk !== 'object' || !NAME[o.moveAsk.by] || !FARMS[o.farm + 1])) delete o.moveAsk;
     if (!o.started) o.started = dayKey(now);
     return o;
   }
@@ -863,12 +888,13 @@ const FARM = (() => {
   /* 놀이 규칙(farm-rules-play.js)이 이 닫힘 안의 것을 쓴다. 손으로 적은 목록이 아니라
      tools/split-rules.py 가 두 파일을 읽어 만든 것이다 — 하나라도 빠지면 그 규칙이
      돌 때 undefined 로 터진다. 놀이 규칙을 고쳤으면 그 도구를 다시 돌린다. */
-  const INNER = { ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
+  const INNER = { FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
     GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, SPRINKLER2, SPRINKLERS, sprinklerOf, FIREFLY_MAX, PEDDLER, PED_WANT_MULT, PED_WANT_MAX, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, isNight,
     spotOf, thingHere,
+    FARMS, farmOf, MOVE_OPEN,
     dayKey, dayStartMs, daysBetween, calendar, weatherOf, prand,
     SKY_AT, setSky, skyOf, setSun, sunOf,
     plotIds, parseId,

@@ -180,6 +180,8 @@ function syncTop(){
   const L = dayLight(), h = L.hour;
   const when = h < 5 ? '한밤' : h < 7 ? '새벽' : h < 11 ? '아침' : h < 16 ? '낮' : h < 18.5 ? '해질참' : h < 20.5 ? '저녁' : '밤';
   const night = L.dark > 0.16;
+  if (R.farmOf){ const F = R.farmOf(W), h1 = document.querySelector('.section-head h1'); if (h1) h1.textContent = W.farm ? '수아연아 ' + F.name : '수아연아 농장'; }
+  syncMoveHint();
   $('#cSeason').textContent = R.SEASON_ICON[cal.season] + ' ' + R.SEASON_NAME[cal.season] + ' ' + cal.dayOfSeason + '/' + cal.len + '일 · ' + cal.year + '년째';
   const cw = $('#cWeather');
   const fc = R.forecast ? R.forecast(W, now()) : null;
@@ -197,12 +199,34 @@ function syncTop(){
   const n = (W.mail[key] || []).length; $('#mailN').hidden = !n; $('#mailN').textContent = n;
   const waiting = duoWaiting(); $('#duoN').hidden = !waiting; $('#duoN').textContent = waiting;
 }
+// 농장 위 이사 알림 — 「꾸미개 N개만 더 놓으면 새 농장으로」. 누르면 가게 꾸미기 칸이 열린다.
+function syncMoveHint(){
+  const el = $('#moveHint'); if (!el || !R.moveState) return;
+  const s = R.moveState(W, M);
+  el.hidden = !s.next;
+  if (!s.next) return;
+  const o = R.OTHER[key];
+  const say = s.otherAsked ? NAME[o] + '가 ' + s.next.name + '으로 이사 가자고 해요! 눌러서 대답해요'
+    : s.mineAsked ? NAME[o] + '가 좋다고 하면 ' + s.next.name + '으로 떠나요'
+    : !s.ready ? s.next.name + '으로 이사까지 <b>' + R.moveLeftText(s) + '</b> 남았어요'
+    : R.MOVE_OPEN === false ? '준비가 다 됐어요! ' + s.next.name + '은 곧 열려요'
+    : '준비가 다 됐어요! ' + s.next.name + '으로 가는 길이 열렸어요';
+  // 막대는 조건마다 채운 만큼을 똑같은 무게로 더한다
+  const pct = Math.round(100 * s.conds.reduce((a, c) => a + Math.min(1, c.have / c.need), 0) / s.conds.length);
+  el.classList.toggle('ready', s.ready);
+  el.innerHTML = '<span>🚚 ' + s.next.icon + '</span><span>' + say + '</span><span class="mv-bar"><i style="width:' + pct + '%"></i></span>';
+  if (!el.dataset.on){
+    el.dataset.on = 1;
+    el.addEventListener('click', () => { const n = R.moveState(W, M); shopTab = 'deco'; openTab(n.ready || n.ask ? 'duo' : 'shop', true); });
+  }
+}
 // 둘이서 탭에 「내 차례」가 몇 개인지 — 자매가 낸 건물, 잡아당길 큰 작물, 쓰다듬을 동물.
 function duoWaiting(){
   let n = 0;
   Object.keys(R.BUILDINGS).forEach(b => { const s = R.buildState(W, b); if (!s.done && s[R.OTHER[key]] && !s[key]) n++; });
   Object.keys(W.plots).forEach(id => { const p = W.plots[id]; if (p.giant && p.pulls && p.pulls.indexOf(R.OTHER[key]) >= 0 && p.pulls.indexOf(key) < 0) n++; });
   (W.animals || []).forEach(a => { if (a.petDay === R.dayKey(now()) && (a.pet || []).indexOf(R.OTHER[key]) >= 0 && a.pet.indexOf(key) < 0) n++; });
+  if (R.moveState && R.moveState(W, M).otherAsked) n++;              // 자매가 이사 가자고 했다
   return n;
 }
 function renderTools(){
@@ -570,7 +594,7 @@ function closeModal(){ $('#modal').hidden = true; }
 function openMail(){
   const box = W.mail[key] || [];
   const inner = $('#modalInner');
-  const who = g => g.from === 'festival' ? '축제' : g.from === 'board' ? '게시판' : NAME[g.from] || '';
+  const who = g => g.from === 'festival' ? '축제' : g.from === 'board' ? '게시판' : g.from === 'move' ? '이삿날' : NAME[g.from] || '';
   inner.innerHTML = '<h3 class="pixel">우편함</h3>' + (box.length ? box.map(g =>
     '<div class="mailrow"><b>' + (g.id === 'note' ? '💌 쪽지' : g.id === 'coins' ? '🪙 ' + g.n + ' 동전' : escapeHTML(R.itemName(g.id)) + ' ' + g.n + '개') + '</b>' +
     '<span class="from">' + who(g) + (g.note ? ' · "' + escapeHTML(g.note) + '"' : '') + '</span></div>').join('') :
@@ -1019,6 +1043,37 @@ function giftDialog(id, have){
   $('#gCancel').addEventListener('click', closeModal);
   $('#gGo').addEventListener('click', () => { const n = Math.max(1, Math.min(have, Number($('#gN').value) || 1)), note = $('#gNote').value; const r = act((w, m) => R.sendGift(w, m, id, n, note, now())); if (r.ok) sfx('sparkle'); closeModal(); });
 }
+// 이사 카드 — 꾸미개를 다 놓으면 다음 농장으로. 먼저 누른 아이가 묻고 자매가 「좋아」 하면 떠난다.
+function moveCard(cls){
+  if (!R.moveState) return null;                                   // 배포 어긋남 대비
+  const s = R.moveState(W, M), o = R.OTHER[key];
+  const d = document.createElement('div'); d.className = cls;
+  if (!s.next){
+    d.innerHTML = '<div class="nm">🗺️ 네 농장을 모두 다녀왔어요</div><div class="pr">' + (W.past || []).map(p => { const F = R.FARMS.find(f => f.id === p.farm); return F ? F.icon + ' ' + F.name : ''; }).join(' → ') + ' → ' + s.farm.icon + ' ' + s.farm.name + '</div>';
+    return d;
+  }
+  const say = s.otherAsked ? '<b>' + NAME[o] + '가 이사 가자고 해요!</b> 좋다고 하면 바로 떠나요'
+    : s.mineAsked ? NAME[o] + '의 대답을 기다려요'
+    : s.ready ? '준비가 다 됐어요! 둘 다 좋다고 하면 떠나요'
+    : '아래를 모두 채우면 이사 갈 수 있어요';
+  const list = s.conds.map(c => (c.left ? '⬜ ' : '✅ ') + c.icon + ' ' + c.name + ' ' + Math.min(c.have, c.need) + '/' + c.need).join('<br>');
+  d.innerHTML = '<div class="nm">🚚 ' + s.next.icon + ' ' + s.next.name + '으로 이사</div><div class="pr">' + s.next.desc + '<br>' + say + '<br>' + list +
+    '<br><small>꾸미개와 다 지은 건물은 ' + s.farm.name + '에 두고 가요. 동전·가방·동물·집 가구·밭은 가져가요.</small></div>';
+  if (R.MOVE_OPEN === false){                                      // 새 농장을 짓는 동안은 조건만 보여 준다
+    d.insertAdjacentHTML('beforeend', '<div class="pr">🔒 <b>' + s.next.name + '은 지금 짓고 있어요. 곧 열려요!</b> 그동안 조건을 채워 둬요.</div>');
+    return d;
+  }
+  const a = document.createElement('div'); a.className = 'act';
+  if (!s.mineAsked) a.appendChild(btn(s.otherAsked ? '좋아, 가자!' : '이사 가자고 하기', 'buy', () => {
+    if (s.otherAsked && !confirm(s.next.name + '으로 떠날까요? 꾸미개와 건물은 두고 가서 새로 지어야 해요.')) return;
+    const r = act((w, m) => R.askMove(w, m, now()));
+    if (r.ok) sfx(r.moved ? 'fanfare' : 'pop');
+    renderTab();
+  }, !s.ready));
+  if (s.ask) a.appendChild(btn(s.mineAsked ? '물어본 것 거두기' : '다음에 가자', '', () => { act((w, m) => R.cancelMove(w, m, now())); renderTab(); }));
+  d.appendChild(a);
+  return d;
+}
 function renderShop(){
   const st = $('#shoptabs'); st.innerHTML = '';
   SHOP_TABS.forEach(([k, l]) => st.appendChild(btn(l, shopTab === k ? 'on' : '', () => { shopTab = k; renderShop(); })));
@@ -1127,7 +1182,8 @@ function renderShop(){
       box.appendChild(card);
     });
   } else if (shopTab === 'deco'){
-    $('#shopSub').textContent = '농장에 놓는 것. 혼자 사도 돼요 — 둘의 농장에 남아요.';
+    $('#shopSub').textContent = '농장에 놓는 것. 혼자 사도 돼요 — 둘의 농장에 남아요. 모두 놓으면 이사 갈 수 있어요.';
+    const mc = moveCard('item move'); if (mc) box.appendChild(mc);
     Object.keys(R.DECOR).forEach(d => {
       const Dc = R.DECOR[d], have = W.decor && W.decor[d];
       const card = document.createElement('div'); card.className = 'item' + (have ? ' locked' : '');
@@ -1480,6 +1536,8 @@ function onHouseTap(e){
 function renderDuo(){
   const lv = R.levelOf(M.xp), o = R.OTHER[key];
   const bb = $('#builds'); bb.innerHTML = '';
+  const ms = R.moveState ? R.moveState(W, M) : null;
+  if (ms && ms.next && (ms.ready || ms.ask)){ const mc = moveCard('build move'); if (mc) bb.appendChild(mc); }
   Object.keys(R.BUILDINGS).forEach(id => {
     const B = R.BUILDINGS[id], s = R.buildState(W, id);
     const d = document.createElement('div'); d.className = 'build' + (s.done ? ' done' : '');
