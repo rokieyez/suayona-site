@@ -248,14 +248,17 @@
     const key = dayKey(now);
     return FISH_MAX - (mine.fishDay === key ? (mine.fishN || 0) : 0);
   }
-  function fish(world, mine, now, grade){
-    if (!(world.decor && world.decor.pond)) return fail('연못을 먼저 놓아요. 가게 꾸미기 칸에 있어요');
+  function fish(world, mine, now, grade, where){
+    const sea = where === 'sea';
+    if (sea && farmOf(world).id !== 'seaside') return fail('바다는 바닷가 농장에만 있어요');
+    if (!sea && !(world.decor && world.decor.pond)) return fail('연못을 먼저 놓아요. 가게 꾸미기 칸에 있어요');
     if (fishLeft(mine, now) <= 0) return fail('오늘은 많이 잡았어요. 내일 또 와요');
     if (!spend(mine, 'fish')) return fail('기운이 없어요');
     const key = dayKey(now), n = mine.fishDay === key ? (mine.fishN || 0) : 0;
     const cal = calendar(world, now), night = isNight(now);
     const pool = FISH_IDS.filter(f => {
       const F = FISH[f];
+      if (!!F.sea !== sea) return false;               // 바다에서는 바닷물고기만, 연못에서는 민물고기만
       if (F.season && F.season.indexOf(cal.season) < 0) return false;
       if (F.night && !night) return false;            // 달빛 물고기와 메기는 밤에만
       return true;
@@ -274,7 +277,7 @@
     mine.xp += XP.fish + (g === 'perfect' ? 3 : 0); bump(mine, 'fished', 1, now);
     if (FISH[got].junk) return okay(eul(FISH[got].name) + ' 건졌어요… 물고기는 아니네요', { junk: true });
     const two = cnt > 1 ? ' <b>두 마리</b>나!' : '';
-    if (got === 'golden' || got === 'moonfish'){
+    if (got === 'golden' || got === 'moonfish' || got === 'tuna'){
       logAdd(world, mine.key, NAME[mine.key] + '가 ' + eul(FISH[got].name) + ' 낚았어요!', now);
       return okay('<b>' + FISH[got].name + '</b>! 아주 귀한 물고기예요' + two, { rare: true });
     }
@@ -388,7 +391,9 @@
   // ---------- 이사 ----------
   function moveState(world, mine){
     const next = FARMS[(world.farm || 0) + 1] || null, ask = world.moveAsk || null;
-    const ids = Object.keys(DECOR), have = ids.filter(d => world.decor && world.decor[d]).length;
+    // 다른 농장 전용 꾸미개는 여기서 살 수 없으니 세지 않는다
+    const here = farmOf(world).id, ids = Object.keys(DECOR).filter(d => !DECOR[d].farm || DECOR[d].farm === here);
+    const have = ids.filter(d => world.decor && world.decor[d]).length;
     const conds = [{ id: 'decor', icon: '🌼', name: '꾸미개', have, need: ids.length, unit: '개' }];
     if (next){
       ['sua', 'yona', 'living'].forEach(r => conds.push({ id: 'room:' + r, icon: '🛋️', name: ROOMS[r].name + ' 가구',
@@ -766,6 +771,11 @@
     Object.keys(N.give).forEach(k => give(mine, k, N.give[k]));
     mine.xp += XP.gather; bump(mine, 'gathered', 1, now);
     const got = Object.keys(N.give).map(k => itemName(k) + ' ' + N.give[k] + '개').join(', ');
+    // 산골 농장 바위는 네 번에 한 번쯤 반짝돌이 박혀 나온다 — 그날·그 아이·그 바위로 정해져 새로 고쳐도 같다
+    if (N.kind === 'rock' && farmOf(world).id === 'mountain' && prand('gem' + mine.key + dayKey(now) + node) < 0.25){
+      give(mine, 'gem', 1);
+      return okay(got + '을 얻었어요. <b>반짝돌</b>도 하나 박혀 있었어요!', { gem: true });
+    }
     return okay(got + '을 얻었어요');
   }
   function buy(world, mine, id, now){
@@ -814,6 +824,7 @@
     }
     if (k === 'deco'){
       const Dc = DECOR[v]; if (!Dc) return fail('없는 꾸미개예요');
+      if (Dc.farm && Dc.farm !== farmOf(world).id) return fail(Dc.name + '은 ' + FARMS.find(f => f.id === Dc.farm).name + '에서만 팔아요');
       world.decor = world.decor || {};
       if (world.decor[v]) return fail('이미 있어요');
       if (levelOf(mine.xp) < Dc.lv) return fail('농장 레벨 ' + Dc.lv + '부터');

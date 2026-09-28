@@ -183,6 +183,8 @@ function syncTop(){
   if (R.farmOf){ const F = R.farmOf(W), h1 = document.querySelector('.section-head h1'); if (h1) h1.textContent = W.farm ? '수아연아 ' + F.name : '수아연아 농장'; }
   syncMoveHint();
   syncPast();
+  syncTodo();
+  checkArrival();
   $('#cSeason').textContent = R.SEASON_ICON[cal.season] + ' ' + R.SEASON_NAME[cal.season] + ' ' + cal.dayOfSeason + '/' + cal.len + '일 · ' + cal.year + '년째';
   const cw = $('#cWeather');
   const fc = R.forecast ? R.forecast(W, now()) : null;
@@ -221,26 +223,88 @@ function syncMoveHint(){
     el.addEventListener('click', () => { const n = R.moveState(W, M); shopTab = 'deco'; openTab(n.ready || n.ask ? 'duo' : 'shop', true); });
   }
 }
+// 새 농장 첫날 할 일 — 두고 온 우물·우리를 새로 짓고 꾸미개 하나를 놓을 때까지만 뜬다
+const TODO_ICON = { well: '💧', coop: '🐔', barn: '🐄', pasture: '🐖', pethouse: '🐶' };
+function syncTodo(){
+  const el = $('#firstTodo'); if (!el) return;
+  const done = id => !!(W.buildings[id] && W.buildings[id].done);
+  const needs = (W.animals || []).map(a => R.ANIMALS[a.kind] && R.ANIMALS[a.kind].need);
+  const list = ['well'].concat(['coop', 'barn', 'pasture', 'pethouse'].filter(id => needs.indexOf(id) >= 0))
+    .map(id => ({ nm: TODO_ICON[id] + ' ' + R.BUILDINGS[id].name + ' 짓기', done: done(id), go: () => openTab('duo', true) }));
+  list.push({ nm: '🎀 첫 꾸미개 놓기', done: Object.keys(W.decor || {}).length > 0, go: () => { shopTab = 'deco'; openTab('shop', true); } });
+  const show = (W.farm || 0) >= 1 && !visiting() && list.some(x => !x.done);
+  el.hidden = !show;
+  if (!show) return;
+  el.innerHTML = '<span>' + R.farmOf(W).icon + ' 새 농장 첫날 할 일</span>';
+  list.forEach(x => el.appendChild(btn((x.done ? '✅ ' : '⬜ ') + x.nm, x.done ? 'done' : '', x.go)));
+}
+/* 이삿날 장면 — 떠난 섬에서 짐수레가 새 섬으로 건너간다. 이사를 확정한 아이는 그 자리에서,
+   자매는 다음에 농장을 열 때 한 번 본다(본 농장 번호를 이 기기에 적어 둔다). */
+const ARRIVE_KEY = () => 'suayona.farm.arrived.' + key;
+function checkArrival(){
+  if (!W || !(W.farm >= 1) || !$('#modal').hidden || visiting()) return;
+  let seen = 0;
+  try { seen = Number(localStorage.getItem(ARRIVE_KEY())) || 0; } catch (e) { return; }
+  if (seen < W.farm) openArrival();
+}
+const ISLE = { meadow: ['#8fcf6a', '#b5895a'], seaside: ['#9ad76e', '#d8b27a'], mountain: ['#6fa85a', '#8a7a6a'], cloud: ['#f2b8d8', '#f5f0ff'] };
+const ARRIVE_SKY = { seaside: ['#bfe6ff', '#6fb8e6'], mountain: ['#d6ecd2', '#8fb3a0'], cloud: ['#f3e6ff', '#fbf7ff'] };
+function arrivalFrame(g, from, to, p){
+  const sky = ARRIVE_SKY[to.id] || ARRIVE_SKY.seaside;
+  g.fillStyle = sky[0]; g.fillRect(0, 0, 320, 96);
+  g.fillStyle = sky[1]; g.fillRect(0, 96, 320, 44);
+  const isle = (cx, id) => {
+    const c = ISLE[id] || ISLE.meadow;
+    g.fillStyle = c[1]; g.beginPath(); g.moveTo(cx - 34, 88); g.lineTo(cx, 104); g.lineTo(cx + 34, 88); g.lineTo(cx + 26, 112); g.lineTo(cx, 124); g.lineTo(cx - 26, 112); g.fill();
+    g.fillStyle = c[0]; g.beginPath(); g.moveTo(cx - 34, 88); g.lineTo(cx, 72); g.lineTo(cx + 34, 88); g.lineTo(cx, 104); g.fill();
+  };
+  isle(58, from.id); isle(262, to.id);
+  g.font = '18px system-ui, sans-serif'; g.textAlign = 'center';
+  g.fillText(from.icon, 58, 66); g.fillText(to.icon, 262, 66);
+  const at = f => ({ x: (1 - f) * (1 - f) * 78 + 2 * (1 - f) * f * 160 + f * f * 242, y: (1 - f) * (1 - f) * 84 + 2 * (1 - f) * f * 26 + f * f * 84 });
+  g.fillStyle = '#ffffffcc';
+  for (let f = 0; f <= 1; f += 0.04){ const q = at(f); g.fillRect(Math.round(q.x), Math.round(q.y), 2, 2); }
+  const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2, q = at(e);
+  const x = Math.round(q.x), y = Math.round(q.y - 10 - Math.abs(Math.sin(p * Math.PI * 7)) * 2);
+  g.fillStyle = '#8a5f3a'; g.fillRect(x - 10, y, 20, 7);
+  g.fillStyle = '#c79b6d'; g.fillRect(x - 10, y, 20, 2);
+  g.fillStyle = '#e8c46a'; g.fillRect(x - 8, y - 6, 7, 6);
+  g.fillStyle = '#f28c8c'; g.fillRect(x + 1, y - 7, 5, 5);
+  g.fillStyle = '#2f2a24'; g.fillRect(x - 8, y + 7, 4, 4); g.fillRect(x + 4, y + 7, 4, 4);
+  if (p >= 1) [[240, 64], [284, 70], [262, 52], [230, 86], [296, 90]].forEach(([sx, sy], i) => { g.fillStyle = i % 2 ? '#ffffff' : '#ffe066'; g.fillRect(sx, sy, 3, 3); });
+}
+function openArrival(){
+  const past = W.past || [], P = past[past.length - 1], to = R.farmOf(W);
+  const from = (P && R.FARMS.find(f => f.id === P.farm)) || R.FARMS[Math.max(0, W.farm - 1)];
+  try { localStorage.setItem(ARRIVE_KEY(), String(W.farm)); } catch (e) { /* 못 적으면 다음에 한 번 더 본다 */ }
+  const inner = $('#modalInner');
+  inner.innerHTML = '<h3 class="pixel">🚚 이삿날!</h3>'
+    + '<p class="sub">' + from.name + '을 떠나 <b>' + to.name + '</b>에 도착했어요. ' + (to.desc || '') + '</p>'
+    + '<canvas id="arriveCv" class="arrive" width="640" height="280" aria-label="짐수레가 새 농장으로 건너가는 그림"></canvas>'
+    + '<p class="sub">두고 온 ' + from.name + '은 농장 그림 위 「옛 농장 구경」에서 언제든 가 볼 수 있어요.</p>'
+    + '<div class="modal-actions"><button type="button" class="dot-btn small primary" id="arriveGo">🏝 새 농장 둘러보기</button>'
+    + (P ? '<button type="button" class="dot-btn small" id="arriveSnap">📷 ' + from.name + ' 마지막 한 장 내기</button>' : '') + '</div>';
+  $('#modal').hidden = false;
+  const cv = $('#arriveCv'), g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0);
+  const t0 = performance.now(), D = 2600;
+  const step = () => {
+    if (!cv.isConnected) return;
+    const p = STILL ? 1 : Math.min(1, (performance.now() - t0) / D);
+    arrivalFrame(g, from, to, p);
+    if (p < 1) requestAnimationFrame(step); else sfx('sparkle');
+  };
+  step();
+  $('#arriveGo').addEventListener('click', closeModal);
+  if (P) $('#arriveSnap').addEventListener('click', () => openSnap(past.length - 1));
+}
 // 옛 농장 구경 — 이사 간 뒤에만 뜬다. 구경하는 동안은 농장 그림만 옛 농장으로 바뀌고 나머지는 그대로다.
 const visiting = () => typeof visitAt !== 'undefined' && visitAt != null;
 function syncPast(){
-  const el = $('#pastBar'); if (!el || typeof visitAt === 'undefined') return;
-  const past = Array.isArray(W.past) ? W.past : [];
-  if (visitAt != null && !past[visitAt]){ visitAt = null; walkers = null; beasts = null; withView(ensureActors); }
-  el.hidden = !past.length;
-  if (!past.length) return;
-  const nameOf = p => { const F = R.FARMS.find(f => f.id === p.farm); return F ? F.icon + ' ' + F.name : '옛 농장'; };
-  const day = k => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(k || ''); return m ? Number(m[1]) + '월 ' + Number(m[2]) + '일' : ''; };
-  el.innerHTML = '';
-  if (visitAt != null){
-    const p = past[visitAt], s = document.createElement('span');
-    s.innerHTML = '<b>' + nameOf(p) + '</b> 구경 중' + (day(p.until) ? ' · ' + day(p.until) + '까지 살던 곳' : '');
-    el.appendChild(s);
-    el.appendChild(btn('🏡 지금 농장으로', 'on', () => visitFarm(null)));
-    return;
-  }
-  const s = document.createElement('span'); s.textContent = '옛 농장 구경'; el.appendChild(s);
-  past.forEach((p, i) => el.appendChild(btn(nameOf(p), '', () => visitFarm(i))));
+  // 띠 그리기는 farm.js 가 한다(손님 화면도 같이 쓴다). 배포 직후 옛 farm.js 와 짝지어지면 잠깐 안 뜬다.
+  const el = $('#pastBar'); if (!el || typeof paintPastBar !== 'function') return;
+  if (visitAt != null && !(W.past || [])[visitAt]){ visitAt = null; walkers = null; beasts = null; withView(ensureActors); }
+  paintPastBar(el, visitFarm);
 }
 function visitFarm(i){
   visitAt = i;
@@ -318,16 +382,19 @@ function hintFor(){
     const S = (R.SPRINKLERS && R.SPRINKLERS[sprk]) || R.SPRINKLER;
     return '밭의 빈 칸을 눌러 놓아요. 아침마다 둘레 ' + S.reach + '칸에 물을 줘요. 놓은 칸을 다시 누르면 걷어요.';
   }
-  return '다 자란 작물·나무·바위·동물·집·우편함·게시판·가게를 눌러요. 밭 위를 끌면 익은 것만 줄줄이 거둬요.';
+  const here = R.farmOf(W).id;
+  return '다 자란 작물·나무·바위·동물·집·우편함·게시판·가게를 눌러요. 밭 위를 끌면 익은 것만 줄줄이 거둬요.'
+    + (here === 'seaside' ? ' 섬 밖 바다를 누르면 바다낚시를 해요.' : here === 'mountain' ? ' 산골 바위에는 가끔 반짝돌이 박혀 있어요.' : '');
 }
-function startFishing(){
+// where: 'sea' 면 바닷가 섬 밖 바다에 던진 것 — at 은 찌가 떨어진 화면 도트
+function startFishing(where, at){
   if (fishing) return;
   if (R.fishLeft(M, now()) <= 0){ flash('오늘은 많이 잡았어요. 내일 또 와요', true); return; }
   // 기운은 미리 본다 — 한 판 다 하고 나서 「기운이 없어요」 하면 억울하다
   if ((M.energy || 0) < R.COST.fish){ flash('기운이 없어요', true); return; }
-  if (STILL){ doFish('good'); return; }
+  if (STILL){ doFish('good', where); return; }
   const open = performance.now() + FISH_GRACE;
-  fishing = { t0: open, openAt: open, center: 26 + Math.random() * 48, done: false };
+  fishing = { t0: open, openAt: open, center: 26 + Math.random() * 48, done: false, where, at };
   sfx('bite'); flash('찌가 움직여요 — <b>칸 안에서 톡!</b>');
   setTimeout(() => { if (fishing && !fishing.done) finishFishing('miss'); }, FISH_GRACE + FISH_LIMIT);
 }
@@ -338,10 +405,11 @@ function finishFishing(force){
   const g = force || (d <= FISH_ZONE / 4 ? 'perfect' : d <= FISH_ZONE / 2 ? 'good' : 'miss');
   fishing.pos = pos; fishing.grade = g;
   sfx('reel'); sfx(g === 'perfect' ? 'sparkle' : g === 'miss' ? 'thud' : 'pop');
-  setTimeout(() => { fishing = null; doFish(g); }, 420);
+  const where = fishing.where;
+  setTimeout(() => { fishing = null; doFish(g, where); }, 420);
 }
-function doFish(g){
-  const r = act((w, m) => R.fish(w, m, now(), g));
+function doFish(g, where){
+  const r = act((w, m) => R.fish(w, m, now(), g, where));
   if (r.ok){
     sfx(r.rare ? 'fanfare' : r.junk ? 'thud' : 'pop');
     const head = g === 'perfect' ? '<b>딱 맞췄어요!</b> ' : g === 'miss' ? '늦었어요… ' : '';
@@ -405,6 +473,7 @@ function onFarmTap(e){
   if (fishing){ if (fishOpen()) finishFishing(); return; }   // 찌가 떠 있으면 어디를 눌러도 당긴다
   // 배치에서 들고 있는 것을 놓을 때는 땅의 칸으로 — 아이소 섬에서 지붕이 뒤 칸을 덮는다
   const { tx, ty } = tileAt(e.clientX, e.clientY, placeMode && !!placePick);
+  if (!placeMode && seaAt(e.clientX, e.clientY)){ startFishing('sea', pixAt(e.clientX, e.clientY)); return; }
   if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return;
   if (placeMode){ onPlaceTap(tx, ty); return; }
   // 반딧불이는 무엇 위를 날든 먼저 잡힌다 — 밭 위에 있다고 놓치면 아이가 답답하다
@@ -424,7 +493,7 @@ function onFarmTap(e){
   const q = pixAt(e.clientX, e.clientY), hit = actorAt(q.x, q.y);
   if (hit){ speak(hit); return; }
   const n = nodeAt(tx, ty);
-  if (n){ const r = act((w, m) => R.gather(w, m, n, now())); if (r.ok) sfx(R.NODES[n].kind === 'tree' ? 'thud' : R.NODES[n].kind === 'rock' ? 'prop' : 'pop'); return; }
+  if (n){ const r = act((w, m) => R.gather(w, m, n, now())); if (r.ok) sfx(r.gem ? 'sparkle' : R.NODES[n].kind === 'tree' ? 'thud' : R.NODES[n].kind === 'rock' ? 'prop' : 'pop'); return; }
   if (inSpot('house', tx, ty)){ openTab('house', true); sfx('house'); return; }
   if (inSpot('mail', tx, ty)){ openMail(); return; }
   if (inSpot('board', tx, ty)){ openTab('duo', true); return; }
@@ -443,6 +512,15 @@ function onFarmTap(e){
   // 안 지은 건물 터를 누르면 무엇이 들어설 자리인지 알려 준다
   const site = ['pasture', 'barn', 'coop', 'pethouse', 'scarecrow'].find(b => inSpot(b, tx, ty));
   if (site) flash(R.BUILDINGS[site].name + ' 터예요. 둘이서 탭에서 같이 지어요');
+}
+// 바닷가 섬 밖의 바다를 눌렀나 — 하늘(수평선 위)과 섬 벼랑은 뺀다.
+// 벼랑은 섬 가장자리 아래로 늘어진 면이라, 그 깊이만큼 올려 보면 섬 위에 떨어진다.
+function seaAt(clientX, clientY){
+  if (typeof isoView === 'undefined' || !isoView || typeof ISO_LOOK === 'undefined' || R.farmOf(W).id !== 'seaside') return false;
+  const q = pixAt(clientX, clientY), L = ISO_LOOK.seaside;
+  if (q.y < L.horizon) return false;
+  const off = (y) => { const g = isoTileAt(q.x, y); return g.u < 0 || g.v < 0 || g.u >= COLS || g.v >= ROWS; };
+  return off(q.y) && off(q.y - L.deep);
 }
 // ---------- 말풍선 ----------
 // 누른 도트 자리에 누가 서 있나. 그림이 발끝(x, y)에서 위로 그려지므로 그 높이만큼 위를 본다.
@@ -1105,6 +1183,9 @@ function moveCard(cls){
   const a = document.createElement('div'); a.className = 'act';
   if (!s.mineAsked) a.appendChild(btn(s.otherAsked ? '좋아, 가자!' : '이사 가자고 하기', 'buy', () => {
     if (s.otherAsked && !confirm(s.next.name + '으로 떠날까요? 꾸미개와 건물은 두고 가서 새로 지어야 해요.')) return;
+    // 옛 농장을 구경하던 중이면 먼저 지금 농장으로 돌아온다 — 떠난 뒤에도 옛 그림이 남지 않게
+    if (visiting()) visitFarm(null);
+    // 이삿날 장면은 act 가 다시 그리며 부르는 checkArrival 이 띄운다
     const r = act((w, m) => R.askMove(w, m, now()));
     if (r.ok) sfx(r.moved ? 'fanfare' : 'pop');
     renderTab();
@@ -1223,10 +1304,12 @@ function renderShop(){
   } else if (shopTab === 'deco'){
     $('#shopSub').textContent = '농장에 놓는 것. 혼자 사도 돼요 — 둘의 농장에 남아요. 모두 놓으면 이사 갈 수 있어요.';
     const mc = moveCard('item move'); if (mc) box.appendChild(mc);
+    const here = R.farmOf(W).id;
     Object.keys(R.DECOR).forEach(d => {
       const Dc = R.DECOR[d], have = W.decor && W.decor[d];
+      if (Dc.farm && Dc.farm !== here && !have) return;    // 다른 농장 전용은 거기 살 때만 보인다
       const card = document.createElement('div'); card.className = 'item' + (have ? ' locked' : '');
-      card.innerHTML = '<div class="nm">' + Dc.icon + ' ' + Dc.name + '</div><div class="pr">' + (Dc.desc || '') + (have ? ' · ' + NAME[have.by] + '가 놓았어요' : ' · 레벨 ' + Dc.lv + '부터') + '</div>';
+      card.innerHTML = '<div class="nm">' + Dc.icon + ' ' + Dc.name + (Dc.farm ? ' <span class="farm-only">이 농장에만</span>' : '') + '</div><div class="pr">' + (Dc.desc || '') + (have ? ' · ' + NAME[have.by] + '가 놓았어요' : ' · 레벨 ' + Dc.lv + '부터') + '</div>';
       if (!have){ const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('deco:' + d, Dc.cost, M.coins >= Dc.cost && lv >= Dc.lv)); card.appendChild(a); }
       box.appendChild(card);
     });
@@ -1718,13 +1801,13 @@ function renderMedals(){
   });
   $('#medalCount').textContent = list.filter(m => m.got).length + '/' + list.length;
 }
-function snapCanvas(){
+function snapCanvas(label){
   /* 화면 캔버스를 그대로 뜨면 기기 배수(dpr)까지 곱해져 1638x1417·170KB 가 된다.
      도트 두 배로 줄이면 1310x1133·144KB — 저장소가 1GB 뿐이고 아이가 날마다 낼 수 있으니 그만큼이 낫다.
      줄여 그리든 새로 그리든 무게는 같지만(둘 다 144KB), 새로 그리면 도트가 정확히 두 배라
      기기 배수와 상관없이 같은 그림이 나온다 — 두 아이가 다른 폰으로 내도 한 장이 똑같다. */
   // 이사 간 농장은 아이소 섬이라 그림 크기가 다르다(옛 farm.js 와 짝지어졌으면 판 크기로)
-  const iso = typeof isoMode === 'function' && isoMode();
+  const iso = typeof isoMode === 'function' && (typeof withView === 'function' ? withView(isoMode) : isoMode());
   const W2 = (iso ? ISO_W : R.GRID.w * T) * SNAP_DOT, H2 = (iso ? ISO_H : R.GRID.h * T) * SNAP_DOT;
   const shot = document.createElement('canvas'); shot.width = W2; shot.height = H2;
   drawFarm(shot);
@@ -1739,7 +1822,7 @@ function snapCanvas(){
   g.fillStyle = '#3a3226';
   g.font = '700 ' + Math.round(BAR * 0.46) + 'px "Galmuri11", system-ui, sans-serif';
   g.textBaseline = 'middle';
-  g.fillText((W.farm && R.farmOf ? '수아연아 ' + R.farmOf(W).name : '수아연아 농장') + ' · ' + R.dayKey(now()), PAD + 4, PAD + BAR * 0.5);
+  g.fillText(label || ((W.farm && R.farmOf ? '수아연아 ' + R.farmOf(W).name : '수아연아 농장') + ' · ' + R.dayKey(now())), PAD + 4, PAD + BAR * 0.5);
   const right = R.SEASON_ICON[cal.season] + ' ' + R.SEASON_NAME[cal.season] + ' ' + cal.year + '년째 · '
     + (WNAME[wk] || wk) + ' · Lv ' + R.levelOf(M.xp);
   g.textAlign = 'right';
@@ -1750,22 +1833,29 @@ function snapCanvas(){
   dropLayers(); if (liveCv) drawFarm(liveCv);
   return o;
 }
-function openSnap(){
+// pi 를 주면 이사 가며 두고 온 그 농장의 마지막 한 장
+function openSnap(pi){
   if (!W || !M){ flash('농장을 먼저 열어요', true); return; }
-  if (visiting()){ flash('지금 농장으로 돌아와서 찍어요', true); return; }
-  const cv = snapCanvas();
+  const P = pi != null ? (W.past || [])[pi] : null, F = P && R.FARMS.find(f => f.id === P.farm);
+  if (!F && visiting()){ flash('지금 농장으로 돌아와서 찍어요', true); return; }
+  const cv = F ? pastSnap(pi, F) : snapCanvas();
+  const meta = F ? { title: F.name + ' 마지막 날', quote: (P.until || R.dayKey(now())) + '까지 살던 ' + F.name } : null;
   const inner = $('#modalInner');
-  inner.innerHTML = '<h3 class="pixel">📷 오늘의 농장 한 장</h3>'
-    + '<p class="sub">지금 이 순간의 농장이에요. 작품으로 내면 부모님이 보고 전시실에 걸어 줘요.</p>'
+  inner.innerHTML = '<h3 class="pixel">📷 ' + (F ? F.name + ' 마지막 한 장' : '오늘의 농장 한 장') + '</h3>'
+    + '<p class="sub">' + (F ? '떠나온 ' + F.name + '의 모습이에요' : '지금 이 순간의 농장이에요') + '. 작품으로 내면 부모님이 보고 전시실에 걸어 줘요.</p>'
     + '<div class="snapwrap" id="snapWrap"></div>'
     + '<div class="modal-actions"><button type="button" class="dot-btn small primary" id="snapSend">🖼 작품으로 내기</button>'
     + '<button type="button" class="dot-btn small" id="snapClose">닫기</button></div>';
   $('#snapWrap').appendChild(cv);
   $('#modal').hidden = false;
   $('#snapClose').addEventListener('click', closeModal);
-  $('#snapSend').addEventListener('click', () => sendSnap(cv, $('#snapSend')));
+  $('#snapSend').addEventListener('click', () => sendSnap(cv, $('#snapSend'), meta));
 }
-async function sendSnap(cv, b){
+function pastSnap(i, F){
+  const keep = visitAt; visitAt = i;
+  try { return snapCanvas(F.icon + ' ' + F.name + ' 마지막 날'); } finally { visitAt = keep; if (liveCv) drawFarm(liveCv); }
+}
+async function sendSnap(cv, b, meta){
   b.disabled = true; b.textContent = '내는 중…';
   try {
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
@@ -1779,8 +1869,8 @@ async function sendSnap(cv, b){
     const { data: { user } } = await sb.auth.getUser();
     const cal = R.calendar(W, now());
     const { error } = await sb.from('works').insert({
-      title: '오늘의 농장 · ' + R.SEASON_NAME[cal.season] + ' ' + cal.year + '년째',
-      quote: R.dayKey(now()) + '의 수아연아 농장',
+      title: meta ? meta.title : '오늘의 농장 · ' + R.SEASON_NAME[cal.season] + ' ' + cal.year + '년째',
+      quote: meta ? meta.quote : R.dayKey(now()) + '의 수아연아 농장',
       author: key,
       media_type: 'image',
       media_url: pub.publicUrl,
@@ -1790,7 +1880,7 @@ async function sendSnap(cv, b){
     });
     if (error) throw error;
     b.textContent = '냈어요!';
-    flash('오늘의 농장을 작품으로 냈어요. 부모님이 보고 전시실에 걸어 줘요');
+    flash((meta ? meta.title + '을' : '오늘의 농장을') + ' 작품으로 냈어요. 부모님이 보고 전시실에 걸어 줘요');
     setTimeout(closeModal, 900);
   } catch (e) {
     b.disabled = false; b.textContent = '🖼 작품으로 내기';

@@ -32,4 +32,20 @@ assert.strictEqual(R.farmOf(w2).id, 'seaside');
 // 마지막 농장에서는 더 못 간다
 w2.farm = 3; Object.keys(R.DECOR).forEach(d => { w2.decor[d] = { by: 'sua' }; });
 assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
+// 농장 전용 꾸미개 — 그 농장에서만 사고, 이사 조건에도 그때만 든다
+{
+  const w3 = R.fixWorld(null, now), m3 = R.fixMine(null, 'sua'); m3.coins = 99999; m3.xp = 999999;
+  assert(!R.buy(w3, m3, 'deco:lighthouse', now).ok, '들판에서는 등대를 못 산다');
+  assert(R.moveState(w3, m3).need === Object.keys(R.DECOR).filter(d => !R.DECOR[d].farm).length);
+  w3.farm = 1;
+  assert(R.buy(w3, m3, 'deco:lighthouse', now).ok, '바닷가에서는 등대를 산다');
+  assert(R.moveState(w3, m3).need === Object.keys(R.DECOR).filter(d => !R.DECOR[d].farm || R.DECOR[d].farm === 'seaside').length);
+  // 바다낚시 — 바닷가에서만, 바닷물고기만
+  m3.energy = 999;
+  const f = R.fish(w3, m3, now, 'good', 'sea');
+  assert(f.ok, '바닷가 바다에서 낚인다');
+  assert(Object.keys(m3.inv).some(k => k.indexOf('fish:') === 0 && R.FISH[k.slice(5)].sea), '바닷물고기가 나온다');
+  w3.farm = 2;
+  assert(!R.fish(w3, m3, now, 'good', 'sea').ok, '산골에는 바다가 없다');
+}
 console.log('이사 규칙 점검 통과');

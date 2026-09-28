@@ -137,6 +137,10 @@
   .pastbar button{font:inherit; font-size:12px; font-weight:800; cursor:pointer; padding:4px 10px; min-height:32px;
     border:2px solid var(--ink); background:#fff; color:var(--ink); border-radius:0;}
   .pastbar button.on{background:#ffe066;}
+  .pastbar.todo{background:#fff4d6;}
+  .pastbar.todo button.done{background:#e7f6e0; color:var(--ink-soft);}
+  canvas.arrive{display:block; width:100%; max-width:480px; margin:6px auto; image-rendering:pixelated; border:2px solid var(--ink);}
+  .farm-only{display:inline-block; margin-left:4px; padding:0 5px; font-size:10.5px; border:1.5px solid var(--ink); background:#ffe8f0; vertical-align:1px;}
   .item .act button, .sm{font:inherit; font-size:11.5px; font-weight:800; cursor:pointer; padding:4px 8px; min-height:32px;
     border:2px solid var(--ink); background:var(--cream); color:var(--ink); border-radius:0;}
   .item .act button:disabled, .sm:disabled{opacity:.45; cursor:not-allowed;}
@@ -269,6 +273,7 @@
         <h3 class="pixel">지금 농장</h3>
         <p class="cap">방금 그린 그림이에요. 계절도 날씨도 지금 그대로예요.</p>
         <div class="stage look"><canvas id="peekFarm" width="960" height="768" aria-label="지금의 농장 그림"></canvas></div>
+        <div class="pastbar" id="peekPast" hidden></div>
         <figure class="wide"><figcaption>거실</figcaption><div class="house-stage look"><canvas id="peekLiving" aria-label="거실"></canvas></div></figure>
         <div class="rooms2">
           <figure><figcaption>수아 방</figcaption><div class="house-stage look"><canvas id="peekSua" aria-label="수아 방"></canvas></div></figure>
@@ -321,6 +326,7 @@
       <button type="button" class="movehint" id="moveHint" hidden></button>
       <!-- 옛 농장 구경 — 두고 온 농장을 다시 가 본다. 구경하는 동안은 눌러도 아무 일도 안 한다 -->
       <div class="pastbar" id="pastBar" hidden></div>
+      <div class="pastbar todo" id="firstTodo" hidden></div>
       <div class="tools" id="tools"></div>
       <div class="seeds" id="seedRow" hidden></div>
       <div class="stage reveal"><canvas id="farmCanvas" width="960" height="768" aria-label="농장 지도"></canvas></div>

@@ -294,6 +294,13 @@ const FARM = (() => {
     flag:     { name: '깃발',       icon: '🚩', cost: 700,  lv: 4, desc: '바람 부는 날엔 힘차게 나부껴요' },
     wagon:    { name: '수레',       icon: '🛒', cost: 1000, lv: 4, desc: '가을엔 호박을 가득 실어요' },
     windmill: { name: '풍차',       icon: '🌀', cost: 3000, lv: 6, desc: '날개가 빙글빙글 돌아가요' },
+    // 그 농장에서만 파는 꾸미개(2026-09-28 로키즈 「전부 진행」). farm 이 붙은 것은 그 농장에 살 때만 사고, 이사 조건에도 그때만 든다.
+    lighthouse: { name: '등대',     icon: '🗼', cost: 2800, lv: 5, farm: 'seaside',  desc: '밤이면 불빛이 바다를 비춰요' },
+    palm:     { name: '야자수',     icon: '🌴', cost: 600,  lv: 3, farm: 'seaside',  desc: '바닷바람에 잎이 살랑여요' },
+    cairn:    { name: '돌탑',       icon: '🪨', cost: 500,  lv: 3, farm: 'mountain', desc: '소원을 빌며 하나씩 쌓았어요' },
+    waterfall:{ name: '작은 폭포',  icon: '💧', cost: 3200, lv: 6, farm: 'mountain', desc: '바위에서 물이 쏟아져요' },
+    balloon:  { name: '열기구',     icon: '🎈', cost: 4000, lv: 7, farm: 'cloud',    desc: '줄에 매여 둥실 떠 있어요' },
+    skybridge:{ name: '무지개 다리', icon: '🌈', cost: 3000, lv: 6, farm: 'cloud',    desc: '구름 사이로 무지개가 걸려요' },
   };
 
   // ---------- 이사 ----------
@@ -353,6 +360,12 @@ const FARM = (() => {
     flag:       { name: '깃발',     w: 1, h: 1, x: 19, y: 0,  kind: 'decor',  move: true },
     wagon:      { name: '수레',     w: 2, h: 1, x: 6,  y: 15, kind: 'decor',  move: true },   // 연못이 4×3 이 되며 처음 자리를 비켜 줬다
     windmill:   { name: '풍차',     w: 2, h: 2, x: 16, y: 8,  kind: 'decor',  move: true },
+    lighthouse: { name: '등대',     w: 1, h: 1, x: 19, y: 6,  kind: 'decor',  move: true },
+    palm:       { name: '야자수',   w: 1, h: 1, x: 19, y: 12, kind: 'decor',  move: true },
+    cairn:      { name: '돌탑',     w: 1, h: 1, x: 12, y: 12, kind: 'decor',  move: true },
+    waterfall:  { name: '작은 폭포', w: 2, h: 2, x: 11, y: 14, kind: 'decor',  move: true },
+    balloon:    { name: '열기구',   w: 2, h: 2, x: 13, y: 0,  kind: 'decor',  move: true },
+    skybridge:  { name: '무지개 다리', w: 2, h: 1, x: 16, y: 15, kind: 'decor',  move: true },
   };
   const PLACE_IDS = Object.keys(PLACE);
   function spotOf(world, id){
@@ -415,6 +428,13 @@ const FARM = (() => {
     smelt:   { name: '빙어',       sell: 90,  w: 14, c: '#dfe8ef', season: ['winter'] },
     puffer:  { name: '복어',       sell: 380, w: 5,  c: '#e8d8a0', season: ['autumn', 'winter'] },
     boot:    { name: '낡은 장화',   sell: 2,   w: 11, c: '#6b5a4a', junk: true },
+    // 바닷가 농장에서 섬 가장자리 바다에 찌를 던지면 무는 것(sea). 연못에서는 안 문다.
+    mackerel:{ name: '고등어',     sell: 80,  w: 30, c: '#5f86a8', sea: true },
+    squid:   { name: '오징어',     sell: 150, w: 14, c: '#f0c8b8', sea: true, shape: 'shrimp' },
+    flounder:{ name: '광어',       sell: 180, w: 12, c: '#a8977a', sea: true },
+    seabream:{ name: '참돔',       sell: 260, w: 8,  c: '#e0707a', sea: true },
+    tuna:    { name: '참치',       sell: 950, w: 2,  c: '#3f5f88', sea: true },
+    seaweed: { name: '미역',       sell: 5,   w: 10, c: '#4f7a4a', sea: true, junk: true },
   };
   const FISH_IDS = Object.keys(FISH);
   const FISH_MAX = 5;                    // 하루에 다섯 번
@@ -684,7 +704,7 @@ const FARM = (() => {
     { id: 'farmer', col: '#e8c46a',   name: '밭의 주인',   icon: '🌾', desc: '작물 절반을 거둬요',           coins: 400,  need: (w, m) => cropsInDex(m) >= Math.ceil(CROP_IDS.length / 2) },
     { id: 'master', col: '#ffd25a',   name: '온 밭 도감',  icon: '🏅', desc: '작물을 모두 거둬요',           coins: 1500, need: (w, m) => cropsInDex(m) >= CROP_IDS.length },
     { id: 'shiny', col: '#fff0a8',    name: '반짝반짝',    icon: '✨', desc: '반짝 작물 다섯 가지를 거둬요', coins: 500,  need: (w, m) => m.dex.filter(k => k.slice(0, 5) === 'gold:').length >= 5 },
-    { id: 'angler', col: '#6fb3e0',   name: '연못 지기',   icon: '🎣', desc: '물고기를 모두 낚아요',         coins: 800,  need: (w, m) => FISH_IDS.every(f => m.dex.indexOf('fish:' + f) >= 0) },
+    { id: 'angler', col: '#6fb3e0',   name: '연못 지기',   icon: '🎣', desc: '물고기를 모두 낚아요',         coins: 800,  need: (w, m) => FISH_IDS.every(f => FISH[f].sea || m.dex.indexOf('fish:' + f) >= 0) },   // 바닷물고기는 연못 지기에 안 든다
     { id: 'cook', col: '#ff9a2e',     name: '부엌 대장',   icon: '🍳', desc: '요리를 모두 만들어요',         coins: 900,  need: (w, m) => Object.keys(DISHES).every(d => m.dex.indexOf('dish:' + d) >= 0) },
     { id: 'giant', col: '#e8892f',    name: '둘이서 번쩍', icon: '🎃', desc: '큰 작물을 뽑아요',             coins: 300,  need: (w, m) => m.dex.some(k => k.slice(0, 6) === 'giant:') },
     { id: 'bestie', col: '#ff7f8a',   name: '마음이 가득', icon: '💗', desc: '동물의 마음을 10까지 채워요',  coins: 400,  need: (w) => (w.animals || []).some(a => (a.love || 0) >= 10) },

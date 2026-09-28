@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '8';
+const PLAY_V = '9';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -247,6 +247,10 @@ function renderPeekArt(res){
   tickAll();
   $('#peekArt').hidden = false;
   startLoop($('#peekFarm'));
+  // 손님도 옛 농장을 구경한다 — 아이 화면과 같은 띠, 누르면 그림만 바뀐다
+  const bar = $('#peekPast');
+  const pick = i => { visitAt = i; walkers = null; beasts = null; withView(ensureActors); paintPastBar(bar, pick); drawFarm(liveCv); };
+  if (bar) paintPastBar(bar, pick);
   [['living', '#peekLiving'], ['sua', '#peekSua'], ['yona', '#peekYona']].forEach(([r, sel]) => {
     drawRoom($(sel), r);                         // 크기는 방 그림이 스스로 맞춘다
   });
@@ -2628,10 +2632,20 @@ function fishMarker(t){ const p = (Math.max(0, t - fishing.t0) % FISH_SPAN) / FI
 // 연못 위에 뜨는 바. 글씨는 안 쓴다 — 농장은 도트만으로 말한다.
 function drawFishBar(t){
   if (!fishing) return;
-  const b = spot('pond');
-  const bw = 116, bh = 10;
+  const bw = 116, bh = 10, at = fishing.at;
+  let top;
+  if (at){
+    // 바다낚시 — 찌가 떨어진 자리에서 물결 따라 까딱인다
+    const bob = Math.round(Math.sin(t / 260) * 1.5) + (fishOpen() ? 2 : 0);
+    ctx.globalAlpha = 0.5; px(Math.round(at.x) - 5, Math.round(at.y) + 2, 10, 1, '#e8f6ff'); ctx.globalAlpha = 1;
+    px(Math.round(at.x) - 1, Math.round(at.y) - 4 + bob, 3, 3, '#ff5a4a');
+    px(Math.round(at.x) - 1, Math.round(at.y) - 1 + bob, 3, 2, '#fff6e9');
+    top = { x: at.x, y: at.y - 8 };
+  } else {
+    const b = spot('pond');
+    top = isoView ? isoP(b.x + b.w / 2, b.y) : { x: b.x * T + b.w * T / 2, y: b.y * T };
+  }
   // 연못이 화면 구석에 있으면 바가 잘린다 — 안쪽으로 밀어 넣는다
-  const top = isoView ? isoP(b.x + b.w / 2, b.y) : { x: b.x * T + b.w * T / 2, y: b.y * T };
   const bx = Math.max(6, Math.min(artSize().w - bw - 6, Math.round(top.x - bw / 2)));
   const by = Math.max(6, Math.round(top.y - 22));
   const ready = !fishing.done && performance.now() < fishing.openAt;
@@ -2735,7 +2749,12 @@ function paintShade(cw, ch){
   return L.cv;
 }
 // ---- 겹마다의 표 ----
-function sigGround(season, wk){ return season + '|' + wk + '|' + (W.farm || 0); }
+function sigGround(season, wk){ return season + '|' + wk + '|' + (W.farm || 0) + (wetYesterday() ? '|y' : ''); }
+// 어제 비가 왔나 — 꽃구름 섬은 비 갠 다음 날 무지개가 짙다
+function wetYesterday(){
+  const t = now() - R.DAY_MS, w = R.weatherOf(R.dayKey(t), R.calendar(W, t).season);
+  return w === 'rain' || w === 'storm';
+}
 function sigBuilt(cal, night){
   let s = cal.season + '|' + (night ? 'n' : 'd') + '|' + (W.expand || 0) + '|' + (W.farm || 0);
   Object.keys(R.BUILDINGS).forEach(b => { if (W.buildings[b] && W.buildings[b].done) s += b; });
@@ -3071,7 +3090,7 @@ function isoBackdrop(season){
     isoSky(K, 0, ISO_H);
     // 옅은 무지개 — 섬 뒤로
     const rb = ['#ffb3c1', '#ffd3a6', '#fff2a8', '#c6f0b8', '#b3dcff', '#cdb8ff'];
-    ctx.globalAlpha = 0.34;
+    ctx.globalAlpha = wetYesterday() ? 0.72 : 0.34;
     for (let x = 0; x < ISO_W; x += 2) rb.forEach((c, i) => {
       const r = 300 - i * 5, dx = x - ISO_W / 2; if (Math.abs(dx) >= r) return;
       px(x, Math.round(250 - Math.sqrt(r * r - dx * dx)), 2, 5, c);
@@ -3762,7 +3781,154 @@ function isoFrontFences(cast){
     line(x1, y0, x1, y1);
   }
 }
+// ---- 농장마다 하나뿐인 꾸미개(2026-09-28) — 섬에서만 놓이므로 아이소 그림만 있다 ----
+const ISO_OWN = { lighthouse: 1, palm: 1, cairn: 1, waterfall: 1, balloon: 1, skybridge: 1 };
+// 둥근 것의 옆면 — 왼쪽 앞은 밝고 오른쪽은 그늘. isoEllipse 에 색 대신 넘긴다.
+function roundTex(cu, cv, r, col){
+  const c = isoP(cu, cv).x, w = r * IT / 2;
+  return (x) => x > c + w * 0.4 ? shade(col, -26) : x < c - w * 0.55 ? shade(col, 16) : col;
+}
+function isoLighthouse(b, night){
+  const cu = b.x + 0.5, cv = b.y + 0.5;
+  isoEllipse(cu + 0.16, cv + 0.16, 0.42, 0.42, 0, 'rgba(30,44,24,0.2)');
+  isoDrum(cu, cv, 0.4, 0, 5, STONE.low, STONE.hi);                               // 돌 받침
+  for (let z = 5; z < 52; z++){                                                   // 빨강·하양 띠 — 위로 갈수록 가늘다
+    const r = 0.3 - (z - 5) / 47 * 0.09, col = Math.floor((z - 5) / 9) % 2 ? '#f4efe6' : '#d9504a';
+    isoEllipse(cu, cv, r, r, z, roundTex(cu, cv, r, col));
+  }
+  { const q = isoP(cu + 0.2, cv + 0.2, 5); px(Math.round(q.x) - 2, Math.round(q.y) - 9, 4, 9, WOOD.dark); px(Math.round(q.x) - 2, Math.round(q.y) - 9, 4, 1, WOOD.low); }
+  isoDrum(cu, cv, 0.3, 51, 54, '#3a3a44', '#5a5a66');                              // 난간 마루
+  isoDrum(cu, cv, 0.17, 54, 63, night ? '#ffe9a0' : '#bfe6f8', night ? '#fff6cf' : '#e6f6fd');   // 등불 방
+  [-0.12, 0, 0.12].forEach(o => { const q = isoP(cu + o, cv - o + 0.17, 54); px(Math.round(q.x), Math.round(q.y) - 9, 1, 9, '#3a3a44'); });
+  for (let z = 63; z < 71; z++){ const r = 0.22 * (71 - z) / 8; isoEllipse(cu, cv, r, r, z, roundTex(cu, cv, 0.22, '#d9504a')); }
+  { const q = isoP(cu, cv, 72); px(Math.round(q.x) - 1, Math.round(q.y) - 1, 2, 2, '#3a3a44'); }
+  if (night){ const q = isoP(cu, cv, 58); lamp(q.x, q.y, 34, '#fff0a0'); }
+}
+function isoPalm(b){
+  const cu = b.x + 0.5, cv = b.y + 0.5;
+  isoEllipse(cu + 0.3, cv, 0.4, 0.3, 0, 'rgba(30,44,24,0.18)');
+  for (let z = 0; z < 46; z++){                                                   // 휘어 오르는 줄기, 네 도트마다 마디
+    const k = (z / 46) * (z / 46), r = 0.1 - z * 0.0008;
+    isoEllipse(cu + k * 0.28, cv - k * 0.1, r, r, z, roundTex(cu + k * 0.28, cv - k * 0.1, r, z % 4 ? '#b08a5a' : '#8f6b42'));
+  }
+  const q = isoP(cu + 0.28, cv - 0.1, 46), x = Math.round(q.x), y = Math.round(q.y);
+  [[-3, 2], [2, 3], [0, 5]].forEach(([dx, dy]) => { px(x + dx - 1, y + dy - 1, 4, 4, '#6b4a2a'); px(x + dx - 1, y + dy - 1, 2, 1, '#8f6b42'); });   // 야자 열매
+}
+// 야자 잎 — 바람 따라 끝이 흔들린다. 여섯 장을 부챗살로.
+function isoPalmLeaves(b, t){
+  const q = isoP(b.x + 0.78, b.y + 0.4, 46), x = q.x, y = q.y - 1;
+  const sway = STILL ? 0 : Math.sin(t / 820) * (curWind + 0.5) * 2;
+  [-2.8, -2.0, -1.1, -0.3, 0.5, 1.5, 2.5].forEach((a, i) => {
+    const len = 20 + (i % 2) * 4;
+    for (let s2 = 0; s2 <= len; s2 += 2){
+      // 잎은 위로 솟았다가 끝이 처진다 — 가운데가 볼록한 활 모양
+      const f = s2 / len, sx = x + Math.cos(a) * s2 + sway * f * f, sy = y + Math.sin(a) * s2 * 0.45 - s2 * 0.45 + f * f * len * 0.75;
+      px(Math.round(sx) - 1, Math.round(sy), 3, 2, f < 0.3 ? '#3f7d3a' : '#4f9a44');
+      if (s2 > 3 && s2 < len - 1) { px(Math.round(sx), Math.round(sy) + 2, 1, 2 + (s2 % 4 ? 1 : 0), '#3f7d3a'); px(Math.round(sx) - 1, Math.round(sy) - 1, 2, 1, '#79c05e'); }
+    }
+  });
+}
+function isoCairn(b, season){
+  const cu = b.x + 0.5, cv = b.y + 0.5;
+  isoEllipse(cu + 0.12, cv + 0.12, 0.4, 0.36, 0, 'rgba(30,44,24,0.2)');
+  [[0.34, 5, 0, 0, STONE.low], [0.27, 5, 0.03, -0.02, STONE.mid], [0.23, 4, -0.02, 0.02, '#b3a99c'], [0.18, 4, 0.02, 0, STONE.mid], [0.13, 4, -0.01, -0.01, STONE.low], [0.08, 3, 0.01, 0.01, '#b3a99c']]
+    .reduce((z, [r, h, du, dv, c]) => { isoDrum(cu + du, cv + dv, r, z, z + h, c, shade(c, 18)); return z + h; }, 0);
+  if (season === 'winter') isoEllipse(cu + 0.01, cv + 0.01, 0.08, 0.08, 25, '#ffffff');
+  [[-0.35, 0.3], [0.32, 0.36], [0.4, -0.2]].forEach(([du, dv], i) => isoDrum(cu + du, cv + dv, 0.07, 0, 2, i % 2 ? STONE.mid : STONE.low, STONE.hi));   // 둘레 조약돌
+}
+const FALL_Z = 36;
+// 자연 바위 결 — 벽돌처럼 줄 맞추지 않고 얼룩과 금을 흩뿌린다
+function rockTex(col, seed){
+  const dk = shade(col, -18), lt = shade(col, 14), vein = shade(col, -34);
+  return (x, y) => {
+    if (hash2(x >> 1, (y + (x >> 2)) >> 1, seed + 7) > 0.93) return vein;
+    const h = hash2(x >> 2, y >> 2, seed);
+    return h > 0.78 ? lt : h < 0.2 ? dk : col;
+  };
+}
+// 바위 덩이마다 u, v, 너비, 깊이, 높이 — 가운데가 가장 높고 그 앞면으로 물이 떨어진다
+const FALL_ROCKS = [[0.05, 0.1, 0.7, 0.7, 24], [0.7, 0, 0.65, 0.75, FALL_Z + 2], [1.3, 0.08, 0.65, 0.7, 29]];
+function fallFoot(b){ return { u: b.x + 1.02, v: b.y + 0.75 }; }
+function isoWaterfall(b, season){
+  const ice = season === 'winter', moss = ice ? '#eef4f8' : '#7fa35a';
+  const cu = b.x + 1.4, cv = b.y + 1.12;
+  FALL_ROCKS.forEach(([du, dv, su, sv, h], i) => {
+    isoCube(b.x + du, b.y + dv, su, sv, 0, h, moss, rockTex('#8e8a86', 'fl' + i), rockTex('#6f6b68', 'fr' + i));
+    // 이끼가 윗면에서 앞면으로 조금 흘러내린다
+    for (let k = 0; k < 5; k++){ const u = b.x + du + su * (0.12 + k * 0.18), q = isoP(u, b.y + dv + sv, h); px(Math.round(q.x), Math.round(q.y), 2, 2 + Math.floor(hash2(k, i, 55) * 4), moss); }
+  });
+  isoEllipse(cu, cv, 0.66, 0.6, 0, STONE.low);
+  isoEllipse(cu, cv, 0.57, 0.5, 1, ice ? '#cfe8f5' : '#4f9ad6');
+  isoEllipse(cu + 0.1, cv + 0.1, 0.32, 0.24, 1, ice ? '#e6f4fb' : '#62b0e0');
+  [[0.35, 1.0], [0.55, 1.55], [1.85, 1.5], [1.95, 0.95]].forEach(([du, dv], i) => isoDrum(b.x + du, b.y + dv, 0.12, 0, 5, i % 2 ? '#8e8a86' : '#7d7976', '#a5a19c'));
+}
+// 떨어지는 물 — 줄무늬가 아래로 흐르고 발치에 물보라. 겨울엔 얼어서 멈춘다.
+function isoWaterfallLive(b, t, season){
+  const f = fallFoot(b), ice = season === 'winter', k = ice || STILL ? 0 : Math.floor(t / 70);
+  for (let z = 0; z <= FALL_Z - 2; z++){
+    const q = isoP(f.u, f.v, z), w = 6 + Math.round((FALL_Z - z) / FALL_Z * -2) + (z < 4 ? 2 : 0);
+    const c = ice ? (z % 5 ? '#d8eef8' : '#ffffff') : ((z + k) % 6 < 2 ? '#ffffff' : (z + k) % 6 < 4 ? '#bfe6f8' : '#8fcdee');
+    px(Math.round(q.x - w / 2), Math.round(q.y), w, 1, c);
+  }
+  if (ice) return;
+  const q = isoP(f.u + 0.05, f.v + 0.1, 1);
+  for (let i = 0; i < 6; i++){
+    const ph = ((t / 500) + i / 6) % 1, dx = (i - 2.5) * 3, h = Math.round(Math.sin(ph * Math.PI) * 5);
+    px(Math.round(q.x + dx * (0.6 + ph)), Math.round(q.y) - h, 2, 2, i % 2 ? '#ffffff' : '#dff4fd');
+  }
+}
+function isoBalloonBase(b){
+  const cu = b.x + 1, cv = b.y + 1;
+  isoEllipse(cu + 0.1, cv + 0.1, 0.55, 0.55, 0, 'rgba(30,44,24,0.14)');                // 떠 있는 풍선의 그림자
+  isoDrum(cu, cv, 0.06, 0, 7, WOOD.low, WOOD.hi);                                       // 매어 둔 말뚝
+}
+// 열기구 — 줄에 매여 둥실. 여섯 쪽 줄무늬 풍선, 밑에 바구니.
+function isoBalloonLive(b, t){
+  const cu = b.x + 1, cv = b.y + 1, bob = STILL ? 0 : Math.sin(t / 1300) * 4;
+  const st = isoP(cu, cv, 7), bk = isoP(cu, cv, 66 + bob), bx = Math.round(bk.x), by = Math.round(bk.y);
+  isoSeg(st, { x: bx, y: by }, '#8a6a4a', 1);                                             // 맨 줄
+  px(bx - 6, by - 8, 12, 8, '#a97b4f'); px(bx - 6, by - 8, 12, 2, '#d6a878'); px(bx - 6, by - 4, 12, 1, '#8a5f3a'); px(bx + 3, by - 8, 3, 8, '#8a5f3a');
+  const cy = by - 44, R0 = 22, gores = ['#ff6b6b', '#ffd166', '#4ecdc4', '#fff6e9', '#ff6b6b', '#ffd166'];
+  [[-5, -2], [5, -2], [-2, 0], [2, 0]].forEach(([dx]) => isoSeg({ x: bx + Math.sign(dx) * 5, y: by - 8 }, { x: bx + dx * 2.4, y: cy + 22 }, '#6f4a2c', 1));   // 바구니 줄
+  for (let dy = -26; dy <= 26; dy++){
+    const w = dy <= 8 ? Math.sqrt(1 - Math.pow(dy / 27, 2)) * R0 : R0 * Math.sqrt(1 - Math.pow(8 / 27, 2)) * (1 - (dy - 8) / 18 * 0.62);
+    const x0 = Math.round(bx - w), x1 = Math.round(bx + w);
+    let rs = x0, rc = null;
+    for (let x = x0; x <= x1 + 1; x++){
+      const f = (x - bx) / Math.max(1, w), g = Math.min(5, Math.max(0, Math.floor((Math.asin(Math.max(-1, Math.min(1, f))) / Math.PI + 0.5) * 6)));
+      const c = x > x1 ? null : f > 0.62 ? shade(gores[g], -34) : f < -0.6 && dy < 4 ? shade(gores[g], 18) : gores[g];
+      if (c !== rc){ if (rc) px(rs, cy + dy, x - rs, 1, rc); rs = x; rc = c; }
+    }
+  }
+}
+function isoSkybridge(b){
+  const cv = b.y + 0.5, H = 34, cols = ['#ff8fa3', '#ffb86b', '#ffe27a', '#8fdc8a', '#7cc4ff', '#b79cff'];
+  for (let i = 0; i <= 72; i++){
+    const f = i / 72, q = isoP(b.x + 0.12 + f * 1.76, cv, Math.sin(Math.PI * f) * H);
+    cols.forEach((c, k) => px(Math.round(q.x), Math.round(q.y) + k * 2, 2, 2, c));
+  }
+  [0.12, 1.88].forEach((du, i) => { const q = isoP(b.x + du, cv); isoCloudPuff(Math.round(q.x), Math.round(q.y) - 6, 26, 12, ['#ffffff', '#ffffff', '#dfe3f2'], 'skb' + i); });
+}
+function isoOwnLive(id, b, t, L, season){
+  if (id === 'palm') isoPalmLeaves(b, t);
+  else if (id === 'waterfall') isoWaterfallLive(b, t, season);
+  else if (id === 'balloon') isoBalloonLive(b, t);
+}
+// 등대 불빛 — 밤빛을 입힌 뒤에 더해야 어두운 바다 위로 또렷하다
+function isoBeam(g, t, L){
+  if (!L.lamp || !here('lighthouse') || !W.decor.lighthouse) return;
+  const b = spot('lighthouse'), o = isoP(b.x + 0.5, b.y + 0.5, 58), a = STILL ? 2.4 : t / 1500, w = 0.12, len = 170;
+  g.save(); g.globalCompositeOperation = 'lighter'; ctx = g;
+  polyFill([[o.x, o.y], [o.x + Math.cos(a - w) * len, o.y + Math.sin(a - w) * len * 0.5], [o.x + Math.cos(a + w) * len, o.y + Math.sin(a + w) * len * 0.5]], 'rgba(255,226,140,0.3)');
+  g.restore();
+}
 function paintIsoThing(id, b, cal, night, season){
+  if (id === 'lighthouse') return isoLighthouse(b, night);
+  if (id === 'palm') return isoPalm(b);
+  if (id === 'cairn') return isoCairn(b, season);
+  if (id === 'waterfall') return isoWaterfall(b, season);
+  if (id === 'balloon') return isoBalloonBase(b);
+  if (id === 'skybridge') return isoSkybridge(b);
   if (id === 'house') return isoHouse(b, night);
   if (id === 'stall') return isoStall(b, cal);
   if (id === 'coop') return isoCoop(b, night);
@@ -3822,10 +3988,13 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
     if (!here(id) || id === 'path' || id === 'pond') return;
     const b = spot(id);
     cast.push({ d: id === 'pasture' ? b.x + b.y + 0.3 : b.x + b.w / 2 + b.y + b.h / 2, go: () => {
+      if (seeThrough) ctx.globalAlpha = SEE_ALPHA;
       const e = isoSprite(id, sigB + '|' + season + '|' + id, isoBoxOf(b), () => paintIsoThing(id, b, cal, L.lamp, season));
       for (let i = 0; i < e.lamps.length; i++) lamps.push(e.lamps[i]);
       isoHits.push({ e, tx: b.x, ty: b.y });
-      if (W.decor[id]) withBB(bbOffset(b), () => onlyDecor(id, () => drawDecorLive(season, t, L)));
+      if (ISO_OWN[id]) isoOwnLive(id, b, t, L, season);
+      else if (W.decor[id]) withBB(bbOffset(b), () => onlyDecor(id, () => drawDecorLive(season, t, L)));
+      ctx.globalAlpha = 1;
     } });
   });
   if (here('pond')){ const b = spot('pond'); cast.push({ d: b.x + b.y + 1, go: () => drawPondLive(season, t, L) }); }
@@ -3835,8 +4004,10 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
     cast.push({ d: N.x + N.y + 1, go: () => {
       const sway = Math.round(Math.sin(t / 900 + N.x) * (curWind + 0.8));
       const ready = W && M ? R.nodeReady(W, M, n, now()) : true;
+      if (seeThrough) ctx.globalAlpha = SEE_ALPHA;
       withBB(flatOffAt(N.x * T + 16, N.y * T + 28, N.x + 0.5, N.y + 0.62), () => cachedDraw(n + '|' + season + '|' + (ready ? 1 : 0) + '|' + sway, N.x * T - 22, N.y * T - 44, 74, 84,
         () => withInk(INK.tree, () => drawNode(n, season, t))));
+      ctx.globalAlpha = 1;
       const q = isoP(N.x + 0.5, N.y + 0.62);
       isoHits.push({ x0: q.x - 16, x1: q.x + 16, y0: q.y - 50, y1: q.y + 6, tx: N.x, ty: N.y });
     } });
@@ -3857,17 +4028,64 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
   drawSmoke(t);
   drawCritters(season, t, L);
   drawWeather(wk, season, t, cv);
+  isoSeaRain(wk, t);
   grade(g, cw, ch, L);
   if (L.lamp && lamps.length){
     g.save(); g.globalCompositeOperation = 'lighter';
     g.drawImage(paintLayer('glow', cw, ch, sigGlow(L.dark), gg => drawGlow(gg, L.dark)), 0, 0);
     g.restore();
   }
+  isoBeam(g, t, L);
   ctx = g;
   drawFireflies(t);
   drawPlaceOverlay(t);
   drawBubbles(t);
   drawFishBar(t);
+}
+
+// 바닷가 섬에 비가 오면 바다에 빗방울 동그라미가 퍼진다. 하나가 다 퍼지면 다른 자리에서 또.
+function isoSeaRain(wk, t){
+  if (!(wk === 'rain' || wk === 'storm') || isoLook().below !== 'sea') return;
+  const K = isoLook(), n = wk === 'storm' ? 40 : 24;
+  for (let i = 0; i < n; i++){
+    const p = (STILL ? 0.5 : t / 900) + R.prand('sr' + i), cyc = Math.floor(p), ph = p - cyc;
+    const x = Math.floor(R.prand('srx' + i + '|' + cyc) * ISO_W), y = K.horizon + 6 + Math.floor(R.prand('sry' + i + '|' + cyc) * (ISO_H - K.horizon - 8));
+    const g0 = isoTileAt(x, y), g1 = isoTileAt(x, y - K.deep);
+    const inIsle = (g) => g.u >= -0.3 && g.v >= -0.3 && g.u <= COLS + 0.3 && g.v <= ROWS + 0.3;
+    if (inIsle(g0) || inIsle(g1)) continue;                                            // 섬과 벼랑 위에는 안 그린다
+    const r = 2 + Math.round(ph * 9), h = Math.ceil(r / 2);
+    ctx.globalAlpha = 0.95 * (1 - ph * 0.8);
+    px(x - r, y, 2, 1, '#ffffff'); px(x + r - 1, y, 2, 1, '#ffffff');
+    px(x - Math.round(r * 0.6), y - h, Math.round(r * 1.2), 1, '#ffffff'); px(x - Math.round(r * 0.6), y + h, Math.round(r * 1.2), 1, '#dff2ff');
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- 건물 비춰 보기 ----------
+/* 섬을 돌려 보고 싶다는 생각에서 나왔다. 아이소 건물은 보이는 두 면만 그려 두어서 진짜로
+   돌리려면 모든 건물을 네 방향으로 다시 그려야 한다. 대신 건물·나무를 비치게 해 뒤에 가린
+   아이·동물·밭을 보여 준다. 이 칸의 단추로 켜고 끈다. */
+let seeThrough = false;
+const SEE_ALPHA = 0.32;
+// 농장 그림 위의 띠 — 옛 농장 단추와 비춰 보기 단추. 아이 화면과 손님 화면이 같이 쓴다.
+function paintPastBar(el, pick){
+  const past = Array.isArray(W.past) ? W.past : [], iso = withView(isoMode);
+  el.hidden = !past.length && !iso;
+  if (el.hidden) return;
+  el.innerHTML = '';
+  const add = (label, on, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (on) b.className = 'on'; b.addEventListener('click', fn); el.appendChild(b); };
+  const text = h => { const s = document.createElement('span'); s.innerHTML = h; el.appendChild(s); };
+  const nameOf = p => { const F = R.FARMS.find(f => f.id === p.farm); return F ? F.icon + ' ' + F.name : '옛 농장'; };
+  const day = k => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(k || ''); return m ? Number(m[1]) + '월 ' + Number(m[2]) + '일' : ''; };
+  if (visitAt != null && past[visitAt]){
+    const p = past[visitAt];
+    text('<b>' + nameOf(p) + '</b> 구경 중' + (day(p.until) ? ' · ' + day(p.until) + '까지 살던 곳' : ''));
+    add('🏡 지금 농장으로', true, () => pick(null));
+  } else if (past.length){
+    text('옛 농장 구경');
+    past.forEach((p, i) => add(nameOf(p), false, () => pick(i)));
+  }
+  if (iso) add(seeThrough ? '🏠 건물 다시 보기' : '👀 건물 비춰 보기', seeThrough, () => { seeThrough = !seeThrough; paintPastBar(el, pick); drawFarm(liveCv); });
 }
 
 // ---------- 옛 농장 구경 ----------
