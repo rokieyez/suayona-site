@@ -131,6 +131,12 @@
   @keyframes mvGlow{50%{box-shadow:3px 3px 0 #c9921e, 0 0 14px #ffd966;}}
   @media (prefers-reduced-motion: reduce){ .movehint.ready{animation:none;} }
   .build.move .act{display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;}
+  /* 옛 농장 구경 — 이사 간 뒤에만 뜬다 */
+  .pastbar{display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:8px 0; padding:8px 12px; font-size:13px; font-weight:800;
+    color:var(--ink); border:2px solid var(--ink); background:#eef6ff; box-shadow:3px 3px 0 var(--ink);}
+  .pastbar button{font:inherit; font-size:12px; font-weight:800; cursor:pointer; padding:4px 10px; min-height:32px;
+    border:2px solid var(--ink); background:#fff; color:var(--ink); border-radius:0;}
+  .pastbar button.on{background:#ffe066;}
   .item .act button, .sm{font:inherit; font-size:11.5px; font-weight:800; cursor:pointer; padding:4px 8px; min-height:32px;
     border:2px solid var(--ink); background:var(--cream); color:var(--ink); border-radius:0;}
   .item .act button:disabled, .sm:disabled{opacity:.45; cursor:not-allowed;}
@@ -313,6 +319,8 @@
 
       <!-- 이사 알림 — 꾸미개가 몇 개 남았는지. 누르면 가게 꾸미기 칸이 열린다 -->
       <button type="button" class="movehint" id="moveHint" hidden></button>
+      <!-- 옛 농장 구경 — 두고 온 농장을 다시 가 본다. 구경하는 동안은 눌러도 아무 일도 안 한다 -->
+      <div class="pastbar" id="pastBar" hidden></div>
       <div class="tools" id="tools"></div>
       <div class="seeds" id="seedRow" hidden></div>
       <div class="stage reveal"><canvas id="farmCanvas" width="960" height="768" aria-label="농장 지도"></canvas></div>

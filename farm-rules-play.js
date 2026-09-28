@@ -160,8 +160,8 @@
     Object.keys(each).forEach(k => { if (k !== 'coins') take(mine, k, each[k]); });
   }
   function buildState(world, id){
-    const b = world.buildings[id] || { paid: {} };
-    return { done: !!b.done, sua: !!b.paid.sua, yona: !!b.paid.yona };
+    const b = world.buildings[id] || {}, paid = b.paid || {};
+    return { done: !!b.done, sua: !!paid.sua, yona: !!paid.yona };
   }
   function thingsOn(world){ return PLACE_IDS.filter(id => thingHere(world, id)).map(id => spotOf(world, id)); }
   function boxHit(a, b){ return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }

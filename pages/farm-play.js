@@ -182,6 +182,7 @@ function syncTop(){
   const night = L.dark > 0.16;
   if (R.farmOf){ const F = R.farmOf(W), h1 = document.querySelector('.section-head h1'); if (h1) h1.textContent = W.farm ? '수아연아 ' + F.name : '수아연아 농장'; }
   syncMoveHint();
+  syncPast();
   $('#cSeason').textContent = R.SEASON_ICON[cal.season] + ' ' + R.SEASON_NAME[cal.season] + ' ' + cal.dayOfSeason + '/' + cal.len + '일 · ' + cal.year + '년째';
   const cw = $('#cWeather');
   const fc = R.forecast ? R.forecast(W, now()) : null;
@@ -219,6 +220,38 @@ function syncMoveHint(){
     el.dataset.on = 1;
     el.addEventListener('click', () => { const n = R.moveState(W, M); shopTab = 'deco'; openTab(n.ready || n.ask ? 'duo' : 'shop', true); });
   }
+}
+// 옛 농장 구경 — 이사 간 뒤에만 뜬다. 구경하는 동안은 농장 그림만 옛 농장으로 바뀌고 나머지는 그대로다.
+const visiting = () => typeof visitAt !== 'undefined' && visitAt != null;
+function syncPast(){
+  const el = $('#pastBar'); if (!el || typeof visitAt === 'undefined') return;
+  const past = Array.isArray(W.past) ? W.past : [];
+  if (visitAt != null && !past[visitAt]){ visitAt = null; walkers = null; beasts = null; withView(ensureActors); }
+  el.hidden = !past.length;
+  if (!past.length) return;
+  const nameOf = p => { const F = R.FARMS.find(f => f.id === p.farm); return F ? F.icon + ' ' + F.name : '옛 농장'; };
+  const day = k => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(k || ''); return m ? Number(m[1]) + '월 ' + Number(m[2]) + '일' : ''; };
+  el.innerHTML = '';
+  if (visitAt != null){
+    const p = past[visitAt], s = document.createElement('span');
+    s.innerHTML = '<b>' + nameOf(p) + '</b> 구경 중' + (day(p.until) ? ' · ' + day(p.until) + '까지 살던 곳' : '');
+    el.appendChild(s);
+    el.appendChild(btn('🏡 지금 농장으로', 'on', () => visitFarm(null)));
+    return;
+  }
+  const s = document.createElement('span'); s.textContent = '옛 농장 구경'; el.appendChild(s);
+  past.forEach((p, i) => el.appendChild(btn(nameOf(p), '', () => visitFarm(i))));
+}
+function visitFarm(i){
+  visitAt = i;
+  if (placeMode) togglePlace();
+  if (fishing) fishing = null;
+  // 아이들을 그 농장 집 앞에서 새로 세운다(동물도 그 농장 것으로). 움직임 줄이기면 걷는 고리가 없어 여기서 바로 세운다.
+  walkers = null; beasts = null;
+  withView(ensureActors);
+  sfx('house');
+  syncPast();
+  drawFarm(liveCv);
 }
 // 둘이서 탭에 「내 차례」가 몇 개인지 — 자매가 낸 건물, 잡아당길 큰 작물, 쓰다듬을 동물.
 function duoWaiting(){
@@ -343,7 +376,7 @@ function sweepTile(id){
 }
 function onFarmDown(e){
   sweep = null;
-  if (fishing || placeMode || !SWEEP_TOOLS[tool]) return;
+  if (visiting() || fishing || placeMode || !SWEEP_TOOLS[tool]) return;
   const { tx, ty } = tileAt(e.clientX, e.clientY);
   const id = plotAtTile(tx, ty);
   if (!id) return;                                       // 밭에서 시작할 때만
@@ -368,12 +401,15 @@ function onFarmUp(){
 }
 function onFarmTap(e){
   if (sweepClick){ sweepClick = false; return; }
+  if (visiting()){ flash('옛 농장을 구경하는 중이에요. 위의 「지금 농장으로」를 누르면 돌아가요'); return; }
   if (fishing){ if (fishOpen()) finishFishing(); return; }   // 찌가 떠 있으면 어디를 눌러도 당긴다
-  const { tx, ty } = tileAt(e.clientX, e.clientY);
+  // 배치에서 들고 있는 것을 놓을 때는 땅의 칸으로 — 아이소 섬에서 지붕이 뒤 칸을 덮는다
+  const { tx, ty } = tileAt(e.clientX, e.clientY, placeMode && !!placePick);
   if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return;
   if (placeMode){ onPlaceTap(tx, ty); return; }
   // 반딧불이는 무엇 위를 날든 먼저 잡힌다 — 밭 위에 있다고 놓치면 아이가 답답하다
-  const fi = flyAt(tx, ty);
+  const p0 = pixAt(e.clientX, e.clientY);
+  const fi = typeof flyAtPix === 'function' ? flyAtPix(p0.x, p0.y) : flyAt(tx, ty);
   if (fi >= 0){
     // 누른 그 마리를 먼저 지운다. act 가 다시 그리면서 마릿수를 맞추므로,
     // 뒤에 지우면 애먼 마리까지 사라진다. 못 잡았으면 syncFlies 가 도로 채운다.
@@ -411,7 +447,10 @@ function onFarmTap(e){
 // ---------- 말풍선 ----------
 // 누른 도트 자리에 누가 서 있나. 그림이 발끝(x, y)에서 위로 그려지므로 그 높이만큼 위를 본다.
 function actorAt(x, y){
-  const inBox = (cx, foot, w, h) => Math.abs(x - cx) <= w / 2 + 2 && y >= foot - h - 2 && y <= foot + 3;
+  // 발끝을 화면 자리로 옮겨 견준다 — 아이소 섬에서는 걷는 좌표와 그려진 자리가 다르다
+  // 배포 직후 옛 farm.js 와 짝지어져도 안 깨지게 — 그때는 판 좌표 그대로 견준다
+  const scr = typeof actorScreen === 'function' ? actorScreen : (a, b) => ({ x: a, y: b });
+  const inBox = (cx, foot, w, h) => { const p = scr(cx, foot); return Math.abs(x - p.x) <= w / 2 + 2 && y >= p.y - h - 2 && y <= p.y + 3; };
   if (walkers) for (const w of walkers) if (inBox(w.x, w.y, 28, 38)) return { kind: 'kid', o: w };
   if (dolls) for (const d of dolls.list){ const D = DOLLS[d.kind]; if (D && inBox(d.x, d.y, D.w, D.art.length)) return { kind: 'doll', o: d }; }
   if (beasts) for (const a of beasts.list){
@@ -477,7 +516,7 @@ function speak(hit){
     const B = BEAST[hit.o.kind] || BEAST.chicken, k = hit.rec && hit.rec.baby ? BABY_K : 1;
     text = pick(linesForBeast(hit.o, hit.rec)); x = hit.o.x; y = hit.o.y - B.art.length * k; id = 'b' + hit.o.id;
   }
-  bubbleAt(id, x, y, text, t);
+  bubbleAt(id, x, y, text, t, hit.o.y);
   sfx('pop');
 }
 // ---------- 배치 바꾸기 ----------
@@ -1058,7 +1097,7 @@ function moveCard(cls){
     : '아래를 모두 채우면 이사 갈 수 있어요';
   const list = s.conds.map(c => (c.left ? '⬜ ' : '✅ ') + c.icon + ' ' + c.name + ' ' + Math.min(c.have, c.need) + '/' + c.need).join('<br>');
   d.innerHTML = '<div class="nm">🚚 ' + s.next.icon + ' ' + s.next.name + '으로 이사</div><div class="pr">' + s.next.desc + '<br>' + say + '<br>' + list +
-    '<br><small>꾸미개와 다 지은 건물은 ' + s.farm.name + '에 두고 가요. 동전·가방·동물·집 가구·밭은 가져가요.</small></div>';
+    '<br><small>꾸미개와 다 지은 건물은 ' + s.farm.name + '에 두고 가요. 동전·가방·동물·집 가구·밭은 가져가요. 두고 간 농장은 언제든 다시 구경할 수 있어요.</small></div>';
   if (R.MOVE_OPEN === false){                                      // 새 농장을 짓는 동안은 조건만 보여 준다
     d.insertAdjacentHTML('beforeend', '<div class="pr">🔒 <b>' + s.next.name + '은 지금 짓고 있어요. 곧 열려요!</b> 그동안 조건을 채워 둬요.</div>');
     return d;
@@ -1684,7 +1723,9 @@ function snapCanvas(){
      도트 두 배로 줄이면 1310x1133·144KB — 저장소가 1GB 뿐이고 아이가 날마다 낼 수 있으니 그만큼이 낫다.
      줄여 그리든 새로 그리든 무게는 같지만(둘 다 144KB), 새로 그리면 도트가 정확히 두 배라
      기기 배수와 상관없이 같은 그림이 나온다 — 두 아이가 다른 폰으로 내도 한 장이 똑같다. */
-  const W2 = R.GRID.w * T * SNAP_DOT, H2 = R.GRID.h * T * SNAP_DOT;
+  // 이사 간 농장은 아이소 섬이라 그림 크기가 다르다(옛 farm.js 와 짝지어졌으면 판 크기로)
+  const iso = typeof isoMode === 'function' && isoMode();
+  const W2 = (iso ? ISO_W : R.GRID.w * T) * SNAP_DOT, H2 = (iso ? ISO_H : R.GRID.h * T) * SNAP_DOT;
   const shot = document.createElement('canvas'); shot.width = W2; shot.height = H2;
   drawFarm(shot);
   const BAR = Math.round(W2 * 0.062), PAD = Math.round(W2 * 0.012);
@@ -1698,7 +1739,7 @@ function snapCanvas(){
   g.fillStyle = '#3a3226';
   g.font = '700 ' + Math.round(BAR * 0.46) + 'px "Galmuri11", system-ui, sans-serif';
   g.textBaseline = 'middle';
-  g.fillText('수아연아 농장 · ' + R.dayKey(now()), PAD + 4, PAD + BAR * 0.5);
+  g.fillText((W.farm && R.farmOf ? '수아연아 ' + R.farmOf(W).name : '수아연아 농장') + ' · ' + R.dayKey(now()), PAD + 4, PAD + BAR * 0.5);
   const right = R.SEASON_ICON[cal.season] + ' ' + R.SEASON_NAME[cal.season] + ' ' + cal.year + '년째 · '
     + (WNAME[wk] || wk) + ' · Lv ' + R.levelOf(M.xp);
   g.textAlign = 'right';
@@ -1711,6 +1752,7 @@ function snapCanvas(){
 }
 function openSnap(){
   if (!W || !M){ flash('농장을 먼저 열어요', true); return; }
+  if (visiting()){ flash('지금 농장으로 돌아와서 찍어요', true); return; }
   const cv = snapCanvas();
   const inner = $('#modalInner');
   inner.innerHTML = '<h3 class="pixel">📷 오늘의 농장 한 장</h3>'

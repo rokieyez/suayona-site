@@ -312,8 +312,8 @@ const FARM = (() => {
      room 은 수아 방·연아 방·거실 「각각」에 놓인 가구 수 — 한 아이 방만 채우고 떠나지 않게.
      가구와 동물은 이사 때 가져가니 갈수록 조금씩 높다. 동물은 우리를 다 채우면 18마리까지 산다. */
   const MOVE_KEEP = { kitchen: true };
-  // 새 농장(아이소 화면)을 다 그릴 때까지 조건과 알림만 보이고 떠나지는 못한다. 다 되면 true 로.
-  const MOVE_OPEN = false;
+  // 새 농장(아이소 화면)을 다 그릴 때까지 조건과 알림만 보이고 떠나지는 못했다. 2026-09-28 아이소 섬을 그려 열었다.
+  const MOVE_OPEN = true;
   const MOVE_GIFT = 2000;                 // 이삿날 두 아이에게 우편으로 가는 동전
   function farmIndex(world){ return Math.max(0, Math.min(FARMS.length - 1, Math.floor(Number(world && world.farm) || 0))); }
   function farmOf(world){ return FARMS[farmIndex(world)]; }

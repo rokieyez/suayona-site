@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '7';
+const PLAY_V = '8';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -734,6 +734,9 @@ function hash2(x, y, s){
 }
 // 칸 크기를 sc 로 묶은 얼룩. noise2 와 같은 자리에 쓰되 셈이 훨씬 싸다.
 const noise2i = (x, y, sc, s) => hash2(Math.floor(x / sc), Math.floor(y / sc), s);
+// 칸을 넘는 큰 무늬 자리(칸 단위 가운데·반지름) — 흙이 드러난 자리와 클로버 자리. 아이소 섬도 같은 자리를 쓴다.
+const DRY_PATCH = [[3.4, 6.6, 1.9, 1.2], [12.8, 3.4, 1.6, 1.0], [7.6, 14.4, 2.2, 1.1], [16.4, 12.8, 1.7, 1.3]];
+const CLOVER_PATCH = [[5.6, 3.0, 1.6, 1.1], [15.6, 7.8, 2.0, 1.3], [10.4, 15.0, 1.8, 1.0], [1.6, 13.4, 1.4, 1.0]];
 function drawGround(season){
   const P = groundPal(season), Wp = COLS * T, Hp = ROWS * T, LK = farmLook() || {};
   // 1) 큰 얼룩 — 칸 경계를 넘어 이어지게. 이게 없으면 열여섯 칸짜리 바둑판이 눈에 띈다.
@@ -806,29 +809,24 @@ function drawGround(season){
         if (d < 0.5 + noise2i(x, y, 20, seed) * 0.7) paint(x, y, d);
       }
   };
-  [[3.4, 6.6, 1.9, 1.2], [12.8, 3.4, 1.6, 1.0], [7.6, 14.4, 2.2, 1.1], [16.4, 12.8, 1.7, 1.3]]
-    .forEach((w, i) => patch(w[0] * T, w[1] * T, w[2] * T, w[3] * T, 101 + i, (x, y, d) => {
+  DRY_PATCH.forEach((w, i) => patch(w[0] * T, w[1] * T, w[2] * T, w[3] * T, 101 + i, (x, y, d) => {
       if (d > 0.55 && hash2(x, y, 66) > 0.45) return;          // 가장자리는 성글게 흩어진다
       const r = hash2(x, y, 77);
       if (r > 0.9925){ px(x, y, 4, 2, P.rock); px(x, y + 2, 4, 2, shade(P.rock, -22)); return; }   // 드러난 조약돌
       if (r > 0.985 && season !== 'winter'){ px(x, y, 2, 5, P.tuft[1]); px(x + 2, y - 2, 2, 7, P.tuft[0]); return; }  // 뚫고 난 풀
       px(x, y, 1, 1, r > 0.92 ? shade(P.dry, -12) : r < 0.08 ? shade(P.dry, 9) : P.dry);
     }));
-  if (season !== 'winter') [[5.6, 3.0, 1.6, 1.1], [15.6, 7.8, 2.0, 1.3], [10.4, 15.0, 1.8, 1.0], [1.6, 13.4, 1.4, 1.0]]
-    .forEach((w, i) => patch(w[0] * T, w[1] * T, w[2] * T, w[3] * T, 201 + i, (x, y, d) => {
+  if (season !== 'winter') CLOVER_PATCH.forEach((w, i) => patch(w[0] * T, w[1] * T, w[2] * T, w[3] * T, 201 + i, (x, y, d) => {
       if (d > 0.5 && hash2(x, y, 88) > 0.4) return;
       const r = hash2(x, y, 99);
       if (r > 0.66) px(x, y, 1, 1, shade(P.tuft[0], r > 0.9 ? 14 : -12));   // 클로버 잎
     }));
 }
 // 흙길 — 집 앞에서 밭까지, 그리고 목장까지
-function drawPath(season){
-  const c = season === 'winter' ? ['#dcd6c8', '#cfc7b6', '#e6e0d3'] : ['#e0cfa8', '#d2bf95', '#ece0bf'];
-  const edge = season === 'winter' ? '#c6bfae' : '#c2ac7e';        // 밟혀 다져진 가장자리
-  const P = groundPal(season);
-  /* 길은 먼저 「어느 칸을 지나는가」만 모아 두고, 그다음에 칸마다 이웃을 보고 그린다.
-     전에는 칸마다 가로 띠(y+8..y+24)만 깔아서, 세로로 내려가는 길은 띠 사이가 벌어져
-     토막토막 끊겨 보였다. 이웃이 있는 쪽으로 끝까지 채우면 모퉁이까지 이어진다. */
+/* 길은 먼저 「어느 칸을 지나는가」만 모아 두고, 그다음에 칸마다 이웃을 보고 그린다.
+   전에는 칸마다 가로 띠(y+8..y+24)만 깔아서, 세로로 내려가는 길은 띠 사이가 벌어져
+   토막토막 끊겨 보였다. 이웃이 있는 쪽으로 끝까지 채우면 모퉁이까지 이어진다. */
+function pathCells(){
   const cells = new Set();
   const lay = (x0, y0, x1, y1) => {
     const dx = Math.sign(x1 - x0), dy = Math.sign(y1 - y0);
@@ -844,7 +842,13 @@ function drawPath(season){
   const hs = spot('house'), row = R.FIELD.y0 + R.FIELD.h + 1;
   const way = [[hs.x + 2, hs.y + hs.h], [hs.x + 2, hs.y + hs.h + 2], [4, hs.y + hs.h + 2], [4, row], [COLS - 6, row]];
   for (let i = 1; i < way.length; i++) lay(way[i - 1][0], way[i - 1][1], way[i][0], way[i][1]);
-
+  return cells;
+}
+function drawPath(season){
+  const c = season === 'winter' ? ['#dcd6c8', '#cfc7b6', '#e6e0d3'] : ['#e0cfa8', '#d2bf95', '#ece0bf'];
+  const edge = season === 'winter' ? '#c6bfae' : '#c2ac7e';        // 밟혀 다져진 가장자리
+  const P = groundPal(season);
+  const cells = pathCells();
   const has = (x, y) => cells.has(x + ',' + y);
   cells.forEach(k => {
     const [x, y] = k.split(',').map(Number), X = x * T, Y = y * T;
@@ -1080,7 +1084,11 @@ function ditherRow(X, Y, w, c, amt, row, P){
 // 밤에 불이 켜지는 자리는 여기에 모아 둔다. 바탕을 그릴 때 채우고, 어두워지면 그 위에 빛을 얹는다.
 let lamps = [];
 // 테를 두르는 동안에는 같은 그림을 다섯 번 그리므로 등불도 다섯 번 모인다 — 마지막 한 번만 센다
-function lamp(x, y, r, c){ if (inkPass) return; lamps.push({ x, y, r, c: c || '#ffcf7a' }); }
+function lamp(x, y, r, c){
+  if (inkPass) return;
+  if (lampOff){ x += lampOff.x; y += lampOff.y; }         // 아이소 섬에 곧게 세운 그림이면 옮긴 만큼
+  lamps.push({ x, y, r, c: c || '#ffcf7a' });
+}
 // 널빤지 벽 — 같은 색을 통으로 칠하지 않고 판자 결과 못 자국을 넣는다.
 function planks(X, Y, w, h, base){
   px(X, Y, w, h, base);
@@ -2052,7 +2060,9 @@ function drawDoll(d, t){
   footShade(d.x, d.y - 2, D.w - 5);
   artOut('doll' + d.kind, D.art, Math.round(d.x - D.w / 2), Math.round(d.y - D.art.length + bob), D.pal, d.flip);
 }
-function bubbleAt(id, x, y, text, t){
+// foot 은 말하는 이의 발끝 — 아이소 섬에서는 발끝을 화면 자리로 옮기고 그 위로 키만큼 올린다
+function bubbleAt(id, x, y, text, t, foot){
+  if (isoView && foot != null){ const q = isoP(x / T, foot / T); y = q.y - (foot - y); x = q.x; }
   bubbles = bubbles.filter(o => o.id !== id);
   bubbles.push({ id, x, y, text, at: t, until: t + 2400 + text.length * 70 });
 }
@@ -2081,7 +2091,7 @@ function drawBubbles(t){
     const w = Math.ceil(lw) + 8, h = lines.length * 10 + 6;
     // 튀어나오는 첫 순간 조금 아래서 올라오고, 끝날 때 옅어진다
     const in_ = Math.min(1, (t - o.at) / 140), out = Math.min(1, (o.until - t) / 320);
-    const x = Math.round(Math.max(2, Math.min(COLS * T - w - 2, o.x - w / 2)));
+    const x = Math.round(Math.max(2, Math.min(artSize().w - w - 2, o.x - w / 2)));
     let y = Math.round(Math.max(2, o.y - h - 5 + (1 - in_) * 3));
     placed.forEach(b => { if (x < b.x + b.w && x + w > b.x && y < b.y + b.h + 6 && y + h > b.y) y = Math.max(2, b.y - h - 3); });
     placed.push({ x, y, w, h });
@@ -2319,12 +2329,18 @@ function drawPondLive(season, t, L){
   if (!ice && L.dark < 0.55) for (let i = 0; i < 6; i++){
     const ph = (t / 1000 + R.prand('pgt' + i) * 7) % 7;
     if (ph > 0.7) continue;
-    const gx = cx + (R.prand('pgx' + i) - 0.5) * wx * 1.3, gy = cy + (R.prand('pgy' + i) - 0.5) * wy * 1.2;
+    const iq = isoView ? isoP(b.x + b.w * (0.5 + (R.prand('pgx' + i) - 0.5) * 0.6), b.y + b.h * (0.5 + (R.prand('pgy' + i) - 0.5) * 0.6)) : null;
+    const gx = iq ? Math.round(iq.x) : cx + (R.prand('pgx' + i) - 0.5) * wx * 1.3, gy = iq ? Math.round(iq.y) : cy + (R.prand('pgy' + i) - 0.5) * wy * 1.2;
     if (ph < 0.35){ px(gx - 1, gy, 3, 1, '#f2fbff'); px(gx, gy - 1, 1, 3, '#f2fbff'); } else px(gx, gy, 1, 1, '#e3f6fd');
   }
   const B = BEAST.duck, rows = ice ? B.art : B.art.slice(0, 14);                 // 헤엄칠 땐 다리와 배 밑이 물에 잠긴다
   const list = [0, 1].map(i => {
     const dir = i ? -1 : 1, a = dir * t / (i ? 23000 : 17000) * Math.PI * 2 + i * 2.6;
+    if (isoView){                                   // 아이소 섬 — 칸 위에서 도는 길을 화면으로 옮긴다
+      const k = 0.6 - i * 0.1, ru = 0.39 * b.w * k, rv = 0.38 * b.h * k;
+      const q = isoP(b.x + b.w / 2 + Math.cos(a) * ru, b.y + b.h / 2 + Math.sin(a) * rv);
+      return { i, x: q.x, y: q.y + 4, flip: (-Math.sin(a) * ru - Math.cos(a) * rv) * dir < 0 };
+    }
     const ex = wx - 20 - i * 3, ey = wy - 13 - i * 5;
     return { i, x: cx + Math.cos(a) * ex, y: cy + 5 + Math.sin(a) * ey, flip: -Math.sin(a) * dir < 0 };
   }).sort((p, q) => p.y - q.y);
@@ -2468,7 +2484,7 @@ function syncFlies(){
 }
 function drawFireflies(t){
   syncFlies();
-  const Wp = COLS * T, Hp = ROWS * T;
+  const A = artSize(), Wp = A.w, Hp = A.h;
   flies.forEach(f => {
     f.x = (f.sx * Wp + Math.sin(t / 1500 + f.ph * 1.3) * 36 + Wp) % Wp;
     f.y = (f.sy * Hp + Math.cos(t / 1900 + f.ph * 2.1) * 26 + Hp) % Hp;
@@ -2478,14 +2494,15 @@ function drawFireflies(t){
     ctx.globalAlpha = 1;
   });
 }
-function flyAt(tx, ty){
-  const px0 = tx * T + T / 2, py0 = ty * T + T / 2;
+function flyAt(tx, ty){ const c = isoView ? isoP(tx + 0.5, ty + 0.5) : { x: tx * T + T / 2, y: ty * T + T / 2 }; return flyAtPix(c.x, c.y); }
+// 누른 화면 도트 가까이의 반딧불이 — 아이소 섬에서는 칸이 아니라 누른 자리로 견줘야 지붕 앞을 나는 것도 잡힌다
+function flyAtPix(px0, py0){
   let best = -1, bd = 24;
   flies.forEach((f, i) => { const d = Math.hypot(f.x - px0, f.y - py0); if (d < bd){ bd = d; best = i; } });
   return best;
 }
 function drawCritters(season, t, L){
-  const Wp = COLS * T, Hp = ROWS * T;
+  const A = artSize(), Wp = A.w, Hp = A.h;
   if (L.dark > 0.34) return;      // 밤에는 반딧불이만 난다 — drawFireflies 가 따로 그린다
   if (season === 'winter') return;
   // 나비 — 봄여름, 잠자리 — 가을
@@ -2516,7 +2533,8 @@ function drawCritters(season, t, L){
 }
 // 굴뚝 연기 — 집은 늘 사람이 사는 것처럼
 function drawSmoke(t){
-  const b = spot('house'), X = b.x * T + b.w * T - 34, Y = b.y * T - 4;
+  if (isoView && !isoChimney) return;
+  const b = spot('house'), X = isoView ? isoChimney.x - 2 : b.x * T + b.w * T - 34, Y = isoView ? isoChimney.y : b.y * T - 4;
   for (let i = 0; i < 5; i++){
     const ph = ((t / 24) + i * 90) % 450;
     const y = Y - ph / 4.5, sz = 4 + ph / 95;
@@ -2528,7 +2546,7 @@ function drawSmoke(t){
 }
 // ---------- 날씨 ----------
 function drawWeather(wk, season, t, cv){
-  const Wp = COLS * T, Hp = ROWS * T;
+  const A = artSize(), Wp = A.w, Hp = A.h;
   if (wk === 'rain' || wk === 'storm'){
     // 비 오는 날은 온 세상이 조금 푸르고 어둡다 — 빗줄기만으로는 비처럼 안 보인다
     ctx.fillStyle = wk === 'storm' ? 'rgba(60,74,110,.24)' : 'rgba(84,116,158,.15)';
@@ -2613,8 +2631,9 @@ function drawFishBar(t){
   const b = spot('pond');
   const bw = 116, bh = 10;
   // 연못이 화면 구석에 있으면 바가 잘린다 — 안쪽으로 밀어 넣는다
-  const bx = Math.max(6, Math.min(COLS * T - bw - 6, Math.round(b.x * T + b.w * T / 2 - bw / 2)));
-  const by = Math.max(6, Math.round(b.y * T - 22));
+  const top = isoView ? isoP(b.x + b.w / 2, b.y) : { x: b.x * T + b.w * T / 2, y: b.y * T };
+  const bx = Math.max(6, Math.min(artSize().w - bw - 6, Math.round(top.x - bw / 2)));
+  const by = Math.max(6, Math.round(top.y - 22));
   const ready = !fishing.done && performance.now() < fishing.openAt;
   px(bx - 3, by - 3, bw + 6, bh + 6, '#2f2a24');
   px(bx, by, bw, bh, '#fff6e9');
@@ -2631,6 +2650,7 @@ function drawFishBar(t){
 
 function drawPlaceOverlay(t){
   if (!placeMode) return;
+  if (isoView) return isoPlaceOverlay(t);
   ctx.globalAlpha = 0.5;
   for (let x = 0; x <= COLS; x++) px(x * T, 0, 2, ROWS * T, '#ffffff');
   for (let y = 0; y <= ROWS; y++) px(0, y * T, COLS * T, 2, '#ffffff');
@@ -2678,7 +2698,7 @@ function paintLayer(name, w, h, sig, fn){
   }
   return L.cv;
 }
-function dropLayers(){ Object.keys(layers).forEach(k => { layers[k].sig = null; }); Object.keys(spriteBuf).forEach(k => { delete spriteBuf[k]; }); Object.keys(furnCache).forEach(k => { delete furnCache[k]; }); Object.keys(dotBuf).forEach(k => { delete dotBuf[k]; }); }
+function dropLayers(){ Object.keys(layers).forEach(k => { layers[k].sig = null; }); [spriteBuf, furnCache, dotBuf, isoBuf].forEach(o => Object.keys(o).forEach(k => { delete o[k]; })); }
 // 담아 둔 겹 넷을 한 장으로 미리 합쳐 둔다.
 // 겹을 나눈 값은 「다시 안 그리는 것」에 있지 「매번 여러 장을 얹는 것」에 있지 않다 —
 // 캔버스가 GPU 를 못 쓸 때는 전면 한 장 얹는 데만 0.28ms 가 든다.
@@ -2877,15 +2897,994 @@ function drawGlow(g, dark){
     g.fillRect((l.x - l.r) * S, (l.y - l.r) * S, l.r * 2 * S, l.r * 2 * S);
   });
 }
+/* ================= 새 농장 — 아이소메트릭 섬 =================
+   이사 간 농장(W.farm ≥ 1)은 위에서 내려다본 판 대신 비스듬히 내려다본 섬으로 그린다
+   (2026-09-28 로키즈: 「이전 농장과 완전히 다른 느낌, 농장 메인화면도 아이소메트릭으로 여러 층 레이어」).
+   규칙의 칸(20×16)은 그대로다 — 칸 (u,v) 를 마름모에 옮겨 그릴 뿐이라 배치·길찾기·저장은 안 바뀐다.
+   겹은 먼 하늘 → 먼 풍경 두세 겹 → 섬 아래(바다·골짜기·구름) → 땅켜가 드러난 절벽 → 섬 윗면 →
+   바닥에 붙은 것(밭·연못·목장 바닥) → 작물 → 깊이순으로 선 것(건물·나무·아이·동물) → 날씨·빛.
+   집·가게·닭장·외양간·온실은 아이소 상자로 새로 짓고, 작은 것(우물·우편함·꾸미개…)은
+   원래 그림을 그 칸 위에 곧게 세운다. 면은 캔버스 path 대신 도트 줄로 채워 가장자리가 뭉개지지 않는다. */
+const IT = 40, IH = 20;                  // 칸 마름모의 가로·세로(도트)
+const ITOP = 108, ICLIFF = 72;           // 맨 뒤 꼭짓점 위로 남긴 하늘 · 섬 아래로 드러난 땅켜
+const ISO_W = (COLS + ROWS) * IT / 2, ISO_H = ITOP + (COLS + ROWS) * IH / 2 + ICLIFF + 12;
+const IOX = ROWS * IT / 2;
+let isoView = false, isoHits = [], isoChimney = null, lampOff = null;
+const isoBuf = {};
+function isoMode(){ return !!W && (W.farm || 0) >= 1; }
+// 칸 (u,v) 의 바닥에서 z 도트 위 → 화면 도트
+function isoP(u, v, z){ return { x: IOX + (u - v) * IT / 2, y: ITOP + (u + v) * IH / 2 - (z || 0) }; }
+function isoTileAt(x, y){ const a = (x - IOX) / (IT / 2), b = (y - ITOP) / (IH / 2); return { u: (a + b) / 2, v: (b - a) / 2 }; }
+// 아이·동물은 위에서 본 좌표(도트)로 걷는다. 누른 자리와 견줄 때 화면 자리로 옮긴다.
+function actorScreen(x, y){ return isoView ? isoP(x / T, y / T) : { x, y }; }
+function artSize(){ return isoView ? { w: ISO_W, h: ISO_H } : { w: COLS * T, h: ROWS * T }; }
+// 다각형을 도트 줄로 채운다. col 이 함수면 도트마다 색을 묻고 같은 색끼리 한 번에 칠한다.
+function polyFill(pts, col){
+  let y0 = Infinity, y1 = -Infinity;
+  for (const p of pts){ if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }
+  const fn = typeof col === 'function';
+  for (let y = Math.floor(y0); y < Math.ceil(y1); y++){
+    const yc = y + 0.5, xs = [];
+    for (let i = 0; i < pts.length; i++){
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      if ((a[1] <= yc) !== (b[1] <= yc)) xs.push(a[0] + (yc - a[1]) / (b[1] - a[1]) * (b[0] - a[0]));
+    }
+    xs.sort((p, q) => p - q);
+    for (let k = 0; k + 1 < xs.length; k += 2){
+      const xa = Math.round(xs[k]), xb = Math.round(xs[k + 1]);
+      if (xb <= xa) continue;
+      if (!fn){ px(xa, y, xb - xa, 1, col); continue; }
+      let rs = xa, rc = col(xa, y);
+      for (let x = xa + 1; x <= xb; x++){
+        const c = x < xb ? col(x, y) : null;
+        if (c !== rc){ if (rc) px(rs, y, x - rs, 1, rc); rs = x; rc = c; }
+      }
+    }
+  }
+}
+function poly3(pts, col){ polyFill(pts.map(p => { const q = isoP(p[0], p[1], p[2]); return [q.x, q.y]; }), col); }
+function isoSeg(a, b, col, th){
+  const dx = b.x - a.x, dy = b.y - a.y, n = Math.max(1, Math.round(Math.max(Math.abs(dx), Math.abs(dy))));
+  let last = '';
+  for (let i = 0; i <= n; i++){
+    const x = Math.round(a.x + dx * i / n), y = Math.round(a.y + dy * i / n), k = x + ',' + y;
+    if (k !== last){ last = k; px(x, y, 1, th || 1, col); }
+  }
+}
+// 칸 네모(x,y,w,h) 안의 도트마다 colFn(u,v) 색을 칠한다. z 만큼 떠 있는 면도 된다.
+function isoPaintRect(x, y, w, h, colFn, z){
+  z = z || 0;
+  const top = isoP(x, y, z).y, bot = isoP(x + w, y + h, z).y, xa = Math.floor(isoP(x, y + h).x), xb = Math.ceil(isoP(x + w, y).x);
+  for (let yy = Math.floor(top); yy < Math.ceil(bot); yy++){
+    let rs = xa, rc = null;
+    for (let xx = xa; xx <= xb; xx += 2){
+      let c = null;
+      if (xx < xb){
+        const q = isoTileAt(xx + 1, yy + 0.5 + z);
+        if (q.u >= x && q.v >= y && q.u < x + w && q.v < y + h) c = colFn(q.u, q.v);
+      }
+      if (c !== rc){ if (rc) px(rs, yy, xx - rs, 1, rc); rs = xx; rc = c; }
+    }
+  }
+}
+// 작은 상자 하나 — 굴뚝·기둥·광주리·화분 같은 것. 보이는 세 면(위·왼쪽 앞·오른쪽 앞)만.
+function isoCube(u, v, su, sv, z0, z1, top, lf, rt){
+  poly3([[u, v + sv, z0], [u + su, v + sv, z0], [u + su, v + sv, z1], [u, v + sv, z1]], lf);
+  poly3([[u + su, v + sv, z0], [u + su, v, z0], [u + su, v, z1], [u + su, v + sv, z1]], rt);
+  poly3([[u, v, z1], [u + su, v, z1], [u + su, v + sv, z1], [u, v + sv, z1]], top);
+}
+
+// ---- 섬 풍경 — 농장마다 하늘·먼 풍경·섬 아래·땅켜 빛깔이 다르다 ----
+const ISO_LOOK = {
+  seaside:  { sky: ['#8fd0f2', '#addcf5', '#cdebf9', '#eef8fd'], horizon: 176, below: 'sea',
+              strata: ['#e0c393', '#cfa574', '#b98c66', '#9a7b66'], deep: 64 },
+  mountain: { sky: ['#9cc4e6', '#b9d6ee', '#d4e6f3', '#ecf4f8'], horizon: 250, below: 'valley',
+              strata: ['#7d5b3d', '#8c7a68', '#716c68', '#57534f'], deep: ICLIFF },
+  cloud:    { sky: ['#b7dcff', '#d3e8ff', '#eee4fb', '#ffe6f2'], horizon: 330, below: 'clouds',
+              strata: ['#bf947b', '#cfa5c2', '#ab90cb', '#8b7dbd'], deep: ICLIFF },
+};
+function isoLook(){ return ISO_LOOK[R.farmOf(W).id] || ISO_LOOK.seaside; }
+// 하늘은 네 빛깔을 띠로 깔고 사이를 흩뿌려 잇는다
+function isoSky(K, y0, y1){
+  const n = K.sky.length - 1;
+  for (let y = y0; y < y1; y++){
+    const tt = (y - y0) / Math.max(1, y1 - y0) * n, k = Math.min(n - 1, Math.floor(tt)), f = tt - k;
+    px(0, y, ISO_W, 1, K.sky[k]);
+    if (f > 0.05) ditherRow(0, y, ISO_W, K.sky[k + 1], f, y);
+  }
+}
+// 산등성이 한 겹 — 사인 몇 개와 잡음으로 봉우리를 세운다. 아래는 끝까지 채운다.
+function isoRidge(base, amp, col, seed, snow, bot){
+  for (let x = 0; x < ISO_W; x += 2){
+    const h = amp * (0.55 + 0.25 * Math.sin(x / 61 + seed) + 0.15 * Math.sin(x / 23 + seed * 2.3) + 0.12 * (hash2(x >> 3, seed, 911) - 0.5));
+    const top = Math.round(base - h);
+    px(x, top, 2, (bot || ISO_H) - top, col);
+    if (snow && h > amp * 0.62) px(x, top, 2, Math.round((h - amp * 0.62) * 0.9) + 1, snow);
+    else if (hash2(x, seed, 912) > 0.7) px(x, top, 2, 1, shade(col, 14));
+  }
+}
+function isoCloudPuff(cx, cy, w, h, tone, seed){ blob(cx, cy, w, h, tone[0], tone[1], tone[2], seed); }
+function isoBackdrop(season){
+  const K = isoLook(), winter = season === 'winter';
+  if (K.below === 'sea'){
+    isoSky(K, 0, K.horizon);
+    // 먼 구름 두 겹
+    [[80, 46, 70, 18], [250, 30, 90, 20], [470, 52, 80, 18], [640, 34, 64, 16]].forEach((c, i) => isoCloudPuff(c[0], c[1], c[2], c[3], ['#f4fbff', '#ffffff', '#d9eef8'], 'isc' + i));
+    // 수평선 너머 먼 섬 — 두 겹, 멀수록 흐리다
+    isoRidge(K.horizon + 2, 18, '#9fc9dc', 3, null, K.horizon + 2);
+    for (let x = 40; x < 200; x += 2){ const h = Math.round(14 * Math.sin((x - 40) / 160 * Math.PI) + hash2(x >> 2, 5, 913) * 2); px(x, K.horizon - h, 2, h, winter ? '#b9ccd4' : '#7fae95'); }
+    // 바다 — 수평선에서 가까워질수록 짙다
+    const sea = winter ? ['#a9cfe0', '#8fbcd4', '#77a9c6', '#6397b8'] : ['#7cc6ea', '#5fb2e0', '#469dd2', '#3389c2'];
+    for (let y = K.horizon; y < ISO_H; y++){
+      const tt = (y - K.horizon) / (ISO_H - K.horizon) * 3, k = Math.min(2, Math.floor(tt));
+      px(0, y, ISO_W, 1, sea[k]); if (tt - k > 0.05) ditherRow(0, y, ISO_W, sea[k + 1], tt - k, y);
+    }
+    // 반짝이는 물결 줄
+    for (let i = 0; i < 90; i++){
+      const x = Math.floor(hash2(i, 1, 914) * ISO_W), y = K.horizon + 4 + Math.floor(Math.pow(hash2(i, 2, 915), 0.8) * (ISO_H - K.horizon - 6));
+      const w = 3 + Math.floor((y - K.horizon) / 60) * 2;
+      px(x, y, w, 1, i % 3 ? '#bfe6f8' : '#ffffff');
+    }
+    // 돛단배 하나
+    const bx = 590, by = K.horizon + 10;
+    px(bx, by, 16, 3, '#8a5a3c'); px(bx + 2, by + 3, 12, 1, '#6f4a2c'); px(bx + 7, by - 14, 1, 14, '#6f4a2c');
+    for (let r = 0; r < 12; r++) px(bx + 8, by - 13 + r, Math.round(r * 0.6) + 1, 1, '#fffaf2');
+  } else if (K.below === 'valley'){
+    isoSky(K, 0, K.horizon);
+    [[120, 40, 80, 16], [520, 28, 100, 18]].forEach((c, i) => isoCloudPuff(c[0], c[1], c[2], c[3], ['#f7fbff', '#ffffff', '#dfeaf2'], 'imc' + i));
+    // 먼 산 세 겹 — 멀수록 파랗고 옅다. 먼 산마루에는 눈.
+    isoRidge(150, 70, '#b3c7d9', 1.1, '#f4f8fb');
+    isoRidge(198, 52, '#8fa9ba', 2.7, winter ? '#eef4f8' : null);
+    // 가까운 숲 — 뾰족한 소나무 머리가 줄지어
+    const near = winter ? '#7f9a90' : '#5b8a6c', dark = winter ? '#6b857c' : '#4b7a5c';
+    isoRidge(236, 22, near, 4.2, null);
+    for (let x = 0; x < ISO_W; x += 9){
+      const h = 12 + Math.floor(hash2(x, 3, 916) * 12), b = 238 - Math.floor(Math.sin(x / 61 + 4.2) * 6);
+      for (let r = 0; r < h; r++){ const w = Math.max(1, Math.round(r * 0.5)); px(x - w, b - h + r, w * 2 + 1, 1, r % 4 === 0 ? near : dark); }
+      if (winter) px(x - 1, b - h, 3, 2, '#f2f9ff');
+    }
+    // 골짜기 — 안개가 깔린 아래쪽
+    const haze = ['#9cb8b0', '#88a79e', '#76978d', '#668a80'];
+    for (let y = 250; y < ISO_H; y++){ const tt = (y - 250) / (ISO_H - 250) * 3, k = Math.min(2, Math.floor(tt)); px(0, y, ISO_W, 1, haze[k]); if (tt - k > 0.05) ditherRow(0, y, ISO_W, haze[k + 1], tt - k, y); }
+    for (let i = 0; i < 70; i++){                                     // 골짜기 숲 머리
+      const x = Math.floor(hash2(i, 4, 917) * ISO_W), y = 300 + Math.floor(hash2(i, 5, 918) * (ISO_H - 300)), h = 8 + Math.floor(hash2(i, 6, 919) * 8);
+      for (let r = 0; r < h; r++){ const w = Math.max(1, Math.round(r * 0.45)); px(x - w, y - h + r, w * 2 + 1, 1, r % 3 ? '#4f7a62' : '#5f8a70'); }
+    }
+    for (let k = 0; k < 3; k++){ ctx.globalAlpha = 0.35; for (let x = 0; x < ISO_W; x += 2) px(x, 290 + k * 70 + Math.round(Math.sin(x / 47 + k) * 5), 2, 6, '#eef4f2'); ctx.globalAlpha = 1; }
+  } else {
+    isoSky(K, 0, ISO_H);
+    // 옅은 무지개 — 섬 뒤로
+    const rb = ['#ffb3c1', '#ffd3a6', '#fff2a8', '#c6f0b8', '#b3dcff', '#cdb8ff'];
+    ctx.globalAlpha = 0.34;
+    for (let x = 0; x < ISO_W; x += 2) rb.forEach((c, i) => {
+      const r = 300 - i * 5, dx = x - ISO_W / 2; if (Math.abs(dx) >= r) return;
+      px(x, Math.round(250 - Math.sqrt(r * r - dx * dx)), 2, 5, c);
+    });
+    ctx.globalAlpha = 1;
+    // 뒤 구름 두 겹 — 멀수록 연보라
+    for (let i = 0; i < 9; i++) isoCloudPuff(Math.floor(hash2(i, 7, 920) * ISO_W), 60 + Math.floor(hash2(i, 8, 921) * 120), 60 + Math.floor(hash2(i, 9, 922) * 50), 22, ['#efe6fb', '#fbf6ff', '#dcd0f0'], 'icb' + i);
+    // 구름바다 — 섬 아래로 세 겹
+    [['#e9e0f7', '#f8f3ff', '#d6c8ee', 350], ['#f4eefc', '#ffffff', '#e2d6f2', 420], ['#ffffff', '#ffffff', '#ebe2f6', 490]].forEach((tn, L) => {
+      for (let i = 0; i < 16; i++){
+        const x = Math.floor(hash2(i, 10 + L, 923) * (ISO_W + 80)) - 40, w = 70 + Math.floor(hash2(i, 13 + L, 924) * 60);
+        isoCloudPuff(x, tn[3] + Math.floor(hash2(i, 16 + L, 925) * 30), w, 34, tn, 'icl' + L + '_' + i);
+      }
+    });
+    // 떠 있는 작은 바위섬 둘
+    [[90, 380], [640, 420]].forEach(([x, y], i) => {
+      for (let r = 0; r < 14; r++){ const w = Math.round(14 - r); px(x - w, y + r, w * 2, 1, r < 3 ? '#9fd6a0' : shade('#a98fc8', -r * 3)); }
+      if (i === 0) px(x - 1, y - 8, 2, 8, WOOD.dark), blob(x, y - 12, 12, 9, '#8fd09a', '#b8e8b0', '#6fb07a', 'irk' + i);
+    });
+  }
+}
+// 섬 옆구리 — 앞쪽 두 면에 땅켜를 쌓는다. 맨 위는 풀 턱, 그 아래 흙·진흙·바위 순. 왼쪽 면이 빛을 받는다.
+function isoCliff(season){
+  const K = isoLook(), P = groundPal(season), turf = shade(P.g[2], -16);
+  const L0 = isoP(0, ROWS), B0 = isoP(COLS, ROWS), R0 = isoP(COLS, 0);
+  const band = [5, 17, 32, 50];                                    // 켜가 바뀌는 깊이(도트)
+  for (let x = Math.round(L0.x); x < Math.round(R0.x); x += 2){
+    const left = x < B0.x, top = Math.round(left ? L0.y + (x - L0.x) / 2 : B0.y - (x - B0.x) / 2);
+    let deep = K.deep - Math.floor(hash2(x >> 2, 1, 931) * 6) - (hash2(x >> 3, 2, 932) > 0.7 ? 4 : 0);
+    if (K.below === 'clouds') deep = Math.round(K.deep * (0.5 + 0.5 * (1 - Math.abs(x - B0.x) / (R0.x - L0.x) * 1.6))) + 10;
+    for (let k = 0; k <= band.length; k++){
+      const z0 = k ? band[k - 1] + Math.round(Math.sin(x / 19 + k * 1.7) * 1.5 + hash2(x >> 1, k, 933)) : 0;
+      const z1 = k < band.length ? band[k] + Math.round(Math.sin(x / 19 + (k + 1) * 1.7) * 1.5 + hash2(x >> 1, k + 1, 933)) : deep;
+      if (z1 <= z0 || z0 >= deep) continue;
+      let c = k === 0 ? turf : K.strata[k - 1];
+      if (!left) c = shade(c, -24);
+      px(x, top + z0, 2, Math.min(z1, deep) - z0, c);
+      // 켜마다 결 — 흙엔 뿌리, 진흙엔 자갈, 바위엔 금
+      for (let z = z0 + 1; z < Math.min(z1, deep) - 1; z += 3){
+        const r = hash2(x >> 1, z, 934 + k);
+        if (k === 1 && r > 0.9) px(x + (r > 0.95 ? 1 : 0), top + z, 1, 3, shade(c, -26));
+        else if (k === 2 && r > 0.86) px(x, top + z, 2, 1, shade(c, r > 0.93 ? 22 : -18));
+        else if (k >= 3 && r > 0.88) px(x + 1, top + z, 1, 4, shade(c, -22));
+        else if (k >= 3 && r < 0.06) px(x, top + z, 2, 1, shade(c, 16));
+      }
+    }
+    // 풀 턱이 아래로 늘어진 자리
+    if (hash2(x >> 1, 3, 935) > 0.62) px(x, top + band[0], 2, 1 + Math.floor(hash2(x, 4, 936) * 4), turf);
+    px(x, top + deep - 2, 2, 2, shade(K.strata[3], left ? -30 : -44));   // 밑동 그늘
+    if (K.below === 'sea'){                                          // 물에 잠긴 자리와 거품
+      const wl = deep - 8;
+      ctx.globalAlpha = 0.55; px(x, top + wl, 2, deep - wl, '#3b8cc6'); ctx.globalAlpha = 1;
+      if (hash2(x >> 1, 5, 937) > 0.25) px(x, top + wl - 1 + (hash2(x, 6, 938) > 0.5 ? 1 : 0), 2, 2, '#ffffff');
+    }
+  }
+  // 앞 모서리에 빛 한 줄
+  px(Math.round(B0.x) - 2, Math.round(B0.y), 1, K.deep - 12, '#ffffff33');
+  // 맨 앞 겹 — 섬 밑동을 가로지르는 구름·안개. 섬이 그 뒤에 떠 있어 깊이가 생긴다.
+  if (K.below === 'clouds') for (let i = 0; i < 7; i++){
+    const x = Math.round(L0.x + (R0.x - L0.x) * (i + 0.5) / 7 + (hash2(i, 1, 940) - 0.5) * 40);
+    const left = x < B0.x, y = Math.round((left ? L0.y + (x - L0.x) / 2 : B0.y - (x - B0.x) / 2) + K.deep - 6 + hash2(i, 2, 941) * 14);
+    isoCloudPuff(x, y, 54 + Math.floor(hash2(i, 3, 942) * 30), 18, ['#fbf7ff', '#ffffff', '#e6dcf4'], 'ifc' + i);
+  }
+  if (K.below === 'valley'){
+    ctx.globalAlpha = 0.42;
+    for (let x = Math.round(L0.x); x < Math.round(R0.x); x += 2){
+      const left = x < B0.x, y = Math.round((left ? L0.y + (x - L0.x) / 2 : B0.y - (x - B0.x) / 2) + K.deep - 10 + Math.sin(x / 37) * 4);
+      px(x, y, 2, 8 + Math.round(hash2(x >> 3, 4, 943) * 6), '#eef4f2');
+    }
+    ctx.globalAlpha = 1;
+  }
+  if (K.below === 'sea'){                                            // 섬 둘레로 퍼지는 물결
+    for (let k = 1; k <= 3; k++){
+      ctx.globalAlpha = 0.5 - k * 0.12;
+      for (let x = Math.round(L0.x); x < Math.round(R0.x); x += 4){
+        const left = x < B0.x, y = Math.round((left ? L0.y + (x - L0.x) / 2 : B0.y - (x - B0.x) / 2) + K.deep - 4 + k * 7);
+        if (hash2(x >> 2, k, 939) > 0.3) px(x, y, 3, 1, '#ffffff');
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+// 흙길 칸마다 가장자리를 미리 셈해 둔다 — 도트마다 R.prand 를 부르면 한 장에 수십만 번이다
+function isoPathMap(season){
+  const cells = pathCells(), map = {};
+  const c = season === 'winter' ? ['#dcd6c8', '#cfc7b6', '#e6e0d3'] : ['#e0cfa8', '#d2bf95', '#ece0bf'];
+  const edge = season === 'winter' ? '#c6bfae' : '#c2ac7e';
+  const has = (x, y) => cells.has(x + ',' + y);
+  cells.forEach(k => {
+    const [x, y] = k.split(',').map(Number);
+    const up = has(x, y - 1), dn = has(x, y + 1), lf = has(x - 1, y), rt = has(x + 1, y);
+    const j = (t2, a) => a + Math.round(R.prand(t2 + x + '_' + y) * 4);
+    map[k] = { up, dn, lf, rt, c, edge,
+      x0: lf || rt ? 0 : j('pl', 5), x1: lf || rt ? T : T - j('pr', 5), y0: up || dn ? 0 : j('pt', 5), y1: up || dn ? T : T - j('pb', 5) };
+  });
+  return map;
+}
+function isoGroundAt(fx, fy, P, K, pm){
+  const tx = Math.floor(fx / T), ty = Math.floor(fy / T), ix = Math.floor(fx), iy = Math.floor(fy);
+  const m = pm[tx + ',' + ty];
+  if (m){
+    const lx = fx - tx * T, ly = fy - ty * T;
+    if (lx >= m.x0 && lx < m.x1 && ly >= m.y0 && ly < m.y1){
+      const e = Math.min(m.lf ? 9 : lx - m.x0, m.rt ? 9 : m.x1 - lx, m.up ? 9 : ly - m.y0, m.dn ? 9 : m.y1 - ly);
+      if (e < 1.6 && hash2(ix, iy, 141) > 0.35) return m.edge;
+      if ((m.lf || m.rt) && ((ly >= 12 && ly < 14) || (ly >= 20 && ly < 22))) return m.c[1];
+      if ((m.up || m.dn) && ((lx >= 12 && lx < 14) || (lx >= 20 && lx < 22))) return m.c[1];
+      const r = hash2(ix >> 1, iy >> 1, 142);
+      return r > 0.9 ? m.c[2] : r < 0.07 ? m.c[1] : m.c[0];
+    }
+  }
+  const v = noise2i(fx, fy, 64, 11) * 0.62 + noise2i(fx, fy, 28, 22) * 0.26 + noise2i(fx, fy, 13, 33) * 0.12;
+  let col = P.g[Math.min(2, Math.floor(v * 3))];
+  const r = hash2(ix >> 2, iy >> 2, 55);
+  if (r > 0.93) col = P.g[0]; else if (r < 0.05) col = P.g[2];
+  for (let i = 0; i < DRY_PATCH.length; i++){
+    const w = DRY_PATCH[i], nx = (fx - w[0] * T) / (w[2] * T), ny = (fy - w[1] * T) / (w[3] * T), d = nx * nx + ny * ny;
+    if (d > 1.3 || d >= 0.5 + noise2i(fx, fy, 20, 101 + i) * 0.7 || (d > 0.55 && hash2(ix, iy, 66) > 0.45)) continue;
+    const q = hash2(ix, iy, 77); return q > 0.92 ? K.dryDk : q < 0.08 ? K.dryLt : P.dry;
+  }
+  if (K.clover) for (let i = 0; i < CLOVER_PATCH.length; i++){
+    const w = CLOVER_PATCH[i], nx = (fx - w[0] * T) / (w[2] * T), ny = (fy - w[1] * T) / (w[3] * T), d = nx * nx + ny * ny;
+    if (d > 1.3 || d >= 0.5 + noise2i(fx, fy, 20, 201 + i) * 0.7 || (d > 0.5 && hash2(ix, iy, 88) > 0.4)) continue;
+    const q = hash2(ix, iy, 99); if (q > 0.66) return q > 0.9 ? K.clLt : K.clDk;
+  }
+  return col;
+}
+// 겹 1 — 먼 풍경·절벽·섬 윗면. 계절과 집 자리(흙길이 거기서 나온다)가 바뀔 때만.
+function isoGround(season){
+  const P = groundPal(season), LK = farmLook() || {}, pm = isoPathMap(season);
+  const K = { dryDk: shade(P.dry, -12), dryLt: shade(P.dry, 9), clLt: shade(P.tuft[0], 14), clDk: shade(P.tuft[0], -12), clover: season !== 'winter' };
+  isoBackdrop(season);
+  isoCliff(season);
+  const shadeMemo = {};
+  const sh = (c, d) => shadeMemo[c + d] || (shadeMemo[c + d] = shade(c, d));
+  isoPaintRect(0, 0, COLS, ROWS, (u, v) => {
+    const c = isoGroundAt(u * T, v * T, P, K, pm);
+    if (u < 0.18 || v < 0.18) return sh(c, -12);                   // 뒤 가장자리 — 섬 끝이 하늘과 갈린다
+    if (u > COLS - 0.1 || v > ROWS - 0.1) return sh(c, 16);        // 앞 턱에 빛
+    return c;
+  });
+  // 칸마다 풀포기·조약돌·꽃 — 선 것이라 마름모 위에 곧게 세운다
+  const FB = R.FIELD_BOX;
+  for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++){
+    if (pm[tx + ',' + ty] || (tx >= FB.x && tx < FB.x + FB.w && ty >= FB.y && ty < FB.y + FB.h)) continue;
+    const r0 = R.prand('g' + tx + '_' + ty), n = r0 < 0.5 ? 3 : r0 < 0.85 ? 2 : 1;
+    for (let i = 0; i < n; i++){
+      const p = isoP(tx + 0.15 + R.prand('t' + tx + '_' + ty + '_' + i) * 0.7, ty + 0.15 + R.prand('u' + tx + '_' + ty + '_' + i) * 0.7);
+      const gx = Math.round(p.x) - 3, gy = Math.round(p.y) - 7, c = P.tuft[i % 2];
+      px(gx, gy + 2, 2, 5, c); px(gx + 2, gy, 2, 7, sh(c, 14)); px(gx + 4, gy + 3, 2, 4, sh(c, -10));
+    }
+    if (r0 > (LK.pebble || 0.93)){
+      const p = isoP(tx + 0.5, ty + 0.55), X = Math.round(p.x) - 4, Y = Math.round(p.y) - 2;          // 둥근 조약돌
+      px(X + 1, Y, 6, 1, P.ink); px(X, Y + 1, 8, 2, P.ink); px(X + 1, Y + 3, 6, 1, P.ink);
+      px(X + 1, Y + 1, 6, 2, P.rock); px(X + 1, Y + 1, 3, 1, sh(P.rock, 22)); px(X + 3, Y + 2, 4, 1, sh(P.rock, -26));
+    }
+    const bloomP = (season === 'spring' ? 0.2 : season === 'summer' ? 0.14 : season === 'autumn' ? 0.07 : 0) * (LK.bloomX || 1);
+    if (R.prand('f' + tx + '_' + ty) < bloomP){
+      const c = P.bloom[Math.floor(R.prand('fc' + tx + '_' + ty) * P.bloom.length)];
+      const p = isoP(tx + 0.25 + R.prand('fx' + tx + '_' + ty) * 0.5, ty + 0.25 + R.prand('fy' + tx + '_' + ty) * 0.5);
+      const fx = Math.round(p.x) - 1, fy = Math.round(p.y) - 10;
+      px(fx, fy + 4, 2, 6, P.tuft[1]);
+      px(fx - 1, fy - 1, 4, 2, P.ink); px(fx - 3, fy + 1, 8, 2, P.ink); px(fx - 1, fy + 3, 4, 4, P.ink);
+      px(fx, fy, 2, 2, c); px(fx - 2, fy + 2, 6, 2, c); px(fx, fy + 4, 2, 2, c);
+      px(fx, fy + 2, 2, 2, '#fff6c0');
+    }
+    if (season === 'autumn' && R.prand('l' + tx + '_' + ty) < 0.16){
+      const p = isoP(tx + 0.2 + R.prand('lx' + tx + '_' + ty) * 0.6, ty + 0.2 + R.prand('ly' + tx + '_' + ty) * 0.6);
+      const c = ['#d9603c', '#e8874a', '#c9a227'][Math.floor(R.prand('lc' + tx + '_' + ty) * 3)];
+      px(Math.round(p.x), Math.round(p.y), 4, 2, c); px(Math.round(p.x) + 2, Math.round(p.y) + 2, 2, 1, sh(c, -26));
+    }
+    if (season === 'winter' && R.prand('w' + tx + '_' + ty) < 0.25){
+      const p = isoP(tx + 0.2 + R.prand('wx' + tx + '_' + ty) * 0.6, ty + 0.2 + R.prand('wy' + tx + '_' + ty) * 0.6);
+      px(Math.round(p.x) - 3, Math.round(p.y), 6, 3, '#ffffff');
+    }
+  }
+}
+
+// ---- 바닥에 붙은 것 — 목장 바닥·연못·꽃길·안 지은 터 ----
+function isoGhost(b){
+  const pts = [isoP(b.x + 0.1, b.y + 0.1), isoP(b.x + b.w - 0.1, b.y + 0.1), isoP(b.x + b.w - 0.1, b.y + b.h - 0.1), isoP(b.x + 0.1, b.y + b.h - 0.1)];
+  ctx.globalAlpha = 0.1; polyFill(pts.map(p => [p.x, p.y]), '#000000'); ctx.globalAlpha = 1;
+  for (let i = 0; i < 4; i++){                                     // 노끈 — 끊어 가며 두른다
+    const a = pts[i], c = pts[(i + 1) % 4], n = Math.max(2, Math.round(Math.hypot(c.x - a.x, c.y - a.y) / 4));
+    for (let k = 0; k < n; k += 2){
+      const p0 = { x: a.x + (c.x - a.x) * k / n, y: a.y + (c.y - a.y) * k / n - 6 }, p1 = { x: a.x + (c.x - a.x) * (k + 1) / n, y: a.y + (c.y - a.y) * (k + 1) / n - 6 };
+      isoSeg(p0, p1, '#e8dcc8', 1);
+    }
+  }
+  pts.forEach(p => { const x = Math.round(p.x), y = Math.round(p.y); px(x - 1, y - 9, 3, 10, WOOD.dark); px(x - 1, y - 9, 1, 10, WOOD.mid); px(x - 2, y - 10, 5, 1, WOOD.hi); });
+}
+function isoPond(season, b){
+  const ice = season === 'winter';
+  const deep = ice ? '#bcdbea' : '#3b8cc6', mid = ice ? '#cfe6f2' : '#4fa6db', edge = ice ? '#e6f3f9' : '#7cc3e8';
+  isoPaintRect(b.x, b.y, b.w, b.h, (u, v) => {
+    const fu = (u - b.x) / b.w - 0.5, fv = (v - b.y) / b.h - 0.5, d = (fu * fu) / 0.2 + (fv * fv) / 0.19;
+    const wob = noise2i(u * T, v * T, 10, 951) * 0.22;
+    if (d < 0.78 + wob){
+      if (d > 0.62 + wob && fv + fu < 0) return shade(mid, -14);  // 뒤쪽 둑 그늘 — 물이 파여 보인다
+      const r = hash2(Math.floor(u * T), Math.floor(v * T), 952);
+      if (!ice && r > 0.985) return '#e3f6fd';
+      return d < 0.3 ? deep : d < 0.6 ? mid : edge;
+    }
+    if (d < 1.02 + wob){                                           // 물가 — 모래와 조약돌
+      const r = hash2(Math.floor(u * T) >> 1, Math.floor(v * T) >> 1, 953);
+      return r > 0.82 ? STONE.hi : r < 0.12 ? STONE.low : (ice ? '#eef2f2' : '#dccb9e');
+    }
+    return null;
+  });
+  if (!ice) [[0.28, 0.62], [0.66, 0.36], [0.58, 0.7]].forEach(([a, c], i) => {    // 연잎
+    const p = isoP(b.x + a * b.w, b.y + c * b.h), x = Math.round(p.x), y = Math.round(p.y);
+    px(x - 4, y - 1, 8, 3, '#5fa155'); px(x - 3, y - 1, 6, 1, '#7fc06e'); px(x, y, 2, 1, '#4f8f48');
+    if (i === 1){ px(x + 1, y - 3, 3, 2, '#ffb7d5'); px(x + 2, y - 4, 1, 1, '#ffffff'); }
+  });
+}
+function isoFlowerPath(season, b){
+  const pc = season === 'winter' ? '#dcd6c8' : '#e6d7b5';
+  const cols = season === 'winter' ? ['#ffffff', '#eaf6ff'] : season === 'autumn' ? ['#e8874a', '#f2c14e', '#d9603c', '#c9a8ff'] : ['#ffb7d5', '#fff3a0', '#ffffff', '#c9a8ff'];
+  const horiz = b.w >= b.h;
+  isoPaintRect(b.x, b.y, b.w, b.h, (u, v) => {
+    const fu = u - Math.floor(u) - 0.5, fv = v - Math.floor(v) - 0.5;
+    const d = horiz ? (fu * fu) / 0.12 + (fv * fv) / 0.07 : (fu * fu) / 0.07 + (fv * fv) / 0.12;
+    if (d > 1) return null;
+    return d > 0.72 ? shade(pc, -26) : hash2(Math.floor(u * T), Math.floor(v * T), 954) > 0.86 ? shade(pc, 14) : pc;
+  });
+  for (let i = 0; i < b.w * b.h * 3; i++){                         // 길섶 꽃
+    const side = i % 2 ? 0.1 : 0.9, along = (i + 0.5) / (b.w * b.h * 3) * (horiz ? b.w : b.h);
+    const p = horiz ? isoP(b.x + along, b.y + side) : isoP(b.x + side, b.y + along);
+    const x = Math.round(p.x), y = Math.round(p.y) - 5, c = cols[i % cols.length];
+    px(x, y + 2, 1, 4, '#5fa155'); px(x - 1, y, 3, 2, c); px(x, y, 1, 1, '#fff6c0');
+  }
+}
+function isoPastureFloor(season, b){
+  const P = groundPal(season), base = shade(P.g[2], -8), lt = shade(P.g[1], -6), mud = mix(shade(P.g[2], -18), P.dry, 0.35), road = mix(shade(P.g[2], -22), '#836448', 0.7);
+  isoPaintRect(b.x + 0.1, b.y + 0.1, b.w - 0.2, b.h - 0.2, (u, v) => {
+    const fx = u * T, fy = v * T, n = noise2i(fx, fy, 14, 961) * 0.62 + noise2i(fx, fy, 6, 962) * 0.38;
+    const mid = b.y + b.h / 2 + Math.sin((u - b.x) * 1.7) * 0.25;
+    if (Math.abs(v - mid) < 0.16 && hash2(Math.floor(fx), Math.floor(fy), 963) > 0.3) return road;
+    return n > 0.7 ? lt : n < 0.24 ? mud : base;
+  });
+}
+function isoFloor(season){
+  R.PLACE_IDS.forEach(id => {
+    const P = R.PLACE[id];
+    if (P.kind === 'build' && !here(id) && id !== 'scarecrow') isoGhost(spot(id));
+  });
+  if (here('pasture')) isoPastureFloor(season, spot('pasture'));
+  if (here('pond')) isoPond(season, spot('pond'));
+  if (here('path')) isoFlowerPath(season, spot('path'));
+}
+
+// ---- 밭 ----
+function isoFencePost(p, hgt){
+  const x = Math.round(p.x), y = Math.round(p.y), h = hgt || 14;
+  px(x - 1, y - h, 3, h + 1, WOOD.dark); px(x - 1, y - h, 1, h + 1, WOOD.mid); px(x - 1, y - h - 1, 3, 1, WOOD.hi);
+}
+// 울타리 한 토막 — (ua,va) 에서 (ub,vb) 까지 가로대 둘, 양 끝 기둥
+function isoFenceSeg(ua, va, ub, vb){
+  isoSeg(isoP(ua, va, 11), isoP(ub, vb, 11), WOOD.mid, 2);
+  isoSeg(isoP(ua, va, 5), isoP(ub, vb, 5), WOOD.low, 2);
+  isoFencePost(isoP(ua, va)); isoFencePost(isoP(ub, vb));
+}
+function isoFenceLine(ua, va, ub, vb, skip){
+  const n = Math.max(1, Math.round(Math.max(Math.abs(ub - ua), Math.abs(vb - va))));
+  for (let k = 0; k < n; k++) if (!(skip && skip(k))) isoFenceSeg(ua + (ub - ua) * k / n, va + (vb - va) * k / n, ua + (ub - ua) * (k + 1) / n, va + (vb - va) * (k + 1) / n);
+}
+function isoFieldBox(){
+  const E = R.EXPANSIONS[Math.min(W.expand || 0, R.EXPANSIONS.length - 1)];
+  return { x: R.FIELD.x0, y: R.FIELD.y0, w: E.w, h: E.h };
+}
+// 밭 한 칸 — 세 도트 돋운 두둑. 고랑은 u 쪽으로 흐른다.
+function isoPlot(id, p){
+  const { x, y } = R.parseId(id);
+  if (!p || !p.tilled) return;
+  const wet = R.wetNow(p, now(), false), S3 = wet ? SOIL.wet : SOIL.dry;
+  const c0 = S3[0], c1 = S3[1], c2 = S3[2], hi = shade(c0, 24), n1 = shade(c0, 12), n2 = shade(c0, -12), fert = '#e8dcae';
+  const b = isoP(x, y, 3);
+  isoSideL(px, b.x, b.y, IT / 2, IT / 2, 3, shade(c0, -22));
+  isoSideR(px, b.x, b.y, IT / 2, IT / 2, 3, shade(c0, -36));
+  isoPaintRect(x, y, 1, 1, (u, v) => {
+    const fx = u * T, fy = v * T, ly = (v - y) * T;
+    for (let i = 4; i < T - 2; i += 6){
+      if (ly >= i - 1 && ly < i) return hi;
+      if (ly >= i && ly < i + 2) return c2;
+      if (ly >= i + 2 && ly < i + 4) return c1;
+    }
+    const n = noise2i(fx, fy, 14, 121) * 0.62 + noise2i(fx, fy, 6, 122) * 0.38;
+    if (p.fert && hash2(Math.floor(fx), Math.floor(fy), 123) > 0.94) return fert;
+    return n > 0.66 ? n1 : n < 0.3 ? n2 : c0;
+  }, 3);
+  if (wet){ const q = isoP(x + 0.35, y + 0.3, 3); px(Math.round(q.x), Math.round(q.y), 5, 1, '#7fbfe0aa'); }
+}
+function isoField(){
+  const F = isoFieldBox(), nextE = R.EXPANSIONS[(W.expand || 0) + 1];
+  if (nextE){                                                      // 아직 못 연 땅 — 점선 마름모
+    const a = isoP(F.x, F.y), r = isoP(F.x + nextE.w, F.y), f = isoP(F.x + nextE.w, F.y + nextE.h), l = isoP(F.x, F.y + nextE.h);
+    [[a, r], [r, f], [f, l], [l, a]].forEach(([p, q]) => { const n = Math.round(Math.hypot(q.x - p.x, q.y - p.y) / 5); for (let k = 0; k < n; k += 2) isoSeg({ x: p.x + (q.x - p.x) * k / n, y: p.y + (q.y - p.y) * k / n }, { x: p.x + (q.x - p.x) * (k + 1) / n, y: p.y + (q.y - p.y) * (k + 1) / n }, '#00000030', 1); });
+  }
+  R.plotIds(W, 'field').forEach(id => isoPlot(id, W.plots[id]));
+  // 뒤쪽 울타리 두 줄 — 앞쪽 두 줄은 아이가 그 앞뒤로 지나가니 깊이순으로 따로 세운다
+  isoFenceLine(F.x - 0.15, F.y - 0.15, F.x + F.w + 0.15, F.y - 0.15);
+  isoFenceLine(F.x - 0.15, F.y - 0.15, F.x - 0.15, F.y + F.h + 0.15);
+}
+// 겹 4 — 작물. 칸 가운데 두둑 위에 세운다. 뒤 칸부터 그려야 앞 칸 잎이 뒤를 덮는다.
+/* 작물은 대각선 한 줄(x+y 가 같은 칸들)씩 담아 두고 깊이순에 끼운다. 겹 하나로 얹으면
+   밭 뒤에 선 분수·동상 받침이 앞줄 잎을 덮는다(판 화면에서는 없던 일이다). */
+function isoCropBands(cast, windStep){
+  const bands = {};
+  R.plotIds(W, 'field').forEach(id => {
+    const p = W.plots[id]; if (!p || !p.crop || (p.giant && (!p.pairOf || id > p.pairOf))) return;
+    const q = R.parseId(id), k = q.x + q.y;
+    (bands[k] = bands[k] || []).push(id);
+  });
+  Object.keys(bands).forEach(k => {
+    const ids = bands[k].sort(), n = Number(k);
+    let sig = windStep + '|' + curWind.toFixed(2) + '|';
+    ids.forEach(id => { const p = W.plots[id]; sig += id + p.crop.charAt(0) + R.stageOf(p) + (p.wilted ? 'x' : '') + (p.giant ? 'G' : '') + ';'; });
+    let x0 = Infinity, x1 = -Infinity;
+    ids.forEach(id => { const q = R.parseId(id), c = isoP(q.x + 0.5, q.y + 0.5).x; x0 = Math.min(x0, c); x1 = Math.max(x1, c); });
+    const y = isoP(n / 2 + 0.5, n / 2 + 0.5).y;
+    cast.push({ d: n + 0.9, go: () => isoSprite('crop' + n, sig, { x: x0 - 44, y: y - 70, w: x1 - x0 + 88, h: 96 }, () => isoCrops(windStep, ids)) });
+  });
+}
+function isoCrops(windStep, ids){
+  const open = ids.slice();
+  const sway = (x, y) => Math.round(Math.sin(windStep / 640 + x * 0.7 + y * 0.4) * curWind);
+  open.forEach(id => {
+    const p = W.plots[id], q = R.parseId(id);
+    if (p.giant){
+      if (!p.pairOf || id > p.pairOf) return;
+      const o = R.parseId(p.pairOf), cu = (q.x + o.x) / 2 + 0.5, cv = (q.y + o.y) / 2 + 0.5;
+      withBB(flatOffAt(((q.x + o.x) / 2 + 0.5) * T, ((q.y + o.y) / 2 + 0.75) * T, cu, cv + 0.1, 3), () => withInk(INK.crop, () => drawGiant(id, p, sway(q.x, q.y))));
+      return;
+    }
+    withBB(flatOffAt(q.x * T + 16, q.y * T + 24, q.x + 0.5, q.y + 0.55, 3), () => withInk(INK.crop, () => drawCrop(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, null, sway(q.x, q.y))));
+  });
+}
+
+// ---- 곧게 세우기 — 위에서 본 그림을 칸 위에 그대로 세운다 ----
+// 위에서 본 좌표 (fx,fy) 가 화면의 칸 (u,v,z) 에 오도록 옮길 거리(도트)
+function flatOffAt(fx, fy, u, v, z){ const q = isoP(u, v, z); return { x: Math.round(q.x - fx), y: Math.round(q.y - fy) }; }
+function flatOff(fx, fy){ return flatOffAt(fx, fy, fx / T, fy / T); }
+// 자리 b 에 서는 것 — 그림 밑단 가운데를 칸 마름모 가운데보다 조금 앞에 둔다
+function bbOffset(b){ return flatOffAt((b.x + b.w / 2) * T, (b.y + b.h) * T - 3, b.x + b.w / 2 + 0.22, b.y + b.h / 2 + 0.22); }
+function withBB(off, fn){
+  ctx.save(); ctx.translate(Math.round(off.x * S), Math.round(off.y * S)); lampOff = off;
+  try { fn(); } finally { lampOff = null; ctx.restore(); }
+}
+// 꾸미개 하나만 있는 것처럼 그린다 — drawDecor·drawDecorLive 는 W.decor 를 통째로 훑는다
+function onlyDecor(id, fn){
+  const keep = W.decor, one = {}; one[id] = keep[id];
+  W.decor = one;
+  try { fn(); } finally { W.decor = keep; }
+}
+// 한 번 그려 작은 캔버스에 담아 둔다. 표(sig)가 바뀌면 다시. 등불 자리도 함께 담는다.
+function isoSprite(id, sig, box, paint){
+  let e = isoBuf[id];
+  if (!e || e.sig !== sig || e.S !== S){
+    // 다 그린 뒤에만 담는다 — 그리다 터지면 반쪽 그림이 굳지 않고 다음 장에 다시 그린다
+    delete isoBuf[id];
+    e = { sig, S, lamps: [], cv: document.createElement('canvas') };
+    e.ox = Math.floor(box.x * S); e.oy = Math.floor(box.y * S);
+    e.cv.width = Math.max(1, Math.ceil(box.w * S) + 2); e.cv.height = Math.max(1, Math.ceil(box.h * S) + 2);
+    const g = e.cv.getContext('2d'); g.imageSmoothingEnabled = false;
+    g.translate(-e.ox, -e.oy);
+    const keepCtx = ctx, keepLamps = lamps;
+    ctx = g; lamps = e.lamps;
+    try { paint(); } finally { ctx = keepCtx; lamps = keepLamps; }
+    isoBuf[id] = e;
+  }
+  ctx.drawImage(e.cv, e.ox, e.oy);
+  return e;
+}
+function isoBoxOf(b){
+  const l = isoP(b.x, b.y + b.h), r = isoP(b.x + b.w, b.y), t = isoP(b.x, b.y), f = isoP(b.x + b.w, b.y + b.h);
+  return { x: l.x - 40, y: t.y - 150, w: r.x - l.x + 80, h: f.y - t.y + 170 };
+}
+
+// ---- 아이소 집 짓기 ----
+function isoGeo(b, ins, H){ return { u0: b.x + ins, v0: b.y + ins, u1: b.x + b.w - ins, v1: b.y + b.h - ins, H }; }
+// 면 위 네모. L 은 앞쪽(v1) 면을 왼쪽에서부터, R 은 오른쪽(u1) 면을 앞 모서리에서부터 잰다(칸 단위).
+function faceQuad(G, side, a0, a1, z0, z1){
+  return side === 'L' ? [[G.u0 + a0, G.v1, z0], [G.u0 + a1, G.v1, z0], [G.u0 + a1, G.v1, z1], [G.u0 + a0, G.v1, z1]]
+                      : [[G.u1, G.v1 - a0, z0], [G.u1, G.v1 - a1, z0], [G.u1, G.v1 - a1, z1], [G.u1, G.v1 - a0, z1]];
+}
+function faceRect(G, side, a0, a1, z0, z1, col){ poly3(faceQuad(G, side, a0, a1, z0, z1), col); }
+function faceMid(G, side, a, z){ return side === 'L' ? isoP(G.u0 + a, G.v1, z) : isoP(G.u1, G.v1 - a, z); }
+// 벽 결. 면을 따라 흐르는 줄은 왼쪽 면에서 y - x/2, 오른쪽 면에서 y + x/2 가 같다.
+function wallTex(col, side, mat, seed){
+  const dk = shade(col, -16), lt = shade(col, 12), sm = shade(col, -26), gr = shade(col, -7);
+  return (x, y) => {
+    const s = side === 'L' ? y - x / 2 : y + x / 2;
+    if (mat === 'wood'){
+      const band = ((Math.floor(s) % 7) + 7) % 7;
+      if (band === 0) return lt;
+      if (band === 6) return dk;
+      if (((x % 26) + 26) % 26 === 0) return sm;
+      return hash2(x >> 1, Math.floor(s / 7), seed) > 0.86 ? gr : col;
+    }
+    if (mat === 'stone'){
+      const row = Math.floor(s / 5), band = ((Math.floor(s) % 5) + 5) % 5;
+      if (band === 4 || (((x + (row % 2) * 6) % 12) + 12) % 12 === 0) return sm;
+      const h = hash2(x >> 2, row, seed); return h > 0.8 ? lt : h < 0.15 ? dk : col;
+    }
+    return col;
+  };
+}
+function roofTex(col, side){
+  const hi = shade(col, 16), lo = shade(col, -18), seam = shade(col, -30);
+  return (x, y) => {
+    const s = side === 'L' ? y - x / 2 : y + x / 2, row = Math.floor(s / 4), band = ((Math.floor(s) % 4) + 4) % 4;
+    if (band === 3) return lo;
+    if (band === 0) return hi;
+    if ((((x + (row % 2) * 5) % 10) + 10) % 10 === 0) return seam;
+    return col;
+  };
+}
+function glassTex(col, side){
+  const rib = '#a9d3e8', shine = '#ffffffb0';
+  return (x, y) => {
+    const s = side === 'L' ? y - x / 2 : y + x / 2;
+    if ((((x % 12) + 12) % 12) === 0) return rib;
+    if ((((Math.floor(s) % 9) + 9) % 9) === 0) return rib;
+    if (((x + Math.floor(s)) % 17 + 17) % 17 < 2) return shine;
+    return col;
+  };
+}
+function isoShadow(G){
+  poly3([[G.u0 + 0.2, G.v0 + 0.25, 0], [G.u1 + 0.35, G.v0 + 0.25, 0], [G.u1 + 0.35, G.v1 + 0.35, 0], [G.u0 + 0.2, G.v1 + 0.35, 0]], 'rgba(30,44,24,0.2)');
+}
+function isoWalls(G, wall, mat, seed){
+  faceRect(G, 'L', 0, G.u1 - G.u0, 0, G.H, wallTex(wall, 'L', mat, seed));
+  faceRect(G, 'R', 0, G.v1 - G.v0, 0, G.H, wallTex(shade(wall, -30), 'R', mat, seed + 1));
+  faceRect(G, 'L', 0, G.u1 - G.u0, 0, 2, shade(wall, -34));        // 땅에 닿는 쪽 그늘
+  faceRect(G, 'R', 0, G.v1 - G.v0, 0, 2, shade(wall, -50));
+}
+/* 박공지붕. ridge 'u' 면 용마루가 u 쪽(오른쪽 아래)으로 뻗어 오른쪽 면에 박공 세모가 서고,
+   'v' 면 용마루가 v 쪽으로 뻗어 앞(왼쪽) 면에 박공이 선다. 뒤 비탈은 용마루가 높아 거의 가린다.
+   o.mid 는 뒤 비탈과 박공 다음, 앞 비탈 앞에 그릴 것(굴뚝·다락창). */
+function isoRoof(G, o){
+  const e = o.eave == null ? 0.16 : o.eave, H = G.H, top = H + o.rise, low = H - 2, dz = 3;
+  const base = o.roof, dark = shade(base, -30), side = shade(base, -46), tex = o.glass ? glassTex : roofTex;
+  const fill = o.glass ? c => c + 'c0' : c => c;
+  if (o.ridge === 'v'){
+    const um = (G.u0 + G.u1) / 2;
+    poly3([[G.u0 - e, G.v0 - e, low], [um, G.v0 - e, top], [um, G.v1 + e, top], [G.u0 - e, G.v1 + e, low]], fill(dark));
+    poly3([[G.u0, G.v1, H], [G.u1, G.v1, H], [um, G.v1, top]], o.gable ? wallTex(o.gable, 'L', 'wood', 71) : shade(o.wall, -8));
+    if (o.mid) o.mid(um);
+    poly3([[um, G.v0 - e, top], [um, G.v1 + e, top], [G.u1 + e, G.v1 + e, low], [G.u1 + e, G.v0 - e, low]], tex(fill(base), 'R'));
+    poly3([[G.u0 - e, G.v1 + e, low], [um, G.v1 + e, top], [um, G.v1 + e, top - dz], [G.u0 - e, G.v1 + e, low - dz]], side);
+    poly3([[um, G.v1 + e, top], [G.u1 + e, G.v1 + e, low], [G.u1 + e, G.v1 + e, low - dz], [um, G.v1 + e, top - dz]], dark);
+    poly3([[G.u1 + e, G.v1 + e, low], [G.u1 + e, G.v0 - e, low], [G.u1 + e, G.v0 - e, low - dz], [G.u1 + e, G.v1 + e, low - dz]], side);
+    isoSeg(isoP(um, G.v0 - e, top), isoP(um, G.v1 + e, top), shade(base, 34), 2);
+    return { top: isoP(um, G.v1 + e, top) };
+  }
+  const vm = (G.v0 + G.v1) / 2;
+  poly3([[G.u0 - e, G.v0 - e, low], [G.u1 + e, G.v0 - e, low], [G.u1 + e, vm, top], [G.u0 - e, vm, top]], fill(dark));
+  poly3([[G.u1, G.v1, H], [G.u1, G.v0, H], [G.u1, vm, top]], o.gable ? wallTex(o.gable, 'R', 'wood', 72) : shade(o.wall, -34));
+  if (o.mid) o.mid(vm);
+  poly3([[G.u0 - e, G.v1 + e, low], [G.u1 + e, G.v1 + e, low], [G.u1 + e, vm, top], [G.u0 - e, vm, top]], tex(fill(base), 'L'));
+  poly3([[G.u0 - e, G.v1 + e, low], [G.u1 + e, G.v1 + e, low], [G.u1 + e, G.v1 + e, low - dz], [G.u0 - e, G.v1 + e, low - dz]], side);
+  poly3([[G.u1 + e, G.v1 + e, low], [G.u1 + e, vm, top], [G.u1 + e, vm, top - dz], [G.u1 + e, G.v1 + e, low - dz]], dark);
+  poly3([[G.u1 + e, vm, top], [G.u1 + e, G.v0 - e, low], [G.u1 + e, G.v0 - e, low - dz], [G.u1 + e, vm, top - dz]], side);
+  isoSeg(isoP(G.u0 - e, vm, top), isoP(G.u1 + e, vm, top), shade(base, 34), 2);
+  return { top: isoP(G.u1 + e, vm, top) };
+}
+function isoWindow(G, side, a, w, z, h, night){
+  faceRect(G, side, a - 0.05, a + w + 0.05, z - 2, z + h + 2, WOOD.dark);
+  faceRect(G, side, a, a + w, z, z + h, night ? '#ffd98a' : '#8fc7e0');
+  faceRect(G, side, a, a + w, z + h * 0.62, z + h, night ? '#ffeec0' : '#bfe4f7');
+  if (!night) faceRect(G, side, a + w * 0.15, a + w * 0.3, z + 2, z + h - 1, '#eaf6ff');
+  faceRect(G, side, a + w / 2 - 0.025, a + w / 2 + 0.025, z, z + h, WOOD.dark);
+  faceRect(G, side, a, a + w, z + h / 2 - 1, z + h / 2, WOOD.dark);
+  faceRect(G, side, a - 0.08, a + w + 0.08, z - 4, z - 2, WOOD.low);
+  if (night){ const q = faceMid(G, side, a + w / 2, z + h / 2); lamp(q.x, q.y, 24); }
+}
+function isoDoor(G, side, a, w, h, col){
+  faceRect(G, side, a - 0.05, a + w + 0.05, 0, h + 2, WOOD.line);
+  faceRect(G, side, a, a + w, 0, h, col);
+  for (let z = 6; z < h; z += 7) faceRect(G, side, a, a + w, z, z + 1, shade(col, -18));
+}
+function isoHouse(b, night){
+  const G = isoGeo(b, 0.2, 40), lenL = G.u1 - G.u0, lenR = G.v1 - G.v0, wall = '#f6ddc9';
+  isoShadow(G);
+  isoWalls(G, wall, 'wood', 11);
+  faceRect(G, 'L', 0, lenL, 0, 8, wallTex(STONE.mid, 'L', 'stone', 13));        // 돌 기단
+  faceRect(G, 'R', 0, lenR, 0, 8, wallTex(STONE.low, 'R', 'stone', 14));
+  faceRect(G, 'L', 0, lenL, 8, 9, STONE.hi);
+  faceRect(G, 'L', 0, 0.08, 8, G.H, WOOD.low); faceRect(G, 'L', lenL - 0.08, lenL, 8, G.H, WOOD.mid);   // 모서리 기둥
+  faceRect(G, 'R', lenR - 0.08, lenR, 8, G.H, WOOD.dark);
+  faceRect(G, 'L', 0, lenL, 23, 24, WOOD.low); faceRect(G, 'R', 0, lenR, 23, 24, WOOD.dark);           // 허리 띠장
+  const da = lenL / 2 - 0.28;
+  isoDoor(G, 'L', da, 0.56, 28, WOOD.mid);
+  { const q = faceMid(G, 'L', da + 0.44, 13); px(Math.round(q.x), Math.round(q.y), 2, 2, '#ffd166'); }
+  poly3([[G.u0 + da - 0.14, G.v1, 33], [G.u0 + da + 0.7, G.v1, 33], [G.u0 + da + 0.7, G.v1 + 0.32, 29], [G.u0 + da - 0.14, G.v1 + 0.32, 29]], roofTex('#c95a58', 'L'));   // 문 위 차양
+  isoWindow(G, 'L', 0.32, 0.52, 14, 13, night);
+  isoWindow(G, 'L', lenL - 0.84, 0.52, 14, 13, night);
+  isoWindow(G, 'R', lenR / 2 - 0.26, 0.52, 14, 13, night);
+  [0.32, lenL - 0.84].forEach(a => {                                            // 창 밑 꽃상자
+    faceRect(G, 'L', a - 0.1, a + 0.62, 6, 10, WOOD.low);
+    for (let k = 0; k < 6; k++){ const q = faceMid(G, 'L', a - 0.04 + k * 0.13, 10), x = Math.round(q.x), y = Math.round(q.y); px(x, y - 3, 3, 3, '#5fa155'); px(x + 1, y - 4, 2, 2, k % 2 ? '#ff9ec4' : '#ffe066'); }
+  });
+  { const q = faceMid(G, 'L', da + 0.8, 27), x = Math.round(q.x), y = Math.round(q.y);            // 문 옆 등
+    px(x - 1, y - 8, 6, 1, WOOD.dark); px(x, y - 7, 4, 6, night ? '#ffd98a' : '#cfd6da'); px(x - 1, y - 1, 6, 1, WOOD.dark);
+    if (night) lamp(x + 2, y - 4, 26); }
+  const cu = G.u1 - 0.95, cv = G.v0 + 0.3;
+  isoRoof(G, { ridge: 'u', rise: 30, roof: '#e0736e', wall, mid: () => {                        // 굴뚝은 용마루 뒤에서 솟는다
+    isoCube(cu, cv, 0.42, 0.42, G.H + 6, G.H + 40, STONE.hi, wallTex(STONE.mid, 'L', 'stone', 15), wallTex(STONE.low, 'R', 'stone', 16));
+    isoCube(cu - 0.05, cv - 0.05, 0.52, 0.52, G.H + 40, G.H + 43, STONE.hi, STONE.dark, STONE.dark);
+    isoChimney = isoP(cu + 0.21, cv + 0.21, G.H + 44);
+  } });
+  poly3([[G.u0 + da - 0.06, G.v1, 1], [G.u0 + da + 0.62, G.v1, 1], [G.u0 + da + 0.62, G.v1 + 0.3, 1], [G.u0 + da - 0.06, G.v1 + 0.3, 1]], STONE.hi);   // 문 앞 디딤돌
+  // 벽 앞 화분 둘
+  [[G.u0 + 0.12, G.v1 + 0.08], [G.u1 - 0.3, G.v1 + 0.08]].forEach(([u, v], i) => {
+    isoCube(u, v, 0.18, 0.18, 0, 7, '#8a5a3c', '#c97a5a', '#a8603f');
+    const q = isoP(u + 0.09, v + 0.09, 7); blob(q.x, q.y - 5, 10, 8, '#6fb567', '#8ad07a', '#4f8f48', 'hp' + i);
+    px(Math.round(q.x) - 1, Math.round(q.y) - 8, 2, 2, i ? '#ffe066' : '#ff9ec4');
+  });
+}
+/* 가게 — 뒤는 트여 있고 아저씨가 그 안에 선다. 앞에 낮은 판대, 위에 높은 줄무늬 차양.
+   차양을 낮게 두면 비스듬히 내려다보는 눈에 아저씨가 통째로 가린다(처음 판이 그랬다). */
+function isoStall(b, cal){
+  const O = isoGeo(b, 0.18, 0), lenL = O.u1 - O.u0;
+  isoShadow(O);
+  poly3([[O.u0, O.v0, 1], [O.u1, O.v0, 1], [O.u1, O.v1, 1], [O.u0, O.v1, 1]], wallTex(WOOD.low, 'L', 'wood', 23));   // 널마루
+  const post = (u, v) => isoCube(u - 0.05, v - 0.05, 0.1, 0.1, 0, 60, WOOD.hi, WOOD.mid, WOOD.dark);
+  post(O.u0, O.v0); post(O.u1, O.v0);
+  // 뒤 선반 — 상자 둘
+  isoCube(O.u0 + 0.15, O.v0 + 0.08, 0.5, 0.3, 1, 14, WOOD.hi, WOOD.mid, WOOD.dark);
+  isoCube(O.u1 - 0.7, O.v0 + 0.08, 0.5, 0.3, 1, 10, '#e0c268', WOOD.mid, WOOD.dark);
+  { const q = isoP(O.u0 + lenL * 0.52, O.v0 + 0.55); art(SHOPKEEP, Math.round(q.x) - 10, Math.round(q.y) - 30, SHOPPAL, false); }   // 가게 아저씨
+  const G = { u0: O.u0, u1: O.u1, v0: O.v1 - 0.5, v1: O.v1, H: 18 };                                                 // 앞 판대
+  isoWalls(G, WOOD.mid, 'wood', 21);
+  poly3([[G.u0 - 0.07, G.v0 - 0.07, G.H + 2], [G.u1 + 0.07, G.v0 - 0.07, G.H + 2], [G.u1 + 0.07, G.v1 + 0.07, G.H + 2], [G.u0 - 0.07, G.v1 + 0.07, G.H + 2]], WOOD.hi);   // 판 윗면
+  poly3([[G.u0 - 0.07, G.v1 + 0.07, G.H + 2], [G.u1 + 0.07, G.v1 + 0.07, G.H + 2], [G.u1 + 0.07, G.v1 + 0.07, G.H], [G.u0 - 0.07, G.v1 + 0.07, G.H]], WOOD.dark);
+  poly3([[G.u1 + 0.07, G.v1 + 0.07, G.H + 2], [G.u1 + 0.07, G.v0 - 0.07, G.H + 2], [G.u1 + 0.07, G.v0 - 0.07, G.H], [G.u1 + 0.07, G.v1 + 0.07, G.H]], WOOD.line);
+  const goods = { spring: ['#ff5c6b', '#ffe066', '#8fd66c'], summer: ['#3f9a4b', '#ff5a4a', '#ffcf3d'], autumn: ['#ff9a2e', '#8a5cc7', '#e8f2c0'], winter: ['#eef8ff', '#4fa653', '#e8f4ee'] }[cal.season];
+  goods.forEach((c, i) => {                                                     // 광주리 셋 — 계절 물건
+    const u = G.u0 + 0.2 + i * (lenL - 0.6) / 2, v = G.v0 + 0.07;
+    isoCube(u, v, 0.36, 0.36, G.H + 2, G.H + 7, c, WOOD.dark, shade(WOOD.dark, -12));
+    const q = isoP(u + 0.18, v + 0.18, G.H + 7), x = Math.round(q.x), y = Math.round(q.y);
+    px(x - 4, y - 3, 8, 3, c); px(x - 2, y - 5, 5, 2, c); px(x - 1, y - 5, 2, 1, shade(c, 40)); px(x + 2, y - 2, 2, 2, shade(c, -30));
+  });
+  faceRect(G, 'L', lenL / 2 - 0.3, lenL / 2 + 0.3, 7, 13, '#fff6e9');           // 값 쪽지
+  { const q = faceMid(G, 'L', lenL / 2 - 0.2, 11); px(Math.round(q.x), Math.round(q.y), 10, 1, '#8a7a63'); }
+  post(G.u0, G.v1); post(G.u1, G.v1);
+  const n = 6, e = 0.12, zb = 66, zf = 56, vf = G.v1 + e + 0.12, vb = O.v0 - e;
+  for (let k = 0; k < n; k++){                                                  // 줄무늬 차양 — 뒤가 조금 높다
+    const ua = G.u0 - e + (lenL + 2 * e) * k / n, ub = G.u0 - e + (lenL + 2 * e) * (k + 1) / n;
+    poly3([[ua, vb, zb], [ub, vb, zb], [ub, vf, zf], [ua, vf, zf]], k % 2 ? '#fff6e9' : '#f2857a');
+    for (let s = 0; s < 2; s++){                                               // 물결 자락
+      const sa = ua + (ub - ua) * s / 2, sb = ua + (ub - ua) * (s + 1) / 2;
+      poly3([[sa, vf, zf], [sb, vf, zf], [sb, vf, zf - 3], [(sa + sb) / 2, vf, zf - 5], [sa, vf, zf - 3]], k % 2 ? '#e8dccb' : '#d9665c');
+    }
+  }
+  poly3([[G.u1 + e, vb, zb], [G.u1 + e, vf, zf], [G.u1 + e, vf, zf - 2], [G.u1 + e, vb, zb - 2]], '#c95a58');
+  isoSeg(isoP(G.u0 - e, vb, zb), isoP(G.u1 + e, vb, zb), '#ffffff', 1);
+  // 차양 위 간판
+  const sq = isoP((G.u0 + G.u1) / 2, vb + 0.05, zb);
+  const sx = Math.round(sq.x) - 12, sy = Math.round(sq.y) - 12;
+  px(sx - 1, sy - 1, 26, 12, WOOD.dark); px(sx, sy, 24, 10, '#fff6e9'); px(sx, sy, 24, 1, '#ffffff');
+  px(sx + 4, sy + 3, 4, 4, '#f2857a'); px(sx + 10, sy + 3, 4, 4, '#8fd66c'); px(sx + 16, sy + 3, 4, 4, '#ffe066');
+  px(sx + 3, sy + 10, 2, 4, WOOD.dark); px(sx + 19, sy + 10, 2, 4, WOOD.dark);
+}
+function isoCoop(b, night){
+  const G = isoGeo(b, 0.24, 22), lenL = G.u1 - G.u0, lenR = G.v1 - G.v0, wall = '#f0d3a4';
+  isoShadow(G);
+  isoWalls(G, wall, 'wood', 41);
+  const da = lenL / 2 - 0.2;
+  faceRect(G, 'L', da - 0.05, da + 0.45, 0, 17, WOOD.dark); faceRect(G, 'L', da, da + 0.4, 0, 15, '#4b3527');
+  faceRect(G, 'L', da - 0.1, da + 0.5, 17, 19, WOOD.mid);                       // 문 위 차양
+  poly3([[G.u0 + da, G.v1, 3], [G.u0 + da + 0.4, G.v1, 3], [G.u0 + da + 0.4, G.v1 + 0.55, 0], [G.u0 + da, G.v1 + 0.55, 0]], wallTex(WOOD.low, 'L', 'wood', 42));   // 드나드는 발판
+  isoWindow(G, 'R', lenR / 2 - 0.2, 0.4, 10, 8, night);
+  isoCube(G.u1 - 0.02, G.v1 - 0.55, 0.22, 0.4, 2, 10, '#e0c268', WOOD.low, WOOD.dark);   // 알 놓는 칸
+  const r = isoRoof(G, { ridge: 'v', rise: 18, roof: '#e0736e', wall, gable: wall });
+  const q = r.top, x = Math.round(q.x), y = Math.round(q.y);                    // 용마루 끝 깃발
+  px(x, y - 12, 1, 12, WOOD.dark); px(x + 1, y - 12, 6, 4, '#ff5a4a'); px(x + 1, y - 12, 6, 1, '#ff8f80');
+}
+function isoBarn(b, night){
+  const G = isoGeo(b, 0.16, 38), lenL = G.u1 - G.u0, lenR = G.v1 - G.v0, wall = '#cf5450', trim = '#fff1e2';
+  isoShadow(G);
+  isoWalls(G, wall, 'wood', 31);
+  faceRect(G, 'L', 0, 0.1, 0, G.H, trim); faceRect(G, 'L', lenL - 0.1, lenL, 0, G.H, trim); faceRect(G, 'R', lenR - 0.1, lenR, 0, G.H, '#e2d2c2');
+  faceRect(G, 'L', 0, lenL, G.H - 3, G.H, trim); faceRect(G, 'R', 0, lenR, G.H - 3, G.H, '#e2d2c2');
+  const dw = 1.0, da = lenL / 2 - dw / 2, dh = 30;                              // 큰 문 — 박공 쪽
+  faceRect(G, 'L', da - 0.07, da + dw + 0.07, 0, dh + 3, trim);
+  faceRect(G, 'L', da, da + dw, 0, dh, wallTex(WOOD.mid, 'L', 'wood', 32));
+  [[da, da + dw / 2], [da + dw / 2, da + dw]].forEach(([a0, a1]) => {           // X 버팀목
+    poly3([[G.u0 + a0, G.v1, 1], [G.u0 + a0 + 0.08, G.v1, 1], [G.u0 + a1, G.v1, dh - 1], [G.u0 + a1 - 0.08, G.v1, dh - 1]], trim);
+    poly3([[G.u0 + a1 - 0.08, G.v1, 1], [G.u0 + a1, G.v1, 1], [G.u0 + a0 + 0.08, G.v1, dh - 1], [G.u0 + a0, G.v1, dh - 1]], trim);
+  });
+  faceRect(G, 'L', da + dw / 2 - 0.03, da + dw / 2 + 0.03, 0, dh, trim);
+  isoWindow(G, 'R', 0.38, 0.46, 16, 12, night);
+  isoWindow(G, 'R', lenR - 0.86, 0.46, 16, 12, night);
+  const r = isoRoof(G, { ridge: 'v', rise: 32, roof: '#8a3a36', wall, gable: wall, mid: um => {  // 박공 다락창과 건초
+    const a = um - G.u0;
+    faceRect(G, 'L', a - 0.24, a + 0.24, G.H + 5, G.H + 19, trim);
+    faceRect(G, 'L', a - 0.18, a + 0.18, G.H + 7, G.H + 17, night ? '#ffd98a' : '#4b3527');
+    faceRect(G, 'L', a - 0.18, a + 0.18, G.H + 7, G.H + 11, '#e0c268');
+    if (night){ const q = faceMid(G, 'L', a, G.H + 12); lamp(q.x, q.y, 28); }
+  } });
+  const q = r.top, x = Math.round(q.x), y = Math.round(q.y);                    // 바람개비
+  px(x - 1, y - 14, 2, 14, '#5a544d'); px(x - 7, y - 11, 14, 2, '#5a544d'); px(x + 3, y - 16, 6, 5, '#3a3226');
+}
+function isoGreenhouse(b, night){
+  const G = isoGeo(b, 0.2, 32), lenL = G.u1 - G.u0, lenR = G.v1 - G.v0;
+  isoShadow(G);
+  poly3([[G.u0, G.v0, 0], [G.u1, G.v0, 0], [G.u1, G.v1, 0], [G.u0, G.v1, 0]], '#8a6a4a');          // 흙바닥
+  poly3([[G.u0, G.v0, 0], [G.u1, G.v0, 0], [G.u1, G.v0, G.H], [G.u0, G.v0, G.H]], '#bfe0ef');       // 안쪽 뒤 유리벽
+  poly3([[G.u0, G.v1, 0], [G.u0, G.v0, 0], [G.u0, G.v0, G.H], [G.u0, G.v1, G.H]], '#cfe8f3');
+  for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++){                                      // 화분 두 줄
+    const u = G.u0 + 0.25 + k * (lenL - 0.7) / 3, v = G.v0 + 0.3 + r * (lenR - 0.85);
+    isoCube(u, v, 0.34, 0.34, 0, 6, '#6f5238', '#c97a5a', '#a8603f');
+    const q = isoP(u + 0.17, v + 0.17, 6);
+    blob(q.x, q.y - 8, 14, 12, ['#5da05a', '#4f9a58', '#6aab5e', '#57a06b'][k], '#8ad07a', '#3c7a44', 'ig' + r + k);
+    px(Math.round(q.x) - 2, Math.round(q.y) - 11, 3, 3, (r + k) % 2 ? '#ff9ec4' : '#ffd166');
+  }
+  faceRect(G, 'L', 0, lenL, 0, G.H, '#d8f0fa60');                                                // 앞쪽 유리 — 비친다
+  faceRect(G, 'R', 0, lenR, 0, G.H, '#a8d0e270');
+  for (let i = 0; i <= 4; i++){ const a = lenL * i / 4; faceRect(G, 'L', Math.max(0, a - 0.03), Math.min(lenL, a + 0.03), 0, G.H, '#eaf6ff'); }
+  for (let i = 0; i <= 3; i++){ const a = lenR * i / 3; faceRect(G, 'R', Math.max(0, a - 0.03), Math.min(lenR, a + 0.03), 0, G.H, '#9cc8dc'); }
+  faceRect(G, 'L', 0, lenL, 15, 16, '#eaf6ff'); faceRect(G, 'R', 0, lenR, 15, 16, '#9cc8dc');
+  faceRect(G, 'L', 0, lenL, 0, 4, '#8fc7e0'); faceRect(G, 'R', 0, lenR, 0, 4, '#7fb3cc');
+  const da = lenL / 2 - 0.3;                                                                   // 문틀
+  faceRect(G, 'L', da - 0.04, da, 0, 26, '#f4fbff'); faceRect(G, 'L', da + 0.6, da + 0.64, 0, 26, '#f4fbff'); faceRect(G, 'L', da - 0.04, da + 0.64, 26, 28, '#f4fbff');
+  poly3([[G.u0 + 0.3, G.v1, 6], [G.u0 + 0.42, G.v1, 6], [G.u0 + 0.9, G.v1, G.H - 3], [G.u0 + 0.78, G.v1, G.H - 3]], '#ffffff70');   // 유리 반사
+  isoRoof(G, { ridge: 'u', rise: 22, roof: '#dff0f8', wall: '#c3e6f6', glass: true, gable: null });
+  if (night){ const q = isoP((G.u0 + G.u1) / 2, (G.v0 + G.v1) / 2, 16); lamp(q.x, q.y, 30, '#cfeccf'); }
+}
+// 바닥에 누운 동그라미(칸 단위 반지름) — 아이소에서는 가로로 긴 타원이 된다
+function isoEllipse(cu, cv, ru, rv, z, col){
+  const pts = [];
+  for (let i = 0; i < 32; i++){ const a = i / 32 * Math.PI * 2, q = isoP(cu + Math.cos(a) * ru, cv + Math.sin(a) * rv, z); pts.push([q.x, q.y]); }
+  polyFill(pts, col);
+}
+// 둥근 기둥 — 옆면을 한 도트씩 쌓고 윗면을 얹는다. 왼쪽 앞이 밝도록 옆면 위에 빛 한 줄.
+function isoDrum(cu, cv, r, z0, z1, side, top){
+  for (let z = z0; z < z1; z++){ isoEllipse(cu, cv, r, r, z, z === z0 ? shade(side, -18) : side); }
+  isoEllipse(cu - 0.02, cv + 0.02, r, r, z1 - 1, shade(side, 12));
+  isoEllipse(cu, cv, r, r, z1, top);
+}
+function isoFountain(b, night){
+  const cu = b.x + b.w / 2, cv = b.y + b.h / 2, r = Math.min(b.w, b.h) * 0.42;
+  isoEllipse(cu + 0.14, cv + 0.14, r + 0.06, r + 0.06, 0, 'rgba(30,44,24,0.2)');
+  isoDrum(cu, cv, r, 0, 9, STONE.low, STONE.hi);                                  // 돌 수반
+  isoEllipse(cu, cv, r * 0.82, r * 0.82, 9, STONE.dark);
+  isoEllipse(cu + 0.02, cv + 0.02, r * 0.78, r * 0.78, 9, '#4f9ad6');             // 물
+  isoEllipse(cu + 0.1, cv + 0.12, r * 0.5, r * 0.44, 9, '#62b0e0');
+  [0.5, 1.9, 3.6, 5].forEach(a => { const q = isoP(cu + Math.cos(a) * r * 0.55, cv + Math.sin(a) * r * 0.55, 9); px(Math.round(q.x) - 2, Math.round(q.y), 4, 1, '#bfe6f8'); });
+  isoDrum(cu, cv, 0.11, 9, 26, STONE.mid, STONE.hi);                              // 기둥
+  isoDrum(cu, cv, 0.36, 25, 28, STONE.low, STONE.hi);                             // 윗 접시
+  isoEllipse(cu, cv, 0.28, 0.28, 28, '#6fb8e6');
+  for (let i = 0; i < 10; i++){                                                  // 접시 가장자리에서 떨어지는 물
+    const a = i / 10 * Math.PI * 2;
+    if (Math.sin(a) + Math.cos(a) < -0.5) continue;                              // 뒤쪽 물줄기는 기둥에 가린다
+    for (let z = 26; z > 10; z -= 2){ const k = (26 - z) / 16, q = isoP(cu + Math.cos(a) * (0.36 + k * 0.22), cv + Math.sin(a) * (0.36 + k * 0.22), z); px(Math.round(q.x), Math.round(q.y), 1, 1, z % 4 ? '#cfeefc' : '#ffffff'); }
+  }
+  const q = isoP(cu, cv, 30), x = Math.round(q.x), y = Math.round(q.y);          // 꼭대기 물보라
+  px(x - 1, y - 6, 2, 7, '#dff4fd'); px(x - 3, y - 4, 6, 1, '#ffffff'); px(x - 4, y - 1, 1, 2, '#cfeefc'); px(x + 3, y - 1, 1, 2, '#cfeefc');
+  if (night) lamp(x, y + 18, 22, '#9ed6ff');
+}
+// 목장 — 바닥은 바닥 겹에, 여기는 뒤쪽 울타리 두 줄과 우리 안 살림
+function isoPastureBack(b){
+  const x0 = b.x + 0.1, y0 = b.y + 0.1, x1 = b.x + b.w - 0.1, y1 = b.y + b.h - 0.1;
+  isoFenceLine(x0, y0, x1, y0);
+  isoFenceLine(x0, y0, x0, y1);
+  isoCube(x0 + 0.4, y0 + 0.5, 1.1, 0.34, 0, 7, '#c9a227', WOOD.low, WOOD.dark);                 // 여물통
+  { const q = isoP(x0 + 0.95, y0 + 0.67, 7); px(Math.round(q.x) - 6, Math.round(q.y) - 1, 12, 2, '#e8c94e'); }
+  isoCube(x1 - 1.1, y0 + 0.45, 0.55, 0.5, 0, 8, '#4f9ad6', STONE.mid, STONE.low);                // 물통
+  isoCube(x1 - 1.3, y0 + 1.5, 0.8, 0.7, 0, 12, '#f2da8a', '#e0c268', '#c9a94e');                 // 건초 더미
+}
+// 목장과 밭의 앞쪽 울타리 — 토막마다 깊이를 따로 매겨 아이·동물과 앞뒤를 가린다
+function isoFrontFences(cast){
+  const F = isoFieldBox(), fx0 = F.x - 0.15, fy0 = F.y - 0.15, fx1 = F.x + F.w + 0.15, fy1 = F.y + F.h + 0.15;
+  const seg = (ua, va, ub, vb) => cast.push({ d: (ua + ub) / 2 + (va + vb) / 2, go: () => isoFenceSeg(ua, va, ub, vb) });
+  const line = (ua, va, ub, vb, skip) => {
+    const n = Math.max(1, Math.round(Math.max(Math.abs(ub - ua), Math.abs(vb - va))));
+    for (let k = 0; k < n; k++) if (!(skip && skip(k, n))) seg(ua + (ub - ua) * k / n, va + (vb - va) * k / n, ua + (ub - ua) * (k + 1) / n, va + (vb - va) * (k + 1) / n);
+  };
+  line(fx0, fy1, fx1, fy1);
+  line(fx1, fy0, fx1, fy1);
+  if (here('pasture')){
+    const b = spot('pasture'), x0 = b.x + 0.1, y0 = b.y + 0.1, x1 = b.x + b.w - 0.1, y1 = b.y + b.h - 0.1;
+    line(x0, y1, x1, y1, (k, n) => k === Math.floor(n / 2));                   // 가운데는 드나드는 문
+    line(x1, y0, x1, y1);
+  }
+}
+function paintIsoThing(id, b, cal, night, season){
+  if (id === 'house') return isoHouse(b, night);
+  if (id === 'stall') return isoStall(b, cal);
+  if (id === 'coop') return isoCoop(b, night);
+  if (id === 'barn') return isoBarn(b, night);
+  if (id === 'greenhouse') return isoGreenhouse(b, night);
+  if (id === 'pasture') return isoPastureBack(b);
+  if (id === 'fountain') return isoFountain(b, night);
+  withBB(bbOffset(b), () => {
+    if (id === 'mail') withInk(INK.build, drawMail);
+    else if (id === 'board') withInk(INK.build, drawBoard);
+    else if (id === 'well') withInk(INK.build, () => drawWell(night));
+    else if (id === 'pethouse') withInk(INK.build, () => drawPethouse(night));
+    else if (id === 'hive') withInk(INK.build, drawHive);
+    else if (id === 'scarecrow') withInk(INK.build, drawScarecrow);
+    else onlyDecor(id, () => drawDecor(season, night));
+  });
+}
+// 누른 자리에 무엇이 서 있나 — 앞에 그린 것부터, 담아 둔 그림의 그 도트가 비었는지까지 본다
+function isoHitTile(x, y){
+  for (let i = isoHits.length - 1; i >= 0; i--){
+    const h = isoHits[i];
+    if (h.e){
+      const dx = Math.floor(x * S) - h.e.ox, dy = Math.floor(y * S) - h.e.oy;
+      if (dx < 0 || dy < 0 || dx >= h.e.cv.width || dy >= h.e.cv.height) continue;
+      let a = 0;
+      try { a = h.e.cv.getContext('2d').getImageData(dx, dy, 1, 1).data[3]; } catch (err) { a = 0; }
+      if (a > 90) return { tx: h.tx, ty: h.ty };
+    } else if (x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1) return { tx: h.tx, ty: h.ty };
+  }
+  return null;
+}
+function isoPlaceOverlay(t){
+  ctx.globalAlpha = 0.45;
+  for (let u = 0; u <= COLS; u++) isoSeg(isoP(u, 0), isoP(u, ROWS), '#ffffff', 1);
+  for (let v = 0; v <= ROWS; v++) isoSeg(isoP(0, v), isoP(COLS, v), '#ffffff', 1);
+  const FB = R.FIELD_BOX, dia = (b, c) => poly3([[b.x, b.y, 0], [b.x + b.w, b.y, 0], [b.x + b.w, b.y + b.h, 0], [b.x, b.y + b.h, 0]], c);
+  ctx.globalAlpha = 0.22; dia(FB, '#ff5a4a'); ctx.globalAlpha = 1;
+  R.PLACE_IDS.forEach(id => {
+    if (!here(id)) return;
+    const b = spot(id), c = id === placePick ? (Math.sin(t / 180) > 0 ? '#ffe066' : '#ffffff') : R.PLACE[id].move ? '#7fe0a8' : '#ff9aa2';
+    const a = isoP(b.x, b.y), r = isoP(b.x + b.w, b.y), f = isoP(b.x + b.w, b.y + b.h), l = isoP(b.x, b.y + b.h);
+    [[a, r], [r, f], [f, l], [l, a]].forEach(([p, q]) => isoSeg(p, q, c, 2));
+  });
+  Object.keys(R.NODES).forEach(n => { const N = R.NODES[n]; ctx.globalAlpha = 0.3; dia({ x: N.x, y: N.y, w: 1, h: 1 }, '#ff5a4a'); ctx.globalAlpha = 1; });
+}
+// 한 장 — 아이소 섬
+function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
+  const cw = cv.width, ch = cv.height, hs = spot('house');
+  paintLayer('iground', cw, ch, 'i|' + sigGround(season, wk) + '|' + hs.x + ',' + hs.y, () => isoGround(season));
+  const sigB = sigBuilt(cal, L.lamp);
+  paintLayer('ifloor', cw, ch, 'i|' + season + '|' + sigField() + '|' + sigB, () => { isoFloor(season); isoField(); });
+  g.drawImage(composeBack(cw, ch, ['iground', 'ifloor']), 0, 0);
+  ctx = g; lamps = []; isoHits = [];
+  const cast = [];
+  isoCropBands(cast, windStep);
+  R.PLACE_IDS.forEach(id => {
+    if (!here(id) || id === 'path' || id === 'pond') return;
+    const b = spot(id);
+    cast.push({ d: id === 'pasture' ? b.x + b.y + 0.3 : b.x + b.w / 2 + b.y + b.h / 2, go: () => {
+      const e = isoSprite(id, sigB + '|' + season + '|' + id, isoBoxOf(b), () => paintIsoThing(id, b, cal, L.lamp, season));
+      for (let i = 0; i < e.lamps.length; i++) lamps.push(e.lamps[i]);
+      isoHits.push({ e, tx: b.x, ty: b.y });
+      if (W.decor[id]) withBB(bbOffset(b), () => onlyDecor(id, () => drawDecorLive(season, t, L)));
+    } });
+  });
+  if (here('pond')){ const b = spot('pond'); cast.push({ d: b.x + b.y + 1, go: () => drawPondLive(season, t, L) }); }
+  isoFrontFences(cast);
+  Object.keys(R.NODES).forEach(n => {
+    const N = R.NODES[n];
+    cast.push({ d: N.x + N.y + 1, go: () => {
+      const sway = Math.round(Math.sin(t / 900 + N.x) * (curWind + 0.8));
+      const ready = W && M ? R.nodeReady(W, M, n, now()) : true;
+      withBB(flatOffAt(N.x * T + 16, N.y * T + 28, N.x + 0.5, N.y + 0.62), () => cachedDraw(n + '|' + season + '|' + (ready ? 1 : 0) + '|' + sway, N.x * T - 22, N.y * T - 44, 74, 84,
+        () => withInk(INK.tree, () => drawNode(n, season, t))));
+      const q = isoP(N.x + 0.5, N.y + 0.62);
+      isoHits.push({ x0: q.x - 16, x1: q.x + 16, y0: q.y - 50, y1: q.y + 6, tx: N.x, ty: N.y });
+    } });
+  });
+  Object.keys(W.sprinklers || {}).forEach(id => {
+    const q = R.parseId(id), good = (W.sprinklers[id] || {}).k === 'good';
+    cast.push({ d: q.x + q.y + 1, go: () => withBB(flatOffAt(q.x * T + 16, q.y * T + 26, q.x + 0.5, q.y + 0.55, 3), () => drawSprinkler(q.x * T, q.y * T, t, good)) });
+  });
+  if (R.peddlerHere(W, now())){
+    const P = R.PEDDLER;
+    cast.push({ d: P.x + P.y + 1.5, go: () => withBB(flatOffAt((P.x + 1.2) * T, (P.y + 1) * T, P.x + 1.2, P.y + 0.9), () => drawPeddler(t)) });
+  }
+  if (walkers) walkers.forEach(w => cast.push({ d: (w.x + w.y) / T, go: () => withBB(flatOff(w.x, w.y), () => drawWalker(w, t)) }));
+  if (beasts) beasts.list.forEach(a => cast.push({ d: (a.x + a.y) / T, go: () => withBB(flatOff(a.x, a.y), () => drawBeast(a, t)) }));
+  if (dolls) dolls.list.forEach(d => cast.push({ d: (d.x + d.y) / T, go: () => withBB(flatOff(d.x, d.y), () => drawDoll(d, t)) }));
+  cast.sort((a, b) => a.d - b.d).forEach(c => { ctx = g; c.go(); });
+  ctx = g;
+  drawSmoke(t);
+  drawCritters(season, t, L);
+  drawWeather(wk, season, t, cv);
+  grade(g, cw, ch, L);
+  if (L.lamp && lamps.length){
+    g.save(); g.globalCompositeOperation = 'lighter';
+    g.drawImage(paintLayer('glow', cw, ch, sigGlow(L.dark), gg => drawGlow(gg, L.dark)), 0, 0);
+    g.restore();
+  }
+  ctx = g;
+  drawFireflies(t);
+  drawPlaceOverlay(t);
+  drawBubbles(t);
+  drawFishBar(t);
+}
+
+// ---------- 옛 농장 구경 ----------
+/* 이사 가며 두고 온 농장을 언제든 다시 가 볼 수 있다(2026-09-28 로키즈 요청). 이사할 때
+   W.past 에 꾸미개·다 지은 건물·배치를 통째로 적어 두었으니(farm-rules-play.js 의 이사),
+   그리는 동안만 그 기록을 W 에 잠깐 끼워 넣는다. 밭과 동물은 들고 떠났으니 빈 밭·빈 우리다.
+   구경하는 동안은 눌러도 아무것도 안 한다 — 옛 농장은 추억이지 일터가 아니다. */
+let visitAt = null, inView = false;
+const VIEW_KEYS = ['farm', 'decor', 'layout', 'buildings', 'expand', 'plots', 'sprinklers', 'animals'];
+function pastOf(i){ return W && Array.isArray(W.past) && i != null ? W.past[i] || null : null; }
+function withView(fn){
+  const P = pastOf(visitAt);
+  if (!P || inView) return fn();
+  const keep = {};
+  VIEW_KEYS.forEach(k => { keep[k] = W[k]; });
+  inView = true;
+  W.farm = Math.max(0, R.FARMS.findIndex(f => f.id === P.farm));
+  W.decor = P.decor || {}; W.layout = P.layout || {}; W.buildings = P.buildings || {}; W.expand = P.expand || 0;
+  W.plots = {}; W.sprinklers = {}; W.animals = [];
+  try { return fn(); } finally { VIEW_KEYS.forEach(k => { W[k] = keep[k]; }); inView = false; }
+}
+
 // ---- 한 장 그리기 ----
 function drawFarm(cvIn, tms){
   const cv = cvIn || $('#farmCanvas');
   if (!cv || !W) return;
+  withView(() => drawFarmIn(cv, tms));
+}
+function drawFarmIn(cv, tms){
   const t = tms == null ? (window.performance ? performance.now() : Date.now()) : tms;
   const cal = R.calendar(W, now()), season = cal.season, wk = R.weatherOf(R.dayKey(now()), season);
   const L = dayLight();
-  if (fitPixelCanvas(cv, COLS * T, ROWS * T, 5)) dropLayers();
-  S = pixScale(cv, COLS * T, ROWS * T, 1.5);
+  isoView = isoMode();
+  const A = artSize();
+  if (fitPixelCanvas(cv, A.w, A.h, 5)) dropLayers();
+  S = pixScale(cv, A.w, A.h, 1.5);
   const cw = cv.width, ch = cv.height;
   curWind = wk === 'wind' ? 4.8 : wk === 'storm' ? 3.8 : wk === 'rain' ? 2.0 : 1.1;
   // 바람은 0.11초 단위로만 센다. 흔들리는 폭이 어차피 한두 도트라 눈에는 그대로인데,
@@ -2893,6 +3892,7 @@ function drawFarm(cvIn, tms){
   const windStep = Math.round(t / 110) * 110;
   const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, cw, ch);
+  if (isoView) return drawFarmIso(cv, g, t, cal, season, wk, L, windStep);
 
   // 1 땅
   paintLayer('ground', cw, ch, sigGround(season, wk), () => { drawGround(season); drawPath(season); });
@@ -2994,28 +3994,37 @@ function loop(ts){
   const dt = ts - lastTs;
   if (dt < 55) return;
   lastTs = ts;
-  ensureActors();
-  stepActors(Math.min(150, dt), ts);
-  drawFarm(liveCv, ts);
+  withView(() => {                               // 옛 농장을 구경하는 중이면 아이들도 그 농장을 걷는다
+    ensureActors();
+    stepActors(Math.min(150, dt), ts);
+    drawFarm(liveCv, ts);
+  });
   // 집 탭이 열려 있으면 방도 함께 — 불꽃과 먼지와 아이가 움직인다
   if (tab === 'house' && key && !$('#tab-house').hidden) drawRoom($('#houseCanvas'), room, ts);
 }
 function startLoop(cv){
   liveCv = cv;
-  ensureActors();
-  drawFarm(cv);                                  // 첫 장은 바로 — 빈 화면이 잠깐 보이지 않게
+  withView(ensureActors);
+  drawFarm(cv);                                // 첫 장은 바로 — 빈 화면이 잠깐 보이지 않게
   if (STILL) return;
   if (!rafId) rafId = requestAnimationFrame(loop);
 }
 
 // ---------- 누르기 ----------
-function tileAt(clientX, clientY){
-  const cv = liveCv || $('#farmCanvas'), r = cv.getBoundingClientRect();
-  const w = r.width || cv.width, h = r.height || cv.height;
-  const x = (clientX - r.left) / w * cv.width / S, y = (clientY - r.top) / h * cv.height / S;
-  return { tx: Math.floor(x / T), ty: Math.floor(y / T) };
+// 아이소 섬이면 선 것(건물·나무)을 먼저 보고, 없으면 땅의 칸을 거꾸로 셈한다
+// ground 면 선 것은 건너뛰고 땅의 칸만 — 배치에서 놓을 자리를 고를 때(지붕이 뒤 칸을 덮는다)
+function tileAt(clientX, clientY, ground){
+  const q = pixAt(clientX, clientY);
+  if (!isoView) return { tx: Math.floor(q.x / T), ty: Math.floor(q.y / T) };
+  const hit = ground ? null : isoHitTile(q.x, q.y);
+  if (hit) return hit;
+  // 갈아 둔 밭 칸은 세 도트 돋아 있다 — 그 윗면을 누른 것인지 먼저 본다
+  const g3 = isoTileAt(q.x, q.y + 3), t3 = { tx: Math.floor(g3.u), ty: Math.floor(g3.v) }, id3 = plotAtTile(t3.tx, t3.ty);
+  if (id3 && W.plots[id3] && W.plots[id3].tilled) return t3;
+  const g = isoTileAt(q.x, q.y);
+  return { tx: Math.floor(g.u), ty: Math.floor(g.v) };
 }
-// 누른 자리를 도트 좌표로 — 칸이 아니라 그림 위 어디를 눌렀는지 봐야 할 때(캐릭터)
+// 누른 자리를 화면 도트로 — 칸이 아니라 그림 위 어디를 눌렀는지 봐야 할 때(캐릭터). 판이면 곧 지도 좌표다.
 function pixAt(clientX, clientY){
   const cv = liveCv || $('#farmCanvas'), r = cv.getBoundingClientRect();
   const w = r.width || cv.width, h = r.height || cv.height;
