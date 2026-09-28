@@ -2985,13 +2985,32 @@ const ISO_LOOK = {
 };
 function isoLook(){ return ISO_LOOK[R.farmOf(W).id] || ISO_LOOK.seaside; }
 // 하늘은 네 빛깔을 띠로 깔고 사이를 흩뿌려 잇는다
-function isoSky(K, y0, y1){
-  const n = K.sky.length - 1;
-  for (let y = y0; y < y1; y++){
-    const tt = (y - y0) / Math.max(1, y1 - y0) * n, k = Math.min(n - 1, Math.floor(tt)), f = tt - k;
-    px(0, y, ISO_W, 1, K.sky[k]);
-    if (f > 0.05) ditherRow(0, y, ISO_W, K.sky[k + 1], f, y);
+function isoSky(K, y0, y1){ isoGrad(y0, y1, K.sky); }
+/* 빛깔 띠를 흩뿌림으로 잇는다. 도트마다 칠하면 한 장에 20만 번이라(재 봄) 한 도트 = 한 픽셀인
+   작은 그림에 한 번 구워 두고 늘여 붙인다. 흩뿌림 무늬는 ditherRow 와 같은 BAYER 다. */
+const gradMemo = {};
+function isoGrad(y0, y1, cols){
+  const key = y0 + '|' + y1 + '|' + cols.join(',');
+  let c = gradMemo[key];
+  if (!c){
+    const h = Math.max(1, y1 - y0), n = cols.length - 1;
+    c = document.createElement('canvas'); c.width = ISO_W; c.height = h;
+    const g = c.getContext('2d'), img = g.createImageData(ISO_W, h), d = img.data;
+    const rgb = cols.map(x => { const v = parseInt(x.slice(1), 16); return [v >> 16, (v >> 8) & 255, v & 255]; });
+    for (let y = 0; y < h; y++){
+      const tt = y / h * n, k = Math.min(n - 1, Math.floor(tt)), th = Math.round((tt - k) * 16), r4 = ((y0 + y) % 4 + 4) % 4;
+      for (let x = 0; x < ISO_W; x++){
+        const q = rgb[th > 0 && BAYER[r4 * 4 + (x % 4)] < th ? k + 1 : k], i = (y * ISO_W + x) * 4;
+        d[i] = q[0]; d[i + 1] = q[1]; d[i + 2] = q[2]; d[i + 3] = 255;
+      }
+    }
+    g.putImageData(img, 0, 0);
+    gradMemo[key] = c;
   }
+  const keep = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(c, 0, Math.round(y0 * S), Math.round(ISO_W * S), Math.round(y1 * S) - Math.round(y0 * S));
+  ctx.imageSmoothingEnabled = keep;
 }
 // 산등성이 한 겹 — 사인 몇 개와 잡음으로 봉우리를 세운다. 아래는 끝까지 채운다.
 function isoRidge(base, amp, col, seed, snow, bot){
@@ -3015,10 +3034,7 @@ function isoBackdrop(season){
     for (let x = 40; x < 200; x += 2){ const h = Math.round(14 * Math.sin((x - 40) / 160 * Math.PI) + hash2(x >> 2, 5, 913) * 2); px(x, K.horizon - h, 2, h, winter ? '#b9ccd4' : '#7fae95'); }
     // 바다 — 수평선에서 가까워질수록 짙다
     const sea = winter ? ['#a9cfe0', '#8fbcd4', '#77a9c6', '#6397b8'] : ['#7cc6ea', '#5fb2e0', '#469dd2', '#3389c2'];
-    for (let y = K.horizon; y < ISO_H; y++){
-      const tt = (y - K.horizon) / (ISO_H - K.horizon) * 3, k = Math.min(2, Math.floor(tt));
-      px(0, y, ISO_W, 1, sea[k]); if (tt - k > 0.05) ditherRow(0, y, ISO_W, sea[k + 1], tt - k, y);
-    }
+    isoGrad(K.horizon, ISO_H, sea);
     // 반짝이는 물결 줄
     for (let i = 0; i < 90; i++){
       const x = Math.floor(hash2(i, 1, 914) * ISO_W), y = K.horizon + 4 + Math.floor(Math.pow(hash2(i, 2, 915), 0.8) * (ISO_H - K.horizon - 6));
@@ -3045,7 +3061,7 @@ function isoBackdrop(season){
     }
     // 골짜기 — 안개가 깔린 아래쪽
     const haze = ['#9cb8b0', '#88a79e', '#76978d', '#668a80'];
-    for (let y = 250; y < ISO_H; y++){ const tt = (y - 250) / (ISO_H - 250) * 3, k = Math.min(2, Math.floor(tt)); px(0, y, ISO_W, 1, haze[k]); if (tt - k > 0.05) ditherRow(0, y, ISO_W, haze[k + 1], tt - k, y); }
+    isoGrad(250, ISO_H, haze);
     for (let i = 0; i < 70; i++){                                     // 골짜기 숲 머리
       const x = Math.floor(hash2(i, 4, 917) * ISO_W), y = 300 + Math.floor(hash2(i, 5, 918) * (ISO_H - 300)), h = 8 + Math.floor(hash2(i, 6, 919) * 8);
       for (let r = 0; r < h; r++){ const w = Math.max(1, Math.round(r * 0.45)); px(x - w, y - h + r, w * 2 + 1, 1, r % 3 ? '#4f7a62' : '#5f8a70'); }
@@ -3415,11 +3431,14 @@ function isoSprite(id, sig, box, paint){
   let e = isoBuf[id];
   if (!e || e.sig !== sig || e.S !== S){
     // 다 그린 뒤에만 담는다 — 그리다 터지면 반쪽 그림이 굳지 않고 다음 장에 다시 그린다
+    // 작물 줄은 바람 단계마다 다시 그린다 — 크기가 같으면 캔버스를 새로 만들지 않고 비워 쓴다(폰의 쓰레기 수거를 덜려고)
+    const old = e, w = Math.max(1, Math.ceil(box.w * S) + 2), h = Math.max(1, Math.ceil(box.h * S) + 2);
     delete isoBuf[id];
-    e = { sig, S, lamps: [], cv: document.createElement('canvas') };
+    e = { sig, S, lamps: [], cv: old && old.cv.width === w && old.cv.height === h ? old.cv : document.createElement('canvas') };
     e.ox = Math.floor(box.x * S); e.oy = Math.floor(box.y * S);
-    e.cv.width = Math.max(1, Math.ceil(box.w * S) + 2); e.cv.height = Math.max(1, Math.ceil(box.h * S) + 2);
-    const g = e.cv.getContext('2d'); g.imageSmoothingEnabled = false;
+    if (e.cv !== (old && old.cv)){ e.cv.width = w; e.cv.height = h; }
+    const g = e.cv.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); g.imageSmoothingEnabled = false;
     g.translate(-e.ox, -e.oy);
     const keepCtx = ctx, keepLamps = lamps;
     ctx = g; lamps = e.lamps;

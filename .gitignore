@@ -18,3 +18,6 @@ backup/
 # 지도를 구울 때만 쓰는 시군구 경계 원본(540 KB). 사이트에는 구운 map/korea-sig.js 만 간다.
 # 받는 곳은 map/build.py 맨 위에 적어 두었다.
 map/sigungu.topo.json
+
+# 작업 도구(oh-my-claudecode)가 남기는 상태 폴더 — 사이트와 무관하다
+.omc/
