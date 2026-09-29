@@ -350,6 +350,16 @@ const FARM = (() => {
     waterfall:{ name: '작은 폭포',  icon: '💧', cost: 3200, lv: 6, farm: 'mountain', desc: '바위에서 물이 쏟아져요' },
     balloon:  { name: '열기구',     icon: '🎈', cost: 4000, lv: 7, farm: 'cloud',    desc: '줄에 매여 둥실 떠 있어요' },
     skybridge:{ name: '무지개 다리', icon: '🌈', cost: 3000, lv: 6, farm: 'cloud',    desc: '구름 사이로 무지개가 걸려요' },
+    // 농장마다 셋 더(2026-09-29 로키즈 「처음 농장과 확연히 다른 분위기」) — 그리스 바닷가·스위스 산골·일본 꽃구름
+    anchor:   { name: '닻',         icon: '⚓', cost: 700,  lv: 3, farm: 'seaside',  desc: '밧줄을 감은 오래된 닻이에요' },
+    boat:     { name: '고깃배',     icon: '🚣', cost: 1500, lv: 4, farm: 'seaside',  desc: '모래밭에 올려 둔 파란 나무배' },
+    parasol:  { name: '파라솔',     icon: '⛱️', cost: 450,  lv: 2, farm: 'seaside',  desc: '줄무늬 그늘 아래 수건을 깔았어요' },
+    woodpile: { name: '장작더미',   icon: '🪵', cost: 400,  lv: 2, farm: 'mountain', desc: '겨울을 나려고 차곡차곡 쌓았어요' },
+    milkcans: { name: '우유통',     icon: '🥛', cost: 550,  lv: 3, farm: 'mountain', desc: '아침마다 짠 우유를 담아요' },
+    alphorn:  { name: '알프호른',   icon: '📯', cost: 1600, lv: 5, farm: 'mountain', desc: '길게 불면 산이 대답해요' },
+    shishi:   { name: '대나무 물통', icon: '🎋', cost: 1400, lv: 4, farm: 'cloud',    desc: '물이 차면 딸깍! 하고 돌을 두드려요' },
+    koinobori:{ name: '잉어 깃발',  icon: '🎏', cost: 1100, lv: 4, farm: 'cloud',    desc: '바람을 먹고 잉어가 헤엄쳐요' },
+    toro:     { name: '석등',       icon: '🏮', cost: 800,  lv: 3, farm: 'cloud',    desc: '밤이면 돌 속에 불이 켜져요' },
   };
 
   // ---------- 이사 ----------
@@ -418,6 +428,15 @@ const FARM = (() => {
     waterfall:  { name: '작은 폭포', w: 2, h: 2, x: 11, y: 14, kind: 'decor',  move: true },
     balloon:    { name: '열기구',   w: 2, h: 2, x: 13, y: 0,  kind: 'decor',  move: true },
     skybridge:  { name: '무지개 다리', w: 2, h: 1, x: 16, y: 15, kind: 'decor',  move: true },
+    anchor:     { name: '닻',       w: 1, h: 1, x: 4,  y: 12, kind: 'decor',  move: true },
+    boat:       { name: '고깃배',   w: 2, h: 1, x: 9, y: 16, kind: 'decor',  move: true },
+    parasol:    { name: '파라솔',   w: 1, h: 1, x: 14, y: 12, kind: 'decor',  move: true },
+    woodpile:   { name: '장작더미', w: 2, h: 1, x: 1,  y: 7,  kind: 'decor',  move: true },
+    milkcans:   { name: '우유통',   w: 1, h: 1, x: 23, y: 6,  kind: 'decor',  move: true },
+    alphorn:    { name: '알프호른', w: 2, h: 1, x: 6,  y: 8, kind: 'decor',  move: true },
+    shishi:     { name: '대나무 물통', w: 1, h: 1, x: 1, y: 9,  kind: 'decor',  move: true },
+    koinobori:  { name: '잉어 깃발', w: 1, h: 1, x: 2, y: 9,  kind: 'decor',  move: true },
+    toro:       { name: '석등',     w: 1, h: 1, x: 5,  y: 15, kind: 'decor',  move: true },
   };
   const PLACE_IDS = Object.keys(PLACE);
   /* 새 농장은 처음 자리부터 다르다(2026-09-28 로키즈 「이전 농장과 완전히 다른 느낌」). 여기 없는 것은 PLACE 의 자리.
@@ -425,9 +444,9 @@ const FARM = (() => {
      바닷가: 목장은 넓어진 오른쪽 앞, 앞 가장자리에 널빤지 길, 오른쪽 끝 바다 모서리에 등대 · 산골: 집 앞은 낮은 연못, 목장은 밭 앞 비탈, 온실과 폭포는 넓어진 오른쪽 앞 · 꽃구름: 연못은 외양간 곁 오른쪽 끝, 꽃길이 밭 앞을 가로지르고 목장은 오른쪽 앞 끝
      집 바로 앞(0..5, 3..5)에 키 큰 건물을 두면 문 앞 아이들을 가린다 — 낮은 것만 둘 것. */
   const FARM_SPOT = {
-    seaside: { mail: [4, 1], board: [5, 0], birdhouse: [7, 0], statue: [14, 0], lighthouse: [21, 0], sign: [5, 2], greenhouse: [17, 2], coop: [0, 3], pethouse: [3, 3], well: [1, 5], clothesline: [2, 5], hive: [4, 5], scarecrow: [16, 5], barn: [18, 5], flowerbed: [6, 8], flag: [21, 8], swing: [3, 9], fountain: [9, 9], lantern: [13, 9], windmill: [17, 10], arch: [7, 11], sandbox: [12, 11], pond: [5, 13], pasture: [16, 13], bench: [3, 16], firepit: [8, 16], wagon: [3, 17], path: [7, 17], palm: [15, 17] },
-    mountain: { mail: [4, 1], board: [5, 0], sign: [6, 1], birdhouse: [8, 0], windmill: [12, 0], flag: [23, 0], pethouse: [16, 2], coop: [18, 2], barn: [20, 4], statue: [20, 7], scarecrow: [16, 5], well: [1, 3], hive: [3, 4], greenhouse: [16, 11], pasture: [9, 12], pond: [19, 14], waterfall: [22, 12], cairn: [23, 17], path: [6, 17], fountain: [9, 9], lantern: [11, 9], bench: [4, 16], swing: [6, 12], arch: [12, 10], sandbox: [17, 9], firepit: [7, 15], clothesline: [2, 6], flowerbed: [6, 7], wagon: [14, 17] },
-    cloud: { mail: [4, 1], board: [5, 0], flag: [7, 0], statue: [12, 0], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [17, 2], greenhouse: [20, 2], fountain: [10, 7], balloon: [21, 7], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19], skybridge: [22, 19] },
+    seaside: { mail: [4, 1], board: [5, 0], birdhouse: [7, 0], statue: [14, 0], lighthouse: [21, 0], sign: [5, 2], greenhouse: [17, 2], coop: [0, 3], pethouse: [3, 3], well: [1, 5], clothesline: [2, 5], hive: [4, 5], scarecrow: [16, 5], barn: [18, 5], flowerbed: [6, 8], flag: [21, 8], swing: [3, 9], fountain: [9, 9], lantern: [13, 9], windmill: [17, 10], arch: [7, 11], sandbox: [12, 11], pond: [5, 13], pasture: [16, 13], bench: [3, 16], firepit: [8, 16], wagon: [3, 17], path: [7, 17], palm: [15, 17], anchor: [4, 12], boat: [9, 16], parasol: [14, 12] },
+    mountain: { mail: [4, 1], board: [5, 0], sign: [6, 1], birdhouse: [8, 0], windmill: [12, 0], flag: [23, 0], pethouse: [16, 2], coop: [18, 2], barn: [20, 4], statue: [20, 7], scarecrow: [16, 5], well: [1, 3], hive: [3, 4], greenhouse: [16, 11], pasture: [9, 12], pond: [19, 14], waterfall: [22, 12], cairn: [23, 17], path: [6, 17], fountain: [9, 9], lantern: [11, 9], bench: [4, 16], swing: [6, 12], arch: [12, 10], sandbox: [17, 9], firepit: [7, 15], clothesline: [2, 6], flowerbed: [6, 7], wagon: [14, 17], woodpile: [1, 7], milkcans: [23, 6], alphorn: [6, 8] },
+    cloud: { mail: [4, 1], board: [5, 0], flag: [7, 0], statue: [12, 0], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [17, 2], greenhouse: [20, 2], fountain: [10, 7], balloon: [21, 7], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19], skybridge: [22, 19], shishi: [1, 9], koinobori: [2, 9], toro: [5, 15] },
   };
   function spotOf(world, id){
     const P = PLACE[id]; if (!P) return null;

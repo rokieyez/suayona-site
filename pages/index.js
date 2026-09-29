@@ -811,6 +811,7 @@ const belowFold = (() => {
     if (HAS_PHASE) tintLayer(g, VG.canvas.width, VG.canvas.height, PHASE);
     if (HAS_PHASE && VG.sails) VG.sails.frames.forEach(f => tintLayer(f.canvas.getContext('2d'), f.w, f.h, PHASE));   // 풍차 날개도 마을과 같은 시간대 색
     if (HAS_PHASE && VG.flags) VG.flags.forEach(fl => fl.frames.forEach(f => tintLayer(f.canvas.getContext('2d'), f.w, f.h, PHASE)));   // 깃발·배도
+    if (HAS_PHASE && VG.vane) VG.vane.frames.forEach(f => tintLayer(f.canvas.getContext('2d'), f.w, f.h, PHASE));
     if (HAS_PHASE && VG.boat) tintLayer(VG.boat.frame.canvas.getContext('2d'), VG.boat.frame.w, VG.boat.frame.h, PHASE);
     // 덮개 뒤에 켜는 불 — 가로등·창·횃불. 덮기 전에 그리면 같이 어두워져서 불이 꺼진 것처럼 보인다.
     if (dim) {
@@ -1374,6 +1375,12 @@ const belowFold = (() => {
     const m = VG.sails, wind = Math.min(2, weather.wind || 1);
     blitDots(m.frames[Math.floor(t * 5 * wind) % m.frames.length], m.x, m.y, gx, gy, false);
   }
+  // 풍향계 — 바람을 따라 천천히 한 바퀴씩 돌고, 돌풍에 이리저리 흔들린다. 바람이 세면 빨리
+  function drawVane(gx, gy){
+    const v = VG.vane, wind = Math.min(2, weather.wind || 1), n = v.frames.length;
+    const a = t * 0.45 * wind + Math.sin(t * 0.8) * 0.5 + Math.sin(t * 2.3) * 0.12 * wind;
+    blitDots(v.frames[((Math.floor(a / (Math.PI * 2) * n) % n) + n) % n], v.x, v.y, gx, gy, false);
+  }
   // 깃발 — 성 탑·천막 꼭대기 천이 바람에 나부낀다. 깃발마다 위상을 어긋내 한꺼번에 펄럭이지 않게. 바람이 세면 빨리
   function drawFlags(gx, gy){
     const wind = Math.min(2, weather.wind || 1);
@@ -1877,6 +1884,7 @@ const belowFold = (() => {
     if (VG && SPR2) { drawDucks(gx, gy); if (VG.kite) drawKite(gx, gy); }
     if (VG && VG.boat) drawBoat(gx, gy);
     if (VG && VG.sails) drawSails(gx, gy);
+    if (VG && VG.vane) drawVane(gx, gy);
     if (VG && VG.flags) drawFlags(gx, gy);
     if (VG) drawTentBalloons(gx, gy);
     drawPuddles(gx, gy);

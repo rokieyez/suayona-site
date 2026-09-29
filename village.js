@@ -1387,10 +1387,17 @@ function bGallery(q){
   const glass = sh => (u, v) => (u % 6 === 0 || v === 0 || v === 11) ? '#f4f8fa' : shade((u - v) % 7 === 0 ? '#dff0f7' : '#b9dcec', sh);
   B.walls(q, lt, glass(0), glass(-22));
   B.roofFor(q, lt, { type: 'hip', rise: 6, over: 0.08, drop: 1, tex: f => (u, v) => (u % 6 === 0 || v % 4 === 0) ? '#f4f8fa' : shade('#cfe6f1', lit(f)), cap: ['#f4f8fa', '#9fb8c6'] });
-  // 풍향계
-  const Wv = proj(1.5, 1.5, R0.zr + 10).map(Math.round);
-  q(Wv[0], Wv[1] - 12, 1, 12, '#3a3632'); q(Wv[0] - 4, Wv[1] - 9, 9, 1, '#3a3632'); q(Wv[0] - 5, Wv[1] - 10, 2, 3, '#3a3632'); q(Wv[0] + 3, Wv[1] - 10, 2, 3, '#3a3632');
-  q(Wv[0] - 2, Wv[1] - 13, 5, 1, '#e8a03a'); q(Wv[0] + 3, Wv[1] - 14, 1, 3, '#e8a03a'); q(Wv[0] - 3, Wv[1] - 14, 1, 1, '#e8a03a'); q(Wv[0] - 3, Wv[1] - 12, 1, 1, '#e8a03a');
+  // 풍향계 — 기둥과 방위 십자는 땅에 붙어 있고(아이소로 누운 두 팔), 도는 화살표는 첫화면이 바람 따라 돌려 그린다(vaneFrames)
+  // 채광창 꼭대기(lt.z + lt.h + 지붕 6)에 선다. 꼭대기는 예전 풍향계 높이쯤 — 더 높으면 「작품전시실」 이름표에 닿는다
+  { const z0 = lt.z + lt.h + 5, zc = z0 + 5, B0 = proj(1.5, 1.5, z0).map(Math.round), IRON = '#3a3632';
+    q(B0[0] - 1, B0[1] - 2, 3, 2, '#5a5450');                                             // 지붕에 박은 받침
+    q(B0[0], B0[1] - 11, 1, 10, IRON); q(B0[0] + 1, B0[1] - 11, 1, 10, '#6a6460');         // 기둥(오른쪽은 빛)
+    const arm = (dx, dy, tip) => { const a = proj(1.5 - dx, 1.5 - dy, zc).map(Math.round), b = proj(1.5 + dx, 1.5 + dy, zc).map(Math.round);
+      lineDots(q, a, b, IRON); q(a[0] - 1, a[1] - 1, 2, 2, tip[0]); q(b[0] - 1, b[1] - 1, 2, 2, tip[1]); };
+    arm(0.3, 0, ['#b8b0a8', '#b8b0a8']); arm(0, 0.3, ['#e8a03a', '#b8b0a8']);              // 북쪽 끝만 금빛
+    const ball = proj(1.5, 1.5, zc + 3).map(Math.round); q(ball[0] - 1, ball[1] - 2, 3, 3, '#e8a03a'); q(ball[0] - 1, ball[1] - 2, 1, 1, '#ffe0a0');
+    const top = proj(1.5, 1.5, z0 + 11).map(Math.round);
+    VS.vane = { x: top[0], y: top[1] }; }
   P.pots(q, ...proj(0.86, 3.48, 0).map(Math.round), 2, 1); P.pots(q, ...proj(2.06, 3.48, 0).map(Math.round), 2, 3);
   // 현관 기둥 둘과 박공 — 문 앞에 선다
   const col = (wx) => { const Pp = proj(wx, 3.0, 0); cylinder(q, Pp[0], Pp[1], 2, 30, (a, v) => v === 0 || v === 29 ? '#e6dbc6' : a < 0.35 ? '#f3e9d6' : a < 0.7 ? '#ddd1bb' : '#bfb39c'); q(Pp[0] - 3, Pp[1] - 33, 6, 3, '#e6dbc6'); q(Pp[0] - 3, Pp[1] - 1, 6, 2, '#cfc3ad'); };
@@ -1944,7 +1951,7 @@ function render(o){
       mark: (x, y, w, h, id) => { for (let yy = Math.max(0, y); yy < Math.min(VS.h, y + h); yy++) for (let xx = Math.max(0, x); xx < Math.min(VS.w, x + w); xx++) R.ids[yy * VS.w + xx] = id; },
     };
   }
-  VS.windmill = null; VS.flags = []; VS.boat = null;
+  VS.windmill = null; VS.flags = []; VS.boat = null; VS.vane = null;
   VS.draw(env);
   // 눈 오는 날 — 지붕과 나무 꼭대기에 눈이 쌓인다. 물건마다 따로 그리지 않고,
   // 겹을 얹을 때 적어 둔 번호판(ids)으로 열마다 「맨 위 물건 도트」를 찾아 그 위에 흰 점을 놓는다.
@@ -2007,6 +2014,7 @@ function render(o){
     cat: VS.cat || null,                        // 광장 고양이가 처음 앉아 있는 칸 — 첫화면이 걸린다
     pigeons: VS.pigeons || null,                // 광장 비둘기 셋이 처음 앉은 칸 — 첫화면이 걷게 한다(없으면 옛 마을이라 그림에 박혀 있다)
     sails: sailFrames(own, w, h),               // 풍차 날개 — 도는 위상 12장, 앞 물건에 가린 도트는 미리 뺐다. 첫화면이 돌려 그린다
+    vane: vaneFrames(),                         // 작품전시실 풍향계 화살표 — 한 바퀴 16장. 첫화면이 바람 따라 돌린다
     flags: flagFrames(own, w, h),               // 깃발 천 — 나부끼는 위상 8장씩. 첫화면이 차례로 그린다
     boat: boatFrame(own, w, h),                 // 나룻배 한 장 — 첫화면이 물 위에서 천천히 오르내리게 그린다
     smoke: VS.smoke || null,                    // 굴뚝 아가리 — 첫화면이 연기를 피운다
@@ -2112,6 +2120,28 @@ function sailFrames(own, w, h){
     }
   }, ox, oy, i / 12 * Math.PI / 2)) });
   return { x: M0.x, y: M0.y, frames };
+}
+// 풍향계 화살표 위상 16장 — 한 바퀴. 화살촉과 꼬리 깃은 세운 판이라 옆으로 돌면 얇아지고, 보이는 면에 따라 밝기가 바뀐다
+function vaneFrames(){
+  const V = VS.vane; if (!V || typeof document === 'undefined') return null;
+  const W = 40, H = 26, ox = 20, oy = 14, frames = [];
+  for (let i = 0; i < 16; i++){
+    const a = i / 16 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    const P2 = (d, z, w) => { const u = d * c - (w || 0) * s, v = d * s + (w || 0) * c; return [ox + (u - v) * S, oy + (u + v) * S / 2 - z]; };
+    const face = -s + c, lit = face > 0.25 ? '#f2b64a' : face < -0.25 ? '#b8741e' : '#d8922e', GOLD_DK = '#8a5418';
+    frames.push({ w: W, h: H, ox, oy, canvas: dotsCanvas(W, H, q => {
+      const plate = (pts, col) => { polyFill(q, pts, () => col); for (let k = 0; k < pts.length; k++) lineDots(q, pts[k].map(Math.round), pts[(k + 1) % pts.length].map(Math.round), GOLD_DK); };
+      const back = c + s < 0;                                                         // 화살촉이 뒤로 가면 촉을 먼저, 꼬리를 나중에 그린다
+      // 촉은 눕힌 판 — 위에서 보면 마름모. 꼬리는 세운 깃 — 옆으로 돌면 얇아진다
+      const head = () => plate([P2(0.32, 0), P2(0.2, 0, 0.08), P2(0.23, 0), P2(0.2, 0, -0.08)], '#f2b64a');
+      const tail = () => plate([P2(-0.14, 1), P2(-0.3, 6), P2(-0.3, -2), P2(-0.16, -1)], lit);
+      if (back) head(); else tail();
+      lineDots(q, P2(-0.2, 0).map(Math.round), P2(0.22, 0).map(Math.round), '#3a3632');   // 살대
+      q(ox - 1, oy - 1, 3, 3, '#3a3632'); q(ox, oy - 1, 1, 1, '#8a8480');                  // 축
+      if (back) tail(); else head();
+    }) });
+  }
+  return { x: V.x, y: V.y, frames };
 }
 // 깃발 천 위상 8장 — 깃대 쪽은 붙어 있고 끝으로 갈수록 크게 물결친다. 볼록한 주름은 밝게, 오목한 데는 어둡게.
 // 원래 그림처럼 위 w×h 는 제 색, 아래 두 줄(lw 폭)은 짙은 색. 앞 물건이 차지한 도트는 뺀다(날개와 같은 방식)
