@@ -813,6 +813,7 @@
       const F = FURNITURE[v];
       if (!F || F.rare) return fail('파는 가구가 아니에요');
       if (F.season && calendar(world, now).season !== F.season) return fail(F.name + '은 ' + SEASON_NAME[F.season] + '에만 팔아요');
+      if (F.farm && F.farm !== farmOf(world).id) return fail(F.name + '은 ' + FARMS.find(f => f.id === F.farm).name + '에서만 팔아요');
       if (mine.coins < F.cost) return fail('동전이 모자라요');
       mine.coins -= F.cost; give(mine, id, 1);
       return okay(eul(F.name) + ' 샀어요. 집에 가서 놓아요');

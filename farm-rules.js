@@ -654,6 +654,17 @@ const FARM = (() => {
        손님 화면도 따로 부르는 것 없이 그대로 그린다. */
     mypic:    { name: '내 그림 액자',   cost: 150, w: 1, kind: 'mypic',     cozy: 4, c: '#e6d3ae' , wall: true, pic: true },
     bigbear:  { name: '엄청 큰 곰인형', cost: 950, w: 2, kind: 'bigbear', cozy: 5, c: '#c79b6d' },
+    /* 그 농장에서만 파는 가구(2026-09-29 로키즈 「내부 꾸미개도 나라별로」) — 꾸미개의 farm 과 같은 뜻.
+       바닷가=그리스, 산골=스위스, 꽃구름=일본. 이사 갈 때 가방·방에 든 것은 그대로 따라간다. */
+    amphora:  { name: '암포라 항아리', cost: 260, w: 1, kind: 'amphora', cozy: 2, c: '#d9824f', farm: 'seaside' },
+    olive:    { name: '올리브 나무',   cost: 320, w: 1, kind: 'olive',   cozy: 3, c: '#8fa86e', farm: 'seaside' },
+    blueplate:{ name: '파란 무늬 접시', cost: 180, w: 1, kind: 'blueplate', cozy: 2, c: '#2f6fb0', wall: true, farm: 'seaside' },
+    cuckoo:   { name: '뻐꾸기시계',    cost: 380, w: 1, kind: 'cuckoo',  cozy: 3, c: '#7a4c2a', wall: true, farm: 'mountain' },
+    kachel:   { name: '타일 난로',     cost: 900, w: 1, kind: 'kachel',  cozy: 4, c: '#4f9a7a', farm: 'mountain' },
+    sled:     { name: '나무 썰매',     cost: 240, w: 2, kind: 'sled',    cozy: 2, c: '#c9463f', flat: true, farm: 'mountain' },
+    kotatsu:  { name: '고타쓰',        cost: 700, w: 2, kind: 'kotatsu', energy: 4, cozy: 4, c: '#e8818f', flat: true, farm: 'cloud' },
+    andon:    { name: '종이 등',       cost: 240, w: 1, kind: 'andon',   cozy: 3, c: '#fff3d6', farm: 'cloud' },
+    scroll:   { name: '족자',          cost: 260, w: 1, kind: 'scroll',  cozy: 3, c: '#f4ecd8', wall: true, farm: 'cloud' },
   };
   // 방은 가로 칸 수 × 세로 칸 수. 넓히는 건 언제든 안전하다 — 이미 놓인 가구는 그대로 있다.
   const ROOMS = {
@@ -695,7 +706,7 @@ const FARM = (() => {
      넓게 띄어야 두 장이 겹치지 않는다. 단은 둘 — 아래 단은 12도트 내려 건다. */
   const TILE_HALF = 24;                       // 칸 하나가 벽을 따라 차지하는 가로 도트(farm.js 의 TW/2)
   const WALL_PITCH = 44, WALL_ROWS = 2;
-  const WALL_TALL = { heightbar: 1 };         // 아래 단에 걸면 허리 몰딩을 넘는 것 — 늘 윗단에만
+  const WALL_TALL = { heightbar: 1, scroll: 1 };         // 아래 단에 걸면 허리 몰딩을 넘는 것 — 늘 윗단에만
   /* 배포가 어긋나는 십 분 동안 옛 pages/farm.js 는 wallCols(room, side) 로 부른다.
      첫 자리가 글자면 그 꼴로 알아듣고 처음 크기를 쓴다 — 벽에 건 그림이 사라지지 않는다. */
   function roomArgs(world, room, side){

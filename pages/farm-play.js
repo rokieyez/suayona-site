@@ -1299,11 +1299,14 @@ function renderShop(){
   } else if (shopTab === 'furn'){
     $('#shopSub').textContent = '사면 가방에 들어와요. 집 탭에서 놓아요. 좋은 침대는 기운을 늘려 줘요.';
     // 쉰 가지가 넘으니 싼 것부터 세운다 — 아이가 가진 돈으로 살 수 있는 것이 먼저 보인다
-    const furnList = Object.keys(R.FURNITURE).filter(f => !R.FURNITURE[f].rare && R.FURNITURE[f].cost > 0);
-    furnList.sort((a, b) => R.FURNITURE[a].cost - R.FURNITURE[b].cost);
+    // 다른 농장 전용은 거기 살 때만 보인다 — 이 농장 것은 맨 앞에(꾸미개 탭과 같은 표시)
+    const here = R.farmOf(W).id;
+    const furnList = Object.keys(R.FURNITURE).filter(f => !R.FURNITURE[f].rare && R.FURNITURE[f].cost > 0 && (!R.FURNITURE[f].farm || R.FURNITURE[f].farm === here));
+    furnList.sort((a, b) => (!R.FURNITURE[b].farm - !R.FURNITURE[a].farm) || R.FURNITURE[a].cost - R.FURNITURE[b].cost);
     furnList.forEach(f => {
       const Fu = R.FURNITURE[f], seasonOk = !Fu.season || Fu.season === cal.season;
       const card = itemCard('f:' + f, M.inv['f:' + f] || 0, null, seasonOk ? '' : 'locked');
+      if (Fu.farm){ const tag = document.createElement('span'); tag.className = 'farm-only'; tag.textContent = '이 농장에만'; card.querySelector('.nm').appendChild(tag); }
       card.insertBefore(furnPreview(f), card.firstChild);
       const pr = document.createElement('div'); pr.className = 'pr'; pr.textContent = '아늑함 +' + Fu.cozy + (Fu.energy ? ' · 기운 +' + Fu.energy : '') + (Fu.wall ? ' · 벽에 걸어요' : Fu.w > 1 ? ' · ' + Fu.w + '칸' : '') + (Fu.season ? ' · ' + R.SEASON_NAME[Fu.season] + '에만' : ''); card.appendChild(pr);
       const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('f:' + f, Fu.cost, seasonOk && M.coins >= Fu.cost)); card.appendChild(a); box.appendChild(card);

@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '14';
+const PLAY_V = '15';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -6588,7 +6588,39 @@ function isoBox(q, cx, cy, ew, eh, hgt, top, lf, rt){
   if (hgt > 0){ isoSideL(q, cx, cy, ew, eh, hgt, lf); isoSideR(q, cx, cy, ew, eh, hgt, rt); }
   isoTop(q, cx, cy, ew, eh, top);
 }
+/* 방이 있는 농장 — 새 농장마다 나라가 다르다(2026-09-29 로키즈 「방 내부도 각 나라에 맞게」).
+   바닷가=그리스(회칠 벽·파란 덧창·테라코타 타일), 산골=스위스(소나무 널벽·체크 커튼·알프스),
+   꽃구름=일본(흙벽과 기둥·장지·다다미). 들판은 처음 그대로. 아이 색(수아 분홍·연아 민트)은 어디서나 남긴다. */
+function roomTheme(){ return (W && R.farmOf) ? R.farmOf(W).id : 'meadow'; }
+const ROOM_THEME_PAL = {
+  seaside: {
+    sua:    { wall: '#fbf3f1', wall2: '#f1e5e2', dot: '#ec8aa6' },
+    yona:   { wall: '#f2f8f6', wall2: '#e3eeea', dot: '#3fa78f' },
+    living: { wall: '#f9f6ef', wall2: '#ece6da', dot: '#2f6fb0' },
+    all: { trim: '#2f6fb0', rail: '#3f86c6', motif: 'key', cur: '#3b7fc4', wain: '#f4efe8', wainL: '#fffaf4', base: '#2a5f99',
+           floor: ['#d8875a', '#c97a4f', '#e29a6c', '#bd6f47'] },
+  },
+  mountain: {
+    sua:    { dot: '#f59ab0', cur: '#e8607a' },
+    yona:   { dot: '#7fd0b8', cur: '#3f9f86' },
+    living: { dot: '#ffffff', cur: '#d8433f' },
+    all: { wall: '#e0b27a', wall2: '#d09e66', trim: '#7a4c2a', rail: '#6f4526', motif: 'edel', wain: '#c48f5a', wainL: '#d6a36c', base: '#5e3a20',
+           floor: ['#b8844f', '#a87645', '#c69260', '#98683c'] },
+  },
+  cloud: {
+    sua:    { wall: '#f6e7e1', wall2: '#ead6ce', dot: '#f19db4', cur: '#f19db4', motif: 'sakura' },
+    yona:   { wall: '#e9efdd', wall2: '#dae3cb', dot: '#5fae9a', cur: '#5fae9a', motif: 'wave' },
+    living: { wall: '#efe3c7', wall2: '#e1d2b0', dot: '#3f5f8f', cur: '#3f5f8f', motif: 'check' },
+    all: { trim: '#5e4130', rail: '#5e4130', wain: '#fbf5ea', wainL: '#fffbf4', base: '#4a3222',
+           floor: ['#cdc98e', '#c5c083', '#d5d29a', '#bfb97c'] },
+  },
+};
 function roomPal(r){
+  const TP = ROOM_THEME_PAL[roomTheme()];
+  if (TP) return Object.assign({ theme: roomTheme() }, roomPal0(r), TP.all, TP[r] || TP.living);
+  return roomPal0(r);
+}
+function roomPal0(r){
   if (r === 'sua') return { wall: '#ffdfe6', wall2: '#ffd0da', trim: '#e79fb0', rail: '#d98ea1', motif: 'heart', dot: '#ff9ec4', cur: '#f2879f',
                             wain: '#f6e3e6', wainL: '#fff2f4', base: '#c98a98', floor: ['#c9a074', '#b78d61', '#d7b28a', '#a67c55'] };
   if (r === 'yona') return { wall: '#dbf3ec', wall2: '#c8e9df', trim: '#8ecbba', rail: '#79bba8', motif: 'star', dot: '#ffd85c', cur: '#69b8a2',
@@ -6611,7 +6643,8 @@ const W_MOULD = 6, W_RAIL = 66, W_WAIN = 70, W_BASE = 98;
 const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars: 1, mypic: 1,
                      board: 1, garland: 1, wshelf: 1, rainbow: 1,
                      heightbar: 1, worldmap: 1, mobile: 1, wreath: 1,
-                     whale: 1, wlight: 1, medalcase: 1 };
+                     whale: 1, wlight: 1, medalcase: 1,
+                     blueplate: 1, cuckoo: 1, scroll: 1 };
 /* 옛 세이브에만 남은 규칙 — 벽에 거는 것을 바닥 칸에 두고 어느 벽인지 어림하던 방법.
    지금은 벽 격자('w,벽,칸,단')에 걸므로, fixWorld 가 아직 못 옮긴 것만 이 길로 그린다. */
 function wallSlot(Rm, x, y){
@@ -6714,6 +6747,51 @@ function paintWallItem(wall, u, f, P, room, pic){
     w(cx - half, top + 2, 2, 3, '#8a7b6e'); w(cx + half - 2, top + 2, 2, 3, '#8a7b6e');
   };
   switch (F.kind){
+    case 'blueplate': {                                              // 그리스 파란 무늬 접시 셋
+      const plate = (cx, cy, rr) => {
+        for (let dy = -rr; dy <= rr; dy++){
+          const hw = Math.round(Math.sqrt(rr * rr - dy * dy));
+          const edge = dy * dy + hw * hw >= (rr - 2) * (rr - 2) && Math.abs(dy) > rr - 3;
+          w(cx - hw, cy + dy, hw * 2, 1, c);
+          if (!edge && hw > 2) w(cx - hw + 2, cy + dy, hw * 2 - 4, 1, dy > rr / 2 ? '#e3e8ee' : '#fbfbf7');
+        }
+        w(cx - 2, cy - 4, 4, 2, c); w(cx - 2, cy + 2, 4, 2, c); w(cx - 4, cy - 2, 2, 4, c); w(cx + 2, cy - 2, 2, 4, c);   // 가운데 꽃
+        w(cx, cy - 1, 1, 2, '#e8b04a');
+        for (let a = 0; a < 8; a++){ const x = Math.round(cx + Math.cos(a * Math.PI / 4) * (rr - 4)), y = Math.round(cy + Math.sin(a * Math.PI / 4) * (rr - 4)); if (rr > 7) w(x - 1, y - 1, 2, 2, c); }
+        w(cx - 1, cy - rr - 2, 2, 2, '#8a8078');                                         // 거는 쇠
+      };
+      plate(20, 20, 10); plate(9, 42, 6); plate(31, 42, 6);
+      break;
+    }
+    case 'cuckoo': {                                                 // 스위스 뻐꾸기시계 — 지붕 달린 작은 집
+      hang(20, 3, 0);
+      for (let j = 0; j < 7; j++) w(18 - 2 * j, 6 + 2 * j, 4 + 4 * j, 2, j % 2 ? '#5e3a20' : '#6f4526');   // 지붕
+      w(6, 18, 28, 1, '#3a2618');
+      w(9, 19, 22, 22, c); w(9, 19, 2, 22, shade(c, 20)); w(29, 19, 2, 22, shade(c, -24));
+      w(16, 21, 8, 6, '#3a2618'); w(18, 22, 4, 4, '#ffd166'); w(22, 24, 2, 1, '#ff8c2e');   // 뻐꾸기
+      for (let dy = -6; dy <= 6; dy++){ const hw = Math.round(Math.sqrt(36 - dy * dy)); w(20 - hw, 33 + dy, hw * 2, 1, '#fff6e9'); }
+      [[19, 27], [19, 38], [14, 32], [25, 32]].forEach(pp => w(pp[0], pp[1], 2, 1, '#3a3226'));
+      w(19, 29, 2, 4, '#3a3226'); w(20, 32, 4, 2, '#3a3226');
+      [[4, 24], [32, 24], [4, 32], [32, 32]].forEach(pp => { w(pp[0], pp[1], 4, 3, '#4f7a3a'); w(pp[0] + 1, pp[1], 2, 1, '#7aa85e'); });   // 깎은 잎
+      w(14, 41, 1, 10, '#b0a080'); w(26, 41, 1, 8, '#b0a080');             // 사슬과 솔방울 추
+      w(12, 50, 4, 7, '#6f4526'); w(12, 51, 4, 1, '#8a5a34'); w(12, 54, 4, 1, '#8a5a34');
+      w(24, 48, 4, 7, '#6f4526'); w(24, 49, 4, 1, '#8a5a34'); w(24, 52, 4, 1, '#8a5a34');
+      w(20, 41, 1, 8, '#8a7b6e'); w(18, 48, 4, 4, '#c9a24a'); w(18, 48, 2, 1, '#ffe08a');   // 흔들이
+      break;
+    }
+    case 'scroll': {                                                 // 일본 족자 — 비단 테에 먹 산수와 붉은 해
+      w(18, 1, 4, 2, '#6f6257'); w(14, 3, 4, 2, '#6f6257'); w(22, 3, 4, 2, '#6f6257');
+      w(8, 5, 24, 3, '#5e4130');
+      w(10, 8, 20, 47, '#b8a27a'); w(10, 8, 20, 1, '#d4c29a'); w(28, 8, 2, 47, '#9d875f');
+      w(13, 13, 14, 36, c); w(13, 13, 14, 1, '#e3d9c0');
+      w(20, 17, 4, 4, '#e8574f'); w(19, 18, 6, 2, '#e8574f');
+      for (let i = 0; i < 14; i += 2){ const h2 = Math.max(0, 7 - Math.abs(i - 6)); if (h2) w(13 + i, 34 - h2, 2, h2, '#6a6a72'); }
+      for (let i = 0; i < 10; i += 2){ const h2 = Math.max(0, 5 - Math.abs(i - 4)); if (h2) w(17 + i, 38 - h2, 2, h2, '#3f3f48'); }
+      w(13, 38, 14, 1, '#8a8a92');
+      w(16, 42, 2, 5, '#2e2622'); w(15, 43, 4, 1, '#2e2622'); w(22, 41, 2, 6, '#2e2622');   // 먹 글씨 두 자
+      w(8, 55, 24, 3, '#5e4130'); w(6, 55, 2, 3, '#3a2618'); w(32, 55, 2, 3, '#3a2618');
+      break;
+    }
     case 'frame': {
       hang(20, 5, 8);
       w(6, 10, 28, 30, '#5a3c26');                                   // 바깥 테
@@ -7036,6 +7114,347 @@ function paintWallItem(wall, u, f, P, room, pic){
     }
   }
 }
+/* ---- 나라별 방 틀 (2026-09-29) ----
+   벽 한 면·창·거실 문·바닥 한 점의 색을 농장(P.theme)에 따라 그린다. 붓은 drawRoomShell 의 것 그대로
+   (wall(u, v, 폭, 높이, 색) — u·폭은 짝수). 창과 문의 자리·크기는 들판과 같아서 벽 칸 알림(wallCovers)과
+   창으로 든 볕은 그대로 맞는다. */
+// 종이 올과 아래로 갈수록 어두워지는 결 — 어느 나라 벽에나 얹는다
+function wallGrain(wall, len, k, r){
+  /* 종이 올 — 첫화면 마을의 재질과 같은 생각이다. 없으면 벽이 커다란 색면 한 장으로 보인다.
+     자리는 prand 로 정하니 늘 같고, 벽지를 바꿔도 결은 그대로다. */
+  for (let u = 0; u < len; u += 2) for (let v = 2; v < WALLH - 2; v += 2){
+    const g2 = R.prand('wp' + r + k + u + '_' + v);
+    if (g2 > 0.94) wall(u, v, 2, 2, 'rgba(255,255,255,0.055)');
+    else if (g2 < 0.055) wall(u, v, 2, 2, 'rgba(24,16,8,0.04)');
+  }
+  // 아래로 갈수록 조금 어둡다 — 벽에 높이가 생긴다
+  for (let v = W_MOULD; v < WALLH; v += 2)
+    wall(0, v, len, 2, 'rgba(22,15,8,' + (0.055 * (v - W_MOULD) / (WALLH - W_MOULD)).toFixed(3) + ')');
+}
+function themePaper(wall, len, k, side, P, r){
+  const T = P.theme;
+  if (T === 'seaside'){
+    // 그리스 — 손으로 문질러 바른 흰 회칠 벽. 여덟 도트 덩이로 얼룩이 져서 고르지 않다.
+    const wc = shade(P.wall, k), bl = shade(P.trim, k), dc = shade(P.dot, k);
+    wall(0, 0, len, WALLH, wc);
+    for (let u = 0; u < len; u += 2) for (let v = W_MOULD; v < W_BASE; v += 2){
+      const b = R.prand('gw' + r + k + ((u / 8) | 0) + '_' + ((v / 6) | 0)), g2 = R.prand('gp' + r + k + u + '_' + v);
+      if (b > 0.8 && g2 > 0.3) wall(u, v, 2, 2, shade(wc, -5));
+      else if (b < 0.15 && g2 > 0.3) wall(u, v, 2, 2, shade(wc, 4));
+    }
+    wall(0, 0, len, W_MOULD, bl);                                              // 천장 밑 파란 띠
+    wall(0, 0, len, 2, shade(P.trim, k + 24)); wall(0, W_MOULD - 2, len, 2, shade(P.trim, k - 20));
+    // 메안드로스(그리스 번개무늬) 띠 — 아이 색으로. 열두 도트가 한 마디
+    const mv = W_MOULD + 6;
+    wall(0, mv - 3, len, 1, bl); wall(0, mv + 12, len, 1, bl);
+    for (let u = 0; u + 12 <= len; u += 12){
+      wall(u, mv, 2, 10, dc); wall(u, mv, 10, 2, dc); wall(u + 8, mv, 2, 6, dc);
+      wall(u + 4, mv + 4, 6, 2, dc); wall(u + 4, mv + 4, 2, 4, dc); wall(u, mv + 8, 12, 2, dc);
+    }
+    wall(0, W_RAIL, len, 2, shade(P.rail, k)); wall(0, W_RAIL + 2, len, 1, shade(P.rail, k - 24));   // 가는 파란 허리선
+    wall(0, W_BASE - 4, len, WALLH - W_BASE + 4, bl);                          // 파란 걸레받이
+    wall(0, W_BASE - 4, len, 1, shade(P.trim, k + 26)); wall(0, WALLH - 2, len, 2, shade(P.trim, k - 26));
+  } else if (T === 'mountain'){
+    // 스위스 샬레 — 소나무 가로 널벽. 널마다 조금씩 색이 다르고, 이음매는 어둡고 위 모서리는 밝다.
+    const wc = shade(P.wall, k);
+    for (let v = W_MOULD, n = 0; v < W_RAIL; v += 10, n++){
+      const bc = shade(wc, Math.round((R.prand('sb' + r + k + n) - 0.5) * 12));
+      wall(0, v, len, 10, bc);
+      wall(0, v, len, 1, shade(bc, 16)); wall(0, v + 9, len, 1, shade(bc, -30));
+      for (let u = 0; u < len; u += 2){
+        const g2 = R.prand('sg' + r + k + n + '_' + u);
+        if (g2 > 0.9) wall(u, v + 3 + (((g2 * 97) | 0) % 5), 6, 1, shade(bc, -12));   // 나뭇결
+        else if (g2 < 0.01){ wall(u, v + 4, 2, 2, shade(bc, -38)); wall(u - 2, v + 4, 2, 1, shade(bc, -20)); }   // 옹이
+      }
+    }
+    wall(0, 0, len, W_MOULD, shade(P.trim, k));
+    wall(0, 0, len, 2, shade(P.trim, k + 24)); wall(0, W_MOULD - 2, len, 2, shade(P.trim, k - 20));
+    // 몰딩 밑 칠한 띠 — 스위스 시골집의 꽃 그림(바우에른말레라이). 에델바이스와 하트가 번갈아
+    const bv = W_MOULD;
+    wall(0, bv, len, 12, shade(P.trim, k + 12)); wall(0, bv + 12, len, 1, shade(P.trim, k - 18));
+    for (let u = 6, n = 0; u + 8 <= len; u += 18, n++){
+      if (n % 2){
+        const hc = shade(P.cur, k);
+        wall(u, bv + 3, 2, 2, hc); wall(u + 4, bv + 3, 2, 2, hc); wall(u, bv + 5, 6, 2, hc); wall(u + 2, bv + 7, 2, 2, hc);
+      } else {
+        const fc = shade(P.dot, k);
+        wall(u, bv + 5, 6, 2, fc); wall(u + 2, bv + 2, 2, 8, fc);
+        wall(u + 2, bv + 5, 2, 2, '#ffd166');
+        wall(u - 2, bv + 9, 4, 1, '#6fa869'); wall(u + 4, bv + 9, 4, 1, '#6fa869');   // 잎 두 장
+      }
+    }
+    wall(0, W_RAIL, len, W_WAIN - W_RAIL, shade(P.rail, k)); wall(0, W_RAIL, len, 1, shade(P.rail, k + 26));
+    wall(0, W_WAIN, len, W_BASE - W_WAIN, shade(P.wain, k));                   // 아래는 세로 널
+    for (let u = 0; u < len; u += 10){
+      wall(u, W_WAIN, 2, W_BASE - W_WAIN, shade(P.wain, k - 24));
+      wall(u + 2, W_WAIN, 2, W_BASE - W_WAIN, shade(P.wainL, k));
+    }
+    for (let u = 34; u + 6 < len; u += 60){                                    // 널에 판 하트 구멍
+      const hc = shade(P.wain, k - 46);
+      wall(u, W_WAIN + 10, 2, 2, hc); wall(u + 4, W_WAIN + 10, 2, 2, hc); wall(u, W_WAIN + 12, 6, 2, hc); wall(u + 2, W_WAIN + 14, 2, 2, hc);
+    }
+    wall(0, W_BASE, len, WALLH - W_BASE, shade(P.base, k)); wall(0, WALLH - 2, len, 2, shade(P.base, k - 26));
+  } else {
+    // 일본 — 고운 흙벽을 짙은 나무 기둥과 가로 도리(나게시)가 나눈다. 허리 아래는 무늬 종이(고시바리).
+    const wc = shade(P.wall, k), wood = shade(P.trim, k), woodH = shade(P.trim, k + 24), woodD = shade(P.trim, k - 20);
+    wall(0, 0, len, WALLH, wc);
+    for (let u = 0; u < len; u += 2) for (let v = W_MOULD; v < W_RAIL; v += 2){
+      const g2 = R.prand('jw' + r + k + u + '_' + v);
+      if (g2 > 0.9) wall(u, v, 2, 1, shade(wc, -7));
+      else if (g2 < 0.06) wall(u, v, 2, 1, shade(wc, 6));
+    }
+    wall(0, 0, len, W_MOULD, wood); wall(0, 0, len, 2, woodH); wall(0, W_MOULD - 2, len, 2, woodD);
+    const nv = 26;                                                             // 나게시
+    wall(0, nv, len, 5, wood); wall(0, nv, len, 1, woodH); wall(0, nv + 5, len, 2, 'rgba(26,18,10,0.16)');
+    wall(0, W_RAIL, len, 3, wood); wall(0, W_RAIL, len, 1, woodH);
+    const bt = W_RAIL + 3, bh = W_BASE - bt, pc = shade(P.wain, k), dc = shade(P.dot, k);
+    wall(0, bt, len, bh, pc);
+    if (P.motif === 'sakura'){                                                 // 수아 — 벚꽃잎
+      for (let u = 4, n = 0; u + 6 < len; u += 16, n++){
+        const v = bt + 6 + (n % 2) * 12;
+        wall(u + 2, v, 2, 2, dc); wall(u, v + 2, 6, 2, dc); wall(u, v + 4, 2, 2, dc); wall(u + 4, v + 4, 2, 2, dc);
+        wall(u + 2, v + 2, 2, 2, '#fff6f8');
+      }
+    } else if (P.motif === 'wave'){                                            // 연아 — 청해파(겹친 물결)
+      for (let row = 0; row < 3; row++){
+        const by = bt + 9 + row * 8, sh = (row % 2) * 6;
+        for (let u = -12 + sh; u < len; u += 12) for (let i = 0; i < 12; i += 2){
+          const d = (i + 1 - 6) / 6, hh = Math.round(6 * Math.sqrt(Math.max(0, 1 - d * d)));
+          if (u + i >= 0) wall(u + i, by - hh, 2, 1, dc);
+        }
+      }
+    } else {                                                                   // 거실 — 옅은 바둑판(이치마쓰)
+      for (let u = 0; u < len; u += 8) for (let v = bt; v < W_BASE; v += 8)
+        if ((((u / 8) | 0) + (((v - bt) / 8) | 0)) % 2) wall(u, v, 8, Math.min(8, W_BASE - v), shade(P.wain, k - 9));
+      wall(0, bt, len, 1, dc);
+    }
+    wall(0, W_BASE, len, WALLH - W_BASE, shade(P.base, k)); wall(0, W_BASE, len, 1, shade(P.base, k + 22));
+    // 기둥 — 두 벽이 만나는 구석과 벽 끝. 창도 문도 없는 벽이면 가운데에도 하나
+    const posts = [0, len - 6];
+    if (!side && r !== 'living') posts.push(Math.floor(len / 4) * 2 - 2);
+    posts.forEach(pu => { wall(pu, 0, 6, WALLH, wood); wall(pu, 0, 2, WALLH, woodH); wall(pu + 4, 0, 2, WALLH, woodD); });
+  }
+  wallGrain(wall, len, k, r);
+}
+// 창밖 — 밤·저녁이면 어둡게. 들판 창과 같은 시계를 본다
+function nightTone(col, S2, L){ return S2.star ? shade(col, -58) : L.dark > 0.2 ? shade(col, -30) : col; }
+function themeWindow(w, P, S2, L, wu, wv, ww, wh){
+  const T = P.theme, N = c => nightTone(c, S2, L);
+  const sky = () => {
+    w(wu, wv, ww, wh, S2.bot); w(wu, wv, ww, Math.round(wh * 0.5), S2.top);
+    if (S2.star){
+      [[8, 6], [22, 12], [36, 6], [50, 14], [16, 22], [44, 24]].forEach(p => w(wu + p[0], wv + p[1], 2, 2, '#fff6c0'));
+      w(wu + 42, wv + 6, 8, 8, '#fff3c0'); w(wu + 44, wv + 6, 4, 2, '#ffe9a8');
+    }
+  };
+  const shine = () => {                                                        // 유리에 비스듬히 비치는 빛
+    for (let i = 0; i < 10; i += 2) w(wu + 6 + i, wv + 6 + i, 2, 10, 'rgba(255,255,255,0.28)');
+    for (let i = 0; i < 6; i += 2) w(wu + 16 + i, wv + 6 + i, 2, 8, 'rgba(255,255,255,0.20)');
+  };
+  if (T === 'seaside'){
+    /* 그리스 — 위가 둥근 창, 파란 덧창을 활짝 열었다. 밖은 에게해와 하얀 집·파란 지붕. */
+    const arc = (i, n, a) => { const d = (i + 1 - n / 2) / (n / 2); return Math.round(a * (1 - Math.sqrt(Math.max(0, 1 - d * d)))); };
+    const blue = P.trim;
+    for (let i = -2; i < ww + 2; i += 2){ const o = arc(i + 2, ww + 4, 15); w(wu + i, wv - 2 + o, 2, wh + 6 - o, blue); }
+    sky();
+    if (!S2.star){ w(wu + 26, wv + 6, 8, 8, '#fff3c0'); w(wu + 24, wv + 8, 12, 4, '#fff3c0'); }   // 해
+    const hz = wv + 27, sea = N('#2f86c6'), seaL = shade(sea, 24);
+    w(wu, hz, ww, wv + wh - hz, sea);
+    for (let y = hz + 3; y < wv + wh; y += 4) for (let u = ((y / 4) | 0) % 2 * 6; u + 6 <= ww; u += 14) w(wu + u, y, 6, 1, seaL);
+    for (let i = 0; i < 22; i += 2){ const hg = Math.round(5 - Math.abs(i - 10) * 0.4); if (hg > 0) w(wu + 30 + i, hz - hg, 2, hg, N('#a9bccd')); }   // 먼 섬
+    w(wu + 14, hz - 9, 2, 8, N('#8a7560'));                                    // 돛단배
+    [[2, 1], [2, 3], [4, 5], [4, 7]].forEach(([sw, y]) => w(wu + 16, hz - 9 + y, sw, 2, N('#ffffff')));
+    w(wu + 10, hz - 1, 12, 2, N('#8a5a3a'));
+    // 앞쪽 하얀 집 둘 — 오른쪽 집은 파란 둥근 지붕
+    const g1 = wv + wh - 10;
+    w(wu, g1, 18, 10, N('#f6f6f2')); w(wu + 12, g1, 6, 10, N('#dfe5ec')); w(wu, g1, 18, 1, N('#ffffff'));
+    w(wu + 4, g1 + 4, 4, 6, S2.star ? '#ffd166' : blue);
+    const hx = wu + 34, hy = wv + wh - 17;
+    w(hx, hy, 20, 17, N('#ffffff')); w(hx + 14, hy, 6, 17, N('#dfe5ec'));
+    [[2, 16], [2, 16], [4, 12], [6, 8]].forEach(([dx, dw], j) => w(hx + dx, hy - 2 - j * 2, dw, 2, N(j === 3 ? '#4f93d8' : '#1f5aa0')));
+    w(hx + 4, hy - 6, 4, 2, N('#4f93d8'));                                     // 둥근 지붕의 볕
+    w(hx + 8, hy - 12, 2, 4, N('#ffffff'));
+    w(hx + 4, hy + 5, 4, 5, S2.star ? '#ffd166' : blue); w(hx + 10, hy + 5, 2, 3, S2.star ? '#ffd166' : blue);
+    shine();
+    w(wu + ww / 2 - 2, wv + 4, 2, wh - 4, blue); w(wu, wv + 22, ww, 2, blue);  // 창살
+    // 둥근 윗모서리는 창틀색으로 덮는다
+    // 둥근 윗모서리 밖은 회칠 벽으로 덮고, 그 선을 따라 파란 틀을 두른다
+    for (let i = -2; i < ww + 2; i += 2){
+      const o = arc(i + 2, ww + 4, 15);
+      if (o > 0) w(wu + i, wv - 2, 2, o, P.wall);
+      w(wu + i, wv - 2 + o, 2, 2, blue);
+    }
+    // 활짝 연 덧창 두 짝 — 가로 살(루버)
+    [wu - 22, wu + ww + 4].forEach(sx => {
+      w(sx, wv, 18, wh + 2, shade(P.cur, -26));
+      w(sx + 2, wv + 2, 14, wh - 2, P.cur);
+      for (let v = wv + 4; v < wv + wh - 2; v += 3) w(sx + 2, v, 14, 1, shade(P.cur, -18));
+      w(sx + 2, wv + 2, 2, wh - 2, shade(P.cur, 22));
+      w(sx + 2, wv + Math.round(wh / 2), 14, 2, shade(P.cur, -30));
+    });
+    w(wu - 8, wv + wh + 4, ww + 16, 4, '#ffffff'); w(wu - 8, wv + wh + 7, ww + 16, 1, '#d8dee6');   // 흰 창턱
+    // 창턱에 제라늄 화분, 창 위로는 부겐빌레아가 늘어진다
+    w(wu + 2, wv + wh - 2, 10, 6, '#c9713f'); w(wu + 2, wv + wh - 2, 10, 1, '#e39062'); w(wu + 8, wv + wh - 1, 4, 5, '#a95a30');
+    [[2, -8], [6, -10], [10, -7], [4, -5], [8, -4]].forEach(([dx, dy], j) => w(wu + dx, wv + wh + dy, 2 + (j % 2) * 2, 3, j < 3 ? '#e8433f' : '#4f9a58'));
+    [[-12, -6], [-8, -8], [-4, -9], [0, -8], [4, -6], [-14, -2], [-10, -3], [-16, 2], [-12, 4], [-16, 8]].forEach(([dx, dy], j) => {
+      w(wu + dx, wv + dy, 4, 3, j % 3 === 2 ? '#5f9a52' : j % 2 ? '#f06bb0' : '#d63d8f');
+      if (j % 3 !== 2) w(wu + dx, wv + dy, 2, 1, '#ffb0d8');
+    });
+  } else if (T === 'mountain'){
+    /* 스위스 — 작은 유리 여섯 칸의 나무창. 밖은 눈 덮인 알프스와 전나무, 창 밑엔 제라늄 꽃상자. */
+    w(wu - 4, wv - 4, ww + 8, wh + 8, '#5e3a20'); w(wu - 2, wv - 2, ww + 4, wh + 4, '#8a5a34');
+    sky();
+    if (!S2.star){ w(wu + 6, wv + 5, 12, 3, '#ffffff'); w(wu + 8, wv + 3, 6, 2, '#ffffff'); }
+    const base = wv + wh - 12;
+    const peak = (cx, hgt, half, rock, snowH) => {
+      for (let i = -half; i < half; i += 2){
+        const hg = Math.round(hgt * (1 - Math.abs(i + 1) / half) + (R.prand('alp' + cx + i) - 0.5) * 2);
+        if (hg <= 0 || cx + i < 0 || cx + i >= ww) continue;
+        const shadeSide = i >= 0;
+        w(wu + cx + i, base - hg, 2, hg, N(shadeSide ? shade(rock, -16) : rock));
+        const sn = Math.max(0, snowH - Math.round((hgt - hg) * 0.9));
+        if (sn > 0) w(wu + cx + i, base - hg, 2, sn, N(shadeSide ? '#dfe7f0' : '#ffffff'));
+      }
+    };
+    peak(46, 20, 18, '#a3b3c6', 8);                                            // 먼 봉우리
+    peak(20, 30, 20, '#8a9bb0', 12);                                           // 마터호른 닮은 뾰족 봉우리
+    w(wu, base, ww, wv + wh - base, N('#7fbf6f')); w(wu, base, ww, 2, N('#9ad189'));
+    [[4, 0], [52, 2], [44, 4]].forEach(([tx, dy]) => {                          // 전나무
+      for (let j = 0; j < 10; j += 2){ const tw = 2 + j; w(wu + tx + 4 - Math.floor(tw / 4) * 2, base - 8 + dy + j, tw, 2, N('#2f6b45')); }
+      w(wu + tx + 2, base + 2 + dy, 2, 2, N('#5e3a20'));
+    });
+    w(wu + 28, base + 2, 8, 5, N('#b5804f')); w(wu + 26, base, 12, 2, N('#6f4526')); w(wu + 30, base + 4, 2, 2, S2.star ? '#ffd166' : N('#6f4526'));   // 먼 샬레
+    shine();
+    w(wu + 18, wv, 4, wh, '#8a5a34'); w(wu + 38, wv, 4, wh, '#8a5a34'); w(wu, wv + 19, ww, 4, '#8a5a34');   // 여섯 칸 창살
+    w(wu + 18, wv, 2, wh, '#a8744a'); w(wu + 38, wv, 2, wh, '#a8744a'); w(wu, wv + 19, ww, 1, '#a8744a');
+    // 체크무늬 커튼 — 아이 색 깅엄. 가로·세로 띠가 겹친 칸은 짙고, 한 줄만 지나면 중간, 아니면 흰 바탕
+    [wu - 16, wu + ww + 2].forEach((cx, i) => {
+      const top = wv - 8, hgt = wh + 10, tie = top + Math.round(hgt * 0.6);
+      for (let u = 0; u < 14; u += 2) for (let v = top; v < top + hgt; v++){
+        const pinch = Math.abs(v - tie) < 8 ? (i ? 1 : -1) * (8 - Math.abs(v - tie)) / 4 : 0;
+        const a = ((u / 4) | 0) % 2, b = (((v - top) / 4) | 0) % 2;
+        let c2 = a && b ? shade(P.cur, -10) : a || b ? shade(P.cur, 34) : '#fffaf2';
+        if ((u / 2 + i) % 3 === 2) c2 = shade(c2, -14);                          // 주름 골
+        w(cx + u + Math.round(pinch), v, 2, 1, c2);
+      }
+      w(cx + (i ? 0 : 2), tie - 2, 12, 3, shade(P.cur, -30));
+    });
+    w(wu - 20, wv - 10, ww + 40, 3, '#5e3a20'); w(wu - 22, wv - 11, 4, 5, '#3a2618'); w(wu + ww + 18, wv - 11, 4, 5, '#3a2618');   // 커튼봉
+    w(wu - 6, wv + wh + 4, ww + 12, 4, '#8a5a34'); w(wu - 6, wv + wh + 4, ww + 12, 1, '#b5804f');    // 창턱
+    w(wu - 4, wv + wh + 8, ww + 8, 8, '#6f4526');                              // 꽃상자
+    for (let u = 0; u < ww + 8; u += 8) w(wu - 4 + u, wv + wh + 8, 2, 8, '#5e3a20');
+    for (let u = -4; u < ww + 2; u += 6){
+      w(wu + u, wv + wh + 1, 6, 4, '#4f9a58'); w(wu + u + 2, wv + wh - 1, 4, 3, (u / 6) % 2 ? '#ff7a6b' : '#e8433f');
+      w(wu + u + 2, wv + wh - 1, 2, 1, '#ffb3a8');
+      if ((u / 6) % 3 === 0) w(wu + u, wv + wh + 16, 2, 3, '#4f9a58');           // 늘어진 잎
+    }
+  } else {
+    /* 일본 — 장지(쇼지) 창. 한 짝을 밀어 두어 반은 열려 있고, 밖은 구름 바다 위 후지산과 벚꽃 가지.
+       처마 끝에 풍경(후린)이 달려 있다. */
+    w(wu - 4, wv - 4, ww + 8, wh + 8, '#4a3222'); w(wu - 2, wv - 2, ww + 4, wh + 4, '#6b4a33');
+    sky();
+    if (!S2.star){ w(wu + 30, wv + 5, 6, 6, '#ff7a59'); w(wu + 28, wv + 7, 10, 2, '#ff7a59'); }   // 붉은 해
+    const base = wv + wh - 10;
+    for (let i = -26; i < 26; i += 2){                                         // 후지산 — 윗머리가 평평하다
+      const d = Math.abs(i + 1), hg = d < 5 ? 22 : Math.round(22 - (d - 5) * 0.95);
+      if (hg <= 0) continue;
+      const x = 20 + i; if (x < 0 || x >= ww) continue;
+      w(wu + x, base - hg, 2, hg, N(i >= 0 ? '#5f769e' : '#6f86b0'));
+      const sn = d < 5 ? 7 : Math.max(0, 7 - Math.round((d - 5) * 0.7)) + ((x / 2) % 2 ? 1 : 0);
+      if (sn > 0) w(wu + x, base - hg, 2, sn, N(i >= 0 ? '#e1e8f2' : '#ffffff'));
+    }
+    // 구름 바다 — 솜뭉치를 겹쳐 놓는다
+    [[0, 6, 14], [10, 3, 18], [24, 5, 16], [36, 2, 20], [50, 4, 14]].forEach(([x, dy, cw]) => {
+      w(wu + x, base - 2 + dy, cw, wv + wh - base + 2 - dy, N('#ffffff'));
+      w(wu + x + 2, base - 4 + dy, cw - 4, 2, N('#ffffff'));
+      w(wu + x, wv + wh - 2, cw, 2, N('#e4ebf5'));
+    });
+    // 벚꽃 가지 — 왼쪽 위에서 들어온다
+    w(wu, wv + 3, 12, 2, '#6b4a33'); w(wu + 10, wv + 5, 8, 2, '#6b4a33'); w(wu + 6, wv + 1, 2, 3, '#6b4a33');
+    [[2, 0], [8, 6], [14, 2], [16, 7], [4, 5]].forEach(([dx, dy]) => { w(wu + dx, wv + dy, 4, 3, '#ffc0d4'); w(wu + dx, wv + dy, 2, 1, '#ffffff'); });
+    // 오른쪽 한 짝은 닫힌 장지 — 흰 종이에 가는 나무살
+    const sx = wu + 32, sw = ww - 32;
+    w(sx - 2, wv, 2, wh, 'rgba(26,18,10,0.22)');
+    w(sx, wv, sw, wh, S2.star ? '#e9d7b0' : '#fbf6e8');
+    for (let u = 6; u < sw; u += 8) w(sx + u, wv, 2, wh, '#a3826a');
+    for (let v = 8; v < wh; v += 10) w(sx, wv + v, sw, 1, '#a3826a');
+    w(sx, wv, 2, wh, '#6b4a33'); w(sx + sw - 2, wv, 2, wh, '#6b4a33');
+    w(wu - 6, wv + wh + 4, ww + 12, 3, '#6b4a33'); w(wu - 6, wv + wh + 4, ww + 12, 1, '#8a6a4a');   // 창턱
+    // 풍경 — 줄 끝에 유리 종, 그 아래 종이 띠
+    w(wu + 22, wv, 2, 6, '#6f6257');
+    w(wu + 20, wv + 6, 6, 5, '#bfe4f7'); w(wu + 20, wv + 6, 2, 5, '#e8f6ff'); w(wu + 20, wv + 10, 6, 1, '#e8574f');
+    w(wu + 22, wv + 11, 2, 3, '#6f6257'); w(wu + 20, wv + 14, 4, 8, '#ffffff'); w(wu + 20, wv + 14, 4, 1, '#e8574f');
+  }
+}
+function themeDoor(w, P, du, dv, dw, dh){
+  const T = P.theme;
+  if (T === 'seaside'){
+    // 그리스 — 파랗게 칠한 널문. 두꺼운 회칠 벽에 파묻혀 있다
+    const c = P.trim;
+    w(du - 4, dv - 4, dw + 8, dh + 4, shade(P.wall, -12));
+    w(du, dv, dw, dh, c);
+    for (let i = 0; i < dw; i += 8){ w(du + i, dv, 2, dh, shade(c, -18)); w(du + i + 2, dv, 2, dh, shade(c, 14)); }
+    [14, dh - 22].forEach(o => { w(du, dv + o, dw, 4, shade(c, 10)); w(du, dv + o + 4, dw, 1, shade(c, -30)); });
+    for (let i = 0; i < 12; i += 2) w(du + 8 + i, dv + 22 + i, 2, 8, 'rgba(255,255,255,0.08)');
+    w(du + dw - 8, dv + Math.round(dh / 2), 4, 4, '#e0b04a'); w(du + dw - 8, dv + Math.round(dh / 2), 2, 2, '#fff0b8');
+    w(du + 16, dv + 30, 8, 8, '#e0b04a'); w(du + 18, dv + 32, 4, 4, c);        // 둥근 문고리쇠
+    w(du - 2, dv + dh, dw + 4, 2, 'rgba(26,18,10,0.22)');
+  } else if (T === 'mountain'){
+    // 스위스 — 두꺼운 나무문에 검은 쇠 경첩과 하트 구멍
+    w(du - 2, dv - 2, dw + 4, dh + 2, '#5e3a20'); w(du, dv, dw, dh, '#9c6a3e');
+    for (let i = 0; i < dw; i += 8){ w(du + i, dv, 2, dh, '#7a4c2a'); w(du + i + 2, dv, 2, dh, '#b07a4a'); }
+    [12, dh - 20].forEach(o => {
+      w(du, dv + o, dw - 6, 4, '#3a3230'); w(du, dv + o, dw - 6, 1, '#5a504a');
+      for (let i = 2; i < dw - 8; i += 8) w(du + i, dv + o + 1, 2, 2, '#8a8078');
+    });
+    const hx = du + dw / 2 - 4, hy = dv + 26;
+    w(hx, hy, 2, 2, '#2a1c12'); w(hx + 4, hy, 2, 2, '#2a1c12'); w(hx, hy + 2, 6, 2, '#2a1c12'); w(hx + 2, hy + 4, 2, 2, '#2a1c12');
+    w(du + dw - 8, dv + Math.round(dh / 2), 4, 6, '#3a3230'); w(du + dw - 8, dv + Math.round(dh / 2), 2, 2, '#8a8078');
+    w(du - 2, dv + dh, dw + 4, 2, 'rgba(26,18,10,0.22)');
+  } else {
+    // 일본 — 미닫이 두 짝(위는 장지 종이, 아래는 나무판)과 문 위에 드리운 노렌
+    w(du - 2, dv - 2, dw + 4, dh + 2, '#4a3222');
+    [0, dw / 2].forEach((o, j) => {
+      const x = du + o, pw = dw / 2;
+      w(x, dv, pw, dh, '#6b4a33');
+      w(x + 2, dv + 2, pw - 4, dh - 26, '#fbf6e8');
+      for (let u = 6; u < pw - 4; u += 6) w(x + u, dv + 2, 2, dh - 26, '#a3826a');
+      for (let v = 10; v < dh - 24; v += 10) w(x + 2, dv + v, pw - 4, 1, '#a3826a');
+      w(x + 2, dv + dh - 22, pw - 4, 20, '#8a6246');
+      for (let v = dv + dh - 20; v < dv + dh - 2; v += 4) w(x + 2, v, pw - 4, 1, '#7a5238');
+      w(x + (j ? 2 : pw - 6), dv + Math.round(dh / 2) + 2, 4, 6, '#2e2622');   // 둥근 손잡이 홈
+    });
+    w(du + dw / 2 - 1, dv, 2, dh, '#3a2618');
+    // 노렌 — 두 폭, 가운데에 흰 동그라미
+    w(du - 4, dv - 2, dw + 8, 2, '#8a6a4a');
+    [0, dw / 2 + 2].forEach(o => {
+      w(du + o, dv, dw / 2 - 2, 26, P.cur); w(du + o, dv, 2, 26, shade(P.cur, 18)); w(du + o, dv + 24, dw / 2 - 2, 2, shade(P.cur, -26));
+    });
+    w(du + dw / 2 - 6, dv + 8, 12, 10, '#ffffff'); w(du + dw / 2 - 4, dv + 6, 8, 14, '#ffffff');
+    w(du + dw / 2 - 2, dv + 10, 4, 6, P.cur);
+    w(du - 2, dv + dh, dw + 4, 2, 'rgba(26,18,10,0.22)');
+  }
+}
+/* 바닥 한 점의 색. tx·ty 는 칸 좌표(소수), 들판·스위스는 null — 널마루를 그대로 쓴다.
+   그리스는 반 칸짜리 테라코타 타일, 일본은 두 칸짜리 다다미를 벽돌처럼 어긋나게 깐다. */
+function themeFloorAt(P, r, tx, ty){
+  if (P.theme === 'seaside'){
+    const gx = Math.floor(tx * 2), gy = Math.floor(ty * 2), fx = tx * 2 - gx, fy = ty * 2 - gy;
+    if (fx < 0.07 || fy < 0.07) return '#eadcc8';                              // 줄눈
+    const col = P.floor[Math.floor(R.prand('gt' + r + gx + '_' + gy) * 4)];
+    if (fx > 0.9 || fy > 0.9) return shade(col, -14);                          // 타일 가장자리가 살짝 볼록
+    if (fx < 0.16 || fy < 0.16) return shade(col, 10);
+    return col;
+  }
+  if (P.theme === 'cloud'){
+    const row = Math.floor(ty), fy = ty - row, off = row % 2, m = Math.floor((tx + off) / 2), fx = (tx + off) / 2 - m;
+    if (fy < 0.09 || fy > 0.91) return '#34423a';                              // 헤리(검은 천 테두리)
+    if (fx < 0.03 || fx > 0.975) return '#8c8650';                             // 짧은 쪽 이음
+    const col = P.floor[Math.floor(R.prand('tt' + r + row + '_' + m) * 4)];
+    return Math.floor(tx * 20) % 2 ? shade(col, -6) : col;                    // 골풀 결
+  }
+  return null;
+}
 function drawRoomShell(g, r, L, wallItems){
   const Rm = RM(r), P = roomPal(r);
   const A = roomArt(Rm), ox = isoOx(Rm);
@@ -7074,19 +7493,10 @@ function drawRoomShell(g, r, L, wallItems){
     }
     wall(0, W_BASE, len, WALLH - W_BASE, shade(P.base, k));                      // 걸레받이
     wall(0, WALLH - 2, len, 2, shade(P.base, k - 26));
-    /* 종이 올 — 첫화면 마을의 재질과 같은 생각이다. 없으면 벽이 커다란 색면 한 장으로 보인다.
-       자리는 prand 로 정하니 늘 같고, 벽지를 바꿔도 결은 그대로다. */
-    for (let u = 0; u < len; u += 2) for (let v = 2; v < WALLH - 2; v += 2){
-      const g2 = R.prand('wp' + r + k + u + '_' + v);
-      if (g2 > 0.94) wall(u, v, 2, 2, 'rgba(255,255,255,0.055)');
-      else if (g2 < 0.055) wall(u, v, 2, 2, 'rgba(24,16,8,0.04)');
-    }
-    // 아래로 갈수록 조금 어둡다 — 벽에 높이가 생긴다
-    for (let v = W_MOULD; v < WALLH; v += 2)
-      wall(0, v, len, 2, 'rgba(22,15,8,' + (0.055 * (v - W_MOULD) / (WALLH - W_MOULD)).toFixed(3) + ')');
+    wallGrain(wall, len, k, r);
   };
-  paper(wallR, LW, 0);
-  paper(wallL, LH, -9);
+  if (P.theme){ themePaper(wallR, LW, 0, 1, P, r); themePaper(wallL, LH, -9, 0, P, r); }
+  else { paper(wallR, LW, 0); paper(wallL, LH, -9); }
   /* 두 벽이 만나는 모서리 — 빛이 덜 드는 자리다. 안 넣으면 두 색면이 선 하나로
      딱 갈려서 종이를 접어 세운 것처럼 보인다. 모서리에서 멀어질수록 옅어진다. */
   for (let i = 0; i < 26; i += 2){
@@ -7099,65 +7509,71 @@ function drawRoomShell(g, r, L, wallItems){
   q(ox, 0, 2, WALLH, 'rgba(28,20,12,0.06)');
   // 창문 — 오른쪽 벽 한가운데. 밖은 지금 시각의 하늘.
   const S2 = skyColors(L), wu = Math.max(6, Math.floor((LW / 2 - 30) / 2) * 2), wv = 14, ww = 60, wh = 42;
-  wallR(wu - 4, wv - 4, ww + 8, wh + 10, '#8a6a4a');
-  wallR(wu - 2, wv - 2, ww + 4, wh + 6, '#c79b6d');
-  wallR(wu, wv, ww, wh, S2.bot);
-  wallR(wu, wv, ww, Math.round(wh * 0.5), S2.top);
-  if (S2.star){
-    [[8, 6], [22, 12], [36, 6], [50, 14], [16, 22], [44, 24]].forEach(p => wallR(wu + p[0], wv + p[1], 2, 2, '#fff6c0'));
-    wallR(wu + 42, wv + 6, 8, 8, '#fff3c0'); wallR(wu + 44, wv + 6, 4, 2, '#ffe9a8');
-  } else {
-    wallR(wu + 8, wv + 8, 16, 6, '#ffffff'); wallR(wu + 12, wv + 6, 10, 2, '#ffffff');
-    wallR(wu + 38, wv + 16, 14, 4, '#ffffff');
-  }
-  wallR(wu, wv + wh - 12, ww, 12, '#7fbf6f'); wallR(wu, wv + wh - 12, ww, 2, '#9ad189');
-  /* 창밖 — 하늘과 들판만 있으면 색종이 두 장이다. 먼 언덕 둘과 나무 하나, 새 두 마리를
-     넣으면 「밖」이 된다. 먼 것일수록 옅게(공기원근법). */
-  for (let i = 0; i < 22; i += 2){
-    const hgt = Math.round(5 - Math.abs(i - 10) * 0.35);
-    if (hgt > 0) wallR(wu + 4 + i, wv + wh - 12 - hgt, 2, hgt, '#a8c8a0');
-  }
-  for (let i = 0; i < 26; i += 2){
-    const hgt = Math.round(7 - Math.abs(i - 12) * 0.42);
-    if (hgt > 0) wallR(wu + 28 + i, wv + wh - 12 - hgt, 2, hgt, '#8fb98a');
-  }
-  wallR(wu + 14, wv + wh - 18, 2, 6, '#7a5230');                                // 먼 나무
-  wallR(wu + 10, wv + wh - 24, 10, 7, '#6fa869'); wallR(wu + 12, wv + wh - 24, 6, 2, '#8cc487');
-  [[44, 10], [50, 13]].forEach(([bx, by]) => {                                  // 새 두 마리
-    wallR(wu + bx, wv + by, 2, 1, '#6f7a86'); wallR(wu + bx + 2, wv + by - 1, 2, 1, '#6f7a86');
-  });
-  // 유리에 비스듬히 비치는 빛 — 창이 유리라는 걸 알려 주는 가장 싼 표시
-  for (let i = 0; i < 10; i += 2) wallR(wu + 6 + i, wv + 4 + i, 2, 10, 'rgba(255,255,255,0.30)');
-  for (let i = 0; i < 6; i += 2) wallR(wu + 16 + i, wv + 4 + i, 2, 8, 'rgba(255,255,255,0.22)');
-  wallR(wu + Math.floor(ww / 4) * 2 - 2, wv, 4, wh, '#c79b6d'); wallR(wu, wv + 18, ww, 4, '#c79b6d');
-  wallR(wu - 8, wv + wh + 4, ww + 16, 4, '#a97b4f'); wallR(wu - 8, wv + wh + 4, ww + 16, 2, '#d6a878');
-  /* 커튼 — 전에는 색 띠에 가로줄만 그어서 널판처럼 보였다.
-     세로 주름(밝고 어두운 골이 번갈아), 묶어 둔 자리에서 좁아지는 허리, 물결진 아랫단,
-     그리고 위를 가리는 주름 가리개까지 넣어야 천으로 읽힌다. */
-  [wu - 16, wu + ww + 2].forEach((cx, i) => {
-    const top = wv - 8, hgt = wh + 18, tie = top + Math.round(hgt * 0.55);
-    for (let u = 0; u < 14; u += 2){
-      // 묶은 자리에서 안쪽으로 오므라든다
-      const fold = (u / 2 + (i ? 1 : 0)) % 3;
-      const c2 = fold === 0 ? shade(P.cur, 22) : fold === 1 ? P.cur : shade(P.cur, -24);
-      for (let v = top; v < top + hgt; v++){
-        const pinch = Math.abs(v - tie) < 8 ? (i ? 1 : -1) * (8 - Math.abs(v - tie)) / 4 : 0;
-        const hem = v > top + hgt - 6 ? Math.round(Math.sin((u + v) * 0.9) * 2) : 0;   // 물결진 아랫단
-        if (v > top + hgt - 6 + hem) continue;
-        wallR(cx + u + Math.round(pinch), v, 2, 1, c2);
-      }
+  if (P.theme) themeWindow(wallR, P, S2, L, wu, wv, ww, wh);
+  else {
+    wallR(wu - 4, wv - 4, ww + 8, wh + 10, '#8a6a4a');
+    wallR(wu - 2, wv - 2, ww + 4, wh + 6, '#c79b6d');
+    wallR(wu, wv, ww, wh, S2.bot);
+    wallR(wu, wv, ww, Math.round(wh * 0.5), S2.top);
+    if (S2.star){
+      [[8, 6], [22, 12], [36, 6], [50, 14], [16, 22], [44, 24]].forEach(p => wallR(wu + p[0], wv + p[1], 2, 2, '#fff6c0'));
+      wallR(wu + 42, wv + 6, 8, 8, '#fff3c0'); wallR(wu + 44, wv + 6, 4, 2, '#ffe9a8');
+    } else {
+      wallR(wu + 8, wv + 8, 16, 6, '#ffffff'); wallR(wu + 12, wv + 6, 10, 2, '#ffffff');
+      wallR(wu + 38, wv + 16, 14, 4, '#ffffff');
     }
-    wallR(cx + (i ? 0 : 2), tie - 2, 12, 4, shade(P.cur, -34));                        // 묶은 띠
-    wallR(cx + (i ? 0 : 2), tie - 2, 12, 1, shade(P.cur, 12));
-  });
-  wallR(wu - 20, wv - 12, ww + 40, 4, '#8a6a4a');                                      // 커튼봉
-  for (let u = 0; u < ww + 40; u += 6){                                                // 봉에 걸린 주름 가리개
-    wallR(wu - 20 + u, wv - 8, 4, 5, P.cur);
-    wallR(wu - 20 + u, wv - 8, 2, 5, shade(P.cur, 20));
-    wallR(wu - 20 + u + 2, wv - 3, 2, 2, shade(P.cur, -26));
+    wallR(wu, wv + wh - 12, ww, 12, '#7fbf6f'); wallR(wu, wv + wh - 12, ww, 2, '#9ad189');
+    /* 창밖 — 하늘과 들판만 있으면 색종이 두 장이다. 먼 언덕 둘과 나무 하나, 새 두 마리를
+       넣으면 「밖」이 된다. 먼 것일수록 옅게(공기원근법). */
+    for (let i = 0; i < 22; i += 2){
+      const hgt = Math.round(5 - Math.abs(i - 10) * 0.35);
+      if (hgt > 0) wallR(wu + 4 + i, wv + wh - 12 - hgt, 2, hgt, '#a8c8a0');
+    }
+    for (let i = 0; i < 26; i += 2){
+      const hgt = Math.round(7 - Math.abs(i - 12) * 0.42);
+      if (hgt > 0) wallR(wu + 28 + i, wv + wh - 12 - hgt, 2, hgt, '#8fb98a');
+    }
+    wallR(wu + 14, wv + wh - 18, 2, 6, '#7a5230');                                // 먼 나무
+    wallR(wu + 10, wv + wh - 24, 10, 7, '#6fa869'); wallR(wu + 12, wv + wh - 24, 6, 2, '#8cc487');
+    [[44, 10], [50, 13]].forEach(([bx, by]) => {                                  // 새 두 마리
+      wallR(wu + bx, wv + by, 2, 1, '#6f7a86'); wallR(wu + bx + 2, wv + by - 1, 2, 1, '#6f7a86');
+    });
+    // 유리에 비스듬히 비치는 빛 — 창이 유리라는 걸 알려 주는 가장 싼 표시
+    for (let i = 0; i < 10; i += 2) wallR(wu + 6 + i, wv + 4 + i, 2, 10, 'rgba(255,255,255,0.30)');
+    for (let i = 0; i < 6; i += 2) wallR(wu + 16 + i, wv + 4 + i, 2, 8, 'rgba(255,255,255,0.22)');
+    wallR(wu + Math.floor(ww / 4) * 2 - 2, wv, 4, wh, '#c79b6d'); wallR(wu, wv + 18, ww, 4, '#c79b6d');
+    wallR(wu - 8, wv + wh + 4, ww + 16, 4, '#a97b4f'); wallR(wu - 8, wv + wh + 4, ww + 16, 2, '#d6a878');
+    /* 커튼 — 전에는 색 띠에 가로줄만 그어서 널판처럼 보였다.
+       세로 주름(밝고 어두운 골이 번갈아), 묶어 둔 자리에서 좁아지는 허리, 물결진 아랫단,
+       그리고 위를 가리는 주름 가리개까지 넣어야 천으로 읽힌다. */
+    [wu - 16, wu + ww + 2].forEach((cx, i) => {
+      const top = wv - 8, hgt = wh + 18, tie = top + Math.round(hgt * 0.55);
+      for (let u = 0; u < 14; u += 2){
+        // 묶은 자리에서 안쪽으로 오므라든다
+        const fold = (u / 2 + (i ? 1 : 0)) % 3;
+        const c2 = fold === 0 ? shade(P.cur, 22) : fold === 1 ? P.cur : shade(P.cur, -24);
+        for (let v = top; v < top + hgt; v++){
+          const pinch = Math.abs(v - tie) < 8 ? (i ? 1 : -1) * (8 - Math.abs(v - tie)) / 4 : 0;
+          const hem = v > top + hgt - 6 ? Math.round(Math.sin((u + v) * 0.9) * 2) : 0;   // 물결진 아랫단
+          if (v > top + hgt - 6 + hem) continue;
+          wallR(cx + u + Math.round(pinch), v, 2, 1, c2);
+        }
+      }
+      wallR(cx + (i ? 0 : 2), tie - 2, 12, 4, shade(P.cur, -34));                        // 묶은 띠
+      wallR(cx + (i ? 0 : 2), tie - 2, 12, 1, shade(P.cur, 12));
+    });
+    wallR(wu - 20, wv - 12, ww + 40, 4, '#8a6a4a');                                      // 커튼봉
+    for (let u = 0; u < ww + 40; u += 6){                                                // 봉에 걸린 주름 가리개
+      wallR(wu - 20 + u, wv - 8, 4, 5, P.cur);
+      wallR(wu - 20 + u, wv - 8, 2, 5, shade(P.cur, 20));
+      wallR(wu - 20 + u + 2, wv - 3, 2, 2, shade(P.cur, -26));
+    }
   }
   // 거실에는 왼쪽 벽에 밖으로 나가는 문이 하나
-  if (r === 'living'){
+  if (r === 'living' && P.theme){
+    const du = Math.max(6, Math.floor((LH - 44) / 2 / 2) * 2), dw = 40, dv = W_MOULD + 4, dh = WALLH - dv - 6;
+    themeDoor(wallL, P, du, dv, dw, dh);
+  } else if (r === 'living'){
     const du = Math.max(6, Math.floor((LH - 44) / 2 / 2) * 2), dw = 40, dv = W_MOULD + 4, dh = WALLH - dv - 6;
     wallL(du - 2, dv - 2, dw + 4, dh + 2, '#7a5230');
     wallL(du, dv, dw, dh, '#a97b4f');
@@ -7194,7 +7610,8 @@ function drawRoomShell(g, r, L, wallItems){
   });
   // 마루 — 널이 오른쪽아래로 흐른다. 널 하나가 세로 8도트, 한 칸에 세 줄.
   const BX = Rm.w * (TW / 2), FBY = WALLH + (Rm.w + Rm.h) * (TH / 2), LY = WALLH + Rm.h * (TH / 2);
-  for (let cx = 0; cx < A.w; cx += 2){
+  const tiled = P.theme === 'seaside' || P.theme === 'cloud';           // 그리스 타일·일본 다다미는 널이 아니다
+  for (let cx = 0; cx < A.w && !tiled; cx += 2){
     const yTop = cx < ox ? WALLH + (ox - cx) / 2 : WALLH + (cx - ox) / 2;
     const yBot = cx < BX ? LY + cx / 2 : FBY - (cx - BX) / 2;
     const base = WALLH + (cx - ox) / 2;
@@ -7222,6 +7639,19 @@ function drawRoomShell(g, r, L, wallItems){
     const a = (x - ox) / TW, b = (y - WALLH) / TH, tx = b + a, ty = b - a;
     return tx >= 0 && ty >= 0 && tx < Rm.w && ty < Rm.h;
   };
+  if (tiled) for (let cx = 0; cx < A.w; cx += 2){
+    const yTop = cx < ox ? WALLH + (ox - cx) / 2 : WALLH + (cx - ox) / 2;
+    const yBot = cx < BX ? LY + cx / 2 : FBY - (cx - BX) / 2;
+    let run = yTop, rc = null;                                   // 같은 색이 이어지면 한 번에 칠한다
+    for (let y = yTop; y <= yBot; y++){
+      let col = null;
+      if (y < yBot){
+        const a = (cx + 1 - ox) / TW, b = (y + 0.5 - WALLH) / TH;
+        col = themeFloorAt(P, r, Math.min(Rm.w - 0.001, Math.max(0, b + a)), Math.min(Rm.h - 0.001, Math.max(0, b - a)));
+      }
+      if (col !== rc){ if (rc) q(cx, run, 2, y - run, rc); rc = col; run = y; }
+    }
+  }
   /* 벽 밑 그늘 — 걸레받이가 바닥에 닿는 자리. 빛이 안 드는 좁은 띠 하나면 벽과 바닥이
      맞물려 보인다. 없으면 바닥이 벽 뒤로 그냥 이어진 것처럼 떠 보였다. */
   for (let i = 0; i < 10; i += 2){
@@ -7229,7 +7659,7 @@ function drawRoomShell(g, r, L, wallItems){
     for (let u = 0; u < LW; u += 2){ const y2 = WALLH + u / 2 + i; if (inFloor(ox + u + 1, y2 + 1)) q(ox + u, y2, 2, 2, c2); }
     for (let u = 0; u < LH; u += 2){ const y2 = WALLH + (u + 2) / 2 + i; if (inFloor(ox - u - 1, y2 + 1)) q(ox - u - 2, y2, 2, 2, c2); }
   }
-  for (let k = 0; k < Rm.h * 3; k++){
+  for (let k = 0; k < Rm.h * 3 && !tiled; k++){
     const col = P.floor[Math.floor(R.prand('fp' + r + k) * 4)], jc = shade(col, -26);
     for (let m = 0; m < Rm.w; m++){
       const jx = m + (k % 3) / 3, X = ox + jx * TW / 2 - 8 * k, Y = WALLH + jx * TH / 2 + 4 * k;
@@ -7296,6 +7726,8 @@ const ROOM_LIGHT = {
   stars:    { c: '#ffe680', r: 54, wall: true, flick: 'twinkle' },
   wlight:   { c: '#ffe9a8', r: 50, wall: true },
   mobile:   { c: '#ffd166', r: 28, wall: true, flick: 'breathe' },
+  kachel:   { c: '#ff9a3a', r: 56, dy: -10, flick: 'fire' },
+  andon:    { c: '#ffe2a8', r: 64, dy: -22, flick: 'breathe' },
 };
 // 그 가구에서 「빛나는 색」들. 그리는 코드가 shade() 로 만든 변형까지 같이 넣어 둔다.
 const LIT_BASE = {
@@ -7303,6 +7735,7 @@ const LIT_BASE = {
   xmas: ['#ffd979', '#f2707d', '#5aa9e6', '#ffd166'], nightsky: ['#fff3c0'], tank: ['#8fd0f0', '#5aa9e6'],
   tv: ['#9fd8f0', '#e8f6ff'], stars: ['#ffe680', '#fff6d0'], wlight: ['#ffe9a8', '#fff3c0', '#ffd979'],
   mobile: ['#ffd166', '#ff8fb8', '#8fd9c8', '#a9c8ff', '#c9a8ff', '#ffffff'],
+  kachel: ['#ff8c2e', '#ffd166'], andon: ['#fff3d6', '#ffe9b8', '#fff9ea'],
 };
 const litSets = {};
 function litSet(kind){
@@ -7339,7 +7772,8 @@ const FURN_H = { rug: 2, bed: 24, bunk: 72, table: 28, desk: 32, chair: 38, sofa
                  dollhouse: 54, slide: 44, ballpit: 18, hammock: 46, kitchen: 46,
                  blocks: 32, dresser: 46, nightsky: 24,
                  fox: 40, sangre: 34, rabbit: 44, pcdesk: 62, sunflower: 58, rose: 44,
-                 bigbear: 80 };
+                 bigbear: 80,
+                 amphora: 46, olive: 52, kachel: 66, sled: 24, kotatsu: 30, andon: 52 };
 // 가구마다의 재질 — 적지 않은 것은 나무로 친다
 const FURN_MAT = {
   rug:'cloth', bed:'cloth', sofa:'cloth', cushion:'cloth', catbed:'cloth', beanbag:'cloth',
@@ -7353,6 +7787,7 @@ const FURN_MAT = {
   slide:'plain', dollhouse:'wood', dresser:'wood',
   fox:'cloth', sangre:'cloth', rabbit:'cloth', pcdesk:'wood', sunflower:'plain', rose:'plain',
   bigbear:'cloth',
+  amphora:'plain', olive:'plain', kachel:'plain', sled:'wood', kotatsu:'cloth', andon:'plain',
 };
 function furnArt(f, rot){
   const F = R.FURNITURE[f], b = R.furnBox(f, rot);
@@ -7995,6 +8430,84 @@ function paintFurniture(g, f, rot, A, t, lit){
       oq(25, 8, 2, 2, '#3a2a20'); oq(20, 2, 7, 3, '#e8574f'); oq(15, 6, 5, 8, '#e8574f');
       oq(8, 14, 11, 2, '#ffd166');
       break;
+    /* ---- 나라별 가구(2026-09-29) — 그 농장 가게에서만 판다 ---- */
+    case 'amphora': {                                                    // 그리스 항아리 — 검은 띠에 번개무늬
+      const K = [[-10, 7], [-8, 4], [-2, 4], [0, 8], [4, 11], [10, 12], [15, 12], [19, 10], [23, 7], [27, 4], [29, 5]];
+      const hw = y => { for (let i = 1; i < K.length; i++) if (y <= K[i][0]){ const a = K[i - 1], b = K[i]; return Math.round(a[1] + (b[1] - a[1]) * (y - a[0]) / (b[0] - a[0])); } return 4; };
+      oq(4, -6, 3, 10, dk); oq(4, -6, 6, 2, dk); oq(25, -6, 3, 10, dk); oq(22, -6, 6, 2, dk);   // 손잡이 둘
+      for (let y = -10; y < 30; y++){
+        const h2 = hw(y), band = y >= 5 && y < 13;
+        const col = y <= -8 || y >= 28 ? dk : band ? '#2a2320' : c;
+        oq(16 - h2, y, h2 * 2, 1, col);
+        if (!band){ oq(16 - h2 + 2, y, 2, 1, hi); oq(16 + h2 - 3, y, 3, 1, lo); }
+      }
+      for (let x = 7; x < 25; x += 6){ oq(x, 7, 4, 1, c); oq(x, 7, 1, 4, c); oq(x + 3, 7, 1, 3, c); oq(x + 1, 10, 3, 1, c); }   // 번개무늬
+      oq(16 - 8, 1, 16, 1, '#2a2320'); oq(16 - 11, 16, 22, 1, '#2a2320');
+      break;
+    }
+    case 'olive': {                                                      // 올리브 나무 — 흰 화분에 파란 띠
+      oq(8, 16, 16, 14, '#f4f1ea'); oq(8, 19, 16, 3, '#2f6fb0'); oq(7, 14, 18, 3, '#ffffff');
+      oq(20, 16, 4, 14, '#d8d4ca'); oq(8, 29, 16, 1, '#b9b3a6');
+      oq(14, 2, 5, 14, '#7a6450'); oq(14, 2, 1, 14, '#9a8470'); oq(17, 6, 2, 6, '#5e4a3a');   // 굵고 비틀린 줄기
+      oq(11, -4, 4, 8, '#7a6450'); oq(18, -8, 4, 11, '#7a6450'); oq(12, -6, 2, 3, '#9a8470');
+      blob(CX - 7, CY - 32 - 24, 18, 14, c, shade(c, 28), shade(c, -26), 'ol1', q);
+      blob(CX + 6, CY - 32 - 28, 18, 14, c, shade(c, 28), shade(c, -26), 'ol2', q);
+      blob(CX, CY - 32 - 16, 24, 12, c, shade(c, 28), shade(c, -26), 'ol3', q);
+      [[9, -18], [21, -22], [14, -12], [24, -14], [7, -10]].forEach(([x, y]) => { oq(x, y, 2, 2, '#3e2f4a'); oq(x, y, 1, 1, '#7a6a8a'); });
+      break;
+    }
+    case 'kachel': {                                                     // 스위스 타일 난로 — 초록 유약 타일, 쇠문 안에 불
+      box(0, 0, E, D, 6, '#6f4a2c');                                       // 받침
+      box(2, 2, E - 4, D - 4, 50, c, 6);
+      box(0, 0, E, D, 4, shade(c, -30), 56); box(3, 3, E - 6, D - 6, 4, shade(c, 18), 60);   // 머리 장식
+      const seam = shade(c, -34);
+      for (let up = 14; up < 56; up += 8){
+        for (let a = 2; a < E - 2; a += 2){ const p = P(a, D - 2, up); q(p[0], p[1], 2, 1, seam); }
+        for (let b = 2; b < D - 2; b += 2){ const p = P(E - 2, b, up); q(p[0], p[1], 2, 1, seam); }
+      }
+      [10, 18].forEach(a => { const p = P(a, D - 2, 56); q(p[0], p[1], 2, 50, seam); });
+      [10, 18].forEach(b => { const p = P(E - 2, b, 56); q(p[0] - 2, p[1], 2, 50, seam); });
+      for (let up = 16; up < 56; up += 8) [4, 12].forEach(a => { const p = P(a, D - 2, up); q(p[0], p[1] - 6, 2, 2, shade(c, 34)); });
+      for (let a = 7; a < 17; a += 2){                                     // 쇠문 — 앞면 아래, 면을 따라 비스듬히
+        const p = P(a, D - 2, 22), inner = a > 7 && a < 15;
+        q(p[0], p[1], 2, 12, '#2a221b'); q(p[0], p[1], 2, 2, '#5a504a');
+        if (inner){ q(p[0], p[1] + 4, 2, 8, '#ff8c2e'); if (a > 9 && a < 13) q(p[0], p[1] + 7, 2, 5, '#ffd166'); }
+      }
+      break;
+    }
+    case 'sled': {                                                       // 나무 썰매 — 앞이 말려 올라간 날, 체크 담요
+      [3, D - 7].forEach(b => {
+        box(4, b, E - 12, 3, 2, '#5e3a20');                                // 날
+        box(E - 9, b, 3, 3, 6, '#5e3a20', 2); box(E - 12, b, 4, 3, 2, '#5e3a20', 8);   // 말려 올라간 앞
+        box(10, b, 3, 3, 9, '#8a5a34', 2); box(E - 20, b, 3, 3, 9, '#8a5a34', 2);     // 다리
+      });
+      for (let a = 7; a < E - 12; a += 6) box(a, 2, 4, D - 4, 2, c, 11);   // 앉는 널
+      box(14, 5, 16, D - 10, 4, '#fffaf2', 13);                            // 접은 담요
+      for (let a = 16; a < 30; a += 5) top(a, 5, 17, 2, D - 10, '#3f7d5c');
+      for (let b = 7; b < D - 6; b += 5) top(14, b, 17, 16, 2, '#3f7d5c');
+      break;
+    }
+    case 'kotatsu': {                                                    // 고타쓰 — 이불을 덮은 낮은 탁자, 귤 한 바구니
+      box(0, 0, E, D, 18, c);
+      for (let a = 6; a < E - 2; a += 10){ const p = P(a, D - 2, 12); q(p[0], p[1], 4, 3, '#fff6f0'); q(p[0] + 1, p[1] + 1, 2, 1, '#ffd166'); }
+      for (let b = 6; b < D - 2; b += 10){ const p = P(E - 2, b, 12); q(p[0] - 4, p[1], 4, 3, '#fff6f0'); }
+      box(0, 0, E, D, 2, shade(c, -26));                                   // 이불 아랫단
+      top(0, 0, 18, E, D, shade(c, 16));                                  // 상판 둘레로 이불 윗면이 보인다
+      box(5, 4, E - 10, D - 8, 3, '#a8744a', 19); top(7, 6, 22, E - 14, D - 12, '#c48a58');   // 나무 상판
+      box(E / 2 - 7, D / 2 - 6, 12, 12, 3, '#3a3230', 22);                  // 바구니
+      [[E / 2 - 5, D / 2 - 4], [E / 2, D / 2 - 5], [E / 2 - 3, D / 2]].forEach(([a, b]) => { box(a, b, 5, 5, 4, '#ff9a2e', 24); top(a + 1, b + 1, 28, 2, 2, '#ffc46b'); });
+      break;
+    }
+    case 'andon': {                                                      // 종이 등 — 나무 살에 한지를 발랐다
+      const wd = '#5e4130';
+      oq(8, 26, 3, 6, wd); oq(21, 26, 3, 6, wd); oq(7, 24, 18, 3, wd); oq(7, 24, 18, 1, '#8a6a4a');
+      oq(8, -14, 16, 38, c); oq(12, -8, 8, 28, '#fff9ea');                 // 종이와 가운데 밝은 빛
+      oq(8, -14, 2, 38, wd); oq(22, -14, 2, 38, wd); oq(15, -14, 2, 38, 'rgba(94,65,48,0.35)');
+      for (let y = -5; y < 24; y += 9) oq(8, y, 16, 1, '#b99f78');
+      oq(7, -17, 18, 3, wd); oq(7, -17, 18, 1, '#8a6a4a');
+      oq(11, -22, 2, 5, wd); oq(19, -22, 2, 5, wd); oq(11, -22, 10, 2, wd);   // 손잡이
+      break;
+    }
     case 'sakura':
       oq(11, 20, 10, 12, '#dfe8ee'); oq(11, 20, 4, 12, '#ffffff'); oq(10, 18, 12, 3, '#c3ced6');
       oq(15, 6, 2, 14, '#8a5f3a'); oq(9, 10, 8, 2, '#8a5f3a'); oq(17, 8, 7, 2, '#8a5f3a');
@@ -8098,7 +8611,7 @@ function drawRoom(cv, r, tms){
   wallItems.sort((a, b) => (a.side - b.side) || ((a.col == null ? a.at : a.col) - (b.col == null ? b.at : b.col)));
   const wsig = wallItems.map(i => i.f + '@' + i.k).join('|');
   if (!houseBg) houseBg = document.createElement('canvas');
-  const sig = r + '|' + cw + 'x' + ch + '|' + (L.dark > 0.42 ? 'n' : L.dark > 0.2 ? 'e' : L.dark > 0.08 ? 'd' : 'l') + '|' + wsig;
+  const sig = r + '|' + roomTheme() + '|' + cw + 'x' + ch + '|' + (L.dark > 0.42 ? 'n' : L.dark > 0.2 ? 'e' : L.dark > 0.08 ? 'd' : 'l') + '|' + wsig;
   if (houseBg.width !== cw || houseBg.height !== ch){ houseBg.width = cw; houseBg.height = ch; houseSig = ''; }
   if (sig !== houseSig){
     houseSig = sig;
