@@ -890,7 +890,7 @@ function drawMuseum(g, k){
   const fk = focusKey || hoverKey, hv = hits.find(h => k + ':' + hitKey(h) === fk);
   if (hv && !hv.kid) drawPlate(g, hv);                                   // 노란 테두리 대신 이름표
   const bub = bubbleOf[k], bs = bub && walkerSpot(k);                  // 아이 말풍선
-  if (bs) drawBubble(g, bs.x, bs.y - 42, bub.text);
+  if (bs) drawBubble(g, bs.x, bs.y - KIDART[k].h - 4, bub.text);       // 꼬리 끝이 머리 위
 }
 function drawRoom(k){
   const cv = $('#museum-' + (k || kid)); if (!cv) return;
@@ -904,7 +904,8 @@ function hitAt(e, k){
   if (!rc.width) return null;
   const x = (e.clientX - rc.left) / rc.width * RW, y = (e.clientY - rc.top) / rc.height * RH;
   const ks = walkerSpot(k);                                             // 아이가 맨 앞 — 누르면 이야기한다
-  if (ks && x >= ks.x - 14 && x < ks.x + 14 && y >= ks.y - 40 && y < ks.y + 3) return { kid: true, x0: ks.x - 14, x1: ks.x + 14, y0: ks.y - 40, y1: ks.y + 3 };
+  const kw = ks && KIDART[k].w / 2, kt = ks && ks.y - KIDART[k].h - 2;   // 그림 크기만큼
+  if (ks && x >= ks.x - kw && x < ks.x + kw && y >= kt && y < ks.y + 3) return { kid: true, x0: ks.x - kw, x1: ks.x + kw, y0: kt, y1: ks.y + 3 };
   // 앞에 그린 진열대가 이긴다
   // 앞뒤가 같으면 작은 자리가 이긴다 — 기울어진 벽의 액자 상자가 그 아래 역대 직함 배지·별을 덮어, 배지를 눌러도 액자가 열렸다(층고를 낮출 때 잡음)
   // 크기도 같으면(핀끼리) 누른 곳에서 가운데가 가까운 쪽 — 줄 간격보다 상자가 커서 옛 코드도 핀 하나가 옆 핀으로 열렸다
@@ -1768,7 +1769,7 @@ function printSheet(list){
 // 2초마다 0.45초 동안 가장 최근 것에 반짝. 그 동안만 다시 그린다(한 방 1.8ms). 움직임을 줄인 설정이면 안 한다.
 // ---------- 산책하는 아이 ----------
 /* 농장처럼 제 전시실 안을 아이가 걸어 다닌다(수아 방엔 수아, 연아 방엔 연아). 그림은 농장과 같은 kid-art.js —
-   28×38 도트를 방 도트 한 칸에 하나씩(농장 집 안 방과 같은 크기). 바닥 좌표(i, j)에서 받침대·화분·전등을 비켜
+   새 48도트 판(수아 38×49·연아 32×49)을 방 도트 한 칸에 하나씩. 걷는 쪽에 맞춰 여덟 방향 중 하나를 본다. 바닥 좌표(i, j)에서 받침대·화분·전등을 비켜
    곧게 갈 수 있는 빈 자리를 골라 걷고, 닿으면 앞을 보고 잠깐 쉰다. 화분·전등은 껍데기에 구워져 있어
    뒤로 지나가면 앞뒤가 뒤집히므로 넉넉히 비켜 간다. 움직임 줄이기 설정이면 서 있기만 한다. */
 const WALK_SPEED = 0.9;                                                 // 칸/초 — 농장 아이(26도트/초 ÷ 32)와 비슷하게
@@ -1821,12 +1822,11 @@ function stepWalker(k, dt){
   }
   const before = walkKey(w), step = Math.min(d, WALK_SPEED * dt / 1000);
   w.i += di / d * step; w.j += dj / d * step; w.moving = true; w.phase += dt / 260;
-  const sx = (di - dj) * TW / 2, sy = (di + dj) * TH / 2;                // 화면에서 가는 방향
-  if (Math.abs(sx) > Math.abs(sy) * 1.15){ w.dir = 'side'; w.flip = sx < 0; }
-  else w.dir = sy > 0 ? 'down' : 'up';
+  const sx = (di - dj) * TW / 2, sy = (di + dj) * TH / 2;                // 화면에서 가는 방향 — 45°씩 여덟 방향(E 부터 시계 방향)
+  w.dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) & 7]; w.flip = false;
   return walkKey(w) !== before;
 }
-function walkKey(w){ const p = tileXY(w.i, w.j); return Math.round(p.x) + ',' + Math.round(p.y) + w.dir + w.flip + (w.moving ? Math.floor(w.phase) % 2 : 0); }
+function walkKey(w){ const p = tileXY(w.i, w.j); return Math.round(p.x) + ',' + Math.round(p.y) + w.dir + w.flip + (w.moving ? Math.floor(w.phase) % 4 : 0); }   // 걸음 네 장(KIDSTEP)
 function walkerSpot(k){
   if (typeof KIDART === 'undefined' || !KIDART[k]) return null;       // 그림 파일을 못 받았으면 아이 없이
   const w = walkerOf(k), p = tileXY(w.i, w.j);
@@ -1837,7 +1837,7 @@ const kidBuf = {};
 function kidSprite(k, dir, f, flip, phase){
   const key = [k, dir, f, flip ? 1 : 0, phase].join('|');
   if (kidBuf[key]) return kidBuf[key];
-  const rows = KIDART[k][dir][f], pal = KIDPAL[k], W = rows[0].length, H = rows.length;
+  const art = KIDART[k], rows = (art.dirs[dir] || art[dir])[f], pal = KIDPAL[k], W = art.w, H = art.h;   // dir 은 여덟 방향(S·NE…) 또는 예전 이름(down·side·up)
   const paint = (g, ox, oy, one) => {
     for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){
       const ch = rows[r][x]; if (ch === '.') continue;
@@ -1859,10 +1859,10 @@ function kidSprite(k, dir, f, flip, phase){
   return (kidBuf[key] = c);
 }
 function drawWalker(g, k, s){
-  const w = s.w, f = w.moving ? Math.floor(w.phase) % 2 : 0;
+  const w = s.w, f = KIDSTEP(w.moving, w.phase);
   isoTopD(g, s.x, s.y, 10, 4, 'rgba(40,24,10,.24)');                      // 발밑 그림자
-  const c = kidSprite(k, w.dir, f, w.dir === 'side' && w.flip, dayPhase());
-  g.drawImage(c, s.x - 15, s.y - 39, c.width / 2, c.height / 2);
+  const c = kidSprite(k, w.dir, f, w.dir === 'side' && w.flip, dayPhase()), cw = c.width / 2, ch = c.height / 2;
+  g.drawImage(c, s.x - cw / 2, s.y - ch + 1, cw, ch);                   // 가로 가운데, 발은 바닥 점 한 도트 위
 }
 // ---------- 아이 말풍선 — 누르면 제 소감을 말하고(아이디어 5), 새 자랑이 오면 그 앞에 가서 알린다(아이디어 3) ----------
 const bubbleOf = { sua: null, yona: null }, bubbleTimer = {}, greeted = { sua: false, yona: false }, talkTurn = { sua: 0, yona: 0 };

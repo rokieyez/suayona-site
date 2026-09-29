@@ -196,9 +196,10 @@ function renderHeroes(){
     const h = Q.HEROES[k], s = saves[k];
     const card = document.createElement('div');
     card.className = 'dot-card hero-card';
-    const cv = document.createElement('canvas'); cv.width = 42; cv.height = 40;
+    const hs = SPRITES[h.sprite];
+    const cv = document.createElement('canvas'); cv.width = hs[0].length; cv.height = hs.length;   // 캔버스 = 그림 크기
     cv.getContext('2d').imageSmoothingEnabled = false;
-    drawSprite(cv.getContext('2d'), SPRITES[h.sprite], 0, 0, 1);
+    drawSprite(cv.getContext('2d'), hs, 0, 0, 1);
     card.appendChild(cv);
     const d = document.createElement('div');
     const wins = s ? s.wins.reduce((a, b) => a + b, 0) : 0;
@@ -327,10 +328,11 @@ function renderMission(){
 }
 
 function renderStatus(){
-  const face = $('#heroFace').getContext('2d');
+  const fcv = $('#heroFace'), fsp = SPRITES[hero.sprite];
+  fcv.width = fsp[0].length; fcv.height = fsp.length;            // 크기를 다시 정하면 캔버스도 비워진다
+  const face = fcv.getContext('2d');
   face.imageSmoothingEnabled = false;
-  face.clearRect(0, 0, 42, 40);
-  drawSprite(face, SPRITES[hero.sprite], 0, 0, 1);
+  drawSprite(face, fsp, 0, 0, 1);
   $('#heroName').textContent = hero.name + '의 모험단';
   const grL = (save.grew && save.grew.day === today()) ? (save.grew.lv || 0) : 0;
   $('#heroLv').textContent = '레벨 ' + st.lv + (grL ? ' ▲' + grL : '') + ' · ⭐ ' + st.xp + ' / ' + st.next;
@@ -3043,8 +3045,9 @@ function draw(){
   drawFigure(hs, hx, hy, 2, A.dark);
   // 장비에 붙인 그림 — 왼손엔 방패, 오른쪽 위엔 깃발
   const sh = gearCanvas('armor'), fl = gearCanvas('weapon');
-  if (sh){ px(hx - 12, hy + 32, 26, 26, '#2f2a24'); ctx.drawImage(sh, hx - 10, hy + 34, 22, 22); }
-  if (fl){ px(hx + 78, hy + 8, 2, 60, '#2f2a24'); px(hx + 80, hy + 8, 24, 24, '#2f2a24'); ctx.drawImage(fl, hx + 81, hy + 9, 22, 22); }
+  const hw = hs[0].length * 2, hh = hs.length * 2, chest = hy + Math.round(hh * 0.45);   // 가슴 높이 — 방패를 드는 자리
+  if (sh){ px(hx - 12, chest, 26, 26, '#2f2a24'); ctx.drawImage(sh, hx - 10, chest + 2, 22, 22); }
+  if (fl){ px(hx + hw - 6, hy + 8, 2, 60, '#2f2a24'); px(hx + hw - 4, hy + 8, 24, 24, '#2f2a24'); ctx.drawImage(fl, hx + hw - 3, hy + 9, 22, 22); }
   // 친구들 — 주인공 뒤에 줄지어 서서 살짝 뛴다. 나설 때는 앞으로 튀어나온다.
   const acting = friendAt && t - friendAt < 700;
   Q.friendsOf(save).slice(0, 6).forEach((f, i) => {

@@ -603,14 +603,28 @@ P.lamp = (q, X, Y, on) => {
   q(X - 4, Y - 33, 8, 1, iron); q(X - 1, Y - 46, 2, 2, iron);
   if (on){ ellipse(q, X, Y - 37, 9, 6, (x, y) => (x + y) % 2 ? null : 'rgba(255,215,120,0.18)'); LIGHTS.push({ x: X, y: Y - 37, r: 30, c: '#ffd77a' }); }
 };
-// 벤치 — 나무 널과 쇠다리
-P.bench = (q, X, Y) => {
-  const w = 22, wood = '#b98a5e', iron = '#3a3a3a';
-  q(X - w / 2 + 2, Y - 3, 2, 3, iron); q(X + w / 2 - 4, Y - 3, 2, 3, iron);
-  for (let i = 0; i < 3; i++){ q(X - w / 2, Y - 6 - i * 3, w, 2, i === 1 ? shade(wood, -10) : wood); q(X - w / 2, Y - 6 - i * 3, w, 1, shade(wood, 16)); }
-  q(X - w / 2 + 1, Y - 12, 2, 6, iron); q(X + w / 2 - 3, Y - 12, 2, 6, iron);
-  for (let i = 0; i < 2; i++){ q(X - w / 2, Y - 16 - i * 3, w, 2, wood); q(X - w / 2, Y - 16 - i * 3, w, 1, shade(wood, 16)); }
-  q(X - w / 2 + 1, Y - 19, 2, 8, iron); q(X + w / 2 - 3, Y - 19, 2, 8, iron);
+/* 세운 물건 도우미 — 팻말·벤치·이젤처럼 얇은 물건도 정면 그림이 아니라 격자 축을 따라 세운다.
+   예전엔 화면에 똑바로 선 네모로 그려서 2:1 로 기운 집·울타리 사이에서 혼자 튀었다. */
+// 네모 기둥 — (wx, wy) 가 가운데, 굵기 t 칸, 높이 h 도트. 빛은 다른 상자와 같다(L 중간·R 어둠·윗면 밝음)
+P.post = (q, wx, wy, wz, t, h, col) => box(q, wx - t / 2, wy - t / 2, wz, t, t, h, () => col, () => shade(col, -30), () => shade(col, 20));
+// 세운 판 위의 동그라미(바퀴) — 판이 기운 만큼 찌그러진다. side 'L'(x 축 판)|'R'(y 축 판), (cx, cy) 는 가운데 도트
+P.wheel = (q, cx, cy, r, side, rim, hub) => {
+  const k = side === 'L' ? 0.5 : -0.5;
+  for (let y = Math.floor(cy - r * 1.6) - 1; y <= cy + r * 1.6 + 1; y++) for (let x = Math.floor(cx - r) - 1; x <= cx + r + 1; x++){
+    const u = x + 0.5 - cx, v = y + 0.5 - cy - k * u, d = Math.hypot(u, v);
+    if (d > r) continue;
+    const c = d > r - 1.3 || d < 1.2 ? rim : (Math.abs(u) < 0.6 || Math.abs(v) < 0.6) ? hub : null;   // 테·축·살만, 사이는 비친다
+    if (c) q(x, y, 1, 1, c);
+  }
+};
+// 벤치 — 앉는 널이 x 축을 따라 놓여 앞(+y, 강)을 본다. 가는 쇠 다리, 앉는 널 둘, 등받이 널 둘. (wx, wy) 는 왼쪽 뒤 모서리
+P.bench = (q, wx, wy) => {
+  const w = 0.8, d = 0.22, iron = '#4a4a48', wd = '#b98a5e';
+  P.post(q, wx + 0.04, wy + 0.03, 0, 0.04, 17, iron); P.post(q, wx + w - 0.04, wy + 0.03, 0, 0.04, 17, iron);   // 뒤 다리 — 등받이까지 올라간다
+  [10, 14].forEach(z => box(q, wx, wy + 0.05, z, w, 0.03, 3, (u, v) => v === 0 ? shade(wd, 18) : v === 2 ? shade(wd, -14) : wd, () => shade(wd, -34), () => shade(wd, 26)));
+  box(q, wx, wy + 0.06, 6, w, d - 0.06, 2, (u, v) => v === 0 ? shade(wd, 8) : shade(wd, -18), () => shade(wd, -40),
+    (u, v) => v === 1 ? shade(wd, -44) : shade(hash(u >> 2, v, 9) < 0.5 ? wd : '#c8a072', 12));                 // 앉는 널 두 장
+  P.post(q, wx + 0.04, wy + d - 0.03, 0, 0.04, 6, iron); P.post(q, wx + w - 0.04, wy + d - 0.03, 0, 0.04, 6, iron);   // 앞 다리
 };
 // 우체통 — 빨간 원기둥
 P.pillarBox = (q, X, Y) => {
@@ -626,16 +640,22 @@ P.crate = (q, x, y, w) => {
   const pal = { a: ['#c8a072', '#b88e60', '#a47c50'], gap: '#6a4a30' };
   box(q, x, y, 0, w, w, w * S * 0.9, M.planks(pal, 2, 0, true), M.planks(pal, 3, -26, true), M.planks(pal, 4, 16));
 };
-// 우물 — 돌 원기둥, 기둥 둘, 작은 기와 지붕, 두레박
-P.well = (q, X, Y) => {
+// 우물 — 돌 원기둥 위에 y 축을 따라 선 기둥 둘, 도르래 막대와 두레박, 앞(+y)으로 박공이 보이는 작은 기와지붕. (wx, wy) 는 가운데
+P.well = (q, wx, wy) => {
+  const [X, Y] = proj(wx, wy, 0).map(Math.round);
   const stP = { a: ['#c9c2b4', '#b3aa9b', '#9c9385'], m: '#7a7268', moss: '#7f9a5a' }, st = M.stone(stP, 8, 0, 12);
   cylinder(q, X, Y, 9, 12, (a, v) => { const c = st(Math.round(Math.acos(1 - 2 * a) / Math.PI * 30), v); return c === stP.m ? c : shade(c, a < 0.5 ? 8 : -22); });
   ellipse(q, X, Y - 12, 9, 4.5, '#8a8276'); ellipse(q, X, Y - 12, 6, 3, '#1f2a30');
-  q(X - 8, Y - 34, 2, 22, '#8d6440'); q(X + 6, Y - 34, 2, 22, '#70502f');
-  q(X - 1, Y - 24, 2, 8, '#5a4a3a'); q(X - 3, Y - 18, 6, 4, '#8a8276');            // 두레박
-  q(X - 8, Y - 29, 16, 1, '#4e3722');
-  for (let i = 0; i < 6; i++){ q(X - 12 + i, Y - 34 - i, 24 - 2 * i, 1, i % 2 ? '#a55340' : '#c9705a'); }
-  q(X - 12, Y - 33, 24, 1, '#7c3a2c');
+  const wd = '#8d6440';
+  P.post(q, wx, wy - 0.22, 12, 0.07, 20, wd);                                                      // 뒤(-y) 기둥
+  const A = proj(wx, wy - 0.22, 26), Bp = proj(wx, wy + 0.22, 26), C = proj(wx, wy, 26).map(Math.round);
+  lineDots(q, A, Bp, '#5a4a3a'); lineDots(q, [A[0], A[1] + 1], [Bp[0], Bp[1] + 1], '#4e3722');   // 도르래 막대
+  q(C[0], C[1] + 1, 1, 6, '#5a4a3a');                                                               // 줄
+  box(q, wx - 0.06, wy - 0.06, 14, 0.12, 0.12, 5, () => '#8a8276', () => '#6a6258', () => '#3a3632');   // 두레박
+  P.post(q, wx, wy + 0.22, 12, 0.07, 20, wd);
+  const rb = { x: wx - 0.17, y: wy - 0.28, z: 32, w: 0.34, d: 0.56, h: 0 };
+  B.gable(q, rb, { rise: 8, axis: 'y' }, (u, v) => v % 4 === 3 ? '#5a3f2b' : '#7a5636');
+  B.roofFor(q, rb, { type: 'gable', rise: 8, over: 0.05, drop: 0, axis: 'y', tex: f => (u, v) => shade(v % 3 === 0 ? '#a55340' : '#c9705a', lit(f)), cap: ['#d98a70', '#7c3a2c'] });
 };
 // 분수 — 돌 물받이, 물, 가운데 기둥과 윗접시
 P.fountain = (q, X, Y) => {
@@ -651,31 +671,36 @@ P.fountain = (q, X, Y) => {
   for (let i = 0; i < 14; i++){ const t = i / 14; q(Math.round(X - 2 - t * 9), Math.round(Y - 34 - Math.sin(t * 3.14) * 10 + t * 8), 1, 1, i % 2 ? '#bfe4f4' : '#e8f6fb'); q(Math.round(X + 2 + t * 9), Math.round(Y - 34 - Math.sin(t * 3.14) * 10 + t * 8), 1, 1, i % 2 ? '#bfe4f4' : '#e8f6fb'); }
   q(X - 1, Y - 40, 2, 6, '#e8f6fb');
 };
-// 팻말 — 기둥에 화살표 판 둘
-P.signpost = (q, X, Y) => {
-  q(X - 2, Y - 34, 4, 34, '#8d6440'); q(X + 1, Y - 34, 1, 34, '#4e3722'); q(X - 2, Y - 35, 4, 1, '#a67a52');
-  const board = (y, w, col, dir) => { for (let i = 0; i < w; i++){ const tip = dir > 0 ? i > w - 4 ? (i - (w - 4)) : 0 : i < 3 ? 3 - i : 0; q(X - (dir > 0 ? 3 : w - 3) + i, y + tip, 1, 7 - tip * 2, col); q(X - (dir > 0 ? 3 : w - 3) + i, y + tip, 1, 1, shade(col, 26)); } };
-  board(Y - 31, 22, '#ffd166', 1); board(Y - 21, 20, '#8fd9c8', -1);
-  q(X - 1, Y - 3, 3, 3, '#6a5a4a');
+// 팻말 — 네모 기둥에 화살표 널 둘. 위 널은 x 축을 따라 왼위(-x)로, 아래 널은 y 축을 따라 오른위(-y)로 가리킨다.
+// 한쪽이라도 아래로 뻗으면 화면에서 다른 널이나 기둥과 엇갈려 한 덩어리로 보였다. (wx, wy) 는 기둥 가운데
+P.signpost = (q, wx, wy) => {
+  // 화살 널 한 면 — L 칸 길이, 높이 7, 한쪽 끝 네 도트가 뾰족하다(tail 이면 u 끝, 아니면 u 처음). 가운데 줄에 글씨처럼 어두운 점선
+  const arrow = (L, col, tail) => (u, v) => {
+    const t = tail ? u - (L - 4) : 3 - u, w = tail ? u : L - 1 - u;
+    if (t >= 0 && (v < t || v > 6 - t)) return null;
+    if (v === 0) return shade(col, 26);
+    if (v === 6 || t === 3) return shade(col, -30);
+    return v === 3 && w >= 3 && w < L - 7 && w % 5 < 3 ? shade(col, -60) : col;
+  };
+  P.post(q, wx, wy, 0, 0.1, 36, '#8d6440');
+  const yb = '#8fd9c8', LB = Math.round(0.7 * S);                                                 // 아래 널 — 기둥 오른쪽(+x)에 붙어 -y 로
+  box(q, wx + 0.05, wy - 0.65, 15, 0.04, 0.7, 7, (u, v) => v === 0 ? shade(yb, 10) : shade(yb, -14), arrow(LB, shade(yb, -12), true), (u, v) => v >= 4 ? shade(yb, 30) : null);
+  const ya = '#ffd166', LA = Math.round(0.8 * S);                                                 // 위 널 — 기둥 앞(+y)에 붙어 -x 로
+  box(q, wx - 0.75, wy + 0.05, 25, 0.8, 0.04, 7, arrow(LA, ya, false), () => shade(ya, -34), (u, v) => u >= 4 ? shade(ya, 30) : null);
 };
-// 이젤 — 그림 한 장
-P.easel = (q, X, Y) => {
-  const wd = '#a67a52';
-  q(X - 8, Y - 26, 2, 26, wd); q(X + 6, Y - 26, 2, 26, wd); q(X - 1, Y - 24, 2, 12, shade(wd, -30));
-  q(X - 9, Y - 12, 18, 2, wd);
-  q(X - 10, Y - 30, 20, 17, '#fff6e9'); q(X - 10, Y - 30, 20, 1, '#e0d4c0'); q(X + 9, Y - 30, 1, 17, '#d8ccb6');
-  // 그림 — 언덕과 해
-  q(X - 8, Y - 28, 16, 13, '#a8d8f2'); q(X - 8, Y - 20, 16, 5, '#6fb567'); q(X - 8, Y - 18, 16, 3, '#559b50');
-  q(X + 2, Y - 26, 4, 4, '#ffd166'); q(X - 5, Y - 21, 3, 3, '#ff8fb8'); q(X + 1, Y - 19, 2, 2, '#ff8fb8');
-};
-// 허수아비
-P.scarecrow = (q, X, Y) => {
-  q(X - 1, Y - 30, 2, 30, '#8d6440'); q(X - 9, Y - 22, 18, 2, '#8d6440');
-  q(X - 6, Y - 23, 12, 10, '#5aa9e6'); q(X - 6, Y - 23, 12, 1, '#7fbfe0'); q(X - 2, Y - 13, 4, 6, '#ffd166');
-  q(X - 10, Y - 23, 4, 2, '#e8c46a'); q(X + 6, Y - 23, 4, 2, '#e8c46a');
-  q(X - 4, Y - 31, 8, 8, '#f2d29a'); q(X - 2, Y - 29, 1, 1, '#2a2622'); q(X + 1, Y - 29, 1, 1, '#2a2622'); q(X - 1, Y - 26, 2, 1, '#c96a4a');
-  q(X - 7, Y - 33, 14, 2, '#c9a05a'); q(X - 4, Y - 38, 8, 5, '#c9a05a'); q(X - 4, Y - 35, 8, 1, '#b04a3c');
-  for (let i = -2; i < 3; i++) q(X + i * 2, Y - 13 + Math.abs(i), 1, 3, '#e8c46a');
+// 허수아비 — 두 팔을 x 축을 따라 벌리고 앞(+y)을 본다. 셔츠·짚손·자루 얼굴·밀짚모자가 다 상자다. (wx, wy) 는 기둥 가운데
+P.scarecrow = (q, wx, wy) => {
+  const shirt = '#5aa9e6', straw = '#e8c46a', sd = shade(shirt, -30), st = shade(shirt, 24);
+  P.post(q, wx, wy, 0, 0.08, 30, '#8d6440');
+  const sleeve = x0 => box(q, x0, wy - 0.05, 19, 0.26, 0.1, 4, (u, v) => v === 0 ? st : shirt, () => sd, () => st);
+  const hand = x0 => box(q, x0, wy - 0.04, 19, 0.08, 0.08, 3, () => straw, () => shade(straw, -30), () => shade(straw, 18));
+  hand(wx - 0.48); sleeve(wx - 0.4);                                                               // 왼팔이 뒤라 먼저
+  box(q, wx - 0.14, wy - 0.1, 11, 0.28, 0.2, 13, (u, v) => u === 3 && v % 4 === 2 ? '#ffd166' : v === 0 ? st : shirt, () => sd, () => st);
+  sleeve(wx + 0.14); hand(wx + 0.4);
+  for (let u = 0; u < 0.28 * S; u += 2){ const P0 = proj(wx - 0.14 + u / S, wy + 0.1, 11).map(Math.round); q(P0[0], P0[1], 1, u % 4 ? 2 : 3, straw); }   // 셔츠 밑단으로 삐져나온 짚
+  box(q, wx - 0.1, wy - 0.1, 24, 0.2, 0.2, 8, (u, v) => v === 3 && (u === 1 || u === 3) ? '#2a2622' : v === 5 && u === 2 ? '#c96a4a' : '#f2d29a', () => '#d4b27a', () => '#f7dfae');
+  box(q, wx - 0.2, wy - 0.2, 32, 0.4, 0.4, 1, () => '#b08a48', () => '#96763a', () => '#c9a05a');   // 모자 챙
+  box(q, wx - 0.1, wy - 0.1, 33, 0.2, 0.2, 4, (u, v) => v === 3 ? '#b04a3c' : '#c9a05a', (u, v) => v === 3 ? '#8a3a2e' : '#a8843e', () => '#d8b46a');
 };
 // 만국기 — 두 점 사이에 처진 줄과 삼각 깃발
 P.bunting = (q, a, b, cols) => {
@@ -702,22 +727,26 @@ P.cat = (q, X, Y, col) => {
 };
 // 오리
 P.duck = (q, X, Y) => { q(X - 4, Y - 5, 8, 4, '#fff6e9'); q(X - 4, Y - 5, 8, 1, '#ffffff'); q(X + 2, Y - 9, 4, 5, '#fff6e9'); q(X + 5, Y - 7, 3, 2, '#f7b733'); q(X + 3, Y - 8, 1, 1, '#2a2622'); q(X - 5, Y - 6, 2, 2, '#e8dcc8'); q(X - 2, Y - 1, 2, 1, '#f7b733'); q(X + 1, Y - 1, 2, 1, '#f7b733'); };
-// 자전거 — 벽에 기대 놓은 옆모습
-P.bike = (q, X, Y) => {
-  const fr = '#3f6fb5', tire = '#2a2622';
-  const wheel = (cx) => { ellipse(q, cx, Y - 6, 6, 6, (x, y) => { const r = Math.hypot(x + 0.5 - cx, y + 0.5 - (Y - 6)); return r > 5 ? tire : r > 4.2 ? '#8a8a86' : ((x + y) % 3 === 0 ? '#8a8a86' : null); }); };
-  wheel(X - 8); wheel(X + 8);
-  lineDots(q, [X - 8, Y - 6], [X - 2, Y - 14], fr); lineDots(q, [X - 2, Y - 14], [X + 5, Y - 14], fr); lineDots(q, [X + 5, Y - 14], [X + 8, Y - 6], fr);
-  lineDots(q, [X - 2, Y - 14], [X + 1, Y - 6], fr); lineDots(q, [X + 1, Y - 6], [X + 5, Y - 14], fr); lineDots(q, [X + 1, Y - 6], [X + 8, Y - 6], fr);
-  q(X - 4, Y - 16, 4, 2, '#5a4a3a'); q(X + 5, Y - 17, 3, 2, '#2a2622'); q(X + 6, Y - 16, 1, 3, fr);
+// 자전거 — y 축을 따라 세워 둔 옆모습. 바퀴는 R 면(y 축 판) 위의 동그라미라 비스듬히 찌그러진다. (wx, wy) 는 뒷바퀴 축, 앞바퀴는 -y 쪽
+P.bike = (q, wx, wy) => {
+  const fr = '#3f6fb5', R = 6, p = (dy, z) => proj(wx, wy + dy, z).map(Math.round);
+  P.wheel(q, ...p(-0.62, R), R, 'R', '#2a2622', '#8a8a86');
+  P.wheel(q, ...p(0, R), R, 'R', '#2a2622', '#8a8a86');
+  const rear = p(0, R), front = p(-0.62, R), bb = p(-0.27, R), seat = p(-0.14, R + 9), head = p(-0.52, R + 10);
+  [[rear, seat], [seat, bb], [bb, rear], [seat, head], [head, bb], [head, front]].forEach(([a, b]) => lineDots(q, a, b, fr));
+  lineDots(q, p(-0.08, R + 10), p(-0.2, R + 10), '#5a4a3a'); lineDots(q, p(-0.08, R + 11), p(-0.2, R + 11), '#5a4a3a');   // 안장
+  lineDots(q, proj(wx - 0.1, wy - 0.5, R + 12), proj(wx + 0.1, wy - 0.5, R + 12), '#2a2622');                           // 손잡이 — x 축을 따라 가로지른다
 };
-// 빨랫줄 — 두 기둥 사이 옷가지
+// 빨랫줄 — 두 기둥 사이 옷가지. 옷은 줄(x 축)을 따라 2:1 로 기운 판이다
 P.laundry = (q, a, b) => {
   q(a[0] - 1, a[1] - 26, 2, 26, '#8d6440'); q(b[0] - 1, b[1] - 26, 2, 26, '#8d6440');
   const n = Math.round(Math.abs(b[0] - a[0]) / 1);
   const cols = ['#ffffff', '#ffd9d0', '#8fd9c8', '#ffd166', '#c9a8ff'];
   for (let i = 0; i <= n; i++){ const t = i / n, x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t - 24 + Math.sin(t * Math.PI) * 2; q(Math.round(x), Math.round(y), 1, 1, '#5a4a3a'); }
-  for (let k = 0; k < 4; k++){ const t = 0.15 + k * 0.22, x = Math.round(a[0] + (b[0] - a[0]) * t), y = Math.round(a[1] + (b[1] - a[1]) * t - 24 + Math.sin(t * Math.PI) * 2); const c = cols[k % cols.length]; q(x - 3, y + 1, 7, 6 + (k % 2) * 2, c); q(x - 3, y + 1, 7, 1, shade(c, -20)); q(x + 3, y + 1, 1, 6 + (k % 2) * 2, shade(c, -18)); }
+  for (let k = 0; k < 4; k++){
+    const t = 0.15 + k * 0.22, x = Math.round(a[0] + (b[0] - a[0]) * t), y = Math.round(a[1] + (b[1] - a[1]) * t - 24 + Math.sin(t * Math.PI) * 2), c = cols[k % cols.length], h = 6 + (k % 2) * 2;
+    quad(q, [x - 3, y - 0.5], UL, VD, 7, h, (u, v) => v === 0 ? shade(c, -20) : u === 3 && v > 1 ? shade(c, -10) : c);
+  }
 };
 // 나무 다리 — 도랑 위 널판
 // along: 건너는 방향. 'x' 면 x 축을 따라(난간이 y 양끝), 'y' 면 y 축을 따라(난간이 x 양끝).
@@ -779,21 +808,28 @@ P.stakes = (q, X, Y, h) => {
   });
   q(X, Y - h + 2, 8, 1, '#8a8276');
 };
-// 퇴비 더미 — 널판 칸에 짚과 흙
-P.compost = (q, X, Y) => {
-  P.shadow(q, X, Y, 10, 3);
-  q(X - 9, Y - 9, 18, 9, '#8f6a42'); q(X - 9, Y - 9, 18, 1, '#a47c50');
-  for (let i = -8; i < 9; i += 3) q(X + i, Y - 9, 1, 9, '#6a4a30');
-  q(X - 7, Y - 13, 14, 5, '#6a4c36'); q(X - 7, Y - 13, 14, 1, '#7d5a40');
-  for (let i = 0; i < 9; i++){ const x = X - 7 + (i * 5) % 14, y = Y - 15 + (i % 3); q(x, y, 3, 1, i % 2 ? '#d8b358' : '#c9a24a'); }
+// 퇴비 더미 — 세로 널판 상자에 흙과 짚이 소복하다. (wx, wy) 는 뒤 모서리
+P.compost = (q, wx, wy) => {
+  const w = 0.45, d = 0.32, C = proj(wx + w / 2, wy + d / 2, 0).map(Math.round);
+  P.shadow(q, C[0], C[1] + 2, 12, 3);
+  const slat = lt => (u, v) => shade(u % 4 === 3 ? '#5a3f2b' : v === 0 ? '#a47c50' : '#8f6a42', lt);
+  const soil = lt => (u, v) => { const n = hash(u, v, 12); return shade(n < 0.2 ? (n < 0.1 ? '#d8b358' : '#c9a24a') : n < 0.6 ? '#6a4c36' : '#7d5a40', lt); };
+  box(q, wx, wy, 0, w, d, 8, slat(0), slat(-26), soil(0));
+  box(q, wx + 0.08, wy + 0.06, 8, w - 0.16, d - 0.12, 3, soil(-4), soil(-28), soil(10));          // 가운데가 봉긋
 };
-// 밭 쪽문 — 기둥 둘과 비스듬히 열린 문짝
-P.gate = (q, X, Y, col) => {
+// 밭 쪽문 — x 축을 따라 선 기둥 둘과 문짝(가로대 셋에 빗장). (wx, wy) 에서 +x 로 len 칸
+P.gate = (q, wx, wy, len, col) => {
   col = col || '#b98a5e'; const d = shade(col, -34), hi = shade(col, 18);
-  q(X - 1, Y - 16, 2, 16, d); q(X + 12, Y - 14, 2, 14, d);
-  for (let i = 0; i < 3; i++) q(X + 1, Y - 13 + i * 4, 11, 1, i === 1 ? hi : col);
-  q(X + 1, Y - 14, 1, 12, col); q(X + 10, Y - 12, 1, 11, col);
-  q(X + 2, Y - 3, 9, 1, shade(col, -12));
+  P.post(q, wx + 0.04, wy, 0, 0.08, 17, d);
+  const L = Math.round((len - 0.16) * S), H = 12;
+  quad(q, proj(wx + 0.08, wy, 13), UL, VD, L, H, (u, v) => {
+    if (u < 0 || v < 0 || u >= L || v >= H) return null;
+    if (u <= 1 || u >= L - 2) return u === 0 ? hi : col;                                       // 세로 틀
+    if (v <= 1 || v === 5 || v === 6 || v >= H - 2) return v === 0 || v === 5 || v === H - 2 ? hi : col;   // 가로대 셋
+    if (Math.abs(v - (H - 1) * (1 - u / (L - 1))) < 0.8) return shade(col, -12);                 // 빗장
+    return null;
+  });
+  P.post(q, wx + len - 0.04, wy, 0, 0.08, 15, d);
 };
 // 닭 — 마당에서 모이를 쪼는 옆모습. 모험단의 chick 스프라이트는 18×15 라 마당에 두면 온실만 하다
 P.hen = (q, X, Y, col) => {
@@ -808,12 +844,15 @@ P.hen = (q, X, Y, col) => {
   q(X + 3, Y - 5, 1, 2, '#e05545');                          // 육수
   q(X - 2, Y - 1, 1, 1, '#f7b733'); q(X + 1, Y - 1, 1, 1, '#f7b733');
 };
-// 밭 팻말 — 널판에 당근 하나
-P.plaque = (q, X, Y) => {
-  q(X - 1, Y - 10, 2, 10, '#8d6440');
-  q(X - 7, Y - 20, 15, 10, '#e8dcc8'); q(X - 7, Y - 20, 15, 1, '#fff6e9'); q(X - 7, Y - 11, 15, 1, '#b9a98e');
-  q(X - 2, Y - 18, 3, 5, '#ff8c2e'); q(X - 1, Y - 13, 1, 2, '#ff8c2e');   // 당근
-  q(X - 3, Y - 20, 2, 2, '#6fb567'); q(X + 1, Y - 20, 2, 2, '#6fb567');
+// 밭 팻말 — 기둥 앞에 x 축을 따라 붙인 널판, 당근 그림. (wx, wy) 는 기둥 가운데
+P.plaque = (q, wx, wy) => {
+  P.post(q, wx, wy, 0, 0.07, 12, '#8d6440');
+  const carrot = [[5, 1, '#6fb567'], [7, 1, '#6fb567'], [5, 2, '#6fb567'], [7, 2, '#6fb567'], [6, 2, '#4f9747']];
+  [[5, 8, 3], [5, 7, 4], [6, 7, 5], [6, 6, 6], [6, 6, 7]].forEach(([u0, u1, v]) => { for (let u = u0; u <= u1; u++) carrot.push([u, v, u === u0 ? '#ffa04e' : '#ff8c2e']); });
+  box(q, wx - 0.3, wy + 0.035, 10, 0.6, 0.04, 10, (u, v) => {
+    for (const [cu, cv, cc] of carrot) if (u === cu + 1 && v === cv) return cc;
+    return v === 0 ? '#fff6e9' : v === 9 ? '#b9a98e' : u === 0 ? '#f2e8d6' : '#e8dcc8';
+  }, () => '#b9a98e', () => '#fff6e9');
 };
 
 /* 촘촘한 판에 더 얹는 소품들. props.js 뒤에 싣는다. */
@@ -824,14 +863,18 @@ P.windmill = (q, wx, wy) => {
   cylinder(q, Pp[0], Pp[1], R, H, (a, v) => { const ang = Math.acos(1 - 2 * a) / Math.PI; const c = M.stone(stP, 33, 0, H)(Math.round(ang * 44), v); if (c === stP.m) return c; if (Math.abs(ang - 0.5) < 0.1 && v > H - 14) return v > H - 3 ? '#3a2a1e' : (Math.abs(ang - 0.5) < 0.02 ? '#3a2a1e' : '#6b4a30'); if (Math.abs(ang - 0.42) < 0.05 && v > 10 && v < 18) return '#3c4a5a'; return shade(c, a < 0.4 ? 8 : a < 0.7 ? -6 : -28); });
   ellipse(q, Pp[0], Pp[1] - H, R + 2, (R + 2) / 2, (x, y) => y > Pp[1] - H ? '#6a4a30' : '#8d6440');
   cone(q, Pp[0], Pp[1] - H - 1, R + 2, 16, (a, v) => { const r = v % 4; if (r === 0) return '#4e3722'; return shade(['#8d6440', '#7c5838'][Math.floor(v / 4) % 2], a < 0.5 ? 10 : -20); });
-  // 날개 — 축은 갓 앞쪽. 격자 살과 천
-  const hx = Pp[0] + 4, hy = Pp[1] - H - 4;
-  q(hx - 2, hy - 2, 4, 4, '#4e3722');
-  [[1, -1], [1, 1], [-1, 1], [-1, -1]].forEach(([dx, dy], k) => {
-    for (let i = 4; i < 40; i++){ const x = hx + Math.round(dx * i * 0.8), y = hy + Math.round(dy * i * 0.55); q(x, y, 1, 1, '#5a3f2b'); if (i % 4 === 0 && i > 8) for (let j = 1; j <= 5; j++) q(x + (dy > 0 ? -1 : 1) * Math.round(j * 0.6) * (dx > 0 ? 1 : 1), y + (dx > 0 ? -1 : 1) * Math.round(j * 0.9) * (dy > 0 ? 1 : 1) * -1, 1, 1, '#8d6440'); }
-    // 천 — 살 옆에 밝은 띠
-    for (let i = 10; i < 38; i++){ const x = hx + Math.round(dx * i * 0.8) + (dy > 0 ? 2 : -2), y = hy + Math.round(dy * i * 0.55) + (dx > 0 ? -2 : 2); q(x, y, 2, 1, k % 2 ? '#f1e6d2' : '#e6dbc6'); }
+  // 날개 — 축은 갓 앞(+x)에 있고 날개는 R 면(y 축 판)에 선다. 판 좌표 (u 는 -y 쪽, w 는 위)에서 X 자로 뻗어서
+  // 화면에는 판이 기운 만큼 한쪽이 길고 한쪽이 짧게 찌그러져 보인다(예전에는 화면에 똑바로 선 X 였다)
+  const hub = proj(wx + 0.52, wy, H + 4).map(Math.round);
+  const dot = (u, w, c) => q(Math.round(hub[0] + u), Math.round(hub[1] - u * 0.5 - w), 1, 1, c);
+  [[1, 1], [1, -1], [-1, -1], [-1, 1]].forEach(([du, dw], k) => {
+    const cu = du * Math.SQRT1_2, cw = dw * Math.SQRT1_2, pu = -cw, pw = cu;                // 날개 방향, 천이 붙는 옆
+    for (let sgm = 10; sgm < 38; sgm += 0.5) for (let t = 1; t <= 4; t += 0.5) dot(cu * sgm + pu * t, cw * sgm + pw * t, k % 2 ? '#f1e6d2' : '#e6dbc6');   // 천
+    for (let sgm = 10; sgm < 38; sgm += 0.5) dot(cu * sgm + pu * 5, cw * sgm + pw * 5, '#6b4a30');                                                      // 바깥 살
+    for (let sgm = 10; sgm <= 38; sgm += 7) for (let t = 0; t <= 5; t += 0.5) dot(cu * sgm + pu * t, cw * sgm + pw * t, '#8d6440');                     // 가로 살
+    for (let sgm = 3; sgm < 40; sgm += 0.5) dot(cu * sgm, cw * sgm, '#5a3f2b');                                                                          // 가운데 살
   });
+  q(hub[0] - 2, hub[1] - 2, 4, 4, '#4e3722');
 };
 // 장터 가판대 — 판자 탁자, 기둥 넷, 줄무늬 차양, 과일 상자
 P.stall = (q, wx, wy, cols, seed) => {
@@ -849,15 +892,16 @@ P.stall = (q, wx, wy, cols, seed) => {
   const E = proj(wx - 0.08, wy + 0.68, 30);
   for (let i = 0; i < 1.16 * S; i += 4) q(E[0] + i, E[1] + Math.floor(i / 2) + 1, 3, 2, shade(cols[Math.floor(i / 4) % cols.length], -30));
 };
-// 손수레 — 바퀴 둘, 상자
-P.cart = (q, X, Y) => {
-  const wd = '#a67a52';
-  q(X - 10, Y - 12, 20, 8, wd); q(X - 10, Y - 12, 20, 1, shade(wd, 18)); q(X - 10, Y - 5, 20, 1, shade(wd, -30));
-  for (let i = 0; i < 4; i++) q(X - 9 + i * 5, Y - 11, 1, 6, shade(wd, -14));
-  q(X + 10, Y - 10, 8, 2, '#5a3f2b'); q(X + 17, Y - 12, 2, 4, '#5a3f2b');
-  ellipse(q, X - 5, Y - 3, 4, 4, (x, y) => Math.hypot(x + 0.5 - (X - 5), y + 0.5 - (Y - 3)) > 3 ? '#2a2622' : (x + y) % 2 ? '#8a8a86' : '#5a5652');
-  ellipse(q, X + 5, Y - 3, 4, 4, (x, y) => Math.hypot(x + 0.5 - (X + 5), y + 0.5 - (Y - 3)) > 3 ? '#2a2622' : (x + y) % 2 ? '#8a8a86' : '#5a5652');
-  q(X - 8, Y - 19, 7, 7, '#c8a072'); q(X - 8, Y - 19, 7, 1, '#dbb88a'); q(X - 8, Y - 13, 7, 1, '#8f6a42'); q(X, Y - 17, 6, 5, '#b88e60'); q(X + 1, Y - 20, 3, 3, '#e8463a');
+// 손수레 — x 축을 따라 놓인 짐칸, 앞(+y)에 바퀴, +x 로 뻗은 손잡이 둘, 위에 과일 상자. (wx, wy) 는 짐칸 뒤 모서리
+P.cart = (q, wx, wy) => {
+  const w = 0.55, d = 0.32;
+  lineDots(q, proj(wx + w, wy + 0.04, 9), proj(wx + w + 0.32, wy + 0.04, 11), '#5a3f2b');          // 뒤 손잡이 — 짐칸보다 먼저
+  box(q, wx, wy, 4, w, d, 7, M.planks(PLANK_P, 60, 0), M.planks(PLANK_P, 61, -26, true), (u, v) => (u < 1 || v < 1 || u > w * S - 2 || v > d * S - 2) ? '#c8a072' : '#6a4a30');
+  P.post(q, wx + w - 0.04, wy + d - 0.04, 0, 0.05, 4, '#5a3f2b');                                  // 받침 다리
+  lineDots(q, proj(wx + w, wy + d - 0.04, 9), proj(wx + w + 0.32, wy + d - 0.04, 11), '#5a3f2b'); // 앞 손잡이
+  P.wheel(q, ...proj(wx + 0.22, wy + d + 0.02, 4.5).map(Math.round), 4.5, 'L', '#2a2622', '#8a8a86');
+  box(q, wx + 0.06, wy + 0.05, 11, 0.24, 0.2, 5, M.planks(PLANK_P, 62, 6), M.planks(PLANK_P, 63, -24, true), () => '#6a4a30');   // 과일 상자
+  [[0.12, 0.1], [0.2, 0.14], [0.15, 0.18]].forEach(([dx, dy]) => { const A = proj(wx + dx, wy + dy, 16).map(Math.round); q(A[0], A[1] - 1, 2, 2, '#e8463a'); q(A[0], A[1] - 1, 1, 1, '#f26a4a'); });
 };
 // 종이등 줄
 P.lanterns = (q, a, b, cols) => {
@@ -896,7 +940,14 @@ P.wallLamp = (q, side, bx, u, v) => { LIGHTS.push(Object.assign(B.faceCenter(sid
 P.pots = (q, X, Y, n, seed) => { for (let i = 0; i < n; i++){ const x = X + i * 7, c = ['#ff8fb8', '#ffd166', '#ff7f7f', '#c9a8ff', '#ffffff'][(i + seed) % 5]; q(x - 2, Y - 4, 5, 4, '#c97a52'); q(x - 3, Y - 5, 7, 1, '#d98a5e'); q(x - 2, Y - 4, 1, 4, '#e09a6a'); q(x + 2, Y - 4, 1, 4, '#a85f3e'); q(x - 2, Y - 8, 5, 3, '#4f9747'); q(x - 1, Y - 9, 3, 1, '#6cb457'); q(x - 1, Y - 9, 1, 1, c); q(x + 1, Y - 8, 1, 1, c); q(x, Y - 7, 1, 1, shade(c, -20)); } };
 // 장작더미 — 벽에 기댄 통나무. L 면(단면)과 R 면(옆)
 P.woodpile = (q, wx, wy, w, d, h) => box(q, wx, wy, 0, w, d, h, (u, v) => { const cx = u % 5, cy = v % 5, r = Math.hypot(cx - 2, cy - 2); return r > 2.3 ? '#5a3f2b' : r > 1.5 ? '#a67a52' : r > 0.8 ? '#c99a6a' : '#e0c090'; }, (u, v) => v % 5 === 4 ? '#3a2a1e' : (u + v) % 7 === 0 ? '#6b4a30' : '#8d6440', (u, v) => (u + v) % 5 === 0 ? '#a67a52' : '#8d6440');
-P.birdhouse = (q, X, Y) => { q(X - 1, Y - 22, 2, 22, '#8d6440'); q(X - 5, Y - 30, 10, 9, '#e8dcc8'); q(X - 6, Y - 33, 12, 3, '#c9584f'); q(X - 4, Y - 34, 8, 1, '#c9584f'); q(X - 1, Y - 27, 3, 3, '#2a2622'); q(X - 2, Y - 23, 4, 1, '#8d6440'); };
+// 새집 — 기둥 위 작은 상자 집, 앞(L 면)에 구멍, 박공지붕. (wx, wy) 는 기둥 가운데
+P.birdhouse = (q, wx, wy) => {
+  P.post(q, wx, wy, 0, 0.07, 22, '#8d6440');
+  const bx = { x: wx - 0.09, y: wy - 0.09, z: 22, w: 0.18, d: 0.18, h: 8 };
+  B.walls(q, bx, (u, v) => v >= 2 && v <= 4 && u >= 1 && u <= 3 ? '#2a2622' : v === 6 && u >= 1 && u <= 3 ? '#8d6440' : '#e8dcc8', () => '#c9bda5');
+  B.gable(q, bx, { rise: 4, axis: 'x' }, () => '#c9bda5');
+  B.roofFor(q, bx, { type: 'gable', rise: 4, over: 0.04, drop: 0, axis: 'x', tex: f => (u, v) => shade(v % 3 === 0 ? '#b04a40' : '#c9584f', lit(f)), cap: ['#e07a6f', '#8a3a30'] });
+};
 P.trough = (q, wx, wy) => box(q, wx, wy, 0, 0.5, 0.25, 6, M.planks(PLANK_P, 31, -4), M.planks(PLANK_P, 32, -28, true), (u, v) => (u < 1 || v < 1 || u > 10 || v > 4) ? '#8f6a42' : (u + v) % 5 === 0 ? '#8ec7e8' : '#5fa8d3');
 P.coop = (q, wx, wy) => {
   const bx = { x: wx, y: wy, z: 0, w: 0.55, d: 0.45, h: 12 };
@@ -906,9 +957,30 @@ P.coop = (q, wx, wy) => {
   const Rp = proj(wx + 0.16, wy + bx.d, 4), Rb = proj(wx + 0.16, wy + bx.d + 0.3, 0);
   lineDots(q, Rp, Rb, '#a67a52'); lineDots(q, [Rp[0] + 3, Rp[1] + 1], [Rb[0] + 3, Rb[1] + 1], '#a67a52');
 };
-P.beehive = (q, X, Y) => { q(X - 4, Y - 3, 8, 3, '#8d6440'); q(X - 5, Y - 12, 10, 9, '#f6f1e6'); q(X - 5, Y - 9, 10, 1, '#c9bda5'); q(X - 5, Y - 6, 10, 1, '#c9bda5'); q(X - 6, Y - 14, 12, 2, '#d8cbb0'); q(X - 1, Y - 5, 3, 2, '#2a2622'); q(X + 6, Y - 10, 1, 1, '#ffd166'); q(X - 8, Y - 8, 1, 1, '#ffd166'); };
+// 벌통 — 받침 위에 흰 통 둘을 포개고 뚜껑을 덮었다. 앞(L 면) 아래에 드나드는 틈. (wx, wy) 는 가운데
+P.beehive = (q, wx, wy) => {
+  const s = 0.26, x = wx - s / 2, y = wy - s / 2;
+  box(q, x + 0.03, y + 0.03, 0, s - 0.06, s - 0.06, 3, () => '#8d6440', () => '#6a4a30', null);
+  box(q, x, y, 3, s, s, 10, (u, v) => v === 4 ? '#b8ab90' : v === 8 && u >= 2 && u <= 4 ? '#2a2622' : '#f2ead8', (u, v) => v === 4 ? '#9c8f74' : '#c9bfa8', null);
+  box(q, x - 0.02, y - 0.02, 13, s + 0.04, s + 0.04, 2, () => '#d8cbb0', () => '#a8987a', () => '#fff8ea');
+  const [X, Y] = proj(wx, wy, 0).map(Math.round); q(X + 8, Y - 11, 1, 1, '#ffd166'); q(X - 8, Y - 9, 1, 1, '#ffd166');   // 벌
+};
 P.lilypad = (q, X, Y, flower) => { ellipse(q, X, Y, 4, 2, (x, y) => (x > X && y < Y) ? null : (x < X - 1 ? '#6fb567' : '#559b50')); if (flower){ q(X - 1, Y - 2, 3, 1, '#ffb7d5'); q(X, Y - 3, 1, 1, '#ffffff'); } };
-P.boat = (q, X, Y) => { for (let i = 0; i < 5; i++) q(X - 12 + i, Y - 5 + i, 24 - 2 * i, 1, i === 0 ? '#c8a072' : i < 3 ? '#a47c50' : '#8f6a42'); q(X - 12, Y - 6, 24, 1, '#dbb88a'); q(X - 6, Y - 8, 12, 2, '#8f6a42'); q(X + 2, Y - 14, 1, 8, '#5a3f2b'); q(X + 3, Y - 13, 6, 1, '#5a3f2b'); };
+// 나룻배 — 물길(x 축)을 따라 떠 있다. 뱃전 높이마다 둘레를 한 줄씩 그어 앞 옆구리를 채우고, 안쪽은 어둡게. (wx, wy) 는 가운데
+P.boat = (q, wx, wy) => {
+  const L = 0.5, Bw = 0.17, Z = 5, N = 16;
+  const hw = t => Bw * Math.pow(Math.sin(Math.PI * t), 0.7);
+  const rim = side => Array.from({ length: N + 1 }, (_, i) => { const t = i / N; return proj(wx - L + 2 * L * t, wy + side * hw(t), Z); });
+  polyFill(q, rim(1).concat(rim(-1).reverse()), () => '#6a4a30');                                                // 안쪽
+  const back = rim(-1); for (let i = 0; i < N; i++) lineDots(q, back[i], back[i + 1], '#c8a072');                 // 뒤 뱃전
+  lineDots(q, proj(wx + 0.05, wy - Bw * 0.9, Z - 1), proj(wx + 0.05, wy + Bw * 0.9, Z - 1), '#a47c50');           // 가로 앉을깨
+  lineDots(q, proj(wx - 0.3, wy - 0.04, Z - 1), proj(wx + 0.3, wy + 0.02, Z - 1), '#5a3f2b');                    // 노
+  for (let z = 0; z <= Z; z++){                                                                                    // 앞 옆구리 — 물에 닿는 쪽이 좁다
+    const k = 0.6 + 0.4 * z / Z, col = z === Z ? '#dbb88a' : z === Z - 1 ? '#c8a072' : z % 2 ? '#a47c50' : '#8f6a42';
+    let prev = null;
+    for (let i = 0; i <= N; i++){ const t = i / N, P0 = proj(wx - L + 2 * L * t, wy + hw(t) * k, z); if (prev) lineDots(q, prev, P0, col); prev = P0; }
+  }
+};
 P.pigeon = (q, X, Y) => { q(X - 3, Y - 3, 6, 3, '#9a9aa2'); q(X - 3, Y - 3, 6, 1, '#b8b8c0'); q(X + 2, Y - 5, 3, 3, '#8a8a92'); q(X + 4, Y - 4, 2, 1, '#e0a050'); q(X - 4, Y - 2, 2, 1, '#6a6a72'); q(X - 1, Y, 1, 1, '#e0a050'); q(X + 1, Y, 1, 1, '#e0a050'); };
 P.dog = (q, X, Y) => { const c = '#c9915a'; q(X - 7, Y - 8, 12, 6, c); q(X - 7, Y - 8, 12, 1, shade(c, 16)); q(X + 4, Y - 12, 6, 6, c); q(X + 4, Y - 14, 2, 3, shade(c, -20)); q(X + 8, Y - 9, 2, 2, '#2a2622'); q(X + 6, Y - 10, 1, 1, '#2a2622'); q(X - 9, Y - 12, 2, 5, c); q(X - 6, Y - 2, 2, 2, c); q(X - 2, Y - 2, 2, 2, c); q(X + 1, Y - 2, 2, 2, c); q(X + 4, Y - 2, 2, 2, c); q(X - 4, Y - 6, 6, 3, shade(c, 30)); };
 // 연 — 몸통(마름모)과 꼬리를 따로 둔다. 꼬리는 위상(ph 0~1)에 따라 물결쳐서, 첫화면이 프레임을 바꿔 가며 띄운다
@@ -916,7 +988,18 @@ P.kiteBody = (q, X, Y) => { for (let i = -5; i <= 5; i++){ const w = 5 - Math.ab
 P.kiteTail = (q, X, Y, ph) => { for (let i = 0; i < 14; i++){ const px = X + Math.round(Math.sin(i * 0.6 + (ph || 0) * Math.PI * 2) * 2.5), py = Y + 6 + i * 2; q(px, py, 1, 2, '#3a2a1e'); if (i % 4 === 1) q(px - 1, py, 3, 2, i % 8 < 4 ? '#5aa9e6' : '#ff8fb8'); } };
 P.kite = (q, X, Y, ph) => { P.kiteBody(q, X, Y); P.kiteTail(q, X, Y, ph); };
 P.hotAir = (q, X, Y) => { ellipse(q, X, Y - 14, 7, 8, (x, y) => { const k = Math.floor((x - X + 7) / 3); return ['#e8463a', '#ffd166', '#5aa9e6', '#e8463a', '#ffd166'][k % 5]; }); q(X - 2, Y - 5, 5, 2, '#8d6440'); q(X - 2, Y - 1, 5, 3, '#a67a52'); q(X - 2, Y - 4, 1, 3, '#5a3f2b'); q(X + 2, Y - 4, 1, 3, '#5a3f2b'); };
-P.noticeBoard = (q, X, Y) => { q(X - 8, Y - 22, 2, 22, '#8d6440'); q(X + 6, Y - 22, 2, 22, '#8d6440'); q(X - 11, Y - 30, 22, 12, '#5a3f2b'); q(X - 10, Y - 29, 20, 10, '#8fb5a0'); q(X - 8, Y - 27, 5, 6, '#fff6e9'); q(X - 2, Y - 28, 6, 7, '#fff3a0'); q(X + 5, Y - 26, 4, 5, '#ffd9d0'); q(X - 7, Y - 25, 3, 1, '#8a7a66'); q(X - 1, Y - 26, 4, 1, '#8a7a66'); q(X - 1, Y - 24, 4, 1, '#8a7a66'); q(X - 11, Y - 32, 22, 2, '#7a5636'); };
+// 알림판 — 기둥 둘에 x 축을 따라 건 초록 판, 쪽지 셋, 위에 비 가림 널. (wx, wy) 는 왼쪽 뒤 모서리
+P.noticeBoard = (q, wx, wy) => {
+  const w = 0.6, wd = '#8d6440';
+  P.post(q, wx + 0.04, wy + 0.03, 0, 0.06, 30, wd); P.post(q, wx + w - 0.04, wy + 0.03, 0, 0.06, 30, wd);
+  const papers = [[2, 2, 4, 6, '#fff6e9'], [7, 1, 4, 7, '#fff3a0'], [12, 3, 2, 5, '#ffd9d0']], U = Math.round(w * S);
+  box(q, wx, wy + 0.06, 17, w, 0.04, 12, (u, v) => {
+    if (u === 0 || v === 0 || v === 11 || u === U - 1) return '#5a3f2b';
+    for (const [a, b, c, d, col] of papers) if (u >= a && u < a + c && v >= b && v < b + d) return (v === b + 2 || v === b + 4) && u > a && u < a + c - 1 ? '#8a7a66' : col;
+    return (u + v) % 5 === 0 ? '#7fa592' : '#8fb5a0';
+  }, () => '#4a3222', () => '#6a4a30');
+  box(q, wx - 0.03, wy + 0.01, 29, w + 0.06, 0.14, 2, () => '#7a5636', () => '#5a3f2b', () => '#8d6440');
+};
 P.bin = (q, X, Y) => { cylinder(q, X, Y, 4, 9, (a, v) => v === 0 ? '#5a6a5a' : a < 0.4 ? '#4f6650' : a < 0.7 ? '#3f5440' : '#2f4030'); ellipse(q, X, Y - 9, 4, 2, '#6a7a6a'); q(X - 2, Y - 10, 4, 1, '#2a2622'); };
 P.planter = (q, wx, wy, w, seed) => { box(q, wx, wy, 0, w, 0.28, 5, M.planks(PLANK_P, 50 + seed, 0), M.planks(PLANK_P, 51 + seed, -26, true), () => '#5c4230'); for (let i = 0; i < Math.round(w * 8); i++){ const fx = wx + 0.05 + hash(i, 1, seed) * (w - 0.1), fy = wy + 0.05 + hash(i, 2, seed) * 0.18; const Pp = proj(fx, fy, 5).map(Math.round); if (SEASON === 'winter') q(Pp[0] - 1, Pp[1] - 2, 3, 2, i % 2 ? '#ffffff' : '#eef4f7'); else P.flower(q, Pp[0], Pp[1], ['#ff8fb8', '#ffd166', '#ff7f7f', '#ffffff', '#c9a8ff'][i % 5]); } };   // 겨울엔 꽃 대신 눈
 P.icecream = (q, wx, wy) => { const bx = { x: wx, y: wy, z: 0, w: 0.5, d: 0.35, h: 12 }; B.walls(q, bx, (u, v) => v < 2 ? '#c9584f' : v > 10 ? '#8a8a86' : u % 6 < 3 ? '#fff6e9' : '#ffd9d0', (u, v) => shade(v < 2 ? '#c9584f' : v > 10 ? '#8a8a86' : '#fff6e9', -24)); B.on(q, 'L', bx, 2, 3, 8, 6, (u, v) => (u + v) % 4 === 0 ? '#ff8fb8' : (u + v) % 4 === 2 ? '#8fd9c8' : '#fff6e9'); const Pp = proj(wx + 0.25, wy + 0.18, 12).map(Math.round); q(Pp[0], Pp[1] - 22, 1, 22, '#5a3f2b'); cone(q, Pp[0], Pp[1] - 22, 12, 8, (a, v) => shade(Math.floor(Math.acos(1 - 2 * a) / Math.PI * 8) % 2 ? '#ff8fb8' : '#fff6e9', a < 0.5 ? 6 : -16)); const W0 = proj(wx + 0.05, wy + 0.35, 0).map(Math.round); ellipse(q, W0[0], W0[1] - 3, 3, 3, (x, y) => Math.hypot(x + 0.5 - W0[0], y + 0.5 - (W0[1] - 3)) > 2.2 ? '#2a2622' : '#8a8a86'); };
@@ -1521,7 +1604,7 @@ function bShed(q){
   const hay = (x, y) => box(q, x, y, 0, 0.36, 0.3, 7, M.thatch({ a: ['#e8c46a', '#d8b358', '#c9a24a'], dark: '#a8823a' }, 4, 0), M.thatch({ a: ['#e8c46a', '#d8b358', '#c9a24a'], dark: '#a8823a' }, 5, -24), M.thatch({ a: ['#e8c46a', '#d8b358', '#c9a24a'], dark: '#a8823a' }, 6, 14));
   hay(9.5, 10.25); hay(9.9, 10.3);
   P.barrel(q, ...proj(9.35, 10.1, 0).map(Math.round));
-  P.cart(q, ...proj(10.45, 10.5, 0).map(Math.round));
+  P.cart(q, 10.18, 10.35);
   P.trough(q, 9.0, 8.72);
   if (SPR.S.cat){ const ct = proj(10.1, 9.55, 30).map(Math.round); spr(q, ct[0] - 5, ct[1] - 7, SPR.S.cat, SPR.PAL); }
 }
@@ -1594,44 +1677,44 @@ VS.draw = function(env){
   add(8.55, 7.35, 0.2, 0.2, 14, q2 => P.bin(q2, ...at(8.65, 7.45)), 6);
   // 광장 비둘기 셋은 여기 그리지 않는다 — 첫화면이 이 자리에서 시작해 걷고 모이를 쫀다(2026-09-15, 부모 요청 「새들 움직이게」)
   VS.pigeons = [[6.37, 4.78], [7.97, 6.03], [6.97, 4.48]];
-  add(0.3, 4.15, 0.4, 0.15, 34, q2 => P.noticeBoard(q2, ...at(0.5, 4.28)), 12);
+  add(0.3, 4.15, 0.6, 0.15, 34, q2 => P.noticeBoard(q2, 0.3, 4.15), 12);
   add(0.0, 3.0, 0.22, 1.4, 10, q2 => P.hedge(q2, 0.0, 3.0, 0.22, 1.4, 10, 5), 4);
   add(7.0, 2.05, 2.0, 0.22, 10, q2 => P.hedge(q2, 7.0, 2.05, 2.0, 0.22, 10, 6), 4);
-  add(7.1, 1.2, 0.1, 0.1, 36, q2 => P.birdhouse(q2, ...at(7.15, 1.25)), 8);
+  add(7.1, 1.2, 0.1, 0.1, 36, q2 => P.birdhouse(q2, 7.15, 1.25), 8);
   add(3.95, 1.05, 0.15, 0.15, 60, q2 => { if (SPR.S.squirrel){ const Pp = at(4.0, 1.1); spr(q2, Pp[0] - 6, Pp[1] - 62, SPR.S.squirrel, SPR.PAL); } }, 10);
-  add(11.6, 9.05, 0.2, 0.2, 16, q2 => P.beehive(q2, ...at(11.7, 9.15)), 8);
-  add(11.85, 9.3, 0.2, 0.2, 16, q2 => P.beehive(q2, ...at(11.95, 9.4)), 8);
+  add(11.6, 9.05, 0.2, 0.2, 16, q2 => P.beehive(q2, 11.7, 9.15), 8);
+  add(11.85, 9.3, 0.2, 0.2, 16, q2 => P.beehive(q2, 11.95, 9.4), 8);
   add(12.45, 8.75, 1.1, 1.1, 130, q2 => P.windmill(q2, 13.0, 9.3), 44, 'windmill');
-  add(1.7, 10.3, 0.6, 0.2, 20, q2 => P.bench(q2, ...at(2.0, 10.4)), 12, 'bench');
+  add(1.6, 10.3, 0.8, 0.22, 20, q2 => P.bench(q2, 1.6, 10.3), 12, 'bench');
   add(3.05, 6.25, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(3.1, 6.3), NIGHT), 12);
   add(2.50, 8.25, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(2.55, 8.30), NIGHT), 12);   // 가볼 곳 표지판과 매표소 사이 잔디 — 광장 앞왼쪽에서는 수아가 통째로 가렸다
   add(13.45, 6.0, 0.5, 0.5, 60, q2 => P.tree(q2, ...at(13.7, 6.25), 2, 23), 26, 'tree');   // 성문 진입로 앞(13.1, 6.8)에 서 있어 길을 가렸다 — 길 오른쪽 잔디로(2026-09-15 부모 요청)
-  add(3.0, 11.0, 0.8, 0.5, 16, q2 => P.boat(q2, ...at(1.2, 11.35)), 14, 'boat');
+  add(0.7, 11.18, 1.0, 0.34, 6, q2 => P.boat(q2, 1.2, 11.35), 14, 'boat');   // 틀은 배가 실제로 그려지는 자리에 — 예전 틀(3.0, 11.0)은 배와 어긋나 겹 밖으로 잘려 안 보였다
   [[5.15, 3.65], [8.85, 3.65], [8.85, 7.35]].forEach(([x, y], i) => add(x - 0.05, y - 0.05, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(x, y), NIGHT), 12));   // 앞왼쪽 자리는 비워 둔다 — 수아가 그 자리에 서서 가로등을 가렸다
   const bed = (x, y, w, d, seed) => add(x, y, w, d, 8, q2 => { box(q2, x, y, 0, w, d, 4, () => '#a89f91', () => '#8a8071', () => '#6f4f38'); for (let i = 0; i < 12; i++){ const fx = x + 0.08 + hash(i, 1, seed) * (w - 0.16), fy = y + 0.08 + hash(i, 2, seed) * (d - 0.16); const Pp = proj(fx, fy, 4).map(Math.round); if (SEASON === 'winter') q2(Pp[0] - 1, Pp[1] - 2, 3, 2, i % 2 ? '#ffffff' : '#eef4f7'); else P.flower(q2, Pp[0], Pp[1], ['#ff8fb8', '#ffd166', '#ff7f7f', '#ffffff', '#c9a8ff'][i % 5]); } }, 6);   // 겨울엔 꽃 대신 눈
   bed(5.3, 6.8, 1.0, 0.4, 3); bed(7.7, 6.8, 1.0, 0.4, 4);
   VS.cat = { tx: 9.15, ty: 7.15 };   // 광장 고양이도 여기 그리지 않는다 — 부르면 걸어오므로 첫화면이 그린다
   // 우체국 앞 — 우체통, 자전거, 가로등
   add(9.95, 5.65, 0.3, 0.3, 20, q2 => P.pillarBox(q2, ...at(10.1, 5.8)), 6, 'post');   // 해자 앞 포장길 — 예전 자리는 풍차 날개가 덮었다
-  add(12.25, 6.6, 0.3, 0.7, 20, q2 => P.bike(q2, ...at(12.4, 7.0)), 10);
+  add(12.25, 6.6, 0.3, 0.7, 20, q2 => P.bike(q2, 12.4, 7.3), 10);
   add(12.6, 7.4, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(12.65, 7.45), NIGHT), 12);
   // 축제 — 만국기 기둥 둘
   add(0.25, 4.7, 0.1, 0.1, 50, q2 => { const Pp = at(0.3, 4.75); q2(Pp[0] - 1, Pp[1] - 40, 2, 40, '#8d6440'); }, 6);
   add(2.85, 4.7, 0.1, 0.1, 50, q2 => { const Pp = at(2.9, 4.75); q2(Pp[0] - 1, Pp[1] - 40, 2, 40, '#8d6440'); }, 6);
   add(0.3, 4.6, 2.6, 0.1, 60, q2 => { const a = at(0.3, 4.75), b = at(2.9, 4.75), c = proj(1.55, 6.1, 0).map(Math.round); c[1] -= 82; P.bunting(q2, [a[0], a[1] - 40], [c[0], c[1]], ['#ff6b6b', '#ffd166', '#5aa9e6', '#8fd9c8', '#ff8fb8']); P.bunting(q2, [c[0], c[1]], [b[0], b[1] - 40], ['#ffd166', '#5aa9e6', '#ff6b6b', '#8fd9c8']); }, 30);
   // 그림·가볼 곳
-  add(2.5, 9.3, 0.2, 0.2, 36, q2 => P.signpost(q2, ...at(2.6, 9.45)), 14, 'sign');
+  add(2.5, 9.3, 0.2, 0.2, 36, q2 => P.signpost(q2, 2.6, 9.45), 14, 'sign');
   // 밭 — 울타리, 허수아비, 우물, 다리, 오리
   add(4.95, 8.65, 2.5, 0.05, 16, q2 => P.fence(q2, 4.95, 8.65, 2.5, 'x'), 6);
   add(4.95, 8.65, 0.05, 2.1, 16, q2 => P.fence(q2, 4.95, 8.65, 2.1, 'y'), 6);
   add(4.95, 10.7, 1.8, 0.05, 16, q2 => P.fence(q2, 4.95, 10.7, 1.8, 'x'), 6);
   VS.scare = proj(6.15, 9.7, 0).map(Math.round);   // 허수아비 발밑 — 첫화면이 그 뒤에는 작물을 안 심는다
-  add(6.0, 9.55, 0.3, 0.3, 40, q2 => P.scarecrow(q2, ...at(6.15, 9.7)), 12);
+  add(6.0, 9.55, 0.3, 0.3, 40, q2 => P.scarecrow(q2, 6.15, 9.7), 12);
   // 오른쪽 울타리를 채워 밭을 사방으로 닫고, 드나드는 쪽문은 앞 울타리에 낸다.
   // 오른쪽에 내 보았더니 온실이 통째로 앞을 막아 문이 하나도 안 보였다.
   add(7.45, 8.65, 0.05, 2.05, 16, q2 => P.fence(q2, 7.45, 8.65, 2.05, 'y'), 6);
-  add(6.75, 10.64, 0.7, 0.12, 20, q2 => P.gate(q2, ...at(6.82, 10.72)), 8);
-  add(7.45, 10.35, 0.2, 0.2, 24, q2 => P.plaque(q2, ...at(7.55, 10.45)), 10);      // 마당 쪽 당근 팻말
+  add(6.75, 10.64, 0.7, 0.12, 20, q2 => P.gate(q2, 6.75, 10.7, 0.7), 8);
+  add(7.45, 10.35, 0.2, 0.2, 24, q2 => P.plaque(q2, 7.55, 10.45), 10);      // 마당 쪽 당근 팻말
   // 밭 앞 연장들 — 마당 쪽에 모아 둔다(이랑 위에 두면 작물 덧그림과 겹친다)
   add(7.62, 10.5, 0.2, 0.2, 16, q2 => P.wateringCan(q2, ...at(7.72, 10.6)), 8);
   add(7.95, 10.55, 0.2, 0.2, 14, q2 => P.bucket(q2, ...at(8.05, 10.65), '#5aa9e6'), 8);
@@ -1640,7 +1723,7 @@ VS.draw = function(env){
   // 자루·퇴비·지지대는 앞줄에 둔다. 처음엔 온실·헛간 뒤에 놓았다가 지붕에 통째로 가려졌다.
   add(10.85, 10.5, 0.25, 0.25, 14, q2 => P.sack(q2, ...at(10.98, 10.62)), 8);
   add(11.2, 10.6, 0.25, 0.25, 14, q2 => P.sack(q2, ...at(11.33, 10.72), '#c9b98a'), 8);
-  add(11.9, 8.95, 0.55, 0.4, 16, q2 => P.compost(q2, ...at(12.18, 9.15)), 12);     // 퇴비 더미
+  add(11.9, 8.95, 0.55, 0.4, 16, q2 => P.compost(q2, 11.95, 8.99), 12);     // 퇴비 더미
   add(11.5, 9.55, 0.3, 0.25, 24, q2 => P.stakes(q2, ...at(11.6, 9.7), 18), 10);    // 넝쿨 지지대
   add(11.95, 9.75, 0.3, 0.25, 24, q2 => P.stakes(q2, ...at(12.05, 9.9), 15), 10);
   // 울타리에 앉은 참새 둘과 마당의 병아리 — 허수아비가 있어도 새는 온다
@@ -1650,7 +1733,7 @@ VS.draw = function(env){
   }
   add(8.95, 10.55, 0.2, 0.2, 14, q2 => P.hen(q2, ...at(9.05, 10.65)), 8);
   add(9.4, 10.7, 0.2, 0.2, 14, q2 => P.hen(q2, ...at(9.5, 10.8), '#d8b98a'), 8);
-  add(10.9, 9.7, 0.6, 0.6, 38, q2 => P.well(q2, ...at(11.2, 10.0)), 14, 'well');
+  add(10.9, 9.7, 0.6, 0.6, 38, q2 => P.well(q2, 11.2, 10.0), 14, 'well');
   // 키 재기 기둥 — 우물 앞. 눈금은 첫화면이 두 아이의 키로 덧그린다
   add(11.8, 9.9, 0.2, 0.2, 52, q2 => {
     const Pp = at(11.9, 10.0), RH = 46;
@@ -1675,12 +1758,19 @@ VS.draw = function(env){
   add(2.9, 1.95, 0.5, 0.5, 20, q2 => P.bush(q2, ...at(3.15, 2.2), 16, 20), 12);   // 미술관 오른벽 앞 — 발자국이 겹치면 벽 뒤로 정렬돼 안 보인다
   add(9.6, 8.75, 0.5, 0.5, 20, q2 => P.bush(q2, ...at(9.85, 9.0), 14, 21), 12);
   // 앞뒤로 풀어 얹는다
-  sortItems(items).forEach(it => {
+  const sorted = sortItems(items), own = env.own;
+  sorted.forEach((it, oi) => {
     const bx0 = Math.max(0, Math.floor(it.bb.x0)) - 1, by0 = Math.max(0, Math.floor(it.bb.y0)) - 1;
     const bw = Math.min(VS.w, Math.ceil(it.bb.x1)) - bx0 + 1, bh = Math.min(VS.h, Math.ceil(it.bb.y1)) - by0 + 1;
     if (bw <= 0 || bh <= 0) return;
     const L = env.layer(bw, bh);
     it.draw((x, y, w2, h2, c) => L.q(x - bx0, y - by0, w2, h2, c));
+    // 도트마다 맨 위에 그려진 물건(정렬 순번+1)을 적는다 — walkable 이 아이 몸에 겹치는 「앞 물건」을 도트 단위로 찾는다.
+    // 한 바이트라 255번째 물건부터는 안 적는다(지금 100개 남짓)
+    if (own && oi < 255) for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++){
+      const X = x + bx0, Y = y + by0;
+      if (L.d[(y * L.w + x) * 4 + 3] > 40 && X >= 0 && Y >= 0 && X < VS.w && Y < VS.h) own[Y * VS.w + X] = oi + 1;
+    }
     const id = it.key ? HITS.length + 1 : 0;   // 1부터 센다 — 0은 「아무것도 없음」. 이름 없는 물건은 0을 적어 뒤의 것을 가린다
     env.blit(L, bx0, by0, '#3a2a1e', id);
     // 말풍선을 띄울 상자는 겹보다 좁게 — 겹의 여백(pad)까지 받으면 옆 잔디 위에 뜬다
@@ -1691,6 +1781,8 @@ VS.draw = function(env){
     }
   });
   SHADOW_Q = null;
+  // 물건들의 발자리, 그린 순서대로(own 의 번호와 같다) — 첫화면이 두 아이를 걸릴 때 밟거나 가려질 자리를 뺀다(render 의 walkable)
+  VS.blockers = sorted.map(it => ({ x: it.x, y: it.y, w: it.w, d: it.d }));
   VS.labels = [
     { text: '작품전시실', href: '/portfolio.html', x: 1.5, y: 1.5, z: 78 },   // 2026-09-15 포트폴리오 → 작품전시실(부모 요청)
     { text: '나들이', href: '/event/', x: 1.55, y: 6.1, z: 100 },
@@ -1700,7 +1792,7 @@ VS.draw = function(env){
     // (6.5, 9.8, z12) 은 이랑을 43px 덮었고, z 를 28 로 올리자 폰에서 수아를 13px 덮었다.
     // 왼쪽으로 물러나니 둘 다 0 이 됐다(폰 375 · 데스크톱 1265 에서 실측).
     { text: '농장', href: '/farm.html', x: 5.6, y: 10.7, z: 28 },
-    { text: '그림 그리기', href: '/draw.html', x: 0.7, y: 10.5, z: 40 },
+    { text: '그림 그리기', href: '/draw.html', x: 0.7, y: 10.5, z: 52 },   // 이젤이 아이소로 서며 키가 커져(40도트) 꼬리표를 올렸다
     { text: '가볼 곳', href: '/event/#want', x: 3.2, y: 9.45, z: 48 },
   ];
 };
@@ -1837,6 +1929,7 @@ function render(o){
     R.ids = new Uint8Array(VS.w * VS.h);
     env = {
       q: R.q,
+      own: new Uint8Array(VS.w * VS.h),          // 도트마다 맨 위 물건 — walkable 이 쓴다
       layer: (w, h) => new Dots(Math.ceil(w) + 2, Math.ceil(h) + 2),
       blit: (L, x, y, outline, id) => R.blit(outline ? L.outline(outline) : L, Math.round(x), Math.round(y), id),
       // 겹 없이 바로 그린 것(하늘의 타워)에 누를 자리 번호를 적는다
@@ -1876,7 +1969,10 @@ function render(o){
   const hits = HITS.slice(), ids = R ? R.ids : null, w = VS.w, h = VS.h;
   // 이 마을의 원점을 붙잡아 둔다 — ORG 는 모듈 변수라, 뒤에 다른 render 가 오면 바뀐다.
   // 첫화면은 한 번에 마을 하나만 쓰지만, 시험 삼아 하나 더 그렸더니 잔디가 해자로 읽혔다.
-  const ox = VS.orgX, oy = SKY;
+  const ox = VS.orgX, oy = SKY, own = env.own || null, bl = VS.blockers || [], e = 0.02;
+  // 물건 b 가 (tx, ty) 에 선 아이보다 앞인가 — sortItems 와 같은 규칙. 아이 발자리는 0.4칸 네모로 친다
+  const frontOf = (b, tx, ty) => { const kx = tx - 0.2, ky = ty - 0.2;
+    return !(b.x + b.w <= kx + e || b.y + b.d <= ky + e) && (kx + 0.4 <= b.x + e || ky + 0.4 <= b.y + e || b.x + b.w + b.y + b.d > kx + ky + 0.8); };
   const unprojHere = (x, y) => { const a = (x - ox) / TW, b = (y - oy) / TH; return [b + a, b - a]; };
   return {
     canvas, hs, w: VS.w, h: VS.h,
@@ -1921,6 +2017,71 @@ function render(o){
     worldAt: (dx, dy) => { const [tx, ty] = unprojHere(dx, dy); return { tx, ty, kind: inPlot(tx, ty) ? kindAt(tx, ty) : null }; },
     dotAt: (tx, ty) => ({ x: ox + (tx - ty) * TW / 2, y: oy + (tx + ty) * TH / 2 }),
     kindOf: (tx, ty) => inPlot(tx, ty) ? kindAt(tx, ty) : null,
+    // 아이가 돌아다녀도 되는 땅 — 광장·길 가운데, 물건을 밟지 않고 앞에 선 물건에 몸이 많이 가리지 않는 칸.
+    // 아이는 마을 그림 위에 따로 얹으니, 앞에 선 물건은 첫화면이 아이를 그린 뒤 그 도트만 다시 덮는다(coverRuns).
+    // 그래도 몸이 반쯤 사라지는 자리(가게 뒤·성벽 뒤)는 어색해서 뺀다 — 가려지는 도트가 maxHide 비율을 넘으면 못 선다.
+    // prof[k]: 발에서 k 도트 위의 몸 반폭(도트). 네모로 재면 발치의 빈 구석까지 막혀서 줄마다 잰다.
+    // avoid: 따로 피할 도트 네모 [{x0,x1,y0,y1, foot?}] — foot 이 있으면 아이 발이 그보다 위(뒤)일 때만 피한다. 격자는 0.1칸.
+    walkable: (prof, avoid, maxHide) => {
+      const G = 10, gw = PW * G, gh = PD * G, ok = new Uint8Array(gw * gh), cells = [], av = avoid || [];
+      const seen = new Int32Array(bl.length + 1).fill(-1), front = new Uint8Array(bl.length + 1);
+      for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++){
+        const tx = (i + 0.5) / G, ty = (j + 0.5) / G, k = kindAt(tx, ty), cell = j * gw + i;
+        if (k !== 'plaza' && k !== 'cobble') continue;
+        if (bl.some(b => tx > b.x - 0.15 && tx < b.x + b.w + 0.15 && ty > b.y - 0.15 && ty < b.y + b.d + 0.15)) continue;   // 밟는다(발 반폭만큼 띄운다)
+        const X = ox + (tx - ty) * TW / 2, Y = Math.round(oy + (tx + ty) * TH / 2);
+        let all = 0, hid = 0, bad = false;
+        for (let r = 0; !bad && r < prof.length; r++){
+          const y = Y - r, x0 = Math.floor(X - prof[r]), x1 = Math.ceil(X + prof[r]);
+          if (av.some(a => (a.foot == null || Y < a.foot) && y >= a.y0 && y <= a.y1 && x1 >= a.x0 && x0 <= a.x1)) bad = true;
+          all += x1 - x0 + 1;
+          if (!own || y < 0 || y >= h) continue;
+          for (let x = Math.max(0, x0); x <= Math.min(w - 1, x1); x++){
+            const o = own[y * w + x]; if (!o) continue;
+            if (seen[o] !== cell){ seen[o] = cell; front[o] = frontOf(bl[o - 1], tx, ty) ? 1 : 0; }
+            hid += front[o];
+          }
+        }
+        if (bad || hid > all * maxHide) continue;
+        ok[cell] = 1;
+      }
+      // 이어진 덩어리 가운데 가장 큰 것만 남긴다 — 외딴 조각에 들어가면 나올 길이 없다
+      const comp = new Int32Array(gw * gh);
+      let id = 0, bestId = 0, best = 0;
+      for (let c0 = 0; c0 < gw * gh; c0++){
+        if (!ok[c0] || comp[c0]) continue;
+        const st = [c0]; let n = 0; comp[c0] = ++id;
+        while (st.length){
+          const c = st.pop(), ci = c % gw, cj = (c - ci) / gw; n++;
+          [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([di, dj]) => { const i2 = ci + di, j2 = cj + dj, c2 = j2 * gw + i2;
+            if (i2 >= 0 && j2 >= 0 && i2 < gw && j2 < gh && ok[c2] && !comp[c2]){ comp[c2] = id; st.push(c2); } });
+        }
+        if (n > best){ best = n; bestId = id; }
+      }
+      for (let c = 0; c < gw * gh; c++){
+        if (ok[c] && comp[c] !== bestId) ok[c] = 0;
+        if (ok[c]) cells.push([(c % gw + 0.5) / G, (Math.floor(c / gw) + 0.5) / G]);
+      }
+      return { cells, ok: (tx, ty) => { const i = Math.floor(tx * G), j = Math.floor(ty * G); return i >= 0 && j >= 0 && i < gw && j < gh && ok[j * gw + i] === 1; } };
+    },
+    // (tx, ty) 에 선 아이보다 앞에 있는 물건의 도트 — 네모 [x0..x1]×[y0..y1] 안에서 줄마다 이어진 토막 [y, xa, xb].
+    // 첫화면이 아이를 그린 다음 이 토막만 마을 그림을 다시 얹어 앞뒤 가림을 맞춘다
+    coverRuns: (tx, ty, x0, y0, x1, y1) => {
+      const out = [], memo = new Map();
+      if (!own) return out;
+      x0 = Math.max(0, Math.floor(x0)); x1 = Math.min(w - 1, Math.ceil(x1)); y0 = Math.max(0, Math.floor(y0)); y1 = Math.min(h - 1, Math.ceil(y1));
+      for (let y = y0; y <= y1; y++){
+        let run = -1;
+        for (let x = x0; x <= x1 + 1; x++){
+          const o = x <= x1 ? own[y * w + x] : 0;
+          let f = false;
+          if (o){ f = memo.get(o); if (f === undefined){ f = frontOf(bl[o - 1], tx, ty); memo.set(o, f); } }
+          if (f && run < 0) run = x;
+          else if (!f && run >= 0){ out.push([y, run, x - 1]); run = -1; }
+        }
+      }
+      return out;
+    },
     PW, PD,
   };
 }

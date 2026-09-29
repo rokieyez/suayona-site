@@ -28,7 +28,7 @@
   .peek div b{display:block; font-size:18px;}
   .heroes{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; text-align:left;}
   .hero-card{padding:14px; display:flex; gap:12px; align-items:center;}
-  .hero-card canvas{width:42px; height:40px; image-rendering:pixelated; flex:none;}
+  .hero-card canvas{image-rendering:pixelated; flex:none;}   /* 크기는 캔버스(=그림) 크기 그대로 */
   .hero-card .nm{font-weight:800; font-size:15px;}
   .hero-card .lv{font-size:12px; color:var(--ink-soft); line-height:1.7;}
   @media (max-width:520px){ .heroes{grid-template-columns:1fr;} }

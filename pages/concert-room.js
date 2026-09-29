@@ -223,13 +223,13 @@
     });
   }
 
-  // ---------- 사람 도트 — 아이 그림(kid-art.js)을 그대로, 객석 손님은 같은 틀에 색만 바꿔서 ----------
+  // ---------- 사람 도트 — 수아·연아(KIDART)와 객석 손님(KIDART_GUEST) 모두 48도트 판 ----------
+  // 앉은 사람은 의자·피아노 의자에 앉은 3/4 뒷모습(무대·피아노가 있는 NE 쪽을 본다). 그림 맨 아래 = 발(바닥).
+  const SEAT_H = 7, BENCH_H = 12;                                          // 객석 의자·피아노 의자 앉는 면의 높이 — 발은 그만큼 아래 바닥에 닿는다
   const spriteBuf = {};
-  function sprite(base, pal, dir, f, flip, cut, key){
-    const id = [key, dir, f, flip ? 1 : 0, cut || 0].join('|');
+  function paintRows(rows, pal, flip, id){
     if (spriteBuf[id]) return spriteBuf[id];
-    const art = window.KIDART && window.KIDART[base]; if (!art) return null;
-    let rows = art[dir][f]; if (cut) rows = rows.slice(0, cut);
+    if (!rows) return null;
     const W = rows[0].length, H = rows.length;
     const paint = (g, ox, oy, one) => { for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){ const ch = rows[r][x]; if (ch === '.') continue; g.fillStyle = one || pal[ch] || '#000'; g.fillRect(((flip ? W - 1 - x : x) + 1 + ox) * 2, (r + 1 + oy) * 2, 2, 2); } };
     const c = document.createElement('canvas'); c.width = (W + 2) * 2; c.height = (H + 2) * 2;
@@ -239,19 +239,15 @@
     return (spriteBuf[id] = c);
   }
   const kidPal = k => (window.KIDPAL && window.KIDPAL[k]) || {};
-  // 객석 손님 — 머리·옷 색 조합. base 는 머리 모양(sua 긴 머리 · yona 단발)
-  const GUESTS = [
-    { base: 'yona', h: '#2b1e17', H: '#4a3528', d: '#1a120d', c: '#5b7fbf', C: '#7a9ad0', n: '#3e5f90' },
-    { base: 'sua', h: '#d8d2c8', H: '#f0ebe2', d: '#a8a29a', c: '#9b6bbf', C: '#b88ad6', n: '#7a4f9a' },
-    { base: 'yona', h: '#5a3a22', H: '#7a5236', d: '#3a2414', c: '#6a8a4a', C: '#8aa86a', n: '#4a6a32' },
-    { base: 'sua', h: '#1c1a18', H: '#3a3634', d: '#0c0b0a', c: '#e0a93b', C: '#f0c86a', n: '#b9812c' },
-    { base: 'yona', h: '#8a8480', H: '#aaa49e', d: '#5a5652', c: '#2b3a5e', C: '#4a5a80', n: '#1c2740' },
-    { base: 'sua', h: '#a0562c', H: '#bd6c3a', d: '#77401f', c: '#e6dccb', C: '#fff8ea', n: '#c9b896' },
-    { base: 'yona', h: '#3f2d23', H: '#634a37', d: '#2b1e17', c: '#d4504a', C: '#e8786a', n: '#a83a34' },
-    { base: 'sua', h: '#2b2119', H: '#4a3a2e', d: '#1a120d', c: '#3f7a6a', C: '#5a9a88', n: '#2a5a4a' },
-  ];
-  function guestSprite(n, dir, f, cut){ const G = GUESTS[n % GUESTS.length]; return sprite(G.base, Object.assign({}, kidPal(G.base), G), dir, f, false, cut, 'g' + n); }
-  function kidSprite(k, dir, f, flip, cut){ return sprite(k, kidPal(k), dir, f, flip, cut, k); }
+  // dir 은 여덟 방향(S·NE…) 또는 예전 이름(down·side·up)
+  function kidSprite(k, dir, f, flip){ const a = window.KIDART && window.KIDART[k]; return a ? paintRows((a.dirs[dir] || a[dir])[f], kidPal(k), flip, [k, dir, f, flip ? 1 : 0].join('|')) : null; }
+  // 앉은 아이 — play 면 피아노 치는 손
+  function kidSit(k, play){ const a = window.KIDART && window.KIDART[k]; return a && a.sit ? paintRows(a.sit.NE[play ? 1 : 0], kidPal(k), false, k + '|sit|' + (play ? 1 : 0)) : null; }
+  const GUEST_N = () => (window.KIDART_GUEST && window.KIDART_GUEST.length) || 1;
+  function guestSit(n){ const G = window.KIDART_GUEST; return G ? paintRows(G[n % G.length].NE, window.KIDPAL_GUEST || {}, false, 'g|' + (n % G.length)) : null; }
+  // 보이는 키(줄 수) — 말풍선·이름표·누를 자리. 앉았으면 앉은 그림 키에서 의자 높이만큼 뺀 것(자리 기준점이 앉는 면이라)
+  const kidRows = (k, seated) => { const a = window.KIDART && window.KIDART[k]; return a ? (seated && a.sit ? a.sit.NE[0].length - SEAT_H : a.h) : 0; };
+  const guestRows = n => { const G = window.KIDART_GUEST; return G ? G[n % G.length].NE.length - SEAT_H : 30; };
 
   // ---------- 무대에 오르는 두 아이와 객석 ----------
   const WALK = 1.25, KIDS = ['sua', 'yona'];
@@ -266,7 +262,8 @@
   SEAT_ROWS.forEach((b, row) => SEAT_A.forEach(a => {
     if (KIDS.some(k => HOME[k].row === row && Math.abs(HOME[k].a - a) < 0.01)) return;
     if (prand('seat' + row + ':' + a) < 0.24) return;                    // 빈자리도 조금
-    guests.push({ row, a, b, n: guests.length, off: prand('off' + a + row) * 360, say: null, sayUntil: 0 });
+    // 모양 번호 — 옆자리(+5)·앞뒤 줄(+2)·대각선(+7, +5)이 늘 다른 사람이 되게 건너뛰며 고른다
+    guests.push({ row, a, b, n: (row * 2 + SEAT_A.indexOf(a) * 5) % GUEST_N(), off: prand('off' + a + row) * 360, say: null, sayUntil: 0 });
   }));
   const GUEST_TALK = ['브라보!', '앵콜!', '와아, 멋지다!', '짝짝짝!', '또 들려줘요!', '최고예요!'];
 
@@ -280,8 +277,8 @@
     }
     const s = Math.min(d, WALK * dt / 1000);
     p.a += da / d * s; p.b += db / d * s; p.moving = true; p.seated = false; p.phase += dt / 230;
-    const sx = (da - db) * 28, sy = (da + db) * 14;
-    if (Math.abs(sx) > Math.abs(sy) * 1.15){ p.dir = 'side'; p.flip = sx < 0; } else { p.dir = sy > 0 ? 'down' : 'up'; p.flip = false; }
+    const sx = (da - db) * 28, sy = (da + db) * 14;                        // 화면에서 가는 방향 — 45°씩 여덟 방향(E 부터 시계 방향)
+    p.dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) & 7]; p.flip = false;
     return true;
   }
   // 자리 → 첫 줄 앞 길 → 계단 → 무대 앞 → 피아노 의자(또는 마이크 뒤). 내려올 때는 거꾸로
@@ -319,7 +316,7 @@
     show.who = w.author === 'together' ? ['sua', 'yona'] : [HOME[w.author] ? w.author : 'sua'];
     show.spots = spotsFor(show.mode, show.who.length);
     setPhase(STILL ? 'play' : 'idle');
-    if (STILL) show.who.forEach((k, n) => { const p = actorOf(k), s = show.spots[n]; p.a = s.a; p.b = s.b; p.plan = []; p.seated = show.mode === 'piano'; p.dir = p.seated ? 'up' : 'down'; });
+    if (STILL) show.who.forEach((k, n) => { const p = actorOf(k), s = show.spots[n]; p.a = s.a; p.b = s.b; p.plan = []; p.seated = show.mode === 'piano'; p.dir = p.seated ? 'up' : 'SW'; });
   }
   function setPhase(ph){ show.phase = ph; show.t = 0; onPhase(ph); }
   function onPhase(ph){
@@ -327,12 +324,12 @@
     if (ph === 'idle') announce();
     else if (ph === 'up'){
       let left = who.length;
-      who.forEach((p, n) => { p.seated = false; p.plan = planUp(p.k, show.mode, show.spots[n]); p.onArrive = () => { p.flip = false; p.seated = show.mode === 'piano'; p.dir = p.seated ? 'up' : 'down'; if (--left === 0) setPhase('sit'); }; });
+      who.forEach((p, n) => { p.seated = false; p.plan = planUp(p.k, show.mode, show.spots[n]); p.onArrive = () => { p.flip = false; p.seated = show.mode === 'piano'; p.dir = p.seated ? 'up' : 'SW'; if (--left === 0) setPhase('sit'); }; });
     } else if (ph === 'play'){
       if (show.mode === 'mic') who.forEach((p, n) => talk(p, n ? '저도 같이 소개할게요!' : '안녕하세요! 제 영상을 소개할게요', 3200));
       emitAt = 0;
     } else if (ph === 'bow'){
-      who.forEach((p, n) => { p.seated = false; p.dir = 'down'; p.flip = false; if (show.mode === 'piano') p.plan = [{ a: show.spots[n].a, b: EDGE_B - 0.12 }]; p.onArrive = () => { p.dir = 'down'; }; });
+      who.forEach((p, n) => { p.seated = false; p.dir = 'SW'; p.flip = false; /* 무대에서는 객석(화면 왼쪽 아래)을 본다 */ if (show.mode === 'piano') p.plan = [{ a: show.spots[n].a, b: EDGE_B - 0.12 }]; p.onArrive = () => { p.dir = 'SW'; }; });
       KIDS.filter(k => !show.who.includes(k)).forEach(k => talk(actorOf(k), k === 'yona' ? '언니 최고!' : '연아 최고!', 3000));
       guests.filter((q, n) => prand('say' + idx + ':' + n) < 0.3).slice(0, 3).forEach((q, n) => { q.say = GUEST_TALK[(idx + n * 2) % GUEST_TALK.length]; q.sayUntil = now() + 2600 + n * 300; });
       applause(3.2, true);
@@ -456,11 +453,12 @@
     box(g, a - 0.33, a + 0.33, b - 0.12, b + 0.2, 0, 7, '#a83a46', '#5a1a26', '#6e2230');
     if (q || kid){
       const pt = P(a, b, 7), x = Math.round(pt[0]), y = Math.round(pt[1]);
-      const c = kid ? kidSprite(kid.k, 'up', 0, false, 28) : guestSprite(q.n, 'up', 0, 28);
+      const c = kid ? kidSit(kid.k) : guestSit(q.n);
       const off = q ? q.off : kid.k === 'sua' ? 90 : 210;
       const nod = show.phase === 'play' && Math.sin((now() + off * 10) / 520) > 0.7 ? 1 : 0;          // 음악에 끄덕
-      if (c) g.drawImage(c, x - 15, y - 29 + nod, c.width / 2, c.height / 2);
-      const pose = clapping(off); if (pose) hands(g, x, y - 31 - (pose === 2 ? 2 : 0), pose);
+      const cw = c ? c.width / 2 : 0, ch = c ? c.height / 2 : 0;
+      if (c) g.drawImage(c, x - cw / 2, y + SEAT_H - ch + 1 + nod, cw, ch);   // 발이 바닥에 — 앉는 면(y)보다 SEAT_H 아래
+      const pose = clapping(off); if (c && pose) hands(g, x, y - ch - 1 - (pose === 2 ? 2 : 0), pose);   // 손은 머리 위
     }
     box(g, a - 0.36, a + 0.36, b + 0.2, b + 0.32, 0, 20, '#8e2f3a', '#6e2230', '#5a1a26');
     line(g, P(a - 0.36, b + 0.32, 20), P(a + 0.36, b + 0.32, 20), '#c9a24a');
@@ -470,15 +468,15 @@
   function drawActor(g, p){
     const bench = p.seated && !atHome(p), bp = actorBase(p), x = Math.round(bp[0]), y = Math.round(bp[1]);
     if (bench){
-      const c = kidSprite(p.k, 'up', 0, false, 28), sway = show.phase === 'play' ? Math.round(Math.sin(now() / 240 + (p.k === 'yona' ? 1.6 : 0)) * 1.2) : 0;
-      if (c) g.drawImage(c, x - 15 + sway, y - 29, c.width / 2, c.height / 2);
+      const c = kidSit(p.k, show.phase === 'play'), sway = show.phase === 'play' ? Math.round(Math.sin(now() / 240 + (p.k === 'yona' ? 1.6 : 0)) * 1.2) : 0;
+      if (c) g.drawImage(c, x - c.width / 4 + sway, y + BENCH_H - c.height / 2 + 1, c.width / 2, c.height / 2);   // 발이 무대 바닥에
       return;
     }
     g.fillStyle = 'rgba(20,10,5,.3)'; g.beginPath(); g.ellipse(x, y, 9, 3.5, 0, 0, Math.PI * 2); g.fill();
     let dip = 0;
     if (show.phase === 'bow' && !p.moving){ const t = show.t % 1500; if (t > 450 && t < 1150) dip = 4; }
-    const c = kidSprite(p.k, p.dir, p.moving ? Math.floor(p.phase) % 2 : 0, p.dir === 'side' && p.flip);
-    if (c) g.drawImage(c, 0, 0, c.width, c.height - dip * 2, x - 15, y - 39 + dip, c.width / 2, c.height / 2 - dip);
+    const c = kidSprite(p.k, p.dir, window.KIDSTEP ? KIDSTEP(p.moving, p.phase) : 0, p.dir === 'side' && p.flip);
+    if (c) g.drawImage(c, 0, 0, c.width, c.height - dip * 2, x - c.width / 4, y - c.height / 2 + 1 + dip, c.width / 2, c.height / 2 - dip);
   }
   function drawMic(g){
     const b = P(MIC.a, MIC.b, STAGE.h), x = Math.round(b[0]), y = Math.round(b[1]);
@@ -601,7 +599,7 @@
     });
   }
   const extras = {};
-  function extraGuest(row, a){ const k = row + ':' + a; return extras[k] || (extras[k] = { row, a, b: SEAT_ROWS[row], n: 3 + Math.round(a * 3) % GUESTS.length, off: prand('x' + k) * 360 }); }
+  function extraGuest(row, a){ const k = row + ':' + a; return extras[k] || (extras[k] = { row, a, b: SEAT_ROWS[row], n: Math.floor(prand('look' + k) * GUEST_N()), off: prand('x' + k) * 360 }); }
   function stageProps(){
     const out = [];
     if (TABLE_KINDS.includes(show.kind)) out.push({ key: (TBL.a0 + TBL.a1) / 2 + TBL.b1, f: g => drawTableKind(g) });
@@ -800,11 +798,11 @@
     drawParts(g);                                                        // ⑥
     const t = now();                                                     // ⑦
     kids.forEach(p => {
-      const home = atHome(p), bp = home ? P(p.a, p.b, 7) : actorBase(p), top = home || p.seated ? 32 : 44;
-      if (p.say && t < p.sayUntil) bubble(g, bp[0], bp[1] - top, p.say);
-      else if (!home && p.moving) nameTag(g, Math.round(bp[0]), Math.round(bp[1]) - 56, p.k);
+      const home = atHome(p), bp = home ? P(p.a, p.b, 7) : actorBase(p), top = kidRows(p.k, home || p.seated);
+      if (p.say && t < p.sayUntil) bubble(g, bp[0], bp[1] - top - 5, p.say);
+      else if (!home && p.moving) nameTag(g, Math.round(bp[0]), Math.round(bp[1]) - top - 18, p.k);
     });
-    guests.forEach(q => { if (q.say && t < q.sayUntil){ const bp = P(q.a, q.b, 7); bubble(g, bp[0], bp[1] - 32, q.say); } });
+    guests.forEach(q => { if (q.say && t < q.sayUntil){ const bp = P(q.a, q.b, 7); bubble(g, bp[0], bp[1] - guestRows(q.n) - 4, q.say); } });
     if (me){ const bp = P(me.a, SEAT_ROWS[me.row], 7); g.save(); g.font = '800 8px ' + FONT; g.fillStyle = INK; g.fillRect(Math.round(bp[0]) - 7, Math.round(bp[1]) - 44, 14, 11); g.fillStyle = '#ffd979'; g.fillRect(Math.round(bp[0]) - 6, Math.round(bp[1]) - 43, 12, 9); g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('나', Math.round(bp[0]), Math.round(bp[1]) - 43); g.restore(); }
     if (seatMode) SEAT_ROWS.forEach((b, row) => SEAT_A.forEach(a => { if (!seatFree(row, a)) return; const bp = P(a, b, 10), r = 9 + Math.sin(t / 220) * 2; g.strokeStyle = '#ffd979'; g.lineWidth = 2; g.beginPath(); g.ellipse(bp[0], bp[1] - 6, r, r * 0.55, 0, 0, Math.PI * 2); g.stroke(); }));
     if (show.announce && t < show.announceUntil){ const sp = P(5.575, 0.37, STAGE.h + 50); bubble(g, sp[0] - 60, sp[1], '📢 ' + show.announce); }
@@ -909,8 +907,8 @@
     if (seatMode) for (let row = 0; row < SEAT_ROWS.length; row++) for (const a of SEAT_A){ if (!seatFree(row, a)) continue; const bp = P(a, SEAT_ROWS[row], 7); if (x >= bp[0] - 14 && x < bp[0] + 14 && y >= bp[1] - 22 && y < bp[1] + 6) return { key: 'seat', row, a }; }
     if (me){ const bp = P(me.a, SEAT_ROWS[me.row], 7); if (x >= bp[0] - 13 && x < bp[0] + 13 && y >= bp[1] - 30 && y < bp[1] + 3) return { key: 'me' }; }
     for (const p of KIDS.map(actorOf)){
-      const home = atHome(p), bp = home ? P(p.a, p.b, 7) : actorBase(p), top = home || p.seated ? 30 : 40;
-      if (x >= bp[0] - 13 && x < bp[0] + 13 && y >= bp[1] - top && y < bp[1] + 3) return { key: 'kid:' + p.k, kid: p.k };
+      const home = atHome(p), bp = home ? P(p.a, p.b, 7) : actorBase(p), top = kidRows(p.k, home || p.seated) + 2, hw = (window.KIDART && window.KIDART[p.k] ? window.KIDART[p.k].w : 0) / 2;   // 그림 크기만큼
+      if (x >= bp[0] - hw && x < bp[0] + hw && y >= bp[1] - top && y < bp[1] + 3) return { key: 'kid:' + p.k, kid: p.k };
     }
     for (const q of guests){ const bp = P(q.a, q.b, 7); if (x >= bp[0] - 12 && x < bp[0] + 12 && y >= bp[1] - 30 && y < bp[1] + 2) return { key: 'guest:' + q.n, guest: q }; }
     const lu = x - OX, lb = -lu / 28, lv = OY - lu / 2 - y;                // 왼쪽 벽 좌표
@@ -958,8 +956,8 @@
         focusKey = null; openPlayer(show.w); return;
       }
       focusKey = null;
-      if (h.key === 'seat'){ me = { row: h.row, a: h.a, look: me ? me.look : Math.floor(Math.random() * GUESTS.length) }; seatMode = false; saveMe(); say('자리에 앉았어요 — 나를 누르면 옷이 바뀌어요'); renderTools(); draw(); return; }
-      if (h.key === 'me'){ me.look = (me.look + 1) % GUESTS.length; saveMe(); say('옷을 갈아입었어요'); draw(); return; }
+      if (h.key === 'seat'){ me = { row: h.row, a: h.a, look: me ? me.look : Math.floor(Math.random() * GUEST_N()) }; seatMode = false; saveMe(); say('자리에 앉았어요 — 나를 누르면 옷이 바뀌어요'); renderTools(); draw(); return; }
+      if (h.key === 'me'){ me.look = (me.look + 1) % GUEST_N(); saveMe(); say('옷을 갈아입었어요'); draw(); return; }
       if (h.key === 'board'){ clap(); return; }
       if (h.kid){ const p = actorOf(h.kid); talk(p, kidLine(p), 2600); say(KID_NAME[h.kid] + ': ' + p.say); draw(); return; }
       if (h.guest){ h.guest.say = GUEST_TALK[Math.floor(Math.random() * GUEST_TALK.length)]; h.guest.sayUntil = now() + 2200; say('관객: ' + h.guest.say); draw(); return; }

@@ -21,7 +21,7 @@
   const LWr = NI * (TW / 2), LWl = NJ * (TW / 2);
   const KID_COLOR = { sua: '#ff7f8a', yona: '#6cc7b3', together: '#ffd979' };
   const KID_NAME = { sua: '수아', yona: '연아', together: '같이' };
-  const KID_HAIR = { sua: '#3f2d23', yona: '#a0562c' };
+  const KID_HAIR = { sua: '#5c3228', yona: '#753825' };                  // 새 48도트 판(kid-art.js) 머리색과 같게
   const KIDS = ['sua', 'yona'];
   const STILL = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const INK = '#2a2118', FONT = '"Suayona Sans", Pretendard, system-ui, sans-serif';
@@ -531,7 +531,7 @@
     if (!walkers[k]){ const s = walkFree(); walkers[k] = { i: s.i, j: s.j, ti: s.i, tj: s.j, wait: 600 + (k === 'yona' ? 1700 : 0), dir: 'down', flip: false, moving: false, phase: 0 }; }
     return walkers[k];
   }
-  function walkKey(w){ const p = tileXY(w.i, w.j); return Math.round(p.x) + ',' + Math.round(p.y) + w.dir + w.flip + (w.moving ? Math.floor(w.phase) % 2 : 0); }
+  function walkKey(w){ const p = tileXY(w.i, w.j); return Math.round(p.x) + ',' + Math.round(p.y) + w.dir + w.flip + (w.moving ? Math.floor(w.phase) % 4 : 0); }   // 걸음 네 장(KIDSTEP)
   // 한 걸음 — 그림이 달라졌으면 true. plan(거쳐 갈 자리들)·after(닿으면 돌아서서 할 말)는 안내(②)용
   function stepWalker(k, dt){
     const w = walkerOf(k), other = walkers[k === 'sua' ? 'yona' : 'sua'];
@@ -555,8 +555,8 @@
     }
     const before = walkKey(w), step = Math.min(d, WALK_SPEED * dt / 1000);
     w.i += di / d * step; w.j += dj / d * step; w.moving = true; w.phase += dt / 260;
-    const sx = (di - dj) * TW / 2, sy = (di + dj) * TH / 2;
-    if (Math.abs(sx) > Math.abs(sy) * 1.15){ w.dir = 'side'; w.flip = sx < 0; } else w.dir = sy > 0 ? 'down' : 'up';
+    const sx = (di - dj) * TW / 2, sy = (di + dj) * TH / 2;               // 화면에서 가는 방향 — 45°씩 여덟 방향(E 부터 시계 방향)
+    w.dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) & 7]; w.flip = false;
     return walkKey(w) !== before;
   }
   function walkerSpot(k){
@@ -568,7 +568,7 @@
   function kidSprite(k, dir, f, flip, phase){
     const key = [k, dir, f, flip ? 1 : 0, phase].join('|');
     if (kidBuf[key]) return kidBuf[key];
-    const rows = KIDART[k][dir][f], pal = KIDPAL[k], W = rows[0].length, H = rows.length;
+    const art = KIDART[k], rows = (art.dirs[dir] || art[dir])[f], pal = KIDPAL[k], W = art.w, H = art.h;   // dir 은 여덟 방향(S·NE…) 또는 예전 이름(down·side·up)
     const paint = (g, ox, oy, one) => {
       for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){ const ch = rows[r][x]; if (ch === '.') continue; g.fillStyle = one || pal[ch] || '#000'; g.fillRect(((flip ? W - 1 - x : x) + 1 + ox) * 2, (r + 1 + oy) * 2, 2, 2); }
     };
@@ -582,10 +582,10 @@
     return (kidBuf[key] = c);
   }
   function drawWalker(g, k, s){
-    const w = s.w, f = w.moving ? Math.floor(w.phase) % 2 : 0;
+    const w = s.w, f = KIDSTEP(w.moving, w.phase);
     isoTopD(g, s.x, s.y, 10, 4, 'rgba(40,24,10,.24)');
-    const c = kidSprite(k, w.dir, f, w.dir === 'side' && w.flip, dayPhase());
-    g.drawImage(c, s.x - 15, s.y - 39, c.width / 2, c.height / 2);
+    const c = kidSprite(k, w.dir, f, w.dir === 'side' && w.flip, dayPhase()), cw = c.width / 2, ch = c.height / 2;
+    g.drawImage(c, s.x - cw / 2, s.y - ch + 1, cw, ch);                 // 가로 가운데, 발은 바닥 점 한 도트 위
   }
   // 말풍선 — 아이를 누르면 제 작품 수를 말한다
   const bubbleOf = { sua: null, yona: null }, bubbleTimer = {}, talkTurn = { sua: 0, yona: 0 };
@@ -653,7 +653,7 @@
   let visSeq = 0;
   let nextVisitorAt = 0;
   const visBuf = {};
-  // ⓒ 관람객 넷 — 모두 아이(28×38)와 같은 격자. 어른(모자·외투), 아이(작게), 할머니(쪽머리·긴 치마·지팡이), 강아지(네 발·꼬리)
+  // ⓒ 관람객 넷 — 모두 예전 아이 그림(28×38)과 같은 격자. 어른(모자·외투), 아이(작게), 할머니(쪽머리·긴 치마·지팡이), 강아지(네 발·꼬리)
   const VIS_ROWS = {
     adult: [
       '.........kkkkkkkkkk.........',
@@ -1009,7 +1009,7 @@
     drawNight(g);
     const fk = focusKey || hoverKey;
     if (fk){ const h = hits.find(x => hitKey(x) === fk); if (h && (h.w || h.tv)) drawPlaque(g, h); }   // 노란 테두리는 뺐다(2026-09-15) — 이름표만으로 어느 작품인지 충분하다
-    KIDS.forEach(k => { const b = bubbleOf[k], s = spots[k]; if (b && s) drawBubble(g, s.x, s.y - 42, b.text); });
+    KIDS.forEach(k => { const b = bubbleOf[k], s = spots[k]; if (b && s) drawBubble(g, s.x, s.y - KIDART[k].h - 4, b.text); });
     visitors.concat(guard ? [guard] : []).forEach(p => { if (!p.say) return; const t = tileXY(p.i, p.j); drawBubble(g, Math.round(t.x), Math.round(t.y) - charTop(p) - 4, p.say); });   // 관객·강아지·경비원의 말풍선
     if (editMode && !capturing){                                                            // ⓔ 편집 모드 — 칸마다 점선, 끌고 있는 액자는 손끝에
       SLOTS.forEach((s, n) => { const col = drag && drag.over === n ? '#ffd979' : 'rgba(255,217,121,.55)'; for (let d = 0; d < s.w + 8; d += 4) wallRect(g, s.side, s.u - 4 + d, s.v - 4, 2, 1, col); for (let d = 0; d < s.h + 8; d += 4) wallRect(g, s.side, s.u - 4, s.v - 4 + d, 1, 2, col); });
@@ -1036,7 +1036,7 @@
   function hitAt(e){
     const cv = cvOf(), rc = cv.getBoundingClientRect(); if (!rc.width) return null;
     const x = (e.clientX - rc.left) / rc.width * RW, y = (e.clientY - rc.top) / rc.height * RH;
-    for (const k of KIDS){ const s = walkerSpot(k); if (s && x >= s.x - 14 && x < s.x + 14 && y >= s.y - 40 && y < s.y + 3) return { kid: k, x0: s.x - 14, x1: s.x + 14, y0: s.y - 40, y1: s.y + 3 }; }
+    for (const k of KIDS){ const s = walkerSpot(k), hw = s && KIDART[k].w / 2, t = s && s.y - KIDART[k].h - 2; if (s && x >= s.x - hw && x < s.x + hw && y >= t && y < s.y + 3) return { kid: k, x0: s.x - hw, x1: s.x + hw, y0: t, y1: s.y + 3 }; }   // 그림 크기만큼
     const people = visitors.concat(guard ? [guard] : []).map(p => { const t = tileXY(p.i, p.j); return { p, x: Math.round(t.x), y: Math.round(t.y) }; }).sort((a, b) => b.y - a.y);   // 앞에 선 사람부터
     for (const o of people){ const top = o.y - charTop(o.p) - 1; if (x >= o.x - 14 && x < o.x + 14 && y >= top && y < o.y + 3) return { who: o.p, x0: o.x - 14, x1: o.x + 14, y0: top, y1: o.y + 3 }; }
     const area = h => (h.x1 - h.x0) * (h.y1 - h.y0);

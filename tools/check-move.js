@@ -48,4 +48,25 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   w3.farm = 2;
   assert(!R.fish(w3, m3, now, 'good', 'sea').ok, '산골에는 바다가 없다');
 }
+// 새 농장마다 처음 자리가 다르다 — 그 농장에 놓일 수 있는 것끼리, 밭·나무·바위·지도 끝과 안 겹쳐야 한다
+{
+  const I = R.__inner, hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  R.FARMS.forEach((f, i) => {
+    const wf = R.fixWorld(null, now); wf.farm = i;
+    const all = I.PLACE_IDS.filter(id => !(R.DECOR[id] && R.DECOR[id].farm && R.DECOR[id].farm !== f.id)).map(id => R.spotOf(wf, id));
+    const rocks = Object.keys(R.NODES).map(n => ({ id: n, x: R.NODES[n].x, y: R.NODES[n].y, w: 1, h: 1 }));
+    all.forEach((a, k) => {
+      assert(a.x >= 0 && a.y >= 0 && a.x + a.w <= R.GRID.w && a.y + a.h <= R.GRID.h, f.id + ' ' + a.id + ' 지도 밖');
+      if (!a.move) return;                                         // 집·가게는 원래 자리
+      assert(!hit(a, R.FIELD_BOX), f.id + ' ' + a.id + ' 밭과 겹침');
+      rocks.forEach(n => assert(!hit(a, n), f.id + ' ' + a.id + ' ' + n.id + '과 겹침'));
+      all.slice(k + 1).forEach(b => assert(!hit(a, b), f.id + ' ' + a.id + ' ' + b.id + '과 겹침'));
+      if (i) assert(!hit(a, { x: R.PEDDLER.x, y: R.PEDDLER.y, w: R.PEDDLER.w + 1, h: 1 }), f.id + ' ' + a.id + ' 떠돌이 상인 자리');
+    });
+  });
+  // 옮겼다가 처음 자리로 되돌리면 layout 에서 빠진다(그 농장의 처음 자리 기준)
+  const wm = R.fixWorld(null, now); wm.farm = 1; wm.decor.lighthouse = { by: 'sua' };
+  assert(R.moveThing(wm, sua, 'lighthouse', 19, 14).ok && wm.layout.lighthouse);
+  assert(R.moveThing(wm, sua, 'lighthouse', 19, 15).ok && !wm.layout.lighthouse, '바닷가 등대 처음 자리는 (19,15)');
+}
 console.log('이사 규칙 점검 통과');

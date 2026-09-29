@@ -97,7 +97,8 @@ buildChrome('life');
   }
 
   // ---------- 아바타 — 도트 그림(kid-art.js)에 장비를 얹어 한 장으로 굽는다 ----------
-  const MX = 8, MY = 8;                                                  // 장비가 삐져나갈 여백(도트)
+  // 장비 자리는 상수가 아니라 그림에서 구한다(2026-09-29 48도트 판) — 눈 네모·머리끝·발끝·손(살색 칸)·신발 글자
+  const MX = 8, MY = 10;                                                 // 장비가 삐져나갈 여백(도트) — 고깔모자 방울이 머리끝 위 9칸
   const avatarBuf = {};
   function avatar(k, st, frame, season, blink){
     const lv = s => st[s].lv, on = s => lv(s) >= GEAR_LV, leg = s => lv(s) >= LEGEND_LV;
@@ -105,35 +106,50 @@ buildChrome('life');
     const hat = isBirthday(k);
     const key = [k, frame, hat ? 'b' : '', season || '', blink ? 'z' : ''].concat(STATS.map(s => tier(lv(s.key)))).join('|');
     if (avatarBuf[key]) return avatarBuf[key];
-    const rows = KIDART[k].down[frame], pal = Object.assign({}, KIDPAL[k]), W = rows[0].length, H = rows.length;
-    if (on('body')){ pal.b = leg('body') ? '#ffd24d' : '#6cc7b3'; pal.B = leg('body') ? '#c9a24a' : '#3f9e8b'; }   // 전설: 황금 날개 운동화               // 🏃 민트 운동화
+    const A = KIDART[k], rows = A.down[frame], pal = Object.assign({}, KIDPAL[k]), W = rows[0].length, H = rows.length;
+    const E = A.eyes[frame], eL = E[0], eR = E[1], ey = eL[1];
+    const top = rows.findIndex(r => /[^.]/.test(r)), bot = H - 1 - rows.slice().reverse().findIndex(r => /[^.]/.test(r));   // 머리끝·발끝 줄
+    const cx = (eL[0] + eR[0] + eR[2]) / 2;                              // 얼굴 가운데 — 두 눈 사이(수아는 그림 칸의 가운데가 아니다)
+    const neck = ey + 6, skinCh = rows[ey + eL[3]][eL[0]];               // 목 = 눈 여섯 줄 아래 · 살색 = 눈 바로 아래 칸
+    const find = test => { let n = 0, sx = 0, sy = 0; for (let r = 0; r < H; r++) for (let x = 0; x < W; x++) if (rows[r][x] !== '.' && test(rows[r][x], x, r)){ n++; sx += x; sy += r; } return n ? [Math.round(sx / n), Math.round(sy / n)] : null; };
+    const hL = find((ch, x, r) => ch === skinCh && r > neck + 7 && r < bot - 5 && x < cx - 5) || [eL[0] - 5, neck + 11];   // 손 = 몸 옆 살색 칸(다리는 가운데라 빠진다)
+    const hR = find((ch, x, r) => ch === skinCh && r > neck + 7 && r < bot - 5 && x > cx + 4) || [eR[0] + 7, neck + 11];
+    const shoeBox = left => { let x0 = W, x1 = -1, y0 = H; for (let r = 0; r < H; r++) for (let x = 0; x < W; x++) if (A.shoe.includes(rows[r][x]) && (x < cx) === left){ x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, r); } return [x0, y0, x1 - x0 + 1]; };
+    const sL = shoeBox(true), sR = shoeBox(false);
+    const earX = eR[0] + eR[2] + 4, earY = ey + 1;                       // 오른쪽 귀(머리카락 틈으로 보이는 살색)
+    const micX = hL[0] - 1, micY = hL[1] - 6, penX = earX - 3, penY = earY + 3, medY = neck + 6, heartX = Math.round(cx) + 4, heartY = neck + 5;
+    if (on('body')) A.shoe.forEach((ch, i) => { pal[ch] = leg('body') ? (i ? '#c9a24a' : '#ffd24d') : (i ? '#3f9e8b' : '#6cc7b3'); });   // 전설: 황금 날개 운동화   // 🏃 민트 운동화
     const c = document.createElement('canvas'); c.width = W + MX * 2; c.height = H + MY * 2;
+    c.feet = MY + bot + 1; c.tall = bot + 1 - top;                       // 발바닥이 닿는 캔버스 줄 · 머리끝~발끝 줄 수(= 실제 키)
+    c.shine = { art: [cx - 12, top - 2], stage: [micX - 3, micY - 2], write: [penX + 6, penY - 7], body: [sL[0] - 4, sL[1]], heart: [heartX + 4, heartY - 2], grit: [cx - 6, medY + 1] };   // Lv.5 넘은 장비 옆의 반짝임 자리(도트 좌표)
     const g = c.getContext('2d');
     const dot = (x, y, col, w, h) => { g.fillStyle = col; g.fillRect(MX + x, MY + y, w || 1, h || 1); };
-    let eyeRow = -1; if (blink) rows.forEach((row, r) => { if (row.indexOf('e') >= 0) eyeRow = r; });   // 깜빡임: 눈 자리를 살색으로 덮고 맨 아랫줄만 먹선으로
-    const paint = (ox, oy, one) => { for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){ const ch = rows[r][x]; if (ch !== '.') dot(x + ox, r + oy, one || (blink && (ch === 'e' || ch === 'w') ? (r === eyeRow ? pal.e : pal.f) : pal[ch]) || '#000'); } };
+    const paint = (ox, oy, one) => { for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){ const ch = rows[r][x]; if (ch !== '.') dot(x + ox, r + oy, one || pal[ch] || '#000'); } };
     [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(o => paint(o[0], o[1], 'rgba(36,28,20,.78)'));
     paint(0, 0);
-    const top = rows.findIndex(r => /[^.]/.test(r));                     // 걸음 둘째 장은 두 도트 내려앉는다
-    if (on('body')){ dot(9, H - 3, '#fff', 3, 1); dot(16, H - 3, '#fff', 3, 1); if (leg('body')){ dot(5, H - 5, INK, 3, 3); dot(5, H - 5, '#fff', 2, 2); dot(20, H - 5, INK, 3, 3); dot(21, H - 5, '#fff', 2, 2); } }
-    if (on('art')){                                                      // 🎨 베레모 + 붓
+    if (blink) E.forEach(e => {                                          // 깜빡임: 눈 네모를 살색으로 덮고 맨 아랫줄만 먹선(그 네모 안 가장 어두운 색)으로
+      let ink = '#000', best = 1e9;
+      for (let r = e[1]; r < e[1] + e[3]; r++) for (let x = e[0]; x < e[0] + e[2]; x++){ const h = pal[rows[r][x]] || ''; const v = parseInt(h.slice(1, 3), 16) + parseInt(h.slice(3, 5), 16) + parseInt(h.slice(5, 7), 16); if (v < best){ best = v; ink = h; } }
+      dot(e[0], e[1], pal[skinCh], e[2], e[3] - 1); dot(e[0], e[1] + e[3] - 1, ink, e[2], 1);
+    });
+    if (on('body')){ dot(sL[0] + 1, sL[1] + 1, '#fff', 3, 1); dot(sR[0] + sR[2] - 4, sR[1] + 1, '#fff', 3, 1); if (leg('body')){ dot(sL[0] - 3, sL[1], INK, 3, 3); dot(sL[0] - 3, sL[1], '#fff', 2, 2); dot(sR[0] + sR[2], sR[1], INK, 3, 3); dot(sR[0] + sR[2] + 1, sR[1], '#fff', 2, 2); } }   // 발등 흰 줄 · 전설: 신발 바깥 날개
+    if (on('art')){                                                      // 🎨 베레모(머리끝) + 붓(오른손)
       const b1 = leg('art') ? '#ffd24d' : lv('art') >= SHINE_LV ? '#c03a4b' : '#d9534f', b2 = leg('art') ? '#c9a24a' : '#8f2a35';   // 전설: 황금 베레모
-      dot(7, top - 1, INK, 14, 1); dot(6, top, INK, 16, 3); dot(7, top, b1, 14, 2); dot(8, top - 1, b1, 12, 1); dot(7, top + 2, b2, 14, 1); dot(13, top - 3, INK, 2, 2); dot(13, top - 2, b1, 1, 1);
-      dot(23, top + 20, INK, 3, 11); dot(24, top + 23, '#a0522d', 1, 7); dot(23, top + 19, INK, 3, 1); dot(24, top + 20, '#ffd979', 1, 3);
+      const bx = Math.round(cx) - 10;
+      dot(bx + 1, top - 1, INK, 18, 1); dot(bx, top, INK, 20, 3); dot(bx + 1, top, b1, 18, 2); dot(bx + 2, top - 1, b1, 16, 1); dot(bx + 1, top + 2, b2, 18, 1); dot(bx + 9, top - 3, INK, 2, 2); dot(bx + 9, top - 2, b1, 1, 1);
+      dot(hR[0] - 1, hR[1] - 7, INK, 3, 12); dot(hR[0], hR[1] - 6, '#ffd979', 1, 3); dot(hR[0], hR[1] - 3, '#a0522d', 1, 7);
     }
-    if (on('write')){ for (let i = 0; i < 5; i++){ dot(22 + Math.floor(i / 2), top + 12 - i, INK, 3, 1); dot(23 + Math.floor(i / 2), top + 12 - i, leg('write') ? (i === 0 ? '#2f2a24' : '#fff') : i === 4 ? '#ff7f8a' : '#ffd24d', 1, 1); } if (leg('write')){ dot(25, top + 6, INK, 3, 3); dot(26, top + 6, '#8ec9ee', 2, 2); } }   // 전설: 깃펜   // ✍️ 귀에 꽂은 연필
-    if (on('stage')){ dot(2, top + 21, INK, 5, 5); dot(3, top + 22, leg('stage') ? '#ffd24d' : '#8d8d9b', 3, 3); dot(3, top + 22, leg('stage') ? '#fff3ae' : '#d8d8e2', 1, 1); dot(3, top + 26, INK, 3, 5); dot(4, top + 26, '#4a4458', 1, 4); }   // 🎹 마이크
-    if (season === 'winter'){ dot(6, top + 19, INK, 16, 4); dot(7, top + 20, '#d9453b', 14, 2); dot(9, top + 20, '#fff', 2, 2); dot(15, top + 20, '#fff', 2, 2); dot(7, top + 22, INK, 4, 5); dot(8, top + 22, '#d9453b', 2, 4); dot(8, top + 25, '#fff', 2, 1); }   // 🧣 목도리(메달·배지보다 먼저 — 그 위에 얹힌다)
-    if (season === 'summer'){ dot(7, top + 12, INK, 14, 5); dot(8, top + 13, '#2a2a3c', 5, 3); dot(15, top + 13, '#2a2a3c', 5, 3); dot(13, top + 13, '#fbdcc4', 2, 1); dot(9, top + 13, '#7f8cff', 2, 1); dot(16, top + 13, '#7f8cff', 2, 1); }   // 😎 선글라스
-    if (season === 'spring'){ dot(3, top + 7, '#ff9fb0', 2, 2); dot(6, top + 7, '#ff9fb0', 2, 2); dot(4, top + 5, '#ff9fb0', 3, 2); dot(4, top + 9, '#ff9fb0', 3, 2); dot(5, top + 7, '#ffd24d', 1, 2); }   // 🌸 꽃핀
-    if (season === 'autumn'){ dot(19, top + 3, '#e8672a', 5, 3); dot(20, top + 2, '#e8672a', 3, 1); dot(20, top + 6, '#e8672a', 3, 1); dot(21, top + 7, '#8a5a34', 1, 2); dot(21, top + 4, '#ffb36b', 1, 1); }   // 🍁 단풍잎
-    if (on('grit')){ dot(11, top + 21, '#5b7fbf', 1, 3); dot(16, top + 21, '#5b7fbf', 1, 3); dot(12, top + 24, INK, 4, 4); dot(12, top + 24, '#ffd24d', 3, 3); dot(13, top + 25, '#fff3ae', 1, 1); if (leg('grit')){ dot(11, top + 23, INK, 6, 6); dot(12, top + 24, '#ffd24d', 4, 4); dot(13, top + 25, '#ff7f8a', 2, 2); } }   // 전설: 큰 메달에 붉은 보석   // 🏆 금메달
-    if (on('heart')){ dot(17, top + 25, '#ff5d7a', 1, 1); dot(19, top + 25, '#ff5d7a', 1, 1); dot(17, top + 26, '#ff5d7a', 3, 1); dot(18, top + 27, '#ff5d7a', 1, 1); if (leg('heart')){ dot(16, top + 24, '#ffd24d', 1, 1); dot(20, top + 24, '#ffd24d', 1, 1); dot(18, top + 28, '#ffd24d', 1, 1); } }   // 전설: 금빛 테   // 💗 하트 배지
-    if (hat){ for (let i = 0; i < 7; i++){ dot(13 - Math.floor(i / 2) - (i > 4 ? 1 : 0), top - 7 + i, INK, 2 + i + (i > 4 ? 2 : 0), 1); dot(14 - Math.floor(i / 2) - (i > 4 ? 1 : 0), top - 7 + i, i % 2 ? '#ffd979' : '#ff7f8a', Math.max(1, i + (i > 4 ? 2 : 0)), 1); } dot(13, top - 9, '#6cc7b3', 2, 2); }   // 🎂 고깔모자
+    if (on('write')){ for (let i = 0; i < 5; i++){ dot(penX + Math.floor(i / 2), penY - i, INK, 3, 1); dot(penX + 1 + Math.floor(i / 2), penY - i, leg('write') ? (i === 0 ? '#2f2a24' : '#fff') : i === 4 ? '#ff7f8a' : '#ffd24d', 1, 1); } if (leg('write')){ dot(penX + 3, penY - 6, INK, 3, 3); dot(penX + 4, penY - 6, '#8ec9ee', 2, 2); } }   // 전설: 깃펜   // ✍️ 오른쪽 귀에 꽂은 연필
+    if (on('stage')){ dot(micX - 1, micY, INK, 5, 5); dot(micX, micY + 1, leg('stage') ? '#ffd24d' : '#8d8d9b', 3, 3); dot(micX, micY + 1, leg('stage') ? '#fff3ae' : '#d8d8e2', 1, 1); dot(micX, micY + 5, INK, 3, 5); dot(micX + 1, micY + 5, '#4a4458', 1, 4); }   // 🎹 왼손에 쥔 마이크
+    if (season === 'winter'){ const x = Math.round(cx) - 9; dot(x, neck, INK, 18, 4); dot(x + 1, neck + 1, '#d9453b', 16, 2); dot(x + 3, neck + 1, '#fff', 2, 2); dot(x + 12, neck + 1, '#fff', 2, 2); dot(x + 2, neck + 3, INK, 4, 6); dot(x + 3, neck + 3, '#d9453b', 2, 5); dot(x + 3, neck + 7, '#fff', 2, 1); }   // 🧣 목에 두른 목도리(메달·배지보다 먼저 — 그 위에 얹힌다)
+    if (season === 'summer'){ dot(eL[0] - 3, ey - 1, INK, eR[0] + eR[2] + 6 - eL[0], eL[3] + 2); dot(eL[0] - 2, ey, '#2a2a3c', eL[2] + 4, eL[3]); dot(eR[0] - 2, ey, '#2a2a3c', eR[2] + 4, eR[3]); dot(eL[0] + eL[2] + 2, ey, pal[skinCh], eR[0] - eL[0] - eL[2] - 4, 1); dot(eL[0] - 1, ey, '#7f8cff', 2, 1); dot(eR[0] - 1, ey, '#7f8cff', 2, 1); }   // 😎 두 눈을 덮는 선글라스
+    if (season === 'spring'){ const x = eL[0] - 5, y = ey - 7; dot(x - 1, y + 2, '#ff9fb0', 2, 2); dot(x + 2, y + 2, '#ff9fb0', 2, 2); dot(x, y, '#ff9fb0', 3, 2); dot(x, y + 4, '#ff9fb0', 3, 2); dot(x + 1, y + 2, '#ffd24d', 1, 2); }   // 🌸 왼쪽 머리의 꽃핀
+    if (season === 'autumn'){ const x = eR[0] + 1, y = top + 3; dot(x, y + 1, '#e8672a', 5, 3); dot(x + 1, y, '#e8672a', 3, 1); dot(x + 1, y + 4, '#e8672a', 3, 1); dot(x + 2, y + 5, '#8a5a34', 1, 2); dot(x + 2, y + 2, '#ffb36b', 1, 1); }   // 🍁 오른쪽 정수리의 단풍잎
+    if (on('grit')){ const x = Math.round(cx); dot(x - 3, neck + 2, '#5b7fbf', 1, 4); dot(x + 2, neck + 2, '#5b7fbf', 1, 4); dot(x - 2, medY, INK, 4, 4); dot(x - 2, medY, '#ffd24d', 3, 3); dot(x - 1, medY + 1, '#fff3ae', 1, 1); if (leg('grit')){ dot(x - 3, medY - 1, INK, 6, 6); dot(x - 2, medY, '#ffd24d', 4, 4); dot(x - 1, medY + 1, '#ff7f8a', 2, 2); } }   // 전설: 큰 메달에 붉은 보석   // 🏆 목에 건 금메달(가슴 가운데)
+    if (on('heart')){ const x = heartX, y = heartY; dot(x, y, '#ff5d7a', 1, 1); dot(x + 2, y, '#ff5d7a', 1, 1); dot(x, y + 1, '#ff5d7a', 3, 1); dot(x + 1, y + 2, '#ff5d7a', 1, 1); if (leg('heart')){ dot(x - 1, y - 1, '#ffd24d', 1, 1); dot(x + 3, y - 1, '#ffd24d', 1, 1); dot(x + 1, y + 3, '#ffd24d', 1, 1); } }   // 전설: 금빛 테   // 💗 오른쪽 가슴의 하트 배지
+    if (hat){ const x = Math.round(cx); for (let i = 0; i < 7; i++){ dot(x - 1 - Math.floor(i / 2) - (i > 4 ? 1 : 0), top - 7 + i, INK, 2 + i + (i > 4 ? 2 : 0), 1); dot(x - Math.floor(i / 2) - (i > 4 ? 1 : 0), top - 7 + i, i % 2 ? '#ffd979' : '#ff7f8a', Math.max(1, i + (i > 4 ? 2 : 0)), 1); } dot(x - 1, top - 9, '#6cc7b3', 2, 2); }   // 🎂 머리끝의 고깔모자
     return (avatarBuf[key] = c);
   }
-  // Lv.5 넘은 장비 옆의 반짝임 자리(도트 좌표)
-  const SHINE_AT = { art: [4, -2], stage: [0, 18], write: [27, 5], body: [3, 35], heart: [22, 23], grit: [9, 27] };
 
   // ---------- 무대 ----------
   let bgCv = null, bgFam = null;
@@ -357,15 +373,15 @@ buildChrome('life');
       const bob = !STILL && !replay && (frameN + (k === 'sua' ? 0 : 2)) % 8 < 1 ? 1 : 0;
       const blink = !STILL && !replay && seasonOf(at) !== 'summer' && (frameN + (k === 'sua' ? 5 : 11)) % 15 === 0;   // 선글라스를 쓴 여름엔 눈이 안 보인다
       const hopY = hop && hop.k === k ? -Math.round(Math.abs(Math.sin((now() - hop.t0) / HOP_MS * Math.PI * 2)) * 7 * (1 - (now() - hop.t0) / HOP_MS)) : 0;
-      const img = avatar(k, st, 0, seasonOf(at), blink), rows = KIDART[k].down[0], u = cm * PX_PER_CM / rows.length;   // 도트 한 칸의 화면 크기 — 머리끝~발끝이 실제 키
+      const img = avatar(k, st, 0, seasonOf(at), blink), u = cm * PX_PER_CM / img.tall;   // 도트 한 칸의 화면 크기 — 머리끝~발끝(위아래 빈 줄 뺀)이 실제 키
       if (k === sel){ const hh = cm * PX_PER_CM, gl = g.createRadialGradient(x, FLOOR - hh * 0.5, 30, x, FLOOR - hh * 0.5, hh * 0.85); gl.addColorStop(0, 'rgba(255,240,180,.75)'); gl.addColorStop(1, 'rgba(255,240,180,0)'); g.fillStyle = gl; g.fillRect(x - 170, FLOOR - hh - 60, 340, hh + 60); }   // 뒤에서 비추는 따뜻한 빛
       if (k === sel){ g.fillStyle = 'rgba(255,217,121,.95)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 66, 12, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,243,196,.9)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 46, 8, 0, 0, Math.PI * 2); g.fill(); }
       g.fillStyle = 'rgba(47,42,36,.22)'; g.beginPath(); g.ellipse(x, FLOOR + 5, 34, 5, 0, 0, Math.PI * 2); g.fill();
-      const w = img.width * u, h = img.height * u, x0 = Math.round(x - w / 2), y0 = Math.round(FLOOR + 4 - (rows.length + MY) * u + bob + hopY);
+      const w = img.width * u, h = img.height * u, x0 = Math.round(x - w / 2), y0 = Math.round(FLOOR + 4 - img.feet * u + bob + hopY);
       g.drawImage(img, x0, y0, Math.round(w), Math.round(h));
       if (!STILL) STATS.forEach(s => {                                   // ✦ 반짝임
         if (st[s.key].lv < SHINE_LV || (frameN + s.key.length) % 6 > 2) return;
-        const p = SHINE_AT[s.key], sx = Math.round(x0 + (MX + p[0]) * u), sy = Math.round(y0 + (MY + p[1]) * u);
+        const p = img.shine[s.key], sx = Math.round(x0 + (MX + p[0]) * u), sy = Math.round(y0 + (MY + p[1]) * u);
         g.fillStyle = '#fff6c4'; g.fillRect(sx - 3, sy, 7, 1); g.fillRect(sx, sy - 3, 1, 7); g.fillStyle = '#fff'; g.fillRect(sx - 1, sy - 1, 3, 3);
       });
       // 이름표
@@ -545,7 +561,7 @@ buildChrome('life');
     g.fillStyle = INK; g.fillRect(0, 0, W, H); g.fillStyle = '#fff6e9'; g.fillRect(8, 8, W - 16, H - 16); g.fillStyle = KID_COLOR[k]; g.fillRect(8, 8, W - 16, 64); g.fillStyle = INK; g.fillRect(8, 72, W - 16, 4);
     g.textBaseline = 'top'; g.textAlign = 'left'; g.font = '800 26px ' + FONT; g.fillText(d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월의 ' + KID_NAME[k], 28, 26);
     g.fillStyle = '#f6e9d2'; g.fillRect(28, 96, 230, 300); g.fillStyle = '#c99a62'; g.fillRect(28, 366, 230, 30); g.strokeStyle = INK; g.lineWidth = 4; g.strokeRect(28, 96, 230, 300);
-    const img = avatar(k, st, 0, seasonOf(at)), u = 5, aw = img.width * u; g.drawImage(img, Math.round(143 - aw / 2), Math.round(378 - (img.height - MY) * u), Math.round(aw), Math.round(img.height * u));
+    const img = avatar(k, st, 0, seasonOf(at)), u = 4, aw = img.width * u; g.drawImage(img, Math.round(143 - aw / 2), Math.round(378 - img.feet * u), Math.round(aw), Math.round(img.height * u));
     g.fillStyle = INK; g.font = '800 20px ' + FONT; g.fillText(jobOf(st).icons + ' ' + jobOf(st).name, 280, 100);
     g.font = '700 16px ' + FONT; g.fillStyle = '#6f6558'; g.fillText('「' + nickOf(st) + '」' + (heights[k].length ? ' · 키 ' + Math.round(heightAt(k, at) * 10) / 10 + 'cm' : ''), 278, 132);
     g.fillStyle = INK; g.font = '800 34px ' + FONT; g.fillText('경험치 +' + xp, 280, 176);
@@ -705,7 +721,7 @@ buildChrome('life');
     g.textBaseline = 'top'; g.textAlign = 'left'; g.font = '800 26px ' + FONT; g.fillText('수아연아', 28, 26);
     g.textAlign = 'right'; g.font = '700 15px ' + FONT; const d = new Date(); g.fillText(d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'), W - 28, 34);
     g.fillStyle = '#f6e9d2'; g.fillRect(28, 96, 300, 380); g.fillStyle = '#c99a62'; g.fillRect(28, 436, 300, 40); g.strokeStyle = INK; g.lineWidth = 4; g.strokeRect(28, 96, 300, 380);
-    const img = avatar(k, st, 0, seasonOf(now())), u = 6.6, aw = img.width * u, ah = img.height * u; g.drawImage(img, Math.round(178 - aw / 2), Math.round(452 - (img.height - MY) * u), Math.round(aw), Math.round(ah));
+    const img = avatar(k, st, 0, seasonOf(now())), u = 5.2, aw = img.width * u, ah = img.height * u; g.drawImage(img, Math.round(178 - aw / 2), Math.round(452 - img.feet * u), Math.round(aw), Math.round(ah));
     g.fillStyle = INK; g.textAlign = 'left'; g.font = '800 40px ' + FONT; g.fillText(KID_NAME[k], 352, 104);
     g.font = '700 18px ' + FONT; g.fillStyle = '#6f6558'; g.fillText('「' + nickOf(st) + '」', 348, 186); g.fillStyle = INK; g.font = '800 19px ' + FONT; g.fillText(jobOf(st).icons + ' ' + jobOf(st).name, 350, 156);
     // 능력치 모양(육각형)

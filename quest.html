@@ -22,7 +22,7 @@
   .gate .why{font-size:13.5px; line-height:1.85; color:var(--ink-soft); margin-bottom:20px;}
   .heroes{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px; text-align:left;}
   .hero-card{padding:14px; display:flex; gap:12px; align-items:center;}
-  .hero-card canvas{width:42px; height:40px; image-rendering:pixelated; flex:none;}
+  .hero-card canvas{height:48px; width:auto; image-rendering:pixelated; flex:none;}
   .hero-card .nm{font-weight:800; font-size:15px;}
   .hero-card .lv{font-size:12px; color:var(--ink-soft); line-height:1.7;}
   @media (max-width:520px){ .heroes{grid-template-columns:1fr;} }
@@ -33,7 +33,7 @@
   .q-col{display:flex; flex-direction:column; gap:14px;}
   .q-card h3{margin:0 0 10px; font-size:13px; letter-spacing:.04em;}
   .q-head{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
-  .q-head canvas{width:42px; height:40px; image-rendering:pixelated;}
+  .q-head canvas{height:48px; width:auto; image-rendering:pixelated;}
   .q-head .nm{font-weight:800; font-size:17px;}
   .q-head .lv{font-size:12px; color:var(--ink-soft);}
   .badge{
@@ -417,7 +417,7 @@
       <div class="q-grid">
         <div class="dot-card q-card reveal">
           <div class="q-head">
-            <canvas id="heroFace" width="42" height="40"></canvas>
+            <canvas id="heroFace" width="31" height="48"></canvas>
             <div>
               <div class="nm" id="heroName"></div>
               <div class="lv" id="heroLv"></div>

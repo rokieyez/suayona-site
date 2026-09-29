@@ -189,7 +189,8 @@
     if (why) return fail(why);
     world.layout = world.layout || {};
     const P = PLACE[id];
-    if (x === P.x && y === P.y) delete world.layout[id]; else world.layout[id] = { x, y };
+    const home = spotOf(Object.assign({}, world, { layout: {} }), id);   // 농장마다 처음 자리가 다르다
+    if (x === home.x && y === home.y) delete world.layout[id]; else world.layout[id] = { x, y };
     return okay(eul(P.name) + ' 옮겼어요');
   }
   function resetLayout(world){ world.layout = {}; return okay('배치를 처음으로 되돌렸어요'); }

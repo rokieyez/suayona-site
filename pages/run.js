@@ -531,8 +531,9 @@
   }
 
   function playerBox(){
-    const sp = spriteOf();
-    return { x: PLAYER_X + 11, y: GY - sp.length - py + 3, w: sp[0].length - 22, h: sp.length - 3 };
+    // 양옆 머리칼은 빼고 몸통만 — 그림 폭의 1/4 씩 안으로(예전 42칸 그림에서 11칸)
+    const sp = spriteOf(), inset = Math.round(sp[0].length / 4);
+    return { x: PLAYER_X + inset, y: GY - sp.length - py + 3, w: sp[0].length - inset * 2, h: sp.length - 3 };
   }
   function hitBox(o){
     const sp = SPRITES[o.sp], w = sp[0].length * o.s, h = sp.length * o.s;

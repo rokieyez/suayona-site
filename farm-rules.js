@@ -351,7 +351,7 @@ const FARM = (() => {
     bench:      { name: '나무 벤치', w: 2, h: 1, x: 8, y: 15, kind: 'decor',  move: true },
     swing:      { name: '그네',     w: 2, h: 2, x: 4,  y: 14, kind: 'decor',  move: true },
     arch:       { name: '장미 아치', w: 2, h: 1, x: 18, y: 7, kind: 'decor',  move: true },
-    sandbox:    { name: '모래놀이터', w: 2, h: 2, x: 0, y: 10, kind: 'decor',  move: true },
+    sandbox:    { name: '모래놀이터', w: 2, h: 2, x: 13, y: 0, kind: 'decor',  move: true },   // (0,10) 은 나무(1,10)를 덮었다 — 점검이 잡음. 아랫줄은 앞 수풀에 가려 위 빈터로
     firepit:    { name: '모닥불',   w: 1, h: 1, x: 11, y: 13, kind: 'decor',  move: true },
     sign:       { name: '농장 팻말', w: 1, h: 1, x: 6,  y: 0,  kind: 'decor',  move: true },
     clothesline:{ name: '빨랫줄',   w: 2, h: 1, x: 8,  y: 14, kind: 'decor',  move: true },   // 연못이 커지며 처음 자리를 비켜 줬다
@@ -368,9 +368,19 @@ const FARM = (() => {
     skybridge:  { name: '무지개 다리', w: 2, h: 1, x: 16, y: 15, kind: 'decor',  move: true },
   };
   const PLACE_IDS = Object.keys(PLACE);
+  /* 새 농장은 처음 자리부터 다르다(2026-09-28 로키즈 「이전 농장과 완전히 다른 느낌」). 여기 없는 것은 PLACE 의 자리.
+     집·가게·밭·나무와 바위(NODES)는 그대로라 길찾기와 저장은 안 바뀐다. 겹침은 tools/check-move.js 가 본다.
+     바닷가: 우리는 왼쪽 목장 곁, 앞 가장자리에 널빤지 길과 끝에 등대 · 산골: 목장이 집 밑 비탈, 폭포가 연못으로 · 꽃구름: 집 앞은 연못, 꽃길이 밭 앞을 가로지르고 목장은 앞쪽
+     집 바로 앞(0..5, 3..5)에 키 큰 건물을 두면 문 앞 아이들을 가린다 — 낮은 것만 둘 것. */
+  const FARM_SPOT = {
+    seaside: { coop: [0, 3], pethouse: [2, 3], well: [4, 4], hive: [5, 3], pasture: [0, 5], greenhouse: [16, 2], barn: [16, 5], scarecrow: [15, 8], pond: [12, 11], lighthouse: [19, 15], palm: [18, 12], path: [10, 15], sandbox: [16, 12], swing: [12, 8], bench: [6, 15], wagon: [8, 15], clothesline: [0, 14], flowerbed: [6, 8], windmill: [0, 11], fountain: [8, 8], statue: [14, 0], lantern: [11, 9], arch: [10, 14], firepit: [17, 10], sign: [4, 2], birdhouse: [7, 0], flag: [19, 9] },
+    mountain: { pasture: [0, 3], barn: [16, 4], coop: [18, 2], pethouse: [16, 2], well: [4, 8], hive: [0, 8], greenhouse: [12, 12], scarecrow: [10, 8], pond: [16, 11], waterfall: [18, 9], cairn: [19, 15], path: [0, 15], fountain: [13, 9], statue: [19, 7], lantern: [15, 9], bench: [8, 15], swing: [2, 11], arch: [12, 8], sandbox: [0, 12], firepit: [16, 14], sign: [5, 1], clothesline: [4, 14], flowerbed: [6, 8], birdhouse: [8, 0], flag: [15, 0], wagon: [10, 15], windmill: [12, 0] },
+    cloud: { pasture: [12, 10], barn: [16, 3], coop: [4, 3], pethouse: [4, 5], well: [5, 5], hive: [5, 6], greenhouse: [0, 6], scarecrow: [17, 7], pond: [0, 3], balloon: [18, 9], skybridge: [18, 15], path: [6, 8], fountain: [9, 0], statue: [12, 0], lantern: [14, 8], bench: [0, 15], swing: [18, 11], arch: [4, 9], sandbox: [0, 12], firepit: [10, 15], sign: [6, 1], clothesline: [2, 15], flowerbed: [12, 15], birdhouse: [19, 5], flag: [7, 0], wagon: [6, 15], windmill: [18, 13] },
+  };
   function spotOf(world, id){
     const P = PLACE[id]; if (!P) return null;
-    const L = (world && world.layout && world.layout[id]) || null;
+    const home = (FARM_SPOT[farmOf(world).id] || {})[id];
+    const L = (world && world.layout && world.layout[id]) || (home && { x: home[0], y: home[1] }) || null;
     return { id, x: L ? L.x : P.x, y: L ? L.y : P.y, w: P.w, h: P.h, move: P.move, name: P.name };
   }
   // 지금 농장에 실제로 있는 것들만. 안 지은 건물 자리는 비어 있는 것으로 친다.

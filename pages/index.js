@@ -1552,6 +1552,152 @@ const belowFold = (() => {
     });
   }
 
+  // ---- 수아·연아 산책 ----
+  // 첫 그림은 지금처럼 SPRITES 의 정면 서기. 페이지가 다 뜬 뒤 kid-art.js(여덟 방향 × 서기·걷기, 150KB)를 늦게 받아 오고,
+  // 받으면 마을 광장·길을 돌아다닌다. 못 받거나(404·옛 village.js) 움직임을 줄인 설정이면 예전처럼 제자리에서 튄다.
+  // 자리는 마을 칸(tx, ty)으로 들고 있어서 화면 크기가 바뀌어도 그대로다.
+  const KIDS = { sua: { name: '수아' }, yona: { name: '연아', rider: '레샤' } };
+  const KID_SPEED = 13;                                  // 화면에서 초당 몇 도트 — 마을 크기에 비해 느긋하게
+  let kidArt = null, walkGrid = null, walkT = 0;
+  function loadKidArt(){
+    if (reduce) return;                                  // 돌아다니지 않으니 받을 까닭도 없다
+    const el = document.createElement('script');
+    el.src = '/pages/kid-art.js';
+    el.onload = () => {
+      // 그림이 온전할 때만 쓴다 — 여덟 방향마다 서기+걷기 다섯 장
+      const A = window.KIDART, full = k => A && A[k] && A[k].dirs && ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'].every(d => A[k].dirs[d] && A[k].dirs[d].length >= 5);
+      if (full('sua') && full('yona') && typeof window.KIDSTEP === 'function') kidArt = A;
+    };
+    el.onerror = () => { /* 못 받으면 예전처럼 제자리에서 튄다 */ };
+    document.head.appendChild(el);
+  }
+  const laterKidArt = () => { if (window.requestIdleCallback) requestIdleCallback(loadKidArt, { timeout: 4000 }); else setTimeout(loadKidArt, 1500); };
+  if (document.readyState === 'complete') laterKidArt(); else window.addEventListener('load', laterKidArt);
+
+  // 아이 몸의 줄마다 반폭(마을 도트) — 두 아이의 여덟 방향·다섯 장을 다 겹친 실루엣에 연아 머리 위 레샤까지.
+  // 마을이 이 모양으로 「밟지 않고, 앞 물건에 반 넘게 가리지 않는」 칸을 골라 준다(VG.walkable).
+  function kidProfile(castS){
+    const half = [];
+    ['sua', 'yona'].forEach(k => Object.keys(kidArt[k].dirs).forEach(d => kidArt[k].dirs[d].forEach(rows => rows.forEach((line, y) => {
+      const b = rows.length - 1 - y;
+      for (let x = 0; x < line.length; x++) if (line[x] !== '.') half[b] = Math.max(half[b] || 0, Math.abs(x + 0.5 - line.length / 2) + 0.5);
+    }))));
+    const rs = Math.max(1, Math.round(castS * 0.85)), kidH = half.length * castS, len = kidH + 11 * rs, prof = [];
+    for (let k = 0; k * HS < len; k++){ const p = k * HS; prof.push((p < kidH ? (half[Math.floor(p / castS)] || 0) * castS : 9 * rs) / HS); }
+    return prof;
+  }
+  // 걸어도 되는 칸 — 마을을 새로 그리거나 배율이 바뀔 때만 다시 잰다(30ms 안팎)
+  function kidGrid(castS){
+    if (walkGrid && walkGrid.vg === VG && walkGrid.s === castS) return walkGrid.ok ? walkGrid : null;
+    walkGrid = { vg: VG, s: castS, ok: null, cells: [] };
+    if (!VG.walkable || !VG.coverRuns) return null;      // 배포 직후 옛 village.js 와 짝이 된 창 — 제자리에 선다
+    const r = castS / HS, avoid = [];
+    // 상그렐라가 평소 구르는 띠, 이젤, 광장 고양이, 오늘의 숨은 친구, 집 이름표(HTML 이라 늘 아이 위에 뜬다)는 비켜 선다.
+    // foot 이 있는 것은 아이가 그 뒤에 설 때만 피한다 — 앞에 서면 아이가 덮는 게 맞다
+    const ch = VG.chars.chick, amp = Math.min(SPRITES.chick[0].length * castS * 1.6, HS * 18) / HS, chw = SPRITES.chick[0].length * r / 2;
+    avoid.push({ x0: ch.x - amp - chw - 2, x1: ch.x + amp + chw + 2, y0: ch.y - SPRITES.chick.length * r - 2, y1: ch.y + 2 });
+    const ez = VG.chars.easel;
+    avoid.push({ x0: ez.x - SPRITES.easel[0].length * r / 2 - 2, x1: ez.x + SPRITES.easel[0].length * r / 2 + 2, y0: ez.y - SPRITES.easel.length * r - 2, y1: ez.y + 2 });
+    if (VG.cat) { const p = VG.dotAt(VG.cat.tx, VG.cat.ty); avoid.push({ x0: p.x - 10, x1: p.x + 10, y0: p.y - 12, y1: p.y + 2, foot: p.y }); }
+    const ss = Math.max(1, Math.round(HS)) / HS;
+    secrets.forEach(sec => {
+      const p = VG.secrets[sec.spot] || VG.secrets[0], hw = sec.sp[0].length * ss / 2 + 4;
+      avoid.push({ x0: p.x - hw, x1: p.x + hw, y0: p.y - sec.sp.length * ss - 4, y1: p.y + 2, foot: p.y });
+    });
+    VG.labels.forEach(l => { const hw = (l.text.length * 15 + 34) / 2 / HS; avoid.push({ x0: l.x - hw, x1: l.x + hw, y0: l.y - 36 / HS, y1: l.y + 14 / HS }); });
+    const g = VG.walkable(kidProfile(castS), avoid, 0.3);
+    if (!g.cells.length) return null;
+    walkGrid.ok = g.ok; walkGrid.cells = g.cells;
+    return walkGrid;
+  }
+  // 두 아이가 화면에서 겹치는가 — 발 사이가 몸 폭·키보다 가까우면 겹친다
+  function kidsClash(ax, ay, bx, by, r){
+    return Math.abs((ax - ay) - (bx - by)) * 24 < 32 * r && Math.abs((ax + ay) - (bx + by)) * 12 < 52 * r;
+  }
+  function kidPathOk(g, me, gx2, gy2, other, r){
+    const d = Math.hypot(gx2 - me.tx, gy2 - me.ty), n = Math.ceil(d / 0.05);   // 격자(0.1칸)의 반 간격 — 모서리를 스치지 않게
+    for (let i = 1; i <= n; i++){
+      const x = me.tx + (gx2 - me.tx) * i / n, y = me.ty + (gy2 - me.ty) * i / n;
+      if (!g.ok(x, y) || kidsClash(x, y, other.tx, other.ty, r)) return false;
+    }
+    return true;
+  }
+  // 다음에 갈 곳 — 한 번에 짧게(0.6~2.2칸). 선 자리가 걸을 땅 밖이면(처음·화면 크기가 바뀐 뒤) 가장 가까운 칸으로
+  function kidGoal(g, me, other, r){
+    const free = c => !kidsClash(c[0], c[1], other.tx, other.ty, r) && !(other.goal && kidsClash(c[0], c[1], other.goal[0], other.goal[1], r));
+    if (!g.ok(me.tx, me.ty)) {
+      let best = null, bd = 1e9;
+      g.cells.forEach(c => { const d = Math.hypot(c[0] - me.tx, c[1] - me.ty); if (d < bd && free(c)) { bd = d; best = c; } });
+      return best;
+    }
+    for (let n = 0; n < 24; n++){
+      const c = g.cells[Math.floor(Math.random() * g.cells.length)], d = Math.hypot(c[0] - me.tx, c[1] - me.ty);
+      if (d >= 0.6 && d <= 2.2 && free(c) && kidPathOk(g, me, c[0], c[1], other, r)) return c;
+    }
+    return null;
+  }
+  // 한 장만큼 걷는다 — 애니메이션 루프가 부르는 draw 안에서
+  function stepKids(castS){
+    const now = performance.now(), dt = Math.min(0.05, Math.max(0, (now - walkT) / 1000));   // 숨었던 탭에서 돌아와도 한 번에 순간이동하지 않게 자른다
+    walkT = now;
+    if (!kidArt || reduce || !VG) return false;
+    const g = kidGrid(castS);
+    if (!g) return false;
+    const r = castS / HS;
+    ['sua', 'yona'].forEach((k, n) => {
+      const me = KIDS[k], other = KIDS[n ? 'sua' : 'yona'];
+      if (me.tx == null) {
+        const w0 = VG.worldAt(VG.chars[k].x, VG.chars[k].y);
+        Object.assign(me, { tx: w0.tx, ty: w0.ty, goal: null, wait: n ? 2.4 : 0.6, dir: 'S', phase: 0, moving: false });   // 둘이 출발을 어긋낸다
+      }
+      if (other.tx == null) return;
+      // 누르거나 말을 거는 동안에는 멈춰서 이쪽(보는 사람)을 본다
+      const busy = (nameTag && (nameTag.who === me.name || nameTag.who === me.rider)) ||
+        (talk && talk.lines.some(l => l[0] === me.name || l[0] === me.rider));
+      if (busy) { me.moving = false; me.dir = 'S'; return; }
+      if (!me.goal) {
+        me.moving = false;
+        if ((me.wait -= dt) > 0) return;
+        me.goal = kidGoal(g, me, other, r);
+        if (!me.goal) { me.wait = 1; return; }
+      }
+      const dx = me.goal[0] - me.tx, dy = me.goal[1] - me.ty, d = Math.hypot(dx, dy);
+      const sx = (dx - dy) * 24, sy = (dx + dy) * 12, sl = Math.hypot(sx, sy);   // 화면에서 가는 방향(마을 도트)
+      if (d < 0.01 || sl < 0.01) { me.tx = me.goal[0]; me.ty = me.goal[1]; me.goal = null; me.moving = false; me.dir = 'S'; me.wait = 2 + Math.random() * 4; return; }
+      const step = Math.min(d, KID_SPEED * dt * d / sl), nx = me.tx + dx / d * step, ny = me.ty + dy / d * step;
+      // 걷다가 다른 아이와 부딪칠 것 같으면 그 자리에 서서 잠깐 기다렸다 다른 데로 간다
+      if (kidsClash(nx, ny, other.tx, other.ty, r) &&
+          Math.hypot(nx - other.tx, ny - other.ty) < Math.hypot(me.tx - other.tx, me.ty - other.ty)) {
+        me.goal = null; me.moving = false; me.wait = 0.8 + Math.random() * 1.5; return;
+      }
+      me.tx = nx; me.ty = ny; me.moving = true; me.phase += dt * 6;
+      me.dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) & 7];   // E 부터 시계 방향으로 45°씩
+    });
+    return KIDS.sua.tx != null && KIDS.yona.tx != null;
+  }
+  // 아이를 그린 뒤, 아이보다 앞에 선 물건의 도트만 마을 그림으로 다시 덮는다 — 분수·가로등 뒤로 지나가면 제대로 가려진다.
+  // 마을 그림 위에 얹었던 것 중 물건 도트에 걸린 것(비·안개 빛, 분수 물줄기, 키 재기 눈금)도 그 안에서 다시 얹는다
+  function coverKid(me, x0, y0, x1, y1, gx, gy){
+    const runs = VG.coverRuns(me.tx, me.ty, (x0 - gx) / HS, (y0 - gy) / HS, (x1 - gx) / HS, (y1 - gy) / HS);
+    if (!runs.length) return;
+    let a = 1e9, b = 1e9, c = -1, d = -1;
+    ctx.save();
+    ctx.beginPath();
+    runs.forEach(([y, xa, xb]) => {
+      const X0 = Math.round(gx + xa * HS), Y0 = Math.round(gy + y * HS);
+      ctx.rect(X0, Y0, Math.round(gx + (xb + 1) * HS) - X0, Math.round(gy + (y + 1) * HS) - Y0);
+      a = Math.min(a, xa); c = Math.max(c, xb + 1); b = Math.min(b, y); d = Math.max(d, y + 1);
+    });
+    ctx.clip();
+    const k = HS * VG.dpr;                               // 마을 캔버스 한 도트의 실제 픽셀 수 — 큰 그림을 얹을 때와 같은 비율
+    ctx.drawImage(VG.canvas, a * k, b * k, (c - a) * k, (d - b) * k, gx + a * HS, gy + b * HS, (c - a) * HS, (d - b) * HS);
+    if (raining()) { ctx.fillStyle = 'rgba(70,80,100,.22)'; ctx.fillRect(0, 0, W, H); }
+    if (weather.fog) { ctx.fillStyle = 'rgba(232,236,240,.40)'; ctx.fillRect(0, horizon - H * 0.1, W, H * 0.24); }
+    drawFountain(gx, gy);
+    drawRuler(gx, gy);
+    ctx.restore();
+  }
+
   function draw(){
     if (!W || !H) return;
     // 비 온 뒤에 무지개. 소나기를 부른 아이만 볼 수 있는 상이다 —
@@ -1700,13 +1846,24 @@ const belowFold = (() => {
     const hop1 = Math.round(Math.abs(Math.sin(t * 1.4)) * 3) * castS;
     const hop2 = Math.round(Math.abs(Math.sin(t * 1.4 + 0.9)) * 3) * castS;
     const spot = p => ({ x: p.x * HS + gx, y: p.y * HS + gy });
+    // 산책을 시작했으면 걷는 그림과 지금 자리로. 걸음이 들썩임을 이미 품고 있어서 걸을 때는 튀지 않고, 서 있을 때만 튄다.
+    // 발 자리는 아이 도트 격자에 맞춘다 — 소수 자리는 알파 이음매를 만든다
+    let walking = false;
+    try { walking = !!VG && stepKids(castS); }
+    catch (e) { kidArt = null; }   // 무엇이 어긋나도 히어로 그리기는 계속 — 예전처럼 제자리에 선다
+    const kid = (k, sp, hop) => {
+      if (!walking) return { sp, bob: hop, at: spot(VG.chars[k]) };
+      const me = KIDS[k], rows = kidArt[k].dirs[me.dir] || kidArt[k].dirs.S, p = spot(VG.dotAt(me.tx, me.ty));
+      return { sp: rows[KIDSTEP(me.moving, me.phase)] || rows[0], bob: me.moving ? 0 : hop, walker: me,
+               at: { x: Math.round(p.x / castS) * castS, y: Math.round(p.y / castS) * castS } };
+    };
     const cast = VG ? [
-      { sp: SPRITES.sua,   s: castS, bob: hop1, name: '수아', at: spot(VG.chars.sua) },
-      { sp: SPRITES.yona, s: castS, bob: hop2, rider: SPRITES.fox, name: '연아', riderName: '레샤', at: spot(VG.chars.yona) },
+      Object.assign({ s: castS, name: '수아' }, kid('sua', SPRITES.sua, hop1)),
+      Object.assign({ s: castS, rider: SPRITES.fox, name: '연아', riderName: '레샤' }, kid('yona', SPRITES.yona, hop2)),
       { sp: SPRITES.easel, s: castS, bob: 0, easel: true, at: spot(VG.chars.easel) },   // 이젤은 사람이 아니라 이름이 없다
-      // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다닌다. 두 아이보다 앞줄에 서 있으니 맨 나중에 그린다
+      // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다닌다. 대개 두 아이보다 앞줄이라 나중에 그려진다
       { sp: SPRITES.chick, s: castS, bob: 0, roll: true, name: '상그렐라', at: spot(VG.chars.chick) },
-    ] : [];
+    ].sort((a, b) => a.at.y - b.at.y) : [];          // 발이 위(뒤)에 있는 쪽부터 — 아이들이 걸어 다녀도 앞뒤가 맞는다
     cast.forEach(c => {
       const w = c.sp[0].length * c.s, h = c.sp.length * c.s;
       const cx = Math.round(c.at.x - w / 2), standY = Math.round(c.at.y);
@@ -1756,14 +1913,21 @@ const belowFold = (() => {
         drawSprite(ctx, c.sp, cx, top, c.s, wash(c.sp));
         let headTop = top;                                 // 우산을 씌울 높이 — 머리 위 친구가 있으면 그 위
         if (BIRTHDAY && c.name === BIRTHDAY) bdayFoot = { x: cx + w + S, y: standY };
-        // 이젤에는 최근 작품 한 점이 걸린다. 흰 캔버스 자리(가로 4~19칸, 세로 2~14칸)에 맞춰 얹음.
+        // 이젤에는 최근 작품 한 점이 걸린다. 캔버스는 마을처럼 2:1 로 기운 면이라(흰 자리 16×13, (5,5) 에서 시작해
+        // 열마다 반 칸씩 내려감) 그림을 한 도트 폭의 세로 기둥으로 잘라 계단처럼 내려 붙인다 — 마을 벽의 걸린 그림과 같은 방법.
         if (c.easel) {
-          const ex = cx + 4 * c.s, ey = top + 2 * c.s, ew = 16 * c.s, eh = 13 * c.s;
+          const EW = 16, EH = 13, eh = EH * c.s;
           if (easelImg) {
             ctx.save();
             ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(easelImg, ex, ey, ew, eh);
-            if (NIGHT) { ctx.globalAlpha = 0.42; ctx.fillStyle = '#101d3a'; ctx.fillRect(ex, ey, ew, eh); }
+            if (NIGHT) ctx.fillStyle = '#101d3a';
+            for (let k = 0; k < EW; k++) {
+              const sx = Math.floor(k * easelImg.width / EW), sw = Math.max(1, Math.floor((k + 1) * easelImg.width / EW) - sx);
+              const ex = cx + (5 + k) * c.s, ey = top + (5 + (k >> 1)) * c.s;
+              ctx.globalAlpha = 1;
+              ctx.drawImage(easelImg, sx, 0, sw, easelImg.height, ex, ey, c.s, eh);
+              if (NIGHT) { ctx.globalAlpha = 0.42; ctx.fillRect(ex, ey, c.s, eh); }
+            }
             ctx.restore();
           }
           easelRect = { x: cx + w / 2, y: top, w: w, h: h };
@@ -1777,7 +1941,7 @@ const belowFold = (() => {
           const rs = Math.max(1, Math.round(c.s * 0.85));
           const rw = c.rider[0].length * rs, rh = c.rider.length * rs;
           const rx = Math.round((cx + (w - rw) / 2) / rs) * rs;
-          const rtop = top - rh + rs;
+          const rtop = top + c.sp.findIndex(l => /[^.]/.test(l)) * c.s - rh + rs;   // 걷는 그림은 위에 빈 줄이 있다 — 머리 꼭대기에 앉힌다
           drawSprite(ctx, c.rider, rx, rtop, rs, wash(c.rider));
           // 주인을 눌렀을 때 이름표는 머리 위 친구보다 더 높이 띄운다.
           if (own) own.tagY = rtop;
@@ -1787,12 +1951,15 @@ const belowFold = (() => {
           headTop = rtop;
         }
         // 비 오는 날엔 아이들이 우산을 쓴다. 이젤은 안 쓴다 — 그림이 젖는 건 모른 척.
+        let coverTop = headTop;
         if (raining() && c.name) {
           const us = Math.max(1, Math.round(c.s * 2.2));
           const uw = SPRITES.umbrella[0].length * us, uh = SPRITES.umbrella.length * us;
+          coverTop = Math.round((headTop - uh + us * 2) / us) * us;
           drawSprite(ctx, SPRITES.umbrella, Math.round((cx + (w - uw) / 2) / us) * us,
-            Math.round((headTop - uh + us * 2) / us) * us, us, wash(SPRITES.umbrella));
+            coverTop, us, wash(SPRITES.umbrella));
         }
+        if (c.walker) coverKid(c.walker, cx, coverTop, cx + w, standY, gx, gy);   // 앞에 선 물건이 아이를 가린다
       }
     });
     // 생일 케이크 — 생일인 아이 발밑 옆에
@@ -1806,7 +1973,7 @@ const belowFold = (() => {
     // 꽃이 네 송이 넘게 모인 자리가 있으면 아이들 머리 위 대신 그 꽃밭으로 간다 — 심을수록 나비가 온다
     const patch = flowerPatch(gx, gy);
     for (let i = 0; i < 3; i++) {
-      const home = patch || (VG ? spot(VG.chars.sua) : { x: W * 0.5, y: H * 0.6 });
+      const home = patch || (VG ? cast.find(c => c.name === '수아').at : { x: W * 0.5, y: H * 0.6 });   // 수아가 걸어가면 따라간다
       const spread = patch ? 16 : 46, lift = patch ? 14 : 62;
       let bx = home.x + (i - 1) * HS * spread + Math.sin(t * 0.7 + i * 2) * HS * (patch ? 9 : 22);
       // 아이들 머리 위로 띄움 — 얼굴 높이면 표정을 가림. 꽃밭에서는 꽃 바로 위에서 난다
@@ -2012,7 +2179,7 @@ const belowFold = (() => {
   }
 
   function say(text, h){
-    nameTag = { text, x: h.x, at: performance.now(),
+    nameTag = { text, who: h.name, x: h.x, at: performance.now(),     // who — 말하는 아이는 걷다가도 멈춘다(stepKids)
                 y: h.tagY != null ? h.tagY : h.y, bottom: h.y + h.h };
     idleAt = performance.now();
     kick();
@@ -2624,8 +2791,9 @@ $$('canvas[data-char]').forEach(cv => {
     });
 
     // 아래쪽에 둘을 세운다. 글자와 겹치지 않게 카드를 230 으로 키웠다.
-    drawSprite(g, SPRITES.sua,  16, 142, 2);
-    drawSprite(g, SPRITES.yona, 220, 150, 2);
+    const floorY = 222;                        // 둘의 발이 닿는 줄 — 키가 달라도 발끝을 맞춘다
+    drawSprite(g, SPRITES.sua,  16, floorY - SPRITES.sua.length * 2, 2);
+    drawSprite(g, SPRITES.yona, yCard.width - 16 - SPRITES.yona[0].length * 2, floorY - SPRITES.yona.length * 2, 2);
     g.textAlign = 'center'; g.fillStyle = '#6b5f4e';
     g.font = '800 11px Suayona Dot, Suayona Sans, sans-serif';
     g.fillText('www.suayona.com', yCard.width / 2, 208);
