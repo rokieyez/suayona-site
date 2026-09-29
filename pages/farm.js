@@ -243,6 +243,9 @@ function renderPeekArt(res){
   const { data, error } = res || {};
   if (error || !data) return;                    // 아직 농장이 없으면 그림도 없다
   W = R.fixWorld(data, now());
+  // ?farm=seaside|mountain|cloud(또는 0~3) — 아직 이사 안 간 농장도 미리 본다. 손님 그림이라 저장되지 않는다
+  const pf = new URLSearchParams(location.search).get('farm');
+  if (pf != null){ const i = R.FARMS.findIndex((f, n) => f.id === pf || String(n) === pf); if (i >= 0) W.farm = i; }
   M = R.fixMine(null, 'sua');                    // 나무·바위 차례는 아이마다 달라서, 손님에겐 그냥 서 있는 모습으로
   tickAll();
   $('#peekArt').hidden = false;

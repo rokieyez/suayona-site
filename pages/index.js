@@ -1927,7 +1927,15 @@ const belowFold = (() => {
         // 손님 — 시트 캔버스는 1도트 = 2px 에 둘레 윤곽 1도트. 아이와 같은 배율로 줄이고 발(윤곽 한 줄 위)을 발자리에 둔다
         const w = c.img.width / 2 * c.s, h = c.img.height / 2 * c.s, x = Math.round((c.at.x - w / 2) / c.s) * c.s, top = c.at.y - h + c.s;
         ctx.drawImage(c.img, x, top, w, h);
-        coverKid(c.walker, x, top, x + w, c.at.y, gx, gy);   // 아이처럼 앞 물건이 도트 단위로 가린다
+        // 비 오는 날엔 손님도 우산을 쓴다 — 머리 꼭대기는 시트의 키(도트)로 잰다
+        let coverTop = top;
+        if (raining()) {
+          const us = Math.max(1, Math.round(c.s * 2.2)), uw = SPRITES.umbrella[0].length * us, uh = SPRITES.umbrella.length * us;
+          const headTop = c.at.y - (WALKSHEET.heights('guest')[c.walker.n] || 48) * c.s;
+          coverTop = Math.min(top, Math.round((headTop - uh + us * 2) / us) * us);
+          drawSprite(ctx, SPRITES.umbrella, Math.round((x + (w - uw) / 2) / us) * us, coverTop, us, wash(SPRITES.umbrella));
+        }
+        coverKid(c.walker, x, coverTop, x + w, c.at.y, gx, gy);   // 아이처럼 앞 물건이 도트 단위로 가린다
         return;
       }
       const w = c.sp[0].length * c.s, h = c.sp.length * c.s;
