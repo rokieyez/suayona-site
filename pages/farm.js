@@ -245,7 +245,16 @@ function renderPeekArt(res){
   W = R.fixWorld(data, now());
   // ?farm=seaside|mountain|cloud(또는 0~3) — 아직 이사 안 간 농장도 미리 본다. 손님 그림이라 저장되지 않는다
   const pf = new URLSearchParams(location.search).get('farm');
-  if (pf != null){ const i = R.FARMS.findIndex((f, n) => f.id === pf || String(n) === pf); if (i >= 0) W.farm = i; }
+  if (pf != null){
+    const i = R.FARMS.findIndex((f, n) => f.id === pf || String(n) === pf);
+    if (i >= 0 && i !== (W.farm || 0)){
+      // 밭 모양이 달라 칸 이름이 바뀐다 — 이사할 때(moveFarm)처럼 같은 차례끼리 옮겨 심어 보여 준다
+      const from = R.fieldCells(W); W.farm = i;
+      const to = R.fieldCells(W), plots = {};
+      Object.keys(W.plots || {}).forEach(id => { const k = from.findIndex(c => c.id === id); if (id[0] === 'g') plots[id] = W.plots[id]; else if (to[k]) plots[to[k].id] = W.plots[id]; });
+      W.plots = plots; W.sprinklers = {};
+    }
+  }
   M = R.fixMine(null, 'sua');                    // 나무·바위 차례는 아이마다 달라서, 손님에겐 그냥 서 있는 모습으로
   tickAll();
   $('#peekArt').hidden = false;
