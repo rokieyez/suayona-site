@@ -711,7 +711,7 @@ function openGreenhouse(){
     R.plotIds(W, 'gh').forEach(id => {
       const p = W.plots[id]; if (!p || !p.crop || p.giant) return;
       const q = R.parseId(id);
-      withInk(INK.crop, () => drawCrop(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, null, 0));
+      cropAt(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, 0);
     });
     R.plotIds(W, 'gh').forEach(id => { const p = W.plots[id]; if (p && p.giant && p.pairOf && id < p.pairOf) drawGiant(id, p, 0); });
     ctx = keep; S = keepS;

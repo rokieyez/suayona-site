@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '15';
+const PLAY_V = '16';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -984,114 +984,489 @@ function drawPlot(id, p, gh){
   if (p.fert){ px(X + 4, Y + T - 6, 4, 2, '#e8dcae'); px(X + T - 10, Y + 6, 4, 2, '#e8dcae'); px(X + 14, Y + T - 12, 2, 2, '#e8dcae'); }
 }
 // ---------- 작물 ----------
-// 잎은 세 단계(밝은 쪽·본색·그늘), 열매도 세 단계로 찍는다. sway 는 바람에 흔들리는 정도.
+/* 한 도트 단위로 그린다. 잎은 끝이 뾰족한 날(위쪽 날은 밝게·아래는 그늘·가운데 잎맥), 열매는 왼쪽 위에서
+   빛을 받는 타원이다. 예전에는 두 도트 네모를 쌓아 옥수수·포도가 막대와 덩이로 뭉개져 보였다.
+   바람(sway)은 높이에 따라 휜다 — 땅에 붙은 데는 그대로, 꼭대기일수록 많이. 지주는 안 흔들린다.
+   도트가 많아 한 포기를 그릴 때 드는 값이 크다 — 밭에서는 cropAt 으로 담아 두고 얹기만 한다. */
+const noInk = c => c.length === 7 ? c + 'ff' : c;       // 가는 줄(수염·덩굴손·잎자루)은 테를 두르면 까만 줄이 된다
+const cropPal = c => ({ mid: c, hi: shade(c, 30), lt: shade(c, 14), dk: shade(c, -30), vein: shade(c, -16) });
+const WOOD_STAKE = { mid: '#a87848', hi: '#c89a64', dk: '#6f4a2c' };
+function cropPen(put, bend){
+  const dot = (x, y, c) => put(Math.round(x + bend(y)), Math.round(y), 1, 1, c);
+  const pen = { dot, put };
+  pen.line = (x0, y0, x1, y1, c) => {
+    const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+    for (let i = 0; i <= n; i++) dot(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, c);
+  };
+  // 잎 한 장 — (x,y) 에서 (dx,dy) 쪽으로 len, 가장 넓은 데 반폭 w. droop 만큼 끝이 아래로 휜다.
+  // o.vein: 잎맥 색(false 면 없음) · o.frill: 가장자리를 오글오글하게(케일·무청)
+  pen.leaf = (x, y, dx, dy, len, w, g, droop, o) => {
+    o = o || {};
+    let m = Math.hypot(dx, dy) || 1, ux = dx / m, uy = dy / m, qx = x, qy = y;
+    const pts = [];
+    for (let t = 0; t <= len; t += 0.5){
+      pts.push([qx, qy, ux, uy, t / len]);
+      uy += (droop || 0) / (len * 2); m = Math.hypot(ux, uy); ux /= m; uy /= m;
+      qx += ux * 0.5; qy += uy * 0.5;
+    }
+    for (const [ax, ay, vx, vy, f] of pts){
+      let nx = -vy, ny = vx;
+      if (ny > 0 || (ny === 0 && nx > 0)){ nx = -nx; ny = -ny; }             // n 은 늘 위(빛 받는 쪽)
+      let hw = w * Math.pow(Math.sin(Math.PI * (0.06 + f * 0.94)), 0.8);
+      if (o.frill) hw += Math.sin(f * len * 2.4) * 0.7 * Math.min(1, hw);
+      for (let k = -hw; k <= hw + 0.01; k += 0.5) dot(ax + nx * k, ay + ny * k, k > hw * 0.3 ? g.hi : k < -hw * 0.4 ? g.dk : g.mid);
+    }
+    const vc = o.vein === undefined ? g.vein : o.vein;
+    if (vc && w >= 1.2) for (const [ax, ay, , , f] of pts) if (f > 0.08 && f < 0.8) dot(ax, ay, vc);
+  };
+  // 열매·덩이 — 오른쪽 아래와 가장자리는 그늘, 왼쪽 위에 윤 한 점. pat(i,j,u,v,c) 로 줄무늬·골을 덧칠한다.
+  pen.egg = (x, y, rx, ry, f, pat) => {
+    const X0 = Math.ceil(rx), Y0 = Math.ceil(ry);
+    for (let j = -Y0; j <= Y0; j++) for (let i = -X0; i <= X0; i++){
+      const u = i / rx, v = j / ry, d = u * u + v * v;
+      if (d > 1.12) continue;
+      const l = (u + v) * 0.7 + d * 0.5;
+      let c = l > 0.95 ? f.dk : l < -0.35 ? f.lt : f.mid;
+      if (pat) c = pat(i, j, u, v, c, d) || c;
+      dot(x + i, y + j, c);
+    }
+    if (f.hi && rx >= 1.5) dot(x - Math.max(1, Math.round(rx * 0.45)), y - Math.max(1, Math.round(ry * 0.45)), f.hi);
+  };
+  pen.berry = (x, y, f) => { dot(x, y, f.hi); dot(x + 1, y, f.mid); dot(x, y + 1, f.mid); dot(x + 1, y + 1, f.dk); };
+  // 글자 판 — 꽃송이처럼 모양이 딱 정해진 작은 것
+  pen.map = (x, y, rows, key) => rows.forEach((r, j) => { for (let i = 0; i < r.length; i++){ const c = key[r[i]]; if (c) dot(x + i, y + j, c); } });
+  // 지주 — 바람에 안 흔들린다
+  pen.stake = (x, top, base, W) => {
+    W = W || WOOD_STAKE;
+    put(x, top, 1, base - top + 1, W.hi); put(x + 1, top, 1, base - top + 1, W.dk); put(x, top, 2, 1, W.mid);
+  };
+  return pen;
+}
+// 호박·수박·참외 열매 — 큰 호박(두 칸)도 같이 쓴다
+function melonFruit(k, crop, x, y, rx, ry, F){
+  if (crop === 'watermelon') k.egg(x, y, rx, ry, cropPal('#93cf66'), (i, j, u, v, c, d) => d < 0.95 && (((j + Math.round(Math.sin(i * 0.9) * 1.2)) % 3) + 3) % 3 === 0 ? (d > 0.6 ? '#1f4f26' : '#2a6a30') : null);   // 밝은 바탕에 짙은 물결 줄
+  else if (crop === 'pumpkin') k.egg(x, y, rx, ry, F, (i, j, u, v, c, d) => d < 0.9 && Math.abs(u) < 0.86 && ((Math.round(i * (1 - v * v * 0.25)) % 3) + 3) % 3 === 0 ? F.dk : null);
+  else k.egg(x, y, rx, ry, F, (i, j, u, v, c, d) => d < 0.8 && (((j % 2) + 2) % 2) === 0 && Math.abs(v) < 0.8 ? mix(c, '#fff6d0', 0.55) : null);
+  const top = y - Math.round(ry);
+  if (crop === 'pumpkin'){ k.dot(x, top - 1, '#7a5a2a'); k.dot(x, top - 2, '#8a6a34'); k.dot(x + 1, top - 3, '#6a4a22'); }
+  else k.dot(x - Math.round(rx) + 1, y - 1, '#6f4a2c');
+}
+const CROP_ART = {
+  // ---- 키 큰 것 ----
+  corn(k){
+    const { cx, base, G, F, dot, line, leaf, egg } = k, top = base - 24;
+    for (let y = base; y >= top; y--){                                        // 대 — 두 도트, 마디마다 밝은 띠
+      const node = (base - y) % 5 === 4;
+      dot(cx, y, node ? G.hi : G.mid); dot(cx + 1, y, node ? G.vein : G.dk);
+    }
+    leaf(cx, base - 4, -1, -0.8, 12, 1.5, G, 1.7);
+    leaf(cx + 1, base - 8, 1, -0.9, 12, 1.5, G, 1.7);
+    leaf(cx, base - 12, -1, -1.1, 11, 1.4, G, 1.6);
+    leaf(cx + 1, base - 16, 1, -1.2, 10, 1.4, G, 1.6);
+    leaf(cx, base - 20, -0.7, -1, 8, 1.2, G, 1.4);
+    leaf(cx + 1, base - 22, 0.6, -1, 7, 1.1, G, 1.3);
+    const ts = cropPal('#d9c27e');                                            // 개꼬리(수이삭)
+    line(cx, top, cx, top - 4, ts.mid); dot(cx, top - 4, ts.hi); dot(cx + 1, top - 1, ts.dk);
+    line(cx, top - 2, cx - 3, top - 1, noInk(ts.mid)); line(cx + 1, top - 2, cx + 4, top - 1, noInk(ts.dk));
+    line(cx, top - 3, cx - 2, top - 5, noInk(ts.hi)); line(cx + 1, top - 3, cx + 3, top - 5, noInk(ts.mid));
+    if (!k.ripe) return;
+    const hx = cx + 4, hy = base - 13, H = cropPal('#b9d68e');                // 이삭 — 껍질이 벌어져 알이 보인다
+    egg(hx, hy, 2.4, 5, H);
+    for (let j = -5; j <= 1; j++) for (let i = -1; i <= 1; i++){
+      if (j === -5 && i !== 0) continue;
+      dot(hx + i, hy + j, i === 1 ? F.dk : ((i + j) & 1) ? F.mid : F.hi);
+    }
+    leaf(hx - 1, hy + 4, -0.3, -1, 6, 1, H, 0, { vein: false });
+    leaf(hx + 2, hy + 4, 0.35, -1, 5, 1, H, 0, { vein: false });
+    line(hx, hy - 6, hx + 2, hy - 9, noInk('#a8642e')); line(hx - 1, hy - 6, hx - 2, hy - 8, noInk('#c4843e')); dot(hx + 1, hy - 7, noInk('#8a4e22'));
+    line(hx - 2, hy + 5, cx + 1, hy + 7, H.dk);
+  },
+  // ---- 덩굴 ----
+  grape(k){
+    const { cx, base, G, F, dot, line, egg, berry, stake, put } = k, V = cropPal('#8a5f3a');
+    stake(cx + 9, base - 24, base);
+    put(cx - 11, base - 22, 22, 1, noInk('#b8b0a0'));                          // 철사
+    for (let y = base; y >= base - 21; y--){ const x = cx - 1 + Math.round(Math.sin(y * 0.55) * 0.8); dot(x, y, V.mid); dot(x + 1, y, V.dk); if ((y & 3) === 0) dot(x, y, V.hi); }
+    line(cx - 10, base - 21, cx + 9, base - 21, V.mid); line(cx - 9, base - 20, cx + 8, base - 20, V.dk);   // 철사를 따라 뻗은 팔
+    const vleaf = (x, y, r) => {                                              // 갈래진 포도잎 — 세 덩이에 잎맥
+      egg(x - r * 0.8, y + 1, r * 0.62, r * 0.55, G); egg(x + r * 0.8, y + 1, r * 0.62, r * 0.55, G); egg(x, y, r * 0.75, r * 0.7, G);
+      line(x, y + r * 0.6, x, y - r * 0.5, G.vein); line(x, y + r * 0.6, x - r * 0.8, y, G.vein); line(x, y + r * 0.6, x + r * 0.8, y, G.vein);
+    };
+    [[-8, -24, 3.2], [-2, -26, 3.4], [4, -25, 3.2], [9, -26, 3], [-6, -18, 2.6], [6, -19, 2.8], [-11, -20, 2.4]].forEach(([a, b, r]) => vleaf(cx + a, base + b, r));
+    line(cx + 3, base - 22, cx + 5, base - 24, noInk(G.dk)); dot(cx + 6, base - 24, noInk(G.dk)); dot(cx + 6, base - 23, noInk(G.dk));   // 덩굴손
+    if (!k.ripe) return;
+    const bunch = (x, y, n) => {
+      line(x, y - 2, x, y, noInk(V.dk));
+      [n, n - 1, n - 1, n - 2, 1].forEach((m, r) => { for (let i = 0; i < m; i++) berry(x - m + 1 + i * 2, y + 1 + r * 2, F); });
+    };
+    bunch(cx - 6, base - 19, 4); bunch(cx + 4, base - 18, 4); bunch(cx - 1, base - 15, 3);
+  },
+  pea(k){
+    const { cx, base, G, F, dot, leaf, stake } = k;
+    stake(cx, base - 26, base, cropPal('#c8b070'));
+    let px0 = cx;
+    for (let y = base; y >= base - 25; y--){                                  // 지주를 감고 오르는 줄기
+      const x = cx + Math.round(Math.sin((base - y) * 0.45) * 2.4);
+      dot(x, y, G.dk);
+      if ((base - y) % 5 === 3){
+        leaf(x, y, -1, -0.4, 3.6, 1.3, G, 0.5); leaf(x, y, 1, -0.4, 3.6, 1.3, G, 0.5);
+        if ((base - y) % 10 === 8){ dot(x + 3, y - 3, noInk(G.dk)); dot(x + 4, y - 4, noInk(G.dk)); dot(x + 5, y - 4, noInk(G.dk)); dot(x + 5, y - 3, noInk(G.dk)); }
+      }
+      px0 = x;
+    }
+    leaf(px0, base - 25, 0.2, -1, 3, 1.1, G, 0.2);
+    if (k.stage === 3) [[-4, -14], [4, -20]].forEach(([a, b]) => { dot(cx + a, base + b, '#f4ecff'); dot(cx + a + 1, base + b, '#c9a0e6'); dot(cx + a, base + b + 1, '#dcc4f2'); });
+    if (!k.ripe) return;
+    const pod = (x, y, len) => {                                              // 꼬투리 — 알이 든 자리마다 불룩
+      dot(x, y - 1, noInk(G.dk));
+      for (let t = 0; t <= len; t++){ const xx = x + Math.round(t * 0.18); dot(xx, y + t, t % 2 && t < len ? F.hi : F.mid); dot(xx + 1, y + t, F.dk); }
+    };
+    pod(cx - 6, base - 17, 7); pod(cx + 4, base - 13, 6); pod(cx - 4, base - 8, 5); pod(cx + 5, base - 22, 5);
+  },
+  cucumber(k){
+    const { cx, base, G, dot, line, egg, stake } = k, F = cropPal('#3a7a30');
+    stake(cx, base - 25, base, cropPal('#c8b070'));
+    for (let y = base; y >= base - 24; y--) dot(cx + Math.round(Math.sin((base - y) * 0.4) * 2.2), y, G.dk);
+    const heart = (x, y, r) => { egg(x, y, r, r * 0.85, G); dot(x, y + Math.round(r * 0.85) + 1, G.dk); line(x, y + r * 0.6, x, y - r * 0.4, G.vein); };
+    [[-6, -22, 3], [5, -20, 3.2], [-7, -13, 3.2], [6, -11, 3], [-4, -5, 2.8], [4, -26, 2.4]].forEach(([a, b, r]) => heart(cx + a, base + b, r));
+    dot(cx + 3, base - 16, noInk(G.dk)); dot(cx + 4, base - 17, noInk(G.dk)); dot(cx + 4, base - 18, noInk(G.dk));
+    const bloom = (x, y) => { dot(x, y, '#ffe066'); dot(x - 1, y, '#ffd23a'); dot(x + 1, y, '#ffd23a'); dot(x, y - 1, '#fff3a0'); };
+    if (k.stage === 3){ bloom(cx - 2, base - 17); bloom(cx + 3, base - 8); return; }
+    [[-4, -15, 4.8], [4, -9, 4.4]].forEach(([a, b, r]) => {                      // 오이 — 가늘고 긴, 오돌토돌한 가시. 잎 속에서도 보이게 짙은 테
+      const x = cx + a, y = base + b;
+      egg(x, y, 2, r, F, (i, j, u, v, c, d) => d > 0.8 ? '#1f4a1c' : ((i + j * 2) % 3 + 3) % 3 === 0 && Math.abs(v) < 0.8 ? F.hi : null);
+      dot(x, y - Math.round(r) - 1, noInk(G.dk)); bloom(x, y + Math.round(r) + 1);
+    });
+  },
+  // ---- 땅에 퍼지는 박 ----
+  melon(k){
+    const { cx, base, G, F, dot, line, egg } = k;
+    line(cx - 12, base - 2, cx + 12, base - 3, G.dk);                            // 땅을 기는 덩굴
+    const vleaf = (x, y, r) => {
+      egg(x - r * 0.7, y + 1, r * 0.6, r * 0.5, G); egg(x + r * 0.7, y + 1, r * 0.6, r * 0.5, G); egg(x, y, r * 0.72, r * 0.62, G);
+      line(x, y + r * 0.5, x, y - r * 0.4, G.vein); line(x, y + r * 0.5, x - r * 0.7, y, G.vein); line(x, y + r * 0.5, x + r * 0.7, y, G.vein);
+    };
+    [[-9, -6, 3.4], [8, -7, 3.4], [-3, -10, 3.6], [4, -12, 3.2], [-12, -2, 2.6], [12, -3, 2.6]].forEach(([a, b, r]) => vleaf(cx + a, base + b, r));
+    [[-6, -2], [9, -12]].forEach(([a, b]) => { dot(cx + a, base + b, noInk(G.dk)); dot(cx + a + 1, base + b - 1, noInk(G.dk)); dot(cx + a + 2, base + b - 1, noInk(G.dk)); dot(cx + a + 2, base + b, noInk(G.dk)); });
+    if (k.stage === 3){ dot(cx - 1, base - 6, '#ffe066'); dot(cx - 2, base - 6, '#ffd23a'); dot(cx, base - 6, '#ffd23a'); dot(cx - 1, base - 7, '#fff3a0'); return; }
+    melonFruit(k, k.crop, cx, base - 5, k.crop === 'melon' ? 5.5 : 7.5, k.crop === 'melon' ? 4 : 5.2, F);
+  },
+  // ---- 뿌리 ----
+  radish(k){
+    const { cx, base, G, F, egg } = k, Gv = { ...G, vein: shade(G.mid, 34) };
+    if (k.ripe) egg(cx, base - 2, 3.6, 3.2, F, (i, j, u, v, c) => v < -0.2 ? mix(c, G.mid, 0.45) : null);   // 어깨 — 위가 푸르다
+    [[-1, -0.5, 8], [-0.6, -1, 10], [0, -1, 11], [0.55, -1, 10], [1, -0.45, 8]].forEach(([dx, dy, l]) => k.leaf(cx, base - 4, dx, dy, l, 1.8, Gv, 0.7, { frill: true }));
+  },
+  carrot(k){
+    const { cx, base, G, F, dot, egg } = k;
+    if (k.ripe) egg(cx, base - 1, 2.8, 2.4, F, (i, j, u, v, c) => (j & 1) && Math.abs(u) < 0.8 ? F.dk : null);
+    [[-0.8, -1, 10], [-0.35, -1, 12], [0, -1, 13], [0.35, -1, 12], [0.8, -1, 10]].forEach(([dx, dy, l]) => {   // 깃털잎 — 가는 잎자루에 잘게 갈라진 잎
+      const m = Math.hypot(dx, dy), ux = dx / m, uy = dy / m;
+      for (let t = 0; t <= l; t++){
+        const x = cx + ux * t + ux * t * t * 0.02, y = base - 3 + uy * t + t * t * 0.012;
+        dot(x, y, noInk(G.dk));
+        if (t > 2 && t % 2 === 0){ const nx = -uy, ny = ux; dot(x + nx, y + ny, G.mid); dot(x + nx * 2, y + ny * 2 - 1, G.hi); dot(x - nx, y - ny, G.mid); dot(x - nx * 2, y - ny * 2 - 1, G.lt); }
+      }
+    });
+  },
+  potato(k){
+    const { cx, base, F, dot, line, egg } = k;
+    const G = k.ripe ? cropPal(mix(k.G.mid, '#c8b060', 0.15)) : k.G;
+    if (k.ripe) [[-8, 0, 2.4], [7, 0, 2.2], [-1, 1, 2]].forEach(([a, b, r]) => egg(cx + a, base + b - 1, r, r * 0.72, F, (i, j) => (i === 0 && j === 0) || (i === 1 && j === -1) ? F.dk : null));
+    line(cx, base, cx - 5, base - 12, G.dk); line(cx, base, cx + 5, base - 13, G.dk); line(cx, base, cx, base - 16, G.dk);
+    const comp = (x, y, d) => { k.leaf(x, y, d, -0.5, 4, 1.5, G, 0.5); k.leaf(x, y, -d * 0.3, -1, 3.5, 1.4, G, 0.3); k.leaf(x, y + 1, d, 0.3, 3, 1.2, G, 0.4); };
+    comp(cx - 5, base - 12, -1); comp(cx + 5, base - 13, 1); comp(cx, base - 16, -1); comp(cx - 3, base - 6, -1); comp(cx + 3, base - 7, 1); comp(cx + 1, base - 16, 1);
+    if (k.stage === 3) [[-4, -18], [4, -17], [0, -20]].forEach(([a, b]) => { const x = cx + a, y = base + b; dot(x - 1, y, '#f6f2fa'); dot(x + 1, y, '#f6f2fa'); dot(x, y - 1, '#f6f2fa'); dot(x, y + 1, '#dcd2ea'); dot(x, y, '#ffd23a'); });
+  },
+  sweetpotato(k){
+    const { cx, base, G, F, dot, line, egg } = k, vine = '#9a4a6a';
+    if (k.ripe) [[-5, 0, 3.2], [5, 0, 2.8]].forEach(([a, b, r]) => egg(cx + a, base + b - 1, r, 1.8, F, (i, j) => j === -1 && (i & 1) ? F.hi : null));
+    line(cx - 12, base - 2, cx + 12, base - 4, vine); line(cx, base, cx - 3, base - 12, vine); line(cx, base, cx + 4, base - 10, vine);
+    const heart = (x, y, r) => { k.egg(x, y, r, r * 0.85, G); dot(x, y + Math.round(r * 0.85) + 1, G.dk); dot(x, y - Math.round(r * 0.85), G.dk); line(x, y + r * 0.6, x, y - r * 0.3, G.vein); };
+    [[-10, -5, 2.6], [10, -7, 2.6], [-4, -13, 2.8], [4, -11, 2.8], [-1, -7, 2.6], [-7, -9, 2.2], [7, -3, 2.2]].forEach(([a, b, r]) => heart(cx + a, base + b, r));
+  },
+  onion(k){
+    const { cx, base, G, F, line, egg } = k, fl = k.ripe ? 1.8 : 0.5;
+    if (k.ripe){
+      egg(cx, base - 3, 4, 3.4, F, (i, j, u, v, c) => i % 2 === 0 && Math.abs(u) < 0.8 && v > -0.7 ? F.vein : null);   // 알 — 얇은 껍질 결
+      line(cx - 1, base - 6, cx, base - 9, F.dk); line(cx, base + 1, cx - 2, base + 2, noInk('#e8dcc0')); line(cx + 1, base + 1, cx + 2, base + 2, noInk('#e8dcc0'));
+    }
+    [[-0.35, -1, 12], [0.1, -1, 13], [0.5, -1, 11], [-0.8, -0.8, 9], [0.9, -0.7, 9]].forEach(([dx, dy, l]) => k.leaf(cx, base - (k.ripe ? 7 : 2), dx, dy, l, 1.1, G, fl, { vein: false }));
+  },
+  // ---- 잎 뭉치 ----
+  cabbage(k){
+    const { cx, base, G, F, egg, leaf } = k, Gd = cropPal(shade(G.mid, -30)), Gv = { ...Gd, vein: shade(G.mid, 30) };
+    const r = k.ripe ? 5.4 : 3.8, hy = base - 7 - (k.ripe ? 1 : 0);
+    [[-1, 0.25, 9], [1, 0.25, 9], [-1, -0.3, 10], [1, -0.3, 10]].forEach(([dx, dy, l]) => leaf(cx, base - 4, dx, dy, l, 3.4, Gv, 0.6));   // 땅에 퍼진 겉잎 — 짙게, 잎맥은 희게
+    egg(cx, base - 6, r + 1.6, (r + 1.6) * 0.78, Gd);                                                                               // 속을 받친 그늘진 잎
+    [[-0.8, -1], [0.8, -1]].forEach(([dx, dy]) => leaf(cx + dx * 3, base - 3, dx, dy, r + 3, 2.4, { ...G, vein: shade(G.mid, 36) }, 0.9)); // 속을 감싸 오른 잎
+    const seam = shade(F.mid, -42);
+    egg(cx, hy, r, r * 0.9, F, (i, j, u, v) => {                                  // 속 — 겹겹이 감싼 잎의 이음매가 둥글게
+      const a = u - (-0.3 + 0.3 * v * v), b = u - (0.35 - 0.25 * v * v);
+      if (Math.abs(a) < 0.13 && v > -0.75) return seam;
+      if (a > 0.13 && a < 0.3 && v > -0.6 && v < 0.5) return F.hi;
+      if (Math.abs(b) < 0.13 && v > -0.55) return seam;
+      return null;
+    });
+  },
+  napa(k){
+    const { cx, base, G, F, line, egg } = k, Gv = { ...G, vein: shade(G.mid, 36) };
+    [[-1, -0.1, 8], [1, -0.1, 8], [-0.8, -0.7, 8], [0.8, -0.7, 8]].forEach(([dx, dy, l]) => k.leaf(cx, base - 3, dx, dy, l, 2.8, Gv, 0.6));
+    const ry = k.ripe ? 10 : 7, pale = cropPal('#f1f4d8');
+    egg(cx, base - ry, 4.4, ry, pale, (i, j, u, v, c) => {                        // 아래는 흰 줄기, 위는 오글오글한 연두 잎
+      if (v < -0.2) return ((i + j) & 1) && u * u + v * v > 0.55 ? F.dk : u > 0.4 ? F.vein : F.mid;
+      if (i === -2 || i === 1) return shade(c, -18);
+      return null;
+    });
+    line(cx, base - 2, cx, base - ry, pale.hi);
+  },
+  lettuce(k){
+    // 상추 — 땅에 퍼진 짙은 겉잎 위로 연한 속잎이 오글오글 솟는다
+    const { cx, base, G, F } = k, l = k.ripe ? 1 : 0.8, Go = cropPal(shade(G.mid, -20)), fr = { frill: true };
+    [[-1, 0.1], [1, 0.1], [-1, -0.45], [1, -0.45]].forEach(([dx, dy]) => k.leaf(cx, base - 3, dx, dy, 9 * l, 3, { ...Go, vein: shade(Go.mid, 30) }, 0.7, fr));
+    [[-0.55, -1, 7], [0.55, -1, 7], [-0.1, -1, 8.5]].forEach(([dx, dy, n], i) => k.leaf(cx + (i - 1), base - 3, dx, dy, n * l, 2.8, { ...(i === 2 ? F : G), vein: shade(F.mid, 30) }, 0.4, fr));
+  },
+  spinach(k){
+    const { cx, base, G, line, leaf, dot } = k, s = k.ripe ? 1 : 0.85;
+    [[-0.9, 0.1], [0.9, 0.1], [-1, -0.4], [1, -0.4], [-0.55, -1], [0.55, -1], [0, -1]].forEach(([dx, dy]) => {
+      const m = Math.hypot(dx, dy), ux = dx / m, uy = dy / m;
+      line(cx, base - 1, cx + ux * 3, base - 1 + uy * 3, noInk(G.dk));           // 잎자루
+      leaf(cx + ux * 3, base - 1 + uy * 3, ux, uy, 7 * s, 2 * s, G, 0.3);
+      dot(cx + ux * 6, base - 1 + uy * 6 - 1, G.hi);                              // 반들반들한 윤
+    });
+  },
+  kale(k){
+    const { cx, base, G } = k, Gv = { ...G, vein: shade(G.mid, 34) }, l = k.ripe ? 12 : 10;
+    [[-1, -0.5], [1, -0.5], [-0.6, -1], [0.6, -1], [0, -1]].forEach(([dx, dy], i) => k.leaf(cx, base - 2, dx, dy, l - (i === 4 ? 1 : 0), 2.4, Gv, 0.5, { frill: true }));
+  },
+  // ---- 떨기 ----
+  tomato(k){
+    const { cx, base, G, F, dot, line, leaf, egg, stake } = k;
+    stake(cx + 3, base - 24, base);
+    line(cx, base, cx + 1, base - 8, G.dk); line(cx + 1, base - 8, cx, base - 15, G.dk); line(cx, base - 15, cx + 1, base - 22, G.dk);
+    const sprig = (x, y, d) => { leaf(x, y, d, -0.6, 5, 1.5, G, 0.9); leaf(x + d * 2, y - 1, d * 0.4, -1, 3.5, 1.2, G, 0.3); leaf(x + d * 3, y + 1, d, 0.2, 3, 1.1, G, 0.6); };
+    sprig(cx, base - 5, -1); sprig(cx + 1, base - 9, 1); sprig(cx, base - 13, -1); sprig(cx + 1, base - 17, 1); sprig(cx, base - 20, -1);
+    leaf(cx + 1, base - 22, 0.2, -1, 4, 1.2, G, 0.2);
+    if (k.stage === 3){ [[-5, -12], [6, -16]].forEach(([a, b]) => { const x = cx + a, y = base + b; dot(x, y, '#ffe066'); dot(x - 1, y, '#ffd23a'); dot(x + 1, y, '#ffd23a'); dot(x, y - 1, '#fff3a0'); dot(x, y + 1, '#e0b020'); }); return; }
+    [[-5, -9, 2.6, F], [6, -13, 2.4, F], [-3, -17, 2.2, cropPal(mix(F.mid, '#f0a030', 0.5))]].forEach(([a, b, r, f]) => {
+      const x = cx + a, y = base + b; egg(x, y, r, r * 0.92, f);
+      const t = y - Math.round(r * 0.92);                                          // 꼭지 — 초록 별
+      dot(x, t - 1, noInk(G.dk)); dot(x - 1, t, G.mid); dot(x, t, G.dk); dot(x + 1, t, G.mid);
+    });
+  },
+  strawberry(k){
+    const { cx, base, G, F, dot, line, egg } = k;
+    const tri = (x, y) => {                                                        // 세 쪽 잎 — 톱니 가장자리
+      line(cx, base - 1, x, y + 2, noInk(G.dk));
+      const saw = (i, j, u, v, c, d) => d > 0.6 && ((i + j) & 1) ? G.dk : null;
+      egg(x - 2, y + 1, 1.8, 1.5, G, saw); egg(x + 2, y + 1, 1.8, 1.5, G, saw); egg(x, y - 1, 1.8, 1.7, G, saw);
+      dot(x, y, G.vein);
+    };
+    [[-7, -7], [7, -8], [-3, -12], [3, -13], [0, -6]].forEach(([a, b]) => tri(cx + a, base + b));
+    if (k.stage === 3){ [[-9, -3], [6, -3]].forEach(([a, b]) => { const x = cx + a, y = base + b; dot(x - 1, y, '#fbfbf2'); dot(x + 1, y, '#fbfbf2'); dot(x, y - 1, '#fbfbf2'); dot(x, y + 1, '#e8e8dc'); dot(x, y, '#ffd23a'); }); return; }
+    const berryH = (x, y) => {                                                      // 딸기 — 아래로 뾰족, 씨가 박혔다
+      [3, 4, 4, 3, 2, 1].forEach((w, r) => { for (let i = 0; i < w; i++){ const xx = x - (w >> 1) + i - (w & 1 ? 0 : 0); dot(xx, y + r, i === 0 ? F.hi : i === w - 1 && w > 1 ? F.dk : ((i + r) % 2 === 0 && r > 0 && r < 5) ? '#ffe38a' : F.mid); } });
+      dot(x - 1, y - 1, G.mid); dot(x, y - 1, G.dk); dot(x + 1, y - 1, G.mid); dot(x - 2, y, G.dk); dot(x + 2, y, G.dk); dot(x, y - 2, noInk(G.dk));
+    };
+    berryH(cx - 8, base - 4); berryH(cx + 6, base - 5); berryH(cx - 1, base - 3);
+  },
+  blueberry(k){
+    const { cx, base, G, F, line, leaf } = k, wood = '#7a4a3a';
+    line(cx, base, cx - 6, base - 18, wood); line(cx, base, cx + 1, base - 22, wood); line(cx, base, cx + 7, base - 17, wood); line(cx - 3, base - 9, cx - 9, base - 12, wood);
+    const pts = [[-6, -18], [1, -22], [7, -17], [-9, -12], [-3, -12], [4, -12], [-1, -16], [5, -20], [-7, -6], [6, -8]];
+    pts.forEach(([a, b], i) => { const d = a < 0 ? -1 : 1; leaf(cx + a, base + b, d, -0.6 - (i % 3) * 0.2, 3.5, 1.3, G, 0.6); leaf(cx + a, base + b, -d * 0.3, -1, 3, 1.2, G, 0.3); });
+    if (!k.ripe) return;
+    const dust = { hi: '#c2cdf4', mid: F.mid, dk: F.dk };
+    [[-6, -14], [3, -18], [6, -11], [-2, -9]].forEach(([a, b]) => [[0, 0], [2, 1], [-1, 2], [1, 3]].forEach(([i, j]) => k.berry(cx + a + i, base + b + j, dust)));
+  },
+  pepper(k){
+    const { cx, base, G, F, dot, line, leaf } = k;
+    line(cx, base, cx, base - 10, G.dk); line(cx, base - 10, cx - 5, base - 18, G.dk); line(cx, base - 10, cx + 5, base - 19, G.dk);
+    [[-5, -18, -1, -0.6], [5, -19, 1, -0.6], [-5, -18, 0.2, -1], [5, -19, -0.2, -1], [0, -10, -1, -0.2], [0, -10, 1, -0.3], [0, -5, -1, -0.4], [0, -6, 1, -0.5], [-2, -14, -0.6, -1], [2, -15, 0.6, -1]]
+      .forEach(([a, b, dx, dy]) => leaf(cx + a, base + b, dx, dy, 5, 1.7, G, 0.6));
+    if (k.stage === 3){ [[-4, -12], [4, -14]].forEach(([a, b]) => { const x = cx + a, y = base + b; dot(x - 1, y, '#fbfbf2'); dot(x + 1, y, '#fbfbf2'); dot(x, y - 1, '#fbfbf2'); dot(x, y + 1, '#e6e6d6'); dot(x, y, '#ffd23a'); }); return; }
+    const pod = (x, y, len, f) => {                                                // 고추 — 꼭지에서 가늘어지며 휜다
+      dot(x, y - 2, noInk(G.dk)); dot(x, y - 1, G.mid); dot(x + 1, y - 1, G.dk);
+      for (let t = 0; t <= len; t++){ const w = t < len * 0.55 ? 2 : 1, xx = x + Math.round(t * t * 0.03); dot(xx, y + t, w > 1 ? f.hi : f.mid); if (w > 1) dot(xx + 1, y + t, f.dk); }
+    };
+    pod(cx - 5, base - 16, 7, F); pod(cx + 4, base - 17, 7, F); pod(cx - 1, base - 11, 6, F); pod(cx + 7, base - 12, 6, cropPal('#4f9a3a'));
+  },
+  eggplant(k){
+    const { cx, base, G, F, dot, line, leaf, egg } = k, st = '#5f4470';
+    line(cx, base, cx, base - 16, st); line(cx, base - 9, cx - 5, base - 14, st); line(cx, base - 11, cx + 5, base - 15, st);
+    leaf(cx, base - 4, -1, -0.4, 8, 2.6, G, 1.1); leaf(cx, base - 6, 1, -0.5, 8, 2.6, G, 1.1);
+    leaf(cx - 5, base - 14, -0.7, -1, 7, 2.3, G, 0.9); leaf(cx + 5, base - 15, 0.7, -1, 7, 2.3, G, 0.9); leaf(cx, base - 16, 0, -1, 5, 1.8, G, 0.4);
+    if (k.stage === 3){ [[-6, -12], [5, -10]].forEach(([a, b]) => { const x = cx + a, y = base + b; dot(x - 1, y, '#b890e0'); dot(x + 1, y, '#b890e0'); dot(x, y - 1, '#cfb0f0'); dot(x, y + 1, '#9870c8'); dot(x, y, '#ffd23a'); }); return; }
+    [[-4, -8], [5, -9]].forEach(([a, b]) => {                                      // 가지 — 반들반들한 긴 열매, 가시 돋은 초록 갓
+      const x = cx + a, y = base + b;
+      egg(x, y, 2.2, 4.6, F, (i, j, u, v) => i === -1 && v > -0.5 && v < 0.35 ? F.hi : null);
+      const t = y - 5;
+      for (let i = -2; i <= 2; i++) dot(x + i, t, i ? G.mid : G.dk);
+      dot(x - 2, t + 1, G.dk); dot(x + 2, t + 1, G.dk); dot(x, t - 1, noInk(st));
+    });
+  },
+  // ---- 꽃 ----
+  tulip(k){
+    const { cx, base, G, F, line, leaf, egg } = k;
+    leaf(cx, base - 1, -0.7, -1, 10, 2.2, G, 0.6); leaf(cx + 1, base - 1, 0.8, -1, 9, 2, G, 0.7);
+    line(cx, base, cx, base - 18, G.dk); line(cx + 1, base - 2, cx + 1, base - 17, shade(G.dk, -10));
+    if (k.stage === 3){ egg(cx, base - 20, 1.6, 2.8, cropPal(mix(F.mid, G.mid, 0.55))); k.dot(cx, base - 23, F.mid); return; }
+    k.map(cx - 3, base - 25, ['h..h..m', 'hl.hm.d', 'hlmhmdd', 'hlmmmdd', 'hlmmmdd', '.hmmmd.', '..mdd..'], { h: F.hi, l: F.lt, m: F.mid, d: F.dk });
+  },
+  sunflower(k){
+    const { cx, base, G, F, line, leaf, egg } = k;
+    line(cx, base, cx, base - 19, G.dk); line(cx + 1, base, cx + 1, base - 19, shade(G.dk, -12));
+    leaf(cx, base - 6, -1, -0.3, 7, 2.6, G, 1); leaf(cx + 1, base - 9, 1, -0.3, 7, 2.6, G, 1);
+    leaf(cx, base - 14, -1, -0.6, 6, 2.2, G, 0.9); leaf(cx + 1, base - 16, 1, -0.7, 5, 2, G, 0.8);
+    const hx = cx + 1, hy = base - 23;
+    if (k.stage === 3){ egg(hx, hy, 2.4, 2, G); k.dot(hx - 1, hy - 2, F.mid); k.dot(hx + 1, hy - 2, F.mid); return; }
+    for (let a = 0; a < 12; a++){ const t = a / 12 * Math.PI * 2 + 0.2; leaf(hx + Math.cos(t) * 1.5, hy + Math.sin(t) * 1.5, Math.cos(t), Math.sin(t), 4.2, 1.2, F, 0, { vein: false }); }
+    egg(hx, hy, 2.8, 2.8, cropPal('#7a4a22'), (i, j) => ((i + j) & 1) ? '#5a3418' : null);
+  },
+  cosmos(k){
+    const { cx, base, G, F, dot, line, leaf } = k;
+    line(cx, base, cx - 1, base - 20, G.dk); line(cx, base - 8, cx + 5, base - 16, G.dk);
+    for (let y = base - 3; y > base - 18; y -= 3){                                // 실처럼 갈라진 잎
+      const x = cx - Math.round((base - y) / 20);
+      dot(x - 1, y, noInk(G.mid)); dot(x - 2, y - 1, noInk(G.hi)); dot(x + 1, y + 1, noInk(G.mid)); dot(x + 2, y, noInk(G.dk));
+    }
+    const heads = [[cx - 1, base - 22], [cx + 5, base - 17]];
+    if (k.stage === 3){ heads.forEach(([x, y]) => { k.egg(x, y, 1.3, 1.5, G); dot(x, y - 1, F.mid); }); return; }
+    heads.forEach(([x, y]) => {
+      for (let a = 0; a < 8; a++){ const t = a / 8 * Math.PI * 2; leaf(x + Math.cos(t) * 0.8, y + Math.sin(t) * 0.8, Math.cos(t), Math.sin(t), 3.2, 1.2, F, 0, { vein: false }); }
+      dot(x, y, '#ffd23a'); dot(x + 1, y, '#e0a820'); dot(x, y + 1, '#e0a820'); dot(x + 1, y + 1, '#c08818');
+    });
+  },
+  daffodil(k){
+    const { cx, base, G, F, dot, line, leaf, egg } = k;
+    leaf(cx - 1, base, -0.35, -1, 12, 1.3, G, 0.5); leaf(cx + 1, base, 0.3, -1, 11, 1.3, G, 0.6); leaf(cx, base, -0.8, -1, 8, 1.2, G, 0.8);
+    line(cx, base, cx + 1, base - 18, G.dk); line(cx + 1, base - 18, cx + 3, base - 19, G.dk);
+    const hx = cx + 4, hy = base - 19;
+    if (k.stage === 3){ egg(hx, hy, 1.4, 2.4, cropPal('#d8d0a0')); return; }
+    for (let a = 0; a < 6; a++){ const t = a / 6 * Math.PI * 2 - Math.PI / 2; leaf(hx + Math.cos(t), hy + Math.sin(t), Math.cos(t), Math.sin(t), 3.2, 1.3, F, 0, { vein: false }); }
+    egg(hx + 1, hy, 1.7, 1.7, cropPal('#ffb530')); dot(hx + 1, hy, '#c07010');
+  },
+  lily(k){
+    const { cx, base, G, F, dot, line, leaf, egg } = k;
+    line(cx, base, cx, base - 20, G.dk);
+    for (let y = base - 4, i = 0; y > base - 19; y -= 3, i++) leaf(cx, y, i & 1 ? 1 : -1, -0.6, 4, 1.1, G, 0.4, { vein: false });
+    const hx = cx + 1, hy = base - 22, Fp = { ...F, vein: '#f2a6c4' };
+    if (k.stage === 3){ egg(hx, hy, 1.5, 3.4, cropPal(mix(F.mid, G.mid, 0.4))); return; }
+    [[-0.8, -1], [0.1, -1], [0.9, -0.7], [1, 0.1], [-1, -0.2]].forEach(([dx, dy]) => leaf(hx, hy + 1, dx, dy, 5, 1.6, Fp, -0.4));
+    [[-1, -4], [1, -5], [2, -3]].forEach(([a, b]) => { line(hx, hy, hx + a, hy + b, noInk('#9ab060')); dot(hx + a, hy + b - 1, noInk('#d8702a')); });
+  },
+  chrys(k){
+    const { cx, base, G, F, dot, line, egg } = k;
+    line(cx, base, cx - 5, base - 13, G.dk); line(cx, base, cx + 4, base - 15, G.dk); line(cx, base, cx, base - 19, G.dk);
+    const lobe = (i, j, u, v, c, d) => d > 0.6 && ((i * 2 + j) % 3 === 0) ? G.dk : null;
+    [[-6, -5, 3], [6, -6, 3], [-3, -10, 2.8], [4, -11, 2.8], [0, -5, 3], [-7, -11, 2.2], [0, -14, 2.4]].forEach(([a, b, r]) => egg(cx + a, base + b, r, r * 0.75, G, lobe));
+    const heads = [[cx - 5, base - 15], [cx + 4, base - 17], [cx, base - 21]];
+    if (k.stage === 3){ heads.forEach(([x, y]) => { egg(x, y, 1.5, 1.4, G); dot(x, y - 1, F.mid); }); return; }
+    heads.forEach(([x, y]) => egg(x, y, 2.8, 2.6, F, (i, j, u, v, c, d) => d < 0.12 ? F.dk : ((Math.round(Math.atan2(v, u) * 2.5) + Math.round(d * 3)) & 1) ? F.hi : null));
+  },
+  camellia(k){
+    const { cx, base, G, F, dot, line, leaf, egg } = k, wood = '#6a4a34';
+    line(cx, base, cx, base - 10, wood); line(cx, base - 6, cx - 6, base - 12, wood); line(cx, base - 7, cx + 6, base - 13, wood);
+    [[-6, -12, -1, -0.5], [-6, -12, -0.2, -1], [6, -13, 1, -0.5], [6, -13, 0.2, -1], [0, -10, -0.6, -1], [0, -10, 0.6, -1], [0, -4, -1, -0.3], [0, -5, 1, -0.3], [-3, -15, -0.4, -1], [3, -16, 0.5, -1]]
+      .forEach(([a, b, dx, dy]) => { leaf(cx + a, base + b, dx, dy, 4.5, 1.8, G, 0.4); dot(cx + a + dx * 2, base + b + dy * 2 - 1, shade(G.mid, 50)); });   // 반들반들한 잎 — 윤이 한 점씩
+    const heads = [[cx - 4, base - 16], [cx + 5, base - 11]];
+    if (k.stage === 3){ heads.forEach(([x, y]) => { egg(x, y, 1.6, 1.8, G); dot(x, y - 1, F.mid); dot(x - 1, y - 1, F.dk); }); return; }
+    heads.forEach(([x, y]) => egg(x, y, 3, 2.8, F, (i, j, u, v, c, d) => d < 0.18 ? (((i + j) & 1) ? '#ffd84d' : '#f0b030') : (d > 0.3 && d < 0.5 && v < 0.3) ? F.dk : null));
+  },
+  star(k){
+    const { cx, base, G, F, dot, line, leaf } = k;
+    line(cx, base, cx, base - 18, G.dk); line(cx, base - 9, cx - 5, base - 15, G.dk); line(cx, base - 10, cx + 5, base - 13, G.dk);
+    [[-1, -0.5, 6], [1, -0.5, 6], [-0.5, -1, 5], [0.6, -1, 5]].forEach(([dx, dy, l]) => leaf(cx, base - 3, dx, dy, l, 1.8, G, 0.6));
+    const heads = [[cx - 8, base - 20], [cx + 2, base - 24], [cx + 3, base - 17]];
+    if (k.stage === 3){ heads.forEach(([x, y]) => { k.egg(x + 3, y + 3, 1.4, 1.4, F); dot(x + 3, y + 1, noInk('#ffffff')); }); return; }
+    heads.forEach(([x, y]) => k.map(x, y, ['...h...', '..hmd..', 'hhmmmdd', '.lmmmd.', '.mm.dd.', '.d...d.'], { h: F.hi, l: F.lt, m: F.mid, d: F.dk }));
+    [[-10, -24], [7, -26], [8, -19]].forEach(([a, b]) => { dot(cx + a, base + b, noInk('#fffbe0')); dot(cx + a - 1, base + b, noInk('#ffe680')); dot(cx + a + 1, base + b, noInk('#ffe680')); dot(cx + a, base + b - 1, noInk('#ffe680')); dot(cx + a, base + b + 1, noInk('#ffe680')); });
+  },
+  snowflower(k){
+    const { cx, base, G, F, dot, line, leaf } = k;
+    line(cx, base, cx, base - 17, G.dk);
+    [[-1, -0.6, 6], [1, -0.6, 6], [-0.6, -1, 5], [0.6, -1, 5]].forEach(([dx, dy, l]) => leaf(cx, base - 2, dx, dy, l, 1.4, G, 0.5));
+    const hx = cx, hy = base - 20;
+    if (k.stage === 3){ k.egg(hx, hy, 1.5, 1.8, F); return; }
+    for (let a = 0; a < 6; a++){                                                   // 눈꽃 — 여섯 갈래 결정
+      const t = a / 6 * Math.PI * 2 - Math.PI / 2, ux = Math.cos(t), uy = Math.sin(t);
+      line(hx, hy, hx + ux * 4, hy + uy * 4, a & 1 ? F.dk : F.mid);
+      dot(hx + ux * 2.5 - uy, hy + uy * 2.5 + ux, F.hi); dot(hx + ux * 2.5 + uy, hy + uy * 2.5 - ux, F.hi);
+    }
+    dot(hx, hy, '#ffffff');
+    [[-6, -4], [6, 3], [4, -6]].forEach(([a, b]) => { dot(hx + a, hy + b, noInk('#ffffff')); dot(hx + a + 1, hy + b, noInk('#dff2ff')); dot(hx + a - 1, hy + b, noInk('#dff2ff')); dot(hx + a, hy + b - 1, noInk('#dff2ff')); dot(hx + a, hy + b + 1, noInk('#dff2ff')); });
+  },
+};
+CROP_ART.winterradish = CROP_ART.radish; CROP_ART.watermelon = CROP_ART.pumpkin = CROP_ART.melon;
+const CROP_SHAPE_ART = { root: 'radish', head: 'cabbage', bush: 'pepper', vine: 'pea', tall: 'corn', melon: 'melon', flower: 'tulip' };
+// 어린 포기(2단계) — 모양 무리마다 한 가지
+function youngCrop(k, shape){
+  const { cx, base, G, line, leaf, dot } = k;
+  if (shape === 'tall'){
+    for (let y = base; y >= base - 13; y--){ dot(cx, y, G.mid); dot(cx + 1, y, G.dk); }
+    leaf(cx, base - 4, -1, -1, 7, 1.3, G, 1.2); leaf(cx + 1, base - 7, 1, -1.1, 7, 1.3, G, 1.2); leaf(cx, base - 11, -0.5, -1, 6, 1.1, G, 1);
+  } else if (shape === 'vine'){
+    k.stake(cx, base - 16, base, cropPal('#c8b070'));
+    for (let y = base; y >= base - 12; y--) dot(cx + Math.round(Math.sin((base - y) * 0.5) * 2), y, G.dk);
+    leaf(cx, base - 4, -1, -0.5, 4, 1.4, G, 0.5); leaf(cx, base - 8, 1, -0.5, 4, 1.4, G, 0.5); leaf(cx, base - 12, -0.6, -1, 3.5, 1.2, G, 0.3);
+  } else if (shape === 'flower'){
+    line(cx, base, cx, base - 13, G.dk);
+    leaf(cx, base - 2, -1, -0.8, 6, 1.7, G, 0.7); leaf(cx + 1, base - 5, 1, -0.8, 5, 1.5, G, 0.7);
+    k.egg(cx, base - 14, 1.2, 1.6, G);
+  } else {
+    [[-1, -0.35, 6], [-0.4, -1, 6.5], [0.45, -1, 6], [1, -0.4, 6]].forEach(([dx, dy, l]) => leaf(cx, base - 1, dx, dy, l, 1.8, G, 0.6));
+  }
+}
 function drawCrop(X, Y, crop, stage, wilted, P, sway){
-  const px = P || pxMap;
-  const C = R.CROPS[crop];
-  const leaf = wilted ? '#a08a5a' : C.leaf;
-  const hi = wilted ? '#b9a271' : shade(leaf, 26), dk = wilted ? '#7a6a44' : shade(leaf, -32), stem = wilted ? '#7a6a44' : shade(leaf, -46);
-  const fruit = C.fruit, fhi = shade(fruit, 30), fdk = shade(fruit, -34);
-  const s = sway || 0;
+  const put = P || pxMap, C = R.CROPS[crop], s = sway || 0;
   const cx = X + 16, base = Y + 28;
-  if (wilted){ px(cx - 2, base - 10, 2, 10, stem); px(cx - 6, base - 6, 6, 2, leaf); px(cx + 2, base - 4, 6, 2, dk); px(cx - 8, base - 2, 16, 2, '#00000018'); return; }
-  px(cx - 8, base, 18, 2, '#00000016');                       // 그림자
-  if (stage === 0){ px(cx - 2, base - 4, 4, 4, leaf); px(cx - 2, base - 4, 2, 2, hi); px(cx - 4, base - 6, 2, 2, leaf); px(cx + 2, base - 6, 2, 2, dk); return; }
-  if (stage === 1){ px(cx, base - 10, 2, 10, stem); px(cx - 4, base - 8, 4, 2, leaf); px(cx - 4, base - 10, 2, 2, hi); px(cx + 2, base - 10, 4, 2, leaf); px(cx + 4, base - 8, 2, 2, dk); return; }
-  if (stage === 2){
-    px(cx, base - 14, 2, 14, stem);
-    px(cx - 6 + s, base - 10, 6, 2, leaf); px(cx - 6 + s, base - 12, 4, 2, hi); px(cx + 2 + s, base - 12, 6, 2, leaf); px(cx + 6 + s, base - 10, 2, 2, dk);
-    px(cx - 4, base - 6, 4, 2, leaf); px(cx + 2, base - 8, 4, 2, dk);
+  const k = cropPen(put, y => s * Math.max(0, Math.min(1, (base - y) / 22)));
+  Object.assign(k, { cx, base, crop, stage, ripe: stage === 4, G: cropPal(wilted ? '#a08a5a' : C.leaf), F: cropPal(C.fruit) });
+  const { G, line, leaf } = k;
+  put(cx - 9, base, 19, 2, '#00000016');                                         // 그림자
+  if (wilted){                                                                   // 시든 것 — 꺾여 누운 줄기와 처진 잎
+    line(cx, base, cx - 1, base - 8, '#7a6a44'); line(cx - 1, base - 8, cx - 5, base - 7, '#7a6a44');
+    leaf(cx, base - 2, -1, 0.3, 6, 1.4, G, 0.6); leaf(cx, base - 4, 1, 0.1, 6, 1.4, G, 0.9); leaf(cx - 4, base - 7, -1, 0.6, 4, 1.1, G, 0.5);
     return;
   }
-  const sh = C.shape;
-  if (sh === 'root'){
-    // 잎은 부챗살처럼 펼친다 — 네모난 덩어리로 보이지 않게
-    px(cx - 2, base - 14, 4, 14, stem);
-    [[-14, -8], [-8, -16], [-2, -20], [6, -16], [10, -8]].forEach((q, i) => {
-      const c = i % 2 ? leaf : hi;
-      px(cx + q[0] + s, base + q[1], 6, 10, c);
-      px(cx + q[0] + s, base + q[1], 4, 4, hi);
-      px(cx + q[0] + s + 2, base + q[1] + 6, 4, 4, dk);
-    });
-    if (stage === 4){
-      px(cx - 6, base - 4, 14, 8, fruit); px(cx - 4, base + 4, 10, 2, fruit);
-      px(cx - 6, base - 4, 6, 4, fhi); px(cx + 2, base, 6, 4, fdk);
-      px(cx - 2, base + 6, 4, 2, shade(fruit, -50));
-    }
-  } else if (sh === 'head'){
-    // 배추·양배추 — 겉잎이 감싸고 속이 차오른다
-    blob(cx + s, base - 18, 24, 18, leaf, hi, dk, 'h' + crop, px);
-    px(cx - 12 + s, base - 8, 6, 6, dk); px(cx + 8 + s, base - 10, 6, 6, dk);
-    if (stage === 4){
-      blob(cx + s, base - 24, 26, 24, fruit, fhi, fdk, 'i' + crop, px);
-      px(cx - 2 + s, base - 22, 2, 18, shade(fruit, -18)); px(cx + 4 + s, base - 20, 2, 14, shade(fruit, -18));
-      px(cx - 12 + s, base - 6, 8, 6, leaf); px(cx + 6 + s, base - 8, 8, 6, dk);
-    }
-  } else if (sh === 'bush'){
-    px(cx - 10 + s, base - 14, 22, 14, leaf); px(cx - 8 + s, base - 18, 18, 4, leaf);
-    px(cx - 8 + s, base - 18, 8, 2, hi); px(cx - 10 + s, base - 12, 4, 4, hi);
-    px(cx + 6 + s, base - 16, 4, 12, dk); px(cx - 10 + s, base - 4, 6, 2, dk); px(cx + 4 + s, base - 2, 6, 2, dk);
-    if (stage === 4){
-      const spots = [[-6, -12], [2, -16], [0, -6], [6, -10], [-8, -6]];
-      spots.forEach(([a, b], i) => { px(cx + a + s, base + b, 4, 4, fruit); px(cx + a + s, base + b, 2, 2, fhi); px(cx + a + 2 + s, base + b + 2, 2, 2, fdk); });
-    }
-  } else if (sh === 'tall'){
-    px(cx, base - 26, 2, 26, stem); px(cx + 2, base - 26, 2, 26, shade(stem, -14));
-    [[-10, -20], [2, -16], [-8, -10], [2, -8], [-8, -24]].forEach(([a, b], i) => {
-      const q = i % 2 ? s : -s;
-      px(cx + a + q, base + b, 10, 2, i % 2 ? leaf : hi); px(cx + a + q, base + b + 2, 8, 2, dk);
-    });
-    px(cx - 2 + s, base - 30, 8, 4, leaf); px(cx - 2 + s, base - 30, 4, 2, hi);
-    if (stage === 4){ px(cx + 2, base - 22, 6, 12, fruit); px(cx + 2, base - 24, 6, 2, fhi); px(cx + 2, base - 22, 2, 10, fhi); px(cx + 6, base - 18, 2, 8, fdk); px(cx + 4, base - 24, 2, 2, hi); }
-  } else if (sh === 'vine'){
-    px(cx - 2, base - 26, 2, 26, '#8a5f3a'); px(cx, base - 26, 2, 26, '#6f4a2c');
-    [[-10, -22], [2, -18], [-10, -12], [2, -8], [-6, -26]].forEach(([a, b], i) => {
-      const q = i % 2 ? s : -s;
-      px(cx + a + q, base + b, 8, 2, leaf); px(cx + a + q, base + b - 2, 4, 2, hi); px(cx + a + q + 2, base + b + 2, 4, 2, dk);
-    });
-    if (stage === 4){
-      [[-10, -18], [4, -14], [-8, -8], [2, -24]].forEach(([a, b]) => { px(cx + a, base + b, 6, 6, fruit); px(cx + a, base + b, 2, 2, fhi); px(cx + a + 4, base + b + 4, 2, 2, fdk); });
-    }
-  } else if (sh === 'flower'){
-    px(cx + Math.round(s / 2), base - 20, 2, 20, stem);
-    px(cx - 6 + s, base - 12, 6, 2, leaf); px(cx - 6 + s, base - 14, 4, 2, hi); px(cx + 2 + s, base - 10, 6, 2, leaf); px(cx + 6 + s, base - 8, 2, 2, dk);
-    if (stage === 4){
-      const fx = cx + s, fy = base - 14;
-      px(fx - 6, fy + 4, 14, 8, fruit); px(fx - 4, fy + 2, 10, 2, fruit); px(fx - 4, fy + 12, 10, 2, fruit);
-      px(fx - 6, fy + 4, 6, 4, fhi); px(fx + 2, fy + 8, 6, 4, fdk);
-      px(fx - 2, fy + 6, 4, 4, '#ffe06e'); px(fx - 2, fy + 6, 2, 2, '#fff3c0');
-    } else { px(cx + s, base - 24, 4, 6, leaf); px(cx + s, base - 24, 2, 2, hi); }
-  } else if (sh === 'melon'){
-    px(cx - 14 + s, base - 6, 28, 4, leaf); px(cx - 14 + s, base - 6, 10, 2, hi);
-    px(cx - 12 + s, base - 12, 8, 6, leaf); px(cx + 4 + s, base - 14, 8, 6, leaf); px(cx + 4 + s, base - 14, 4, 2, hi);
-    px(cx - 2, base - 8, 4, 2, dk);
-    if (stage === 4){
-      px(cx - 8, base - 16, 18, 16, fruit); px(cx - 6, base - 18, 14, 2, fruit); px(cx - 6, base + 0, 14, 2, fruit);
-      px(cx - 6, base - 16, 6, 6, fhi); px(cx + 4, base - 8, 4, 8, fdk);
-      px(cx - 2, base - 18, 2, 4, '#6f4a2c'); px(cx - 2, base - 16, 2, 16, shade(fruit, -14)); px(cx + 2, base - 14, 2, 12, shade(fruit, -14));
-    }
+  if (stage === 0){                                                              // 씨 — 흙이 봉긋, 떡잎 둘이 막 올라온다
+    put(cx - 3, base - 1, 6, 1, '#00000022'); line(cx, base, cx, base - 2, G.dk);
+    leaf(cx, base - 2, -1, -0.5, 2.5, 1, G, 0, { vein: false }); leaf(cx, base - 2, 1, -0.5, 2.5, 1, G, 0, { vein: false });
+    return;
   }
+  if (stage === 1){
+    line(cx, base, cx, base - 7, G.dk);
+    leaf(cx, base - 4, -1, -0.3, 4, 1.3, G, 0.3); leaf(cx, base - 5, 1, -0.4, 4, 1.3, G, 0.3); leaf(cx, base - 7, 0.2, -1, 3, 1.1, G, 0.1, { vein: false });
+    return;
+  }
+  if (stage === 2) return youngCrop(k, C.shape);
+  (CROP_ART[crop] || CROP_ART[CROP_SHAPE_ART[C.shape]])(k);
+}
+// 밭에 얹을 작물 한 포기 — 테까지 둘러 작은 그림에 담아 둔다. 작물 줄은 바람 단계(0.11초)마다 다시 그려진다.
+function cropAt(X, Y, crop, stage, wilted, sway){
+  cachedDraw('crop:' + crop + ':' + stage + (wilted ? 'x' : '') + ':' + (sway || 0) + '@' + S, X - 10, Y - 8, 52, 44,
+    () => withInk(INK.crop, () => drawCrop(X, Y, crop, stage, wilted, null, sway)));
 }
 function drawGiant(id, p, sway){
   const a = R.parseId(id), b = R.parseId(p.pairOf);
   const X = Math.min(a.x, b.x) * T, Y = Math.min(a.y, b.y) * T;
   const w = (Math.abs(a.x - b.x) + 1) * T, hgt = (Math.abs(a.y - b.y) + 1) * T;
   const C = R.CROPS[p.crop], st = R.stageOf(p), s = sway || 0;
-  const leaf = C.leaf, hi = shade(leaf, 24), dk = shade(leaf, -30);
-  const fruit = C.fruit, fhi = shade(fruit, 30), fdk = shade(fruit, -34);
   const cx = X + w / 2, base = Y + hgt - 2;
-  px(X + 4, base - 2, w - 8, 2, '#00000020');
-  px(X + 6 + s, base - 8, w - 12, 4, leaf); px(X + 6 + s, base - 8, 12, 2, hi);
-  px(X + 10 + s, base - 16, 12, 8, leaf); px(X + w - 22 + s, base - 18, 12, 8, leaf); px(X + w - 22 + s, base - 18, 6, 2, hi);
+  const k = cropPen(pxMap, y => s * Math.max(0, Math.min(1, (base - y) / 30)));
+  const G = cropPal(C.leaf), F = cropPal(C.fruit), { line, egg } = k;
+  pxMap(X + 4, base - 2, w - 8, 2, '#00000020');
+  line(X + 4, base - 4, X + w - 4, base - 5, G.dk);                                // 땅을 기는 덩굴과 갈래진 큰 잎
+  const vleaf = (x, y, r) => {
+    egg(x - r * 0.7, y + 1, r * 0.6, r * 0.5, G); egg(x + r * 0.7, y + 1, r * 0.6, r * 0.5, G); egg(x, y, r * 0.72, r * 0.62, G);
+    line(x, y + r * 0.5, x, y - r * 0.4, G.vein); line(x, y + r * 0.5, x - r * 0.7, y, G.vein); line(x, y + r * 0.5, x + r * 0.7, y, G.vein);
+  };
+  [[0.14, -8, 4.4], [0.86, -9, 4.4], [0.3, -16, 4.2], [0.72, -17, 4.2], [0.06, -2, 3.2], [0.94, -3, 3.2]].forEach(([fx, dy, r]) => vleaf(Math.round(X + w * fx), base + dy, r));
   if (st >= 4){
     const r = Math.min(w, hgt) / 2 - 2;
-    px(cx - r, base - r * 1.7, r * 2, r * 1.7, fruit);
-    px(cx - r + 4, base - r * 1.7 - 4, r * 2 - 8, 4, fruit);
-    px(cx - r + 4, base - r * 1.6, 8, r * 0.9, fhi);
-    px(cx + r - 12, base - r * 1.3, 6, r, fdk);
-    px(cx - 2, base - r * 1.7 - 10, 4, 8, '#6f4a2c'); px(cx - 6, base - r * 1.7 - 8, 6, 2, dk);
-  } else if (st >= 2){ px(cx - 10, base - 20, 20, 16, shade(leaf, -12)); px(cx - 10, base - 20, 8, 4, leaf); }
-  if (p.pulls && p.pulls.length) p.pulls.forEach((who, i) => { const c = who === 'sua' ? '#ff7f8a' : '#6cc7b3'; px(X + 6 + i * 20, Y + 6, 12, 12, c); px(X + 6 + i * 20, Y + 6, 6, 4, shade(c, 26)); });
+    melonFruit(k, p.crop, Math.round(cx), Math.round(base - r * 0.85), Math.round(r), Math.round(r * 0.82), F);
+  } else if (st >= 2) egg(Math.round(cx), base - 10, 8, 6, cropPal(shade(C.leaf, -12)));
+  if (p.pulls && p.pulls.length) p.pulls.forEach((who, i) => { const c = who === 'sua' ? '#ff7f8a' : '#6cc7b3'; pxMap(X + 6 + i * 20, Y + 6, 12, 12, c); pxMap(X + 6 + i * 20, Y + 6, 6, 4, shade(c, 26)); });
 }
 
 // ---------- 흩뿌려 섞기 ----------
@@ -3577,7 +3952,7 @@ function isoCrops(windStep, ids){
       withBB(flatOffAt(((q.x + o.x) / 2 + 0.5) * T, ((q.y + o.y) / 2 + 0.75) * T, cu, cv + 0.1, 3), () => withInk(INK.crop, () => drawGiant(id, p, sway(q.x, q.y))));
       return;
     }
-    withBB(flatOffAt(q.x * T + 16, q.y * T + 24, q.x + 0.5, q.y + 0.55, 3), () => withInk(INK.crop, () => drawCrop(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, null, sway(q.x, q.y))));
+    withBB(flatOffAt(q.x * T + 16, q.y * T + 24, q.x + 0.5, q.y + 0.55, 3), () => cropAt(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, sway(q.x, q.y)));
   });
 }
 
@@ -6264,7 +6639,7 @@ function drawFarmIn(cv, tms){
     open.forEach(id => {
       const p = W.plots[id]; if (!p || !p.crop || p.giant) return;
       const q = R.parseId(id);
-      withInk(INK.crop, () => drawCrop(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, null, sway(q.x, q.y)));
+      cropAt(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, sway(q.x, q.y));
     });
     open.forEach(id => { const p = W.plots[id]; if (p && p.giant && p.pairOf && id < p.pairOf){ const q = R.parseId(id); withInk(INK.crop, () => drawGiant(id, p, sway(q.x, q.y))); } });
   });
