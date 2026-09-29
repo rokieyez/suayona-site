@@ -54,7 +54,15 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   R.FARMS.forEach((f, i) => {
     const wf = R.fixWorld(null, now); wf.farm = i;
     const all = I.PLACE_IDS.filter(id => !(R.DECOR[id] && R.DECOR[id].farm && R.DECOR[id].farm !== f.id)).map(id => R.spotOf(wf, id));
-    const rocks = Object.keys(R.NODES).map(n => ({ id: n, x: R.NODES[n].x, y: R.NODES[n].y, w: 1, h: 1 }));
+    const rocks = Object.keys(R.NODES).map(n => Object.assign({ id: n, w: 1, h: 1 }, R.nodeSpot(wf, n))).concat(R.sceneryOf(wf).map(c => ({ id: '풍경 ' + c.kind + '(' + c.x + ',' + c.y + ')', x: c.x, y: c.y, w: 1, h: 1 })));
+    // 나무·바위·풍경끼리, 그리고 밭·떠돌이 상인 자리와도 겹치지 않는다
+    rocks.forEach((a, k) => {
+      assert(a.x >= 0 && a.y >= 0 && a.x < R.gridOf(wf).w && a.y < R.gridOf(wf).h, f.id + ' ' + a.id + ' 지도 밖');
+      assert(!R.fieldHas(wf, a.x, a.y), f.id + ' ' + a.id + ' 밭과 겹침');
+      rocks.slice(k + 1).forEach(b => assert(!hit(a, b), f.id + ' ' + a.id + ' ' + b.id + '과 겹침'));
+      assert(!hit(a, { x: R.PEDDLER.x, y: R.PEDDLER.y, w: R.PEDDLER.w + 1, h: 1 }) || !i, f.id + ' ' + a.id + ' 떠돌이 상인 자리');
+      ['house', 'stall'].forEach(id => assert(!hit(a, R.spotOf(wf, id)), f.id + ' ' + a.id + ' ' + id + '과 겹침'));
+    });
     all.forEach((a, k) => {
       assert(a.x >= 0 && a.y >= 0 && a.x + a.w <= R.gridOf(wf).w && a.y + a.h <= R.gridOf(wf).h, f.id + ' ' + a.id + ' 지도 밖');
       if (!a.move) return;                                         // 집·가게는 원래 자리
@@ -89,7 +97,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
     const parts = cellOk => {
       const all = I2.PLACE_IDS.filter(id => id !== 'path' && !(R.DECOR[id] && R.DECOR[id].farm && R.DECOR[id].farm !== f.id)).map(id => R.spotOf(wf, id));
       const G = R.gridOf(wf), ok = (x, y) => x >= 0 && y >= 0 && x < G.w && y < G.h - 1 && cellOk(x, y) &&
-        !all.some(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) && !Object.keys(R.NODES).some(n => R.NODES[n].x === x && R.NODES[n].y === y);
+        !all.some(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) && !Object.keys(R.NODES).some(n => { const q = R.nodeSpot(wf, n); return q.x === x && q.y === y; }) && !R.sceneryOf(wf).some(c => c.x === x && c.y === y);
       const seen = new Set(); let n = 0;
       for (let y = 0; y < G.h; y++) for (let x = 0; x < G.w; x++){
         if (!ok(x, y) || seen.has(x + ',' + y)) continue; n++;
@@ -101,7 +109,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
     {
       const all = I2.PLACE_IDS.filter(id => id !== 'path' && !(R.DECOR[id] && R.DECOR[id].farm && R.DECOR[id].farm !== f.id)).map(id => R.spotOf(wf, id));
       const G = R.gridOf(wf), ok = (x, y) => x >= 0 && y >= 0 && x < G.w && y < G.h - 1 && !R.fieldHas(wf, x, y) &&
-        !all.some(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) && !Object.keys(R.NODES).some(n => R.NODES[n].x === x && R.NODES[n].y === y);
+        !all.some(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) && !Object.keys(R.NODES).some(n => { const q = R.nodeSpot(wf, n); return q.x === x && q.y === y; }) && !R.sceneryOf(wf).some(c => c.x === x && c.y === y);
       let total = 0; for (let y = 0; y < G.h; y++) for (let x = 0; x < G.w; x++) if (ok(x, y)) total++;
       const hs = R.spotOf(wf, 'house'); let start = null;
       for (let r = 0; r < 8 && !start; r++) for (let dy = -r; dy <= r && !start; dy++) for (let dx = -r; dx <= r && !start; dx++) if (ok(hs.x + 1 + dx, hs.y + hs.h + dy)) start = [hs.x + 1 + dx, hs.y + hs.h + dy];

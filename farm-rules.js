@@ -425,9 +425,9 @@ const FARM = (() => {
      바닷가: 목장은 넓어진 오른쪽 앞, 앞 가장자리에 널빤지 길, 오른쪽 끝 바다 모서리에 등대 · 산골: 집 앞은 낮은 연못, 목장은 밭 앞 비탈, 온실과 폭포는 넓어진 오른쪽 앞 · 꽃구름: 연못은 외양간 곁 오른쪽 끝, 꽃길이 밭 앞을 가로지르고 목장은 오른쪽 앞 끝
      집 바로 앞(0..5, 3..5)에 키 큰 건물을 두면 문 앞 아이들을 가린다 — 낮은 것만 둘 것. */
   const FARM_SPOT = {
-    seaside: { coop: [0, 3], pethouse: [2, 3], well: [4, 4], hive: [5, 3], pasture: [15, 12], greenhouse: [16, 2], barn: [16, 5], scarecrow: [15, 8], pond: [0, 13], lighthouse: [21, 0], palm: [21, 10], path: [2, 16], sandbox: [12, 11], swing: [12, 8], bench: [6, 15], wagon: [8, 15], clothesline: [11, 16], flowerbed: [6, 8], windmill: [0, 11], fountain: [8, 8], statue: [14, 0], lantern: [11, 9], arch: [10, 14], firepit: [17, 10], sign: [4, 2], birdhouse: [7, 0], flag: [19, 9] },
-    mountain: { pasture: [14, 12], barn: [16, 4], coop: [18, 2], pethouse: [16, 2], well: [4, 8], hive: [2, 8], greenhouse: [20, 14], scarecrow: [10, 8], pond: [0, 4], waterfall: [21, 10], cairn: [23, 17], path: [0, 15], fountain: [13, 9], statue: [19, 7], lantern: [15, 9], bench: [8, 15], swing: [2, 11], arch: [12, 8], sandbox: [0, 12], firepit: [13, 13], sign: [5, 1], clothesline: [4, 14], flowerbed: [6, 8], birdhouse: [8, 0], flag: [15, 0], wagon: [10, 15], windmill: [12, 0] },
-    cloud: { pasture: [15, 14], barn: [16, 3], coop: [7, 9], pethouse: [5, 7], well: [5, 5], hive: [5, 6], greenhouse: [0, 6], scarecrow: [17, 7], pond: [20, 3], balloon: [20, 7], skybridge: [21, 19], path: [6, 8], fountain: [9, 0], statue: [12, 0], lantern: [14, 8], bench: [0, 15], swing: [12, 11], arch: [4, 9], sandbox: [0, 12], firepit: [10, 15], sign: [6, 1], clothesline: [2, 15], flowerbed: [12, 15], birdhouse: [19, 5], flag: [7, 0], wagon: [6, 15], windmill: [21, 11] },
+    seaside: { mail: [4, 1], board: [5, 0], birdhouse: [7, 0], statue: [14, 0], lighthouse: [21, 0], sign: [5, 2], greenhouse: [17, 2], coop: [0, 3], pethouse: [3, 3], well: [1, 5], clothesline: [2, 5], hive: [4, 5], scarecrow: [16, 5], barn: [18, 5], flowerbed: [6, 8], flag: [21, 8], swing: [3, 9], fountain: [9, 9], lantern: [13, 9], windmill: [17, 10], arch: [7, 11], sandbox: [12, 11], pond: [5, 13], pasture: [16, 13], bench: [3, 16], firepit: [8, 16], wagon: [3, 17], path: [7, 17], palm: [15, 17] },
+    mountain: { mail: [4, 1], board: [5, 0], sign: [6, 1], birdhouse: [8, 0], windmill: [12, 0], flag: [23, 0], pethouse: [16, 2], coop: [18, 2], barn: [20, 4], statue: [20, 7], scarecrow: [16, 5], well: [1, 3], hive: [3, 4], greenhouse: [16, 11], pasture: [9, 12], pond: [19, 14], waterfall: [22, 12], cairn: [23, 17], path: [6, 17], fountain: [9, 9], lantern: [11, 9], bench: [4, 16], swing: [6, 12], arch: [12, 10], sandbox: [17, 9], firepit: [7, 15], clothesline: [2, 6], flowerbed: [6, 7], wagon: [14, 17] },
+    cloud: { mail: [4, 1], board: [5, 0], flag: [7, 0], statue: [12, 0], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [17, 2], greenhouse: [20, 2], fountain: [10, 7], balloon: [21, 7], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19], skybridge: [22, 19] },
   };
   function spotOf(world, id){
     const P = PLACE[id]; if (!P) return null;
@@ -520,6 +520,25 @@ const FARM = (() => {
     bush2: { kind: 'bush', x: 6,  y: 13, give: { berry: 3 }, cost: 'forage', days: 2, season: ['spring', 'summer', 'autumn'] },
     snow:  { kind: 'snow', x: 8,  y: 13, give: { snowball: 1 }, cost: 'forage', days: 1, season: ['winter'] },
   };
+  /* 새 농장은 나무·바위·덤불 자리도 저마다 다르다(2026-09-29 로키즈 「널찍하게, 다른 농장과 다른 느낌으로」).
+     여기 없는 농장(들판)은 NODES 의 x,y. 채집 기록(mine.nodes)은 이름으로 적으니 자리가 달라도 그대로다. */
+  const NODE_SPOT = {
+    seaside:  { tree1: [0, 7], tree2: [3, 7], tree3: [0, 10], tree4: [6, 11], rock1: [20, 11], rock2: [12, 15], rock3: [14, 13], bush: [2, 12], bush2: [11, 14], snow: [12, 16] },
+    mountain: { tree1: [1, 9], tree2: [0, 11], tree3: [2, 13], tree4: [4, 10], bush: [7, 10], bush2: [5, 13], snow: [8, 13], rock1: [21, 2], rock2: [23, 7], rock3: [21, 9] },
+    cloud:    { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
+  };
+  function nodeSpot(world, id){
+    const N = NODES[id], h = (NODE_SPOT[farmOf(world).id] || {})[id];
+    return h ? { x: h[0], y: h[1] } : { x: N.x, y: N.y };
+  }
+  /* 풍경 — 채집은 안 되고 서 있기만 하는 나무·덤불·바위. 넓어진 섬이 휑하지 않게 농장마다 결을 달리해 둔다.
+     바닷가: 올리브·사이프러스 숲과 해변 바위 · 산골: 왼쪽 뒤 전나무 숲과 오른쪽 비탈 너덜 · 꽃구름: 벚나무 가로수와 돌 정원 */
+  const SCENERY = {
+    seaside:  [['tree', 1, 8], ['tree', 1, 11], ['tree', 1, 13], ['tree', 2, 15], ['bush', 0, 15], ['rock', 0, 17], ['rock', 20, 9], ['bush', 14, 16], ['tree', 10, 12], ['bush', 19, 1], ['rock', 21, 4], ['tree', 9, 15], ['bush', 4, 14], ['tree', 19, 10], ['tree', 21, 12], ['tree', 6, 16]],
+    mountain: [['tree', 0, 8], ['tree', 2, 10], ['tree', 1, 12], ['tree', 3, 12], ['tree', 0, 14], ['tree', 2, 15], ['tree', 0, 16], ['tree', 3, 17], ['tree', 4, 8], ['rock', 20, 0], ['rock', 22, 1], ['rock', 23, 4], ['rock', 22, 8], ['rock', 23, 10], ['bush', 15, 16], ['rock', 19, 17], ['tree', 17, 15], ['tree', 23, 14], ['rock', 16, 17], ['tree', 13, 11]],
+    cloud:    [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['bush', 8, 0], ['bush', 9, 0], ['bush', 10, 0], ['bush', 11, 0], ['bush', 9, 1], ['bush', 10, 1], ['bush', 11, 1], ['bush', 13, 0], ['bush', 14, 0], ['bush', 15, 0], ['rock', 15, 1], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9]],
+  };
+  function sceneryOf(world){ return (SCENERY[farmOf(world).id] || []).map(([kind, x, y], i) => ({ id: 'sc' + i, kind, x, y })); }
   // 자리는 하나지만 몫은 각자다 — 먼저 온 사람이 다 가져가면 둘째는 늘 빈손이라서.
   function nodeReady(world, mine, id, now){
     const N = NODES[id], cal = calendar(world, now);
@@ -970,13 +989,13 @@ const FARM = (() => {
   /* 놀이 규칙(farm-rules-play.js)이 이 닫힘 안의 것을 쓴다. 손으로 적은 목록이 아니라
      tools/split-rules.py 가 두 파일을 읽어 만든 것이다 — 하나라도 빠지면 그 규칙이
      돌 때 undefined 로 터진다. 놀이 규칙을 고쳤으면 그 도구를 다시 돌린다. */
-  const INNER = { gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
+  const INNER = { nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
     GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, SPRINKLER2, SPRINKLERS, sprinklerOf, FIREFLY_MAX, PEDDLER, PED_WANT_MULT, PED_WANT_MAX, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, isNight,
     spotOf, thingHere,
-    FARMS, farmOf, gridOf, MOVE_OPEN,
+    FARMS, farmOf, gridOf, nodeSpot, sceneryOf, MOVE_OPEN,
     dayKey, dayStartMs, daysBetween, calendar, weatherOf, prand,
     SKY_AT, setSky, skyOf, setSun, sunOf,
     plotIds, parseId, fieldCells, fieldHas, fieldBox,
