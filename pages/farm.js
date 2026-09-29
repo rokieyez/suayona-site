@@ -2898,11 +2898,7 @@ function drawDecorLive(season, t, L){
   if (d.flag){
     // 깃발 — 줄마다 조금씩 어긋나게 그리면 천이 흐르는 것처럼 보인다
     const b = spot('flag'), X = b.x * T, Y = b.y * T;
-    const k = 0.6 + curWind * 0.5;
-    for (let r = 0; r < 10; r++){
-      const off = Math.round(Math.sin(t / 240 + r * 0.55) * k);
-      px(X + 17 + off, Y + 3 + r, 12 - Math.floor(r / 4), 1, r < 5 ? '#ffb7d5' : '#fff3a0');
-    }
+    flagCloth(X + 17, Y + 3, 12, 10, t, (c, r) => r < 5 ? '#ffb7d5' : '#fff3a0');
   }
   if (d.windmill){
     // 날개 넷. 바람이 셀수록 빨리 돈다 — 네모 조각을 각도 따라 늘어놓아 도트 느낌을 지킨다
@@ -4199,15 +4195,11 @@ function isoDoor(G, side, a, w, h, col){
 const AEGEAN = '#2f6fb8', WHITEWASH = '#fbf8f2', LIME = '#e6dfd2';
 const CHALET = { wood: '#a86b3e', dark: '#6e4326', roof: '#5f514a', trim: '#f6efe2', shutter: '#3f7a4a' };
 const WA = { post: '#4a3a2e', plaster: '#f3eee2', shoji: '#f6efd9', tile: '#4a5160', stone: '#a9a79f', deck: '#9a7650', indigo: '#2f3f6e', ink: '#2b2f36' };
-// 간판 안쪽 — 스위스는 붉은 바탕 흰 십자, 그리스는 파란 물결, 일본은 붉은 해
+// 들판 가게 간판 안쪽 — 과일 셋. 나라 가게는 간판 대신 나라 깃발을 단다(ipStallFlagLive).
 function isoStallSign(sx, sy){
-  const th = isoTheme();
-  if (th === 'mountain'){ px(sx, sy, 24, 10, '#d93a3a'); px(sx + 11, sy + 2, 3, 7, '#ffffff'); px(sx + 8, sy + 4, 9, 3, '#ffffff'); return; }
-  if (th === 'seaside'){ for (let x = 0; x < 20; x++) px(sx + 2 + x, sy + 4 + Math.round(Math.sin(x / 2.2)), 1, 2, AEGEAN); return; }
-  if (th === 'cloud'){ px(sx, sy, 24, 10, '#f4ead8'); px(sx + 9, sy + 2, 6, 6, '#e8453c'); px(sx + 10, sy + 1, 4, 8, '#e8453c'); px(sx + 8, sy + 3, 8, 4, '#e8453c'); return; }
   px(sx + 4, sy + 3, 4, 4, '#f2857a'); px(sx + 10, sy + 3, 4, 4, '#8fd66c'); px(sx + 16, sy + 3, 4, 4, '#ffe066');
 }
-// 나라마다 차양 두 빛깔 · 자락 두 빛깔 · 옆 띠. 간판은 isoStallSign 이 그린다.
+// 나라마다 차양 두 빛깔 · 자락 두 빛깔 · 옆 띠.
 const STALL_LOOK = {
   seaside:  { a: ['#ffffff', AEGEAN], skirt: ['#e6e2da', '#245a98'], side: '#245a98' },
   mountain: { a: ['#fff6e9', '#d93a3a'], skirt: ['#e8dccb', '#b52a2a'], side: '#b52a2a' },
@@ -4337,10 +4329,10 @@ function isoStallGreek(b, cal){
   });
   col(O.u0 + 0.04, vf); col(O.u1 - 0.04, vf);
   bougainvillea({ u0: O.u0, u1: O.u1, v0: O.v0, v1: vf + 0.07 }, 'L', -0.05, 0.25, Z - 6, 69);
-  // 앞 들보에 매단 간판 — 파란 물결
-  const q = isoP((O.u0 + O.u1) / 2, vf, Z), sx = Math.round(q.x) - 12, sy = Math.round(q.y) + 3;
-  px(sx + 3, sy - 3, 1, 3, '#6b5d4a'); px(sx + 20, sy - 3, 1, 3, '#6b5d4a');
-  px(sx - 1, sy - 1, 26, 12, AEGEAN); px(sx, sy, 24, 10, '#ffffff'); isoStallSign(sx, sy);
+  // 앞 들보에 매단 그리스 국기 — 막대와 끈만 여기서, 천은 ipStallFlagLive 가 매 장 바람에 날린다
+  const q = isoP((O.u0 + O.u1) / 2, vf, Z), sx = Math.round(q.x) - 7, sy = Math.round(q.y) + 3;
+  px(sx, sy - 3, 1, 3, '#6b5d4a'); px(sx + 13, sy - 3, 1, 3, '#6b5d4a'); px(sx - 1, sy - 1, 16, 1, '#6b5d4a');
+  stallFlagAt = { th: 'seaside', hang: true, x: sx, y: sy, w: 14, h: 9 };
 }
 
 // ■ 스위스 — 높은 기둥 넷 위 박공지붕(너와), 나무 판대에 하트 구멍과 제라늄 상자, 치즈 바퀴·우유통, 처마에 소 방울
@@ -4382,9 +4374,10 @@ function isoStallSwiss(b, cal){
     const q = isoP(Rf.u0 + (Rf.u1 - Rf.u0) * f, Rf.v1 + 0.24, Z - 3), x = Math.round(q.x), y = Math.round(q.y);
     px(x, y, 1, 3 + i % 2 * 2, '#5a544d'); const by = y + 3 + (i % 2) * 2; px(x - 2, by, 5, 5, '#d9a93a'); px(x - 1, by, 2, 1, '#f2cf6a'); px(x - 3, by + 5, 7, 1, '#b8862a');
   });
-  // 처마 밑 간판 — 붉은 바탕 흰 십자
-  const q = isoP((Rf.u0 + Rf.u1) / 2, Rf.v1 + 0.24, Z - 2), sx = Math.round(q.x) - 12, sy = Math.round(q.y) + 1;
-  px(sx - 1, sy - 1, 26, 12, CHALET.dark); isoStallSign(sx, sy);
+  // 처마 밑에 매단 스위스 국기 — 막대만 여기서, 천은 ipStallFlagLive 가 매 장 바람에 날린다
+  const q = isoP((Rf.u0 + Rf.u1) / 2, Rf.v1 + 0.24, Z - 2), sx = Math.round(q.x) - 6, sy = Math.round(q.y) + 1;
+  px(sx - 2, sy - 1, 16, 1, CHALET.dark); px(sx - 2, sy - 2, 1, 1, CHALET.dark); px(sx + 13, sy - 2, 1, 1, CHALET.dark);
+  stallFlagAt = { th: 'mountain', hang: true, x: sx, y: sy, w: 12, h: 12 };
 }
 
 // ■ 일본 — 바퀴 달린 포장마차. 짙은 나무 판대, 기둥 넷 위 기와지붕, 짧은 쪽빛 노렌, 붉은 초롱, 김 나는 냄비
@@ -4442,22 +4435,35 @@ function isoStallWa(b, cal){
   // 지붕 위 깃대 — 흰 바탕 붉은 해 깃발이 바람에 날린다(천은 ipStallFlagLive 가 매 장 그린다, 2026-09-29 로키즈)
   const q = isoP((Rf.u0 + Rf.u1) / 2, (Rf.v0 + Rf.v1) / 2, Z + 14), fx = Math.round(q.x) - 12, fy = Math.round(q.y) - 12;
   px(fx - 1, fy - 4, 2, 19, WA.post); px(fx - 2, fy - 6, 4, 2, '#c9a227');                     // 깃대와 금빛 꼭지
-  stallFlagAt = { x: fx + 1, y: fy - 2 };
+  stallFlagAt = { th: 'cloud', x: fx + 1, y: fy - 3, w: 24, h: 15 };
 }
-// 일본 가게 깃발 — 천이 칸마다 물결치고, 깃대에서 멀수록 크게 흔들린다. 비탈진 곳은 조금 어둡게
+/* 바람에 날리는 천(2026-09-29 로키즈 「각 농장의 국기를 전부 휘날리게」). 깃대(왼쪽)에 단 깃발은 칸마다 위아래로,
+   들보·처마(위)에 매단 천(hang)은 줄마다 옆으로 흔들린다. 매단 데서 멀수록 크게, 바람이 세면 더 크게.
+   물결이 비탈진 데는 어둡게, 솟은 데는 밝게 — 주름이 흘러가는 것처럼 보인다. col(c, r) 이 그 자리 빛깔. */
+function flagCloth(x, y, FW, FH, t, col, hang){
+  // 작은 깃발은 물결을 낮고 완만하게 — 한 도트짜리 줄무늬(그리스)가 칸마다 크게 어긋나면 천이 아니라 잡음으로 보인다
+  const k = (STILL ? 0.6 : 0.8 + curWind * 0.9) * Math.min(1, FH / 14), ph = STILL ? 0 : t, step = FW >= 20 ? 0.42 : 0.3;
+  const off = c => Math.sin(ph / 230 - c * step) * k * (0.25 + c / FW * 1.4);
+  for (let c = 0; c < FW; c++){
+    const slope = off(c + 1) - off(c), dark = slope > 0.25 ? -14 : slope < -0.25 ? 8 : 0, dy = hang ? 0 : Math.round(off(c));
+    for (let r = 0; r < FH; r++){
+      const dx = hang ? Math.round((Math.sin(ph / 420) * 0.9 + Math.sin(ph / 200 - r * 0.6) * 0.3) * k * (r / FH)) : 0;   // 통째로 흔들리고 잔물결은 조금 — 십자·줄이 무너지지 않게
+      px(x + c + dx, y + r + dy, 1, 1, shade(col(c, r), dark));
+    }
+  }
+}
+// 나라 깃발 빛깔 — 그리스(아홉 줄 + 왼쪽 위 십자, 9줄에 맞춰 높이 9), 스위스(붉은 바탕 흰 십자), 일본(흰 바탕 붉은 해, 위아래 테)
+const FLAG_COL = {
+  seaside: (c, r) => (c < 5 && r < 5) ? (c === 2 || r === 2 ? '#ffffff' : '#0d5eaf') : r % 2 ? '#ffffff' : '#0d5eaf',
+  mountain: (c, r, W, H) => { const m = W / 2 - 1, n = H / 2 - 1, a = W / 6; return (c >= m && c <= m + 1 && r >= a && r < H - a) || (r >= n && r <= n + 1 && c >= a && c < W - a) ? '#ffffff' : '#d52b1e'; },
+  cloud: (c, r, W, H) => { if (r === 0 || r === H - 1) return '#2b2f36'; const dx = c - 11.5, dy = r - 7; return dx * dx + dy * dy <= 17 ? '#e8453c' : '#f4ead8'; },
+};
+// 가게 깃발 — 그리스·스위스는 들보·처마에 매단 천, 일본은 지붕 위 깃대. 자리는 가게를 그릴 때 적어 둔다.
 let stallFlagAt = null;
 function ipStallFlagLive(b, t){
-  if (isoTheme() !== 'cloud' || !stallFlagAt) return;
-  const { x, y } = stallFlagAt, FW = 24, FH = 13, k = STILL ? 0.6 : 0.8 + curWind * 0.9;
-  const off = c => Math.sin(t / 230 - c * 0.42) * k * (0.25 + c / FW * 1.4);
-  for (let c = 0; c < FW; c++){
-    const dy = Math.round(off(c)), slope = off(c + 1) - off(c), dark = slope > 0.25 ? -14 : slope < -0.25 ? 8 : 0;
-    for (let r = 0; r < FH; r++){
-      const ddx = c - 11.5, ddy = r - 6, sun = ddx * ddx + ddy * ddy <= 17;
-      px(x + c, y + r + dy, 1, 1, shade(sun ? '#e8453c' : '#f4ead8', dark));
-    }
-    px(x + c, y - 1 + dy, 1, 1, '#2b2f36'); px(x + c, y + FH + dy, 1, 1, '#2b2f36');       // 위아래 테
-  }
+  const f = stallFlagAt;
+  if (!f || f.th !== isoTheme()) return;
+  flagCloth(f.x, f.y, f.w, f.h, t, (c, r) => FLAG_COL[f.th](c, r, f.w, f.h), f.hang);
 }
 // ---- 농장마다 다른 나라(2026-09-28 로키즈 「외국에 온 것처럼 완전히 다른 생태계」) ----
 // 바닷가 = 그리스 섬, 산골 = 스위스 알프스, 꽃구름 = 일본 정원. 집·외양간·닭장·가게·온실·나무·덤불·울타리·먼 풍경이 나라를 따른다.
@@ -5411,7 +5417,7 @@ function ipFlagPole(b, night, season, th){
 }
 // 깃발 — 그리스 국기, 스위스 국기, 일본은 잉어 깃발(고이노보리) 셋
 function ipFlagLive(b, t, L, season, th){
-  const q0 = isoP(b.x + 0.5, b.y + 0.5, th === 'cloud' ? 68 : 58), X = Math.round(q0.x) + 2, Y = Math.round(q0.y), k = STILL ? 0 : 0.6 + curWind * 0.5;
+  const q0 = isoP(b.x + 0.5, b.y + 0.5, th === 'cloud' ? 68 : 58), X = Math.round(q0.x) + (th === 'cloud' ? 2 : 1), Y = Math.round(q0.y), k = STILL ? 0 : 0.6 + curWind * 0.5;
   const wave = r => Math.round(Math.sin(t / 240 + r * 0.55) * k);
   if (th === 'cloud'){
     [['#2b2f36', 0, 22], ['#e8453c', 11, 18], ['#3f7de0', 21, 15]].forEach(([c, dy, len], j) => {
@@ -5424,15 +5430,8 @@ function ipFlagLive(b, t, L, season, th){
     });
     return;
   }
-  for (let r = 0; r < 12; r++){
-    const off = wave(r), y = Y + r, w = 18 - Math.floor(r / 5);
-    for (let x = 0; x < w; x++){
-      let c;
-      if (th === 'seaside'){ const band = Math.floor(r * 9 / 12); c = band % 2 ? '#ffffff' : '#0d5eaf'; if (x < 8 && r < 6) c = (x === 3 || x === 4 || r === 2 || r === 3) ? '#ffffff' : '#0d5eaf'; }
-      else { c = '#d52b1e'; if ((x >= 7 && x <= 10 && r >= 2 && r <= 9) || (r >= 4 && r <= 7 && x >= 4 && x <= 13)) c = '#ffffff'; }
-      px(X + x + off, y, 1, 1, c);
-    }
-  }
+  const [FW, FH] = th === 'seaside' ? [15, 9] : [12, 12];
+  flagCloth(X, Y, FW, FH, t, (c, r) => FLAG_COL[th](c, r, FW, FH));
 }
 function ipWagon(b, night, season, th){
   const u0 = b.x + 0.18, u1 = b.x + b.w - 0.18, cv = b.y + b.h / 2, body = th === 'seaside' ? AEGEAN : th === 'cloud' ? '#9a7650' : '#b5452f';
