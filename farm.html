@@ -84,6 +84,13 @@
 
   .stage{border:2px solid var(--ink); background:#000; line-height:0; box-shadow:4px 4px 0 var(--ink); width:fit-content; max-width:100%; margin-left:auto; margin-right:auto;}
   .stage canvas{width:100%; height:auto; image-rendering:pixelated; display:block; touch-action:manipulation; cursor:pointer;}
+  /* 밭 크게 보기(아이소 섬) — 캔버스만 CSS 로 키워 밭을 틀 가득 채운다. 누르는 자리는 pixAt 이 키운 크기로 다시 잰다 */
+  .stage{position:relative; overflow:hidden;}
+  .stage canvas{transform-origin:0 0; transition:transform .25s ease;}
+  .zoombtn{position:absolute; left:8px; top:8px; line-height:1.2; font:800 13px/1.2 'Suayona Sans', system-ui, sans-serif; padding:6px 10px;
+    color:var(--ink); background:#fffaf2; border:2px solid var(--ink); border-radius:10px; box-shadow:2px 2px 0 var(--ink); cursor:pointer;}
+  .zoombtn[aria-pressed="true"]{background:var(--lemon); box-shadow:none; transform:translate(2px,2px);}
+  @media (prefers-reduced-motion: reduce){ .stage canvas{transition:none;} }
   /* 밭 위에서 가로로 끌면 「이어서 하기」, 세로로 끌면 화면이 내려간다.
      touch-action:none 으로 두면 폰에서 농장 위를 지나 아래로 내려갈 길이 막힌다.
      pan-y 만 적으면 두 손가락으로 벌리는 것(핀치 줌)까지 막힌다 — pinch-zoom 을 같이 적는다.
@@ -329,7 +336,7 @@
       <div class="pastbar todo" id="firstTodo" hidden></div>
       <div class="tools" id="tools"></div>
       <div class="seeds" id="seedRow" hidden></div>
-      <div class="stage reveal"><canvas id="farmCanvas" width="960" height="768" aria-label="농장 지도"></canvas></div>
+      <div class="stage reveal"><canvas id="farmCanvas" width="960" height="768" aria-label="농장 지도"></canvas><button type="button" class="zoombtn" id="zoomBtn" aria-pressed="false" hidden>🔍 밭 크게</button></div>
       <div class="placebar" id="placeBar" hidden>
         <span>초록 테두리를 눌러 들고, 빈 곳을 눌러 놓아요. 밭과 나무 자리에는 못 놓아요.</span>
         <button type="button" class="dot-btn small" id="placeReset">처음 배치로</button>
@@ -415,8 +422,8 @@
         integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi" crossorigin="anonymous"></script>
 <script src="./pixel.js"></script>
 <script src="./common.js"></script>
-<script src="./farm-rules.js?v=0929f"></script>
+<script src="./farm-rules.js?v=0929g"></script>
 <script src="/pages/kid-art.js?v=0929c"></script>
-<script src="/pages/farm.js?v=0929f"></script>
+<script src="/pages/farm.js?v=0929g"></script>
 </body>
 </html>

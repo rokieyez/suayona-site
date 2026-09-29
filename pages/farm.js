@@ -3540,7 +3540,7 @@ function isoCropBands(cast, windStep){
     let x0 = Infinity, x1 = -Infinity;
     ids.forEach(id => { const q = R.parseId(id), c = isoP(q.x + 0.5, q.y + 0.5).x; x0 = Math.min(x0, c); x1 = Math.max(x1, c); });
     const y = isoP(n / 2 + 0.5, n / 2 + 0.5).y;
-    cast.push({ d: n + 0.9, go: () => isoSprite('crop' + n, sig, { x: x0 - 44, y: y - 70, w: x1 - x0 + 88, h: 96 }, () => isoCrops(windStep, ids)) });
+    cast.push({ d: n + 0.9, go: () => { cropHits.push({ n, ids, e: isoSprite('crop' + n, sig, { x: x0 - 44, y: y - 70, w: x1 - x0 + 88, h: 96 }, () => isoCrops(windStep, ids)) }); } });
   });
 }
 function isoCrops(windStep, ids){
@@ -5809,7 +5809,7 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
   const sigB = sigBuilt(cal, L.lamp);
   paintLayer('ifloor', cw, ch, 'i|' + season + '|' + sigField() + '|' + sigB, () => { isoFloor(season); isoField(); });
   g.drawImage(composeBack(cw, ch, ['iground', 'ifloor']), 0, 0);
-  ctx = g; lamps = []; isoHits = [];
+  ctx = g; lamps = []; isoHits = []; cropHits = [];
   const cast = [];
   isoCropBands(cast, windStep);
   R.PLACE_IDS.forEach(id => {
@@ -5869,6 +5869,7 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
   isoBeam(g, t, L);
   ctx = g;
   drawFireflies(t);
+  drawTapMark(t);
   drawPlaceOverlay(t);
   drawBubbles(t);
   drawFishBar(t);
@@ -5943,6 +5944,7 @@ function withView(fn){
 function drawFarm(cvIn, tms){
   const cv = cvIn || $('#farmCanvas');
   if (!cv || !W) return;
+  if (cv.id === 'farmCanvas') syncZoomBtn();
   withView(() => drawFarmIn(cv, tms));
 }
 function drawFarmIn(cv, tms){
@@ -6088,9 +6090,71 @@ function tileAt(clientX, clientY, ground){
   if (hit) return hit;
   // 갈아 둔 밭 칸은 세 도트 돋아 있다 — 그 윗면을 누른 것인지 먼저 본다
   const g3 = isoTileAt(q.x, q.y + 3), t3 = { tx: Math.floor(g3.u), ty: Math.floor(g3.v) }, id3 = plotAtTile(t3.tx, t3.ty);
-  if (id3 && W.plots[id3] && W.plots[id3].tilled) return t3;
-  const g = isoTileAt(q.x, q.y);
-  return { tx: Math.floor(g.u), ty: Math.floor(g.v) };
+  let t = t3;
+  if (!(id3 && W.plots[id3] && W.plots[id3].tilled)){ const g = isoTileAt(q.x, q.y); t = { tx: Math.floor(g.u), ty: Math.floor(g.v) }; }
+  // 작물 그림은 칸 위로 솟아 뒤 칸을 덮는다 — 잎을 눌렀으면 땅의 칸(뒤)보다 그 작물의 칸(앞)이 맞다(2026-09-29 로키즈)
+  if (!ground){ const c = cropTileAt(q.x, q.y); if (c && c.tx + c.ty >= t.tx + t.ty) t = c; }
+  if (plotAtTile(t.tx, t.ty)) tapMark = { tx: t.tx, ty: t.ty, at: performance.now() };
+  return t;
+}
+// 누른 자리(도트)에 작물 그림이 실제로 칠해져 있으면 그 작물의 칸 — 앞(아래) 줄부터 담아 둔 그림의 그 도트를 본다.
+// 한 줄(x+y 가 같은 칸들)에 여럿이면 가로로 가장 가까운 칸
+let cropHits = [];
+function cropTileAt(x, y){
+  const bands = cropHits.slice().sort((a, b) => b.n - a.n);
+  for (const h of bands){
+    const dx = Math.floor(x * S) - h.e.ox, dy = Math.floor(y * S) - h.e.oy;
+    if (dx < 0 || dy < 0 || dx >= h.e.cv.width || dy >= h.e.cv.height) continue;
+    let a = 0;
+    try { a = h.e.cv.getContext('2d').getImageData(dx, dy, 1, 1).data[3]; } catch (err) { a = 0; }
+    if (a <= 90) continue;
+    let best = null, bd = 1e9;
+    h.ids.forEach(id => { const c = R.parseId(id), d = Math.abs(isoP(c.x + 0.5, c.y + 0.5).x - x); if (d < bd){ bd = d; best = { tx: c.x, ty: c.y }; } });
+    return best;
+  }
+  return null;
+}
+// 방금 누른 밭 칸 — 0.6초 동안 테두리가 반짝이며 옅어진다(어느 칸이 눌렸는지 눈으로 확인). 아이소 섬에서만 찍힌다
+let tapMark = null;
+function drawTapMark(t){
+  if (!tapMark || STILL) return;
+  const a = 1 - (t - tapMark.at) / 600;
+  if (a <= 0){ tapMark = null; return; }
+  const { tx, ty } = tapMark, P = [isoP(tx, ty, 3), isoP(tx + 1, ty, 3), isoP(tx + 1, ty + 1, 3), isoP(tx, ty + 1, 3)];
+  ctx.globalAlpha = a;
+  P.forEach((p, i) => isoSeg(p, P[(i + 1) % 4], '#fff4a0', 2));
+  ctx.globalAlpha = 1;
+}
+/* 밭 크게 보기(2026-09-29 로키즈) — 아이소 섬에서는 휴대폰 폭에서 밭 한 칸이 가로 19px 남짓이라 누르기 어렵다.
+   캔버스를 CSS 로 키우고 밀어 밭(아직 안 연 땅까지)이 틀 가득 오게 한다 — 대개 두 배. 그림은 그대로 그리고,
+   누른 자리는 pixAt 이 키워진 크기(getBoundingClientRect)로 재므로 따로 셈할 것이 없다 */
+let zoomOn = false;
+function applyZoom(){
+  const cv = $('#farmCanvas'), zb = $('#zoomBtn');
+  if (!cv) return;
+  if (zb){ zb.setAttribute('aria-pressed', zoomOn ? 'true' : 'false'); zb.textContent = zoomOn ? '🔍 섬 전체' : '🔍 밭 크게'; }
+  if (!zoomOn || !W || !isoMode()){ cv.style.transform = ''; return; }
+  const Wc = cv.offsetWidth, Hc = cv.offsetHeight, f = Wc / (cv.width / S);        // 한 도트가 CSS 몇 px(키우기 전)
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  R.fieldCells(W).forEach(c => [[0, 0], [1, 0], [1, 1], [0, 1]].forEach(([a, b]) => {
+    const p = isoP(c.x + a, c.y + b); x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+  }));
+  y0 -= 34;                                                              // 뒷줄 작물 키만큼 위도 보이게
+  const k = Math.max(1, Math.min(3, Wc / ((x1 - x0) * f * 1.1), Hc / ((y1 - y0) * f * 1.1)));
+  const tx = Math.min(0, Math.max(Wc - k * Wc, Wc / 2 - k * (x0 + x1) / 2 * f));
+  const ty = Math.min(0, Math.max(Hc - k * Hc, Hc / 2 - k * (y0 + y1) / 2 * f));
+  cv.style.transform = 'translate(' + tx.toFixed(1) + 'px,' + ty.toFixed(1) + 'px) scale(' + k.toFixed(3) + ')';
+}
+// 섬(아이소)일 때만 단추를 보인다 — 들판(판 화면)은 칸이 네모라 필요 없다
+function syncZoomBtn(){
+  const zb = $('#zoomBtn'), show = !!W && isoMode();
+  if (!zb || zb.hidden === !show) return;
+  zb.hidden = !show;
+  if (!show && zoomOn){ zoomOn = false; applyZoom(); }
+}
+if ($('#zoomBtn')){
+  $('#zoomBtn').addEventListener('click', () => { zoomOn = !zoomOn; applyZoom(); });
+  window.addEventListener('resize', () => { if (zoomOn) applyZoom(); });
 }
 // 누른 자리를 화면 도트로 — 칸이 아니라 그림 위 어디를 눌렀는지 봐야 할 때(캐릭터). 판이면 곧 지도 좌표다.
 function pixAt(clientX, clientY){
