@@ -2084,7 +2084,7 @@ function stepActors(dt, t){
   stepFarmGuest(dt, t);
 }
 function drawWalker(w, t){
-  const A = KIDART[w.who] || KIDART.yona, d = dir8(w.vx, w.vy), f = KIDSTEP(w.moving, w.phase);
+  const A = KIDART[w.who] || KIDART.yona, d = w.moving ? dir8(w.vx, w.vy) : 'S', f = KIDSTEP(w.moving, w.phase);   // 멈추면 화면(정면)을 본다
   const bob = w.moving ? 0 : (Math.sin(t / 900 + w.phase) > 0.8 ? 2 : 0);
   footShade(w.x, w.y - 2, 22);
   artOut(w.who + d + f, A.dirs[d][f], Math.round(w.x - A.w / 2), Math.round(w.y - A.h + bob), KIDPAL[w.who]);   // 그림 밑단 가운데 = 발자리
@@ -5474,7 +5474,7 @@ function isoFaceOf(o){                                                          
 // 지도에서 움직인 쪽(u·v)을 45도 돌려 방향을 고른다: +u → SE, +v → SW, -u → NW, -v → NE, u·v 같이 → S·N, 엇갈리면 E·W.
 // 걸음 네 장에 오르내림이 이미 들어 있어서, 들썩임은 서 있을 때만.
 function drawWalkerIso(w, t){
-  const A = KIDART[w.who] || KIDART.yona, d = dir8(w.vx - w.vy, w.vx + w.vy), f = KIDSTEP(w.moving, w.phase);
+  const A = KIDART[w.who] || KIDART.yona, d = w.moving ? dir8(w.vx - w.vy, w.vx + w.vy) : 'S', f = KIDSTEP(w.moving, w.phase);   // 멈추면 화면(정면)을 본다
   const lift = w.moving ? 0 : (Math.sin(t / 900 + w.phase) > 0.8 ? 1 : 0), q = isoP(w.x / T, w.y / T);
   isoEllipse(w.x / T + 0.06, w.y / T + 0.06, 0.34, 0.28, 0, 'rgba(30,44,24,0.2)');
   artOut(w.who + d + f, A.dirs[d][f], Math.round(q.x - A.w / 2), Math.round(q.y - A.h - lift), KIDPAL[w.who]);
@@ -5548,7 +5548,7 @@ function stillFarmGuest(n){
 }
 // 그림 한 칸은 1도트 = 캔버스 2px 에 테 1도트가 둘러져 있다 — 아이 그림과 같은 도트 크기로 줄여 붙인다. 발끝은 칸 밑단에서 두 도트 위.
 function drawFarmGuestIso(v, t){
-  const cv = WALKSHEET.sprite('guest', v.n, dir8(v.vx - v.vy, v.vx + v.vy), KIDSTEP(v.moving, v.phase), null);
+  const d = dir8(v.vx - v.vy, v.vx + v.vy), cv = WALKSHEET.sprite('guest', v.n, v.moving ? d : WALKSHEET.diag(d, v.n & 1), KIDSTEP(v.moving, v.phase), null);   // 서 있을 땐 아이소 대각선(정면은 수아·연아만)
   if (!cv) return;
   const a = Math.max(0, Math.min(1, (t - v.born) / 500, v.out ? 1 - (t - v.out) / 600 : 1));
   const nod = !v.moving && !v.still && Math.sin(t / 650) > 0.85 ? 1 : 0;           // 구경하며 가끔 끄덕

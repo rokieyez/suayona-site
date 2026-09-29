@@ -766,7 +766,7 @@
     const t = tileXY(p.i, p.j), x = Math.round(t.x), y = Math.round(t.y), at = p.wait > 0 && !p.look;
     isoTopD(g, x, y, p.kind === 'dog' ? 8 : 10, p.kind === 'dog' ? 3 : 4, 'rgba(40,24,10,.24)');
     // 걸을 땐 여덟 방향 걷기, 말할 땐 그쪽을 보고 서기, 액자 앞에선 덤 줄(관객은 올려다보다 리본 작품이면 손뼉, 강아지는 앉아 꼬리)
-    const d = p.look || p.dir || 'NW', walking = p.wait <= 0 && p.hush <= 0;
+    const walking = p.wait <= 0 && p.hush <= 0, d0 = p.look || p.dir || 'NW', d = walking || !WS() ? d0 : WS().diag(d0, p.n & 1);   // 멈추면 대각선(정면은 수아·연아만)
     const c = at ? charSprite(p, 'X', p.clap ? 1 + p.nod : 0, (p.face || d) === 'NE') : charSprite(p, d, walking ? KIDSTEP(true, p.phase) : 0);
     if (!c) return;                                                                          // 시트가 아직 안 왔으면 한 장 쉬고, 오면 다시 그린다
     g.drawImage(c, x - c.width / 4, y - c.height / 2 + 1 + (at && !p.clap ? p.nod : 0), c.width / 2, c.height / 2);   // 아이와 같은 셈 — 가로 가운데, 발은 바닥 점 한 도트 위
@@ -800,7 +800,7 @@
     beamSpots(p).forEach(([bx, by, w, h], k) => isoTopD(g, bx, by, w, h, 'rgba(255,230,150,' + (0.30 - k * 0.06).toFixed(2) + ')'));   // 손전등 빛 — 밤 어둠 층(drawNight)이 이 자리를 도려내고, 이 빛은 그 위에 더해진다
     g.restore();
     isoTopD(g, x, y, 10, 4, 'rgba(40,24,10,.3)');
-    const d = p.look || p.dir || 'NW', still = p.wait > 0 && !p.look;                      // 길목에 서면 손전등을 들어 비추고(덤 줄 1) 둘러본다(2)
+    const d0 = p.look || p.dir || 'NW', d = p.hush > 0 && WS() ? WS().diag(d0, 0) : d0, still = p.wait > 0 && !p.look;   // 말하느라 멈추면 대각선, 걸을 땐 여덟 방향                      // 길목에 서면 손전등을 들어 비추고(덤 줄 1) 둘러본다(2)
     const c = still ? charSprite(p, 'X', p.wait > 700 ? 1 : 2, p.flip === false) : charSprite(p, d, p.hush > 0 ? 0 : KIDSTEP(true, p.phase));
     if (c) g.drawImage(c, x - c.width / 4, y - c.height / 2 + 1 - (still ? 0 : bob), c.width / 2, c.height / 2);
   }

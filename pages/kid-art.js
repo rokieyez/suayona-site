@@ -3,7 +3,7 @@
    farm.js·honors.js 보다 먼저 싣는다. 밖으로는 window.KIDART·window.KIDPAL 둘만 내놓고 나머지는 이 안에 가둔다 —
    배포 직후 새로고침하면 새 farm.html 이 캐시에 남은 옛 farm.js(같은 이름을 const 로 가진)와 짝지어질 수 있는데,
    여기서도 const 로 선언하면 「이미 선언됨」으로 farm.js 가 통째로 멈춘다(시험에서 확인). 창 속성은 const 와 부딪히지 않는다.
-   이 파일을 고치면 싣는 다섯 곳(honors·farm·life·portfolio.html, pages/index.js)의 ?v= 꼬리표를 같이 올린다(지금 0929b) — 새 HTML 이
+   이 파일을 고치면 싣는 다섯 곳(honors·farm·life·portfolio.html, pages/index.js)의 ?v= 꼬리표를 같이 올린다(지금 0929c) — 새 HTML 이
    캐시에 남은 옛 이 파일과 짝지어지면 KIDSTEP·dirs 가 없어 방 그림이 통째로 멈춘다(2026-09-29 전시실에서 실제로 봄). */
 (function(){
 'use strict';
@@ -60,6 +60,9 @@ window.WALKSHEET = {
   onReady(fn){ wsWait.push(fn); },
   // 화면에서 가는 쪽(sx, sy — 오른쪽·아래가 +)을 여덟 방향 이름으로
   dir8: (sx, sy) => ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) & 7],
+  // 멈춰 선 손님·경비원·강아지는 아이소 대각선(SW·SE·NW·NE)을 본다 — 화면 정면은 수아·연아만(2026-09-29 로키즈).
+  // 곧은 방향이면 가까운 대각선으로, 둘 사이면 alt 로 고른다(사람마다 달리 서게)
+  diag: (dir, alt) => ({ E: 'SE', W: 'SW', S: alt ? 'SE' : 'SW', N: alt ? 'NE' : 'NW' })[dir] || dir,
   // dir: 여덟 방향 이름 또는 'X'(덤 줄, 뒤집으려면 flipX). col: 0 서기, 1~4 걷기(KIDSTEP). tint: 덧칠할 rgba(없으면 null)
   sprite(name, n, dir, col, tint, flipX){
     const im = wsLoad(name); if (!im.complete || !im.naturalWidth) return null;

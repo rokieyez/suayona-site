@@ -1573,7 +1573,7 @@ const belowFold = (() => {
   function loadKidArt(){
     if (reduce) return;                                  // 돌아다니지 않으니 받을 까닭도 없다
     const el = document.createElement('script');
-    el.src = '/pages/kid-art.js?v=0929b';
+    el.src = '/pages/kid-art.js?v=0929c';
     el.onload = () => {
       // 그림이 온전할 때만 쓴다 — 여덟 방향마다 서기+걷기 다섯 장
       const A = window.KIDART, full = k => A && A[k] && A[k].dirs && ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'].every(d => A[k].dirs[d] && A[k].dirs[d].length >= 5);
@@ -1678,7 +1678,7 @@ const belowFold = (() => {
         for (let i = 0; i < 24; i++){
           const c = g.cells[Math.floor(Math.random() * g.cells.length)];
           if (others.some(o => kidsClash(c[0], c[1], o.tx, o.ty, r))) continue;
-          GUESTS.push({ n, tx: c[0], ty: c[1], goal: null, wait: 1 + Math.random() * 4, dir: 'S', phase: 0, moving: false });
+          GUESTS.push({ n, tx: c[0], ty: c[1], goal: null, wait: 1 + Math.random() * 4, dir: n & 1 ? 'SE' : 'SW', phase: 0, moving: false });
           break;
         }
       });
@@ -1687,6 +1687,8 @@ const belowFold = (() => {
     return true;
   }
   // 한 사람(아이·손님)을 한 장만큼 — 쉬다가 갈 곳을 고르고, 가다가 누구와 부딪칠 것 같으면 선다
+  // 멈춰 서면 — 수아·연아는 화면(정면)을, 손님은 걷던 쪽에 가까운 대각선을 본다
+  const restDir = me => me.n === undefined ? 'S' : WALKSHEET.diag(me.dir, me.n & 1);
   function walkOne(g, me, others, r, dt){
     if (!me.goal) {
       me.moving = false;
@@ -1696,12 +1698,12 @@ const belowFold = (() => {
     }
     const dx = me.goal[0] - me.tx, dy = me.goal[1] - me.ty, d = Math.hypot(dx, dy);
     const sx = (dx - dy) * 24, sy = (dx + dy) * 12, sl = Math.hypot(sx, sy);   // 화면에서 가는 방향(마을 도트)
-    if (d < 0.01 || sl < 0.01) { me.tx = me.goal[0]; me.ty = me.goal[1]; me.goal = null; me.moving = false; me.dir = 'S'; me.wait = 2 + Math.random() * 4; return; }
+    if (d < 0.01 || sl < 0.01) { me.tx = me.goal[0]; me.ty = me.goal[1]; me.goal = null; me.moving = false; me.dir = restDir(me); me.wait = 2 + Math.random() * 4; return; }
     const step = Math.min(d, KID_SPEED * dt * d / sl), nx = me.tx + dx / d * step, ny = me.ty + dy / d * step;
     // 걷다가 다른 사람과 부딪칠 것 같으면 그 자리에 서서 잠깐 기다렸다 다른 데로 간다
     if (others.some(o => kidsClash(nx, ny, o.tx, o.ty, r) &&
         Math.hypot(nx - o.tx, ny - o.ty) < Math.hypot(me.tx - o.tx, me.ty - o.ty))) {
-      me.goal = null; me.moving = false; me.wait = 0.8 + Math.random() * 1.5; return;
+      me.goal = null; me.moving = false; me.dir = restDir(me); me.wait = 0.8 + Math.random() * 1.5; return;
     }
     me.tx = nx; me.ty = ny; me.moving = true; me.phase += dt * 6;
     me.dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) & 7];   // E 부터 시계 방향으로 45°씩
