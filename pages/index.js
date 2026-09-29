@@ -1566,10 +1566,14 @@ const belowFold = (() => {
   const KIDS = { sua: { name: '수아' }, yona: { name: '연아', rider: '레샤' } };
   const KID_SPEED = 13;                                  // 화면에서 초당 몇 도트 — 마을 크기에 비해 느긋하게
   let kidArt = null, walkGrid = null, walkT = 0;
+  // 광장 손님 두세 명 — 연주회장 관객 그림 시트(WALKSHEET, kid-art.js 안)로 아이들과 같은 길을 걷는다. 누가 올지는 들어올 때마다 새로 뽑는다
+  const GUESTS = [];
+  const GW = HAS_PHASE && PHASES[PHASE] && PHASES[PHASE].wash;   // 아이 그림과 같은 시간대 물 빼기를 한 장 덧칠로
+  const guestTint = GW ? 'rgba(' + [1, 3, 5].map(i => parseInt(GW.base.substr(i, 2), 16)) + ',' + GW.t + ')' : null;
   function loadKidArt(){
     if (reduce) return;                                  // 돌아다니지 않으니 받을 까닭도 없다
     const el = document.createElement('script');
-    el.src = '/pages/kid-art.js?v=0929';
+    el.src = '/pages/kid-art.js?v=0929b';
     el.onload = () => {
       // 그림이 온전할 때만 쓴다 — 여덟 방향마다 서기+걷기 다섯 장
       const A = window.KIDART, full = k => A && A[k] && A[k].dirs && ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'].every(d => A[k].dirs[d] && A[k].dirs[d].length >= 5);
@@ -1621,17 +1625,18 @@ const belowFold = (() => {
   function kidsClash(ax, ay, bx, by, r){
     return Math.abs((ax - ay) - (bx - by)) * 24 < 32 * r && Math.abs((ax + ay) - (bx + by)) * 12 < 52 * r;
   }
-  function kidPathOk(g, me, gx2, gy2, other, r){
+  function kidPathOk(g, me, gx2, gy2, others, r){
     const d = Math.hypot(gx2 - me.tx, gy2 - me.ty), n = Math.ceil(d / 0.05);   // 격자(0.1칸)의 반 간격 — 모서리를 스치지 않게
     for (let i = 1; i <= n; i++){
       const x = me.tx + (gx2 - me.tx) * i / n, y = me.ty + (gy2 - me.ty) * i / n;
-      if (!g.ok(x, y) || kidsClash(x, y, other.tx, other.ty, r)) return false;
+      if (!g.ok(x, y) || others.some(o => kidsClash(x, y, o.tx, o.ty, r))) return false;
     }
     return true;
   }
-  // 다음에 갈 곳 — 한 번에 짧게(0.6~2.2칸). 선 자리가 걸을 땅 밖이면(처음·화면 크기가 바뀐 뒤) 가장 가까운 칸으로
-  function kidGoal(g, me, other, r){
-    const free = c => !kidsClash(c[0], c[1], other.tx, other.ty, r) && !(other.goal && kidsClash(c[0], c[1], other.goal[0], other.goal[1], r));
+  // 다음에 갈 곳 — 한 번에 짧게(0.6~2.2칸). 선 자리가 걸을 땅 밖이면(처음·화면 크기가 바뀐 뒤) 가장 가까운 칸으로.
+  // others: 비켜 갈 다른 사람들(아이·손님)
+  function kidGoal(g, me, others, r){
+    const free = c => others.every(o => !kidsClash(c[0], c[1], o.tx, o.ty, r) && !(o.goal && kidsClash(c[0], c[1], o.goal[0], o.goal[1], r)));
     if (!g.ok(me.tx, me.ty)) {
       let best = null, bd = 1e9;
       g.cells.forEach(c => { const d = Math.hypot(c[0] - me.tx, c[1] - me.ty); if (d < bd && free(c)) { bd = d; best = c; } });
@@ -1639,7 +1644,7 @@ const belowFold = (() => {
     }
     for (let n = 0; n < 24; n++){
       const c = g.cells[Math.floor(Math.random() * g.cells.length)], d = Math.hypot(c[0] - me.tx, c[1] - me.ty);
-      if (d >= 0.6 && d <= 2.2 && free(c) && kidPathOk(g, me, c[0], c[1], other, r)) return c;
+      if (d >= 0.6 && d <= 2.2 && free(c) && kidPathOk(g, me, c[0], c[1], others, r)) return c;
     }
     return null;
   }
@@ -1662,25 +1667,44 @@ const belowFold = (() => {
       const busy = (nameTag && (nameTag.who === me.name || nameTag.who === me.rider)) ||
         (talk && talk.lines.some(l => l[0] === me.name || l[0] === me.rider));
       if (busy) { me.moving = false; me.dir = 'S'; return; }
-      if (!me.goal) {
-        me.moving = false;
-        if ((me.wait -= dt) > 0) return;
-        me.goal = kidGoal(g, me, other, r);
-        if (!me.goal) { me.wait = 1; return; }
-      }
-      const dx = me.goal[0] - me.tx, dy = me.goal[1] - me.ty, d = Math.hypot(dx, dy);
-      const sx = (dx - dy) * 24, sy = (dx + dy) * 12, sl = Math.hypot(sx, sy);   // 화면에서 가는 방향(마을 도트)
-      if (d < 0.01 || sl < 0.01) { me.tx = me.goal[0]; me.ty = me.goal[1]; me.goal = null; me.moving = false; me.dir = 'S'; me.wait = 2 + Math.random() * 4; return; }
-      const step = Math.min(d, KID_SPEED * dt * d / sl), nx = me.tx + dx / d * step, ny = me.ty + dy / d * step;
-      // 걷다가 다른 아이와 부딪칠 것 같으면 그 자리에 서서 잠깐 기다렸다 다른 데로 간다
-      if (kidsClash(nx, ny, other.tx, other.ty, r) &&
-          Math.hypot(nx - other.tx, ny - other.ty) < Math.hypot(me.tx - other.tx, me.ty - other.ty)) {
-        me.goal = null; me.moving = false; me.wait = 0.8 + Math.random() * 1.5; return;
-      }
-      me.tx = nx; me.ty = ny; me.moving = true; me.phase += dt * 6;
-      me.dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) & 7];   // E 부터 시계 방향으로 45°씩
+      walkOne(g, me, [other].concat(GUESTS), r, dt);
     });
-    return KIDS.sua.tx != null && KIDS.yona.tx != null;
+    if (KIDS.sua.tx == null || KIDS.yona.tx == null) return false;
+    // 손님은 아이들이 걷기 시작하고 그림 시트까지 받은 뒤에 두세 명 — 아이·서로와 겹치지 않는 칸에 세운다
+    if (!GUESTS.length && window.WALKSHEET && WALKSHEET.ready('guest')) {
+      const pool = [0, 1, 2, 3, 4, 5, 6, 7].sort(() => Math.random() - 0.5).slice(0, 2 + (Math.random() < 0.5 ? 1 : 0));
+      pool.forEach(n => {
+        const others = [KIDS.sua, KIDS.yona].concat(GUESTS);
+        for (let i = 0; i < 24; i++){
+          const c = g.cells[Math.floor(Math.random() * g.cells.length)];
+          if (others.some(o => kidsClash(c[0], c[1], o.tx, o.ty, r))) continue;
+          GUESTS.push({ n, tx: c[0], ty: c[1], goal: null, wait: 1 + Math.random() * 4, dir: 'S', phase: 0, moving: false });
+          break;
+        }
+      });
+    }
+    GUESTS.forEach(me => walkOne(g, me, [KIDS.sua, KIDS.yona].concat(GUESTS.filter(o => o !== me)), r, dt));
+    return true;
+  }
+  // 한 사람(아이·손님)을 한 장만큼 — 쉬다가 갈 곳을 고르고, 가다가 누구와 부딪칠 것 같으면 선다
+  function walkOne(g, me, others, r, dt){
+    if (!me.goal) {
+      me.moving = false;
+      if ((me.wait -= dt) > 0) return;
+      me.goal = kidGoal(g, me, others, r);
+      if (!me.goal) { me.wait = 1; return; }
+    }
+    const dx = me.goal[0] - me.tx, dy = me.goal[1] - me.ty, d = Math.hypot(dx, dy);
+    const sx = (dx - dy) * 24, sy = (dx + dy) * 12, sl = Math.hypot(sx, sy);   // 화면에서 가는 방향(마을 도트)
+    if (d < 0.01 || sl < 0.01) { me.tx = me.goal[0]; me.ty = me.goal[1]; me.goal = null; me.moving = false; me.dir = 'S'; me.wait = 2 + Math.random() * 4; return; }
+    const step = Math.min(d, KID_SPEED * dt * d / sl), nx = me.tx + dx / d * step, ny = me.ty + dy / d * step;
+    // 걷다가 다른 사람과 부딪칠 것 같으면 그 자리에 서서 잠깐 기다렸다 다른 데로 간다
+    if (others.some(o => kidsClash(nx, ny, o.tx, o.ty, r) &&
+        Math.hypot(nx - o.tx, ny - o.ty) < Math.hypot(me.tx - o.tx, me.ty - o.ty))) {
+      me.goal = null; me.moving = false; me.wait = 0.8 + Math.random() * 1.5; return;
+    }
+    me.tx = nx; me.ty = ny; me.moving = true; me.phase += dt * 6;
+    me.dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) & 7];   // E 부터 시계 방향으로 45°씩
   }
   // 아이를 그린 뒤, 아이보다 앞에 선 물건의 도트만 마을 그림으로 다시 덮는다 — 분수·가로등 뒤로 지나가면 제대로 가려진다.
   // 마을 그림 위에 얹었던 것 중 물건 도트에 걸린 것(비·안개 빛, 분수 물줄기, 키 재기 눈금)도 그 안에서 다시 얹는다
@@ -1871,8 +1895,18 @@ const belowFold = (() => {
       { sp: SPRITES.easel, s: castS, bob: 0, easel: true, at: spot(VG.chars.easel) },   // 이젤은 사람이 아니라 이름이 없다
       // 얼굴만 있는 친구 — 통통 튀지 않고 굴러다닌다. 대개 두 아이보다 앞줄이라 나중에 그려진다
       { sp: SPRITES.chick, s: castS, bob: 0, roll: true, name: '상그렐라', at: spot(VG.chars.chick) },
-    ].sort((a, b) => a.at.y - b.at.y) : [];          // 발이 위(뒤)에 있는 쪽부터 — 아이들이 걸어 다녀도 앞뒤가 맞는다
+    ].concat(walking ? GUESTS.map(me => {
+      const img = WALKSHEET.sprite('guest', me.n, me.dir, KIDSTEP(me.moving, me.phase), guestTint), p = spot(VG.dotAt(me.tx, me.ty));
+      return img && { img, s: castS, walker: me, at: { x: Math.round(p.x / castS) * castS, y: Math.round(p.y / castS) * castS } };
+    }).filter(Boolean) : []).sort((a, b) => a.at.y - b.at.y) : [];          // 발이 위(뒤)에 있는 쪽부터 — 아이들이 걸어 다녀도 앞뒤가 맞는다
     cast.forEach(c => {
+      if (c.img) {
+        // 손님 — 시트 캔버스는 1도트 = 2px 에 둘레 윤곽 1도트. 아이와 같은 배율로 줄이고 발(윤곽 한 줄 위)을 발자리에 둔다
+        const w = c.img.width / 2 * c.s, h = c.img.height / 2 * c.s, x = Math.round((c.at.x - w / 2) / c.s) * c.s, top = c.at.y - h + c.s;
+        ctx.drawImage(c.img, x, top, w, h);
+        coverKid(c.walker, x, top, x + w, c.at.y, gx, gy);   // 아이처럼 앞 물건이 도트 단위로 가린다
+        return;
+      }
       const w = c.sp[0].length * c.s, h = c.sp.length * c.s;
       const cx = Math.round(c.at.x - w / 2), standY = Math.round(c.at.y);
       if (c.roll) {

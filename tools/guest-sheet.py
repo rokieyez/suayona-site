@@ -1,18 +1,26 @@
-# 전시실 관객 여덟 명 — 힉스필드 원본(가짜 도트 큰 그림) → 진짜 도트 시트 한 장. 2026-09-29
-#   python3 tools/guest-sheet.py   → pages/guests-walk.png (+ ~/Downloads/관객-걷기-스프라이트 에 확대본·걷기 gif)
-# 원본: ~/Downloads/관객-걷기-스프라이트/원본/g{0..7}-{S,SW,W,NW,N}.png(서기 1 + 걷기 4), g{n}-clap.png(서기·손 모음·손 벌림)
-# 손님 번호는 연주회장 객석(KIDART_GUEST)과 같다: 0 포니테일 1 삐죽 머리 2 할머니 3 땋은 머리 4 모자 5 곱슬 6 아빠 7 만두 머리.
-# 시트: 손님마다 여섯 줄(S SW W NW N 손뼉) × 다섯 칸. 칸은 모두 같은 크기, 발은 칸 바닥에서 두 도트 위.
-# 오른쪽 셋(NE·E·SE)은 왼쪽을 뒤집어 쓴다 — gallery-room.js 가 뒤집는다. 도트 줄이는 법은 수아 시트의 pixelize.py 와 같다.
+# 걷는 사람·강아지 — 힉스필드 원본(가짜 도트 큰 그림) → 진짜 도트 시트. 2026-09-29
+#   python3 tools/guest-sheet.py   → pages/guests-walk.png · guard-walk.png · dog-walk.png (+ ~/Downloads/관객-걷기-스프라이트 에 확대본·걷기 gif)
+# 원본: ~/Downloads/관객-걷기-스프라이트/원본/{이름}-{S,SW,W,NW,N}.png(서기 1 + 걷기 4) 와 덤 줄 한 장(세 칸).
+#   관객 g0..g7 — 덤 줄 g{n}-clap(올려다보기·손 모음·손 벌림). 번호는 연주회장 객석(KIDART_GUEST)과 같다:
+#   0 포니테일 1 삐죽 머리 2 할머니 3 땋은 머리 4 모자 5 곱슬 6 아빠 7 만두 머리.
+#   밤 경비원 guard — 덤 줄 guard-X(손전등 내림·비추기·둘러보기). 강아지 dog — 덤 줄 dog-X(앉기·꼬리 한쪽·다른 쪽).
+# 시트: 한 명마다 여섯 줄(S SW W NW N 덤) × 다섯 칸. 칸은 시트 안에서 모두 같은 크기, 발은 칸 바닥에서 두 도트 위.
+# 오른쪽 셋(NE·E·SE)은 왼쪽을 뒤집어 쓴다 — pages/kid-art.js 의 WALKSHEET 가 뒤집는다. 키(TARGET)를 바꾸면 거기 SHEETS.h 도 같이.
+# 도트 줄이는 법은 수아 시트의 pixelize.py 와 같다.
 import os
 import numpy as np
 from PIL import Image
 
 SRC = os.path.expanduser('~/Downloads/관객-걷기-스프라이트')
-OUT = os.path.join(os.path.dirname(__file__), '..', 'pages', 'guests-walk.png')
+PAGES = os.path.join(os.path.dirname(__file__), '..', 'pages')
 DIRS = ['S', 'SW', 'W', 'NW', 'N']
-TARGET = [48, 48, 52, 48, 48, 48, 58, 46]   # 서 있는 키(도트) — 원본을 부탁한 키. 방향마다 키가 같아지게 이걸로 칸 크기를 잡는다
-NCOL = 26                                   # 손님 한 명의 색 수
+# 시트 이름 → [(원본 이름, 서 있는 키(도트), 덤 줄 꼬리)] — 키는 원본을 부탁한 키. 방향마다 키가 같아지게 이걸로 칸 크기를 잡는다
+SETS = {
+    'guests': [(f'g{n}', t, 'clap') for n, t in enumerate([48, 48, 52, 48, 48, 48, 58, 46])],
+    'guard': [('guard', 58, 'X')],
+    'dog': [('dog', 22, 'X')],
+}
+NCOL = 26                                   # 한 명의 색 수
 
 
 def palette(arrs):
@@ -90,56 +98,65 @@ def topcx(f):
     return x0 + np.nonzero(f[y0:y0 + (y1 - y0) // 2, x0:x1 + 1, 3])[1].mean()
 
 
-rows = []                                   # [손님][줄] = 칸들
-for n, T in enumerate(TARGET):
-    names = [f'g{n}-{d}' for d in DIRS] + [f'g{n}-clap']
-    raws = [np.array(Image.open(f'{SRC}/원본/{k}.png').convert('RGBA')) for k in names]
-    PAL = palette(raws)
-    g = []
-    for k, a in zip(names, raws):
-        fr = split(down(a, T, PAL), 3 if k.endswith('clap') else 5)
-        g.append(fr)
-        print(k, [f.shape[0] for f in fr][:1], 'x', [bbox(f)[3] - bbox(f)[2] + 1 for f in fr])
-    rows.append(g)
+def build(tag, people):
+    OUT = os.path.join(PAGES, f'{tag}-walk.png')
+    rows = []                                   # [사람][줄] = 칸들
+    for who, T, extra in people:
+        names = [f'{who}-{d}' for d in DIRS] + [f'{who}-{extra}']
+        raws = [np.array(Image.open(f'{SRC}/원본/{k}.png').convert('RGBA')) for k in names]
+        PAL = palette(raws)
+        g = []
+        for k, a in zip(names, raws):
+            fr = split(down(a, T, PAL), 3 if k.endswith('-' + extra) else 5)
+            g.append(fr)
+            print(k, [f.shape[0] for f in fr][:1], 'x', [bbox(f)[3] - bbox(f)[2] + 1 for f in fr])
+        rows.append(g)
 
-allf = [f for g in rows for r in g for f in r]
-half = max(max(topcx(f) - bbox(f)[2], bbox(f)[3] - topcx(f)) for f in allf)
-CW = int(np.ceil(half)) * 2 + 4
-CH = max(bbox(f)[1] - bbox(f)[0] + 1 for f in allf) + 4
-sheet = np.zeros((CH * 6 * len(rows), CW * 5, 4), np.uint8)
-for n, g in enumerate(rows):
-    for r, frames in enumerate(g):
-        base = max(bbox(f)[1] for f in frames)
-        for c, f in enumerate(frames):
-            dx = int(round(CW / 2 - topcx(f)))
-            dy = (CH - 2) - base
-            ys, xs = np.nonzero(f[..., 3])
-            sheet[(n * 6 + r) * CH + ys + dy, c * CW + xs + dx] = f[ys, xs]
-# 색표 PNG 로 — 손님 여덟 명 색을 다 합쳐도 256 색 안쪽이라 잃는 것 없이 RGBA 의 1/3 크기가 된다. 0번이 투명
-cols = np.unique(sheet[sheet[..., 3] > 0][:, :3], axis=0)
-assert len(cols) < 256, f'색이 {len(cols)}개 — NCOL 을 줄일 것'
-idx = {tuple(c): i + 1 for i, c in enumerate(cols)}
-ind = np.zeros(sheet.shape[:2], np.uint8)
-for (y, x) in zip(*np.nonzero(sheet[..., 3])):
-    ind[y, x] = idx[tuple(sheet[y, x, :3])]
-pim = Image.fromarray(ind, 'P')
-pim.putpalette([0, 0, 0] + [int(v) for c in cols for v in c])
-pim.save(OUT, optimize=True, transparency=0)
-print('칸', CW, 'x', CH, '시트', sheet.shape[1], 'x', sheet.shape[0], '→', os.path.getsize(OUT), 'bytes')
+    allf = [f for g in rows for r in g for f in r]
+    half = max(max(topcx(f) - bbox(f)[2], bbox(f)[3] - topcx(f)) for f in allf)
+    CW = int(np.ceil(half)) * 2 + 4
+    CH = max(bbox(f)[1] - bbox(f)[0] + 1 for f in allf) + 4
+    sheet = np.zeros((CH * 6 * len(rows), CW * 5, 4), np.uint8)
+    for n, g in enumerate(rows):
+        for r, frames in enumerate(g):
+            base = max(bbox(f)[1] for f in frames)
+            for c, f in enumerate(frames):
+                dx = int(round(CW / 2 - topcx(f)))
+                dy = (CH - 2) - base
+                ys, xs = np.nonzero(f[..., 3])
+                sheet[(n * 6 + r) * CH + ys + dy, c * CW + xs + dx] = f[ys, xs]
+    # 색표 PNG 로 — 손님 여덟 명 색을 다 합쳐도 256 색 안쪽이라 잃는 것 없이 RGBA 의 1/3 크기가 된다. 0번이 투명
+    cols = np.unique(sheet[sheet[..., 3] > 0][:, :3], axis=0)
+    assert len(cols) < 256, f'색이 {len(cols)}개 — NCOL 을 줄일 것'
+    idx = {tuple(c): i + 1 for i, c in enumerate(cols)}
+    ind = np.zeros(sheet.shape[:2], np.uint8)
+    for (y, x) in zip(*np.nonzero(sheet[..., 3])):
+        ind[y, x] = idx[tuple(sheet[y, x, :3])]
+    pim = Image.fromarray(ind, 'P')
+    pim.putpalette([0, 0, 0] + [int(v) for c in cols for v in c])
+    pim.save(OUT, optimize=True, transparency=0)
+    print('칸', CW, 'x', CH, '시트', sheet.shape[1], 'x', sheet.shape[0], '→', os.path.getsize(OUT), 'bytes')
 
-# 확인용 — 4배 확대 + 풀밭 바탕, 걷는 gif(손님 × 다섯 방향)
-S = 4
-big = Image.fromarray(sheet).resize((sheet.shape[1] * S, sheet.shape[0] * S), Image.NEAREST)
-bg = Image.new('RGBA', big.size, (104, 150, 86, 255))
-bg.alpha_composite(big)
-bg.save(f'{SRC}/guests-walk-확대4배.png')
-gif = []
-for t in [1, 2, 3, 4]:
-    fr = Image.new('RGBA', (CW * 5 * S, CH * len(rows) * S), (104, 150, 86, 255))
-    for n in range(len(rows)):
-        for r in range(5):
-            y = (n * 6 + r) * CH
-            cell = Image.fromarray(sheet[y:y + CH, t * CW:(t + 1) * CW]).resize((CW * S, CH * S), Image.NEAREST)
-            fr.alpha_composite(cell, (r * CW * S, n * CH * S))
-    gif.append(fr.convert('RGB'))
-gif[0].save(f'{SRC}/guests-걷기.gif', save_all=True, append_images=gif[1:], duration=150, loop=0)
+    # 확인용 — 4배 확대 + 풀밭 바탕, 걷는 gif(손님 × 다섯 방향)
+    S = 4
+    big = Image.fromarray(sheet).resize((sheet.shape[1] * S, sheet.shape[0] * S), Image.NEAREST)
+    bg = Image.new('RGBA', big.size, (104, 150, 86, 255))
+    bg.alpha_composite(big)
+    bg.save(f'{SRC}/{tag}-walk-확대4배.png')
+    gif = []
+    for t in [1, 2, 3, 4]:
+        fr = Image.new('RGBA', (CW * 5 * S, CH * len(rows) * S), (104, 150, 86, 255))
+        for n in range(len(rows)):
+            for r in range(5):
+                y = (n * 6 + r) * CH
+                cell = Image.fromarray(sheet[y:y + CH, t * CW:(t + 1) * CW]).resize((CW * S, CH * S), Image.NEAREST)
+                fr.alpha_composite(cell, (r * CW * S, n * CH * S))
+        gif.append(fr.convert('RGB'))
+    gif[0].save(f'{SRC}/{tag}-걷기.gif', save_all=True, append_images=gif[1:], duration=150, loop=0)
+
+
+for tag, people in SETS.items():
+    if all(os.path.exists(f'{SRC}/원본/{w}-{d}.png') for w, _, x in people for d in DIRS + [x]):
+        build(tag, people)
+    else:
+        print(tag, '원본이 다 없어서 건너뜀')

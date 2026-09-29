@@ -3,7 +3,7 @@
    farm.js·honors.js 보다 먼저 싣는다. 밖으로는 window.KIDART·window.KIDPAL 둘만 내놓고 나머지는 이 안에 가둔다 —
    배포 직후 새로고침하면 새 farm.html 이 캐시에 남은 옛 farm.js(같은 이름을 const 로 가진)와 짝지어질 수 있는데,
    여기서도 const 로 선언하면 「이미 선언됨」으로 farm.js 가 통째로 멈춘다(시험에서 확인). 창 속성은 const 와 부딪히지 않는다.
-   이 파일을 고치면 싣는 다섯 곳(honors·farm·life·portfolio.html, pages/index.js)의 ?v= 꼬리표를 같이 올린다 — 새 HTML 이
+   이 파일을 고치면 싣는 다섯 곳(honors·farm·life·portfolio.html, pages/index.js)의 ?v= 꼬리표를 같이 올린다(지금 0929b) — 새 HTML 이
    캐시에 남은 옛 이 파일과 짝지어지면 KIDSTEP·dirs 가 없어 방 그림이 통째로 멈춘다(2026-09-29 전시실에서 실제로 봄). */
 (function(){
 'use strict';
@@ -33,4 +33,51 @@ window.KIDSTEP = (moving, phase) => moving ? 1 + (Math.floor(phase) % 4) : 0;   
 // 수아·연아와 같은 도트 크기로 그렸다. 색표는 손님끼리 따로(KIDPAL_GUEST).
 window.KIDART_GUEST = GUESTS.map(r => ({ NW: r, NE: flipRows(r) }));
 window.KIDPAL_GUEST = GUESTPAL;
+
+// ---------- 걷는 사람·강아지 그림 시트(PNG) — 전시실·연주회장·첫화면·농장이 같이 쓴다(2026-09-29) ----------
+// 문자열 도트로 넣으면 수백 KB 라 그림 파일로 둔다. 시트마다 한 명이 여섯 줄(S·SW·W·NW·N + 덤 줄) × 다섯 칸(서기 + 걷기 넷).
+// 덤 줄: 관객은 손뼉(올려다보기·손 모음·손 벌림), 경비원은 손전등 비추기, 강아지는 앉아 꼬리 흔들기.
+// 오른쪽 셋(NE·E·SE)은 왼쪽을 뒤집는다. 그림은 처음 부를 때 받아 오고, 다 오면 onReady 에 건 함수를 부른다.
+// WALKSHEET.sprite 는 한 칸을 2배 캔버스에 옮기고 수아·연아(kidSprite)와 같은 반투명 윤곽을 두른다 — 1도트 = 캔버스 2px.
+const SHEETS = {
+  guest: { src: '/pages/guests-walk.png', n: 8, h: [48, 48, 52, 48, 48, 48, 58, 46] },   // 0 포니테일 1 삐죽 2 할머니 3 땋은 4 모자 5 곱슬 6 아빠 7 만두 — 객석 손님과 같은 번호
+  guard: { src: '/pages/guard-walk.png', n: 1, h: [58] },
+  dog: { src: '/pages/dog-walk.png', n: 1, h: [22] },
+};
+const WS_ROW = { S: 0, SW: 1, W: 2, NW: 3, N: 4, NE: 3, E: 2, SE: 1, X: 5 }, WS_FLIP = { NE: 1, E: 1, SE: 1 };
+const wsImg = {}, wsBuf = {}, wsWait = [];
+function wsLoad(name){
+  if (wsImg[name]) return wsImg[name];
+  const im = wsImg[name] = new Image();
+  im.onload = () => wsWait.splice(0).forEach(f => { try { f(name); } catch (e) { /* 부른 쪽 오류는 부른 쪽 몫 */ } });
+  im.src = SHEETS[name].src;
+  return im;
+}
+window.WALKSHEET = {
+  heights: name => SHEETS[name].h,
+  count: name => SHEETS[name].n,
+  ready: name => { const im = wsLoad(name); return im.complete && im.naturalWidth > 0; },
+  onReady(fn){ wsWait.push(fn); },
+  // 화면에서 가는 쪽(sx, sy — 오른쪽·아래가 +)을 여덟 방향 이름으로
+  dir8: (sx, sy) => ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) & 7],
+  // dir: 여덟 방향 이름 또는 'X'(덤 줄, 뒤집으려면 flipX). col: 0 서기, 1~4 걷기(KIDSTEP). tint: 덧칠할 rgba(없으면 null)
+  sprite(name, n, dir, col, tint, flipX){
+    const im = wsLoad(name); if (!im.complete || !im.naturalWidth) return null;
+    const flip = dir === 'X' ? !!flipX : !!WS_FLIP[dir], key = [name, n, dir, col, flip ? 1 : 0, tint || ''].join('|');
+    if (wsBuf[key]) return wsBuf[key];
+    const S = SHEETS[name], CW = im.width / 5, CH = im.height / (S.n * 6);
+    const cell = document.createElement('canvas'); cell.width = CW * 2; cell.height = CH * 2;
+    const q = cell.getContext('2d'); q.imageSmoothingEnabled = false;
+    if (flip){ q.translate(cell.width, 0); q.scale(-1, 1); }
+    q.drawImage(im, col * CW, (n * 6 + WS_ROW[dir]) * CH, CW, CH, 0, 0, CW * 2, CH * 2);
+    const sil = document.createElement('canvas'); sil.width = cell.width; sil.height = cell.height;
+    const sg = sil.getContext('2d'); sg.drawImage(cell, 0, 0); sg.globalCompositeOperation = 'source-in'; sg.fillStyle = '#241c14'; sg.fillRect(0, 0, sil.width, sil.height);
+    const c = document.createElement('canvas'); c.width = (CW + 2) * 2; c.height = (CH + 2) * 2;
+    const g = c.getContext('2d');
+    g.globalAlpha = 0.78; [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => g.drawImage(sil, (1 + ox) * 2, (1 + oy) * 2)); g.globalAlpha = 1;
+    g.drawImage(cell, 2, 2);
+    if (tint){ g.globalCompositeOperation = 'source-atop'; g.fillStyle = tint; g.fillRect(0, 0, c.width, c.height); }
+    return (wsBuf[key] = c);
+  },
+};
 })();

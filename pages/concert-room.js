@@ -266,6 +266,28 @@
     guests.push({ row, a, b, n: (row * 2 + SEAT_A.indexOf(a) * 5) % GUEST_N(), off: prand('off' + a + row) * 360, say: null, sayUntil: 0 });
   }));
   const GUEST_TALK = ['브라보!', '앵콜!', '와아, 멋지다!', '짝짝짝!', '또 들려줘요!', '최고예요!'];
+  // 손님 입장(2026-09-29 부모 요청) — 연주회장을 처음 열면 왼쪽 벽 문으로 들어와 두 줄 사이 길로 걷고,
+  // 앞줄 손님은 통로를 올라 첫 줄 앞 길로 돌아 자리에 앉는다. 걷는 그림은 WALKSHEET(guests-walk.png, 같은 번호).
+  // 움직임 줄이기·그림 없음이면 처음부터 앉아 있고, 그림이 3초 안에 안 오면 그냥 앉힌다. q.walk 가 있는 동안 자리는 비어 있다
+  const DOOR = { a: 0.1, b: 5.05 }, GAP_B = 4.88, AISLE_A = 5.45;
+  let entered = false, enterT = 0;
+  function guestsEnter(){
+    if (entered) return; entered = true;
+    if (STILL || !window.WALKSHEET) return;
+    WALKSHEET.ready('guest');                                            // 그림 받기를 지금 시작한다
+    guests.forEach((q, n) => {
+      const pts = [{ a: 0.5, b: GAP_B }];
+      if (q.row === 0) pts.push({ a: AISLE_A, b: GAP_B }, { a: AISLE_A, b: LANE_B });
+      pts.push({ a: q.a, b: q.row ? GAP_B : LANE_B }, { a: q.a, b: q.b });
+      q.walk = { a: DOOR.a, b: DOOR.b, plan: pts, onArrive: () => { q.walk = null; }, moving: false, seated: false, phase: 0, dir: 'SE', wait: n * 420 + prand('in' + n) * 250 };
+    });
+  }
+  function stepGuests(dt){
+    if (!entered) return;
+    enterT += dt;
+    const ok = window.WALKSHEET && WALKSHEET.ready('guest');
+    guests.forEach(q => { const w = q.walk; if (!w) return; if (!ok){ if (enterT > 3000) q.walk = null; return; } if ((w.wait -= dt) <= 0) stepActor(w, dt); });
+  }
 
   function stepActor(p, dt){
     if (!p.plan.length) return false;
@@ -477,6 +499,13 @@
     if (show.phase === 'bow' && !p.moving){ const t = show.t % 1500; if (t > 450 && t < 1150) dip = 4; }
     const c = kidSprite(p.k, p.dir, window.KIDSTEP ? KIDSTEP(p.moving, p.phase) : 0, p.dir === 'side' && p.flip);
     if (c) g.drawImage(c, 0, 0, c.width, c.height - dip * 2, x - c.width / 4, y - c.height / 2 + 1 + dip, c.width / 2, c.height / 2 - dip);
+  }
+  function drawGuestWalk(g, q){                                          // 들어오는 손님 — 아이들과 같은 반 크기, 발이 (x, y)
+    const w = q.walk, c = WALKSHEET.sprite('guest', q.n % WALKSHEET.count('guest'), w.dir, window.KIDSTEP ? KIDSTEP(w.moving, w.phase) : 0, null);
+    if (!c) return;
+    const bp = P(w.a, w.b), x = Math.round(bp[0]), y = Math.round(bp[1]);
+    g.fillStyle = 'rgba(20,10,5,.3)'; g.beginPath(); g.ellipse(x, y, 9, 3.5, 0, 0, Math.PI * 2); g.fill();
+    g.drawImage(c, x - c.width / 4, y - c.height / 2 + 1, c.width / 2, c.height / 2);
   }
   function drawMic(g){
     const b = P(MIC.a, MIC.b, STAGE.h), x = Math.round(b[0]), y = Math.round(b[1]);
@@ -782,10 +811,12 @@
     SEAT_ROWS.forEach((b, row) => SEAT_A.forEach(a => {
       const kid = kids.find(p => atHome(p) && HOME[p.k].row === row && HOME[p.k].a === a);
       const mine = me && me.row === row && me.a === a ? { n: me.look, off: 0, me: true } : null;
-      const q = mine || guests.find(x => x.row === row && x.a === a) || (full && !kid ? extraGuest(row, a) : null);
+      const gq = guests.find(x => x.row === row && x.a === a);           // 아직 걸어오는 손님 자리는 빈 의자
+      const q = mine || (gq ? (gq.walk ? null : gq) : full && !kid ? extraGuest(row, a) : null);
       items.push({ key: a + b + 0.25, f: () => drawChair(g, a, b, q, kid) });
     }));
     kids.filter(p => !atHome(p)).forEach(p => items.push({ key: p.a + p.b + 0.02, stage: onStage(p.a, p.b), f: () => drawActor(g, p) }));
+    guests.forEach(q => { const w = q.walk; if (w && w.wait <= 0) items.push({ key: w.a + w.b + 0.02, f: () => drawGuestWalk(g, q) }); });
     if (show.kind === 'mic' || show.kind === 'cinema') items.push({ key: MIC.a + MIC.b, stage: true, f: () => drawMic(g) });
     stageProps().forEach(it => items.push({ key: it.key, stage: !it.front, f: () => it.f(g) }));
     items.push({ key: 5.45 + 5.72, f: () => drawDog(g) });
@@ -802,7 +833,7 @@
       if (p.say && t < p.sayUntil) bubble(g, bp[0], bp[1] - top - 5, p.say);
       else if (!home && p.moving) nameTag(g, Math.round(bp[0]), Math.round(bp[1]) - top - 18, p.k);
     });
-    guests.forEach(q => { if (q.say && t < q.sayUntil){ const bp = P(q.a, q.b, 7); bubble(g, bp[0], bp[1] - guestRows(q.n) - 4, q.say); } });
+    guests.forEach(q => { if (!q.walk && q.say && t < q.sayUntil){ const bp = P(q.a, q.b, 7); bubble(g, bp[0], bp[1] - guestRows(q.n) - 4, q.say); } });
     if (me){ const bp = P(me.a, SEAT_ROWS[me.row], 7); g.save(); g.font = '800 8px ' + FONT; g.fillStyle = INK; g.fillRect(Math.round(bp[0]) - 7, Math.round(bp[1]) - 44, 14, 11); g.fillStyle = '#ffd979'; g.fillRect(Math.round(bp[0]) - 6, Math.round(bp[1]) - 43, 12, 9); g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('나', Math.round(bp[0]), Math.round(bp[1]) - 43); g.restore(); }
     if (seatMode) SEAT_ROWS.forEach((b, row) => SEAT_A.forEach(a => { if (!seatFree(row, a)) return; const bp = P(a, b, 10), r = 9 + Math.sin(t / 220) * 2; g.strokeStyle = '#ffd979'; g.lineWidth = 2; g.beginPath(); g.ellipse(bp[0], bp[1] - 6, r, r * 0.55, 0, 0, Math.PI * 2); g.stroke(); }));
     if (show.announce && t < show.announceUntil){ const sp = P(5.575, 0.37, STAGE.h + 50); bubble(g, sp[0] - 60, sp[1], '📢 ' + show.announce); }
@@ -910,7 +941,7 @@
       const home = atHome(p), bp = home ? P(p.a, p.b, 7) : actorBase(p), top = kidRows(p.k, home || p.seated) + 2, hw = (window.KIDART && window.KIDART[p.k] ? window.KIDART[p.k].w : 0) / 2;   // 그림 크기만큼
       if (x >= bp[0] - hw && x < bp[0] + hw && y >= bp[1] - top && y < bp[1] + 3) return { key: 'kid:' + p.k, kid: p.k };
     }
-    for (const q of guests){ const bp = P(q.a, q.b, 7); if (x >= bp[0] - 12 && x < bp[0] + 12 && y >= bp[1] - 30 && y < bp[1] + 2) return { key: 'guest:' + q.n, guest: q }; }
+    for (const q of guests){ if (q.walk) continue; const bp = P(q.a, q.b, 7); if (x >= bp[0] - 12 && x < bp[0] + 12 && y >= bp[1] - 30 && y < bp[1] + 2) return { key: 'guest:' + q.n, guest: q }; }
     const lu = x - OX, lb = -lu / 28, lv = OY - lu / 2 - y;                // 왼쪽 벽 좌표
     if (lb >= 3.3 && lb <= 4.5 && lv >= 96 && lv <= 126) return { key: 'board' };
     const ru = x - OX, ra = ru / 28, rv = OY + ru / 2 - y;                 // 오른쪽 벽 좌표
@@ -1063,7 +1094,7 @@
     rooms.dataset.room = room;
     document.querySelectorAll('#roomTabs [data-room]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.room === room)));
     try { const u = new URL(location.href); if (room === 'concert') u.searchParams.set('room', 'concert'); else u.searchParams.delete('room'); history.replaceState(history.state, '', u); } catch (e) { /* 주소를 못 바꿔도 탭은 바뀐다 */ }
-    if (room === 'concert'){ if (byUser) heard = true; loadClaps(); draw(); say(stateLine()); startTicket(); }
+    if (room === 'concert'){ if (byUser) heard = true; guestsEnter(); loadClaps(); draw(); say(stateLine()); startTicket(); }
     else { closePlayer(false); if (window.GALLERY && GALLERY.draw) GALLERY.draw(); }
   }
   function wireTabs(){
@@ -1094,7 +1125,7 @@
   // 보일 때만 돈다 — 탭이 전시실이면(display:none) 너비가 0 이라 멈춘다. 초당 30장
   let looping = false, lastTick = 0, acc = 0, seen = false, seenAt = 0, lastPhase = '', lastW = null;
   function tick(t, dt){                                                  // 한 장 — 시험에서도 부른다(숨은 창은 rAF 가 안 돈다)
-    stepShow(dt); stepParts(dt); stepCurtain(dt);
+    stepShow(dt); stepGuests(dt); stepParts(dt); stepCurtain(dt);
     if (show.phase !== lastPhase || show.w !== lastW){
       lastPhase = show.phase;
       if (show.w !== lastW){ lastW = show.w; renderTools(); }

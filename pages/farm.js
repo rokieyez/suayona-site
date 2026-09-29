@@ -1874,6 +1874,9 @@ let walkers = null, beasts = null, dolls = null, curWind = 0.6;
    한 사람에 한 개 — 같은 아이를 다시 누르면 앞 말이 바뀐다. */
 let bubbles = [];
 const BUBBLE_INK = '#3a3226', BUBBLE_BG = '#fffaf2', BUBBLE_MAX_W = 104;   // 말풍선 폭 상한(도트)
+// 주말 손님 한 명(섬에서만) — 그림일 뿐이라 세이브에 안 적는다. 움직이는 부분은 drawWalkerIso 아래에.
+let farmGuest = null, farmGuestNext = 4000, farmGuestAsk = null;   // Ask: 시험으로 부른 { n }
+WALKSHEET.onReady(() => { if (liveCv && W) drawFarm(liveCv); });   // 손님 그림이 늦게 오면 한 번 더(움직임 줄이기면 이게 유일한 다시 그리기)
 function walkableTile(tx, ty){
   if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS - 1) return false;   // 맨 아랫줄은 앞쪽 수풀에 가린다
   const FB = R.FIELD_BOX;
@@ -2078,6 +2081,7 @@ function stepActors(dt, t){
     d.x += dx / dd * dollSp; d.y += dy / dd * dollSp; d.moving = true; d.phase += dollSp / 5.2;
     if (Math.abs(dx) > 0.8) d.flip = dx < 0;
   });
+  stepFarmGuest(dt, t);
 }
 function drawWalker(w, t){
   const A = KIDART[w.who] || KIDART.yona, d = dir8(w.vx, w.vy), f = KIDSTEP(w.moving, w.phase);
@@ -5475,6 +5479,92 @@ function drawWalkerIso(w, t){
   isoEllipse(w.x / T + 0.06, w.y / T + 0.06, 0.34, 0.28, 0, 'rgba(30,44,24,0.2)');
   artOut(w.who + d + f, A.dirs[d][f], Math.round(q.x - A.w / 2), Math.round(q.y - A.h - lift), KIDPAL[w.who]);
 }
+// ■ 주말 손님(2026-09-29 로키즈 「주말마다 관객 한 명이 놀러 와서 가게를 구경」)
+// 토·일(한국 시각)에 섬 가장자리에서 걸어 들어와 가게 앞에 서서 구경하고, 밭이나 꾸미개 한 곳을 들렀다가
+// 온 데로 나간다. 1~2분 뒤 또 온다. 그림은 연주회장 객석 손님(WALKSHEET guest 0~7) — 그날 누가 올지는 날짜로.
+// 움직임 줄이기면 가게 앞에 서 있기만. 시험: 콘솔에서 FARM.visitNow() (번호를 주면 그 손님).
+const GUEST_SAY = ['구경 왔어요!', '우와, 뭐 팔아요?', '맛있겠다!'];
+function weekendKST(){ const d = new Date(now() + 9 * 36e5).getUTCDay(); return d === 0 || d === 6; }
+function guestNo(){ return Math.floor(R.prand('fg' + R.dayKey(now())) * WALKSHEET.count('guest')); }
+function stallFront(){
+  const b = spot('stall'), at = nearestWalkable(b.x + 1, b.y + b.h);
+  return { x: at.x, y: at.y, look: { x: (b.x + b.w / 2 - at.x - 0.5) * T, y: (b.y + b.h / 2 - at.y - 0.75) * T } };
+}
+function newFarmGuest(t, n){
+  const front = stallFront(), edge = [];
+  for (let y = 0; y < ROWS - 1; y++) for (let x = 0; x < COLS; x++){
+    if ((x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 2) && walkableTile(x, y)) edge.push({ x, y });
+  }
+  let from = null;
+  for (let k = 0; k < 10 && edge.length && !from; k++){
+    const e = edge[Math.floor(Math.random() * edge.length)];
+    if (pathFind(e.x, e.y, front.x, front.y)) from = e;
+  }
+  if (!from) return null;
+  const stops = [Object.assign({ ms: 6000 + Math.random() * 4000, say: true }, front)];
+  // 한 군데 더 — 밭이나 놓인 꾸미개·건물 둘레
+  const FB = R.FIELD_BOX, homes = [{ x: FB.x, y: FB.y, w: FB.w, h: FB.h }];
+  R.PLACE_IDS.forEach(id => { if (id !== 'path' && id !== 'stall' && here(id)) homes.push(spot(id)); });
+  if (Math.random() < 0.75){
+    const h = homes[Math.floor(Math.random() * homes.length)], p = nearTile(h, 1), tx = (p.x - 16) / T, ty = (p.y - 24) / T;
+    if (pathFind(front.x, front.y, tx, ty)) stops.push({ x: tx, y: ty, ms: 3000 + Math.random() * 3000, look: { x: (h.x + h.w / 2 - tx - 0.5) * T, y: (h.y + h.h / 2 - ty - 0.75) * T } });
+  }
+  stops.push({ x: from.x, y: from.y, ms: 1 });
+  return { n: n == null ? guestNo() : n, x: from.x * T + 16, y: from.y * T + 24, vx: 0, vy: 1, moving: false, phase: 0, stops, si: 0, path: null, step: 0, wait: 0, born: t, out: 0 };
+}
+function stepFarmGuest(dt, t){
+  if (!isoView || visitAt != null || (!weekendKST() && !farmGuestAsk && !(farmGuest && farmGuest.asked))){ farmGuest = null; return; }
+  if (!farmGuest){
+    if (!farmGuestAsk && t < farmGuestNext) return;
+    farmGuest = newFarmGuest(t, farmGuestAsk ? farmGuestAsk.n : null);
+    if (farmGuest) farmGuest.asked = !!farmGuestAsk;
+    farmGuestAsk = null;
+    if (!farmGuest){ farmGuestNext = t + 20000; return; }
+  }
+  const v = farmGuest, s = v.stops[v.si];
+  if (v.wait > 0){ v.wait -= dt; v.moving = false; if (v.wait <= 0){ v.si++; v.path = null; } return; }
+  if (!s){                                                          // 다 돌았다 — 옅어지며 사라진다
+    v.moving = false;
+    if (!v.out) v.out = t;
+    if (t - v.out > 600){ farmGuest = null; farmGuestNext = t + 60000 + Math.random() * 60000; }
+    return;
+  }
+  if (!v.path){ v.path = pathFind(Math.floor(v.x / T), Math.floor(v.y / T), s.x, s.y) || []; v.step = 0; }
+  if (v.step >= v.path.length){                                     // 닿았다 — 그쪽을 보고 선다
+    v.moving = false;
+    if (s.look){ v.vx = s.look.x; v.vy = s.look.y; }
+    v.wait = s.ms;
+    if (s.say){ const h = WALKSHEET.heights('guest')[v.n] || 48; bubbleAt('farmGuest', v.x, v.y - h - 2, GUEST_SAY[Math.floor(Math.random() * GUEST_SAY.length)], t, v.y); }
+    return;
+  }
+  const g = v.path[v.step], gx = g.x * T + 16, gy = g.y * T + 24, dx = gx - v.x, dy = gy - v.y, d = Math.hypot(dx, dy), sp = 22 * dt / 1000;
+  if (d < 4){ v.x = gx; v.y = gy; v.step++; return; }
+  v.x += dx / d * sp; v.y += dy / d * sp; v.moving = true; v.phase += sp / 6.4; v.vx = dx; v.vy = dy;
+}
+// 움직임 줄이기면 걷지 않고 가게 앞에 서 있다
+function stillFarmGuest(n){
+  const f = stallFront();
+  return { n: n == null ? guestNo() : n, x: f.x * T + 16, y: f.y * T + 24, vx: f.look.x, vy: f.look.y, moving: false, phase: 0, born: -1e9, out: 0, still: true };
+}
+// 그림 한 칸은 1도트 = 캔버스 2px 에 테 1도트가 둘러져 있다 — 아이 그림과 같은 도트 크기로 줄여 붙인다. 발끝은 칸 밑단에서 두 도트 위.
+function drawFarmGuestIso(v, t){
+  const cv = WALKSHEET.sprite('guest', v.n, dir8(v.vx - v.vy, v.vx + v.vy), KIDSTEP(v.moving, v.phase), null);
+  if (!cv) return;
+  const a = Math.max(0, Math.min(1, (t - v.born) / 500, v.out ? 1 - (t - v.out) / 600 : 1));
+  const nod = !v.moving && !v.still && Math.sin(t / 650) > 0.85 ? 1 : 0;           // 구경하며 가끔 끄덕
+  const q = isoP(v.x / T, v.y / T), w = cv.width / 2, h = cv.height / 2;
+  ctx.globalAlpha = a;
+  isoEllipse(v.x / T + 0.06, v.y / T + 0.06, 0.34, 0.28, 0, 'rgba(30,44,24,0.2)');
+  ctx.drawImage(cv, Math.round((q.x - w / 2) * S), Math.round((q.y - h + 2 + nod) * S), Math.round(w * S), Math.round(h * S));
+  ctx.globalAlpha = 1;
+}
+// 시험용 — 평일에도 손님을 부른다. n 을 주면 그 손님(0~7).
+R.visitNow = n => {
+  if (!isoMode()) return '섬 농장에서만 와요';
+  if (STILL){ farmGuest = stillFarmGuest(n); if (liveCv) drawFarm(liveCv); return 'ok'; }
+  farmGuest = null; farmGuestAsk = { n };
+  return 'ok';
+};
 function drawBeastIso(a, t){
   const rec = (W.animals || []).find(x => x.id === a.id), baby = rec && rec.baby, k = baby ? BABY_K : 1;
   const d = isoFaceOf(a), f = a.moving ? (Math.floor(a.phase) % 2) : 0, B = BEAST3D[a.kind] || BEAST3D.chicken;
@@ -5729,6 +5819,8 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
     cast.push({ d: P.x + P.y + 1.5, go: () => withBB(flatOffAt((P.x + 1.2) * T, (P.y + 1) * T, P.x + 1.2, P.y + 0.9), () => drawPeddler(t)) });
   }
   if (walkers) walkers.forEach(w => cast.push({ d: (w.x + w.y) / T, go: () => drawWalkerIso(w, t) }));
+  if (STILL && !farmGuest && visitAt == null && weekendKST()) farmGuest = stillFarmGuest();
+  if (farmGuest && visitAt == null){ const v = farmGuest; cast.push({ d: (v.x + v.y) / T, go: () => drawFarmGuestIso(v, t) }); }
   if (beasts) beasts.list.forEach(a => cast.push({ d: (a.x + a.y) / T, go: () => drawBeastIso(a, t) }));
   if (dolls) dolls.list.forEach(d => cast.push({ d: (d.x + d.y) / T, go: () => drawDollIso(d, t) }));
   isoLife(cast, t, season, L);

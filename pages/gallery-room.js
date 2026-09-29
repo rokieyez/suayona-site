@@ -642,100 +642,10 @@
   }
 
   // ---------- ⑤ 관람객 — 액자 앞에 서서 고개를 끄덕이고 다음 그림으로 옮겨 간다. 수는 박수 수에 따라 하나에서 셋 ----------
-  const VIS_PAL = [
-    { hat: '#3a3a4a', band: '#6c6c80', coat: '#5a7fb5', coatDark: '#3e5f90', pants: '#2e3a54' },
-    { hat: '#8a3a3a', band: '#c46a5a', coat: '#b56a5a', coatDark: '#8f4b3e', pants: '#3a2e2e' },
-    { hat: '#4a6a3a', band: '#8ab070', coat: '#6aa07a', coatDark: '#4a7d5a', pants: '#2e3a2e' },
-    { hat: '#1f2a44', band: '#c9a24a', coat: '#2b3a5e', coatDark: '#1c2740', pants: '#1c2233' },   // ⓖ 경비 아저씨 제복
-  ];
   const VIS_ENTER = { i: 10.9, j: 5.4 };
   const visitors = [];
   let visSeq = 0;
   let nextVisitorAt = 0;
-  const visBuf = {};
-  // 옛 도트 판(28×38) — 이제 밤 경비원(adult)과 강아지만 쓴다. 어른·아이·할머니 관람객은 아래 새 판(guests-walk.png)
-  const VIS_ROWS = {
-    adult: [
-      '.........kkkkkkkkkk.........',
-      '........khhhhhhhhhhk........',
-      '.......khhhhhhhhhhhhk.......',
-      '.......khhhhHhhhhhhhk.......',
-      '.......khhhhhhhhhhhhk.......',
-      '....kkkkbbbbbbbbbbbbkkkk....',
-      '...khhhhhhhhhhhhhhhhhhhhk...',
-      '...khhhhhhhhhhhhhhhhhhhhk...',
-      '....kkkkkffffffffffkkkkk....',
-      '........kffffffffffk........',
-      '........kffffffffffk........',
-      '........kffeeffeeffk........',
-      '........kffeeffeeffk........',
-      '........kffffffffffk........',
-      '........kfffffmmffffk.......',
-      '.........kffffffffk.........',
-      '......kkkCCCCCCCCCCkkk......',
-      '.....kccCCcccccccccCCcck....',
-      '....kcccccccccCcccccccccck..',
-      '....kcccccccccCcccccccccck..',
-      '....kccccccccccccccccccccck.',
-      '....kccccccccccCccccccccck..',
-      '....kccccccccccccccccccccck.',
-      '....kcckcccccccCccccccckcck.',
-      '....kcckccccccccccccccckcck.',
-      '....kcckcccccccCccccccckcck.',
-      '....kcckccccccccccccccckcck.',
-      '....kffkcccccccCccccccckffk.',
-      '....kffkccccccccccccccckffk.',
-      '.....kk.kccccccccccccck.kk..',
-      '........kppppppppppppk......',
-      '........kppppppkppppppk.....',
-      '........kpppppkkkpppppk.....',
-      '........kpppppk.kpppppk.....',
-      '........kpppppk.kpppppk.....',
-      '........kpppppk.kpppppk.....',
-      '.......ksssssssksssssssk....',
-      '.......kkkkkkkkkkkkkkkkk....',
-    ],
-    dog: [
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '..kkk.......................',
-      '.kcccck....................k',
-      '.kccccckkkkk..............kn',
-      '.kcceccccccck............kn.',
-      '.kccccccccccck..........kn..',
-      '.kkcccccccccckkkkkkkkkkkkn..',
-      '..kmcccccccccccccccccccccck.',
-      '..kkkkccccccccccccccccccccck',
-      '.....kccccccccccccccccccccck',
-      '.....kccccccccccccccccccccck',
-      '.....kccccccccccccccccccccck',
-      '.....kkccccccccccccccccccck.',
-      '......kccckkkkkkkkkkkkcccck.',
-      '......kccck..........kccck..',
-      '......kccck..........kccck..',
-      '......ksssk..........ksssk..',
-      '......kkkkk..........kkkkk..',
-    ],
-  };
   const VIS_KINDS = ['adult', 'child', 'grandma', 'dog'];
   // 누르면 하는 말(2026-09-15 부모 요청) — 누를 때마다 다음 말. 말하는 동안은 그 자리에 선다
   const CHAR_NAME = { adult: '관람객', child: '꼬마 관람객', grandma: '할머니 관람객', dog: '강아지', guard: '경비 아저씨' };
@@ -747,69 +657,52 @@
     guard: ['밤에도 작품은 제가 지켜요', '쉿, 다들 잠든 시간이에요', '오늘도 이상 없음!'],
   };
   const kindOf = p => p === guard ? 'guard' : p.kind || 'adult';
-  const topRowOf = {};
-  const charTop = p => { if (isGuest(p)) return GUEST_H[guestOf(p)] + 1; const kd = kindOf(p) === 'guard' ? 'adult' : kindOf(p); if (topRowOf[kd] === undefined) topRowOf[kd] = VIS_ROWS[kd].findIndex(r => /[^.]/.test(r)); return 38 - topRowOf[kd]; };   // 발에서 머리 꼭대기까지(어른 38·강아지 17)
+  // 사람·강아지 그림 — 모두 pages/kid-art.js 의 WALKSHEET 시트(tools/guest-sheet.py 가 만든다, 수아·연아와 같은 48도트 격자).
+  // 관객은 연주회장 객석 손님 여덟 명(guests-walk.png), 밤 경비원(guard-walk.png), 강아지(dog-walk.png). 한 명마다 다섯 방향 걷기 + 덤 줄
+  // (관객 손뼉·경비원 손전등·강아지 앉아 꼬리). 옛 28×38 도트 판은 2026-09-29 에 모두 지웠다
+  const GUEST_OF = { adult: [6], child: [0, 1, 3, 4, 5, 7], grandma: [2] };      // 아빠 / 포니테일·삐죽·땋은·모자·곱슬·만두 / 쪽머리
+  const guestOf = p => { const pool = GUEST_OF[p.kind] || GUEST_OF.adult; return pool[p.n % pool.length]; };
+  const sheetOf = p => kindOf(p) === 'guard' ? ['guard', 0] : kindOf(p) === 'dog' ? ['dog', 0] : ['guest', guestOf(p)];
+  const WS = () => window.WALKSHEET;                                                  // 캐시된 옛 kid-art.js 면 없다 — 그땐 사람을 안 그린다
+  const tintOf = () => ({ day: null, dusk: 'rgba(90,40,20,.12)', night: 'rgba(16,20,60,.26)' })[dayPhase()] || null;   // 아이 그림(kidSprite)과 같은 덧칠
+  const charTop = p => { const [sh, n] = sheetOf(p), w = WS(); return (w ? w.heights(sh)[n] : 40) + 1; };   // 발에서 머리 꼭대기까지
+  let wsHooked = false;
+  function charSprite(p, dir, col, flipX){
+    const w = WS(); if (!w) return null;
+    if (!wsHooked){ wsHooked = true; w.onReady(() => draw()); }                        // 시트가 오면 다시 그린다
+    const [sh, n] = sheetOf(p);
+    return w.sprite(sh, n, dir, col, tintOf(), flipX);
+  }
+  const dirToward = (a, b) => { const A = tileXY(a.i, a.j), B = tileXY(b.i, b.j); return WS() ? WS().dir8(B.x - A.x, B.y - A.y) : 'S'; };
   function charTalk(p){
     const kd = kindOf(p), lines = CHAR_TALK[kd], text = lines[(p.talkN || 0) % lines.length], ms = 2600 + text.length * 60;
     p.talkN = (p.talkN || 0) + 1; p.say = text; p.hush = ms;
     clearTimeout(p.sayTimer); p.sayTimer = setTimeout(() => { p.say = null; draw(); }, ms);
     say(CHAR_NAME[kd] + ': ' + text); draw();
   }
-  function visitorSprite(n, flip, kind, pose){
-    kind = kind || 'adult';
-    const key = [n, flip ? 1 : 0, kind, pose || ''].join('|');
-    if (visBuf[key]) return visBuf[key];
-    const P = VIS_PAL[n % VIS_PAL.length];
-    let rows = VIS_ROWS[kind] || VIS_ROWS.adult;
-    if (pose === 'clap0' || pose === 'clap1'){ if (kind === 'dog') rows = rows.map((r, i) => i >= 22 && i <= 26 ? r.replace(/n/g, pose === 'clap0' ? 'n' : '.') : r); }   // 강아지는 꼬리를 흔든다
-    const pal = { h: P.hat, H: P.band, b: P.band, f: '#f2d3b8', e: '#2a2622', m: kind === 'dog' ? '#2a2622' : '#b06a5a', c: kind === 'dog' ? '#b98a5a' : P.coat, C: P.coatDark, p: P.pants, s: '#2a2622', n: kind === 'dog' ? '#b98a5a' : '#6b4a2a', k: '#241c14' };
-    const W = 28, H = rows.length;
-    const c = document.createElement('canvas'); c.width = (W + 2) * 2; c.height = (H + 2) * 2;
-    const g = c.getContext('2d');
-    const paint = (ox, oy, one) => { for (let r = 0; r < H; r++) for (let x = 0; x < W; x++){ const ch = rows[r][x]; if (ch === '.') continue; g.fillStyle = one || pal[ch] || '#000'; g.fillRect(((flip ? W - 1 - x : x) + 1 + ox) * 2, (r + 1 + oy) * 2, 2, 2); } };
-    g.globalAlpha = 0.78; [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => paint(ox, oy, '#241c14')); g.globalAlpha = 1; paint(0, 0);
-    return (visBuf[key] = c);
+  // 저절로 하는 말 — 누른 말(charTalk)과 달리 화면 읽기에 안 읽힌다. 말하는 동안 그 자리에서 look 쪽을 본다
+  function speak(p, text, ms, look){
+    p.say = text; p.hush = ms; p.look = look || null;
+    clearTimeout(p.sayTimer); p.sayTimer = setTimeout(() => { p.say = null; draw(); }, ms);
   }
-  // 관객 새 판(2026-09-29) — 연주회장 객석 손님 여덟 명을 세워 걷게 한 도트 시트(pages/guests-walk.png, tools/guest-sheet.py 가 만든다).
-  // 손님마다 여섯 줄: S·SW·W·NW·N 걷기(서기 1 + 걷기 4) + 손뼉 줄(그림 올려다보기·손 모음·손 벌림). 오른쪽 셋(NE·E·SE)은 뒤집어 쓴다.
-  // 수아·연아와 같은 48도트 격자다. 강아지·밤 경비원은 옛 판 그대로
-  const GUEST_OF = { adult: [6], child: [0, 1, 3, 4, 5, 7], grandma: [2] };      // 아빠 / 포니테일·삐죽·땋은·모자·곱슬·만두 / 쪽머리
-  const GUEST_H = [48, 48, 52, 48, 48, 48, 58, 46];                                 // 선 키(도트) — guest-sheet.py 의 TARGET 과 같게
-  const GUEST_ROW = { S: 0, SW: 1, W: 2, NW: 3, N: 4, NE: 3, E: 2, SE: 1 }, GUEST_FLIP = { NE: 1, E: 1, SE: 1 };
-  const guestOf = p => { const pool = GUEST_OF[p.kind] || GUEST_OF.adult; return pool[p.n % pool.length]; };
-  const guestImg = new Image();
-  guestImg.onload = () => draw();
-  guestImg.src = '/pages/guests-walk.png';
-  // 한 칸을 2배 캔버스에 옮기고, 아이 그림(kidSprite)과 같은 반투명 윤곽을 두른다. row 5 는 손뼉 줄
-  function guestSprite(n, row, col, flip, phase){
-    const key = ['g', n, row, col, flip ? 1 : 0, phase].join('|');
-    if (visBuf[key]) return visBuf[key];
-    const CW = guestImg.width / 5, CH = guestImg.height / 48, sx = col * CW, sy = (n * 6 + row) * CH;
-    const cell = document.createElement('canvas'); cell.width = CW * 2; cell.height = CH * 2;
-    const q = cell.getContext('2d'); q.imageSmoothingEnabled = false;
-    if (flip){ q.translate(cell.width, 0); q.scale(-1, 1); }
-    q.drawImage(guestImg, sx, sy, CW, CH, 0, 0, CW * 2, CH * 2);
-    const sil = document.createElement('canvas'); sil.width = cell.width; sil.height = cell.height;
-    const sg = sil.getContext('2d'); sg.drawImage(cell, 0, 0); sg.globalCompositeOperation = 'source-in'; sg.fillStyle = '#241c14'; sg.fillRect(0, 0, sil.width, sil.height);
-    const c = document.createElement('canvas'); c.width = (CW + 2) * 2; c.height = (CH + 2) * 2;
-    const g = c.getContext('2d');
-    g.globalAlpha = 0.78; [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => g.drawImage(sil, (1 + ox) * 2, (1 + oy) * 2)); g.globalAlpha = 1;
-    g.drawImage(cell, 2, 2);
-    if (phase !== 'day'){ g.globalCompositeOperation = 'source-atop'; g.fillStyle = phase === 'dusk' ? 'rgba(90,40,20,.12)' : 'rgba(16,20,60,.26)'; g.fillRect(0, 0, c.width, c.height); }
-    return (visBuf[key] = c);
-  }
-  const isGuest = p => p !== guard && p.kind !== 'dog';                              // 어른·아이·할머니는 새 판 — 옛 도트 판은 경비원·강아지만 남았다
+  // ② 둘이 같은 그림 앞에 서면 주고받는 말(앞 사람 → 뒤 사람)
+  const CHAT = [['이 그림 좀 봐요', '색이 참 따뜻하네요'], ['누가 그렸을까?', '수아랑 연아래요!'], ['저 하늘 색 좀 봐', '나도 이렇게 그리고 싶다'],
+                ['여기 오길 잘했어요', '다음 전시도 꼭 와요'], ['이건 무슨 그림일까?', '이름표를 읽어 보자'], ['볼수록 좋다', '한 번 더 보고 가요']];
+  // ③ 수아·연아가 곁을 지나가면 돌아보고 인사
+  const HELLO = { adult: k => '안녕, 꼬마 작가님!', child: k => KID_NAME[k] + '야 안녕!', grandma: () => '아이고, 우리 작가님 왔네', dog: () => '멍멍! (꼬리 살랑)' };
   // 볼 액자와 그 앞에 설 자리 — 앞자리가 가구에 막히면(텔레비전 뒤 왼쪽 벽 등) 방 안쪽으로 0.4칸씩 물러선다
   function visitorTarget(p){
     const idx = hung.map((w, n) => w ? n : -1).filter(n => n >= 0);
     if (!idx.length) return null;
+    const busy = visitors.filter(q => q !== p && q.kind !== 'dog' && q.slot !== undefined && !q.leaving).map(q => q.slot);   // ② 다른 관객이 보고 있는 그림
     for (let tries = 0; tries < 8; tries++){
-      const n = idx[Math.floor(Math.random() * idx.length)], s = SLOTS[n], cu = (s.u + s.w / 2) / 28;
+      const pal = busy.length && tries < 2 && Math.random() < 0.5 && p && p.kind !== 'dog';
+      const n = pal ? busy[Math.floor(Math.random() * busy.length)] : idx[Math.floor(Math.random() * idx.length)], s = SLOTS[n], cu = (s.u + s.w / 2) / 28 + (pal ? (Math.random() < 0.5 ? -0.55 : 0.55) : 0);
       for (let off = 0; off <= 1.61; off += 0.4){
         const spot = s.side ? { i: Math.max(WALK_BOX.i0 + 0.3, Math.min(WALK_BOX.i1 - 0.3, cu)), j: 1.0 + off } : { i: 1.0 + off, j: Math.max(WALK_BOX.j0 + 0.2, Math.min(WALK_BOX.j1, cu)) };
         if (walkBlocked(spot.i, spot.j)) continue;
         if (p && Math.hypot(spot.i - p.i, spot.j - p.j) < 0.6) break;                       // 방금 본 그림 말고 다른 그림
-        spot.face = s.side ? 'NE' : 'NW';                                                    // 볼 벽 쪽으로 돌아선다 — 왼쪽 벽은 NW, 오른쪽 벽은 NE
+        spot.face = s.side ? 'NE' : 'NW'; spot.slot = n;                                     // 볼 벽 쪽으로 돌아선다 — 왼쪽 벽은 NW, 오른쪽 벽은 NE
         spot.big = !!s.big; spot.ribbon = (claps[hung[n].id] || 0) >= 5;                    // ⓑ 큰 액자면 오래, 리본이 달렸으면 손뼉
         return spot;
       }
@@ -820,7 +713,7 @@
   const holdFor = p => (2500 + Math.random() * 3500) * (p.big ? 1.7 : 1);
   // 길을 정해 둔다 — 다음 걸음에서 plan 을 하나씩 꺼내 간다
   function goVia(p, to){ const plan = pathTo(p, to); if (!plan.length) return false; p.plan = plan; p.ti = p.i; p.tj = p.j; return true; }
-  function leave(p){ p.leaving = true; p.arrived = false; p.wait = 0; if (!goVia(p, VIS_ENTER)){ p.plan = [{ i: VIS_ENTER.i, j: VIS_ENTER.j }]; p.ti = p.i; p.tj = p.j; } }
+  function leave(p){ p.slot = undefined; p.leaving = true; p.arrived = false; p.wait = 0; if (!goVia(p, VIS_ENTER)){ p.plan = [{ i: VIS_ENTER.i, j: VIS_ENTER.j }]; p.ti = p.i; p.tj = p.j; } }
   function stepVisitors(dt, now){
     if (STILL) return false;
     let changed = false;
@@ -832,16 +725,35 @@
     for (let v = visitors.length - 1; v >= 0; v--){
       const p = visitors[v];
       if (dayPhase() === 'night' && !p.leaving) leave(p);                                  // ⓖ 밤이 되면 나간다
-      if (p.hush > 0){ p.hush -= dt; continue; }                                            // 말하는 중엔 선다
+      if (p.hush > 0){ p.hush -= dt; if (p.hush <= 0){ p.look = null; changed = true; } continue; }   // 말하는 중엔 선다
+      if (!p.leaving) for (const k of KIDS){                                                // ③ 아이가 곁을 지나가면 돌아보고 인사(한 아이에게 25초에 한 번)
+        const w = walkerOf(k); p.hi = p.hi || {};
+        if (Math.hypot(w.i - p.i, w.j - p.j) < 1.0 && !(now - (p.hi[k] || -1e9) < 25000)){
+          p.hi[k] = now; speak(p, HELLO[p.kind] ? HELLO[p.kind](k) : HELLO.adult(k), 1900, dirToward(p, w)); changed = true;
+          if (!bubbleOf[k] && Math.random() < 0.6) setTimeout(() => { if (!bubbleOf[k]) kidSay(k, p.kind === 'dog' ? '멍멍이다!' : '안녕하세요!', 1600); }, 700);
+          break;
+        }
+      }
+      if (p.hush > 0) continue;
       if (p.wait > 0){ p.wait -= dt; const nod = Math.floor(now / (p.clap ? 300 : 500)) % 2; if (nod !== p.nod){ p.nod = nod; changed = true; } continue; }
       const di = p.ti - p.i, dj = p.tj - p.j, d = Math.hypot(di, dj);
       if (d < 0.02){
         if (p.plan && p.plan.length){ const m = p.plan.shift(); p.ti = m.i; p.tj = m.j; continue; }
         if (p.leaving){ if (p.sayTimer) clearTimeout(p.sayTimer); visitors.splice(v, 1); changed = true; continue; }
-        if (p.arrived){ p.wait = holdFor(p); p.seen++; p.arrived = false; if (p.face){ p.dir = p.face; changed = true; } continue; }      // 액자 앞에 닿았다 — 서서 본다
+        if (p.arrived){                                                                      // 액자 앞에 닿았다 — 서서 본다
+          p.wait = holdFor(p); p.seen++; p.arrived = false; if (p.face){ p.dir = p.face; changed = true; }
+          const q = p.kind === 'dog' ? null : visitors.find(o => o !== p && o.kind !== 'dog' && o.slot === p.slot && o.wait > 0 && !o.say);
+          if (q){                                                                            // ② 같은 그림 앞 둘 — 서로 돌아보며 한마디씩
+            const [l1, l2] = CHAT[Math.floor(Math.random() * CHAT.length)];
+            p.wait = Math.max(p.wait, 6000); q.wait = Math.max(q.wait, 5200);
+            speak(p, l1, 2300, dirToward(p, q));
+            setTimeout(() => { if (visitors.includes(q) && visitors.includes(p)){ speak(q, l2, 2300, dirToward(q, p)); draw(); } }, 2500);
+          }
+          continue;
+        }
         if (p.seen >= 3){ leave(p); continue; }                                              // 셋 봤으면 나간다
         const t = visitorTarget(p); if (!t || !goVia(p, t)){ leave(p); continue; }
-        p.arrived = true; p.big = t.big; p.clap = t.ribbon; p.face = t.face;
+        p.arrived = true; p.big = t.big; p.clap = t.ribbon; p.face = t.face; p.slot = t.slot;
       } else {
         const step = Math.min(d, 0.7 * dt / 1000); p.i += di / d * step; p.j += dj / d * step; p.phase += dt / 260;
         p.flip = (di - dj) < 0; changed = true;
@@ -851,18 +763,13 @@
     return changed;
   }
   function drawVisitor(g, p){
-    const t = tileXY(p.i, p.j), x = Math.round(t.x), y = Math.round(t.y), bob = p.wait > 0 ? p.nod : p.hush > 0 ? 0 : (Math.floor(p.phase) % 2);
-    isoTopD(g, x, y, 10, 4, 'rgba(40,24,10,.24)');
-    const pose = p.wait > 0 && p.clap ? 'clap' + p.nod : '';                              // ⓑ 리본 달린 작품 앞에서는 손뼉(두 포즈를 번갈아)
-    if (isGuest(p)){                                                                       // 새 판 손님 — 걸을 땐 여덟 방향 걷기, 액자 앞에선 올려다보다가 리본 작품이면 손뼉
-      if (!guestImg.naturalWidth) return;                                                  // 시트가 아직 안 왔으면 한 장 쉬고, 오면 onload 가 다시 그린다
-      const n = guestOf(p), d = p.dir || 'NW', at = p.wait > 0, walking = !at && p.hush <= 0;
-      const c = at ? guestSprite(n, 5, p.clap ? 1 + p.nod : 0, GUEST_FLIP[d], dayPhase()) : guestSprite(n, GUEST_ROW[d], walking ? KIDSTEP(true, p.phase) : 0, GUEST_FLIP[d], dayPhase());
-      g.drawImage(c, x - c.width / 4, y - c.height / 2 + 1 + (at && !p.clap ? p.nod : 0), c.width / 2, c.height / 2);   // 아이와 같은 셈 — 가로 가운데, 발은 바닥 점 한 도트 위
-      return;
-    }
-    const c = visitorSprite(p.n, p.flip, p.kind, pose);
-    g.drawImage(c, x - 15, y - 39 - (p.wait > 0 && !p.clap ? 0 : bob), c.width / 2, c.height / 2);   // 아이와 같은 자리 셈(30×40)
+    const t = tileXY(p.i, p.j), x = Math.round(t.x), y = Math.round(t.y), at = p.wait > 0 && !p.look;
+    isoTopD(g, x, y, p.kind === 'dog' ? 8 : 10, p.kind === 'dog' ? 3 : 4, 'rgba(40,24,10,.24)');
+    // 걸을 땐 여덟 방향 걷기, 말할 땐 그쪽을 보고 서기, 액자 앞에선 덤 줄(관객은 올려다보다 리본 작품이면 손뼉, 강아지는 앉아 꼬리)
+    const d = p.look || p.dir || 'NW', walking = p.wait <= 0 && p.hush <= 0;
+    const c = at ? charSprite(p, 'X', p.clap ? 1 + p.nod : 0, (p.face || d) === 'NE') : charSprite(p, d, walking ? KIDSTEP(true, p.phase) : 0);
+    if (!c) return;                                                                          // 시트가 아직 안 왔으면 한 장 쉬고, 오면 다시 그린다
+    g.drawImage(c, x - c.width / 4, y - c.height / 2 + 1 + (at && !p.clap ? p.nod : 0), c.width / 2, c.height / 2);   // 아이와 같은 셈 — 가로 가운데, 발은 바닥 점 한 도트 위
   }
   // ⓖ 밤의 경비 아저씨 — 관객 대신 손전등을 들고 길목을 차례로 돈다. 불빛은 가는 쪽 바닥에 타원으로
   let guard = null;
@@ -870,7 +777,7 @@
     if (dayPhase() !== 'night' || STILL){ if (guard){ clearTimeout(guard.sayTimer); guard = null; return true; } return false; }
     if (!guard){ guard = { i: VIS_ENTER.i, j: VIS_ENTER.j, ti: VIS_ENTER.i, tj: VIS_ENTER.j, plan: pathTo(VIS_ENTER, WAYPOINTS[0]), at: 0, wait: 0, hush: 0, flip: false, phase: 0 }; return true; }
     const p = guard;
-    if (p.hush > 0){ p.hush -= dt; return false; }                                         // 말하는 중엔 선다
+    if (p.hush > 0){ p.hush -= dt; if (p.hush <= 0) p.look = null; return false; }        // 말하는 중엔 선다
     if (p.wait > 0){ p.wait -= dt; return false; }
     const di = p.ti - p.i, dj = p.tj - p.j, d = Math.hypot(di, dj);
     if (d < 0.02){
@@ -878,18 +785,24 @@
       p.at = (p.at + 1) % WAYPOINTS.length; p.plan = pathTo(p, WAYPOINTS[p.at]); p.wait = 900 + Math.random() * 1500; return false;   // 다음 길목까지 가구를 돌아서
     }
     const step = Math.min(d, 0.45 * dt / 1000); p.i += di / d * step; p.j += dj / d * step; p.phase += dt / 300; p.flip = (di - dj) < 0;
+    p.dir = WS() ? WS().dir8((di - dj) * TW, (di + dj) * TH) : 'S';
     return true;
+  }
+  // 손전등 빛 네 겹 — 보는 쪽 바닥으로 뻗는다. 길목에 서서 비출 땐 덤 줄 그림(NW, 오른쪽으로 가던 참이면 NE) 쪽
+  const BEAM = { E: [1, 0], SE: [0.9, 0.5], S: [0, 0.8], SW: [-0.9, 0.5], W: [-1, 0], NW: [-0.9, -0.5], N: [0, -0.8], NE: [0.9, -0.5] };
+  function beamSpots(p){
+    const t = tileXY(p.i, p.j), x = Math.round(t.x), y = Math.round(t.y), d = p.wait > 0 && !p.look ? (p.flip === false ? 'NE' : 'NW') : p.look || p.dir || 'S', [vx, vy] = BEAM[d];
+    return [0, 1, 2, 3].map(k => [x + vx * (24 + k * 10), y + 2 + vy * (20 + k * 9), 14 + k * 9, 6 + k * 3]);
   }
   function drawGuard(g){
     const p = guard, t = tileXY(p.i, p.j), x = Math.round(t.x), y = Math.round(t.y), bob = p.wait > 0 || p.hush > 0 ? 0 : Math.floor(p.phase) % 2;
-    const fx = p.flip ? -1 : 1;
     g.save(); g.globalCompositeOperation = 'lighter';
-    for (let k = 0; k < 4; k++) isoTopD(g, x + fx * (26 + k * 10), y + 10 + k * 3, 14 + k * 9, 6 + k * 3, 'rgba(255,230,150,' + (0.30 - k * 0.06).toFixed(2) + ')');   // 손전등 빛 — 밤 어둠 층(drawNight)이 이 자리를 도려내고, 이 빛은 그 위에 더해진다
+    beamSpots(p).forEach(([bx, by, w, h], k) => isoTopD(g, bx, by, w, h, 'rgba(255,230,150,' + (0.30 - k * 0.06).toFixed(2) + ')'));   // 손전등 빛 — 밤 어둠 층(drawNight)이 이 자리를 도려내고, 이 빛은 그 위에 더해진다
     g.restore();
     isoTopD(g, x, y, 10, 4, 'rgba(40,24,10,.3)');
-    const c = visitorSprite(3, p.flip, 'adult', '');
-    g.drawImage(c, x - 15, y - 39 - bob, c.width / 2, c.height / 2);
-    g.fillStyle = '#d9d2c4'; g.fillRect(x + fx * 12 - 1, y - 14 - bob, 3, 2); g.fillStyle = '#fff3c4'; g.fillRect(x + fx * 14 - (fx < 0 ? 1 : 0), y - 14 - bob, 1, 2);   // 손전등
+    const d = p.look || p.dir || 'NW', still = p.wait > 0 && !p.look;                      // 길목에 서면 손전등을 들어 비추고(덤 줄 1) 둘러본다(2)
+    const c = still ? charSprite(p, 'X', p.wait > 700 ? 1 : 2, p.flip === false) : charSprite(p, d, p.hush > 0 ? 0 : KIDSTEP(true, p.phase));
+    if (c) g.drawImage(c, x - c.width / 4, y - c.height / 2 + 1 - (still ? 0 : bob), c.width / 2, c.height / 2);
   }
 
   // 밤 어둠 — 벽·액자·바닥·사람을 한 겹 더 덮고, 불빛 자리(레일 조명 번짐·경비 아저씨 손전등·텔레비전 화면과 바닥 빛)만 도려낸다
@@ -908,8 +821,7 @@
       slantRect(L, bx, by0, TVW, TVH, -1, '#000'); isoTopD(L, x + 26, y + 14, 40, 16, 'rgba(0,0,0,.5)');
     }
     if (guard){
-      const t = tileXY(guard.i, guard.j), x = Math.round(t.x), y = Math.round(t.y), fx = guard.flip ? -1 : 1;
-      for (let k = 0; k < 4; k++) isoTopD(L, x + fx * (26 + k * 10), y + 10 + k * 3, 14 + k * 9, 6 + k * 3, 'rgba(0,0,0,' + (0.8 - k * 0.15).toFixed(2) + ')');
+      beamSpots(guard).forEach(([bx, by, w, h], k) => isoTopD(L, bx, by, w, h, 'rgba(0,0,0,' + (0.8 - k * 0.15).toFixed(2) + ')'));
     }
     L.globalCompositeOperation = 'source-over';
     g.save(); g.globalCompositeOperation = 'source-atop'; g.drawImage(nightCv, 0, 0, RW, RH); g.restore();   // 방 밖(투명)에는 안 칠한다
@@ -1177,5 +1089,5 @@
   }
   window.GALLERY = { render, draw, clapped, claps: () => claps, clapsOn: () => clapsState === 'on', _hits: () => hits, _walkers: walkers, _visitors: visitors, _hung: () => hung, _aspect: aspectOf,
     _tick: tick, _focus: k => { focusKey = k; draw(); }, _slide: () => slide, _bubbles: bubbleOf, _setClaps: m => { claps = m; clapsTotal = Object.values(m).reduce((a, b) => a + b, 0); wallKey = ''; draw(); },
-    _guard: () => guard, _edit: setEdit, _move: moveSlot, _tvNow: tvNow, _talk: charTalk, _path: pathTo, _blocked: walkBlocked, _snap: snapshot, _top: topWork, _sprite: visitorSprite, _spots: () => [...spots], _spotMode: v => { spotMode = !!v; renderTools(); draw(); }, _slotUnder: slotUnder, _cam: () => cam, _approach: approach };
+    _guard: () => guard, _edit: setEdit, _move: moveSlot, _tvNow: tvNow, _talk: charTalk, _path: pathTo, _blocked: walkBlocked, _snap: snapshot, _top: topWork, _sprite: charSprite, _spots: () => [...spots], _spotMode: v => { spotMode = !!v; renderTools(); draw(); }, _slotUnder: slotUnder, _cam: () => cam, _approach: approach };
 })();
