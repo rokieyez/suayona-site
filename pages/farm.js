@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '9';
+const PLAY_V = '10';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -5525,6 +5525,7 @@ function stepFarmGuest(dt, t){
     if (!farmGuest){ farmGuestNext = t + 20000; return; }
   }
   const v = farmGuest, s = v.stops[v.si];
+  if (v.hold > 0){ v.hold -= dt; v.moving = false; return; }       // 아이가 불러 세웠다 — 하던 일은 그대로 두고 잠깐 선다
   if (v.wait > 0){ v.wait -= dt; v.moving = false; if (v.wait <= 0){ v.si++; v.path = null; } return; }
   if (!s){                                                          // 다 돌았다 — 옅어지며 사라진다
     v.moving = false;
@@ -5542,6 +5543,19 @@ function stepFarmGuest(dt, t){
   }
   const g = v.path[v.step], gx = g.x * T + 16, gy = g.y * T + 24, dx = gx - v.x, dy = gy - v.y, d = Math.hypot(dx, dy), sp = 22 * dt / 1000;
   if (d < 4){ v.x = gx; v.y = gy; v.step++; return; }
+  // 다음 걸음이 아이에게 두 칸 안으로 다가가면 손님이 비킨다 — 잠깐 서 있다가 그 아이 둘레를 도는 길을 새로 짠다.
+  // 여덟 번(5~9초) 비켜도 길이 안 나면(아이가 가게 앞에 버티고 섰다) 그냥 간다
+  const kid = walkers && walkers.find(w => { const gd = Math.hypot(gx - w.x, gy - w.y); return gd < 2 * T && gd < Math.hypot(v.x - w.x, v.y - w.y); });
+  if (kid && (v.yield || 0) < 8){
+    v.moving = false; v.hold = 500 + Math.random() * 700; v.yield = (v.yield || 0) + 1;
+    // 아이 둘레 한 칸을 막고 돌 길 → 없으면(좁은 길) 아이 선 칸만 막고
+    const fx = Math.floor(v.x / T), fy = Math.floor(v.y / T), kx = Math.floor(kid.x / T), ky = Math.floor(kid.y / T);
+    const near1 = Math.abs(kx - fx) > 1 || Math.abs(ky - fy) > 1;                         // 제 발밑까지 막지는 않게
+    const r = (near1 && pathFind(fx, fy, s.x, s.y, { x: kx, y: ky, r: 1 })) || ((kx !== fx || ky !== fy) && pathFind(fx, fy, s.x, s.y, { x: kx, y: ky, r: 0 }));
+    if (r && r.length){ v.path = r; v.step = 0; }
+    return;
+  }
+  if (!kid) v.yield = 0;
   v.x += dx / d * sp; v.y += dy / d * sp; v.moving = true; v.phase += sp / 6.4; v.vx = dx; v.vy = dy;
 }
 // 움직임 줄이기면 걷지 않고 가게 앞에 서 있다

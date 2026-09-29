@@ -275,11 +275,28 @@
     if (entered) return; entered = true;
     if (STILL || !window.WALKSHEET) return;
     WALKSHEET.ready('guest');                                            // 그림 받기를 지금 시작한다
-    guests.forEach((q, n) => {
-      const pts = [{ a: 0.5, b: GAP_B }];
-      if (q.row === 0) pts.push({ a: AISLE_A, b: GAP_B }, { a: AISLE_A, b: LANE_B });
-      pts.push({ a: q.a, b: q.row ? GAP_B : LANE_B }, { a: q.a, b: q.b });
-      q.walk = { a: DOOR.a, b: DOOR.b, plan: pts, onArrive: () => { q.walk = null; }, moving: false, seated: false, phase: 0, dir: 'SE', wait: n * 420 + prand('in' + n) * 250 };
+    guests.forEach((q, n) => walkIn(q, n * 420 + prand('in' + n) * 250));
+  }
+  // 문 → 두 줄 사이 길 → (앞줄은 통로를 올라 첫 줄 앞 길로) → 자리
+  function seatPath(q){
+    const pts = [{ a: 0.5, b: GAP_B }];
+    if (q.row === 0) pts.push({ a: AISLE_A, b: GAP_B }, { a: AISLE_A, b: LANE_B });
+    pts.push({ a: q.a, b: q.row ? GAP_B : LANE_B }, { a: q.a, b: q.b });
+    return pts;
+  }
+  function walkIn(q, wait){
+    q.walk = { a: DOOR.a, b: DOOR.b, plan: seatPath(q), onArrive: () => { q.walk = null; }, moving: false, seated: false, phase: 0, dir: 'SE', wait };
+  }
+  // 무대 사이마다 가끔 한두 명이 일어나 문으로 나가고, 잠시 뒤 다른 손님이 그 자리로 들어온다(늦게 온 관객) —
+  // 처음 한 번만 들어오고 끝나면 심심하다(2026-09-29 로키즈). 나간 동안(wait)은 빈 의자다
+  function guestsSwap(){
+    if (!entered || STILL || !window.WALKSHEET || !WALKSHEET.ready('guest') || Math.random() < 0.55) return;
+    const sat = guests.filter(q => !q.walk).sort(() => Math.random() - 0.5).slice(0, 1 + (Math.random() < 0.4 ? 1 : 0));
+    sat.forEach((q, i) => {
+      const out = seatPath(q).reverse().slice(1).concat([DOOR]);
+      q.say = null;
+      q.walk = { a: q.a, b: q.b, plan: out, moving: false, seated: false, phase: 0, dir: 'SW', wait: i * 900,
+        onArrive: () => { const N = GUEST_N(); if (N > 5) q.n = (q.n + 3 + Math.floor(Math.random() * (N - 5))) % N; walkIn(q, 4000 + Math.random() * 5000); } };
     });
   }
   function stepGuests(dt){
@@ -343,7 +360,7 @@
   function setPhase(ph){ show.phase = ph; show.t = 0; onPhase(ph); }
   function onPhase(ph){
     const who = show.who.map(actorOf);
-    if (ph === 'idle') announce();
+    if (ph === 'idle'){ announce(); guestsSwap(); }
     else if (ph === 'up'){
       let left = who.length;
       who.forEach((p, n) => { p.seated = false; p.plan = planUp(p.k, show.mode, show.spots[n]); p.onArrive = () => { p.flip = false; p.seated = show.mode === 'piano'; p.dir = p.seated ? 'up' : 'SW'; if (--left === 0) setPhase('sit'); }; });

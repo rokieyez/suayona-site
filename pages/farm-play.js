@@ -530,6 +530,9 @@ function actorAt(x, y){
   const scr = typeof actorScreen === 'function' ? actorScreen : (a, b) => ({ x: a, y: b });
   const inBox = (cx, foot, w, h) => { const p = scr(cx, foot); return Math.abs(x - p.x) <= w / 2 + 2 && y >= p.y - h - 2 && y <= p.y + 3; };
   if (walkers) for (const w of walkers) if (inBox(w.x, w.y, 28, 38)) return { kind: 'kid', o: w };
+  // 주말 손님 — 옛 farm.js 와 짝이면 farmGuest 가 없다
+  const fg = typeof farmGuest !== 'undefined' && farmGuest && !farmGuest.out ? farmGuest : null;
+  if (fg && inBox(fg.x, fg.y, 26, (WALKSHEET.heights('guest')[fg.n] || 48) - 4)) return { kind: 'guest', o: fg };
   if (dolls) for (const d of dolls.list){ const D = DOLLS[d.kind]; if (D && inBox(d.x, d.y, D.w, D.art.length)) return { kind: 'doll', o: d }; }
   if (beasts) for (const a of beasts.list){
     const B = BEAST[a.kind] || BEAST.chicken, rec = (W.animals || []).find(r => r.id === a.id), k = rec && rec.baby ? BABY_K : 1;
@@ -585,10 +588,26 @@ function linesForBeast(a, rec){
   }
   return pool;
 }
+// 주말 손님이 누른 아이에게 하는 말
+function linesForGuest(){
+  const cal = R.calendar(W, now()), who = NAME[key];
+  const pool = ['안녕! ' + who + ' 농장 구경 왔어', '여기 정말 예쁘다!', '다음 주말에 또 올게요', '저 가게에서 뭐 팔아요?', '밭이 반짝반짝하네'];
+  if (cal.season === 'spring') pool.push('꽃이 활짝 폈네 🌸');
+  if (cal.season === 'summer') pool.push('여기는 시원해서 좋다');
+  if (cal.season === 'autumn') pool.push('단풍 구경하러 왔어요 🍂');
+  if (cal.season === 'winter') pool.push('눈 밟는 소리 좋다 ❄️');
+  if ((W.animals || []).length) pool.push((W.animals[0].name || '동물') + ' 귀엽다!');
+  return pool;
+}
 function speak(hit){
   const t = performance.now();
   let text, x, y, id;
   if (hit.kind === 'kid'){ text = pick(linesForKid(hit.o.who)); x = hit.o.x; y = hit.o.y - 38; id = 'k' + hit.o.who; }
+  else if (hit.kind === 'guest'){
+    // 불러 세우면 이쪽(보는 사람)을 보고 한마디 — 하던 구경은 그대로 이어 간다
+    text = pick(linesForGuest()); x = hit.o.x; y = hit.o.y - (WALKSHEET.heights('guest')[hit.o.n] || 48) - 2; id = 'farmGuest';
+    hit.o.hold = 2600; hit.o.moving = false; hit.o.vx = 1; hit.o.vy = 1;
+  }
   else if (hit.kind === 'doll'){ text = pick(linesForDoll(hit.o.kind)); x = hit.o.x; y = hit.o.y - DOLLS[hit.o.kind].art.length; id = 'd' + hit.o.kind; }
   else {
     const B = BEAST[hit.o.kind] || BEAST.chicken, k = hit.rec && hit.rec.baby ? BABY_K : 1;
