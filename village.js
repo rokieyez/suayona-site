@@ -863,18 +863,23 @@ P.windmill = (q, wx, wy) => {
   cylinder(q, Pp[0], Pp[1], R, H, (a, v) => { const ang = Math.acos(1 - 2 * a) / Math.PI; const c = M.stone(stP, 33, 0, H)(Math.round(ang * 44), v); if (c === stP.m) return c; if (Math.abs(ang - 0.5) < 0.1 && v > H - 14) return v > H - 3 ? '#3a2a1e' : (Math.abs(ang - 0.5) < 0.02 ? '#3a2a1e' : '#6b4a30'); if (Math.abs(ang - 0.42) < 0.05 && v > 10 && v < 18) return '#3c4a5a'; return shade(c, a < 0.4 ? 8 : a < 0.7 ? -6 : -28); });
   ellipse(q, Pp[0], Pp[1] - H, R + 2, (R + 2) / 2, (x, y) => y > Pp[1] - H ? '#6a4a30' : '#8d6440');
   cone(q, Pp[0], Pp[1] - H - 1, R + 2, 16, (a, v) => { const r = v % 4; if (r === 0) return '#4e3722'; return shade(['#8d6440', '#7c5838'][Math.floor(v / 4) % 2], a < 0.5 ? 10 : -20); });
-  // 날개 — 축은 갓 앞(+x)에 있고 날개는 R 면(y 축 판)에 선다. 판 좌표 (u 는 -y 쪽, w 는 위)에서 X 자로 뻗어서
-  // 화면에는 판이 기운 만큼 한쪽이 길고 한쪽이 짧게 찌그러져 보인다(예전에는 화면에 똑바로 선 X 였다)
+  // 날개는 여기 그리지 않는다 — 첫화면이 돌려 가며 그린다(P.sails). 축 자리만 적어 둔다
   const hub = proj(wx + 0.52, wy, H + 4).map(Math.round);
-  const dot = (u, w, c) => q(Math.round(hub[0] + u), Math.round(hub[1] - u * 0.5 - w), 1, 1, c);
-  [[1, 1], [1, -1], [-1, -1], [-1, 1]].forEach(([du, dw], k) => {
-    const cu = du * Math.SQRT1_2, cw = dw * Math.SQRT1_2, pu = -cw, pw = cu;                // 날개 방향, 천이 붙는 옆
+  VS.windmill = { x: hub[0], y: hub[1] };
+  q(hub[0] - 2, hub[1] - 2, 4, 4, '#4e3722');
+};
+// 풍차 날개 — 축은 갓 앞(+x)에 있고 날개는 R 면(y 축 판)에 선다. 판 좌표 (u 는 -y 쪽, w 는 위)에서 X 자로 뻗어서
+// 화면에는 판이 기운 만큼 한쪽이 길고 한쪽이 짧게 찌그러져 보인다. ang 은 판 안에서 돈 각도(라디안), (X, Y) 는 축
+P.sails = (q, X, Y, ang) => {
+  const dot = (u, w, c) => q(Math.round(X + u), Math.round(Y - u * 0.5 - w), 1, 1, c);
+  for (let k = 0; k < 4; k++){
+    const a = Math.PI / 4 + k * Math.PI / 2 + (ang || 0), cu = Math.cos(a), cw = Math.sin(a), pu = -cw, pw = cu;   // 날개 방향, 천이 붙는 옆
     for (let sgm = 10; sgm < 38; sgm += 0.5) for (let t = 1; t <= 4; t += 0.5) dot(cu * sgm + pu * t, cw * sgm + pw * t, k % 2 ? '#f1e6d2' : '#e6dbc6');   // 천
     for (let sgm = 10; sgm < 38; sgm += 0.5) dot(cu * sgm + pu * 5, cw * sgm + pw * 5, '#6b4a30');                                                      // 바깥 살
     for (let sgm = 10; sgm <= 38; sgm += 7) for (let t = 0; t <= 5; t += 0.5) dot(cu * sgm + pu * t, cw * sgm + pw * t, '#8d6440');                     // 가로 살
     for (let sgm = 3; sgm < 40; sgm += 0.5) dot(cu * sgm, cw * sgm, '#5a3f2b');                                                                          // 가운데 살
-  });
-  q(hub[0] - 2, hub[1] - 2, 4, 4, '#4e3722');
+  }
+  q(X - 2, Y - 2, 4, 4, '#4e3722');
 };
 // 장터 가판대 — 판자 탁자, 기둥 넷, 줄무늬 차양, 과일 상자
 P.stall = (q, wx, wy, cols, seed) => {
@@ -1771,6 +1776,7 @@ VS.draw = function(env){
       const X = x + bx0, Y = y + by0;
       if (L.d[(y * L.w + x) * 4 + 3] > 40 && X >= 0 && Y >= 0 && X < VS.w && Y < VS.h) own[Y * VS.w + X] = oi + 1;
     }
+    if (it.key === 'windmill' && VS.windmill) VS.windmill.oi = oi + 1;   // 날개를 가릴 「앞 물건」은 이 번호보다 뒤에 얹힌 것
     const id = it.key ? HITS.length + 1 : 0;   // 1부터 센다 — 0은 「아무것도 없음」. 이름 없는 물건은 0을 적어 뒤의 것을 가린다
     env.blit(L, bx0, by0, '#3a2a1e', id);
     // 말풍선을 띄울 상자는 겹보다 좁게 — 겹의 여백(pad)까지 받으면 옆 잔디 위에 뜬다
@@ -1936,6 +1942,7 @@ function render(o){
       mark: (x, y, w, h, id) => { for (let yy = Math.max(0, y); yy < Math.min(VS.h, y + h); yy++) for (let xx = Math.max(0, x); xx < Math.min(VS.w, x + w); xx++) R.ids[yy * VS.w + xx] = id; },
     };
   }
+  VS.windmill = null;
   VS.draw(env);
   // 눈 오는 날 — 지붕과 나무 꼭대기에 눈이 쌓인다. 물건마다 따로 그리지 않고,
   // 겹을 얹을 때 적어 둔 번호판(ids)으로 열마다 「맨 위 물건 도트」를 찾아 그 위에 흰 점을 놓는다.
@@ -1997,6 +2004,7 @@ function render(o){
     balloons: VS.balloons || null,              // 매표소 풍선을 맨 자리(도트) — 첫화면이 그리고 하나는 날려 보낸다
     cat: VS.cat || null,                        // 광장 고양이가 처음 앉아 있는 칸 — 첫화면이 걸린다
     pigeons: VS.pigeons || null,                // 광장 비둘기 셋이 처음 앉은 칸 — 첫화면이 걷게 한다(없으면 옛 마을이라 그림에 박혀 있다)
+    sails: sailFrames(own, w, h),               // 풍차 날개 — 도는 위상 12장, 앞 물건에 가린 도트는 미리 뺐다. 첫화면이 돌려 그린다
     smoke: VS.smoke || null,                    // 굴뚝 아가리 — 첫화면이 연기를 피운다
     ruler: VS.ruler || null,                    // 키 재기 기둥 — 첫화면이 두 아이 눈금을 얹는다
     horizon: SKY,
@@ -2084,6 +2092,20 @@ function render(o){
     },
     PW, PD,
   };
+}
+// 풍차 날개 위상 12장 — 네 날개라 90도면 한 바퀴와 같다. 앞 물건(풍차보다 뒤에 얹힌 겹)이 차지한 도트는 그리지 않는다
+function sailFrames(own, w, h){
+  const M0 = VS.windmill; if (!M0 || typeof document === 'undefined') return null;
+  const R = 44, D = R * 2 + 1, HH = R * 3 + 1, ox = R, oy = Math.round(R * 1.5);
+  const frames = [];
+  for (let i = 0; i < 12; i++) frames.push({ w: D, h: HH, ox, oy, canvas: dotsCanvas(D, HH, q => P.sails((x, y, w2, h2, c) => {
+    for (let yy = y; yy < y + h2; yy++) for (let xx = x; xx < x + w2; xx++){
+      const X = M0.x + xx - ox, Y = M0.y + yy - oy;
+      if (own && M0.oi && X >= 0 && Y >= 0 && X < w && Y < h && own[Y * w + X] > M0.oi) continue;
+      q(xx, yy, 1, 1, c);
+    }
+  }, ox, oy, i / 12 * Math.PI / 2)) });
+  return { x: M0.x, y: M0.y, frames };
 }
 // ---------- 첫화면이 프레임마다 움직여 그리는 작은 것들 ----------
 // 오리와 연. 마을 그림과 같은 코드로 도트 1:1 캔버스를 만들어 준다 — 배율은 첫화면이 맞춘다.

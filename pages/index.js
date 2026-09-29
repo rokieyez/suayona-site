@@ -809,6 +809,7 @@ const belowFold = (() => {
     const g = VG.canvas.getContext('2d');
     // 시간대 색은 맨 마지막에 한 겹으로 덮는다. source-atop 이라 하늘로 비치는 빈 자리에는 묻지 않는다.
     if (HAS_PHASE) tintLayer(g, VG.canvas.width, VG.canvas.height, PHASE);
+    if (HAS_PHASE && VG.sails) VG.sails.frames.forEach(f => tintLayer(f.canvas.getContext('2d'), f.w, f.h, PHASE));   // 풍차 날개도 마을과 같은 시간대 색
     // 덮개 뒤에 켜는 불 — 가로등·창·횃불. 덮기 전에 그리면 같이 어두워져서 불이 꺼진 것처럼 보인다.
     if (dim) {
       const k = HS * dpr, a = NIGHT ? 0.55 : 0.26;
@@ -1366,6 +1367,12 @@ const belowFold = (() => {
     blitDots(SPR2.kite[Math.floor(t * 8) % SPR2.kite.length], kx, ky, gx, gy, false);
   }
 
+  // 풍차 날개 — 위상 12장(90도)을 돌린다. 바람이 세면 빨리 돈다. 앞 물건에 가린 도트는 village.js 가 미리 뺐다
+  function drawSails(gx, gy){
+    const m = VG.sails, wind = Math.min(2, weather.wind || 1);
+    blitDots(m.frames[Math.floor(t * 5 * wind) % m.frames.length], m.x, m.y, gx, gy, false);
+  }
+
   // ---- 매표소 풍선 ----
   // 마을 그림에 박지 않고 여기서 흔들며 그린다 — 아이가 하나를 떼어 하늘로 날려 보낼 수 있다.
   // 하루에 하나까지. 날려 보낸 자리는 다음 날 다시 매여 있다.
@@ -1823,6 +1830,7 @@ const belowFold = (() => {
 
     // 5b) 강의 오리와 천막의 연 — 마을 그림 위에서 움직인다
     if (VG && SPR2) { drawDucks(gx, gy); if (VG.kite) drawKite(gx, gy); }
+    if (VG && VG.sails) drawSails(gx, gy);
     if (VG) drawTentBalloons(gx, gy);
     drawPuddles(gx, gy);
     drawFountain(gx, gy);
