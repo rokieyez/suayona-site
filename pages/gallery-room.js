@@ -828,7 +828,7 @@
   };
   const kindOf = p => p === guard ? 'guard' : p.kind || 'adult';
   const topRowOf = {};
-  const charTop = p => { const kd = kindOf(p) === 'guard' ? 'adult' : kindOf(p); if (topRowOf[kd] === undefined) topRowOf[kd] = VIS_ROWS[kd].findIndex(r => /[^.]/.test(r)); return 38 - topRowOf[kd]; };   // 발에서 머리 꼭대기까지(어른 38·강아지 17)
+  const charTop = p => { if (isGuest(p)) return GUEST_H[guestOf(p)] + 1; const kd = kindOf(p) === 'guard' ? 'adult' : kindOf(p); if (topRowOf[kd] === undefined) topRowOf[kd] = VIS_ROWS[kd].findIndex(r => /[^.]/.test(r)); return 38 - topRowOf[kd]; };   // 발에서 머리 꼭대기까지(어른 38·강아지 17)
   function charTalk(p){
     const kd = kindOf(p), lines = CHAR_TALK[kd], text = lines[(p.talkN || 0) % lines.length], ms = 2600 + text.length * 60;
     p.talkN = (p.talkN || 0) + 1; p.say = text; p.hush = ms;
@@ -863,6 +863,35 @@
     g.globalAlpha = 0.78; [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => paint(ox, oy, '#241c14')); g.globalAlpha = 1; paint(0, 0);
     return (visBuf[key] = c);
   }
+  // 관객 새 판(2026-09-29) — 연주회장 객석 손님 여덟 명을 세워 걷게 한 도트 시트(pages/guests-walk.png, tools/guest-sheet.py 가 만든다).
+  // 손님마다 여섯 줄: S·SW·W·NW·N 걷기(서기 1 + 걷기 4) + 손뼉 줄(그림 올려다보기·손 모음·손 벌림). 오른쪽 셋(NE·E·SE)은 뒤집어 쓴다.
+  // 수아·연아와 같은 48도트 격자다. 강아지·밤 경비원은 옛 판 그대로
+  const GUEST_OF = { adult: [6, 2], child: [0, 1, 3, 4, 5, 7], grandma: [2] };   // 아빠·할머니 / 포니테일·삐죽·땋은·모자·곱슬·만두 / 쪽머리
+  const GUEST_H = [48, 48, 52, 48, 48, 48, 58, 46];                                 // 선 키(도트) — guest-sheet.py 의 TARGET 과 같게
+  const GUEST_ROW = { S: 0, SW: 1, W: 2, NW: 3, N: 4, NE: 3, E: 2, SE: 1 }, GUEST_FLIP = { NE: 1, E: 1, SE: 1 };
+  const guestOf = p => { const pool = GUEST_OF[p.kind] || GUEST_OF.adult; return pool[p.n % pool.length]; };
+  const guestImg = new Image();
+  guestImg.onload = () => draw();
+  guestImg.src = '/pages/guests-walk.png';
+  // 한 칸을 2배 캔버스에 옮기고, 아이 그림(kidSprite)과 같은 반투명 윤곽을 두른다. row 5 는 손뼉 줄
+  function guestSprite(n, row, col, flip, phase){
+    const key = ['g', n, row, col, flip ? 1 : 0, phase].join('|');
+    if (visBuf[key]) return visBuf[key];
+    const CW = guestImg.width / 5, CH = guestImg.height / 48, sx = col * CW, sy = (n * 6 + row) * CH;
+    const cell = document.createElement('canvas'); cell.width = CW * 2; cell.height = CH * 2;
+    const q = cell.getContext('2d'); q.imageSmoothingEnabled = false;
+    if (flip){ q.translate(cell.width, 0); q.scale(-1, 1); }
+    q.drawImage(guestImg, sx, sy, CW, CH, 0, 0, CW * 2, CH * 2);
+    const sil = document.createElement('canvas'); sil.width = cell.width; sil.height = cell.height;
+    const sg = sil.getContext('2d'); sg.drawImage(cell, 0, 0); sg.globalCompositeOperation = 'source-in'; sg.fillStyle = '#241c14'; sg.fillRect(0, 0, sil.width, sil.height);
+    const c = document.createElement('canvas'); c.width = (CW + 2) * 2; c.height = (CH + 2) * 2;
+    const g = c.getContext('2d');
+    g.globalAlpha = 0.78; [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => g.drawImage(sil, (1 + ox) * 2, (1 + oy) * 2)); g.globalAlpha = 1;
+    g.drawImage(cell, 2, 2);
+    if (phase !== 'day'){ g.globalCompositeOperation = 'source-atop'; g.fillStyle = phase === 'dusk' ? 'rgba(90,40,20,.12)' : 'rgba(16,20,60,.26)'; g.fillRect(0, 0, c.width, c.height); }
+    return (visBuf[key] = c);
+  }
+  const isGuest = p => p !== guard && p.kind !== 'dog' && guestImg.complete && guestImg.naturalWidth > 0;
   // 볼 액자와 그 앞에 설 자리 — 앞자리가 가구에 막히면(텔레비전 뒤 왼쪽 벽 등) 방 안쪽으로 0.4칸씩 물러선다
   function visitorTarget(p){
     const idx = hung.map((w, n) => w ? n : -1).filter(n => n >= 0);
@@ -873,6 +902,7 @@
         const spot = s.side ? { i: Math.max(WALK_BOX.i0 + 0.3, Math.min(WALK_BOX.i1 - 0.3, cu)), j: 1.0 + off } : { i: 1.0 + off, j: Math.max(WALK_BOX.j0 + 0.2, Math.min(WALK_BOX.j1, cu)) };
         if (walkBlocked(spot.i, spot.j)) continue;
         if (p && Math.hypot(spot.i - p.i, spot.j - p.j) < 0.6) break;                       // 방금 본 그림 말고 다른 그림
+        spot.face = s.side ? 'NE' : 'NW';                                                    // 볼 벽 쪽으로 돌아선다 — 왼쪽 벽은 NW, 오른쪽 벽은 NE
         spot.big = !!s.big; spot.ribbon = (claps[hung[n].id] || 0) >= 5;                    // ⓑ 큰 액자면 오래, 리본이 달렸으면 손뼉
         return spot;
       }
@@ -901,13 +931,14 @@
       if (d < 0.02){
         if (p.plan && p.plan.length){ const m = p.plan.shift(); p.ti = m.i; p.tj = m.j; continue; }
         if (p.leaving){ if (p.sayTimer) clearTimeout(p.sayTimer); visitors.splice(v, 1); changed = true; continue; }
-        if (p.arrived){ p.wait = holdFor(p); p.seen++; p.arrived = false; continue; }      // 액자 앞에 닿았다 — 서서 본다
+        if (p.arrived){ p.wait = holdFor(p); p.seen++; p.arrived = false; if (p.face){ p.dir = p.face; changed = true; } continue; }      // 액자 앞에 닿았다 — 서서 본다
         if (p.seen >= 3){ leave(p); continue; }                                              // 셋 봤으면 나간다
         const t = visitorTarget(p); if (!t || !goVia(p, t)){ leave(p); continue; }
-        p.arrived = true; p.big = t.big; p.clap = t.ribbon;
+        p.arrived = true; p.big = t.big; p.clap = t.ribbon; p.face = t.face;
       } else {
         const step = Math.min(d, 0.7 * dt / 1000); p.i += di / d * step; p.j += dj / d * step; p.phase += dt / 260;
         p.flip = (di - dj) < 0; changed = true;
+        p.dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(Math.atan2((di + dj) * TH, (di - dj) * TW) / (Math.PI / 4)) & 7];   // 새 판 손님이 볼 여덟 방향 — 아이 걷기(stepWalker)와 같은 셈
       }
     }
     return changed;
@@ -916,6 +947,12 @@
     const t = tileXY(p.i, p.j), x = Math.round(t.x), y = Math.round(t.y), bob = p.wait > 0 ? p.nod : p.hush > 0 ? 0 : (Math.floor(p.phase) % 2);
     isoTopD(g, x, y, 10, 4, 'rgba(40,24,10,.24)');
     const pose = p.wait > 0 && p.clap ? 'clap' + p.nod : '';                              // ⓑ 리본 달린 작품 앞에서는 손뼉(두 포즈를 번갈아)
+    if (isGuest(p)){                                                                       // 새 판 손님 — 걸을 땐 여덟 방향 걷기, 액자 앞에선 올려다보다가 리본 작품이면 손뼉
+      const n = guestOf(p), d = p.dir || 'NW', at = p.wait > 0, walking = !at && p.hush <= 0;
+      const c = at ? guestSprite(n, 5, p.clap ? 1 + p.nod : 0, GUEST_FLIP[d], dayPhase()) : guestSprite(n, GUEST_ROW[d], walking ? KIDSTEP(true, p.phase) : 0, GUEST_FLIP[d], dayPhase());
+      g.drawImage(c, x - c.width / 4, y - c.height / 2 + 1 + (at && !p.clap ? p.nod : 0), c.width / 2, c.height / 2);   // 아이와 같은 셈 — 가로 가운데, 발은 바닥 점 한 도트 위
+      return;
+    }
     const c = visitorSprite(p.n, p.flip, p.kind, pose);
     g.drawImage(c, x - 15, y - 39 - (p.wait > 0 && !p.clap ? 0 : bob), c.width / 2, c.height / 2);   // 아이와 같은 자리 셈(30×40)
   }
