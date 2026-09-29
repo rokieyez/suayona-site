@@ -1709,6 +1709,9 @@ const belowFold = (() => {
   // 아이를 그린 뒤, 아이보다 앞에 선 물건의 도트만 마을 그림으로 다시 덮는다 — 분수·가로등 뒤로 지나가면 제대로 가려진다.
   // 마을 그림 위에 얹었던 것 중 물건 도트에 걸린 것(비·안개 빛, 분수 물줄기, 키 재기 눈금)도 그 안에서 다시 얹는다
   function coverKid(me, x0, y0, x1, y1, gx, gy){
+    if (VG.sails && VG.millFront && VG.millFront(me.tx, me.ty)){                        // 풍차가 앞이면 도는 날개도 몸 위로(날개는 마을 그림에 없다)
+      ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, x1 - x0, y1 - y0); ctx.clip(); drawSails(gx, gy); ctx.restore();
+    }
     const runs = VG.coverRuns(me.tx, me.ty, (x0 - gx) / HS, (y0 - gy) / HS, (x1 - gx) / HS, (y1 - gy) / HS);
     if (!runs.length) return;
     let a = 1e9, b = 1e9, c = -1, d = -1;

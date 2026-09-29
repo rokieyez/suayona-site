@@ -2072,6 +2072,8 @@ function render(o){
       }
       return { cells, ok: (tx, ty) => { const i = Math.floor(tx * G), j = Math.floor(ty * G); return i >= 0 && j >= 0 && i < gw && j < gh && ok[j * gw + i] === 1; } };
     },
+    // 풍차가 (tx, ty) 에 선 아이보다 앞인가 — 날개는 마을 그림에서 빼 따로 돌리므로 coverRuns 에 안 잡힌다. 앞이면 첫화면이 날개를 아이 위에 다시 그린다
+    millFront: (tx, ty) => !!(own && VS.windmill && VS.windmill.oi && frontOf(bl[VS.windmill.oi - 1], tx, ty)),
     // (tx, ty) 에 선 아이보다 앞에 있는 물건의 도트 — 네모 [x0..x1]×[y0..y1] 안에서 줄마다 이어진 토막 [y, xa, xb].
     // 첫화면이 아이를 그린 다음 이 토막만 마을 그림을 다시 얹어 앞뒤 가림을 맞춘다
     coverRuns: (tx, ty, x0, y0, x1, y1) => {
