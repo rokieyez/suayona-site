@@ -162,9 +162,58 @@ const FARM = (() => {
       for (let y = 0; y < GH.h; y++) for (let x = 0; x < GH.w; x++) out.push('g' + x + ',' + y);
       return out;
     }
-    const E = EXPANSIONS[Math.min(world.expand || 0, EXPANSIONS.length - 1)];
-    for (let y = 0; y < E.h; y++) for (let x = 0; x < E.w; x++) out.push((FIELD.x0 + x) + ',' + (FIELD.y0 + y));
+    const k = Math.min(world.expand || 0, EXPANSIONS.length - 1);
+    fieldCells(world).forEach(c => { if (c.k <= k) out.push(c.id); });
     return out;
+  }
+  /* 밭 모양 — 새 농장은 저마다 다르다(2026-09-29 로키즈). 숫자는 그 칸이 열리는 넓히기 차례
+     (0 처음 12칸 · 1 24칸 · 2 40칸 · 3 60칸, 들판과 같은 수). 칸 이름은 지도 좌표 'x,y' 그대로다.
+     바닷가: 바다 쪽 앞줄부터 모래 언덕처럼 위가 둥글게 · 산골: 왼쪽 위에서 열려 오른쪽 아래 비탈로 계단(다랭이)처럼 내려간다 ·
+     꽃구름: 가운데서 부풀어 위아래가 뭉게뭉게. 들판은 EXPANSIONS 네모 그대로.
+     이사 때는 같은 차례끼리 순서대로 옮겨 심는다(moveFarm). 겹침·길 막힘은 tools/check-move.js 가 본다. */
+  const FIELD_SHAPE = {
+    seaside: { x0: 6, y0: 1, rows: [
+      '...3333...',
+      '..333333..',
+      '3333223333',
+      '3222222223',
+      '2211111122',
+      '2100000012',
+      '1100000011'] },
+    mountain: { x0: 6, y0: 2, rows: [
+      '0000011122...',
+      '0000112223...',
+      '0011122233...',
+      '0111222333...',
+      '..12223333...',
+      '...2233333333',
+      '........33...'] },
+    cloud: { x0: 6, y0: 1, rows: [
+      '.33....33.',
+      '3332222333',
+      '3211001123',
+      '2210000123',
+      '2210000123',
+      '3211001123',
+      '.332..233.'] },
+  };
+  const fieldMemo = {};
+  // 그 농장의 밭 칸 전부(아직 안 연 것까지) — 열리는 차례, 그다음 위에서 아래·왼쪽에서 오른쪽 순
+  function fieldCells(world){
+    const fid = farmOf(world).id;
+    if (fieldMemo[fid]) return fieldMemo[fid];
+    const out = [], S = FIELD_SHAPE[fid];
+    if (S) S.rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (r[x] !== '.') out.push({ x: S.x0 + x, y: S.y0 + y, k: Number(r[x]) }); });
+    else for (let y = 0; y < FIELD.h; y++) for (let x = 0; x < FIELD.w; x++) out.push({ x: FIELD.x0 + x, y: FIELD.y0 + y, k: EXPANSIONS.findIndex(E => x < E.w && y < E.h) });
+    out.forEach(c => { c.id = c.x + ',' + c.y; });
+    out.sort((a, b) => a.k - b.k || a.y - b.y || a.x - b.x);
+    return (fieldMemo[fid] = out);
+  }
+  function fieldHas(world, x, y){ return fieldCells(world).some(c => c.x === x && c.y === y); }
+  // 밭 칸을 모두 품는 네모 — 손님이 들를 자리처럼 대강이면 되는 곳에
+  function fieldBox(world){
+    const C = fieldCells(world), xs = C.map(c => c.x), ys = C.map(c => c.y), x = Math.min(...xs), y = Math.min(...ys);
+    return { x, y, w: Math.max(...xs) - x + 1, h: Math.max(...ys) - y + 1 };
   }
   function parseId(id){ const s = id[0] === 'g' ? id.slice(1) : id; const [x, y] = s.split(',').map(Number); return { x, y, gh: id[0] === 'g' }; }
 
@@ -918,7 +967,7 @@ const FARM = (() => {
   /* 놀이 규칙(farm-rules-play.js)이 이 닫힘 안의 것을 쓴다. 손으로 적은 목록이 아니라
      tools/split-rules.py 가 두 파일을 읽어 만든 것이다 — 하나라도 빠지면 그 규칙이
      돌 때 undefined 로 터진다. 놀이 규칙을 고쳤으면 그 도구를 다시 돌린다. */
-  const INNER = { FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
+  const INNER = { fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
@@ -927,7 +976,7 @@ const FARM = (() => {
     FARMS, farmOf, MOVE_OPEN,
     dayKey, dayStartMs, daysBetween, calendar, weatherOf, prand,
     SKY_AT, setSky, skyOf, setSun, sunOf,
-    plotIds, parseId,
+    plotIds, parseId, fieldCells, fieldHas, fieldBox,
     fireflyNight, fireflyLeft,
     peddlerHere,
     cropsInDex, tickPlot, stageOf, wetNow, growTime, lifeLeft, lifeFrom, CROP_LIFE_DAYS,

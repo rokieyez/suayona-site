@@ -3,7 +3,7 @@ global.FARM = require('../farm-rules.js');
 // 잠금(MOVE_OPEN=false)이어도 규칙 자체는 점검한다 — 잠금은 askMove 첫머리 한 줄이다
 FARM.__inner.MOVE_OPEN = true;
 require('../farm-rules-play.js');
-const R = FARM, assert = require('assert'), now = Date.now();
+const R = FARM, I2 = FARM.__inner, assert = require('assert'), now = Date.now();
 const w = R.fixWorld(null, now), sua = R.fixMine(null, 'sua'), yona = R.fixMine(null, 'yona');
 assert.strictEqual(R.farmOf(w).id, 'meadow');
 assert(!R.askMove(w, sua, now).ok, '꾸미개가 없으면 못 간다');
@@ -58,7 +58,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
     all.forEach((a, k) => {
       assert(a.x >= 0 && a.y >= 0 && a.x + a.w <= R.GRID.w && a.y + a.h <= R.GRID.h, f.id + ' ' + a.id + ' 지도 밖');
       if (!a.move) return;                                         // 집·가게는 원래 자리
-      assert(!hit(a, R.FIELD_BOX), f.id + ' ' + a.id + ' 밭과 겹침');
+      R.fieldCells(wf).forEach(c => assert(!hit(a, { x: c.x, y: c.y, w: 1, h: 1 }), f.id + ' ' + a.id + ' 밭(' + c.id + ')과 겹침'));
       rocks.forEach(n => assert(!hit(a, n), f.id + ' ' + a.id + ' ' + n.id + '과 겹침'));
       all.slice(k + 1).forEach(b => assert(!hit(a, b), f.id + ' ' + a.id + ' ' + b.id + '과 겹침'));
       if (i) assert(!hit(a, { x: R.PEDDLER.x, y: R.PEDDLER.y, w: R.PEDDLER.w + 1, h: 1 }), f.id + ' ' + a.id + ' 떠돌이 상인 자리');
@@ -68,5 +68,57 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   const wm = R.fixWorld(null, now); wm.farm = 1; wm.decor.lighthouse = { by: 'sua' };
   assert(R.moveThing(wm, sua, 'lighthouse', 19, 14).ok && wm.layout.lighthouse);
   assert(R.moveThing(wm, sua, 'lighthouse', 19, 15).ok && !wm.layout.lighthouse, '바닷가 등대 처음 자리는 (19,15)');
+}
+// 밭 모양 — 넓히기 차례마다 칸 수가 들판과 같고(12·24·40·60), 차례마다 한 덩어리에, 대각선으로만 닿는 칸이 없다(울타리가 꼬인다)
+{
+  R.FARMS.forEach((f, i) => {
+    const wf = R.fixWorld(null, now); wf.farm = i;
+    const C = R.fieldCells(wf);
+    [0, 1, 2, 3].forEach(k => {
+      wf.expand = k;
+      const open = new Set(R.plotIds(wf, 'field')), has = (x, y) => open.has(x + ',' + y);
+      assert.strictEqual(open.size, [12, 24, 40, 60][k], f.id + ' 넓히기 ' + k + ' 칸 수');
+      const seen = new Set(), st = [[...open][0]];
+      while (st.length){ const id = st.pop(); if (seen.has(id)) continue; seen.add(id); const [x, y] = id.split(',').map(Number); [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => { if (has(x + dx, y + dy)) st.push((x + dx) + ',' + (y + dy)); }); }
+      assert.strictEqual(seen.size, open.size, f.id + ' 넓히기 ' + k + ' 한 덩어리');
+      open.forEach(id => { const [x, y] = id.split(',').map(Number); [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([dx, dy]) => {
+        if (has(x + dx, y + dy)) assert(has(x + dx, y) || has(x, y + dy), f.id + ' 넓히기 ' + k + ' ' + id + ' 대각선으로만 닿음'); }); });
+    });
+    assert(C.every(c => c.x >= 0 && c.y >= 0 && c.x < R.GRID.w && c.y < R.GRID.h - 1), f.id + ' 밭이 지도 밖');
+    // 걸어 다닐 땅이 밭 때문에 조각나지 않는다 — 들판 네모 밭일 때보다 덩어리 수가 늘면 안 된다
+    const parts = cellOk => {
+      const all = I2.PLACE_IDS.filter(id => id !== 'path' && !(R.DECOR[id] && R.DECOR[id].farm && R.DECOR[id].farm !== f.id)).map(id => R.spotOf(wf, id));
+      const ok = (x, y) => x >= 0 && y >= 0 && x < R.GRID.w && y < R.GRID.h - 1 && cellOk(x, y) &&
+        !all.some(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) && !Object.keys(R.NODES).some(n => R.NODES[n].x === x && R.NODES[n].y === y);
+      const seen = new Set(); let n = 0;
+      for (let y = 0; y < R.GRID.h; y++) for (let x = 0; x < R.GRID.w; x++){
+        if (!ok(x, y) || seen.has(x + ',' + y)) continue; n++;
+        const st = [[x, y]]; while (st.length){ const [a, b] = st.pop(), id = a + ',' + b; if (seen.has(id) || !ok(a, b)) continue; seen.add(id); st.push([a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1]); }
+      }
+      return n;
+    };
+    const FB = R.FIELD_BOX, box = parts((x, y) => !(x >= FB.x && x < FB.x + FB.w && y >= FB.y && y < FB.y + FB.h)), shaped = parts((x, y) => !R.fieldHas(wf, x, y));
+    assert(shaped <= box, f.id + ' 밭 모양이 길을 끊음(' + box + '→' + shaped + ')');
+  });
+}
+// 이사 — 밭이 같은 차례끼리 새 모양으로 옮겨 심어진다. 커다란 작물 짝은 이웃이면 그대로, 아니면 풀린다
+{
+  const wm = R.fixWorld(null, now); wm.expand = 2;
+  R.plotIds(wm, 'field').forEach((id, i) => { wm.plots[id] = { tilled: true, crop: i % 2 ? 'carrot' : null, progress: i }; });
+  wm.plots['6,2'].giant = true; wm.plots['6,2'].pairOf = '7,2'; wm.plots['7,2'].giant = true; wm.plots['7,2'].pairOf = '6,2';
+  wm.plots['g0,0'] = { tilled: true, crop: 'carrot' }; wm.sprinklers['6,3'] = { k: 'plain' };
+  const before = R.fieldCells(wm).filter(c => wm.plots[c.id]).map(c => c.k + ':' + wm.plots[c.id].progress);
+  Object.keys(R.DECOR).filter(d => !R.DECOR[d].farm).forEach(d => { wm.decor[d] = { by: 'sua' }; });
+  const fillM = n => ['sua', 'yona', 'living'].forEach(r => { wm.house[r] = {}; for (let i = 0; i < n; i++) wm.house[r][i + ',0'] = { f: 'bed1', r: 0 }; });
+  fillM(12); for (let i = 0; i < 10; i++) wm.animals.push({ id: 'y' + i, kind: 'duck', name: '오리' });
+  const s2 = R.fixMine(null, 'sua'), y2 = R.fixMine(null, 'yona');
+  assert(R.askMove(wm, s2, now).ok && R.askMove(wm, y2, now).moved, '바닷가로 이사');
+  const after = R.fieldCells(wm).filter(c => wm.plots[c.id]).map(c => c.k + ':' + wm.plots[c.id].progress);
+  assert.deepStrictEqual(after, before, '같은 차례·같은 순서로 옮겨 심음');
+  assert(Object.keys(wm.plots).every(id => id[0] === 'g' || R.fieldHas(wm, ...id.split(',').map(Number))), '옮긴 칸은 모두 새 밭 안');
+  assert(wm.plots['g0,0'] && wm.plots['g0,0'].crop === 'carrot', '온실은 그대로');
+  assert.strictEqual(Object.keys(wm.sprinklers).length, 1);
+  const gi = Object.keys(wm.plots).filter(id => wm.plots[id].giant);
+  gi.forEach(id => { const q = wm.plots[wm.plots[id].pairOf]; assert(q && q.pairOf === id, '짝이 서로를 가리킴'); });
 }
 console.log('이사 규칙 점검 통과');

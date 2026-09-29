@@ -5,7 +5,7 @@
 // farm-rules.js 가 먼저 돌아야 한다. 저 파일의 닫힘 안에 있는 것들은 FARM.__inner 로 받는다.
 (() => {
   if (typeof FARM === 'undefined' || !FARM.__inner) throw new Error('farm-rules.js 를 먼저 실어야 해요');
-  const { FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
+  const { fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
 
   function dayEndMs(t){ return dayStartMs(dayKey(t)) + DAY_MS; }
   function nextSeason(s){ return SEASONS[(SEASONS.indexOf(s) + 1) % 4]; }
@@ -172,7 +172,7 @@
     if (!thingHere(world, id)) return '아직 농장에 없어요';
     const me = { x, y, w: P.w, h: P.h };
     if (x < 0 || y < 0 || x + P.w > GRID.w || y + P.h > GRID.h) return '농장 밖이에요';
-    if (boxHit(me, FIELD_BOX)) return '밭 자리에는 놓을 수 없어요';
+    for (let yy = y; yy < y + P.h; yy++) for (let xx = x; xx < x + P.w; xx++) if (fieldHas(world, xx, yy)) return '밭 자리에는 놓을 수 없어요';
     for (const other of PLACE_IDS){
       if (other === id || !thingHere(world, other)) continue;
       if (boxHit(me, spotOf(world, other))) return PLACE[other].name + '과 겹쳐요';
@@ -436,7 +436,20 @@
     const kept = {}; left.forEach(b => { kept[b] = { done: true }; });
     world.past.push({ farm: s.farm.id, until: dayKey(now), decor: JSON.parse(JSON.stringify(world.decor || {})),
       buildings: kept, layout: JSON.parse(JSON.stringify(world.layout || {})), expand: world.expand || 0 });
+    const from = fieldCells(world);
     world.decor = {}; world.layout = {}; world.farm = (world.farm || 0) + 1;
+    // 새 농장은 밭 모양이 달라 칸 이름(좌표)이 바뀐다 — 같은 넓히기 차례끼리 순서대로 옮겨 심는다(칸 수는 차례마다 같다).
+    // 온실 칸(g…)은 그대로. 커다란 작물 짝이 옮긴 뒤 이웃이 아니면 짝을 풀어 보통 작물로 둔다
+    const to = fieldCells(world), map = {};
+    from.forEach((c, i) => { if (to[i]) map[c.id] = to[i].id; });
+    const moved = o => { const n = {}; Object.keys(o || {}).forEach(id => { const t = id[0] === 'g' ? id : map[id]; if (t) n[t] = o[id]; }); return n; };
+    world.plots = moved(world.plots); world.sprinklers = moved(world.sprinklers);
+    Object.keys(world.plots).forEach(id => {
+      const p = world.plots[id];
+      if (!p.pairOf || id[0] === 'g') return;
+      p.pairOf = map[p.pairOf] || null;
+      if (!p.pairOf || neighborsOf(id).indexOf(p.pairOf) < 0) Object.assign(p, { giant: false, pairOf: null });
+    });
     delete world.moveAsk;
     ['sua', 'yona'].forEach(k => { (world.mail[k] = world.mail[k] || []).push({ id: 'coins', n: MOVE_GIFT, from: 'move', note: s.next.name + ' 이사 선물', t: now }); });
     logAdd(world, mine.key, '수아와 연아가 ' + s.next.name + '으로 이사 왔어요', now);

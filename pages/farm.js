@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '10';
+const PLAY_V = '11';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -1882,8 +1882,7 @@ let farmGuest = null, farmGuestNext = 4000, farmGuestAsk = null;   // Ask: 시�
 WALKSHEET.onReady(() => { if (liveCv && W) drawFarm(liveCv); });   // 손님 그림이 늦게 오면 한 번 더(움직임 줄이기면 이게 유일한 다시 그리기)
 function walkableTile(tx, ty){
   if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS - 1) return false;   // 맨 아랫줄은 앞쪽 수풀에 가린다
-  const FB = R.FIELD_BOX;
-  if (tx >= FB.x && tx < FB.x + FB.w && ty >= FB.y && ty < FB.y + FB.h) return false;
+  if (R.fieldHas(W, tx, ty)) return false;                            // 밭 칸 — 농장마다 모양이 다르다(아직 안 연 땅까지)
   for (let i = 0; i < R.PLACE_IDS.length; i++){
     const id = R.PLACE_IDS[i];
     if (id === 'path' || !here(id)) continue;
@@ -1913,7 +1912,7 @@ function someTile(){
 // 갈 수 있는 칸을 미리 표로 만들어 둔다. 건물을 옮기거나 새로 지으면 다시 만든다.
 let walkGrid = null, walkSig = '';
 function ensureWalkGrid(){
-  const sig = JSON.stringify(W.layout || {}) + Object.keys(W.buildings).filter(b => W.buildings[b].done).sort().join('') + (W.expand || 0) + Object.keys(W.decor || {}).sort().join('');
+  const sig = (W.farm || 0) + JSON.stringify(W.layout || {}) + Object.keys(W.buildings).filter(b => W.buildings[b].done).sort().join('') + (W.expand || 0) + Object.keys(W.decor || {}).sort().join('');
   if (walkGrid && walkSig === sig) return;
   walkSig = sig; walkGrid = [];
   for (let y = 0; y < ROWS; y++){ const row = []; for (let x = 0; x < COLS; x++) row.push(walkableTile(x, y)); walkGrid.push(row); }
@@ -2824,7 +2823,7 @@ function sigBuilt(cal, night){
 }
 function sigField(){
   const n = now();
-  let s = (W.expand || 0) + '|';
+  let s = (W.farm || 0) + ':' + (W.expand || 0) + '|';
   R.plotIds(W, 'field').forEach(id => { const p = W.plots[id]; s += p && p.tilled ? (R.wetNow(p, n, false) ? 'W' : 'T') + (p.fert ? 'f' : '') : '.'; });
   return s;
 }
@@ -3327,9 +3326,8 @@ function isoGround(season){
     return c;
   });
   // 칸마다 풀포기·조약돌·꽃 — 선 것이라 마름모 위에 곧게 세운다
-  const FB = R.FIELD_BOX;
   for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++){
-    if (pm[tx + ',' + ty] || (tx >= FB.x && tx < FB.x + FB.w && ty >= FB.y && ty < FB.y + FB.h)) continue;
+    if (pm[tx + ',' + ty] || R.fieldHas(W, tx, ty)) continue;
     const r0 = R.prand('g' + tx + '_' + ty), n = r0 < 0.5 ? 3 : r0 < 0.85 ? 2 : 1;
     for (let i = 0; i < n; i++){
       const p = isoP(tx + 0.15 + R.prand('t' + tx + '_' + ty + '_' + i) * 0.7, ty + 0.15 + R.prand('u' + tx + '_' + ty + '_' + i) * 0.7);
@@ -3472,10 +3470,27 @@ function isoFenceLine(ua, va, ub, vb, skip){
   const n = Math.max(1, Math.round(Math.max(Math.abs(ub - ua), Math.abs(vb - va))));
   for (let k = 0; k < n; k++) if (!(skip && skip(k))) isoFenceSeg(ua + (ub - ua) * k / n, va + (vb - va) * k / n, ua + (ub - ua) * (k + 1) / n, va + (vb - va) * (k + 1) / n);
 }
-function isoFieldBox(){
-  const E = R.EXPANSIONS[Math.min(W.expand || 0, R.EXPANSIONS.length - 1)];
-  return { x: R.FIELD.x0, y: R.FIELD.y0, w: E.w, h: E.h };
+/* 밭 둘레 — 열린 칸 모임(open: Set 'x,y')의 바깥 변마다 한 토막. off 만큼 바깥으로 물러나 선다.
+   곧게 이어지는 변은 그대로, 바깥 모서리는 off 만큼 늘이고 안으로 꺾이는 모서리는 줄여서 토막끼리 맞물린다.
+   front: 아래·오른쪽 변(화면 앞쪽) — 뒤쪽 변도 밭이 오목한 자리에서는 사람 앞에 올 수 있어 모두 깊이순으로 세운다 */
+function fieldEdges(open, off){
+  const has = (x, y) => open.has(x + ',' + y), out = [];
+  open.forEach(id => {
+    const [x, y] = id.split(',').map(Number);
+    [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([nx, ny]) => {
+      if (has(x + nx, y + ny)) return;
+      const ax = ny ? 1 : 0, ay = nx ? 1 : 0, cx = x + 0.5 + nx * 0.5, cy = y + 0.5 + ny * 0.5;
+      const end = sg => {
+        const d = has(x + ax * sg + nx, y + ay * sg + ny) ? -off : has(x + ax * sg, y + ay * sg) ? 0 : off;
+        return [cx + ax * sg * (0.5 + d) + nx * off, cy + ay * sg * (0.5 + d) + ny * off];
+      };
+      const a = end(-1), b = end(1);
+      out.push([a[0], a[1], b[0], b[1]]);
+    });
+  });
+  return out;
 }
+function openField(k){ const s = new Set(); R.fieldCells(W).forEach(c => { if (c.k <= k) s.add(c.id); }); return s; }
 // 밭 한 칸 — 세 도트 돋운 두둑. 고랑은 u 쪽으로 흐른다.
 function isoPlot(id, p){
   const { x, y } = R.parseId(id);
@@ -3499,15 +3514,14 @@ function isoPlot(id, p){
   if (wet){ const q = isoP(x + 0.35, y + 0.3, 3); px(Math.round(q.x), Math.round(q.y), 5, 1, '#7fbfe0aa'); }
 }
 function isoField(){
-  const F = isoFieldBox(), nextE = R.EXPANSIONS[(W.expand || 0) + 1];
-  if (nextE){                                                      // 아직 못 연 땅 — 점선 마름모
-    const a = isoP(F.x, F.y), r = isoP(F.x + nextE.w, F.y), f = isoP(F.x + nextE.w, F.y + nextE.h), l = isoP(F.x, F.y + nextE.h);
-    [[a, r], [r, f], [f, l], [l, a]].forEach(([p, q]) => { const n = Math.round(Math.hypot(q.x - p.x, q.y - p.y) / 5); for (let k = 0; k < n; k += 2) isoSeg({ x: p.x + (q.x - p.x) * k / n, y: p.y + (q.y - p.y) * k / n }, { x: p.x + (q.x - p.x) * (k + 1) / n, y: p.y + (q.y - p.y) * (k + 1) / n }, '#00000030', 1); });
+  const k = W.expand || 0;
+  if (R.EXPANSIONS[k + 1]){                                        // 다음에 열 땅 — 그 모양 그대로 점선
+    fieldEdges(openField(k + 1), 0).forEach(([ua, va, ub, vb]) => {
+      const p = isoP(ua, va), q = isoP(ub, vb), n = Math.round(Math.hypot(q.x - p.x, q.y - p.y) / 5);
+      for (let j = 0; j < n; j += 2) isoSeg({ x: p.x + (q.x - p.x) * j / n, y: p.y + (q.y - p.y) * j / n }, { x: p.x + (q.x - p.x) * (j + 1) / n, y: p.y + (q.y - p.y) * (j + 1) / n }, '#00000030', 1);
+    });
   }
   R.plotIds(W, 'field').forEach(id => isoPlot(id, W.plots[id]));
-  // 뒤쪽 울타리 두 줄 — 앞쪽 두 줄은 아이가 그 앞뒤로 지나가니 깊이순으로 따로 세운다
-  isoFenceLine(F.x - 0.15, F.y - 0.15, F.x + F.w + 0.15, F.y - 0.15);
-  isoFenceLine(F.x - 0.15, F.y - 0.15, F.x - 0.15, F.y + F.h + 0.15);
 }
 // 겹 4 — 작물. 칸 가운데 두둑 위에 세운다. 뒤 칸부터 그려야 앞 칸 잎이 뒤를 덮는다.
 /* 작물은 대각선 한 줄(x+y 가 같은 칸들)씩 담아 두고 깊이순에 끼운다. 겹 하나로 얹으면
@@ -4614,14 +4628,12 @@ function isoPastureBack(b){
 }
 // 목장과 밭의 앞쪽 울타리 — 토막마다 깊이를 따로 매겨 아이·동물과 앞뒤를 가린다
 function isoFrontFences(cast){
-  const F = isoFieldBox(), fx0 = F.x - 0.15, fy0 = F.y - 0.15, fx1 = F.x + F.w + 0.15, fy1 = F.y + F.h + 0.15;
   const seg = (ua, va, ub, vb) => cast.push({ d: (ua + ub) / 2 + (va + vb) / 2, go: () => isoFenceSeg(ua, va, ub, vb) });
   const line = (ua, va, ub, vb, skip) => {
     const n = Math.max(1, Math.round(Math.max(Math.abs(ub - ua), Math.abs(vb - va))));
     for (let k = 0; k < n; k++) if (!(skip && skip(k, n))) seg(ua + (ub - ua) * k / n, va + (vb - va) * k / n, ua + (ub - ua) * (k + 1) / n, va + (vb - va) * (k + 1) / n);
   };
-  line(fx0, fy1, fx1, fy1);
-  line(fx1, fy0, fx1, fy1);
+  fieldEdges(openField(W.expand || 0), 0.15).forEach(([ua, va, ub, vb]) => line(ua, va, ub, vb));   // 밭 울타리 — 모양대로 빙 둘러
   if (here('pasture')){
     const b = spot('pasture'), x0 = b.x + 0.1, y0 = b.y + 0.1, x1 = b.x + b.w - 0.1, y1 = b.y + b.h - 0.1;
     line(x0, y1, x1, y1, (k, n) => k === Math.floor(n / 2));                   // 가운데는 드나드는 문
@@ -5506,7 +5518,7 @@ function newFarmGuest(t, n){
   if (!from) return null;
   const stops = [Object.assign({ ms: 6000 + Math.random() * 4000, say: true }, front)];
   // 한 군데 더 — 밭이나 놓인 꾸미개·건물 둘레
-  const FB = R.FIELD_BOX, homes = [{ x: FB.x, y: FB.y, w: FB.w, h: FB.h }];
+  const homes = [R.fieldBox(W)];
   R.PLACE_IDS.forEach(id => { if (id !== 'path' && id !== 'stall' && here(id)) homes.push(spot(id)); });
   if (Math.random() < 0.75){
     const h = homes[Math.floor(Math.random() * homes.length)], p = nearTile(h, 1), tx = (p.x - 16) / T, ty = (p.y - 24) / T;
@@ -5780,8 +5792,8 @@ function isoPlaceOverlay(t){
   ctx.globalAlpha = 0.45;
   for (let u = 0; u <= COLS; u++) isoSeg(isoP(u, 0), isoP(u, ROWS), '#ffffff', 1);
   for (let v = 0; v <= ROWS; v++) isoSeg(isoP(0, v), isoP(COLS, v), '#ffffff', 1);
-  const FB = R.FIELD_BOX, dia = (b, c) => poly3([[b.x, b.y, 0], [b.x + b.w, b.y, 0], [b.x + b.w, b.y + b.h, 0], [b.x, b.y + b.h, 0]], c);
-  ctx.globalAlpha = 0.22; dia(FB, '#ff5a4a'); ctx.globalAlpha = 1;
+  const dia = (b, c) => poly3([[b.x, b.y, 0], [b.x + b.w, b.y, 0], [b.x + b.w, b.y + b.h, 0], [b.x, b.y + b.h, 0]], c);
+  ctx.globalAlpha = 0.22; R.fieldCells(W).forEach(c => dia({ x: c.x, y: c.y, w: 1, h: 1 }, '#ff5a4a')); ctx.globalAlpha = 1;
   R.PLACE_IDS.forEach(id => {
     if (!here(id)) return;
     const b = spot(id), c = id === placePick ? (Math.sin(t / 180) > 0 ? '#ffe066' : '#ffffff') : R.PLACE[id].move ? '#7fe0a8' : '#ff9aa2';
@@ -6086,11 +6098,7 @@ function pixAt(clientX, clientY){
   const w = r.width || cv.width, h = r.height || cv.height;
   return { x: (clientX - r.left) / w * cv.width / S, y: (clientY - r.top) / h * cv.height / S };
 }
-function plotAtTile(tx, ty){
-  const F = R.FIELD;
-  if (tx < F.x0 || ty < F.y0 || tx >= F.x0 + F.w || ty >= F.y0 + F.h) return null;
-  return tx + ',' + ty;
-}
+function plotAtTile(tx, ty){ return R.fieldHas(W, tx, ty) ? tx + ',' + ty : null; }   // 밭 모양 안이면(아직 안 연 땅까지) 그 칸
 function nodeAt(tx, ty){ return Object.keys(R.NODES).find(n => R.NODES[n].x === tx && R.NODES[n].y === ty) || null; }
 function built(id){ return !!(W.buildings[id] && W.buildings[id].done); }
 /* ---------- 끌어서 이어 하기 ----------
