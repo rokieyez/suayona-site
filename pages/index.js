@@ -1569,7 +1569,7 @@ const belowFold = (() => {
   function loadKidArt(){
     if (reduce) return;                                  // 돌아다니지 않으니 받을 까닭도 없다
     const el = document.createElement('script');
-    el.src = '/pages/kid-art.js';
+    el.src = '/pages/kid-art.js?v=0929';
     el.onload = () => {
       // 그림이 온전할 때만 쓴다 — 여덟 방향마다 서기+걷기 다섯 장
       const A = window.KIDART, full = k => A && A[k] && A[k].dirs && ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'].every(d => A[k].dirs[d] && A[k].dirs[d].length >= 5);

@@ -2,7 +2,9 @@
    예전엔 farm.js 안에 있었다. 전시실에서도 같은 아이가 걸어 다니게 하려고 따로 뺐다(2026-09-15).
    farm.js·honors.js 보다 먼저 싣는다. 밖으로는 window.KIDART·window.KIDPAL 둘만 내놓고 나머지는 이 안에 가둔다 —
    배포 직후 새로고침하면 새 farm.html 이 캐시에 남은 옛 farm.js(같은 이름을 const 로 가진)와 짝지어질 수 있는데,
-   여기서도 const 로 선언하면 「이미 선언됨」으로 farm.js 가 통째로 멈춘다(시험에서 확인). 창 속성은 const 와 부딪히지 않는다. */
+   여기서도 const 로 선언하면 「이미 선언됨」으로 farm.js 가 통째로 멈춘다(시험에서 확인). 창 속성은 const 와 부딪히지 않는다.
+   이 파일을 고치면 싣는 다섯 곳(honors·farm·life·portfolio.html, pages/index.js)의 ?v= 꼬리표를 같이 올린다 — 새 HTML 이
+   캐시에 남은 옛 이 파일과 짝지어지면 KIDSTEP·dirs 가 없어 방 그림이 통째로 멈춘다(2026-09-29 전시실에서 실제로 봄). */
 (function(){
 'use strict';
 // ---------- 수아·연아 — 2026-09-29 새 48도트 판 ----------

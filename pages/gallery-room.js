@@ -653,7 +653,7 @@
   let visSeq = 0;
   let nextVisitorAt = 0;
   const visBuf = {};
-  // ⓒ 관람객 넷 — 모두 예전 아이 그림(28×38)과 같은 격자. 어른(모자·외투), 아이(작게), 할머니(쪽머리·긴 치마·지팡이), 강아지(네 발·꼬리)
+  // 옛 도트 판(28×38) — 이제 밤 경비원(adult)과 강아지만 쓴다. 어른·아이·할머니 관람객은 아래 새 판(guests-walk.png)
   const VIS_ROWS = {
     adult: [
       '.........kkkkkkkkkk.........',
@@ -694,86 +694,6 @@
       '........kpppppk.kpppppk.....',
       '.......ksssssssksssssssk....',
       '.......kkkkkkkkkkkkkkkkk....',
-    ],
-    child: [
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '............................',
-      '..........kkkkkkkk..........',
-      '.........khhhhhhhhk.........',
-      '........khhhhhhhhhhk........',
-      '........khhhhhhhhhhk........',
-      '........khffffffffhk........',
-      '........kffffffffffk........',
-      '........kffeeffeeffk........',
-      '........kffffffffffk........',
-      '........kffffmmffffk........',
-      '.........kffffffffk.........',
-      '.......kkkcccccccckkk.......',
-      '......kccccccccccccccck.....',
-      '......kcckccccccccckcck.....',
-      '......kcckccccccccckcck.....',
-      '......kcckccccCcccckcck.....',
-      '......kffkccccccccckffk.....',
-      '.......kkkccccCcccckkk......',
-      '.........kcccccccck.........',
-      '.........kpppppppppk........',
-      '.........kpppkkpppppk.......',
-      '.........kpppk.kpppk........',
-      '.........kpppk.kpppk........',
-      '.........kpppk.kpppk........',
-      '.........kpppk.kpppk........',
-      '.........kpppk.kpppk........',
-      '........ksssssksssssk.......',
-      '........kkkkkkkkkkkkk.......',
-      '............................',
-    ],
-    grandma: [
-      '............................',
-      '............................',
-      '..........kkkkkkkk..........',
-      '.........khhhhhhhhk.........',
-      '........khhhhhhhhhhk........',
-      '.......khhhhhhhhhhhhk.......',
-      '.......khhhhhhhhhhhhk.......',
-      '.......khhhhhhhhhhhhk.......',
-      '........khhffffffhhk........',
-      '........khffffffffhk........',
-      '........kffffffffffk........',
-      '........kfkeekkeekfk........',
-      '........kffeeffeeffk........',
-      '........kffffffffffk........',
-      '........kfffffmmffffk.......',
-      '.........kffffffffk.........',
-      '......kkkCCCCCCCCCCkkk......',
-      '.....kccCCcccccccccCCcck....',
-      '....kcccccccccCcccccccccck..',
-      '....kcccccccccCcccccccccck..',
-      '....kccccccccccccccccccccnk.',
-      '....kcccccccccCccccccccckn..',
-      '....kccccccccccccccccccckn..',
-      '....kcckcccccccCccccccckcnk.',
-      '....kcckccccccccccccccckcn..',
-      '....kffkcccccccCccccccckfn..',
-      '....kffkccccccccccccccckfn..',
-      '.....kk.kccccccccccccck.kn..',
-      '........kccccccccccccck..n..',
-      '........kccccccccccccck..n..',
-      '........kccccccccccccck..n..',
-      '........kccccccccccccck..n..',
-      '.......kccccccccccccccck.n..',
-      '.......kccccccccccccccck.n..',
-      '.......kkkkkkkkkkkkkkkkk.n..',
-      '........kpppppk.kpppppk..n..',
-      '.......ksssssssksssssssk.n..',
-      '.......kkkkkkkkkkkkkkkkk.kk.',
     ],
     dog: [
       '............................',
@@ -835,27 +755,14 @@
     clearTimeout(p.sayTimer); p.sayTimer = setTimeout(() => { p.say = null; draw(); }, ms);
     say(CHAR_NAME[kd] + ': ' + text); draw();
   }
-  // ⓑ 손뼉 포즈 — 어른·아이·할머니의 팔을 떼어 머리 옆으로 올린다. sp 1 이면 손이 벌어진 쪽(두 포즈를 번갈아 그리면 손뼉)
-  function armsUp(rows, sp){
-    const R = rows.map(r => r.split(''));
-    const armRows = [], hasArm = R.findIndex(r => r[7] === 'k' && r[5] === 'c');            // 팔이 붙은 첫 줄(어른 17·아이 22)
-    if (hasArm < 0) return rows;
-    for (let r = hasArm; r < R.length; r++){ if (R[r][7] === 'k' || R[r][6] === 'k'){ for (const c of [4, 5, 6]) if (R[r][c] !== '.' && R[r][7] !== '.') { R[r][c] = '.'; } for (const c of [24, 25, 26]) if (R[r][23] === 'k' || R[r][22] === 'k') R[r][c] = '.'; armRows.push(r); } else break; }
-    const top = Math.max(2, hasArm - 8);
-    for (let r = top + 3; r < hasArm + 1; r++){ R[r][4 - sp] = 'k'; R[r][5 - sp] = 'c'; R[r][6 - sp] = 'c'; R[r][7 - sp] = R[r][7 - sp] === '.' ? 'k' : R[r][7 - sp]; R[r][24 + sp] = 'c'; R[r][25 + sp] = 'c'; R[r][26 + sp] = 'k'; R[r][23 + sp] = R[r][23 + sp] === '.' ? 'k' : R[r][23 + sp]; }
-    for (let r = top; r < top + 3; r++){ R[r][4 - sp] = 'k'; R[r][5 - sp] = 'f'; R[r][6 - sp] = 'f'; R[r][7 - sp] = R[r][7 - sp] === '.' ? 'k' : R[r][7 - sp]; R[r][24 + sp] = 'f'; R[r][25 + sp] = 'f'; R[r][26 + sp] = 'k'; R[r][23 + sp] = R[r][23 + sp] === '.' ? 'k' : R[r][23 + sp]; }
-    R[top - 1][4 - sp] = 'k'; R[top - 1][5 - sp] = 'k'; R[top - 1][6 - sp] = 'k'; R[top - 1][24 + sp] = 'k'; R[top - 1][25 + sp] = 'k'; R[top - 1][26 + sp] = 'k';
-    return R.map(r => r.join(''));
-  }
   function visitorSprite(n, flip, kind, pose){
     kind = kind || 'adult';
     const key = [n, flip ? 1 : 0, kind, pose || ''].join('|');
     if (visBuf[key]) return visBuf[key];
     const P = VIS_PAL[n % VIS_PAL.length];
     let rows = VIS_ROWS[kind] || VIS_ROWS.adult;
-    if (pose === 'clap0' || pose === 'clap1'){ if (kind === 'dog'){ rows = rows.map((r, i) => i >= 22 && i <= 26 ? r.replace(/n/g, pose === 'clap0' ? 'n' : '.') : r); } else rows = armsUp(rows, pose === 'clap1' ? 1 : 0); }
-    const hair = kind === 'grandma' ? '#d8d2c8' : kind === 'child' ? '#5a3a22' : P.hat;
-    const pal = { h: hair, H: P.band, b: P.band, f: '#f2d3b8', e: '#2a2622', m: kind === 'dog' ? '#2a2622' : '#b06a5a', c: kind === 'dog' ? '#b98a5a' : P.coat, C: P.coatDark, p: P.pants, s: '#2a2622', n: kind === 'dog' ? '#b98a5a' : '#6b4a2a', k: '#241c14' };
+    if (pose === 'clap0' || pose === 'clap1'){ if (kind === 'dog') rows = rows.map((r, i) => i >= 22 && i <= 26 ? r.replace(/n/g, pose === 'clap0' ? 'n' : '.') : r); }   // 강아지는 꼬리를 흔든다
+    const pal = { h: P.hat, H: P.band, b: P.band, f: '#f2d3b8', e: '#2a2622', m: kind === 'dog' ? '#2a2622' : '#b06a5a', c: kind === 'dog' ? '#b98a5a' : P.coat, C: P.coatDark, p: P.pants, s: '#2a2622', n: kind === 'dog' ? '#b98a5a' : '#6b4a2a', k: '#241c14' };
     const W = 28, H = rows.length;
     const c = document.createElement('canvas'); c.width = (W + 2) * 2; c.height = (H + 2) * 2;
     const g = c.getContext('2d');
@@ -866,7 +773,7 @@
   // 관객 새 판(2026-09-29) — 연주회장 객석 손님 여덟 명을 세워 걷게 한 도트 시트(pages/guests-walk.png, tools/guest-sheet.py 가 만든다).
   // 손님마다 여섯 줄: S·SW·W·NW·N 걷기(서기 1 + 걷기 4) + 손뼉 줄(그림 올려다보기·손 모음·손 벌림). 오른쪽 셋(NE·E·SE)은 뒤집어 쓴다.
   // 수아·연아와 같은 48도트 격자다. 강아지·밤 경비원은 옛 판 그대로
-  const GUEST_OF = { adult: [6, 2], child: [0, 1, 3, 4, 5, 7], grandma: [2] };   // 아빠·할머니 / 포니테일·삐죽·땋은·모자·곱슬·만두 / 쪽머리
+  const GUEST_OF = { adult: [6], child: [0, 1, 3, 4, 5, 7], grandma: [2] };      // 아빠 / 포니테일·삐죽·땋은·모자·곱슬·만두 / 쪽머리
   const GUEST_H = [48, 48, 52, 48, 48, 48, 58, 46];                                 // 선 키(도트) — guest-sheet.py 의 TARGET 과 같게
   const GUEST_ROW = { S: 0, SW: 1, W: 2, NW: 3, N: 4, NE: 3, E: 2, SE: 1 }, GUEST_FLIP = { NE: 1, E: 1, SE: 1 };
   const guestOf = p => { const pool = GUEST_OF[p.kind] || GUEST_OF.adult; return pool[p.n % pool.length]; };
@@ -891,7 +798,7 @@
     if (phase !== 'day'){ g.globalCompositeOperation = 'source-atop'; g.fillStyle = phase === 'dusk' ? 'rgba(90,40,20,.12)' : 'rgba(16,20,60,.26)'; g.fillRect(0, 0, c.width, c.height); }
     return (visBuf[key] = c);
   }
-  const isGuest = p => p !== guard && p.kind !== 'dog' && guestImg.complete && guestImg.naturalWidth > 0;
+  const isGuest = p => p !== guard && p.kind !== 'dog';                              // 어른·아이·할머니는 새 판 — 옛 도트 판은 경비원·강아지만 남았다
   // 볼 액자와 그 앞에 설 자리 — 앞자리가 가구에 막히면(텔레비전 뒤 왼쪽 벽 등) 방 안쪽으로 0.4칸씩 물러선다
   function visitorTarget(p){
     const idx = hung.map((w, n) => w ? n : -1).filter(n => n >= 0);
@@ -948,6 +855,7 @@
     isoTopD(g, x, y, 10, 4, 'rgba(40,24,10,.24)');
     const pose = p.wait > 0 && p.clap ? 'clap' + p.nod : '';                              // ⓑ 리본 달린 작품 앞에서는 손뼉(두 포즈를 번갈아)
     if (isGuest(p)){                                                                       // 새 판 손님 — 걸을 땐 여덟 방향 걷기, 액자 앞에선 올려다보다가 리본 작품이면 손뼉
+      if (!guestImg.naturalWidth) return;                                                  // 시트가 아직 안 왔으면 한 장 쉬고, 오면 onload 가 다시 그린다
       const n = guestOf(p), d = p.dir || 'NW', at = p.wait > 0, walking = !at && p.hush <= 0;
       const c = at ? guestSprite(n, 5, p.clap ? 1 + p.nod : 0, GUEST_FLIP[d], dayPhase()) : guestSprite(n, GUEST_ROW[d], walking ? KIDSTEP(true, p.phase) : 0, GUEST_FLIP[d], dayPhase());
       g.drawImage(c, x - c.width / 4, y - c.height / 2 + 1 + (at && !p.clap ? p.nod : 0), c.width / 2, c.height / 2);   // 아이와 같은 셈 — 가로 가운데, 발은 바닥 점 한 도트 위
