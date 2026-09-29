@@ -1448,7 +1448,7 @@ function bTent(q){
   cone(q, C[0], C[1] - H, CR, CH, (a, v) => stripe(a, shadeA(a) + (v % 6 === 0 ? -6 : 0)));
   // 꼭대기 장식과 깃발
   q(C[0] - 1, C[1] - H - CH - 14, 2, 14, '#6a5a50'); q(C[0] - 3, C[1] - H - CH - 2, 6, 3, '#ffd166');
-  q(C[0] + 1, C[1] - H - CH - 14, 9, 5, '#ffd166'); q(C[0] + 1, C[1] - H - CH - 9, 6, 2, '#e8b84a');
+  (VS.flags || (VS.flags = [])).push({ key: 'tent', x: C[0] + 1, y: C[1] - H - CH - 14, w: 9, h: 5, lw: 6, col: '#ffd166', dark: '#e8b84a' });   // 천은 첫화면이 나부끼게
   // 매표소 — 줄무늬 작은 집
   const bx = { x: 2.55, y: 6.85, z: 0, w: 0.5, d: 0.45, h: 22 };
   B.walls(q, bx, M.canvas(['#d9453f', '#fff1dc'], 3, 7, 0), M.canvas(['#d9453f', '#fff1dc'], 3, 7, -26));
@@ -1467,7 +1467,7 @@ function bTent(q){
 }
 // ---------- 성 (모험단) ----------
 function bCastle(q){
-  const WH = 46, st = sh => M.stone(STONE_P, 11, sh, WH), flag = (X, Y, col) => { q(X - 1, Y - 18, 2, 18, '#6a5a50'); q(X + 1, Y - 18, 10, 6, col); q(X + 1, Y - 12, 7, 2, shade(col, -30)); };
+  const WH = 46, st = sh => M.stone(STONE_P, 11, sh, WH), flag = (X, Y, col) => { q(X - 1, Y - 18, 2, 18, '#6a5a50'); (VS.flags || (VS.flags = [])).push({ key: 'castle', x: X + 1, y: Y - 18, w: 10, h: 6, lw: 7, col, dark: shade(col, -30) }); };   // 천은 첫화면이 나부끼게(flagFrames)
   const walk = sh => (u, v) => { const c = (u % 8 === 0 || v % 5 === 0) ? '#8a8276' : ['#b9b2a6', '#aea79a', '#b4ad9f'][Math.floor(hash(u >> 3, v >> 2, 12) * 3)]; return shade(c, sh); };
   const merlon = (x, y) => box(q, x, y, WH, 0.22, 0.22, 6, () => '#b5aa99', () => '#8f8577', () => '#cfc6b6');
   const tower = (wx, wy, h, flagCol) => {
@@ -1694,7 +1694,7 @@ VS.draw = function(env){
   add(3.05, 6.25, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(3.1, 6.3), NIGHT), 12);
   add(2.50, 8.25, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(2.55, 8.30), NIGHT), 12);   // 가볼 곳 표지판과 매표소 사이 잔디 — 광장 앞왼쪽에서는 수아가 통째로 가렸다
   add(13.45, 6.0, 0.5, 0.5, 60, q2 => P.tree(q2, ...at(13.7, 6.25), 2, 23), 26, 'tree');   // 성문 진입로 앞(13.1, 6.8)에 서 있어 길을 가렸다 — 길 오른쪽 잔디로(2026-09-15 부모 요청)
-  add(0.7, 11.18, 1.0, 0.34, 6, q2 => P.boat(q2, 1.2, 11.35), 14, 'boat');   // 틀은 배가 실제로 그려지는 자리에 — 예전 틀(3.0, 11.0)은 배와 어긋나 겹 밖으로 잘려 안 보였다
+  add(0.7, 11.18, 1.0, 0.34, 6, () => { VS.boat = { wx: 1.2, wy: 11.35 }; }, 14, 'boat');   // 배는 첫화면이 물 위에 동동 띄운다(boatFrame) — 누를 자리(HITS)는 그대로   // 틀은 배가 실제로 그려지는 자리에 — 예전 틀(3.0, 11.0)은 배와 어긋나 겹 밖으로 잘려 안 보였다
   [[5.15, 3.65], [8.85, 3.65], [8.85, 7.35]].forEach(([x, y], i) => add(x - 0.05, y - 0.05, 0.1, 0.1, 48, q2 => P.lamp(q2, ...at(x, y), NIGHT), 12));   // 앞왼쪽 자리는 비워 둔다 — 수아가 그 자리에 서서 가로등을 가렸다
   const bed = (x, y, w, d, seed) => add(x, y, w, d, 8, q2 => { box(q2, x, y, 0, w, d, 4, () => '#a89f91', () => '#8a8071', () => '#6f4f38'); for (let i = 0; i < 12; i++){ const fx = x + 0.08 + hash(i, 1, seed) * (w - 0.16), fy = y + 0.08 + hash(i, 2, seed) * (d - 0.16); const Pp = proj(fx, fy, 4).map(Math.round); if (SEASON === 'winter') q2(Pp[0] - 1, Pp[1] - 2, 3, 2, i % 2 ? '#ffffff' : '#eef4f7'); else P.flower(q2, Pp[0], Pp[1], ['#ff8fb8', '#ffd166', '#ff7f7f', '#ffffff', '#c9a8ff'][i % 5]); } }, 6);   // 겨울엔 꽃 대신 눈
   bed(5.3, 6.8, 1.0, 0.4, 3); bed(7.7, 6.8, 1.0, 0.4, 4);
@@ -1777,6 +1777,8 @@ VS.draw = function(env){
       if (L.d[(y * L.w + x) * 4 + 3] > 40 && X >= 0 && Y >= 0 && X < VS.w && Y < VS.h) own[Y * VS.w + X] = oi + 1;
     }
     if (it.key === 'windmill' && VS.windmill) VS.windmill.oi = oi + 1;   // 날개를 가릴 「앞 물건」은 이 번호보다 뒤에 얹힌 것
+    (VS.flags || []).forEach(f => { if (f.key === it.key) f.oi = oi + 1; });      // 깃발·배도 같은 방식
+    if (it.key === 'boat' && VS.boat) VS.boat.oi = oi + 1;
     const id = it.key ? HITS.length + 1 : 0;   // 1부터 센다 — 0은 「아무것도 없음」. 이름 없는 물건은 0을 적어 뒤의 것을 가린다
     env.blit(L, bx0, by0, '#3a2a1e', id);
     // 말풍선을 띄울 상자는 겹보다 좁게 — 겹의 여백(pad)까지 받으면 옆 잔디 위에 뜬다
@@ -1942,7 +1944,7 @@ function render(o){
       mark: (x, y, w, h, id) => { for (let yy = Math.max(0, y); yy < Math.min(VS.h, y + h); yy++) for (let xx = Math.max(0, x); xx < Math.min(VS.w, x + w); xx++) R.ids[yy * VS.w + xx] = id; },
     };
   }
-  VS.windmill = null;
+  VS.windmill = null; VS.flags = []; VS.boat = null;
   VS.draw(env);
   // 눈 오는 날 — 지붕과 나무 꼭대기에 눈이 쌓인다. 물건마다 따로 그리지 않고,
   // 겹을 얹을 때 적어 둔 번호판(ids)으로 열마다 「맨 위 물건 도트」를 찾아 그 위에 흰 점을 놓는다.
@@ -2005,6 +2007,8 @@ function render(o){
     cat: VS.cat || null,                        // 광장 고양이가 처음 앉아 있는 칸 — 첫화면이 걸린다
     pigeons: VS.pigeons || null,                // 광장 비둘기 셋이 처음 앉은 칸 — 첫화면이 걷게 한다(없으면 옛 마을이라 그림에 박혀 있다)
     sails: sailFrames(own, w, h),               // 풍차 날개 — 도는 위상 12장, 앞 물건에 가린 도트는 미리 뺐다. 첫화면이 돌려 그린다
+    flags: flagFrames(own, w, h),               // 깃발 천 — 나부끼는 위상 8장씩. 첫화면이 차례로 그린다
+    boat: boatFrame(own, w, h),                 // 나룻배 한 장 — 첫화면이 물 위에서 천천히 오르내리게 그린다
     smoke: VS.smoke || null,                    // 굴뚝 아가리 — 첫화면이 연기를 피운다
     ruler: VS.ruler || null,                    // 키 재기 기둥 — 첫화면이 두 아이 눈금을 얹는다
     horizon: SKY,
@@ -2108,6 +2112,36 @@ function sailFrames(own, w, h){
     }
   }, ox, oy, i / 12 * Math.PI / 2)) });
   return { x: M0.x, y: M0.y, frames };
+}
+// 깃발 천 위상 8장 — 깃대 쪽은 붙어 있고 끝으로 갈수록 크게 물결친다. 볼록한 주름은 밝게, 오목한 데는 어둡게.
+// 원래 그림처럼 위 w×h 는 제 색, 아래 두 줄(lw 폭)은 짙은 색. 앞 물건이 차지한 도트는 뺀다(날개와 같은 방식)
+function flagFrames(own, w, h){
+  if (typeof document === 'undefined' || !VS.flags || !VS.flags.length) return null;
+  return VS.flags.map(f => {
+    const W = f.w + 2, H = f.h + 6, oy = 2, frames = [];
+    for (let i = 0; i < 8; i++) frames.push({ w: W, h: H, ox: 0, oy, canvas: dotsCanvas(W, H, q => {
+      const put = (x, y, c) => { const X = f.x + x, Y = f.y + y - oy; if (own && f.oi && X >= 0 && Y >= 0 && X < w && Y < h && own[Y * w + X] > f.oi) return; q(x, y, 1, 1, c); };
+      for (let u = 0; u < f.w; u++){
+        const ph = i / 8 * Math.PI * 2 - u * 0.75, amp = 1.6 * u / (f.w - 1), dy = Math.round(Math.sin(ph) * amp), fold = Math.cos(ph) * (u / (f.w - 1));
+        const col = shade(f.col, fold > 0.45 ? 16 : fold < -0.45 ? -26 : 0), dk = shade(f.dark, fold < -0.45 ? -14 : 0);
+        for (let v = 0; v < f.h; v++) put(u, oy + dy + v, col);
+        if (u < f.lw) for (let v = f.h; v < f.h + 2; v++) put(u, oy + dy + v, dk);
+      }
+    }) });
+    return { x: f.x, y: f.y, frames };
+  });
+}
+// 나룻배 한 장 — 배 가운데 물 닿는 자리가 기준점. 첫화면이 한 도트씩 천천히 오르내리게 얹는다
+function boatFrame(own, w, h){
+  const B = VS.boat; if (!B || typeof document === 'undefined') return null;
+  const C = proj(B.wx, B.wy, 0).map(Math.round), W = 70, H = 36, ox = 35, oy = 24;
+  const ends = [proj(B.wx - 0.5, B.wy, 0), proj(B.wx + 0.5, B.wy, 0)].map(p => ({ x: Math.round(p[0]) - C[0], y: Math.round(p[1]) - C[1] }));
+  return { x: C[0], y: C[1], ends, frame: { w: W, h: H, ox, oy, canvas: dotsCanvas(W, H, q => P.boat((x, y, w2, h2, c) => {
+    for (let yy = y; yy < y + h2; yy++) for (let xx = x; xx < x + w2; xx++){
+      const X = xx, Y = yy; if (own && B.oi && X >= 0 && Y >= 0 && X < w && Y < h && own[Y * w + X] > B.oi) continue;
+      q(xx - C[0] + ox, yy - C[1] + oy, 1, 1, c);
+    }
+  }, B.wx, B.wy)) } };
 }
 // ---------- 첫화면이 프레임마다 움직여 그리는 작은 것들 ----------
 // 오리와 연. 마을 그림과 같은 코드로 도트 1:1 캔버스를 만들어 준다 — 배율은 첫화면이 맞춘다.

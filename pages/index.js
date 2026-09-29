@@ -810,6 +810,8 @@ const belowFold = (() => {
     // 시간대 색은 맨 마지막에 한 겹으로 덮는다. source-atop 이라 하늘로 비치는 빈 자리에는 묻지 않는다.
     if (HAS_PHASE) tintLayer(g, VG.canvas.width, VG.canvas.height, PHASE);
     if (HAS_PHASE && VG.sails) VG.sails.frames.forEach(f => tintLayer(f.canvas.getContext('2d'), f.w, f.h, PHASE));   // 풍차 날개도 마을과 같은 시간대 색
+    if (HAS_PHASE && VG.flags) VG.flags.forEach(fl => fl.frames.forEach(f => tintLayer(f.canvas.getContext('2d'), f.w, f.h, PHASE)));   // 깃발·배도
+    if (HAS_PHASE && VG.boat) tintLayer(VG.boat.frame.canvas.getContext('2d'), VG.boat.frame.w, VG.boat.frame.h, PHASE);
     // 덮개 뒤에 켜는 불 — 가로등·창·횃불. 덮기 전에 그리면 같이 어두워져서 불이 꺼진 것처럼 보인다.
     if (dim) {
       const k = HS * dpr, a = NIGHT ? 0.55 : 0.26;
@@ -1372,6 +1374,20 @@ const belowFold = (() => {
     const m = VG.sails, wind = Math.min(2, weather.wind || 1);
     blitDots(m.frames[Math.floor(t * 5 * wind) % m.frames.length], m.x, m.y, gx, gy, false);
   }
+  // 깃발 — 성 탑·천막 꼭대기 천이 바람에 나부낀다. 깃발마다 위상을 어긋내 한꺼번에 펄럭이지 않게. 바람이 세면 빨리
+  function drawFlags(gx, gy){
+    const wind = Math.min(2, weather.wind || 1);
+    VG.flags.forEach((f, i) => blitDots(f.frames[Math.floor(t * 7 * wind + i * 3) % f.frames.length], f.x, f.y, gx, gy, false));
+  }
+  // 나룻배 — 물 위에서 천천히(4초에 한 번) 한 도트씩 오르내리고, 뱃머리·꼬리에 잔물결이 번져 나간다
+  function drawBoat(gx, gy){
+    const b = VG.boat, bob = Math.round(Math.sin(t * 1.5) * 1.2);
+    blitDots(b.frame, b.x, b.y + bob, gx, gy, false);
+    const k = (t * 0.6) % 1;                                                   // 잔물결이 한 번 번지는 동안 0 → 1
+    ctx.fillStyle = 'rgba(235,248,255,' + (0.55 * (1 - k)).toFixed(2) + ')';
+    b.ends.forEach(e => { const dir = Math.sign(e.x) || 1, x = b.x + e.x + dir * (2 + k * 5), y = b.y + e.y + 1 + k * 1.5;
+      ctx.fillRect(Math.round(x * HS + gx), Math.round(y * HS + gy), Math.round(3 * HS), Math.max(1, Math.round(HS))); });
+  }
 
   // ---- 매표소 풍선 ----
   // 마을 그림에 박지 않고 여기서 흔들며 그린다 — 아이가 하나를 떼어 하늘로 날려 보낼 수 있다.
@@ -1859,7 +1875,9 @@ const belowFold = (() => {
 
     // 5b) 강의 오리와 천막의 연 — 마을 그림 위에서 움직인다
     if (VG && SPR2) { drawDucks(gx, gy); if (VG.kite) drawKite(gx, gy); }
+    if (VG && VG.boat) drawBoat(gx, gy);
     if (VG && VG.sails) drawSails(gx, gy);
+    if (VG && VG.flags) drawFlags(gx, gy);
     if (VG) drawTentBalloons(gx, gy);
     drawPuddles(gx, gy);
     drawFountain(gx, gy);
