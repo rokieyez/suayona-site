@@ -1909,7 +1909,7 @@ const belowFold = (() => {
     const kid = (k, sp, hop) => {
       if (!walking) return { sp, bob: hop, at: spot(VG.chars[k]) };
       const me = KIDS[k], rows = kidArt[k].dirs[me.dir] || kidArt[k].dirs.S, p = spot(VG.dotAt(me.tx, me.ty));
-      return { sp: rows[KIDSTEP(me.moving, me.phase)] || rows[0], bob: me.moving ? 0 : hop, walker: me,
+      return { sp: rows[KIDSTEP(me.moving, me.phase)] || rows[0], bob: 0, walker: me,   // 서 있을 때 위아래로 뜨던 움직임은 뺐다(2026-09-29 로키즈)
                at: { x: Math.round(p.x / castS) * castS, y: Math.round(p.y / castS) * castS } };
     };
     const cast = VG ? [
