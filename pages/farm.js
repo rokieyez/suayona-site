@@ -8,7 +8,7 @@ buildChrome('farm');
 const R = FARM;
 let S = 3;                                     // 지도 한 픽셀 = 화면 몇 픽셀 — fitPixelCanvas 가 정한다
 const T = 32;                                  // 한 칸 = 32도트. 예전에는 16이었다 — 자리가 두 배가 되어 결을 넣을 수 있다.
-const COLS = R.GRID.w, ROWS = R.GRID.h;   // 지도 크기는 규칙이 정한다
+let COLS = R.GRID.w, ROWS = R.GRID.h;     // 지도 크기는 규칙이 정한다 — 농장마다 다르다(syncGrid)
 const NAME = R.NAME;
 
 let key = null, W = null, M = null, REV = 0, TUNE = R.fixTune(null), other = null, facts = {};
@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '11';
+const PLAY_V = '12';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -2771,6 +2771,7 @@ function layerCv(name, w, h){
 }
 // 표가 그대로면 그려 둔 것을 그냥 돌려준다
 function paintLayer(name, w, h, sig, fn){
+  sig += '|' + COLS + 'x' + ROWS;                        // 섬 크기가 다른 농장으로 옮겨 가면 다시 그린다
   const L = layerCv(name, w, h);
   if (L.sig !== sig){
     L.sig = sig;
@@ -2994,8 +2995,16 @@ function drawGlow(g, dark){
    원래 그림을 그 칸 위에 곧게 세운다. 면은 캔버스 path 대신 도트 줄로 채워 가장자리가 뭉개지지 않는다. */
 const IT = 40, IH = 20;                  // 칸 마름모의 가로·세로(도트)
 const ITOP = 108, ICLIFF = 72;           // 맨 뒤 꼭짓점 위로 남긴 하늘 · 섬 아래로 드러난 땅켜
-const ISO_W = (COLS + ROWS) * IT / 2, ISO_H = ITOP + (COLS + ROWS) * IH / 2 + ICLIFF + 12;
-const IOX = ROWS * IT / 2;
+let ISO_W = 0, ISO_H = 0, IOX = 0;
+// 섬 크기는 농장마다 다르다(규칙의 gridOf — 새 농장일수록 넓다). 그림·길찾기·누르기가 모두 COLS·ROWS 를 보므로
+// 지금 보는 농장에 맞춰 둔다. withView 가 들어가고 나올 때 부른다(옛 농장 구경 중에는 그 농장 크기)
+function syncGrid(){
+  const G = W && R.gridOf ? R.gridOf(W) : R.GRID;
+  if (G.w === COLS && G.h === ROWS && ISO_W) return;
+  COLS = G.w; ROWS = G.h;
+  ISO_W = (COLS + ROWS) * IT / 2; ISO_H = ITOP + (COLS + ROWS) * IH / 2 + ICLIFF + 12; IOX = ROWS * IT / 2;
+}
+syncGrid();
 let isoView = false, isoHits = [], isoChimney = null, lampOff = null;
 const isoBuf = {};
 function isoMode(){ return !!W && (W.farm || 0) >= 1; }
@@ -3083,7 +3092,7 @@ function isoSky(K, y0, y1){ isoGrad(y0, y1, K.sky); }
    작은 그림에 한 번 구워 두고 늘여 붙인다. 흩뿌림 무늬는 ditherRow 와 같은 BAYER 다. */
 const gradMemo = {};
 function isoGrad(y0, y1, cols){
-  const key = y0 + '|' + y1 + '|' + cols.join(',');
+  const key = ISO_W + '|' + y0 + '|' + y1 + '|' + cols.join(',');
   let c = gradMemo[key];
   if (!c){
     const h = Math.max(1, y1 - y0), n = cols.length - 1;
@@ -3602,12 +3611,13 @@ function inkRim(cv, col){
 // 한 번 그려 작은 캔버스에 담아 둔다. 표(sig)가 바뀌면 다시. 등불 자리도 함께 담는다. ink 가 있으면 테를 두른다.
 function isoSprite(id, sig, box, paint, ink){
   let e = isoBuf[id];
-  if (!e || e.sig !== sig || e.S !== S){
+  const gk = COLS + 'x' + ROWS;                          // 섬 크기가 바뀌면 같은 그림도 자리가 옮겨진다
+  if (!e || e.sig !== sig || e.S !== S || e.gk !== gk){
     // 다 그린 뒤에만 담는다 — 그리다 터지면 반쪽 그림이 굳지 않고 다음 장에 다시 그린다
     // 작물 줄은 바람 단계마다 다시 그린다 — 크기가 같으면 캔버스를 새로 만들지 않고 비워 쓴다(폰의 쓰레기 수거를 덜려고)
     const old = e, w = Math.max(1, Math.ceil(box.w * S) + 2), h = Math.max(1, Math.ceil(box.h * S) + 2);
     delete isoBuf[id];
-    e = { sig, S, lamps: [], cv: old && old.cv.width === w && old.cv.height === h ? old.cv : document.createElement('canvas') };
+    e = { sig, S, gk, lamps: [], cv: old && old.cv.width === w && old.cv.height === h ? old.cv : document.createElement('canvas') };
     e.ox = Math.floor(box.x * S); e.oy = Math.floor(box.y * S);
     if (e.cv !== (old && old.cv)){ e.cv.width = w; e.cv.height = h; }
     const g = e.cv.getContext('2d');
@@ -5939,14 +5949,15 @@ const VIEW_KEYS = ['farm', 'decor', 'layout', 'buildings', 'expand', 'plots', 's
 function pastOf(i){ return W && Array.isArray(W.past) && i != null ? W.past[i] || null : null; }
 function withView(fn){
   const P = pastOf(visitAt);
-  if (!P || inView) return fn();
+  if (!P || inView){ syncGrid(); return fn(); }
   const keep = {};
   VIEW_KEYS.forEach(k => { keep[k] = W[k]; });
   inView = true;
   W.farm = Math.max(0, R.FARMS.findIndex(f => f.id === P.farm));
   W.decor = P.decor || {}; W.layout = P.layout || {}; W.buildings = P.buildings || {}; W.expand = P.expand || 0;
   W.plots = {}; W.sprinklers = {}; W.animals = [];
-  try { return fn(); } finally { VIEW_KEYS.forEach(k => { W[k] = keep[k]; }); inView = false; }
+  syncGrid();
+  try { return fn(); } finally { VIEW_KEYS.forEach(k => { W[k] = keep[k]; }); inView = false; syncGrid(); }
 }
 
 // ---- 한 장 그리기 ----

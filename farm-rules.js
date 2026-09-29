@@ -360,10 +360,12 @@ const FARM = (() => {
      풍경(땅 빛깔·가장자리)은 farm.js 의 FARM_LOOK 이 농장마다 바꾼다. */
   const FARMS = [
     { id: 'meadow',   name: '들판 농장',   icon: '🌾', desc: '처음 연 농장이에요' },
-    { id: 'seaside',  name: '바닷가 농장', icon: '🌊', desc: '모래밭 너머로 파도가 쳐요',        room: 12, animals: 10 },
-    { id: 'mountain', name: '산골 농장',   icon: '⛰️', desc: '바위와 소나무 사이 서늘한 땅이에요', room: 16, animals: 14 },
-    { id: 'cloud',    name: '꽃구름 농장', icon: '☁️', desc: '구름 위에 꽃이 흐드러져요',        room: 20, animals: 16 },
+    { id: 'seaside',  name: '바닷가 농장', icon: '🌊', desc: '모래밭 너머로 파도가 쳐요',        room: 12, animals: 10, grid: { w: 22, h: 18 } },
+    { id: 'mountain', name: '산골 농장',   icon: '⛰️', desc: '바위와 소나무 사이 서늘한 땅이에요', room: 16, animals: 14, grid: { w: 24, h: 18 } },
+    { id: 'cloud',    name: '꽃구름 농장', icon: '☁️', desc: '구름 위에 꽃이 흐드러져요',        room: 20, animals: 16, grid: { w: 24, h: 20 } },
   ];
+  /* 새 농장일수록 섬이 넓다(2026-09-29 로키즈 「새 농장은 전체 크기를 더 크게」) — 들판 20×16 → 22×18 → 24×18 → 24×20.
+     늘어난 땅은 오른쪽(x 20~)과 아래(y 16~), 곧 섬의 앞쪽 두 가장자리다. 집·가게·밭·나무 자리는 그대로라 좌표가 안 바뀐다. */
   /* 꾸미개만 사서 이사를 서두르지 않게 방 가구와 동물 수도 본다(2026-09-28 로키즈 요청).
      room 은 수아 방·연아 방·거실 「각각」에 놓인 가구 수 — 한 아이 방만 채우고 떠나지 않게.
      가구와 동물은 이사 때 가져가니 갈수록 조금씩 높다. 동물은 우리를 다 채우면 18마리까지 산다. */
@@ -373,6 +375,7 @@ const FARM = (() => {
   const MOVE_GIFT = 2000;                 // 이삿날 두 아이에게 우편으로 가는 동전
   function farmIndex(world){ return Math.max(0, Math.min(FARMS.length - 1, Math.floor(Number(world && world.farm) || 0))); }
   function farmOf(world){ return FARMS[farmIndex(world)]; }
+  function gridOf(world){ return farmOf(world).grid || GRID; }
 
   // ---------- 농장 배치 ----------
   // 지도는 20×12 칸. 밭은 늘 가운데(6..15, 2..7)에 있고, 나머지는 아이들이 옮길 수 있다.
@@ -419,12 +422,12 @@ const FARM = (() => {
   const PLACE_IDS = Object.keys(PLACE);
   /* 새 농장은 처음 자리부터 다르다(2026-09-28 로키즈 「이전 농장과 완전히 다른 느낌」). 여기 없는 것은 PLACE 의 자리.
      집·가게·밭·나무와 바위(NODES)는 그대로라 길찾기와 저장은 안 바뀐다. 겹침은 tools/check-move.js 가 본다.
-     바닷가: 우리는 왼쪽 목장 곁, 앞 가장자리에 널빤지 길과 끝에 등대 · 산골: 목장이 집 밑 비탈, 폭포가 연못으로 · 꽃구름: 집 앞은 연못, 꽃길이 밭 앞을 가로지르고 목장은 앞쪽
+     바닷가: 목장은 넓어진 오른쪽 앞, 앞 가장자리에 널빤지 길, 오른쪽 끝 바다 모서리에 등대 · 산골: 집 앞은 낮은 연못, 목장은 밭 앞 비탈, 온실과 폭포는 넓어진 오른쪽 앞 · 꽃구름: 연못은 외양간 곁 오른쪽 끝, 꽃길이 밭 앞을 가로지르고 목장은 오른쪽 앞 끝
      집 바로 앞(0..5, 3..5)에 키 큰 건물을 두면 문 앞 아이들을 가린다 — 낮은 것만 둘 것. */
   const FARM_SPOT = {
-    seaside: { coop: [0, 3], pethouse: [2, 3], well: [4, 4], hive: [5, 3], pasture: [0, 5], greenhouse: [16, 2], barn: [16, 5], scarecrow: [15, 8], pond: [12, 11], lighthouse: [19, 15], palm: [18, 12], path: [10, 15], sandbox: [16, 12], swing: [12, 8], bench: [6, 15], wagon: [8, 15], clothesline: [0, 14], flowerbed: [6, 8], windmill: [0, 11], fountain: [8, 8], statue: [14, 0], lantern: [11, 9], arch: [10, 14], firepit: [17, 10], sign: [4, 2], birdhouse: [7, 0], flag: [19, 9] },
-    mountain: { pasture: [0, 3], barn: [16, 4], coop: [18, 2], pethouse: [16, 2], well: [4, 8], hive: [0, 8], greenhouse: [12, 12], scarecrow: [10, 8], pond: [16, 11], waterfall: [18, 9], cairn: [19, 15], path: [0, 15], fountain: [13, 9], statue: [19, 7], lantern: [15, 9], bench: [8, 15], swing: [2, 11], arch: [12, 8], sandbox: [0, 12], firepit: [16, 14], sign: [5, 1], clothesline: [4, 14], flowerbed: [6, 8], birdhouse: [8, 0], flag: [15, 0], wagon: [10, 15], windmill: [12, 0] },
-    cloud: { pasture: [12, 10], barn: [16, 3], coop: [4, 3], pethouse: [4, 5], well: [5, 5], hive: [5, 6], greenhouse: [0, 6], scarecrow: [17, 7], pond: [0, 3], balloon: [18, 9], skybridge: [18, 15], path: [6, 8], fountain: [9, 0], statue: [12, 0], lantern: [14, 8], bench: [0, 15], swing: [18, 11], arch: [4, 9], sandbox: [0, 12], firepit: [10, 15], sign: [6, 1], clothesline: [2, 15], flowerbed: [12, 15], birdhouse: [19, 5], flag: [7, 0], wagon: [6, 15], windmill: [18, 13] },
+    seaside: { coop: [0, 3], pethouse: [2, 3], well: [4, 4], hive: [5, 3], pasture: [15, 12], greenhouse: [16, 2], barn: [16, 5], scarecrow: [15, 8], pond: [0, 13], lighthouse: [21, 0], palm: [21, 10], path: [2, 16], sandbox: [12, 11], swing: [12, 8], bench: [6, 15], wagon: [8, 15], clothesline: [11, 16], flowerbed: [6, 8], windmill: [0, 11], fountain: [8, 8], statue: [14, 0], lantern: [11, 9], arch: [10, 14], firepit: [17, 10], sign: [4, 2], birdhouse: [7, 0], flag: [19, 9] },
+    mountain: { pasture: [14, 12], barn: [16, 4], coop: [18, 2], pethouse: [16, 2], well: [4, 8], hive: [2, 8], greenhouse: [20, 14], scarecrow: [10, 8], pond: [0, 4], waterfall: [21, 10], cairn: [23, 17], path: [0, 15], fountain: [13, 9], statue: [19, 7], lantern: [15, 9], bench: [8, 15], swing: [2, 11], arch: [12, 8], sandbox: [0, 12], firepit: [13, 13], sign: [5, 1], clothesline: [4, 14], flowerbed: [6, 8], birdhouse: [8, 0], flag: [15, 0], wagon: [10, 15], windmill: [12, 0] },
+    cloud: { pasture: [15, 14], barn: [16, 3], coop: [7, 9], pethouse: [5, 7], well: [5, 5], hive: [5, 6], greenhouse: [0, 6], scarecrow: [17, 7], pond: [20, 3], balloon: [20, 7], skybridge: [21, 19], path: [6, 8], fountain: [9, 0], statue: [12, 0], lantern: [14, 8], bench: [0, 15], swing: [12, 11], arch: [4, 9], sandbox: [0, 12], firepit: [10, 15], sign: [6, 1], clothesline: [2, 15], flowerbed: [12, 15], birdhouse: [19, 5], flag: [7, 0], wagon: [6, 15], windmill: [21, 11] },
   };
   function spotOf(world, id){
     const P = PLACE[id]; if (!P) return null;
@@ -856,8 +859,8 @@ const FARM = (() => {
     Object.keys(o.layout).forEach(id => {
       const P = PLACE[id], L = o.layout[id];
       if (!P || !L || typeof L.x !== 'number' || typeof L.y !== 'number'){ delete o.layout[id]; return; }
-      L.x = Math.max(0, Math.min(GRID.w - P.w, Math.round(L.x)));
-      L.y = Math.max(0, Math.min(GRID.h - P.h, Math.round(L.y)));
+      L.x = Math.max(0, Math.min(gridOf(o).w - P.w, Math.round(L.x)));
+      L.y = Math.max(0, Math.min(gridOf(o).h - P.h, Math.round(L.y)));
     });
     // 넓힌 방 — 숫자만 남기고 0~2 안으로 맞춘다. 옛 세이브에는 아예 없다.
     if (!o.rooms || typeof o.rooms !== 'object') o.rooms = {};
@@ -967,13 +970,13 @@ const FARM = (() => {
   /* 놀이 규칙(farm-rules-play.js)이 이 닫힘 안의 것을 쓴다. 손으로 적은 목록이 아니라
      tools/split-rules.py 가 두 파일을 읽어 만든 것이다 — 하나라도 빠지면 그 규칙이
      돌 때 undefined 로 터진다. 놀이 규칙을 고쳤으면 그 도구를 다시 돌린다. */
-  const INNER = { fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
+  const INNER = { gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
     GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, SPRINKLER2, SPRINKLERS, sprinklerOf, FIREFLY_MAX, PEDDLER, PED_WANT_MULT, PED_WANT_MAX, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, isNight,
     spotOf, thingHere,
-    FARMS, farmOf, MOVE_OPEN,
+    FARMS, farmOf, gridOf, MOVE_OPEN,
     dayKey, dayStartMs, daysBetween, calendar, weatherOf, prand,
     SKY_AT, setSky, skyOf, setSun, sunOf,
     plotIds, parseId, fieldCells, fieldHas, fieldBox,
