@@ -823,7 +823,10 @@ function cropIcon(c){
   const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
   g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, T, T);
   const P = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); };
-  drawCrop(0, 0, c, 4, false, P);
+  // 키 큰 작물(옥수수 개꼬리)은 칸 위로 넘친다 — 먼저 위아래 끝을 재어, 넘친 만큼 아래로 내려 그린다
+  let top = T, bot = 0;
+  drawCrop(0, 0, c, 4, false, (x, y, w, h) => { top = Math.min(top, Math.round(y)); bot = Math.max(bot, Math.round(y + h)); });
+  drawCrop(0, Math.max(0, Math.min(1 - top, T - bot)), c, 4, false, P);
   return cv;
 }
 /* 요리 그림 — 32x32 에 한 도트 한 픽셀. 층을 쌓아 그린다:
