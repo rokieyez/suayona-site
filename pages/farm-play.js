@@ -231,7 +231,7 @@ function syncTodo(){
   const needs = (W.animals || []).map(a => R.ANIMALS[a.kind] && R.ANIMALS[a.kind].need);
   const list = ['well'].concat(['coop', 'barn', 'pasture', 'pethouse'].filter(id => needs.indexOf(id) >= 0))
     .map(id => ({ nm: TODO_ICON[id] + ' ' + R.BUILDINGS[id].name + ' 짓기', done: done(id), go: () => openTab('duo', true) }));
-  list.push({ nm: '🎀 첫 꾸미개 놓기', done: Object.keys(W.decor || {}).length > 0, go: () => { shopTab = 'deco'; openTab('shop', true); } });
+  list.push({ nm: '🎀 첫 꾸미개 놓기', done: Object.keys(W.decor || {}).some(id => !W.decor[id].keep), go: () => { shopTab = 'deco'; openTab('shop', true); } });
   const show = (W.farm || 0) >= 1 && !visiting() && list.some(x => !x.done);
   el.hidden = !show;
   if (!show) return;
@@ -273,6 +273,20 @@ function arrivalFrame(g, from, to, p){
   g.fillStyle = '#2f2a24'; g.fillRect(x - 8, y + 7, 4, 4); g.fillRect(x + 4, y + 7, 4, 4);
   if (p >= 1) [[240, 64], [284, 70], [262, 52], [230, 86], [296, 90]].forEach(([sx, sy], i) => { g.fillStyle = i % 2 ? '#ffffff' : '#ffe066'; g.fillRect(sx, sy, 3, 3); });
 }
+// 이삿날 선물 목록 — 추억·새 식구·문패·도장(2026-09-30 로키즈 「이사 보상」)
+function arrivalGifts(to){
+  const keeps = Object.keys(W.decor || {}).filter(id => W.decor[id].keep && R.DECOR[id]);
+  const baby = (W.animals || []).filter(a => a.gift && R.ANIMALS[a.kind] && R.ANIMALS[a.kind].gift === to.id).pop();
+  const stamp = R.MEDALS.find(Md => Md.id === { seaside: 'stampSea', mountain: 'stampMt', cloud: 'stampCloud' }[to.id]);
+  const li = [
+    '📮 우편함에 이사 선물 동전 ' + (R.MOVE_GIFT || 0),
+    keeps.length ? '🧳 들고 온 추억: ' + keeps.map(id => R.DECOR[id].icon + ' ' + R.DECOR[id].name).join(' · ') : '',
+    baby ? R.ANIMALS[baby.kind].icon + ' 새 식구 <b>' + escapeHTML(baby.name) + '</b>가 따라왔어요. 「👭 둘이서」 칸 동물 목록의 ✏️ 로 이름을 지어 줘요' : '',
+    '🪧 대문 문패가 <b>수아연아 농장 ' + ((W.farm || 0) + 1) + '호점</b>이 됐어요',
+    stamp ? stamp.icon + ' 「📖 도감·기록」 칸 훈장에서 <b>' + stamp.name + '</b>을 받을 수 있어요' : '',
+  ].filter(Boolean);
+  return '<ul class="arrive-gifts">' + li.map(x => '<li>' + x + '</li>').join('') + '</ul>';
+}
 function openArrival(){
   const past = W.past || [], P = past[past.length - 1], to = R.farmOf(W);
   const from = (P && R.FARMS.find(f => f.id === P.farm)) || R.FARMS[Math.max(0, W.farm - 1)];
@@ -282,6 +296,7 @@ function openArrival(){
     + '<p class="sub">' + from.name + '을 떠나 <b>' + to.name + '</b>에 도착했어요. ' + (to.desc || '') + '</p>'
     + '<canvas id="arriveCv" class="arrive" width="640" height="280" aria-label="짐수레가 새 농장으로 건너가는 그림"></canvas>'
     + '<p class="sub">두고 온 ' + from.name + '은 농장 그림 위 「옛 농장 구경」에서 언제든 가 볼 수 있어요.</p>'
+    + arrivalGifts(to)
     + '<div class="modal-actions"><button type="button" class="dot-btn small primary" id="arriveGo">🏝 새 농장 둘러보기</button>'
     + (P ? '<button type="button" class="dot-btn small" id="arriveSnap">📷 ' + from.name + ' 마지막 한 장 내기</button>' : '') + '</div>';
   $('#modal').hidden = false;
@@ -575,7 +590,7 @@ function linesForDoll(kind){
 }
 function linesForBeast(a, rec){
   const today = R.dayKey(now()), name = (rec && rec.name) || R.ANIMALS[a.kind].name;
-  const cry = { chicken: '꼬꼬댁!', duck: '꽥꽥!', cow: '음매~', sheep: '매에~', pig: '꿀꿀', rabbit: '(코 씰룩씰룩)', dog: '멍멍! 산책 가자', cat: '야옹… (하품)' }[a.kind] || '…';
+  const cry = { chicken: '꼬꼬댁!', duck: '꽥꽥!', cow: '음매~', sheep: '매에~', pig: '꿀꿀', rabbit: '(코 씰룩씰룩)', dog: '멍멍! 산책 가자', cat: '야옹… (하품)', gull: '끼룩끼룩!', goat: '메에에~', crane: '뚜루루— (날개를 활짝)' }[a.kind] || '…';
   const lc = name.charCodeAt(name.length - 1), jong = lc >= 0xac00 && lc <= 0xd7a3 && (lc - 0xac00) % 28 !== 0;   // 받침이 있으면 「이에요」
   const pool = [cry, cry, name + (jong ? '이에요' : '예요')];
   if (rec){
@@ -584,7 +599,7 @@ function linesForBeast(a, rec){
     else pool.push('배고파요…', '밥 주세요!');
     if ((rec.love || 0) >= 5) pool.push(NAME[rec.by] + ' 좋아 💗');
     if (rec.ready) pool.push('선물이 있어요!');
-    if (a.kind === 'dog' || a.kind === 'cat') pool.push('뭐 주워 왔어요!');
+    if (R.ANIMALS[a.kind] && R.ANIMALS[a.kind].find) pool.push('뭐 주워 왔어요!');
   }
   return pool;
 }
@@ -1183,6 +1198,7 @@ function giftDialog(id, have){
   $('#gGo').addEventListener('click', () => { const n = Math.max(1, Math.min(have, Number($('#gN').value) || 1)), note = $('#gNote').value; const r = act((w, m) => R.sendGift(w, m, id, n, note, now())); if (r.ok) sfx('sparkle'); closeModal(); });
 }
 // 이사 카드 — 꾸미개를 다 놓으면 다음 농장으로. 먼저 누른 아이가 묻고 자매가 「좋아」 하면 떠난다.
+let keepPick = null;                                               // 들고 갈 추억 — 먼저 묻는 아이가 고른다
 function moveCard(cls){
   if (!R.moveState) return null;                                   // 배포 어긋남 대비
   const s = R.moveState(W, M), o = R.OTHER[key];
@@ -1196,11 +1212,29 @@ function moveCard(cls){
     : s.ready ? '준비가 다 됐어요! 둘 다 좋다고 하면 떠나요'
     : '아래를 모두 채우면 이사 갈 수 있어요';
   const list = s.conds.map(c => (c.left ? '⬜ ' : '✅ ') + c.icon + ' ' + c.name + ' ' + Math.min(c.have, c.need) + '/' + c.need).join('<br>');
+  const gk = Object.keys(R.ANIMALS).find(k => R.ANIMALS[k].gift === s.next.id);
   d.innerHTML = '<div class="nm">🚚 ' + s.next.icon + ' ' + s.next.name + '으로 이사</div><div class="pr">' + s.next.desc + '<br>' + say + '<br>' + list +
-    '<br><small>꾸미개와 다 지은 건물은 ' + s.farm.name + '에 두고 가요. 동전·가방·동물·집 가구·밭은 가져가요. 두고 간 농장은 언제든 다시 구경할 수 있어요.</small></div>';
+    '<br>🎁 이삿날 선물: 동전 ' + (R.MOVE_GIFT || 0) + ' · 추억 하나' + (gk ? ' · 아기 ' + R.ANIMALS[gk].name : '') + ' · 새 문패 · 여권 도장' +
+    '<br><small>꾸미개와 다 지은 건물은 ' + s.farm.name + '에 두고 가요(고른 추억 하나는 들고 가요). 동전·가방·동물·집 가구·밭은 가져가요. 두고 간 농장은 언제든 다시 구경할 수 있어요.</small></div>';
   if (R.MOVE_OPEN === false){                                      // 새 농장을 짓는 동안은 조건만 보여 준다
     d.insertAdjacentHTML('beforeend', '<div class="pr">🔒 <b>' + s.next.name + '은 지금 짓고 있어요. 곧 열려요!</b> 그동안 조건을 채워 둬요.</div>');
     return d;
+  }
+  // 추억 고르기 — 옛 농장에 두고 갈 꾸미개 가운데 하나. 이미 들고 온 추억은 알아서 따라가니 빼고 보여 준다
+  const keeps = Object.keys(W.decor || {}).filter(id => W.decor[id].keep && R.DECOR[id]);
+  if (keeps.length) d.insertAdjacentHTML('beforeend', '<div class="pr">🧳 늘 따라오는 추억: ' + keeps.map(id => R.DECOR[id].icon + ' ' + R.DECOR[id].name).join(' · ') + '</div>');
+  // 묻는 아이가 고르고, 고르지 않고 물었으면(이 기능 전에 물어 둔 것 포함) 「좋아」 하는 아이가 고른다
+  const asked = s.ask && s.ask.keep && R.DECOR[s.ask.keep];
+  if (asked) d.insertAdjacentHTML('beforeend', '<div class="pr">🧳 ' + (s.mineAsked ? '내가' : NAME[o] + '가') + ' 고른 추억: <b>' + asked.icon + ' ' + asked.name + '</b></div>');
+  else if (s.mineAsked) d.insertAdjacentHTML('beforeend', '<div class="pr">🧳 들고 갈 추억은 ' + NAME[o] + '가 골라요</div>');
+  const canPick = s.ready && (!s.ask || (s.otherAsked && !asked));
+  const pickable = canPick ? Object.keys(W.decor || {}).filter(id => R.DECOR[id] && !W.decor[id].keep) : [];
+  if (keepPick && pickable.indexOf(keepPick) < 0) keepPick = null;
+  if (pickable.length){
+    d.insertAdjacentHTML('beforeend', '<div class="pr">🧳 <b>들고 갈 추억 하나</b>를 골라요 — 새 농장에 그대로 서고, 다음 이사 때도 따라와요</div>');
+    const row = document.createElement('div'); row.className = 'act keeps';
+    pickable.forEach(id => row.appendChild(btn(R.DECOR[id].icon + ' ' + R.DECOR[id].name, keepPick === id ? 'on' : '', () => { keepPick = id; renderTab(); })));
+    d.appendChild(row);
   }
   const a = document.createElement('div'); a.className = 'act';
   if (!s.mineAsked) a.appendChild(btn(s.otherAsked ? '좋아, 가자!' : '이사 가자고 하기', 'buy', () => {
@@ -1208,10 +1242,10 @@ function moveCard(cls){
     // 옛 농장을 구경하던 중이면 먼저 지금 농장으로 돌아온다 — 떠난 뒤에도 옛 그림이 남지 않게
     if (visiting()) visitFarm(null);
     // 이삿날 장면은 act 가 다시 그리며 부르는 checkArrival 이 띄운다
-    const r = act((w, m) => R.askMove(w, m, now()));
-    if (r.ok) sfx(r.moved ? 'fanfare' : 'pop');
+    const r = act((w, m) => R.askMove(w, m, now(), keepPick || undefined));
+    if (r.ok){ sfx(r.moved ? 'fanfare' : 'pop'); keepPick = null; }
     renderTab();
-  }, !s.ready));
+  }, !s.ready || (pickable.length > 0 && !keepPick)));
   if (s.ask) a.appendChild(btn(s.mineAsked ? '물어본 것 거두기' : '다음에 가자', '', () => { act((w, m) => R.cancelMove(w, m, now())); renderTab(); }));
   d.appendChild(a);
   return d;
@@ -1297,6 +1331,12 @@ function renderShop(){
       const pr = document.createElement('div'); pr.className = 'pr';
       pr.textContent = what + (A.best ? ' · 마음 ' + R.LOVE_FOR_BEST + '이면 ' + R.itemName(A.best) : '') + ' · 마음 ' + R.LOVE_FOR_BABY + '이면 새끼를 봐요' + (ok ? '' : ' · ' + R.BUILDINGS[A.need].name + ' 필요');
       card.appendChild(pr);
+      if (A.gift){                                                  // 새 식구 — 이사 갈 때 새끼로만 온다
+        card.className = 'item locked';
+        const F = R.FARMS.find(f => f.id === A.gift);
+        pr.textContent = what + ' · ' + (F ? F.icon + ' ' + F.name : '새 농장') + '으로 이사 가면 새끼로 따라와요';
+        box.appendChild(card); return;
+      }
       const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('animal:' + k, A.cost, ok && M.coins >= A.cost)); card.appendChild(a); box.appendChild(card);
     });
   } else if (shopTab === 'furn'){
@@ -1334,7 +1374,8 @@ function renderShop(){
       const Dc = R.DECOR[d], have = W.decor && W.decor[d];
       if (Dc.farm && Dc.farm !== here && !have) return;    // 다른 농장 전용은 거기 살 때만 보인다
       const card = document.createElement('div'); card.className = 'item' + (have ? ' locked' : '');
-      card.innerHTML = '<div class="nm">' + Dc.icon + ' ' + Dc.name + (Dc.farm ? ' <span class="farm-only">이 농장에만</span>' : '') + '</div><div class="pr">' + (Dc.desc || '') + (have ? ' · ' + NAME[have.by] + '가 놓았어요' : ' · 레벨 ' + Dc.lv + '부터') + '</div>';
+      const from = have && have.keep && R.FARMS.find(f => f.id === have.keep);
+      card.innerHTML = '<div class="nm">' + Dc.icon + ' ' + Dc.name + (from ? ' <span class="farm-only">🧳 추억</span>' : Dc.farm ? ' <span class="farm-only">이 농장에만</span>' : '') + '</div><div class="pr">' + (Dc.desc || '') + (from ? ' · ' + from.name + '에서 들고 왔어요' : have ? ' · ' + NAME[have.by] + '가 놓았어요' : ' · 레벨 ' + Dc.lv + '부터') + '</div>';
       if (!have){ const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('deco:' + d, Dc.cost, M.coins >= Dc.cost && lv >= Dc.lv)); card.appendChild(a); }
       box.appendChild(card);
     });
@@ -1817,7 +1858,7 @@ function renderMedals(){
     d.innerHTML = '<span class="ic">' + m.icon + '</span><span><b>' + escapeHTML(m.name) + '</b><br>'
       + escapeHTML(m.got ? '받았어요' : m.desc) + '</span>';
     if (!m.got && m.ready){
-      d.appendChild(btn('받기 🪙' + m.coins, 'sm buy', () => {
+      d.appendChild(btn('받기 🪙' + m.coins + (m.gift ? ' + ' + R.itemName(m.gift.id) + ' ' + m.gift.n : ''), 'sm buy', () => {
         const r = act((w, mm) => R.claimMedal(w, mm, m.id, now()));
         if (r.ok) sfx('medal');
       }));
@@ -1847,7 +1888,7 @@ function snapCanvas(label){
   g.fillStyle = '#3a3226';
   g.font = '700 ' + Math.round(BAR * 0.46) + 'px "Galmuri11", system-ui, sans-serif';
   g.textBaseline = 'middle';
-  g.fillText(label || ((W.farm && R.farmOf ? '수아연아 ' + R.farmOf(W).name : '수아연아 농장') + ' · ' + R.dayKey(now())), PAD + 4, PAD + BAR * 0.5);
+  g.fillText(label || ((W.farm && R.farmOf ? '수아연아 농장 ' + (W.farm + 1) + '호점 · ' + R.farmOf(W).name : '수아연아 농장') + ' · ' + R.dayKey(now())), PAD + 4, PAD + BAR * 0.5);
   const right = R.SEASON_ICON[cal.season] + ' ' + R.SEASON_NAME[cal.season] + ' ' + cal.year + '년째 · '
     + (WNAME[wk] || wk) + ' · Lv ' + R.levelOf(M.xp);
   g.textAlign = 'right';

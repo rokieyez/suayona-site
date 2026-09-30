@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '17';
+const PLAY_V = '18';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -654,6 +654,33 @@ const BEAST = {
     '..CCCCCCCCCCCCCCCCCC....', '...CCCCCCCCCCCCCCCC.....', '....ll....ll....ll......', '....ll....ll....ll......',
     '...lll....lll...lll.....', '...ll......ll....ll.....',
   ], pal: { c: '#8b8f9c', C: '#6f7382', a: '#6f7382', e: '#ffd166', n: '#ffb3c4', t: '#8b8f9c', l: '#6f7382' } },
+  /* 이삿날 새 식구 셋(2026-09-30) — 바닷가 갈매기, 산골 염소, 꽃구름 두루미.
+     갈매기는 흰 머리·잿빛 날개·까만 날개 끝·노란 부리에 빨간 점. 염소는 매끈한 털에 뒤로 휜 뿔과 턱수염.
+     두루미는 붉은 정수리·까만 목·흰 몸에 까만 꽁지깃·긴 다리. */
+  gull: { w: 24, art: [
+    '........................', '...............wwww.....', '..............wwwwwb....', '.............wwwwwwbb...',
+    '.............wwwwbebb...', '.............wwwwbbbbkkk', '.............bwwbbbbbkr.', '............bbbbbbbbb...',
+    '..KK......bbbbbbbbbbb...', '.KKggggggggggbbbbbbbb...', 'KKgggggggggggggbbbbbb...', '.KKGggggggggggggbbbbb...',
+    '..KKGGgggggggggbbbbB....', '....bBGGGGGGGbbbbbB.....', '.....BBbbbbbbbbbBB......', '.......BBBBBBBBB........',
+    '..........ll..ll........', '..........ll..ll........', '.........lll.lll........',
+  ], pal: { w: '#ffffff', b: '#f7f8fa', B: '#d3dae0', g: '#b9c4ce', G: '#8f9ba6', K: '#2f3338', k: '#f5c542', r: '#e0453a', e: '#26241f', l: '#f2b04e' } },
+  goat: { w: 28, art: [
+    '.................HH.HH......', '..................HH.HH.....', '...................HH.HH....', '..................hhhhhh....',
+    '................aahhhhhhh...', '................aahhhheehh..', '..t..............hhhhhhhhhn.', '.tt..............hhhhhhhhhnn',
+    '.tbbbbbbbbbbbbbbbbhhhhhhhhh.', 'bbbbbbbbbbbbbbbbbbbhhhhhh...', 'bbbbbbbbbbbbbbbbbbbbhDDhh...', 'bbbbbbbbbbbbbbbbbbbb.DD.....',
+    'bbbbbbbbbbbbbbbbbbbb.DD.....', 'bbbbbbbbbbbbbbbbbbbB..D.....', 'BBbbbbbbbbbbbbbbbbBB........', '.BBBBBBBBBBBBBBBBBB.........',
+    '..BBBBBBBBBBBBBBBB..........', '...ll.ll.....ll.ll..........', '...ll.ll.....ll.ll..........', '...ll.ll.....ll.ll..........',
+    '...ll.ll.....ll.ll..........', '...LL.LL.....LL.LL..........', '...LL.LL.....LL.LL..........',
+  ], pal: { b: '#fbf5ea', B: '#dccfb8', h: '#fbf5ea', H: '#9a8466', a: '#e6d6ba', e: '#3a3226', n: '#f2c0b0', D: '#d8c8a8', t: '#e6d6ba', l: '#ece2cf', L: '#4a4038' } },
+  crane: { w: 24, art: [
+    '..................rr....', '.................wrrw...', '.................wwekyyy', '.................wkkk...',
+    '..................kk....', '..................kk....', '.................kk.....', '.................kk.....',
+    '................kk......', '................kk......', '.....wwwwwwwwwwwkk......', '...wwwwwwwwwwwwwwk......',
+    '.kkkwwwwwwwwwwwwww......', 'kkkkkwwwwwwwwwwwww......', '.kkkkWwwwwwwwwwwwW......', '..kkkWWwwwwwwwwwWW......',
+    '.....WWWWWWWWWWWW.......', '........l....l..........', '........l....l..........', '........l....l..........',
+    '........l....l..........', '........l....l..........', '........l....l..........', '.......ll...ll..........',
+    '......lll..lll..........',
+  ], pal: { w: '#ffffff', W: '#d9d9d2', k: '#2a2a2e', r: '#e0303a', y: '#b8b08a', e: '#26241f', l: '#3a3a3e' } },
 };
 // 가게 아저씨 — 파란 캡에 흰 셔츠, 초록 앞치마.
 // 예전에는 살색 네모 하나에 점 두 개가 전부라 기괴해 보였다.
@@ -5849,12 +5876,17 @@ const BEAST3D = {
   rabbit:  { L: 6, Wd: 5, z0: 1, h: 9, legH: 2, leg: '#f2ece2', legR: 1.6, body: ['#ffffff', '#f6f0e6', '#d9d0c2'], head: { f: 6, r: 4, z: 8, h: 8 }, face: 'rabbit' },
   dog:     { L: 9, Wd: 5, z0: 6, h: 9, legH: 6, leg: '#c98f55', legR: 1.6, body: ['#f0c48a', '#dca36a', '#b57f48'], head: { f: 10, r: 5, z: 11, h: 9 }, face: 'dog', nose: 2.5 },
   cat:     { L: 8, Wd: 4.5, z0: 5, h: 8, legH: 5, leg: '#e0a060', legR: 1.4, body: ['#ffc98a', '#f2a65a', '#c9803c'], head: { f: 8, r: 4.5, z: 10, h: 8 }, face: 'cat', stripes: '#c9803c' },
+  // 이삿날 새 식구 — 갈매기는 잿빛 날개, 두루미는 긴 다리와 까만 목(neck)으로 머리를 높이 든다
+  gull:    { L: 7, Wd: 5, z0: 4, h: 9, legH: 4, leg: '#f2b04e', legR: 1.1, body: ['#ffffff', '#f6f8fa', '#d3dae0'], head: { f: 7, r: 3.8, z: 10, h: 7 }, face: 'gull', nose: 1.2, bird: true, wing: ['#c3ccd4', '#a4b0bb', '#6d7780'] },
+  goat:    { L: 10, Wd: 6, z0: 8, h: 11, legH: 9, leg: '#ece2cf', legR: 1.5, body: ['#fffaf0', '#f1e7d4', '#d4c4a6'], head: { f: 11, r: 4.3, z: 14, h: 9 }, face: 'goat', nose: 2 },
+  crane:   { L: 7, Wd: 4.5, z0: 16, h: 9, legH: 16, leg: '#3a3a3e', legR: 0.8, body: ['#ffffff', '#f7f7f3', '#d9d9d2'], head: { f: 8, r: 3, z: 30, h: 6 }, face: 'crane', bird: true, neck: '#2a2a2e' },
 };
+BEAST3D.chicken.bird = BEAST3D.duck.bird = true;
 function beast3d(kind, d, frame, k){
   const B = BEAST3D[kind] || BEAST3D.chicken, sc = x => x * DOT * k, zc = z => Math.round(z * k);   // sc: 도트 → 칸
   const parts = [];
   // 다리 넷(새는 둘) — 걸음 장마다 앞뒤로 엇갈린다
-  const legs = B.legH <= 5 && (kind === 'chicken' || kind === 'duck') ? [[0, -0.4], [0, 0.4]] : [[0.6, -0.55], [0.6, 0.55], [-0.6, -0.55], [-0.6, 0.55]];
+  const legs = B.bird ? [[0, -0.4], [0, 0.4]] : [[0.6, -0.55], [0.6, 0.55], [-0.6, -0.55], [-0.6, 0.55]];
   legs.forEach(([lf, ls], i) => {
     const step = frame ? ((i + (lf > 0 ? 0 : 1)) % 2 ? 1.5 : -1.5) : 0, [a, b] = fwd(d, sc(B.L * lf + step), sc(B.Wd * ls));
     parts.push({ dep: a + b - 5, go: () => ileg(a, b, sc(B.legR), frame && step > 0 ? 1 : 0, zc(B.legH) + 2, B.leg, kind === 'cow' ? '#4a3a2e' : kind === 'pig' ? '#c97a8a' : kind === 'sheep' ? '#1f1a14' : null) });
@@ -5867,6 +5899,9 @@ function beast3d(kind, d, frame, k){
     else if (kind === 'rabbit' || kind === 'sheep') iegg(tu, tv, sc(2.5), sc(2.5), zc(B.z0 + B.h * 0.4), zc(5), B.body);
     else if (kind === 'pig'){ px(x - 1, y - 2, 3, 1, '#e88aa0'); px(x + 1, y - 3, 1, 2, '#e88aa0'); px(x - 1, y - 4, 2, 1, '#e88aa0'); }
     else if (kind === 'duck') px(x - 2, y - 1, 4, 2, '#dcd4c2');
+    else if (kind === 'gull'){ px(x - 2, y - 1, 4, 2, '#2f3338'); px(x - 2, y - 1, 4, 1, '#6d7780'); }
+    else if (kind === 'crane') iegg(tu, tv, sc(3.2), sc(3.2), zc(B.z0 + 1), zc(6), ['#3a3a3e', '#2a2a2e', '#18181b']);   // 까만 꽁지깃
+    else if (kind === 'goat'){ px(x, y - 4, 2, 4, B.body[2]); px(x, y - 4, 2, 1, B.body[0]); }                          // 짧게 치켜든 꼬리
     else { const up = kind === 'cat' || kind === 'dog' ? -1 : 1; for (let i = 0; i < 8; i++) px(x + (i >> 2), y + up * i - (up < 0 ? 0 : 4), 2, 1, kind === 'cow' ? '#3a3226' : B.body[2]); if (kind === 'cow') px(x, y + 3, 3, 3, '#2e2a26'); if (kind === 'cat') px(x + 1, y - 8, 2, 2, shade(B.body[2], -16)); }
   } });
   // 몸 — 방향 쪽으로 길쭉한 달걀. 소는 점박이, 양은 몽글몽글, 고양이는 줄무늬.
@@ -5875,10 +5910,14 @@ function beast3d(kind, d, frame, k){
             : B.fluff ? (x, y) => { const q = hash2(x >> 1, y >> 1, 332), ry = y >> 1, cx3 = ((x + (ry % 2) * 2) % 4 + 4) % 4; if ((y & 1) && cx3 === 0) return B.body[2]; if (!(y & 1) && cx3 === 2) return B.body[0]; return q > 0.85 ? B.body[0] : q < 0.08 ? B.body[2] : null; }
             : B.stripes ? (x, y, kk) => kk % 4 === 1 && (x & 3) ? B.stripes : null : null;
   parts.push({ dep: 0, go: () => iegg(0, 0, ru, rv, zc(B.z0), zc(B.h), B.body, pat) });
-  if (kind === 'chicken' || kind === 'duck') parts.push({ dep: 0.005, go: () => {
+  if (B.bird) parts.push({ dep: 0.005, go: () => {
     const sd = [-1, 1].find(k2 => { const [a, b] = fwd(d, 0, k2); return a + b > 0; }), [a, b] = fwd(d, -sc(1), sd * sc(B.Wd * 0.8));
-    iegg(a, b, du ? sc(4) : sc(2), dv ? sc(4) : sc(2), zc(B.z0 + 3), zc(5), [B.body[1], B.body[2], shade(B.body[2], -14)]);
+    iegg(a, b, du ? sc(4) : sc(2), dv ? sc(4) : sc(2), zc(B.z0 + 3), zc(5), B.wing || [B.body[1], B.body[2], shade(B.body[2], -14)]);
   } });
+  if (B.neck){                                                                  // 두루미 목 — 몸 앞에서 머리까지 곧게
+    const [na, nb] = fwd(d, sc(B.head.f * 0.8), 0);
+    parts.push({ dep: na + nb + 0.01, go: () => ileg(na, nb, sc(1.4), zc(B.z0 + B.h * 0.6), zc(B.head.z + 1), B.neck) });
+  }
   if (kind === 'cow') parts.push({ dep: 0.01, go: () => { const [a, b] = fwd(d, -sc(3), 0); iegg(a, b, sc(2.5), sc(2.5), zc(B.z0 - 3), zc(4), ['#ffc9d2', '#ffb3c1', '#e88aa0']); } });   // 젖
   // 머리
   const H = B.head, [hu, hv] = fwd(d, sc(H.f), 0), hc = [hu, hv], hz = zc(H.z), hh = zc(H.h), hr = sc(H.r);
@@ -5897,6 +5936,17 @@ function beast3d(kind, d, frame, k){
     if (B.face === 'pig'){ nose('#f28ea3', 3); [-1, 1].forEach(sd => ear(sd, 4, '#e88aa0', 4)); }
     if (B.face === 'rabbit') [-1, 1].forEach(sd => { const [a, b] = fwd(d, -hr * 0.2, sd * hr * 0.4); ileg(hu + a, hv + b, sc(1), top - 2, top + zc(10), '#fbf6ee'); const q = isoP(hu + a, hv + b, top + zc(8)); px(Math.round(q.x), Math.round(q.y), 1, zc(4), '#ffb3c1'); });
     if (B.face === 'dog'){ nose('#c98f55', 2); [-1, 1].forEach(sd => { const [a, b] = fwd(d, 0, sd * hr * 0.9), q = isoP(hu + a, hv + b, top - 2), x = Math.round(q.x), y = Math.round(q.y); px(x - 1, y, 3, 6, '#8a5a34'); }); const [ca, cb] = fwd(d, -hr * 0.6, 0); isoEllipse(hu + ca, hv + cb, hr * 0.7, hr * 0.7, hz + 1, '#e8453c'); }
+    if (B.face === 'gull'){ nose('#f5c542', 2); const [a, b] = fwd(d, hr * 0.95 + sc(B.nose), 0), q = isoP(hu + a, hv + b, hz + zc(2)); px(Math.round(q.x), Math.round(q.y) + 1, 1, 1, '#e0453a'); }
+    if (B.face === 'goat'){
+      nose('#f2c9b8', 2);
+      [-1, 1].forEach(sd => { const [a, b] = fwd(d, -hr * 0.2, sd * hr * 0.45), q = isoP(hu + a, hv + b, top - 1), x = Math.round(q.x), y = Math.round(q.y); px(x - 1, y - 3, 2, 3, '#9a8466'); px(x - 2, y - 5, 2, 2, '#b8a282'); });   // 뒤로 휜 뿔
+      [-1, 1].forEach(sd => { const [a, b] = fwd(d, 0, sd * hr * 0.95), q = isoP(hu + a, hv + b, mid), x = Math.round(q.x), y = Math.round(q.y); px(x - 1, y, 3, 3, '#e6d6ba'); });                                      // 옆으로 늘어진 귀
+      if (facingViewer(d)){ const [a, b] = fwd(d, hr * 0.8, 0), q = isoP(hu + a, hv + b, hz); px(Math.round(q.x) - 1, Math.round(q.y), 2, 4, '#d8c8a8'); }                                                    // 턱수염
+    }
+    if (B.face === 'crane'){
+      const q = isoP(hu, hv, top), x = Math.round(q.x), y = Math.round(q.y); px(x - 1, y - 1, 3, 2, '#e0303a');                                    // 붉은 정수리
+      for (let i = 0; i < 4; i++){ const [a, b] = fwd(d, hr * 0.9 + sc(1.3 * i), 0), w = isoP(hu + a, hv + b, hz + zc(3)); px(Math.round(w.x), Math.round(w.y), 2, 1, '#b8b08a'); }   // 긴 부리
+    }
     if (B.face === 'cat'){ [-1, 1].forEach(sd => ear(sd, 4, '#e08a44', 4)); if (facingViewer(d)) [-1, 1].forEach(sd => { const [a, b] = fwd(d, hr, sd * hr * 0.5), q = isoP(hu + a, hv + b, mid - 2); px(Math.round(q.x) + (sd > 0 ? 1 : -4), Math.round(q.y), 4, 1, '#fff6e9'); }); }
     ieyes(d, hc, hr * 0.92, mid + 1, hr * 0.45, '#2b2622', true);
     if (facingViewer(d) && (B.face === 'pig' || B.face === 'cow' || B.face === 'cat' || B.face === 'rabbit')){ [-1, 1].forEach(sd => { const [a, b] = fwd(d, hr * 0.85, sd * hr * 0.62), q = isoP(hu + a, hv + b, mid - 2); px(Math.round(q.x) - 1, Math.round(q.y), 2, 1, '#ff9aa8'); }); }
@@ -6558,6 +6608,9 @@ function paintPastBar(el, pick){
   const text = h => { const s = document.createElement('span'); s.innerHTML = h; el.appendChild(s); };
   const nameOf = p => { const F = R.FARMS.find(f => f.id === p.farm); return F ? F.icon + ' ' + F.name : '옛 농장'; };
   const day = k => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(k || ''); return m ? Number(m[1]) + '월 ' + Number(m[2]) + '일' : ''; };
+  // 대문 문패 — 이사할 때마다 「N호점」이 붙는다(2026-09-30 로키즈 「이사 보상」). 옛 농장 구경 중이면 그 농장 번호
+  const shown = visitAt != null && past[visitAt] ? R.FARMS.findIndex(f => f.id === past[visitAt].farm) : (W.farm || 0);
+  if (shown >= 1) text('<span class="doorplate">🪧 수아연아 농장 ' + (shown + 1) + '호점</span>');
   if (visitAt != null && past[visitAt]){
     const p = past[visitAt];
     text('<b>' + nameOf(p) + '</b> 구경 중' + (day(p.until) ? ' · ' + day(p.until) + '까지 살던 곳' : ''));
@@ -7429,10 +7482,10 @@ function paintWallItem(wall, u, f, P, room, pic){
       w(4, 6, 32, 2, '#6f4e33');
       w(6, 8, 28, 42, '#3f3a52');                                     // 안쪽 융 (y 8~50)
       w(6, 8, 28, 1, '#524b68');
-      /* 훈장 열둘을 4×3 으로. 지름을 6으로 잡았더니 옆것과 딱 붙어 한 줄 막대로 보였다 —
-         4로 줄이고 자리는 6칸씩 띄워 사이에 두 도트가 남게 했다. */
+      /* 훈장 열여섯을 4×4 로(2026-09-30 이사 도장 넷이 붙기 전에는 4×3). 지름을 6으로 잡았더니 옆것과 딱 붙어
+         한 줄 막대로 보였다 — 4로 줄이고 자리는 6칸씩 띄워 사이에 두 도트가 남게 했다. 줄은 10칸씩, 리본 밑에 한 도트 틈 */
       R.MEDALS.forEach((Md, i) => {
-        const cx = 8 + (i % 4) * 6, cy = 11 + Math.floor(i / 4) * 13;
+        const cx = 8 + (i % 4) * 6, cy = 9 + Math.floor(i / 4) * 10;
         if (got.indexOf(Md.id) < 0){ w(cx + 1, cy + 2, 2, 2, '#2e2a3c'); return; }   // 아직 못 받은 자리 — 빈 못
         w(cx + 1, cy, 2, 1, shade(Md.col, -34));
         w(cx, cy + 1, 4, 4, Md.col);
@@ -7440,10 +7493,9 @@ function paintWallItem(wall, u, f, P, room, pic){
         w(cx + 1, cy + 5, 2, 1, shade(Md.col, -34));
         w(cx, cy + 6, 2, 3, '#c9333f'); w(cx + 2, cy + 6, 2, 3, '#e0736e');          // 리본
       });
-      // 받은 수를 밑에 눈금으로 — 글자를 못 쓰니 칸으로 센다
-      for (let i = 0; i < R.MEDALS.length; i++){
-        w(6 + i * 2, 47, 2, 1, i < got.length ? '#ffd25a' : '#2e2a3c');
-      }
+      // 받은 만큼 밑에 금빛 막대로 — 글자를 못 쓰니 길이로 센다(열여섯은 두 도트씩 눈금이 안 들어간다)
+      w(6, 49, 28, 1, '#2e2a3c');
+      w(6, 49, Math.round(28 * got.length / R.MEDALS.length), 1, '#ffd25a');
       break;
     }
     case 'wlight': {                                                  // 벽 조명 — 따뜻한 불빛이 벽에 번진다

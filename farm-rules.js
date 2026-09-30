@@ -442,11 +442,14 @@ const FARM = (() => {
   /* 새 농장은 처음 자리부터 다르다(2026-09-28 로키즈 「이전 농장과 완전히 다른 느낌」). 여기 없는 것은 PLACE 의 자리.
      집·가게·밭·나무와 바위(NODES)는 그대로라 길찾기와 저장은 안 바뀐다. 겹침은 tools/check-move.js 가 본다.
      바닷가: 목장은 넓어진 오른쪽 앞, 앞 가장자리에 널빤지 길, 오른쪽 끝 바다 모서리에 등대 · 산골: 집 앞은 낮은 연못, 목장은 밭 앞 비탈, 온실과 폭포는 넓어진 오른쪽 앞 · 꽃구름: 연못은 외양간 곁 오른쪽 끝, 꽃길이 밭 앞을 가로지르고 목장은 오른쪽 앞 끝
-     집 바로 앞(0..5, 3..5)에 키 큰 건물을 두면 문 앞 아이들을 가린다 — 낮은 것만 둘 것. */
+     집 바로 앞(0..5, 3..5)에 키 큰 건물을 두면 문 앞 아이들을 가린다 — 낮은 것만 둘 것.
+     줄 끝에 붙은 앞 농장 전용 꾸미개 자리는 이사 때 「추억」으로 들고 왔을 때 서는 곳(2026-09-30). */
   const FARM_SPOT = {
     seaside: { mail: [4, 1], board: [5, 0], birdhouse: [7, 0], statue: [14, 0], lighthouse: [21, 0], sign: [5, 2], greenhouse: [17, 2], coop: [0, 3], pethouse: [3, 3], well: [1, 5], clothesline: [2, 5], hive: [4, 5], scarecrow: [16, 5], barn: [18, 5], flowerbed: [6, 8], flag: [21, 8], swing: [3, 9], fountain: [9, 9], lantern: [13, 9], windmill: [17, 10], arch: [7, 11], sandbox: [12, 11], pond: [5, 13], pasture: [16, 13], bench: [3, 16], firepit: [8, 16], wagon: [3, 17], path: [7, 17], palm: [15, 17], anchor: [4, 12], boat: [9, 16], parasol: [14, 12] },
-    mountain: { mail: [4, 1], board: [5, 0], sign: [6, 1], birdhouse: [8, 0], windmill: [12, 0], flag: [23, 0], pethouse: [16, 2], coop: [18, 2], barn: [20, 4], statue: [20, 7], scarecrow: [16, 5], well: [1, 3], hive: [3, 4], greenhouse: [16, 11], pasture: [9, 12], pond: [19, 14], waterfall: [22, 12], cairn: [23, 17], path: [6, 17], fountain: [9, 9], lantern: [11, 9], bench: [4, 16], swing: [6, 12], arch: [12, 10], sandbox: [17, 9], firepit: [7, 15], clothesline: [2, 6], flowerbed: [6, 7], wagon: [14, 17], woodpile: [1, 7], milkcans: [23, 6], alphorn: [6, 8] },
-    cloud: { mail: [4, 1], board: [5, 0], flag: [7, 0], statue: [12, 0], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [17, 2], greenhouse: [20, 2], fountain: [10, 7], balloon: [21, 7], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19], skybridge: [22, 19], shishi: [1, 9], koinobori: [2, 9], toro: [5, 15] },
+    mountain: { mail: [4, 1], board: [5, 0], sign: [6, 1], birdhouse: [8, 0], windmill: [12, 0], flag: [23, 0], pethouse: [16, 2], coop: [18, 2], barn: [20, 4], statue: [20, 7], scarecrow: [16, 5], well: [1, 3], hive: [3, 4], greenhouse: [16, 11], pasture: [9, 12], pond: [19, 14], waterfall: [22, 12], cairn: [23, 17], path: [6, 17], fountain: [9, 9], lantern: [11, 9], bench: [4, 16], swing: [6, 12], arch: [12, 10], sandbox: [17, 9], firepit: [7, 15], clothesline: [2, 6], flowerbed: [6, 7], wagon: [14, 17], woodpile: [1, 7], milkcans: [23, 6], alphorn: [6, 8],
+      lighthouse: [10, 0], palm: [14, 0], anchor: [23, 2], boat: [4, 15], parasol: [18, 5] },
+    cloud: { mail: [4, 1], board: [5, 0], flag: [7, 0], statue: [12, 0], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [17, 2], greenhouse: [20, 2], fountain: [10, 7], balloon: [21, 7], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19], skybridge: [22, 19], shishi: [1, 9], koinobori: [2, 9], toro: [5, 15],
+      lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], anchor: [14, 17], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5] },
   };
   function spotOf(world, id){
     const P = PLACE[id]; if (!P) return null;
@@ -478,6 +481,10 @@ const FARM = (() => {
     rabbit:  { name: '토끼',  cost: 250, need: 'pasture', product: 'angora',  best: null,          every: 2, icon: '🐇' },
     dog:     { name: '강아지', cost: 700, need: 'pethouse', product: null,    best: 'gem',         every: 1, icon: '🐕', find: ['wood', 'stone', 'berry'] },
     cat:     { name: '고양이', cost: 700, need: 'pethouse', product: null,    best: 'gem',         every: 1, icon: '🐈', find: ['berry', 'fert', 'wood'] },
+    // 이삿날 새 농장에서 새끼 한 마리로 따라오는 식구(gift = 그 농장). 가게에서는 안 판다(2026-09-30 로키즈 「이사 보상」)
+    gull:    { name: '갈매기', cost: 0,   need: 'coop',    product: null,     best: 'gem',         every: 1, icon: '🕊️', find: ['fish:mackerel', 'fish:flounder', 'fish:seaweed'], gift: 'seaside' },
+    goat:    { name: '염소',  cost: 0,   need: 'barn',    product: 'milk',    best: 'goldmilk',    every: 1, icon: '🐐', gift: 'mountain' },
+    crane:   { name: '두루미', cost: 0,   need: 'pasture', product: null,     best: 'gem',         every: 1, icon: '🦢', find: ['fish:minnow', 'fish:crucian', 'fish:carp'], gift: 'cloud' },
   };
   const ANIMAL_MAX = { coop: 6, barn: 6, pasture: 4, pethouse: 2 };
   const LOVE_FOR_BEST = 5;
@@ -823,6 +830,12 @@ const FARM = (() => {
     { id: 'night', col: '#9bea6e',    name: '반딧불이 밤', icon: '🌟', desc: '반딧불이를 스무 마리 잡아요',  coins: 300,  need: (w, m) => ((m.stats || {}).caught || 0) >= 20 },
     { id: 'party', col: '#c9a24a',    name: '축제의 별',   icon: '🏆', desc: '축제에서 상을 받아요',         coins: 600,  need: (w) => Object.keys(w.festival || {}).some(k => w.festival[k].done) },
     { id: 'hundred', col: '#a9c4d6',  name: '백 날의 농부', icon: '📅', desc: '농장에 백 날 와요',           coins: 1000, need: (w, m) => (m.playDays || []).length >= 100 },
+    // 농장 여권 — 이사할 때마다 도장 하나, 넷을 다 모으면 큰 선물(2026-09-30 로키즈 「이사 보상」)
+    { id: 'stampSea', col: '#5fb3e8',   name: '바닷가 도장', icon: '🌊', desc: '바닷가 농장으로 이사 가요',   coins: 300,  need: (w) => (w.farm || 0) >= 1 },
+    { id: 'stampMt', col: '#7fae6a',    name: '산골 도장',   icon: '⛰️', desc: '산골 농장으로 이사 가요',     coins: 500,  need: (w) => (w.farm || 0) >= 2 },
+    { id: 'stampCloud', col: '#f2b8d8', name: '꽃구름 도장', icon: '☁️', desc: '꽃구름 농장으로 이사 가요',   coins: 800,  need: (w) => (w.farm || 0) >= 3 },
+    { id: 'passport', col: '#ffd25a',   name: '네 농장 여권', icon: '🗺️', desc: '이사 도장 셋을 모두 받아요', coins: 3000, gift: { id: 'seed:star', n: 5 },
+      need: (w, m) => ['stampSea', 'stampMt', 'stampCloud'].every(k => (m.medals || []).indexOf(k) >= 0) },
   ];
   function cropsInDex(mine){
     return CROP_IDS.filter(c => mine.dex.indexOf(c) >= 0).length;
@@ -1025,7 +1038,7 @@ const FARM = (() => {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
     GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, SPRINKLER2, SPRINKLERS, sprinklerOf, FIREFLY_MAX, PEDDLER, PED_WANT_MULT, PED_WANT_MAX, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, isNight,
     spotOf, thingHere,
-    FARMS, farmOf, gridOf, nodeSpot, sceneryOf, MOVE_OPEN,
+    FARMS, farmOf, gridOf, nodeSpot, sceneryOf, MOVE_OPEN, MOVE_GIFT,
     dayKey, dayStartMs, daysBetween, calendar, weatherOf, prand,
     SKY_AT, setSky, skyOf, setSun, sunOf,
     plotIds, parseId, fieldCells, fieldHas, fieldBox,

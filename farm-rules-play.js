@@ -409,14 +409,19 @@
   // 남은 조건을 한 줄로 — 「꾸미개 4개 · 연아 방 가구 3개 · 동물 2마리」
   function moveLeftText(s){ return s.conds.filter(c => c.left).map(c => c.name + ' ' + c.left + c.unit).join(' · '); }
   // 먼저 누른 아이는 묻기만 하고, 자매가 「좋아」를 누르면 그때 떠난다 — 둘의 농장이라 혼자 못 옮긴다
-  function askMove(world, mine, now){
+  /* keep: 옛 농장에 두고 가는 꾸미개 가운데 하나를 「추억」으로 들고 간다(2026-09-30 로키즈 「이사 보상」).
+     먼저 묻는 아이가 고르고, 들고 온 추억은 다음 이사 때도 늘 따라간다(decor[id].keep = 처음 놓였던 농장). */
+  function askMove(world, mine, now, keep){
     const s = moveState(world, mine);
+    const D = world.decor || {};
+    if (keep && !(D[keep] && !D[keep].keep)) return fail('들고 갈 추억은 지금 농장에 놓인 꾸미개에서 골라요');
     if (!s.next) return fail('여기가 마지막 농장이에요');
     if (!MOVE_OPEN) return fail(s.next.name + '은 아직 짓고 있어요. 곧 열려요');
     if (!s.ready) return fail('이사까지 ' + moveLeftText(s) + ' 더 있어야 해요');
     if (s.mineAsked) return fail(NAME[OTHER[mine.key]] + '의 대답을 기다려요');
-    if (s.otherAsked) return moveFarm(world, mine, s, now);
+    if (s.otherAsked) return moveFarm(world, mine, s, now, s.ask.keep || keep);
     world.moveAsk = { by: mine.key, on: dayKey(now) };
+    if (keep) world.moveAsk.keep = keep;
     logAdd(world, mine.key, NAME[mine.key] + '가 ' + s.next.name + '으로 이사 가자고 했어요', now);
     return okay(NAME[OTHER[mine.key]] + '에게 물어봤어요. 둘 다 좋다고 하면 ' + s.next.icon + ' ' + s.next.name + '으로 떠나요');
   }
@@ -426,7 +431,7 @@
     logAdd(world, mine.key, NAME[mine.key] + '가 이사는 다음에 가자고 했어요', now);
     return okay('이사는 다음에 가기로 했어요');
   }
-  function moveFarm(world, mine, s, now){
+  function moveFarm(world, mine, s, now, keep){
     const left = [];
     Object.keys(world.buildings).forEach(b => {
       const B = world.buildings[b];
@@ -437,8 +442,10 @@
     const kept = {}; left.forEach(b => { kept[b] = { done: true }; });
     world.past.push({ farm: s.farm.id, until: dayKey(now), decor: JSON.parse(JSON.stringify(world.decor || {})),
       buildings: kept, layout: JSON.parse(JSON.stringify(world.layout || {})), expand: world.expand || 0 });
-    const from = fieldCells(world);
+    const from = fieldCells(world), old = world.decor || {};
     world.decor = {}; world.layout = {}; world.farm = (world.farm || 0) + 1;
+    // 추억 — 예전에 들고 온 것과 이번에 고른 것. 자리는 새 농장의 처음 자리에 선다
+    Object.keys(old).forEach(d => { if (old[d] && (old[d].keep || d === keep)) world.decor[d] = Object.assign({}, old[d], { keep: old[d].keep || s.farm.id }); });
     // 새 농장은 밭 모양이 달라 칸 이름(좌표)이 바뀐다 — 같은 넓히기 차례끼리 순서대로 옮겨 심는다(칸 수는 차례마다 같다).
     // 온실 칸(g…)은 그대로. 커다란 작물 짝이 옮긴 뒤 이웃이 아니면 짝을 풀어 보통 작물로 둔다
     const to = fieldCells(world), map = {};
@@ -453,12 +460,15 @@
     });
     delete world.moveAsk;
     ['sua', 'yona'].forEach(k => { (world.mail[k] = world.mail[k] || []).push({ id: 'coins', n: MOVE_GIFT, from: 'move', note: s.next.name + ' 이사 선물', t: now }); });
+    // 새 식구 — 그 농장에서만 만나는 동물이 새끼로 따라온다. 우리가 없으면 빈 터에서 논다(다른 동물처럼)
+    const gk = Object.keys(ANIMALS).find(k => ANIMALS[k].gift === s.next.id);
+    if (gk) world.animals.push({ id: 'a' + now + 'g', kind: gk, name: '아기 ' + ANIMALS[gk].name, by: mine.key, born: dayKey(now), love: 0, pet: [], since: 0, baby: true, gift: true });
     logAdd(world, mine.key, '수아와 연아가 ' + s.next.name + '으로 이사 왔어요', now);
     return okay(s.next.icon + ' <b>' + s.next.name + '</b>으로 이사 왔어요! 우편함에 이사 선물이 있어요. 건물은 둘이 다시 지어요', { moved: true });
   }
   function medalState(world, mine){
     return MEDALS.map(M => ({
-      id: M.id, name: M.name, icon: M.icon, desc: M.desc, coins: M.coins,
+      id: M.id, name: M.name, icon: M.icon, desc: M.desc, coins: M.coins, gift: M.gift || null,
       got: (mine.medals || []).indexOf(M.id) >= 0,
       ready: !!M.need(world, mine),
     }));
@@ -469,11 +479,13 @@
     if (mine.medals.indexOf(id) >= 0) return fail('이미 받은 훈장이에요');
     if (!M.need(world, mine)) return fail('아직이에요 — ' + M.desc);
     mine.medals.push(id); mine.coins += M.coins; mine.xp += 25;
+    if (M.gift) give(mine, M.gift.id, M.gift.n);
     // 첫 훈장에는 걸어 둘 자리가 따라온다 — 받은 것이 가방에만 쌓이면 자랑할 데가 없다
     const first = mine.medals.length === 1;
     if (first) give(mine, 'f:medalcase', 1);
     logAdd(world, mine.key, NAME[mine.key] + '가 훈장 「' + M.name + '」을 받았어요', now);
     return okay(M.icon + ' <b>' + M.name + '</b> 훈장! ' + M.coins + ' 동전'
+      + (M.gift ? ' · ' + itemName(M.gift.id) + ' ' + M.gift.n + '개' : '')
       + (first ? ' · <b>훈장 걸이</b>도 왔어요. 집에 걸어요' : ''), { medal: true, first: first });
   }
   function peddlerStock(world, now){
@@ -830,6 +842,7 @@
     }
     if (k === 'animal'){
       const A = ANIMALS[v]; if (!A) return fail('없는 동물이에요');
+      if (A.gift) return fail(A.name + (jong(A.name) ? '은 ' : '는 ') + FARMS.find(f => f.id === A.gift).name + '으로 이사 갈 때 새끼로 따라와요');
       if (!(world.buildings[A.need] && world.buildings[A.need].done)) return fail(eul(BUILDINGS[A.need].name) + ' 먼저 지어요');
       const here = world.animals.filter(a => ANIMALS[a.kind].need === A.need).length;
       if (here >= ANIMAL_MAX[A.need]) return fail(ee(BUILDINGS[A.need].name) + ' 꽉 찼어요');

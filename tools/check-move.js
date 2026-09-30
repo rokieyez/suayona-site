@@ -23,9 +23,19 @@ assert(r.ok && r.moved, '자매가 좋다고 하면 떠난다');
 assert.strictEqual(R.farmOf(w).id, 'seaside');
 assert.deepStrictEqual(w.decor, {}); assert.deepStrictEqual(w.layout, {});
 assert(!w.buildings.coop && w.buildings.kitchen && w.buildings.barn, '다 지은 것만 두고 간다');
-assert.strictEqual(w.animals.length, 10);
+assert.strictEqual(w.animals.length, 11, '새 식구 한 마리가 따라온다');
+{ const g = w.animals[w.animals.length - 1]; assert(g.kind === 'gull' && g.baby, '바닷가 새 식구는 아기 갈매기'); }
+assert(!R.buy(w, Object.assign(R.fixMine(null, 'sua'), { coins: 99999 }), 'animal:gull', now).ok, '새 식구는 가게에서 못 산다');
 assert.strictEqual(w.mail.sua.filter(g => g.from === 'move').length, 1);
 assert.strictEqual(w.past[0].farm, 'meadow'); assert.deepStrictEqual(w.past[0].layout, { statue: { x: 3, y: 3 } }); assert(w.past[0].buildings.coop && w.past[0].decor.statue); assert(!w.moveAsk);
+// 여권 도장 — 이사한 만큼 받고, 셋을 다 받으면 여권(별열매 씨앗 다섯)
+{
+  const mm = R.fixMine(null, 'sua');
+  assert(R.claimMedal(w, mm, 'stampSea', now).ok && !R.claimMedal(w, mm, 'stampMt', now).ok, '산골 도장은 산골에 가서');
+  const w4 = R.fixWorld(null, now); w4.farm = 3;
+  assert(R.claimMedal(w4, mm, 'stampMt', now).ok && !R.claimMedal(w4, mm, 'passport', now).ok);
+  assert(R.claimMedal(w4, mm, 'stampCloud', now).ok && R.claimMedal(w4, mm, 'passport', now).ok && mm.inv['seed:star'] === 5, '여권 선물');
+}
 // 저장·불러오기 뒤에도 그대로
 const w2 = R.fixWorld(JSON.parse(JSON.stringify(w)), now);
 assert.strictEqual(R.farmOf(w2).id, 'seaside');
@@ -53,7 +63,9 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   const I = R.__inner, hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
   R.FARMS.forEach((f, i) => {
     const wf = R.fixWorld(null, now); wf.farm = i;
-    const all = I.PLACE_IDS.filter(id => !(R.DECOR[id] && R.DECOR[id].farm && R.DECOR[id].farm !== f.id)).map(id => R.spotOf(wf, id));
+    // 앞 농장 전용 꾸미개는 추억으로 들고 올 수 있으니 뒤 농장에서도 자리가 겹치면 안 된다
+    const came = id => { const F = R.DECOR[id] && R.DECOR[id].farm; return !F || R.FARMS.findIndex(x => x.id === F) <= i; };
+    const all = I.PLACE_IDS.filter(came).map(id => R.spotOf(wf, id));
     const rocks = Object.keys(R.NODES).map(n => Object.assign({ id: n, w: 1, h: 1 }, R.nodeSpot(wf, n))).concat(R.sceneryOf(wf).map(c => ({ id: '풍경 ' + c.kind + '(' + c.x + ',' + c.y + ')', x: c.x, y: c.y, w: 1, h: 1 })));
     // 나무·바위·풍경끼리, 그리고 밭·떠돌이 상인 자리와도 겹치지 않는다
     rocks.forEach((a, k) => {
@@ -82,6 +94,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   R.FARMS.forEach((f, i) => {
     const wf = R.fixWorld(null, now); wf.farm = i;
     const C = R.fieldCells(wf);
+    const came = id => { const F = R.DECOR[id] && R.DECOR[id].farm; return !F || R.FARMS.findIndex(x => x.id === F) <= i; };
     [0, 1, 2, 3].forEach(k => {
       wf.expand = k;
       const open = new Set(R.plotIds(wf, 'field')), has = (x, y) => open.has(x + ',' + y);
@@ -95,7 +108,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
     assert(C.every(c => c.x >= 0 && c.y >= 0 && c.x < R.gridOf(wf).w && c.y < R.gridOf(wf).h - 1), f.id + ' 밭이 지도 밖');
     // 걸어 다닐 땅이 밭 때문에 조각나지 않는다 — 들판 네모 밭일 때보다 덩어리 수가 늘면 안 된다
     const parts = cellOk => {
-      const all = I2.PLACE_IDS.filter(id => id !== 'path' && !(R.DECOR[id] && R.DECOR[id].farm && R.DECOR[id].farm !== f.id)).map(id => R.spotOf(wf, id));
+      const all = I2.PLACE_IDS.filter(id => id !== 'path' && came(id)).map(id => R.spotOf(wf, id));
       const G = R.gridOf(wf), ok = (x, y) => x >= 0 && y >= 0 && x < G.w && y < G.h - 1 && cellOk(x, y) &&
         !all.some(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) && !Object.keys(R.NODES).some(n => { const q = R.nodeSpot(wf, n); return q.x === x && q.y === y; }) && !R.sceneryOf(wf).some(c => c.x === x && c.y === y);
       const seen = new Set(); let n = 0;
@@ -107,7 +120,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
     };
     // 집 앞에서 걸어 나갈 수 있어야 한다 — 집 앞 칸이 둘러막힌 틈이면 아이들이 거기 갇힌다(산골에서 겪음)
     {
-      const all = I2.PLACE_IDS.filter(id => id !== 'path' && !(R.DECOR[id] && R.DECOR[id].farm && R.DECOR[id].farm !== f.id)).map(id => R.spotOf(wf, id));
+      const all = I2.PLACE_IDS.filter(id => id !== 'path' && came(id)).map(id => R.spotOf(wf, id));
       const G = R.gridOf(wf), ok = (x, y) => x >= 0 && y >= 0 && x < G.w && y < G.h - 1 && !R.fieldHas(wf, x, y) &&
         !all.some(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) && !Object.keys(R.NODES).some(n => { const q = R.nodeSpot(wf, n); return q.x === x && q.y === y; }) && !R.sceneryOf(wf).some(c => c.x === x && c.y === y);
       let total = 0; for (let y = 0; y < G.h; y++) for (let x = 0; x < G.w; x++) if (ok(x, y)) total++;
@@ -140,5 +153,23 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   assert.strictEqual(Object.keys(wm.sprinklers).length, 1);
   const gi = Object.keys(wm.plots).filter(id => wm.plots[id].giant);
   gi.forEach(id => { const q = wm.plots[wm.plots[id].pairOf]; assert(q && q.pairOf === id, '짝이 서로를 가리킴'); });
+}
+// 추억 — 먼저 묻는 아이가 꾸미개 하나를 고르면 새 농장에 그대로 서고, 다음 이사 때도 따라간다
+{
+  const wk = R.fixWorld(null, now), a = R.fixMine(null, 'sua'), b = R.fixMine(null, 'yona');
+  const fillK = n => ['sua', 'yona', 'living'].forEach(r => { wk.house[r] = {}; for (let i = 0; i < n; i++) wk.house[r][i + ',0'] = { f: 'bed1', r: 0 }; });
+  const ready = () => { Object.keys(R.DECOR).filter(d => !R.DECOR[d].farm || R.DECOR[d].farm === R.farmOf(wk).id).forEach(d => { if (!wk.decor[d]) wk.decor[d] = { by: 'sua' }; }); fillK(20); while (wk.animals.length < 16) wk.animals.push({ id: 'k' + wk.animals.length, kind: 'duck', name: '오리' }); };
+  ready();
+  assert(!R.askMove(wk, a, now, 'lighthouse').ok, '없는 꾸미개는 못 고른다');
+  assert(R.askMove(wk, a, now, 'windmill').ok && wk.moveAsk.keep === 'windmill');
+  assert(R.askMove(wk, b, now, 'pond').moved, '먼저 물은 아이가 고른 것');
+  assert.deepStrictEqual(Object.keys(wk.decor), ['windmill']); assert.strictEqual(wk.decor.windmill.keep, 'meadow');
+  assert(wk.past[0].decor.windmill && wk.past[0].decor.pond, '옛 농장 기록에는 그대로');
+  ready();
+  assert(!R.askMove(wk, a, now, 'windmill').ok, '이미 들고 온 추억은 또 고르지 않는다');
+  assert(R.askMove(wk, a, now, 'lighthouse').ok && R.askMove(wk, b, now).moved);
+  assert.deepStrictEqual(Object.keys(wk.decor).sort(), ['lighthouse', 'windmill'], '추억은 쌓인다');
+  assert.strictEqual(wk.decor.lighthouse.keep, 'seaside');
+  assert(wk.animals.some(x => x.kind === 'goat' && x.baby), '산골 새 식구는 아기 염소');
 }
 console.log('이사 규칙 점검 통과');
