@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '20';
+const PLAY_V = '21';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -6529,12 +6529,12 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
       isoHits.push({ x0: q.x - 16, x1: q.x + 16, y0: q.y - 50, y1: q.y + 6, tx: N.x, ty: N.y });
     } });
   });
-  // 풍경 — 나무는 벨 수 있고, 바위·덤불은 서 있기만 한다. 나무는 둘에 하나를 짝 나무 모양(사이프러스 등)으로, 덤불은 열매 없이 사철
+  // 풍경 — 채집 자리처럼 캐고 벤다. 나무는 둘에 하나를 짝 나무 모양(사이프러스 등)으로, 덤불은 열매 없이 사철
   R.sceneryOf(W).forEach((c, i) => {
     const N = { kind: c.kind, x: c.x, y: c.y, season: ['spring', 'summer', 'autumn', 'winter'] }, k = c.kind === 'tree' ? (i % 2 ? 'tree2' : 'tree1') : c.id;
     cast.push({ d: c.x + c.y + 1, go: () => {
-      // 나무는 벨 수 있어 그루터기가 된다. 덤불은 열매 없이 사철, 바위는 늘 그대로
-      const ready = c.kind === 'tree' ? (W && M ? R.nodeReady(W, M, c.id, now()) : true) : c.kind !== 'bush';
+      // 채집한 날은 그루터기·돌 부스러기·열매 없는 덤불
+      const ready = W && M ? R.nodeReady(W, M, c.id, now()) : true;
       if (seeThrough) ctx.globalAlpha = SEE_ALPHA;
       const e = isoSprite('s:' + c.id, isoTheme() + '|' + season + '|' + c.kind + '|' + (ready ? 1 : 0) + '|' + c.x + ',' + c.y, nodeBox(N), () => isoNode(k, N, ready, season, isoTheme()), INK.tree);
       ctx.globalAlpha = 1;
@@ -6870,7 +6870,10 @@ function pixAt(clientX, clientY){
   return { x: (clientX - r.left) / w * cv.width / S, y: (clientY - r.top) / h * cv.height / S };
 }
 function plotAtTile(tx, ty){ return R.fieldHas(W, tx, ty) ? tx + ',' + ty : null; }   // 밭 모양 안이면(아직 안 연 땅까지) 그 칸
-function nodeAt(tx, ty){ return Object.keys(R.NODES).find(n => { const q = R.nodeSpot(W, n); return q.x === tx && q.y === ty; }) || null; }
+function nodeAt(tx, ty){
+  const sc = R.sceneryOf(W).find(c => c.x === tx && c.y === ty);   // 풍경도 채집된다
+  return Object.keys(R.NODES).find(n => { const q = R.nodeSpot(W, n); return q.x === tx && q.y === ty; }) || (sc && sc.id) || null;
+}
 function built(id){ return !!(W.buildings[id] && W.buildings[id].done); }
 /* ---------- 끌어서 이어 하기 ----------
    스타듀밸리처럼 누른 채 밭 위를 지나가면 지나간 칸마다 이어서 한다. 톡 누르는 것은

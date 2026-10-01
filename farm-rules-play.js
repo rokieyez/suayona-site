@@ -792,6 +792,8 @@
   function gather(world, mine, node, now){
     const N = nodeDef(world, node);
     if (!N) return fail('없는 자리예요');
+    const sea = calendar(world, now).season;
+    if (N.season && N.season.indexOf(sea) < 0) return fail(SEASON_NAME[sea] + (N.kind === 'snow' ? '에는 눈이 없어요' : '에는 열매가 없어요'));   // 풍경 덤불은 겨울에도 서 있다
     if (!nodeReady(world, mine, node, now)) return fail('아직 다시 자라지 않았어요');
     if (!spend(mine, N.cost)) return fail('기운이 없어요');
     mine.nodes[node] = dayKey(now);

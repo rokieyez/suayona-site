@@ -557,7 +557,7 @@ const FARM = (() => {
     const N = NODES[id], h = (NODE_SPOT[farmOf(world).id] || {})[id];
     return h ? { x: h[0], y: h[1] } : { x: N.x, y: N.y };
   }
-  /* 풍경 — 서 있는 나무·덤불·바위(나무는 아래 nodeDef 로 벨 수도 있다). 넓어진 섬이 휑하지 않게 농장마다 결을 달리해 둔다.
+  /* 풍경 — 넓어진 섬에 더 선 나무·덤불·바위(아래 nodeDef 로 채집도 된다). 넓어진 섬이 휑하지 않게 농장마다 결을 달리해 둔다.
      바닷가: 올리브·사이프러스 숲과 해변 바위 · 산골: 왼쪽 뒤 전나무 숲과 오른쪽 비탈 너덜 · 꽃구름: 벚나무 가로수와 돌 정원 */
   const SCENERY = {
     seaside:  [['tree', 1, 8], ['tree', 1, 11], ['tree', 1, 13], ['tree', 2, 15], ['bush', 0, 15], ['rock', 0, 17], ['rock', 20, 9], ['bush', 14, 16], ['tree', 10, 12], ['bush', 19, 1], ['rock', 21, 4], ['tree', 9, 15], ['bush', 4, 14], ['tree', 19, 10], ['tree', 21, 12], ['tree', 6, 16]],
@@ -565,12 +565,17 @@ const FARM = (() => {
     cloud:    [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['bush', 8, 0], ['bush', 9, 0], ['bush', 10, 0], ['bush', 11, 0], ['bush', 9, 1], ['bush', 10, 1], ['bush', 11, 1], ['bush', 13, 0], ['bush', 14, 0], ['bush', 15, 0], ['rock', 15, 1], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9]],
   };
   function sceneryOf(world){ return (SCENERY[farmOf(world).id] || []).map(([kind, x, y], i) => ({ id: 'sc' + i, kind, x, y })); }
-  /* 풍경 나무도 벨 수 있다(2026-10-01 로키즈 「풍경 나무도 다 벨 수 있게」). 채집 나무와 똑같이 생겨서, 안 베이면 고장처럼 보였다.
-     바위·덤불 풍경은 그대로 서 있기만 한다. 기록은 mine.nodes['sc3'] 처럼 풍경 번호로 적는다. */
-  const SCENERY_TREE = { kind: 'tree', give: { wood: 3 }, cost: 'chop', days: 2 };
+  /* 풍경도 다 채집된다(2026-10-01 로키즈 「풍경 나무도 다 벨 수 있게」 → 「바위랑 덤불도」). 채집 자리와 똑같이 생겨서, 안 되면 고장처럼 보였다.
+     기록은 mine.nodes['sc3'] 처럼 풍경 번호로 적는다. 채집 자리보다 조금 덜 주고 이틀에 한 번 돌아온다. */
+  const SCENERY_NODE = {
+    tree: { kind: 'tree', give: { wood: 3 },  cost: 'chop',   days: 2 },
+    rock: { kind: 'rock', give: { stone: 2 }, cost: 'mine',   days: 2 },
+    bush: { kind: 'bush', give: { berry: 2 }, cost: 'forage', days: 2, season: ['spring', 'summer', 'autumn'] },
+  };
   function nodeDef(world, id){
     if (NODES[id]) return NODES[id];
-    return sceneryOf(world).some(c => c.id === id && c.kind === 'tree') ? SCENERY_TREE : null;
+    const c = sceneryOf(world).find(c => c.id === id);
+    return c ? SCENERY_NODE[c.kind] : null;
   }
   // 자리는 하나지만 몫은 각자다 — 먼저 온 사람이 다 가져가면 둘째는 늘 빈손이라서.
   function nodeReady(world, mine, id, now){
