@@ -557,7 +557,7 @@ const FARM = (() => {
     const N = NODES[id], h = (NODE_SPOT[farmOf(world).id] || {})[id];
     return h ? { x: h[0], y: h[1] } : { x: N.x, y: N.y };
   }
-  /* 풍경 — 채집은 안 되고 서 있기만 하는 나무·덤불·바위. 넓어진 섬이 휑하지 않게 농장마다 결을 달리해 둔다.
+  /* 풍경 — 서 있는 나무·덤불·바위(나무는 아래 nodeDef 로 벨 수도 있다). 넓어진 섬이 휑하지 않게 농장마다 결을 달리해 둔다.
      바닷가: 올리브·사이프러스 숲과 해변 바위 · 산골: 왼쪽 뒤 전나무 숲과 오른쪽 비탈 너덜 · 꽃구름: 벚나무 가로수와 돌 정원 */
   const SCENERY = {
     seaside:  [['tree', 1, 8], ['tree', 1, 11], ['tree', 1, 13], ['tree', 2, 15], ['bush', 0, 15], ['rock', 0, 17], ['rock', 20, 9], ['bush', 14, 16], ['tree', 10, 12], ['bush', 19, 1], ['rock', 21, 4], ['tree', 9, 15], ['bush', 4, 14], ['tree', 19, 10], ['tree', 21, 12], ['tree', 6, 16]],
@@ -565,9 +565,17 @@ const FARM = (() => {
     cloud:    [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['bush', 8, 0], ['bush', 9, 0], ['bush', 10, 0], ['bush', 11, 0], ['bush', 9, 1], ['bush', 10, 1], ['bush', 11, 1], ['bush', 13, 0], ['bush', 14, 0], ['bush', 15, 0], ['rock', 15, 1], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9]],
   };
   function sceneryOf(world){ return (SCENERY[farmOf(world).id] || []).map(([kind, x, y], i) => ({ id: 'sc' + i, kind, x, y })); }
+  /* 풍경 나무도 벨 수 있다(2026-10-01 로키즈 「풍경 나무도 다 벨 수 있게」). 채집 나무와 똑같이 생겨서, 안 베이면 고장처럼 보였다.
+     바위·덤불 풍경은 그대로 서 있기만 한다. 기록은 mine.nodes['sc3'] 처럼 풍경 번호로 적는다. */
+  const SCENERY_TREE = { kind: 'tree', give: { wood: 3 }, cost: 'chop', days: 2 };
+  function nodeDef(world, id){
+    if (NODES[id]) return NODES[id];
+    return sceneryOf(world).some(c => c.id === id && c.kind === 'tree') ? SCENERY_TREE : null;
+  }
   // 자리는 하나지만 몫은 각자다 — 먼저 온 사람이 다 가져가면 둘째는 늘 빈손이라서.
   function nodeReady(world, mine, id, now){
-    const N = NODES[id], cal = calendar(world, now);
+    const N = nodeDef(world, id), cal = calendar(world, now);
+    if (!N) return false;
     if (N.season && N.season.indexOf(cal.season) < 0) return false;
     const last = mine.nodes && mine.nodes[id];
     return !last || daysBetween(last, dayKey(now)) >= N.days;
@@ -1032,13 +1040,13 @@ const FARM = (() => {
   /* 놀이 규칙(farm-rules-play.js)이 이 닫힘 안의 것을 쓴다. 손으로 적은 목록이 아니라
      tools/split-rules.py 가 두 파일을 읽어 만든 것이다 — 하나라도 빠지면 그 규칙이
      돌 때 undefined 로 터진다. 놀이 규칙을 고쳤으면 그 도구를 다시 돌린다. */
-  const INNER = { nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
+  const INNER = { nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
     GIANT_MULT, GOLD_MULT, WATER_HOURS, SPRINKLER, SPRINKLER2, SPRINKLERS, sprinklerOf, FIREFLY_MAX, PEDDLER, PED_WANT_MULT, PED_WANT_MAX, MEDALS, ENERGY_BASE, COZY_LEVELS, H, DAY_MS, GRID, PLACE, PLACE_IDS, FIELD_BOX, FISH, FISH_IDS, FISH_MAX, isNight,
     spotOf, thingHere,
-    FARMS, farmOf, gridOf, nodeSpot, sceneryOf, MOVE_OPEN, MOVE_GIFT,
+    FARMS, farmOf, gridOf, nodeDef, nodeSpot, sceneryOf, MOVE_OPEN, MOVE_GIFT,
     dayKey, dayStartMs, daysBetween, calendar, weatherOf, prand,
     SKY_AT, setSky, skyOf, setSun, sunOf,
     plotIds, parseId, fieldCells, fieldHas, fieldBox,
