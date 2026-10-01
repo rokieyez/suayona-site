@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '18';
+const PLAY_V = '19';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -6534,8 +6534,10 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
     const N = { kind: c.kind, x: c.x, y: c.y, season: ['spring', 'summer', 'autumn', 'winter'] }, k = c.kind === 'tree' ? (i % 2 ? 'tree2' : 'tree1') : c.id;
     cast.push({ d: c.x + c.y + 1, go: () => {
       if (seeThrough) ctx.globalAlpha = SEE_ALPHA;
-      isoSprite('s:' + c.id, isoTheme() + '|' + season + '|' + c.kind + '|' + c.x + ',' + c.y, nodeBox(N), () => isoNode(k, N, c.kind !== 'bush', season, isoTheme()), INK.tree);
+      const e = isoSprite('s:' + c.id, isoTheme() + '|' + season + '|' + c.kind + '|' + c.x + ',' + c.y, nodeBox(N), () => isoNode(k, N, c.kind !== 'bush', season, isoTheme()), INK.tree);
       ctx.globalAlpha = 1;
+      // 칠해진 도트만 잡는다 — 뒤의 채집 나무를 가리지 않은 곳은 그 나무로 넘어간다
+      isoHits.push({ e, tx: c.x, ty: c.y });
     } });
   });
   Object.keys(W.sprinklers || {}).forEach(id => {

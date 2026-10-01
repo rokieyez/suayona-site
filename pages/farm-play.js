@@ -482,6 +482,11 @@ function onFarmUp(){
   if (s.n) flash(SWEEP_MSG[tool] + ' <b>' + s.n + '칸</b>');
   else flash(s.why || '한 칸도 안 됐어요', true);
 }
+const SCENERY_MSG = {
+  tree: '이 나무는 보기만 하는 풍경 나무예요. 벨 수 있는 나무는 따로 있어요 🌳',
+  rock: '이 바위는 보기만 하는 풍경이에요. 캘 수 있는 바위는 따로 있어요',
+  bush: '이 덤불은 보기만 하는 풍경이에요. 열매 덤불은 따로 있어요',
+};
 function onFarmTap(e){
   if (sweepClick){ sweepClick = false; return; }
   if (visiting()){ flash('옛 농장을 구경하는 중이에요. 위의 「지금 농장으로」를 누르면 돌아가요'); return; }
@@ -509,6 +514,9 @@ function onFarmTap(e){
   if (hit){ speak(hit); return; }
   const n = nodeAt(tx, ty);
   if (n){ const r = act((w, m) => R.gather(w, m, n, now())); if (r.ok) sfx(r.gem ? 'sparkle' : R.NODES[n].kind === 'tree' ? 'thud' : R.NODES[n].kind === 'rock' ? 'prop' : 'pop'); return; }
+  // 풍경 나무·바위는 채집 나무와 똑같이 생겨서, 눌러도 조용하면 고장 난 줄 안다(2026-10-01 로키즈)
+  const sc = R.sceneryOf(W).find(c => c.x === tx && c.y === ty);
+  if (sc){ flash(SCENERY_MSG[sc.kind]); return; }
   if (inSpot('house', tx, ty)){ openTab('house', true); sfx('house'); return; }
   if (inSpot('mail', tx, ty)){ openMail(); return; }
   if (inSpot('board', tx, ty)){ openTab('duo', true); return; }
