@@ -682,31 +682,20 @@ const BEAST = {
     '......lll..lll..........',
   ], pal: { w: '#ffffff', W: '#d9d9d2', k: '#2a2a2e', r: '#e0303a', y: '#b8b08a', e: '#26241f', l: '#3a3a3e' } },
 };
-// 가게 아저씨 — 파란 캡에 흰 셔츠, 초록 앞치마.
-// 예전에는 살색 네모 하나에 점 두 개가 전부라 기괴해 보였다.
-const SHOPKEEP = [
-  '.....kkcccccckk.....', '....kccCCCCCCcck....', '...kccCCCCCCCCcck...', '..kkcCCCCCcccccckk..',
-  '.kcCCCCCCCCCCCCCCck.', '.kchhffffffffffhhck.', '..khhffffffffffhhk..', '..khhffffffffffhhk..',
-  '..khhfweffffewfhhk..', '..khhfeeffffeefhhk..', '..khppffffffffpphk..', '..khhffffFFffffhhk..',
-  '...kffffmmmmffffk...', '...kfffffmmfffffk...', '...kFFffffffffFFk...', '...kkkkkFFffkkkkk...',
-  '..kssssssssssssssk..', '.kssssAAAAAAAAssssk.', '.kssssaaaaaaaassssk.', '.kssssAAaaaaAAssssk.',
-  '.kssssaaaaaaaassssk.', '.kssssaaaaaaaassssk.', '.kssssaaaaaaaassssk.', '.kssssaaaaaaaassssk.',
-];
-const SHOPPAL = { k: '#3a3226', c: '#4a7fb5', C: '#6a9fd0', f: '#fbdcc4', F: '#eec3a2', h: '#6b4a2c',
-                  e: '#3a3226', w: '#ffffff', m: '#c9333f', p: '#ffb0b8', s: '#f2ece0',
-                  a: '#4f9a5a', A: '#69b573' };
-// 행상인은 가게 아저씨와 같은 그림에 색만 갈아 끼운다 — 보라 외투에 붉은 목도리
-const PEDPAL = { k: '#2b2620', c: '#7a5cb5', C: '#9b7bd4', f: '#f6d3b4', F: '#e3b48f', h: '#4a3524',
-                 e: '#2b2620', w: '#ffffff', m: '#c9333f', p: '#f0a6ae', s: '#e8dcc8',
-                 a: '#8a5cc7', A: '#a479dd' };
+// 가게 아저씨(파란 캡·흰 셔츠·초록 앞치마)와 행상인(보라 외투·붉은 목도리). 2026-10-02 관객·경비원과 같은 화풍으로 다시 그림(56도트, SW 를 봄).
+// 아래 토막은 tools/shopkeep-art.py 가 채운다 — 손으로 고치지 말 것.
+// <shopkeep>
+const SHOPKEEP = ["...........nnnnnnnn............", ".........nmeeeeeecmnnm.........", ".......nmmeeeeeeeeeeeonm.......", "......mmeeeeeeeeeeeeeeenmm.....", ".....mmeeeeeeeeeeeeeeeebbnn....", ".....mceeeeeeeeeeeeeeeeebbmm...", ".....nmcceeeeeeeeeeeeeeeebbmm..", "....nmmaaaaccceeeeeeeeeeebbbm..", "...mmbeecccaaaaeeeeeeeeebbbbbm.", ".mpbccceeceeeceaaeeeeeeebbbbbm.", "mmaaaaaaaacceeeccaaceeebbbbbbm.", "nbaaamttoraaaeeeecaaeebbbbbbbm.", "mnaapsuuuuuqqaceeeeaabbbbbbbbn.", ".mmpuusuuuuttqqaeeeeaapbbbbbpn.", "...nttqquuuutpqqaaaaoqppdnnmnn.", "...ntrwwquuuqwwwqqqqttuuuuuupm.", "...mmqxxxqqqqwxxxqttuuuuuuuuum.", "....nnpqxxxxxxxxxxruuuuttuuuunn", ".....nymhxxxxxmppxxrtuuqqtuuunp", "....nhyqoxxxxxpmyoxxstqxqqttnn.", "....pxyqoxxxxxmnyyxxtsoxxxqtmn.", "....pxxsxxxxxxtsyyxxtrrwwxppp..", "....pxxxxxxxxxttxxxxtsqwxxpn...", ".....mxxxttttxxxxxxxsrxxxmn....", "......qxxxrwsxxxxxxxttpppp.....", "......qmmxxxxxxxxxxsspnnp......", "........pnppppwwwpgipp.........", ".........prixwwwyyifyyp........", ".......mmyggyssyyjlfyyhm.......", ".......qyygjyytyykjyyyyq.......", "......qyyyjjjgjyflgyyyyhp......", "......hyyygkgggglkfyyyyyn......", ".....pyxyglllllllljyyyyyn......", ".....nwxwrlllllllkqxwwyyn......", ".....pxxxnlllllllqxxxxwyp......", ".....pxxxxmfgggqnhxxxxwp.......", "......pxxxxqjjmxxxxxxxmn.......", ".......mxxxxopxxxxxxxqp........", ".......phxxxmnxxxxxnpin........", "........nmxmiiqxxxnjkkp........", "........npqjkkkmppjkkkn........", "........nkkggggggkkkkkn........", "........nkllglglllkkknn........", "........ppkllkllllkkknn........", "........npfooklllkkqqnn........", ".........nuuupqppqquuun........", "..........nuuuuquuuuuunn.......", "..........nuuuuunuuuuuun.......", ".........nnquuuupuuuuuun.......", "........nnssqppqnpuuuuqn.......", ".......nnsssssssnpqpqpsnn......", ".......nnvsssssnpsssssssn......", "........nvvvvvvnsssssssvn......", ".........nmnpnmnvvvvvvvn.......", "...............nnvvvvpp........", "................nnnnnn........."];
+const SHOPPAL = {"a": "#071f63", "b": "#0f328c", "c": "#133ba2", "d": "#14153a", "e": "#143da6", "f": "#182e1f", "g": "#193625", "h": "#1b0404", "i": "#1c4f30", "j": "#1d3e2a", "k": "#1d5b35", "l": "#1f6038", "m": "#210202", "n": "#250301", "o": "#280905", "p": "#290401", "q": "#2f0703", "r": "#380f08", "s": "#3f1d14", "t": "#542817", "u": "#6b3a21", "v": "#835541", "w": "#e8875e", "x": "#fbbc92", "y": "#fbf9fa"};
+const PEDKEEP = ["..........ddddccddc...........", "........dccsssssssfddc........", ".......ccsssssssssssscc.......", "......cfssssssssssssssocc.....", ".....cbsssssssssssssssqofd....", ".....csssssssssssssssssqqb....", ".....cssssssssssssssssssoofc..", "...cdcdijjjsssssssssssssqqocc.", "..dcessssssjjjsssssssssqqqoqdc", ".cdqssssssssssjjsssssssqqqqqcc", "cconlljljlssssssijssssqqqqqqcc", "colljcpprhllssssssjssqqqqqqqcc", "ddljfprrrrrpbjlssssjjoqqqqqqcd", ".cccppmrrrrppfclssssjfcjooood.", "...cpphcrrrrphwbjlllbprpfcddd.", "...dpawwybrrbwyfhppprrrrrrrrf.", "...dcayyyyfdeyyywbprrrrrrrrrrc", "....dfbdyyyyyyyyyywhrrrpprrrrd", ".....fxaeyyyyycdfyywprpfcprrfd", "....cyxeeyyyyyffxayypphyyhppd.", "....dyxeyyyyyympxyyypeywyecd..", "....dyyyyyyyyyppxyyypawwyyd...", "....cyyyyyrpyyyyyyyymhyyyfd...", ".....chyympkpyyyyyyhhpyyhf....", "......hayyyyyyyyyykhpcddd.....", ".......dfbhdchwwhkkccdf.......", "........buupfcchuuuuufdc......", ".......dfuuuuuuuuuuufcuuf.....", "......dbouuuuuuuuuufqeuuff....", "......doqibuuuuucblqqofuuc....", "......fqoioqllfuuuooqqobuf....", ".....dqqniooxieuuuiooqouub....", ".....dqniioovoeuugnooqqfdd....", "....dooqoioooogugiqoqqod......", "....cqqqvvgnxnlevqooooc.......", "....cbqvvgfqvncfvvqqogd.......", ".....fvvyyyhfhyyjvvoghpd......", ".....dvayyyadyyyyjvacpppd.....", "......dbyyyefyyyyhihppppd.....", ".......cbyfalbbyahcppkkpd.....", ".......bnfcnvjbfflbpppppd.....", "......dooqoqvoooooehppkf......", "......dqooovivoooqqndfcd......", ".....cboooqvbvoooooonlfc......", ".....dfoooovevooooooolld......", ".....dfvvvvvavqooooovssc......", "......ccavvifvvvvvvvvfcc......", "........dcdfmcdcdddbpcc.......", ".........fprpppfpppprcc.......", "........ddcfddffrrrrrdd.......", ".......fcmmmmmmcffddcmmd......", "......dmmmmmmmfcmmmmmmmd......", "......cttmtttrfmmmmmmttd......", ".......dttttttftmmmmtdc.......", "........ddcddcccttttdd........", "...............cdcdcc........."];
+const PEDPAL = {"a": "#100203", "b": "#160101", "c": "#1a0000", "d": "#1d0100", "e": "#1d0407", "f": "#200101", "g": "#21031b", "h": "#260302", "i": "#27052d", "j": "#2d093c", "k": "#340d06", "l": "#360d48", "m": "#3a1a12", "n": "#431658", "o": "#4e1b65", "p": "#50210d", "q": "#511e6b", "r": "#5e2d18", "s": "#602b84", "t": "#754731", "u": "#871621", "v": "#995fc8", "w": "#ec8e5f", "x": "#f7d8f9", "y": "#fcbe90"};
+// </shopkeep>
 /* 수레를 끌고 온 행상인. 이레에 두 번쯤 와서, 온 날에만 그린다.
    줄무늬 덮개와 둥근 바퀴로 가게 좌판과 구별한다 — 네모 바퀴는 탁자 다리로 읽혔다.
-   가게 아저씨 그림은 좌판에 가릴 몫이라 다리가 없다. 그대로 쓰면 허리에서 잘려 보이므로
-   외투 자락과 신을 아래에 덧그린다. */
+   행상인은 발끝까지 있는 56도트 그림(2026-10-02)이라 바닥 줄에 그대로 세운다. 수레 쪽(왼쪽 아래)을 본다. */
 function drawPeddler(t){
   const b = R.PEDDLER, X = b.x * T, Y = b.y * T, G = Y + T;      // G: 바닥 줄
-  const bob = Math.sin(t / 900) > 0.6 ? 1 : 0;
-  px(X + 2, G - 4, 76, 4, '#00000018');
+  px(X + 2, G - 4, 86, 4, '#00000018');
   // 둥근 바퀴 둘
   const wheel = (wx, wy) => {
     px(wx + 3, wy, 6, 2, '#3a2f22'); px(wx + 1, wy + 2, 10, 2, '#3a2f22');
@@ -724,11 +713,8 @@ function drawPeddler(t){
   px(X + 2, G - 40, 54, 4, '#5f3f96');
   // 손잡이
   px(X + 56, G - 20, 10, 3, WOOD.low);
-  // 행상인 — 수레 오른쪽. 자락과 신을 붙여 바닥에 세운다
-  px(X + 62, G - 10 - bob, 16, 6, '#7a5cb5');
-  px(X + 63, G - 4, 5, 4, '#3a2f22'); px(X + 72, G - 4, 5, 4, '#3a2f22');
-  art(SHOPKEEP, X + 60, G - 30 - bob, PEDPAL, true);
-  px(X + 60, G - 32 - bob, 20, 3, '#5f3f96');     // 챙
+  // 행상인 — 수레 오른쪽, 손잡이 곁
+  art(PEDKEEP, X + 58, G - PEDKEEP.length, PEDPAL, false);
 }
 // 도감·카드에서도 쓰는 그림. s 는 도트 한 개의 크기.
 function drawAnimalAt(g, kind, X, Y, s, flip, k){
@@ -1680,8 +1666,9 @@ function drawStall(cal){
   // 차양 아래 물결 자락 — 곧게 자르면 천이 아니라 판으로 보인다
   for (let i = 0; i < w - 8; i += 8){ px(X + 4 + i, Y + 18, 4, 3, '#f2857a'); px(X + 8 + i, Y + 18, 4, 2, '#fff6e9'); }
   px(X + 4, Y + 6, w - 8, 1, '#ffffff');
-  // 가게 아저씨 — 좌판에 기대선 모습. 어깨 아래는 좌판에 가린다.
-  art(SHOPKEEP, X + w - 32, Y + 18, SHOPPAL, false);
+  // 가게 아저씨 — 좌판 오른쪽 끝에 선 모습. 위 30줄만 그리고 좌판 앞턱을 다시 덮어 판대 뒤에 선 것처럼 보이게.
+  art(SHOPKEEP.slice(0, 30), X + w - 38, Y + 8, SHOPPAL, false);
+  px(X + 6, Y + 36, w - 12, 6, WOOD.dark); px(X + 6, Y + 36, w - 12, 2, WOOD.hi);
 }
 function drawWell(night){
   const b = spot('well'), X = b.x * T, Y = b.y * T;
@@ -4245,7 +4232,7 @@ function isoStall(b, cal){
   // 뒤 선반 — 상자 둘
   isoCube(O.u0 + 0.15, O.v0 + 0.08, 0.5, 0.3, 1, 14, WOOD.hi, WOOD.mid, WOOD.dark);
   isoCube(O.u1 - 0.7, O.v0 + 0.08, 0.5, 0.3, 1, 10, '#e0c268', WOOD.mid, WOOD.dark);
-  { const q = isoP(O.u0 + lenL * 0.52, O.v0 + 0.55); art(SHOPKEEP, Math.round(q.x) - 10, Math.round(q.y) - 30, SHOPPAL, false); }   // 가게 아저씨
+  { const q = isoP(O.u0 + lenL * 0.52, O.v0 + 0.55); art(SHOPKEEP, Math.round(q.x) - 15, Math.round(q.y) - 54, SHOPPAL, false); }   // 가게 아저씨
   const G = { u0: O.u0, u1: O.u1, v0: O.v1 - 0.5, v1: O.v1, H: 18 };                                                 // 앞 판대
   isoWalls(G, WOOD.mid, 'wood', 21);
   poly3([[G.u0 - 0.07, G.v0 - 0.07, G.H + 2], [G.u1 + 0.07, G.v0 - 0.07, G.H + 2], [G.u1 + 0.07, G.v1 + 0.07, G.H + 2], [G.u0 - 0.07, G.v1 + 0.07, G.H + 2]], WOOD.hi);   // 판 윗면
@@ -4286,7 +4273,7 @@ function isoStall(b, cal){
 }
 /* ---- 나라마다 다른 가게(2026-09-28 로키즈 「상점이 다 똑같음」) ----
    그리스는 흰 회벽 판대에 포도 덩굴 시렁, 스위스는 기둥 위에 박공지붕을 얹은 나무 가게, 일본은 바퀴 달린 포장마차.
-   아저씨는 판대 뒤에 서므로 지붕·시렁은 높게(z 50 위) 둔다 — 낮으면 비스듬히 내려다보는 눈에 가린다. */
+   아저씨(56도트)는 판대 뒤에 서므로 지붕·시렁은 높게(z 70 위) 둔다 — 낮으면 비스듬히 내려다보는 눈에 가린다. */
 function stallGoods(cal){ return { spring: ['#ff5c6b', '#ffe066', '#8fd66c'], summer: ['#3f9a4b', '#ff5a4a', '#ffcf3d'], autumn: ['#ff9a2e', '#8a5cc7', '#e8f2c0'], winter: ['#eef8ff', '#4fa653', '#e8f4ee'] }[cal.season]; }
 // 바닥·아저씨·판대까지 — 판대 벽과 윗판, 뒤 살림은 나라가 넘긴다
 function stallCore(b, o){
@@ -4294,7 +4281,9 @@ function stallCore(b, o){
   isoShadow(O);
   poly3([[O.u0, O.v0, 1], [O.u1, O.v0, 1], [O.u1, O.v1, 1], [O.u0, O.v1, 1]], o.floor);
   if (o.back) o.back(O, lenL);
-  { const q = isoP(O.u0 + lenL * 0.52, O.v0 + 0.55); art(SHOPKEEP, Math.round(q.x) - 10, Math.round(q.y) - 30, SHOPPAL, false); }
+  if (o.backPosts) o.backPosts(O);                                           // 뒤 기둥은 아저씨보다 먼저 — 나중에 그리면 얼굴 앞을 지난다
+  // 56도트 아저씨(2026-10-02) — 가운데에 세우면 오른쪽 앞 기둥이 몸 한가운데를 지나고 포도송이가 얼굴에 걸려 왼쪽 앞으로 옮겼다
+  { const q = isoP(O.u0 + lenL * 0.3, O.v0 + 0.85); art(SHOPKEEP, Math.round(q.x) - 15, Math.round(q.y) - 54, SHOPPAL, false); }
   const G = { u0: O.u0, u1: O.u1, v0: O.v1 - 0.5, v1: O.v1, H: o.h || 18 };
   o.counter(G, lenL);
   const t = o.top, e = 0.07;
@@ -4327,6 +4316,7 @@ function isoStallGreek(b, cal){
       for (let k = 0; k < 6; k++){ const a = 0.12 + k * (lenL - 0.36) / 5; faceRect(G, 'L', a, a + 0.18, 5, 12, '#ffffff'); faceRect(G, 'L', a + 0.02, a + 0.16, 6, 11, k % 2 ? AEGEAN : '#6f9fd8'); const q = faceMid(G, 'L', a + 0.09, 8); px(Math.round(q.x) - 1, Math.round(q.y), 2, 1, '#ffffff'); }   // 파란 타일 띠
     },
     top: AEGEAN,
+    backPosts: O => [O.u0 + 0.04, O.u1 - 0.04].forEach(u => isoDrum(u, O.v0 + 0.02, 0.06, 0, 70, WHITEWASH, '#ffffff')),
   });
   goods.forEach((c, i) => {                                                     // 흙 사발 셋
     const u = G.u0 + 0.38 + i * (lenL - 0.76) / 2, v = G.v0 + 0.25;
@@ -4335,9 +4325,8 @@ function isoStallGreek(b, cal){
   });
   amphora(G.u1 + 0.1, G.v1 - 0.1, 66); amphora(G.u1 + 0.14, G.v0 - 0.3, 67);
   // 시렁 — 흰 둥근 기둥 넷, 앞뒤 들보, 가로 살
-  const Z = 56, vb = O.v0 + 0.02, vf = G.v1 + 0.02;
+  const Z = 70, vb = O.v0 + 0.02, vf = G.v1 + 0.02;
   const col = (u, v) => isoDrum(u, v, 0.06, 0, Z, WHITEWASH, '#ffffff');
-  col(O.u0 + 0.04, vb); col(O.u1 - 0.04, vb);
   const wood = '#b08a5a';
   ibox(O.u0 - 0.12, vb - 0.04, lenL + 0.24, 0.08, Z, Z + 3, wood);
   for (let k = 0; k <= 6; k++){ const u = O.u0 - 0.05 + k * (lenL + 0.1) / 6; ibox(u - 0.03, vb - 0.1, 0.06, vf - vb + 0.24, Z + 3, Z + 5, shade(wood, 10)); }
@@ -4349,7 +4338,7 @@ function isoStallGreek(b, cal){
     if (i % 7 === 0) px(x, y, 1, 3 + (i % 3), '#4f7a38');                       // 늘어진 덩굴손
   }
   ibox(O.u0 - 0.12, vf - 0.04, lenL + 0.24, 0.08, Z, Z + 3, wood);
-  [0.2, 0.55, 0.85].forEach((f, i) => {                                         // 앞 들보에 늘어진 포도송이
+  [-0.04, 1.02].forEach((f, i) => {                                            // 앞 들보에 늘어진 포도송이 — 아저씨 얼굴을 비켜 양 끝에
     const q = isoP(O.u0 + lenL * f, vf + 0.04, Z), x = Math.round(q.x), y = Math.round(q.y);
     px(x, y, 1, 3, '#4f7a38');
     for (let r = 0; r < 4; r++) for (let c2 = 0; c2 < 4 - r; c2++) px(x - 3 + c2 * 2 + r, y + 3 + r * 2, 2, 2, (r + c2 + i) % 3 ? '#6a3f8a' : '#8a5cb0');
@@ -4357,7 +4346,7 @@ function isoStallGreek(b, cal){
   col(O.u0 + 0.04, vf); col(O.u1 - 0.04, vf);
   bougainvillea({ u0: O.u0, u1: O.u1, v0: O.v0, v1: vf + 0.07 }, 'L', -0.05, 0.25, Z - 6, 69);
   // 앞 들보에 매단 그리스 국기 — 막대와 끈만 여기서, 천은 ipStallFlagLive 가 매 장 바람에 날린다
-  const q = isoP((O.u0 + O.u1) / 2, vf, Z), sx = Math.round(q.x) - 7, sy = Math.round(q.y) + 3;
+  const q = isoP(O.u0 + lenL * 0.12, vf, Z), sx = Math.round(q.x) - 7, sy = Math.round(q.y) + 3;   // 왼쪽 끝 — 가운데면 아저씨 얼굴을 가린다
   px(sx, sy - 3, 1, 3, '#6b5d4a'); px(sx + 13, sy - 3, 1, 3, '#6b5d4a'); px(sx - 1, sy - 1, 16, 1, '#6b5d4a');
   stallFlagAt = { th: 'seaside', hang: true, x: sx, y: sy, w: 14, h: 9 };
 }
@@ -4380,6 +4369,7 @@ function isoStallSwiss(b, cal){
       for (let k = 0; k < 9; k++){ const q = faceMid({ u0: G.u0, v1: G.v1 + 0.1 }, 'L', 0.12 + k * (lenL - 0.24) / 8, 6), x = Math.round(q.x), y = Math.round(q.y); px(x - 1, y - 3, 3, 3, '#4f8f48'); px(x, y - 5, 2, 2, k % 2 ? '#e8324a' : '#ff5a6a'); }
     },
     top: shade(CHALET.wood, 16),
+    backPosts: O => [O.u0 + 0.02, O.u1 - 0.02].forEach(u => ibox(u - 0.06, O.v0 - 0.04, 0.12, 0.12, 0, 72, CHALET.dark)),
   });
   goods.forEach((c, i) => {                                                     // 나무 상자 셋 — 가운데는 큰 치즈 바퀴
     const u = G.u0 + 0.2 + i * (lenL - 0.6) / 2, v = G.v0 + 0.07;
@@ -4389,20 +4379,19 @@ function isoStallSwiss(b, cal){
   });
   isoDrum(G.u1 + 0.1, G.v1 - 0.15, 0.1, 0, 14, '#c9ccd4', '#e6e8ec'); isoDrum(G.u1 + 0.1, G.v1 - 0.15, 0.06, 14, 16, '#aeb3be', '#dfe2e8');   // 우유통
   // 기둥 넷과 박공지붕 — 용마루가 u 쪽, 오른쪽에 나무 박공
-  const Z = 64, P = (u, v) => ibox(u - 0.06, v - 0.06, 0.12, 0.12, 0, Z, CHALET.dark);
-  P(O.u0 + 0.02, O.v0 + 0.02); P(O.u1 - 0.02, O.v0 + 0.02);
+  const Z = 72, P = (u, v) => ibox(u - 0.06, v - 0.06, 0.12, 0.12, 0, Z, CHALET.dark);
   P(O.u0 + 0.02, G.v1); P(O.u1 - 0.02, G.v1);
   const Rf = { u0: O.u0 + 0.02, u1: O.u1 - 0.02, v0: O.v0 + 0.02, v1: G.v1, H: Z };
   isoRoof(Rf, { ridge: 'u', rise: 14, roof: CHALET.roof, wall: CHALET.wood, gable: CHALET.wood, eave: 0.24, open: true, mid: vm => {
     const q = isoP(Rf.u1, vm, Z + 7), x = Math.round(q.x), y = Math.round(q.y);          // 박공의 하트 구멍
     px(x - 3, y - 2, 3, 2, '#3a2a1f'); px(x + 1, y - 2, 3, 2, '#3a2a1f'); px(x - 3, y, 7, 2, '#3a2a1f'); px(x - 2, y + 2, 5, 1, '#3a2a1f'); px(x - 1, y + 3, 3, 1, '#3a2a1f');
   } });
-  [0.18, 0.5, 0.82].forEach((f, i) => {                                         // 처마에 매단 소 방울 셋
+  [0.3, 1].forEach((f, i) => {                                                 // 처마에 매단 소 방울 둘 — 아저씨 얼굴 앞은 비운다
     const q = isoP(Rf.u0 + (Rf.u1 - Rf.u0) * f, Rf.v1 + 0.24, Z - 3), x = Math.round(q.x), y = Math.round(q.y);
     px(x, y, 1, 3 + i % 2 * 2, '#5a544d'); const by = y + 3 + (i % 2) * 2; px(x - 2, by, 5, 5, '#d9a93a'); px(x - 1, by, 2, 1, '#f2cf6a'); px(x - 3, by + 5, 7, 1, '#b8862a');
   });
   // 처마 밑에 매단 스위스 국기 — 막대만 여기서, 천은 ipStallFlagLive 가 매 장 바람에 날린다
-  const q = isoP((Rf.u0 + Rf.u1) / 2, Rf.v1 + 0.24, Z - 2), sx = Math.round(q.x) - 6, sy = Math.round(q.y) + 1;
+  const q = isoP(Rf.u0 + (Rf.u1 - Rf.u0) * 0.1, Rf.v1 + 0.24, Z - 2), sx = Math.round(q.x) - 6, sy = Math.round(q.y) + 1;   // 왼쪽 끝
   px(sx - 2, sy - 1, 16, 1, CHALET.dark); px(sx - 2, sy - 2, 1, 1, CHALET.dark); px(sx + 13, sy - 2, 1, 1, CHALET.dark);
   stallFlagAt = { th: 'mountain', hang: true, x: sx, y: sy, w: 12, h: 12 };
 }
@@ -4430,6 +4419,7 @@ function isoStallWa(b, cal){
       isoSeg(isoP(G.u0, G.v1 + 0.02, 8), isoP(G.u0 - 0.55, G.v1 + 0.12, 3), WA.post, 2);   // 끄는 채
     },
     top: '#c9a878',
+    backPosts: O => [O.u0 + 0.02, O.u1 - 0.02].forEach(u => ibox(u - 0.05, O.v0 - 0.03, 0.1, 0.1, 0, 78, WA.post)),
   });
   // 판 위 — 대바구니 둘에 계절 물건, 가운데 김 나는 냄비
   goods.forEach((c, i) => {
@@ -4440,8 +4430,7 @@ function isoStallWa(b, cal){
     const q = isoP(u, v, G.H + 5); heap(Math.round(q.x), Math.round(q.y) + 1, c);
   });
   // 기둥 넷과 기와지붕
-  const Z = 62, P = (u, v) => ibox(u - 0.05, v - 0.05, 0.1, 0.1, 0, Z, WA.post);
-  P(O.u0 + 0.02, O.v0 + 0.02); P(O.u1 - 0.02, O.v0 + 0.02);
+  const Z = 78, P = (u, v) => ibox(u - 0.05, v - 0.05, 0.1, 0.1, 0, Z, WA.post);
   P(O.u0 + 0.02, G.v1); P(O.u1 - 0.02, G.v1);
   const Rf = { u0: O.u0 + 0.02, u1: O.u1 - 0.02, v0: O.v0 + 0.02, v1: G.v1, H: Z }, e = 0.22;
   isoRoof(Rf, { ridge: 'u', rise: 12, roof: WA.tile, wall: wood, gable: wood, eave: e, open: true });
@@ -4450,8 +4439,8 @@ function isoStallWa(b, cal){
   const F = { u0: Rf.u0, v1: Rf.v1 + 0.04 }, len2 = Rf.u1 - Rf.u0;
   for (let k = 0; k < 4; k++){
     const a0 = 0.04 + k * (len2 - 0.08) / 4, a1 = a0 + (len2 - 0.08) / 4 - 0.03;
-    faceRect(F, 'L', a0, a1, Z - 12, Z - 3, WA.indigo); faceRect(F, 'L', a0, a1, Z - 12, Z - 11, '#1f2a4a');
-    if (k === 1 || k === 2){ const q = faceMid(F, 'L', k === 1 ? a1 : a0, Z - 7), x = Math.round(q.x), y = Math.round(q.y); px(x - 2, y - 2, 4, 4, '#f3eee2'); px(x - 1, y - 1, 2, 2, WA.indigo); }
+    faceRect(F, 'L', a0, a1, Z - 10, Z - 3, WA.indigo); faceRect(F, 'L', a0, a1, Z - 10, Z - 9, '#1f2a4a');
+    if (k === 1 || k === 2){ const q = faceMid(F, 'L', k === 1 ? a1 : a0, Z - 6), x = Math.round(q.x), y = Math.round(q.y); px(x - 2, y - 2, 4, 4, '#f3eee2'); px(x - 1, y - 1, 2, 2, WA.indigo); }
   }
   faceRect(F, 'L', 0, len2, Z - 3, Z - 1, WA.post);
   [Rf.u0 - 0.05, Rf.u1 + 0.05].forEach(u => {                                   // 앞 기둥 끝에 매단 붉은 초롱

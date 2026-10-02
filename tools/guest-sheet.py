@@ -155,7 +155,8 @@ def build(tag, people):
     gif[0].save(f'{SRC}/{tag}-걷기.gif', save_all=True, append_images=gif[1:], duration=150, loop=0)
 
 
-for tag, people in SETS.items():
+if __name__ == '__main__':
+  for tag, people in SETS.items():
     if all(os.path.exists(f'{SRC}/원본/{w}-{d}.png') for w, _, x in people for d in DIRS + [x]):
         build(tag, people)
     else:
