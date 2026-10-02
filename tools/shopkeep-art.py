@@ -2,7 +2,7 @@
 #   python3 tools/shopkeep-art.py   → pages/farm.js 의 // <shopkeep> … // </shopkeep> 토막을 다시 쓴다
 # 원본: ~/Downloads/관객-걷기-스프라이트/원본/{shopkeep,peddler}-X.png (SW 를 보는 세 칸: 서기·눈웃음·손 흔들기,
 #   힉스필드 d7269aa9 · 34f94b9d).
-# 줄이는 법은 관객 시트(guest-sheet.py)와 같다. 지금은 첫 칸(서기)만 쓴다.
+# 줄이는 법은 관객 시트(guest-sheet.py)와 같다. 세 칸 모두 쓴다 — 제자리에서 서성이다 가끔 웃고 손을 흔든다(farm.js npcIdle).
 import importlib.util
 import json
 import os
@@ -19,21 +19,26 @@ KEYS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 
 def one(name):
+    # 세 칸(서기·눈웃음·손 흔들기)을 같은 크기로 — 발은 맨 아래 줄, 머리 한가운데는 가운데 칸에. 그래야 칸을 바꾸거나 뒤집어도 제자리
     a = np.array(Image.open(f'{gs.SRC}/원본/{name}-X.png').convert('RGBA'))
-    f = gs.split(gs.down(a, TALL, gs.palette([a])), 3)[0]
-    y0, y1, x0, x1 = gs.bbox(f)
-    f = f[y0:y1 + 1, x0:x1 + 1]
-    cols = [tuple(c) for c in np.unique(f[f[..., 3] > 0][:, :3], axis=0)]
+    fr = gs.split(gs.down(a, TALL, gs.palette([a])), 3)
+    top = min(gs.bbox(f)[0] for f in fr)
+    bot = max(gs.bbox(f)[1] for f in fr)
+    cx = [int(round(gs.topcx(f))) for f in fr]
+    half = max(max(cx[i] - gs.bbox(f)[2], gs.bbox(f)[3] - cx[i]) for i, f in enumerate(fr))
+    fr = [np.pad(f, ((0, 0), (half, half + 1), (0, 0)))[top:bot + 1, cx[i]:cx[i] + 2 * half + 1] for i, f in enumerate(fr)]
+    allpx = np.concatenate([f[f[..., 3] > 0][:, :3] for f in fr])
+    cols = [tuple(c) for c in np.unique(allpx, axis=0)]
     key = {c: KEYS[i] for i, c in enumerate(cols)}
-    rows = [''.join(key[tuple(px[:3])] if px[3] else '.' for px in r) for r in f]
-    print(name, f.shape[1], 'x', f.shape[0], '색', len(cols))
+    rows = [[''.join(key[tuple(px[:3])] if px[3] else '.' for px in r) for r in f] for f in fr]
+    print(name, fr[0].shape[1], 'x', fr[0].shape[0], '색', len(cols))
     return rows, {key[c]: '#%02x%02x%02x' % c for c in cols}
 
 
 out = []
 for name, var, pvar in [('shopkeep', 'SHOPKEEP', 'SHOPPAL'), ('peddler', 'PEDKEEP', 'PEDPAL')]:
     rows, pal = one(name)
-    out += [f'const {var} = {json.dumps(rows)};', f'const {pvar} = {json.dumps(pal)};']
+    out += [f'const {var} = {json.dumps(rows)};   // [서기, 눈웃음, 손 흔들기]', f'const {pvar} = {json.dumps(pal)};']
 
 block = '// <shopkeep>\n' + '\n'.join(out) + '\n// </shopkeep>'
 P = os.path.join(HERE, '..', 'pages', 'farm.js')
