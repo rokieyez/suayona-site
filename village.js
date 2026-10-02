@@ -1518,7 +1518,7 @@ function bCastle(q){
   [[10, 16], [36, 16], [23, 40]].forEach(([u, v]) => B.win(q, 'R', keep, u, v, 7, 11, { arch: 1, sill: false, glass: '#2e3a48', mullion: false }));
   B.on(q, 'L', keep, 20, 12, 12, 36, (u, v) => { if (v === 0) return '#6a5a50'; if (v > 30 && (u + v) % 2) return null; if (u === 0 || u === 11) return '#8e2a26'; if (Math.abs(u - 5.5) + Math.abs(v - 16) <= 3.5 && !(Math.abs(u - 5.5) + Math.abs(v - 16) <= 1)) return '#ffd166'; return v % 7 === 6 ? '#b8332e' : '#d9453f'; });
   B.door(q, 'L', keep, 22, 58, 8, 18, { arch: 1, wood: '#5a3a2a', frame: '#bcb2a2' });
-  quad(q, proj(keep.x, keep.y + keep.d, keep.h), UL, [-1, 0.5], keep.w * S, keep.d * S, walk(0));
+  quad(q, proj(keep.x, keep.y, keep.h), UL, [-1, 0.5], keep.w * S, keep.d * S, walk(0));
   for (let k = 0; k < 4; k++){ merlon(keep.x + 0.06 + k * 0.55, keep.y + 0.02); merlon(keep.x + 0.02, keep.y + 0.1 + k * 0.55); }
   B.roofFor(q, { x: keep.x + 0.3, y: keep.y + 0.3, z: keep.h, w: keep.w - 0.6, d: keep.d - 0.6, h: 0 }, { type: 'hip', rise: 22, over: 0.04, drop: 0, tex: slateTex, cap: ['#8d97a6', '#2f3742'] });
   for (let k = 0; k < 4; k++){ merlon(keep.x + 0.06 + k * 0.55, keep.y + keep.d - 0.24); merlon(keep.x + keep.w - 0.24, keep.y + 0.1 + k * 0.55); }
@@ -1557,7 +1557,7 @@ function bCastle(q){
   };
   B.walls(q, gate, (u, v) => arch(u - 8, v - 30) || gst(0)(u, v), gst(-26));
   B.win(q, 'L', gate, 11, 12, 7, 10, { arch: 1, sill: false, glass: '#3c4a5a', mullion: false });
-  quad(q, proj(gate.x, gate.y + gate.d, gate.h), UL, [-1, 0.5], gate.w * S, gate.d * S, walk(0));
+  quad(q, proj(gate.x, gate.y, gate.h), UL, [-1, 0.5], gate.w * S, gate.d * S, walk(0));
   for (let k = 0; k < 3; k++){ box(q, 11.06 + k * 0.4, 4.94, gate.h, 0.22, 0.22, 6, () => '#b5aa99', () => '#8f8577', () => '#cfc6b6'); }
   box(q, 11.06, 4.34, gate.h, 0.22, 0.22, 6, () => '#b5aa99', () => '#8f8577', () => '#cfc6b6');
   box(q, 11.9, 4.34, gate.h, 0.22, 0.22, 6, () => '#b5aa99', () => '#8f8577', () => '#cfc6b6');
