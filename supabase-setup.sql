@@ -2323,3 +2323,10 @@ drop policy if exists "family uploads voice" on storage.objects;
 create policy "family uploads voice" on storage.objects
   for insert to authenticated
   with check ((bucket_id = 'event-images') and (my_role() is not null) and (name like 'suayona/voice/%'));
+
+-- ─────────────────────────────────────────────────────────────
+-- 안데레 이야기책 (2026-10-03) — andere_items 에 장면(kind "scene") 을 담게 한다.
+-- 표·규칙(누구나 읽기, 가족만 쓰기)은 그대로이고, 담을 수 있는 종류에 하나만 더한다.
+alter table public.andere_items drop constraint if exists andere_items_kind_check;
+alter table public.andere_items add constraint andere_items_kind_check
+  check (kind = any (array['profile', 'character', 'event', 'picture', 'entry', 'scene']));

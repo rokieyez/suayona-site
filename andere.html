@@ -568,6 +568,124 @@ dialog input.people-filter::placeholder { color: var(--ink-soft); }
   #relGraph .spark { display: none; }
   *, *::before, *::after { transition: none !important; }
 }
+/* ── 이야기책 ── 무대 안 크기는 무대 너비(cqw)를 따라가서 차례의 작은 그림에서도 같은 모양이다.
+   cqw 를 모르는 옛 브라우저(iOS 15)를 위해 px 값을 먼저 적어 둔다 */
+.chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.chapter { background: var(--parchment); color: var(--ink); border-radius: 14px; border: 1px solid var(--parchment-edge); overflow: hidden; display: flex; flex-direction: column; }
+.chapter-cover { cursor: pointer; background: #2a1d5e; display: block; }
+.chapter-info { padding: 12px 14px 14px; }
+/* 흐린 금색은 양피지 위에서 대비가 모자라 진한 금색으로 */
+.chapter-info .tl-when, .cover .tl-when { color: #7a5600; }
+.chapter-info h3 { margin: 0 0 4px; font-size: 20px; }
+.chapter-info p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+.chapter-info .story-actions button { border-color: #7a6448; color: #5a4630; }
+.chapter-info .story-actions button.primary { background: #5a4630; color: #fff; }
+.stage.chapter-empty { display: grid; place-items: center; font-size: 40px; background: repeating-linear-gradient(45deg, #efe3c4 0 12px, #f7eed8 12px 24px); }
+.chapter-cover .bubble-at, .chapter-cover .actor-name { display: none; }
+
+.stage { display: block; position: relative; aspect-ratio: 16 / 10; overflow: hidden; container-type: inline-size; background: #1d1648; user-select: none; -webkit-user-select: none; }
+.stage-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.actor { position: absolute; width: 19%; transform: translate(-50%, -100%); border: none; background: none; padding: 0; margin: 0;
+  cursor: pointer; display: block; color: var(--ink); font: inherit; -webkit-touch-callout: none; }
+.actor img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #fff; pointer-events: none; border-radius: 14%;
+  border: 3px solid #fff; border-width: .6cqw;
+  box-shadow: 0 0 0 2px var(--c2), 0 5px 9px rgba(0, 0, 0, .45);
+  box-shadow: 0 0 0 .4cqw var(--c2), 0 1.2cqw 2cqw rgba(0, 0, 0, .45); }
+.actor.flip img { transform: scaleX(-1); }
+/* 이름표는 그림 아래 끝에 반쯤 걸친다 — 캐릭터 키가 그림 높이 하나뿐이라 말풍선 자리를 % 로만 셀 수 있다 */
+.actor-name { position: absolute; left: 50%; top: 100%; transform: translate(-50%, -60%); pointer-events: none; white-space: nowrap;
+  background: var(--c2); color: var(--on); border-radius: 999px; font-family: "Jua"; line-height: 1.3;
+  padding: 1px 7px; padding: .2cqw 1.4cqw; font-size: 10px; font-size: max(10px, 2.4cqw);
+  box-shadow: 0 0 0 1.5px var(--c1); box-shadow: 0 0 0 .3cqw var(--c1); }
+.actor:focus-visible { outline: none; }
+.actor:focus-visible img { outline: 3px solid var(--gold); outline-offset: 2px; }
+.bubble-at { position: absolute; width: 0; height: 0; z-index: 2; pointer-events: none; }
+.bubble { position: absolute; bottom: 8px; bottom: max(8px, 1.6cqw); width: max-content; max-width: 190px; max-width: 56cqw;
+  background: #fff; color: #2a1d10; text-align: left; overflow-wrap: anywhere; line-height: 1.35; font-family: "Gowun Dodum", sans-serif;
+  border-radius: 10px; border-radius: 2.4cqw; padding: 5px 9px; padding: 1.2cqw 2cqw; font-size: 12px; font-size: max(12px, 3cqw);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .35); }
+.bubble::after { content: ""; position: absolute; top: 100%; border: 6px solid transparent; border-width: 1.4cqw; border-top-color: #fff; }
+.bubble.mid { left: 0; transform: translateX(-50%); }
+.bubble.mid::after { left: 50%; margin-left: -6px; margin-left: -1.4cqw; }
+/* 가장자리: 말풍선 끝을 캐릭터 끝(bubble-at 자리)에 맞추고, 꼬리는 머리 가운데(끝에서 9.5cqw)로 */
+.bubble.left { left: 0; }
+.bubble.left::after { left: 26px; left: 8.1cqw; }
+.bubble.right { right: 0; }
+.bubble.right::after { right: 26px; right: 8.1cqw; }
+/* 머리 위에 자리가 없으면 발밑에 (이름표 아래) */
+.bubble.below { bottom: auto; top: 10px; top: 2.6cqw; }
+.bubble.below::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: #fff; }
+.stage.editing .actor { cursor: grab; touch-action: none; }
+.stage.editing .actor:active { cursor: grabbing; }
+.stage.editing .actor[aria-pressed="true"] img { box-shadow: 0 0 0 4px var(--gold), 0 0 14px var(--gold); box-shadow: 0 0 0 .8cqw var(--gold), 0 0 3cqw var(--gold); }
+
+/* 읽기 창 — 늘 밤 색이라 글자색을 낮·밤 변수에 맡기지 않는다 */
+#storyDlg { max-width: min(96vw, 900px, 95vh); background: #241a55; color: #efe8ff; }
+.book { padding: 18px 20px 20px; }
+.book-head .kicker { color: #e9c46a; font-size: 14px; }
+.book-head h3 { margin: 2px 44px 12px 0; font-size: 26px; color: #fff; }
+.book-page { background: var(--parchment); color: var(--ink); border-radius: 12px; overflow: hidden; touch-action: pan-y; box-shadow: 0 0 0 3px var(--gold); }
+.book-page.turn-next { animation: page-next .35s ease-out; }
+.book-page.turn-prev { animation: page-prev .35s ease-out; }
+@keyframes page-next { from { opacity: 0; transform: perspective(900px) translateX(5%) rotateY(-10deg); } }
+@keyframes page-prev { from { opacity: 0; transform: perspective(900px) translateX(-5%) rotateY(10deg); } }
+.page-text { margin: 0; padding: 16px 20px 18px; font-family: "Gowun Batang", serif; font-size: 19px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cover { padding: 28px 24px; text-align: center; min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: radial-gradient(circle at 50% 30%, #fffaf0, var(--parchment) 70%); }
+.cover .tl-when { margin: 0; }
+.cover h4 { font-size: 30px; margin: 0; font-family: "Jua"; }
+.cover-body { font-family: "Gowun Batang", serif; max-width: 34em; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; line-height: 1.7; }
+.cover .mini { justify-content: center; }
+.cover-cta { color: var(--ink-soft); margin: 4px 0 0; }
+.book-nav { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 14px 0 6px; }
+.book-nav button { width: 56px; height: 56px; border-radius: 50%; border: 2px solid #e9c46a; background: rgba(255, 255, 255, .08); color: #e9c46a; font-size: 22px; cursor: pointer; }
+.book-nav button:disabled { opacity: .3; cursor: default; }
+.book-nav button:focus-visible { outline: 3px solid #e9c46a; outline-offset: 2px; }
+.page-no { font-family: "Jua"; color: #efe8ff; min-width: 64px; text-align: center; }
+.book-tools { justify-content: center; }
+.book-tools button:disabled { opacity: .4; cursor: default; }
+
+/* 장면 만들기 창 — 아이 손가락에 맞춰 단추를 크게 */
+#sceneDlg { max-width: min(96vw, 760px); }
+.scene-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.scene-step { font: inherit; font-family: "Jua"; font-size: 18px; min-height: 48px; border-radius: 14px; border: 2px solid var(--parchment-edge); background: #fff; color: var(--ink); cursor: pointer; }
+.scene-step[aria-pressed="true"] { background: var(--deep); border-color: var(--deep); color: #fff; }
+.scene-step:focus-visible { outline: 3px solid var(--c2); outline-offset: 2px; }
+/* 화면 높이에 맞추되, 가로로 든 폰에서도 손가락으로 끌 만큼은 크게 */
+.stage-box { width: min(100%, max(64vh, 320px)); margin-inline: auto; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 3px var(--c2); margin-bottom: 12px; }
+.scene-ask { font-family: "Jua"; font-size: 20px; margin: 0 0 10px; color: var(--ink); }
+.scene-ask small { font-family: inherit; font-size: 14px; color: var(--ink-soft); }
+.bg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; max-height: 300px; overflow-y: auto; padding: 4px; }
+.bg-card { display: flex; flex-direction: column; gap: 4px; border: 2px solid var(--parchment-edge); border-radius: 12px; background: #fff; padding: 4px;
+  cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); text-align: center; }
+.bg-card[aria-pressed="true"] { border-color: var(--deep); box-shadow: 0 0 0 2px var(--deep); }
+.bg-card:focus-visible, .bg-card:focus-within { outline: 3px solid var(--c2); outline-offset: 2px; }
+.bg-thumb { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 10; border-radius: 8px; overflow: hidden; background: #efe3c4; font-size: 30px; color: var(--ink-soft); }
+.scene-chips { max-height: 220px; }
+.scene-chips .pchip { font-size: 15px; padding: 6px 12px 6px 6px; }
+.scene-chips .pchip img { width: 32px; height: 32px; }
+.actor-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px; background: #fff; border-radius: 12px; }
+.actor-tools img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+.actor-tools button, .scene-actions button { min-height: 44px; font-size: 16px; padding: 8px 16px; border: 1px solid var(--deep); background: #fff; color: var(--deep); border-radius: 999px; cursor: pointer; }
+.scene-actions button.primary { background: var(--deep); color: #fff; }
+.scene-actions button:disabled { opacity: .4; cursor: default; }
+.says { border: none; padding: 0; margin: 8px 0 0; }
+.says legend { font-size: 13px; color: var(--ink-soft); margin-bottom: 6px; }
+.say-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.say-row img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex: none; }
+.say-row span { width: 4.5em; flex: none; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.say-row input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--parchment-edge); background: #fffaf0; color: var(--ink); }
+.say-row input:focus { outline: 2px solid var(--c2); }
+@media (max-width: 620px) {
+  .book { padding: 14px 10px 16px; }
+  .book-head h3 { font-size: 22px; }
+  .page-text { font-size: 17px; padding: 12px 14px 14px; }
+  .scene-step { font-size: 15px; }
+  .bg-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); max-height: 240px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .book-page { animation: none !important; }
+}
 footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 30px 16px 50px; }
 #cloudStatus { margin: 10px 0 0; }
 #cloudStatus button { font: inherit; color: var(--gold); background: none; border: 0; text-decoration: underline; cursor: pointer; padding: 6px; }
@@ -677,6 +795,12 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
   </section>
 
   <section class="block">
+    <div class="block-head"><h2>📖 안데레 이야기책</h2></div>
+    <p class="intro">연대기의 사건 하나가 이야기책의 한 장이 돼요. 장면마다 배경을 고르고, 캐릭터를 세우고, 글과 말풍선을 적어요.</p>
+    <div id="story"></div>
+  </section>
+
+  <section class="block">
     <div class="block-head"><h2>🪄 주문 사전</h2></div>
     <p class="intro">안데레에서 쓰는 주문을 모아 두는 곳이에요. 캐릭터 프로필에 적은 마인드주문도 여기에 저절로 모여요.</p>
     <button class="chip add-event" data-entry-add="spell">＋ 주문 추가</button>
@@ -725,6 +849,8 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
 <dialog id="confirmDlg" class="confirm" aria-labelledby="confirmMsg"></dialog>
 <dialog id="eventDlg" aria-labelledby="eventTitle"></dialog>
 <dialog id="entryDlg" aria-labelledby="entryTitle"></dialog>
+<dialog id="storyDlg" aria-labelledby="storyTitle"></dialog>
+<dialog id="sceneDlg" aria-labelledby="sceneTitle"></dialog>
 <svg id="mapDefs" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"></svg>
 <dialog id="loginDlg" class="confirm" aria-labelledby="loginMsg"></dialog>
 <dialog id="cropDlg" class="crop" aria-labelledby="cropTitle"></dialog>
@@ -2251,6 +2377,7 @@ function whenText(e) {
 const eventsOf = id => sortedEvents().filter(e => e.people.includes(id));
 
 function renderTimeline() {
+  renderStory(); // 이야기책 차례는 연대기를 따른다
   const box = document.getElementById("timeline");
   const list = sortedEvents();
   if (!list.length) {
@@ -2266,7 +2393,7 @@ function renderTimeline() {
         ${entryById(e.place) ? `<p class="tl-place">📍 <button class="rel-name" data-entry="${e.place}">${esc(entryById(e.place).name)}</button></p>` : ""}
         ${e.body ? `<p class="tl-body">${esc(e.body)}</p>` : ""}
         ${faces ? `<div class="mini tl-people">${faces}</div>` : ""}
-        <div class="story-actions"><button data-event-edit="${e.id}">✏️ 수정</button><button data-event-del="${e.id}">🗑 지우기</button></div>
+        <div class="story-actions"><button data-story-open="${e.id}">📖 이야기책${scenesOf(e.id).length ? ` ${scenesOf(e.id).length}장면` : ""}</button><button data-event-edit="${e.id}">✏️ 수정</button><button data-event-del="${e.id}">🗑 지우기</button></div>
       </div>
     </li>`;
   }).join("")}</ol>`;
@@ -2375,10 +2502,14 @@ async function submitEventForm(form) {
 
 async function deleteEvent(id) {
   const e = events.find(x => x.id === id);
-  if (!e || !(await askConfirm(`"${e.title}" 사건을 지울까요?`, "지우기"))) return;
+  const pages = scenesOf(id).length;
+  const also = pages ? ` 이야기책 장면 ${pages}개도 함께 지워져요.` : "";
+  if (!e || !(await askConfirm(`"${e.title}" 사건을 지울까요?${also}`, "지우기"))) return;
   try {
+    await removeScenesOf(id);
     await Cloud.remove("event", id);
   } catch (err) {
+    renderTimeline(); // 장면만 일부 지워졌을 수 있다
     await askConfirm(`지우지 못했어요 (${err.message})`, "확인");
     return;
   }
@@ -2395,6 +2526,8 @@ async function goToEvent(id) {
     if (!(await okToLeaveProfile())) return;
     dlg.close();
   }
+  const story = document.getElementById("storyDlg");
+  if (story.open) story.close(); // 이야기책에서 캐릭터를 거쳐 왔으면 읽기 창을 닫고 연대기로
   const item = document.getElementById(`event-${id}`);
   if (!item) return;
   item.scrollIntoView({ behavior: reduceMotion() ? "instant" : "smooth", block: "center" });
@@ -3090,6 +3223,1044 @@ function wireEntryDialog() {
 }
 </script>
 <script>
+/* 안데레 이야기책: 연대기 사건 하나가 한 장(챕터)이고, 그 안에 그림책 장면이 차례로 들어간다.
+   장면 한 장 = 배경 + 캐릭터(자리·뒤집기·말풍선) + 아래 글. 표의 kind "scene" 한 줄씩, id 는 P…
+   수아가 혼자 쓰는 곳이라 쓰기 창은 ① 배경 → ② 캐릭터 → ③ 글 세 단계뿐이고, 만드는 동안 이 기기에 초안을 둔다.
+   그림 배경은 캐릭터 그림과 같은 자리에 열쇠 "scene:<id>" 로 담는다. */
+
+const SCENE_LIMITS = { text: 600, say: 60, cast: 6 };
+const SCENE_STEPS = [["bg", "배경"], ["cast", "캐릭터"], ["text", "글"]];
+// 캐릭터 발밑 자리(%). 그림 너비가 판의 19% 라 좌우 10% 안쪽이면 판 밖으로 안 잘리고,
+// 이름표가 발밑에 조금 걸쳐 있어 아래는 97% 까지
+const STAGE_X = [10, 90], STAGE_Y = [45, 97], STAND_Y = 94;
+// 캐릭터 그림 높이 = 판 너비의 19% + 테두리 ≈ 판 높이(16:10)의 32.5%
+const HEAD_ABOVE_FEET = 32.5;
+const isSceneId = id => typeof id === "string" && /^P[0-9a-z]+$/.test(id);
+const isPersonId = id => typeof id === "string" && /^[A-Z]\d{1,2}$|^N[0-9a-z]+$/.test(id);
+const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+const hasPerson = id => hasOwn(byId, id);
+const clampPct = (v, [lo, hi], fallback) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback);
+
+/* ── 배경 그림 ── 400×250 판에 그린 SVG. 반 교실은 그 반 테마색(--c1·--c2)으로 칠한다 */
+const svgBg = inner => `<svg class="stage-bg" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">${inner}</svg>`;
+const imgBg = (url, lazy) => `<img class="stage-bg" src="${esc(url)}" alt=""${lazy ? ' loading="lazy"' : ""}>`;
+const STARS = Array.from({ length: 28 }, (_, i) =>
+  `<circle cx="${(i * 137) % 400}" cy="${(i * 71) % 120}" r="${i % 3 ? 0.9 : 1.6}" fill="#fff" opacity="${0.4 + (i % 4) * 0.15}"/>`).join("");
+
+function shelfBooks(shelfY, row) {
+  const colors = ["#8e1020", "#1f2f86", "#1f8a72", "#a77a00", "#6a4fa3", "#c2457a", "#2d2d38"];
+  const books = [];
+  for (let i = 0, x = 14; x < 380; i++) {
+    const w = 8 + ((i * 7 + row * 3) % 9), h = 24 + ((i * 5 + row) % 12);
+    books.push(`<rect x="${x}" y="${shelfY - h}" width="${w}" height="${h}" fill="${colors[(i + row * 2) % colors.length]}"/>`);
+    x += w + 2;
+  }
+  return books.join("");
+}
+
+const SCENE_BGS = {
+  hall: { name: "대강당", icon: "🏛", art: () => svgBg(`
+    <rect width="400" height="250" fill="#3b2472"/>
+    ${[40, 140, 240, 340].map(x => `<path d="M${x - 34} 250 V90 Q${x} 40 ${x + 34} 90 V250 Z" fill="#2a1858"/><path d="M${x - 24} 250 V98 Q${x} 60 ${x + 24} 98 V250 Z" fill="#4b2f8f"/>`).join("")}
+    ${GROUPS.slice(0, 8).map((g, i) => `<path class="th-${g.id}" d="M${14 + i * 48} 18 h26 v46 l-13 10 l-13 -10 Z" style="fill:var(--c2);stroke:var(--c1)" stroke-width="2"/>`).join("")}
+    <circle cx="200" cy="40" r="34" fill="#e9c46a" opacity=".15"/><circle cx="200" cy="40" r="16" fill="#e9c46a" opacity=".85"/>
+    <rect y="200" width="400" height="50" fill="#5a3b1c"/><rect y="200" width="400" height="5" fill="#e9c46a" opacity=".6"/>`) },
+  library: { name: "도서관", icon: "📚", art: () => svgBg(`
+    <rect width="400" height="250" fill="#4a2e18"/>
+    ${[60, 105, 150].map((y, r) => `${shelfBooks(y, r)}<rect x="8" y="${y}" width="384" height="7" fill="#2c1a0c"/>`).join("")}
+    <circle cx="330" cy="130" r="46" fill="#f5d77a" opacity=".12"/>
+    <rect y="196" width="400" height="54" fill="#6b4423"/>`) },
+  forest: { name: "숲", icon: "🌲", art: () => svgBg(`
+    <rect width="400" height="250" fill="#10322a"/>${STARS}
+    <circle cx="320" cy="42" r="18" fill="#f7eed8"/>
+    ${[[20, 175, 1], [95, 160, 1.3], [175, 180, 0.9], [255, 155, 1.4], [335, 172, 1.1], [395, 160, 1.2]].map(([x, y, s]) =>
+      `<rect x="${x - 5 * s}" y="${y}" width="${10 * s}" height="${30 * s}" fill="#4a2e18"/><path d="M${x} ${y - 110 * s} L${x + 40 * s} ${y} H${x - 40 * s} Z" fill="#0b5a43"/>`).join("")}
+    <rect y="196" width="400" height="54" fill="#1d5c2e"/>
+    ${[60, 140, 210, 280, 360].map((x, i) => `<circle cx="${x}" cy="${110 + (i * 23) % 50}" r="2.2" fill="#fff59d"/>`).join("")}`) },
+  lake: { name: "호수", icon: "🌊", art: () => svgBg(`
+    <rect width="400" height="250" fill="#1d1648"/>${STARS}
+    <circle cx="90" cy="48" r="20" fill="#f7eed8"/>
+    <path d="M0 140 Q100 118 200 134 T400 128 V150 H0 Z" fill="#241a55"/>
+    <rect y="146" width="400" height="104" fill="#20407a"/>
+    <ellipse cx="90" cy="168" rx="30" ry="5" fill="#f7eed8" opacity=".5"/>
+    ${[0, 1, 2, 3].map(i => `<path d="M${30 + i * 90} ${180 + i * 10} q15 -5 30 0" stroke="#9fc7ff" stroke-width="2" fill="none" opacity=".6"/>`).join("")}
+    <rect y="224" width="400" height="26" fill="#2f5d34"/>`) },
+  castle: { name: "성 앞", icon: "🏰", art: () => svgBg(`
+    <rect width="400" height="250" fill="#2a1d5e"/><rect width="400" height="150" fill="#0d0b24" opacity=".7"/>${STARS}
+    <circle cx="335" cy="46" r="20" fill="#f7eed8"/>
+    <g transform="translate(-25 92) scale(.5)" fill="#120d30">
+      <rect x="250" y="95" width="400" height="75"/>
+      <rect x="215" y="70" width="46" height="100"/><path d="M208 72 L238 16 L268 72 Z"/>
+      <rect x="639" y="70" width="46" height="100"/><path d="M632 72 L662 16 L692 72 Z"/>
+      <rect x="330" y="55" width="54" height="115"/><path d="M322 57 L357 0 L392 57 Z"/>
+      <rect x="516" y="55" width="54" height="115"/><path d="M508 57 L543 0 L578 57 Z"/>
+      <rect x="415" y="35" width="70" height="135"/><path d="M405 38 L450 -20 L495 38 Z"/>
+      <g fill="#f5d77a"><rect x="443" y="70" width="14" height="20" rx="7"/><rect x="351" y="85" width="12" height="17" rx="6"/><rect x="537" y="85" width="12" height="17" rx="6"/></g>
+    </g>
+    <rect y="176" width="400" height="74" fill="#1a3b2a"/>`) },
+  dorm: { name: "기숙사 방", icon: "🛏", art: () => svgBg(`
+    <rect width="400" height="250" fill="#5b4a8a"/>
+    <rect x="160" y="28" width="80" height="92" rx="40" fill="#1d1648" stroke="#e9c46a" stroke-width="5"/>
+    <circle cx="214" cy="60" r="11" fill="#f7eed8"/>
+    <rect y="186" width="400" height="64" fill="#7a5230"/>
+    <ellipse cx="200" cy="226" rx="120" ry="15" fill="#b33951" opacity=".7"/>
+    ${[20, 270].map(x => `<rect x="${x}" y="142" width="110" height="46" rx="8" fill="#e3d2a8"/><rect x="${x + 6}" y="132" width="34" height="18" rx="8" fill="#fff"/><rect x="${x + 40}" y="146" width="70" height="40" rx="6" fill="#6a4fa3"/>`).join("")}`) },
+  garden: { name: "운동장", icon: "🌼", art: () => svgBg(`
+    <rect width="400" height="250" fill="#8fd0f5"/>
+    <circle cx="60" cy="45" r="22" fill="#ffe680"/>
+    <g fill="#fff"><ellipse cx="250" cy="50" rx="40" ry="14"/><ellipse cx="276" cy="42" rx="24" ry="14"/><ellipse cx="350" cy="80" rx="28" ry="10"/></g>
+    <path d="M0 160 Q120 130 240 150 T400 140 V250 H0 Z" fill="#7cc46b"/>
+    <rect y="192" width="400" height="58" fill="#5fae55"/>
+    ${[30, 90, 170, 240, 320, 380].map((x, i) => `<circle cx="${x}" cy="${200 + (i * 13) % 30}" r="4" fill="${i % 2 ? "#ff9ec7" : "#ffe680"}"/>`).join("")}`) },
+  paper: { name: "빈 종이", icon: "📄", art: () => svgBg(`
+    <rect width="400" height="250" fill="#f7eed8"/><rect x="8" y="8" width="384" height="234" rx="10" fill="none" stroke="#e3d2a8" stroke-width="4"/>`) },
+};
+
+function classroomArt(g) {
+  return svgBg(`<g class="th-${g.id}">
+    <rect width="400" height="250" style="fill:var(--c2)"/>
+    <rect width="400" height="14" style="fill:var(--c1)"/>
+    ${[22, 314].map(x => `<rect x="${x}" y="40" width="64" height="96" rx="32" fill="#bfe3ff" style="stroke:var(--c1)" stroke-width="6"/>`).join("")}
+    <rect x="115" y="34" width="170" height="92" rx="4" fill="#24402f" stroke="#8a6234" stroke-width="7"/>
+    <path d="M135 60 q15 -12 30 0 t30 0 M140 90 h60 M215 70 l20 20 m0 -20 l-20 20" stroke="#fff" stroke-width="2" fill="none" opacity=".7"/>
+    <text x="200" y="30" text-anchor="middle" font-size="16">${g.emb}</text>
+    <rect y="180" width="400" height="70" fill="#8a5a2b"/>
+    ${[40, 150, 260].map(x => `<rect x="${x}" y="196" width="100" height="12" rx="3" fill="#5a3b1c"/><rect x="${x + 8}" y="208" width="8" height="30" fill="#5a3b1c"/><rect x="${x + 84}" y="208" width="8" height="30" fill="#5a3b1c"/>`).join("")}
+  </g>`);
+}
+
+// 학교 지도의 장소: 그 장소에 올린 그림이 있으면 그 그림, 없으면 밤하늘에 장소 그림 글자
+function placeArt(id, lazy) {
+  const e = entryById(id);
+  const pic = e && entryPic(e.id);
+  if (pic) return imgBg(pic, lazy);
+  return svgBg(`<rect width="400" height="250" fill="#2a1d5e"/>${STARS}
+    <text x="200" y="128" text-anchor="middle" font-size="72">${esc(e ? entryIcon(e) : "📍")}</text>
+    <rect y="186" width="400" height="64" fill="#1a3b2a"/>`);
+}
+
+function isSceneBg(bg) {
+  return typeof bg === "string" && (bg === "pic" || hasOwn(SCENE_BGS, bg) || /^class-[A-GS]$/.test(bg) || /^place:L[0-9a-z]+$/.test(bg));
+}
+
+// lazy: 차례·배경 고르기처럼 여러 장을 한꺼번에 그릴 때 — 화면에 들어올 때 그림을 받는다
+function bgHtml(bg, picUrl, lazy = false) {
+  if (bg === "pic") return picUrl ? imgBg(picUrl, lazy) : SCENE_BGS.paper.art();
+  if (bg.startsWith("class-")) return classroomArt(groupOf(bg.slice(6)) || GROUPS[0]);
+  if (bg.startsWith("place:")) return placeArt(bg.slice(6), lazy);
+  return (SCENE_BGS[bg] || SCENE_BGS.paper).art();
+}
+
+/* ── 장면 자료 ── */
+function cleanCast(list) {
+  const seen = new Set();
+  return (Array.isArray(list) ? list : [])
+    .filter(c => c && isPersonId(c.id) && !seen.has(c.id) && seen.add(c.id))
+    .slice(0, SCENE_LIMITS.cast)
+    .map(c => ({
+      id: c.id,
+      x: clampPct(c.x, STAGE_X, 50),
+      y: clampPct(c.y, STAGE_Y, STAND_Y),
+      flip: c.flip === true,
+      say: typeof c.say === "string" ? c.say.slice(0, SCENE_LIMITS.say) : "",
+    }));
+}
+
+function cleanScenes(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter(s => s && isSceneId(s.id) && typeof s.event === "string" && /^V[0-9a-z]+$/.test(s.event))
+    .map(s => ({
+      id: s.id,
+      event: s.event,
+      order: Number.isFinite(s.order) ? s.order : 0,
+      bg: isSceneBg(s.bg) ? s.bg : "paper",
+      text: typeof s.text === "string" ? s.text.slice(0, SCENE_LIMITS.text) : "",
+      cast: cleanCast(s.cast),
+      created: Number.isFinite(s.created) ? s.created : 0,
+    }));
+}
+const loadScenes = () => cleanScenes(Cloud.list("scene").map(r => ({ ...r.data, id: r.id })));
+let scenes = loadScenes();
+const scenesOf = eventId => scenes.filter(s => s.event === eventId).sort((a, b) => a.order - b.order || a.created - b.created);
+const scenePicKey = id => `scene:${id}`;
+const sceneData = ({ id, ...rest }) => rest; // 줄에는 id 를 빼고 담는다 (id 는 줄의 열쇠)
+const chapterNo = eventId => sortedEvents().findIndex(e => e.id === eventId) + 1;
+
+/* ── 무대 ── 캐릭터는 아래 가운데(발밑)가 (x, y) %.
+   말풍선은 캐릭터 안이 아니라 맨 위 층에 따로 그린다 — 캐릭터끼리 겹쳐도 뒤 캐릭터에 가려지지 않게.
+   자리는 판에 대한 % 로만 정해서 글자 크기(cqw)를 모르는 옛 브라우저에서도 머리 위에 뜬다.
+   가장자리에서는 판 밖으로 안 나가게 캐릭터의 왼쪽·오른쪽 끝에 붙이고,
+   머리 위에 자리가 모자라면 fitBubbles 가 재어 보고 발밑으로 옮긴다. */
+function bubbleHtml(c) {
+  if (!c.say || !hasPerson(c.id)) return "";
+  const side = c.x < 30 ? "left" : c.x > 70 ? "right" : "mid";
+  const left = side === "left" ? c.x - 9.5 : side === "right" ? c.x + 9.5 : c.x;
+  const above = `${(c.y - HEAD_ABOVE_FEET).toFixed(1)}%`;
+  return `<span class="bubble-at" style="left:${left}%;top:${above}" data-above="${above}" data-feet="${c.y}%" aria-hidden="true"><span class="bubble ${side}">${esc(c.say)}</span></span>`;
+}
+
+// ① 머리 위 → ② 위가 모자라면 발밑 → ③ 둘 다 넘치면 덜 넘치는 쪽에 두고 판 안으로 밀어 넣는다(얼굴에 조금 겹쳐도 글은 다 보이게)
+// → ④ 옆 캐릭터의 말풍선과 겹치면 위로(자리가 없으면 아래로) 비켜 선다.
+// 화면은 두 번만 재고, 나머지는 잰 값에서 셈한다
+function fitBubbles(stage) {
+  const box = stage?.getBoundingClientRect();
+  if (!box || !box.height) return; // 아직 화면에 없으면 열린 뒤에 다시 부른다
+  const ats = [...stage.querySelectorAll(".bubble-at")];
+  if (!ats.length) return;
+  const spot = ats.map(() => ({ where: "above", shift: 0 }));
+  const apply = () => ats.forEach((at, i) => {
+    const { where, shift } = spot[i];
+    at.style.top = shift ? `calc(${at.dataset[where]} + ${shift}px)` : at.dataset[where];
+    at.firstElementChild.classList.toggle("below", where === "feet");
+  });
+  const measure = () => ats.map(at => at.firstElementChild.getBoundingClientRect());
+  apply();
+  const above = measure();
+  above.forEach((r, i) => { if (r.top < box.top) spot[i] = { where: "feet", shift: 0 }; });
+  apply();
+  const feet = measure();
+  feet.forEach((r, i) => {
+    if (spot[i].where !== "feet" || r.bottom <= box.bottom) return;
+    const overAbove = box.top - above[i].top, overBelow = r.bottom - box.bottom;
+    spot[i] = overAbove <= overBelow ? { where: "above", shift: overAbove } : { where: "feet", shift: -overBelow };
+  });
+  const placed = [];
+  spot.forEach((s, i) => {
+    const base = s.where === "feet" ? feet[i] : above[i];
+    let r = { left: base.left, right: base.right, top: base.top + s.shift, bottom: base.bottom + s.shift };
+    let shift = s.shift;
+    for (let n = 0; n < placed.length; n++) {
+      const hit = placed.find(p => p.left < r.right && r.left < p.right && p.top < r.bottom && r.top < p.bottom);
+      if (!hit) break;
+      const up = hit.top - 4 - r.bottom, down = hit.bottom + 4 - r.top;
+      const move = r.top + up >= box.top ? up : r.bottom + down <= box.bottom ? down : null;
+      if (move === null) break; // 비킬 자리가 위에도 아래에도 없으면 겹친 채로 판 안에 둔다
+      r = { ...r, top: r.top + move, bottom: r.bottom + move };
+      shift += move;
+    }
+    spot[i] = { ...s, shift };
+    placed.push(r);
+  });
+  apply();
+}
+
+function actorHtml(c, i, opts) {
+  if (!hasPerson(c.id)) return "";
+  const p = byId[c.id];
+  const inner = `<img src="${portrait(c.id)}" alt="" draggable="false"><span class="actor-name">${esc(p.name)}</span>`;
+  const cls = `actor th-${p.group}${c.flip ? " flip" : ""}`;
+  const pos = `style="left:${c.x}%;top:${c.y}%"`;
+  if (opts.thumb) return `<span class="${cls}" ${pos}>${inner}</span>`;
+  if (opts.editing) {
+    return `<button type="button" class="${cls}" ${pos} data-actor="${i}" aria-pressed="${i === opts.selected}"
+      aria-label="${esc(p.name)} — 끌거나 화살표 키로 옮겨요">${inner}</button>`;
+  }
+  return `<button class="${cls}" ${pos} data-open="${c.id}" aria-label="${esc(p.name)}${c.say ? `: ${esc(c.say)}` : ""} — 자세히 보기">${inner}</button>`;
+}
+
+// 차례의 작은 그림은 누르는 칸 안에 들어가므로 span 으로
+function stageHtml(s, opts = {}) {
+  const picUrl = opts.picUrl !== undefined ? opts.picUrl : (s.bg === "pic" ? Pictures.url(scenePicKey(s.id)) : null);
+  const tag = opts.thumb ? "span" : "div";
+  return `<${tag} class="stage${opts.editing ? " editing" : ""}">${bgHtml(s.bg, picUrl, opts.thumb)}${s.cast.map((c, i) => actorHtml(c, i, opts)).join("")}${s.cast.map(bubbleHtml).join("")}</${tag}>`;
+}
+
+/* ── 이야기책 차례 (연대기를 따른다) ── */
+function renderStory() {
+  const box = document.getElementById("story");
+  const list = sortedEvents();
+  if (!list.length) {
+    box.innerHTML = `<p class="empty">연대기에 사건을 적으면, 그 사건이 이야기책의 한 장이 돼요.</p>`;
+    return;
+  }
+  box.innerHTML = `<div class="chapters">${list.map((e, i) => {
+    const pages = scenesOf(e.id);
+    const cover = pages[0] ? stageHtml(pages[0], { thumb: true }) : `<span class="stage chapter-empty">✏️</span>`;
+    // 표지 그림은 「읽기」와 같은 일을 하므로 누를 수만 있고, Tab·화면 읽기는 「읽기」 단추 하나로
+    return `<article class="chapter">
+      <div class="chapter-cover" data-story-open="${e.id}" aria-hidden="true">${cover}</div>
+      <div class="chapter-info">
+        <div class="tl-when">${i + 1}장 · ${esc(whenText(e))}</div>
+        <h3>${esc(e.title)}</h3>
+        <p>${pages.length ? `🖼 ${pages.length}장면` : "아직 장면이 없어요"}</p>
+        <div class="story-actions"><button class="primary" data-story-open="${e.id}" aria-label="${i + 1}장 ${esc(e.title)} 읽기">📖 읽기</button><button data-scene-new="${e.id}">＋ 장면 만들기</button></div>
+      </div>
+    </article>`;
+  }).join("")}</div>`;
+}
+
+/* ── 읽기 창 ── 0쪽은 표지, 1쪽부터 장면.
+   틀(넘기기 단추 등)은 한 번만 그리고 쪽 내용만 바꾼다 — 누르던 단추가 그대로 있어 키보드 자리가 안 풀리고,
+   「2 / 5」 같은 쪽수 알림을 화면 읽기 프로그램이 읽어 준다 */
+const reader = { eventId: null, page: 0, turn: "", from: "story" };
+let sceneBusy = false; // 순서 바꾸기·지우기를 두 번 누르지 않게
+const storyDlg = () => document.getElementById("storyDlg");
+
+// opener: 누른 단추 — 닫은 뒤 돌아갈 곳을 정한다 (연대기 카드에서 열었으면 연대기로, 아니면 이야기책 차례로)
+function openStory(eventId, page = 0, opener = null) {
+  if (!events.some(e => e.id === eventId)) return;
+  const dlg = storyDlg();
+  if (!dlg.open) reader.from = opener?.closest("#timeline") ? "timeline" : "story";
+  reader.eventId = eventId;
+  reader.page = page;
+  reader.turn = "";
+  renderReader();
+  if (!dlg.open) dlg.showModal();
+  fitBubbles(dlg.querySelector(".book-page .stage"));
+  focusReaderNav(1, true);
+}
+
+function coverHtml(e, count) {
+  const place = entryById(e.place);
+  const faces = e.people.filter(hasPerson).map(id => whoHtml(id)).join("");
+  return `<div class="cover">
+    <div class="tl-when">${esc(whenText(e))}${place ? ` · 📍 ${esc(place.name)}` : ""}</div>
+    <h4>${esc(e.title)}</h4>
+    ${e.body ? `<p class="cover-body">${esc(e.body)}</p>` : ""}
+    ${faces ? `<div class="mini">${faces}</div>` : ""}
+    <p class="cover-cta">${count ? `▶ 를 눌러 읽어요 · ${count}장면` : "아직 장면이 없어요. 아래 <b>＋ 장면 만들기</b>로 첫 장면을 만들어 보세요."}</p>
+  </div>`;
+}
+
+function readerToolsHtml(e, s, i, count) {
+  if (!s) return `<button class="primary" data-scene-new="${e.id}">＋ 장면 만들기</button>`;
+  return `<button data-scene-edit="${s.id}">✏️ 이 장면 고치기</button>
+    <button data-scene-new="${e.id}">＋ 장면 추가</button>
+    <button data-scene-move="-1" data-scene-id="${s.id}" ${i === 0 ? "disabled" : ""}>◀ 앞으로</button>
+    <button data-scene-move="1" data-scene-id="${s.id}" ${i === count - 1 ? "disabled" : ""}>뒤로 ▶</button>
+    <button data-scene-del="${s.id}">🗑 지우기</button>`;
+}
+
+function readerShell(dlg) {
+  dlg.className = "th-T";
+  dlg.innerHTML = `<button class="close" aria-label="닫기">×</button>
+    <div class="book">
+      <div class="book-head"><div class="kicker"></div><h3 id="storyTitle"></h3></div>
+      <div class="book-page"></div>
+      <div class="book-nav">
+        <button data-scene-go="-1" aria-label="앞 장">◀</button>
+        <span class="page-no" aria-live="polite"></span>
+        <button data-scene-go="1" aria-label="다음 장">▶</button>
+      </div>
+      <div class="story-actions book-tools"></div>
+    </div>`;
+}
+
+function renderReader() {
+  const dlg = storyDlg();
+  const e = events.find(x => x.id === reader.eventId);
+  if (!e) { if (dlg.open) dlg.close(); return; }
+  if (!dlg.querySelector(".book")) readerShell(dlg);
+  const $ = sel => dlg.querySelector(sel);
+  const pages = scenesOf(e.id);
+  const count = pages.length;
+  reader.page = Math.min(Math.max(0, reader.page), count);
+  const s = pages[reader.page - 1];
+  $(".kicker").textContent = `📖 안데레 이야기책 · ${chapterNo(e.id)}장`;
+  $("#storyTitle").textContent = e.title;
+  const page = $(".book-page");
+  page.innerHTML = s ? `${stageHtml(s)}${s.text ? `<p class="page-text">${esc(s.text)}</p>` : ""}` : coverHtml(e, count);
+  page.classList.remove("turn-next", "turn-prev");
+  if (reader.turn) {
+    void page.offsetWidth; // 같은 쪽 넘김 효과를 다시 틀기
+    page.classList.add(`turn-${reader.turn}`);
+  }
+  reader.turn = "";
+  $('[data-scene-go="-1"]').disabled = reader.page === 0;
+  $('[data-scene-go="1"]').disabled = reader.page >= count;
+  $(".page-no").textContent = reader.page === 0 ? "표지" : `${reader.page} / ${count}`;
+  $(".book-tools").innerHTML = readerToolsHtml(e, s, reader.page - 1, count);
+  if (dlg.open) fitBubbles(page.querySelector(".stage"));
+}
+
+// 누르던 단추가 끝에 닿아 꺼졌거나 다시 그려져 사라졌으면, 같은 쪽 단추(없으면 다른 쪽)로 옮겨 둔다.
+// 창을 막 열 때(force)는 늘 넘기기 단추로
+function focusReaderNav(step, force = false) {
+  const dlg = storyDlg();
+  const now = document.activeElement;
+  if (!force && now && dlg.contains(now) && now !== dlg && !now.disabled) return;
+  const target = dlg.querySelector(`[data-scene-go="${step}"]:not(:disabled)`)
+    || dlg.querySelector("[data-scene-go]:not(:disabled)") || dlg.querySelector(".close");
+  target?.focus();
+}
+
+function turnPage(step) {
+  const next = reader.page + step;
+  if (next < 0 || next > scenesOf(reader.eventId).length) return;
+  reader.page = next;
+  reader.turn = reduceMotion() ? "" : step > 0 ? "next" : "prev";
+  renderReader();
+  Sound.sparkle();
+  focusReaderNav(step);
+}
+
+// 장면 한 줄과 그 그림 배경을 함께 지운다
+async function removeScene(id) {
+  await Cloud.remove("scene", id);
+  if (Cloud.get("picture", scenePicKey(id))) await Pictures.remove(scenePicKey(id)).catch(() => {}); // 남으면 sweepScenes 가 치운다
+}
+
+async function deleteScene(id) {
+  const s = scenes.find(x => x.id === id);
+  if (sceneBusy || !s || !(await askConfirm("이 장면을 지울까요? 지우면 되돌릴 수 없어요.", "지우기"))) return;
+  sceneBusy = true;
+  try {
+    await removeScene(id);
+  } catch (err) {
+    await askConfirm(`지우지 못했어요 (${err.message})`, "확인");
+    return;
+  } finally {
+    sceneBusy = false;
+  }
+  scenes = loadScenes();
+  renderTimeline(); // 차례도 함께 다시 그린다
+  renderReader();
+  focusReaderNav(-1);
+}
+
+// 앞뒤 장면과 자리를 바꾼다. 차례 번호가 어긋나 있던 것도 1, 2, 3 … 으로 고쳐 담는다
+async function moveScene(id, step) {
+  const s = scenes.find(x => x.id === id);
+  if (sceneBusy || !s) return;
+  const list = scenesOf(s.event);
+  const i = list.findIndex(x => x.id === id), j = i + step;
+  if (j < 0 || j >= list.length) return;
+  const reordered = list.map((x, k) => (k === i ? list[j] : k === j ? list[i] : x));
+  sceneBusy = true;
+  try {
+    for (const [k, x] of reordered.entries()) {
+      if (x.order !== k + 1) await Cloud.put("scene", x.id, sceneData({ ...x, order: k + 1 }));
+    }
+  } catch (err) {
+    await askConfirm(`차례를 바꾸지 못했어요 (${err.message})`, "확인");
+  } finally {
+    sceneBusy = false;
+  }
+  scenes = loadScenes();
+  reader.page = scenesOf(s.event).findIndex(x => x.id === id) + 1;
+  renderStory();
+  renderReader();
+  // 맨 앞·맨 뒤에 닿아 누른 단추가 꺼졌으면 반대쪽 단추로
+  const dlg = storyDlg();
+  (dlg.querySelector(`[data-scene-move="${step}"]:not(:disabled)`) || dlg.querySelector("[data-scene-move]:not(:disabled)"))?.focus();
+  focusReaderNav(step);
+}
+
+// 연대기에서 사건을 지울 때 그 장의 장면도 함께. 중간에 끊겨도 들고 있는 목록은 서버와 맞춘다
+async function removeScenesOf(eventId) {
+  try {
+    for (const s of scenesOf(eventId)) await removeScene(s.id);
+  } finally {
+    scenes = loadScenes();
+  }
+}
+
+/* 남은 것 치우기: 사건이 없어진 장면(이 기능이 생기기 전 화면에서 사건을 지운 것)과,
+   장면이 없어진 그림 배경(지우다 끊긴 것). 가족이 로그인하면 그림 치우기와 함께 한 시간에 한 번.
+   지우는 일이라 들고 있는 목록을 믿지 않고 서버에 종류별로 새로 묻는다. 이상해 보이면 하나도 안 지운다:
+   받은 줄 수가 전체 수와 다를 때(서버가 잘라 보냄), 사건이 하나도 안 왔는데 장면은 있을 때.
+   이 화면이 처음 받은 목록에 그 사건이 있으면 그 장면도 남긴다. */
+async function sweepScenes() {
+  if (!Cloud.canWrite()) return 0;
+  const table = () => Cloud.sb.from("andere_items");
+  const [evs, scs, pics] = await Promise.all([
+    table().select("id", { count: "exact" }).eq("kind", "event"),
+    table().select("id,data,created_at", { count: "exact" }).eq("kind", "scene"),
+    table().select("id,created_at", { count: "exact" }).eq("kind", "picture").like("id", "scene:%"),
+  ]);
+  const lists = [evs, scs, pics];
+  if (lists.some(r => r.error || !Array.isArray(r.data) || r.count !== r.data.length)) return 0;
+  if (!evs.data.length && scs.data.length) return 0;
+  // 다른 기기가 지금 막 만드는 중인 것(그림을 올리고 장면을 담기 전 등)은 건드리지 않게 한 시간 지난 것만
+  const old = r => Date.parse(r.created_at) < Date.now() - 3600e3;
+  const eventIds = new Set(evs.data.map(r => r.id));
+  const lostScenes = scs.data
+    .filter(r => old(r) && !eventIds.has(r.data?.event) && !Cloud.get("event", r.data?.event))
+    .map(r => r.id);
+  const liveScenes = new Set(scs.data.map(r => r.id).filter(id => !lostScenes.includes(id)));
+  const lostPics = pics.data.filter(r => old(r) && !liveScenes.has(r.id.slice(6))).map(r => r.id);
+  for (const id of lostScenes) await Cloud.remove("scene", id);
+  for (const key of lostPics) await Pictures.remove(key);
+  if (lostScenes.length) {
+    scenes = loadScenes();
+    renderTimeline();
+  }
+  return lostScenes.length + lostPics.length;
+}
+
+/* ── 초안 ── 이 기기에만, 장면마다 따로 (「사건:장면 id」, 새 장면은 「사건:new」).
+   그림 파일은 담지 않는다 — 완성 전에 고른 그림은 다시 골라야 한다. 30일 지난 초안은 버린다. */
+const SCENE_DRAFTS_KEY = "andere-scene-drafts";
+const DRAFT_KEEP_MS = 30 * 864e5;
+const draftSlot = (eventId, sceneId, isNew) => `${eventId}:${isNew ? "new" : sceneId}`;
+
+function readDrafts() {
+  const all = parseJson(lsGet(SCENE_DRAFTS_KEY), {});
+  return all && typeof all === "object" && !Array.isArray(all) ? all : {};
+}
+
+function writeDraft(slot, value) {
+  const cutoff = Date.now() - DRAFT_KEEP_MS;
+  const kept = Object.entries(readDrafts()).filter(([k, v]) => k !== slot && v && v.at > cutoff);
+  const next = Object.fromEntries(value ? [...kept, [slot, value]] : kept);
+  lsSet(SCENE_DRAFTS_KEY, Object.keys(next).length ? JSON.stringify(next) : null);
+}
+
+/* ── 장면 만들기 창 ── */
+let sceneDraft = null; // { id, event, isNew, slot, order, created, bg, cast, text, pic, picRow, step, selected, filter }
+let sceneInitial = "";
+let sceneSession = 0;   // 창을 열고 닫을 때마다 하나씩 — 기다리는 일(그림 준비·저장)이 끝났을 때 아직 같은 창인지 본다
+let draftOwned = false; // 이 창이 초안 자리를 쓰기 시작했나 (안 썼으면 닫아도 저번 초안을 안 지운다)
+let savingSession = 0;  // 저장 중인 창의 번호 (0 = 없음). 창마다 따로라, 멈춘 저장이 다음 창을 막지 않는다
+const savingScenes = new Set(); // 저장 중인 장면 id — 창을 닫았어도 저장이 끝날 때까지
+let keepDraftSession = 0; // 이 번호의 창은 닫혀도 초안을 둔다 — 저장 중에 닫았으면 저장 결과가 나올 때까지
+let lastDragEnd = 0;
+
+const sceneSnapshot = d => JSON.stringify({ bg: d.bg, cast: d.cast, text: d.text });
+const sceneDlg = () => document.getElementById("sceneDlg");
+const sceneSaving = () => savingSession !== 0 && savingSession === sceneSession;
+
+function sceneIsDirty() {
+  return sceneSaving() || (!!sceneDraft && sceneDlg().open && (sceneSnapshot(sceneDraft) !== sceneInitial || !!sceneDraft.pic));
+}
+
+// 저장하는 중이면 닫아도 저장은 끝까지 간다 — 인터넷이 멈춰도 창에 갇히지 않게
+async function okToLeaveScene() {
+  if (sceneSaving()) {
+    const session = sceneSession;
+    const answer = askConfirm("아직 저장하는 중이에요. 창을 닫아도 저장은 계속돼요. 닫을까요?", "닫기");
+    const confirmDlg = document.getElementById("confirmDlg");
+    confirmDlg.dataset.savingPrompt = String(session); // 저장이 먼저 끝나면 이 물음을 걷는다 (dismissSavingPrompt)
+    const ok = await answer;
+    delete confirmDlg.dataset.savingPrompt;
+    if (ok) keepDraftSession = session;
+    return ok;
+  }
+  return askConfirm("만들던 장면이 사라져요. 닫을까요?", "닫기");
+}
+
+// 저장이 끝났는데 「아직 저장하는 중이에요」 물음이 떠 있으면 「취소」로 닫는다 — 그 위로 읽기 창이 열리면
+// 물음이 뒤에 깔려 남고, 그 뒤의 확인 창(지울까요? 등)이 보이지 않게 되기 때문
+function dismissSavingPrompt(session) {
+  const confirmDlg = document.getElementById("confirmDlg");
+  if (confirmDlg.open && confirmDlg.dataset.savingPrompt === String(session)) confirmDlg.close("cancel");
+}
+
+// 나중에 알려 줄 것은 확인 창이 비어 있을 때 띄운다 — 다른 물음(지울까요? 등)이 떠 있는데 덮어쓰면,
+// 알림의 「확인」이 그 물음에 대한 「예」가 되어 버린다
+function alertWhenFree(message) {
+  const confirmDlg = document.getElementById("confirmDlg");
+  if (confirmDlg.open) {
+    confirmDlg.addEventListener("close", () => setTimeout(() => alertWhenFree(message)), { once: true });
+    return;
+  }
+  askConfirm(message, "확인");
+}
+
+// 고칠 때마다 이 기기에 초안을 둔다. 처음 모습 그대로면 쓰지 않는다 — 저번 초안을 괜히 덮지 않게
+function setDraft(patch) {
+  sceneDraft = { ...sceneDraft, ...patch };
+  const { id, bg, cast, text, slot } = sceneDraft;
+  if (!draftOwned && sceneSnapshot(sceneDraft) === sceneInitial) return;
+  draftOwned = true;
+  writeDraft(slot, { id, bg, cast, text, at: Date.now() });
+}
+
+// 저번에 만들다 만 초안이 있으면 이어 쓸지 묻는다 (「이어서 만들기」에 먼저 손이 가게).
+// 「취소」면 새로 시작하고, 초안은 새로 고치기 전까지 남는다
+async function restoreDraft(base, slot, isNew) {
+  const saved = readDrafts()[slot];
+  if (!saved) return { start: base, restored: false };
+  const answer = askConfirm("저번에 만들다 만 장면이 있어요. 이어서 만들까요? 취소하면 처음부터 새로 만들어요.", "이어서 만들기");
+  document.querySelector('#confirmDlg button[value="ok"]')?.focus();
+  if (!(await answer)) return { start: base, restored: false };
+  const id = isNew && isSceneId(saved.id) ? saved.id : base.id;
+  draftOwned = true;
+  return {
+    start: { ...base, id, bg: isSceneBg(saved.bg) ? saved.bg : base.bg, cast: cleanCast(saved.cast).filter(c => hasPerson(c.id)),
+      text: typeof saved.text === "string" ? saved.text.slice(0, SCENE_LIMITS.text) : base.text },
+    restored: true,
+  };
+}
+
+async function openSceneEditor(eventId, sceneId = null) {
+  const e = events.find(x => x.id === eventId);
+  const dlg = sceneDlg();
+  if (!e || dlg.open) return;
+  const s = sceneId ? scenes.find(x => x.id === sceneId) : null;
+  if (sceneId && !s) return;
+  if (sceneId && savingScenes.has(sceneId)) {
+    // 아직 들고 있는 것은 저장 전 모습이라, 지금 열어 저장하면 앞 저장을 덮는다
+    alertWhenFree("이 장면은 아직 저장하는 중이에요. 잠시 뒤에 다시 열어 주세요.");
+    return;
+  }
+  const session = ++sceneSession;
+  const pages = scenesOf(eventId);
+  // 지워진 추가 캐릭터는 무대에 안 보이므로 처음부터 뺀다 (안 그러면 6명 칸만 차지하고 뺄 수도 없다)
+  const base = s ? { ...s, cast: s.cast.filter(c => hasPerson(c.id)).map(c => ({ ...c })) } : {
+    id: `P${Date.now().toString(36)}`, event: eventId,
+    order: pages.length ? pages[pages.length - 1].order + 1 : 1, created: Date.now(),
+    bg: entryById(e.place) ? `place:${e.place}` : "hall", text: "", cast: [],
+  };
+  const slot = draftSlot(eventId, base.id, !s);
+  draftOwned = false;
+  const { start, restored } = await restoreDraft(base, slot, !s);
+  if (session !== sceneSession || dlg.open) return; // 묻는 동안 다른 창이 열렸으면
+  // 서버에 이 장면의 그림이 있나 — 다른 배경을 골랐다가 돌아올 수 있게 늘 고를 수 있는 칸으로 둔다
+  const picRow = !!(s && Cloud.get("picture", scenePicKey(s.id)));
+  // 완성 전에 고른 그림은 초안에 없다 — 그 자리는 빈 종이로
+  const lostPic = start.bg === "pic" && !picRow;
+  sceneDraft = { ...start, bg: lostPic ? "paper" : start.bg, isNew: !s, slot, picRow, pic: null, step: "bg", selected: -1, filter: "" };
+  sceneInitial = sceneSnapshot(base);
+  dlg.className = "th-T";
+  dlg.innerHTML = `<button class="close" aria-label="닫기">×</button>
+    <form class="add-form scene-form" novalidate>
+      <div class="band"><div class="kicker">📖 ${esc(e.title)}</div><h3 id="sceneTitle">${s ? "장면 고치기" : "새 장면 만들기"}</h3></div>
+      <div class="content">
+        <div class="scene-steps" role="group" aria-label="만드는 단계">
+          ${SCENE_STEPS.map(([k, label], i) => `<button type="button" class="scene-step" data-scene-step="${k}" aria-pressed="false">${i + 1}. ${label}</button>`).join("")}
+        </div>
+        <div class="stage-box"></div>
+        <div class="scene-panel"></div>
+        <p class="form-error" role="alert"></p>
+        <div class="story-actions scene-actions">
+          <button type="button" data-scene-step-go="-1">◀ 이전</button>
+          <button type="button" data-scene-step-go="1">다음 ▶</button>
+          <button class="primary" type="submit">✨ 완성</button>
+          <button type="button" data-scene-cancel>취소</button>
+        </div>
+        <p class="hint-small">만드는 동안 이 기기에 초안이 남아요. <b>✨ 완성</b>을 눌러야 가족 모두에게 보여요.</p>
+      </div>
+    </form>`;
+  dlg.showModal();
+  showSceneStep("bg");
+  if (restored && lostPic) dlg.querySelector(".form-error").textContent = "올리던 그림은 다시 골라 주세요.";
+  dlg.querySelector('[data-scene-step="bg"]').focus();
+}
+
+const draftPicUrl = () => sceneDraft.pic?.url ?? (sceneDraft.picRow ? Pictures.url(scenePicKey(sceneDraft.id)) : null);
+
+function renderSceneStage() {
+  const box = sceneDlg().querySelector(".stage-box");
+  box.innerHTML = stageHtml(sceneDraft, { editing: true, selected: sceneDraft.selected, picUrl: draftPicUrl() });
+  fitBubbles(box.firstElementChild);
+}
+
+function showSceneStep(step) {
+  sceneDraft = { ...sceneDraft, step };
+  const dlg = sceneDlg();
+  dlg.querySelectorAll("[data-scene-step]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.sceneStep === step)));
+  const at = SCENE_STEPS.findIndex(([k]) => k === step);
+  dlg.querySelector('[data-scene-step-go="-1"]').disabled = at === 0;
+  dlg.querySelector('[data-scene-step-go="1"]').hidden = at === SCENE_STEPS.length - 1;
+  dlg.querySelector(".form-error").textContent = "";
+  renderSceneStage();
+  renderScenePanel();
+}
+
+function stepScene(dir) {
+  const at = SCENE_STEPS.findIndex(([k]) => k === sceneDraft.step);
+  const next = SCENE_STEPS[at + dir];
+  if (!next) return;
+  showSceneStep(next[0]);
+  sceneDlg().querySelector(`[data-scene-step="${next[0]}"]`).focus();
+}
+
+function bgChoices() {
+  const e = events.find(x => x.id === sceneDraft.event);
+  const places = entriesOf("place");
+  const first = places.filter(p => p.id === e?.place);
+  return [
+    ...[...first, ...places.filter(p => p.id !== e?.place)].map(p => ({ key: `place:${p.id}`, name: p.name, icon: "📍" })),
+    ...GROUPS.filter(g => g.id !== "T").map(g => ({ key: `class-${g.id}`, name: `${g.title} 교실`, icon: g.emb })),
+    ...Object.entries(SCENE_BGS).map(([key, b]) => ({ key, name: b.name, icon: b.icon })),
+  ];
+}
+
+// 수아 그림: 올린 그림이 있으면 그 그림도 배경 칸 하나로 (다른 배경을 골랐다가 돌아올 수 있게)
+function bgPanelHtml() {
+  const d = sceneDraft;
+  const picUrl = draftPicUrl();
+  const picCard = picUrl ? `<button type="button" class="bg-card" data-scene-bg="pic" aria-pressed="${d.bg === "pic"}">
+      <span class="bg-thumb">${imgBg(picUrl)}</span><span>🖼 수아 그림</span></button>` : "";
+  return `<p class="scene-ask">어디에서 일어난 일인가요?</p>
+    <div class="bg-grid">
+      <label class="bg-card bg-upload"><input type="file" accept="image/*" class="sr" data-scene-pic>
+        <span class="bg-thumb" aria-hidden="true">＋</span><span>🖼 ${picUrl ? "다른 그림 올리기" : "수아 그림 올리기"}</span></label>
+      ${picCard}
+      ${bgChoices().map(c => `<button type="button" class="bg-card" data-scene-bg="${esc(c.key)}" aria-pressed="${d.bg === c.key}">
+        <span class="bg-thumb">${bgHtml(c.key, null, true)}</span><span>${c.icon} ${esc(c.name)}</span></button>`).join("")}
+    </div>`;
+}
+
+function castPanelHtml() {
+  return `<p class="scene-ask">누가 나오나요? <small class="cast-count"></small></p>
+    <div class="actor-tools-box"></div>
+    <input type="search" class="people-filter" placeholder="이름으로 찾기…" aria-label="캐릭터 이름 찾기" value="${esc(sceneDraft.filter)}">
+    <div class="people-chips scene-chips"></div>`;
+}
+
+// 고른 캐릭터의 단추(뒤집기·빼기)와 인원 수만 다시 그린다 — 얼굴 목록은 그대로 두어 내려 둔 자리가 안 풀린다
+function renderCastTools() {
+  const d = sceneDraft;
+  const dlg = sceneDlg();
+  const box = dlg.querySelector(".actor-tools-box");
+  if (!box) return;
+  dlg.querySelector(".cast-count").textContent = `(${d.cast.length}/${SCENE_LIMITS.cast}명)`;
+  const sel = d.cast[d.selected];
+  box.innerHTML = sel && hasPerson(sel.id)
+    ? `<div class="actor-tools"><img src="${portrait(sel.id)}" alt=""><b>${esc(byId[sel.id].name)}</b>
+        <button type="button" data-actor-flip>↔ 뒤집기</button><button type="button" data-actor-remove>✕ 빼기</button></div>`
+    : `<p class="hint-small">그림 속 캐릭터를 끌어서 옮겨요. 누르면 뒤집거나 뺄 수 있어요.</p>`;
+}
+
+// 이 사건에 나온 캐릭터를 앞에, 나머지는 반 순서대로
+function renderCastChips() {
+  const d = sceneDraft;
+  const e = events.find(x => x.id === d.event);
+  const inEvent = new Set(e?.people || []);
+  const onStage = new Set(d.cast.map(c => c.id));
+  const match = p => !d.filter || [p.name, p.full].some(s => s && s.includes(d.filter));
+  const list = [...people.filter(p => inEvent.has(p.id)), ...people.filter(p => !inEvent.has(p.id))].filter(match);
+  sceneDlg().querySelector(".scene-chips").innerHTML = list.map(p =>
+    `<button type="button" class="pchip th-${p.group}" data-scene-cast="${p.id}" aria-pressed="${onStage.has(p.id)}">
+      <img src="${portrait(p.id)}" alt="" loading="lazy">${esc(p.name)}<small>${groupOf(p.group).title}</small></button>`).join("")
+    || `<p class="hint-small">그런 이름이 없어요.</p>`;
+}
+
+function syncCastChips() {
+  const onStage = new Set(sceneDraft.cast.map(c => c.id));
+  sceneDlg().querySelectorAll("[data-scene-cast]").forEach(b => b.setAttribute("aria-pressed", String(onStage.has(b.dataset.sceneCast))));
+}
+
+function textPanelHtml() {
+  const d = sceneDraft;
+  const says = d.cast.map((c, i) => hasPerson(c.id) ? `<label class="say-row"><img src="${portrait(c.id)}" alt=""><span>${esc(byId[c.id].name)}</span>
+      <input data-say="${i}" maxlength="${SCENE_LIMITS.say}" value="${esc(c.say)}" placeholder="${esc(byId[c.id].name)}의 말"></label>` : "").join("");
+  return `<p class="scene-ask">무슨 일이 있었나요?</p>
+    <label class="prof-field"><span>📝 이 장면의 글</span>
+      <textarea class="story" name="sceneText" maxlength="${SCENE_LIMITS.text}" placeholder="예: 문을 열자 반짝이는 가루가 쏟아졌어요.">${esc(d.text)}</textarea></label>
+    ${says ? `<fieldset class="says"><legend>💬 말풍선 (비워 두면 안 나와요)</legend>${says}</fieldset>`
+      : `<p class="hint-small">캐릭터를 넣으면 말풍선도 달 수 있어요.</p>`}`;
+}
+
+function renderScenePanel() {
+  const panel = sceneDlg().querySelector(".scene-panel");
+  const step = sceneDraft.step;
+  panel.innerHTML = step === "bg" ? bgPanelHtml() : step === "cast" ? castPanelHtml() : textPanelHtml();
+  if (step === "cast") {
+    renderCastTools();
+    renderCastChips();
+  }
+}
+
+function chooseSceneBg(bg) {
+  if (!isSceneBg(bg) || (bg === "pic" && !draftPicUrl())) return;
+  setDraft({ bg });
+  renderSceneStage();
+  sceneDlg().querySelectorAll("[data-scene-bg]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.sceneBg === bg)));
+}
+
+async function pickScenePicture(input) {
+  const file = input.files[0];
+  input.value = "";
+  if (!file || !sceneDraft) return;
+  const session = sceneSession;
+  const err = sceneDlg().querySelector(".form-error");
+  err.textContent = "그림을 준비하는 중…";
+  try {
+    const blob = await shrinkImage(file, 1400);
+    if (session !== sceneSession || !sceneDraft) return; // 준비하는 동안 창을 닫았으면 버린다
+    if (sceneDraft.pic) URL.revokeObjectURL(sceneDraft.pic.url);
+    setDraft({ pic: { blob, url: URL.createObjectURL(blob) }, bg: "pic" });
+    err.textContent = "";
+    renderSceneStage();
+    if (sceneDraft.step === "bg") {
+      renderScenePanel();
+      sceneDlg().querySelector('[data-scene-bg="pic"]')?.focus();
+    }
+  } catch (e) {
+    if (session === sceneSession) err.textContent = `그림을 열지 못했어요 (${e.message})`;
+  }
+}
+
+// 이미 선 캐릭터와 겹치지 않는 자리부터
+function freeX() {
+  const taken = sceneDraft.cast.map(c => c.x);
+  return [50, 28, 72, 14, 86, 39, 61].find(x => taken.every(t => Math.abs(t - x) > 10)) ?? 50;
+}
+
+function toggleCast(id) {
+  const d = sceneDraft;
+  const err = sceneDlg().querySelector(".form-error");
+  err.textContent = "";
+  const at = d.cast.findIndex(c => c.id === id);
+  if (at >= 0) removeActor(at);
+  else if (!hasPerson(id)) return;
+  else if (d.cast.length >= SCENE_LIMITS.cast) {
+    err.textContent = `한 장면에는 ${SCENE_LIMITS.cast}명까지 넣을 수 있어요.`;
+    return;
+  } else {
+    setDraft({ cast: [...d.cast, { id, x: freeX(), y: STAND_Y, flip: false, say: "" }], selected: d.cast.length });
+  }
+  refreshCast();
+}
+
+function removeActor(i) {
+  const d = sceneDraft;
+  const selected = d.selected === i ? -1 : d.selected > i ? d.selected - 1 : d.selected;
+  setDraft({ cast: d.cast.filter((_, k) => k !== i), selected });
+}
+
+function updateActor(i, patch) {
+  setDraft({ cast: sceneDraft.cast.map((c, k) => (k === i ? { ...c, ...patch } : c)) });
+}
+
+// 무대와 캐릭터 칸의 바뀐 곳만 다시 그린다
+function refreshCast() {
+  renderSceneStage();
+  if (sceneDraft.step === "cast") {
+    renderCastTools();
+    syncCastChips();
+  }
+}
+
+// 고르기: 끌거나 화살표로 옮긴 뒤에도 부른다 — 지금 단계는 그대로 두고 그 캐릭터에 테두리만
+function selectActor(i) {
+  sceneDraft = { ...sceneDraft, selected: i };
+  refreshCast();
+  sceneDlg().querySelector(`[data-actor="${i}"]`)?.focus();
+}
+
+// 누르기: 글 단계면 그 캐릭터의 말풍선 칸으로, 배경 단계면 캐릭터 단계로 넘어가 뒤집기·빼기를 보여 준다
+function clickActor(b) {
+  if (Date.now() - lastDragEnd < 400) return; // 끌기를 끝낸 손가락이 누르기로도 잡히는 것
+  const i = Number(b.dataset.actor);
+  if (sceneDraft.step === "text") {
+    sceneDraft = { ...sceneDraft, selected: i };
+    renderSceneStage();
+    sceneDlg().querySelector(`[data-say="${i}"]`)?.focus();
+    return;
+  }
+  if (sceneDraft.step === "bg") {
+    sceneDraft = { ...sceneDraft, selected: i };
+    showSceneStep("cast");
+    sceneDlg().querySelector(`[data-actor="${i}"]`)?.focus();
+    return;
+  }
+  selectActor(i);
+}
+
+function flipSelected() {
+  const i = sceneDraft.selected;
+  if (!sceneDraft.cast[i]) return;
+  updateActor(i, { flip: !sceneDraft.cast[i].flip });
+  refreshCast();
+  sceneDlg().querySelector("[data-actor-flip]")?.focus();
+}
+
+// 뺀 뒤에는 그 캐릭터의 얼굴 칸으로 (글 칸으로 옮기면 폰에서 자판이 튀어나온다)
+function removeSelected() {
+  const i = sceneDraft.selected;
+  const c = sceneDraft.cast[i];
+  if (!c) return;
+  removeActor(i);
+  refreshCast();
+  const dlg = sceneDlg();
+  (dlg.querySelector(`[data-scene-cast="${c.id}"]`) || dlg.querySelector('[data-scene-step="cast"]'))?.focus();
+}
+
+/* 저장하는 동안 창은 닫을 수 있다(인터넷이 멈춰도 갇히지 않게). 그때는 저장이 끝까지 가고,
+   끝났을 때 창이 바뀌었으면 그 창은 건드리지 않고 차례만 다시 그린다. 실패하면 초안을 남기고 알려 준다. */
+async function submitScene(form) {
+  if (sceneSaving() || !sceneDraft) return;
+  const d = sceneDraft;
+  const session = sceneSession;
+  const err = form.querySelector(".form-error");
+  if (!d.cast.length && !d.text.trim()) {
+    err.textContent = "캐릭터를 넣거나 글을 적어 주세요.";
+    return;
+  }
+  const [clean] = cleanScenes([{ ...d, text: d.text.trim() }]);
+  if (!clean) {
+    err.textContent = "장면을 담을 수 없어요. 창을 닫고 다시 만들어 주세요.";
+    return;
+  }
+  savingSession = session;
+  savingScenes.add(d.id);
+  err.textContent = "저장하는 중…";
+  form.inert = true; // 저장하는 동안 고친 것은 담기지 않으니 손대지 못하게 (닫기 단추는 form 밖이라 그대로)
+  let uploaded = false, failure = null;
+  try {
+    // 그림 배경은 다른 배경을 골라도 지우지 않는다 — 장면마다 한 장이라 쌓이지 않고, 다시 고를 수 있다
+    if (clean.bg === "pic" && d.pic) {
+      await Pictures.put(scenePicKey(d.id), d.pic.blob);
+      uploaded = true;
+    }
+    await Cloud.put("scene", d.id, sceneData(clean));
+  } catch (e) {
+    // 새 장면의 그림만 올라가고 장면은 못 담았으면 그림도 거둔다 (못 거두면 sweepScenes 가 치운다)
+    if (uploaded && d.isNew && !Cloud.get("scene", d.id)) await Pictures.remove(scenePicKey(d.id)).catch(() => {});
+    failure = e;
+  } finally {
+    if (savingSession === session) savingSession = 0;
+    savingScenes.delete(d.id);
+  }
+  dismissSavingPrompt(session);
+  const stillHere = session === sceneSession && sceneDlg().open;
+  if (failure) {
+    if (stillHere) {
+      form.inert = false;
+      err.textContent = `저장하지 못했어요 (${failure.message})`;
+      form.querySelector('[type="submit"]').focus();
+      return;
+    }
+    // 저장하는 중에 창을 닫았다 — 닫을 때 초안이 지워졌어도 다시 써 두고(아직 안 닫혔으면 지우지 말라 하고) 알려 준다
+    const { id, bg, cast, text } = d;
+    keepDraftSession = session;
+    writeDraft(d.slot, { id, bg, cast, text, at: Date.now() });
+    const again = d.isNew ? "「＋ 장면 만들기」" : "「✏️ 이 장면 고치기」";
+    alertWhenFree(`장면을 저장하지 못했어요 (${failure.message}). ${again}를 다시 누르면 이어서 만들 수 있어요.`);
+    return;
+  }
+  scenes = loadScenes();
+  // 같은 초안 자리를 지금 열린 다른 창이 쓰고 있으면 그 창 몫으로 둔다
+  const otherEditorOnSlot = sceneDlg().open && session !== sceneSession && sceneDraft?.slot === d.slot;
+  if (!otherEditorOnSlot) writeDraft(d.slot, null);
+  renderTimeline(); // 차례도 함께 다시 그린다
+  if (stillHere) {
+    draftOwned = false;
+    sceneDlg().close();
+    openStory(d.event, scenesOf(d.event).findIndex(s => s.id === d.id) + 1);
+  } else if (storyDlg().open) {
+    renderReader(); // 창을 닫고 읽던 중이면 새 장면이 바로 보이게
+  }
+}
+
+/* ── 끌어서 옮기기 ── 잡은 곳과 발밑(기준점)의 차이를 지켜서, 잡은 자리가 손가락 아래 그대로 있게.
+   손가락 하나만 따라간다 — 두 번째 손가락이나 손바닥이 닿아도 캐릭터가 튀지 않게 */
+function wireStageDrag(dlg) {
+  let drag = null;
+  const mine = e => drag && e.pointerId === drag.pointerId;
+  dlg.addEventListener("pointerdown", e => {
+    const el = e.target.closest(".stage.editing [data-actor]");
+    if (drag || !el || e.button > 0 || !sceneDraft) return;
+    e.preventDefault();
+    const rect = el.closest(".stage").getBoundingClientRect();
+    const i = Number(el.dataset.actor);
+    const c = sceneDraft.cast[i];
+    const px = (e.clientX - rect.left) / rect.width * 100, py = (e.clientY - rect.top) / rect.height * 100;
+    drag = { el, rect, i, pointerId: e.pointerId, dx: c.x - px, dy: c.y - py, x0: e.clientX, y0: e.clientY, pos: null };
+    el.setPointerCapture(e.pointerId);
+  });
+  dlg.addEventListener("pointermove", e => {
+    if (!mine(e)) return;
+    if (!drag.pos && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 5) return;
+    const x = clampPct((e.clientX - drag.rect.left) / drag.rect.width * 100 + drag.dx, STAGE_X, 50);
+    const y = clampPct((e.clientY - drag.rect.top) / drag.rect.height * 100 + drag.dy, STAGE_Y, STAND_Y);
+    drag.pos = { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+    drag.el.style.left = `${drag.pos.x}%`;
+    drag.el.style.top = `${drag.pos.y}%`;
+    drag.el.closest(".stage").querySelectorAll(".bubble-at").forEach(b => { b.hidden = true; }); // 놓으면 새 자리에 다시 그린다
+  });
+  const end = e => {
+    if (!mine(e)) return;
+    const { i, pos } = drag;
+    drag = null;
+    if (!pos || !sceneDraft) return; // 움직이지 않았으면 그냥 누르기 — click 이 고른다
+    lastDragEnd = Date.now();
+    updateActor(i, pos);
+    selectActor(i);
+  };
+  dlg.addEventListener("pointerup", end);
+  dlg.addEventListener("pointercancel", end);
+  // 키보드: 캐릭터를 화살표로 옮긴다
+  dlg.addEventListener("keydown", e => {
+    const el = e.target.closest?.("[data-actor]");
+    const step = { ArrowLeft: [-2, 0], ArrowRight: [2, 0], ArrowUp: [0, -2], ArrowDown: [0, 2] }[e.key];
+    if (!el || !step || !sceneDraft) return;
+    e.preventDefault();
+    const i = Number(el.dataset.actor);
+    const c = sceneDraft.cast[i];
+    updateActor(i, { x: clampPct(c.x + step[0], STAGE_X, 50), y: clampPct(c.y + step[1], STAGE_Y, STAND_Y) });
+    selectActor(i);
+  });
+}
+
+function wireSceneDialog() {
+  const dlg = sceneDlg();
+  dlg.addEventListener("submit", e => { e.preventDefault(); submitScene(e.target); });
+  dlg.addEventListener("input", e => {
+    if (!sceneDraft) return;
+    const t = e.target;
+    if (t.name === "sceneText") setDraft({ text: t.value });
+    else if (t.matches("[data-say]")) {
+      updateActor(Number(t.dataset.say), { say: t.value });
+      renderSceneStage();
+    } else if (t.matches(".people-filter")) {
+      sceneDraft = { ...sceneDraft, filter: t.value.trim() };
+      renderCastChips();
+    }
+  });
+  dlg.addEventListener("change", e => { if (e.target.matches("[data-scene-pic]")) pickScenePicture(e.target); });
+  // 한 줄 칸에서 Enter 를 누르면 완성으로 넘어가 버리지 않게
+  dlg.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("input")) e.preventDefault(); });
+  // 닫히면 이 창이 쓰던 초안을 지운다 — 사라진다는 물음에 「닫기」를 고른 것이다 (완성했으면 이미 지웠다).
+  // 저장하는 중에 닫혔으면(물어보고 닫았든, 안드로이드 뒤로 가기를 두 번 눌러 바로 닫혔든) 저장 결과가 나올 때까지 둔다
+  dlg.addEventListener("close", () => {
+    if (sceneDraft?.pic) URL.revokeObjectURL(sceneDraft.pic.url);
+    if (draftOwned && sceneDraft && keepDraftSession !== sceneSession && !sceneSaving()) writeDraft(sceneDraft.slot, null);
+    draftOwned = false;
+    sceneDraft = null;
+    sceneSession++;
+  });
+  wireStageDrag(dlg);
+}
+
+/* 읽기 창: 화살표 키와 손가락으로 옆으로 밀기로 넘긴다 (마우스로 끌면 글자 고르기라 넘기지 않는다) */
+function wireStoryDialog() {
+  const dlg = storyDlg();
+  let start = null, swipedAt = 0;
+  // 화살표는 문서에서 듣는다 — 누르던 단추가 사라져 자리가 창 밖으로 빠져도 넘길 수 있게. 위에 다른 창이 떠 있으면 그 창 몫
+  document.addEventListener("keydown", e => {
+    if (!dlg.open || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+    if (e.target.matches?.("input, textarea, select")) return;
+    if ([...document.querySelectorAll("dialog[open]")].some(d => d !== dlg)) return;
+    e.preventDefault();
+    turnPage(e.key === "ArrowRight" ? 1 : -1);
+  });
+  dlg.addEventListener("pointerdown", e => {
+    start = e.pointerType !== "mouse" && e.target.closest(".book-page") ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null;
+  });
+  dlg.addEventListener("pointerup", e => {
+    if (!start || e.pointerId !== start.id) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    start = null;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    swipedAt = Date.now();
+    turnPage(dx < 0 ? 1 : -1);
+  });
+  dlg.addEventListener("pointercancel", () => { start = null; });
+  // 밀어서 넘긴 손가락이 캐릭터 누르기로도 잡히지 않게
+  dlg.addEventListener("click", e => { if (Date.now() - swipedAt < 400) e.stopPropagation(); }, true);
+  // 닫은 뒤 키보드 자리: 연 단추가 다시 그려져 사라졌으면 같은 장의 「읽기」(연대기에서 열었으면 그 카드의 단추)로.
+  // 돌아갈 단추가 없으면 브라우저가 자리를 닫힌 창 안에 그대로 두므로 그것도 잃은 것으로 본다
+  dlg.addEventListener("close", () => setTimeout(() => {
+    const now = document.activeElement;
+    if (now && now !== document.body && !dlg.contains(now)) return;
+    document.querySelector(`#${reader.from} button[data-story-open="${reader.eventId}"]`)?.focus();
+  }));
+  // 화면 크기가 바뀌거나(폰을 돌렸을 때 등) 글꼴이 늦게 와서 글자 크기가 바뀌면 말풍선 자리를 다시 잰다
+  const refit = () => {
+    if (dlg.open) fitBubbles(dlg.querySelector(".book-page .stage"));
+    if (sceneDlg().open) fitBubbles(sceneDlg().querySelector(".stage-box .stage"));
+  };
+  window.addEventListener("resize", refit);
+  document.fonts?.ready.then(refit);
+}
+</script>
+<script>
 /* 이벤트 연결과 시작 */
 
 document.body.lang = "ko"; // 링크 공유 페이지는 바깥 틀의 언어가 다를 수 있음
@@ -3112,6 +4283,7 @@ const DIRTY = {
   addDlg: { isDirty: () => addFormIsDirty(), ask: () => askConfirm("입력한 내용이 사라져요. 닫을까요?", "닫기") },
   eventDlg: { isDirty: () => eventFormIsDirty(), ask: () => askConfirm("적던 사건이 사라져요. 닫을까요?", "닫기") },
   entryDlg: { isDirty: () => entryFormIsDirty(), ask: () => askConfirm("적던 내용이 사라져요. 닫을까요?", "닫기") },
+  sceneDlg: { isDirty: () => sceneIsDirty(), ask: () => okToLeaveScene() },
 };
 
 async function closeDialog(dlg) {
@@ -3143,6 +4315,20 @@ const CLICKS = [
   ["[data-event-del]", b => deleteEvent(b.dataset.eventDel)],
   ["[data-event-cancel]", () => closeDialog(document.getElementById("eventDlg"))],
   ["[data-goto-event]", b => goToEvent(b.dataset.gotoEvent)],
+  ["[data-story-open]", b => openStory(b.dataset.storyOpen, 0, b)],
+  ["[data-scene-new]", b => openSceneEditor(b.dataset.sceneNew)],
+  ["[data-scene-edit]", b => openSceneEditor(reader.eventId, b.dataset.sceneEdit)],
+  ["[data-scene-del]", b => deleteScene(b.dataset.sceneDel)],
+  ["[data-scene-move]", b => moveScene(b.dataset.sceneId, Number(b.dataset.sceneMove))],
+  ["[data-scene-go]", b => turnPage(Number(b.dataset.sceneGo))],
+  ["[data-scene-step]", b => showSceneStep(b.dataset.sceneStep)],
+  ["[data-scene-step-go]", b => stepScene(Number(b.dataset.sceneStepGo))],
+  ["[data-scene-bg]", b => chooseSceneBg(b.dataset.sceneBg)],
+  ["[data-scene-cast]", b => toggleCast(b.dataset.sceneCast)],
+  ["[data-actor-flip]", () => flipSelected()],
+  ["[data-actor-remove]", () => removeSelected()],
+  ["[data-actor]", b => clickActor(b)],
+  ["[data-scene-cancel]", () => closeDialog(document.getElementById("sceneDlg"))],
   ["[data-pick]", b => togglePick(b)],
   ["[data-rel-pick]", b => cycleRel(b.dataset.relPick)],
   ["[data-edit-char]", b => { const id = b.dataset.editChar; document.getElementById("dlg").close(); openAddCharacter(undefined, id); }],
@@ -3161,7 +4347,7 @@ const CLICKS = [
 ];
 
 // 표의 규칙이 진짜로 막고, 여기서는 누르는 순간 알려 주기만 한다
-const WRITES = '[data-prof-act="edit"], [data-pic-del], [data-del-char], [data-edit-char], [data-add], #timelineAdd, [data-event-edit], [data-event-del], .thumb.add, [data-entry-add], [data-entry-edit], [data-entry-del]';
+const WRITES = '[data-prof-act="edit"], [data-pic-del], [data-del-char], [data-edit-char], [data-add], #timelineAdd, [data-event-edit], [data-event-del], .thumb.add, [data-entry-add], [data-entry-edit], [data-entry-del], [data-scene-new], [data-scene-edit], [data-scene-del], [data-scene-move]';
 
 document.addEventListener("click", e => {
   const t = e.target;
@@ -3275,7 +4461,8 @@ async function afterSignIn() {
   // 가족이 열 때마다 돌면 새로고침마다 요청이 두 번씩 더 나간다 — 이 기기에서 한 시간에 한 번만
   // (한 시간이 안 된 파일은 어차피 안 지우므로 더 자주 돌 까닭이 없다)
   if (Date.now() - Number(lsGet(SWEEP_KEY) || 0) > 3600e3) {
-    Pictures.sweep().then(() => lsSet(SWEEP_KEY, String(Date.now()))).catch(() => {});
+    // 장면 치우기 먼저 — 남은 그림 줄이 지워져야 그 파일도 그림 치우기가 지운다
+    sweepScenes().catch(() => 0).then(() => Pictures.sweep()).then(() => lsSet(SWEEP_KEY, String(Date.now()))).catch(() => {});
   }
   if (moved) {
     refreshFromCloud();
@@ -3336,6 +4523,7 @@ async function moveLegacyToCloud() {
 function refreshFromCloud() {
   refreshPeople();
   events = loadEvents();
+  scenes = loadScenes();
   entries = loadEntries();
   loadCustomPortraits();
   renderPeopleViews();
@@ -3357,6 +4545,8 @@ async function init() {
   wireAddDialog();
   wireEventDialog();
   wireEntryDialog();
+  wireStoryDialog();
+  wireSceneDialog();
   renderCodex();
   Sound.boot();
   // 가족이 적은 것은 서버에서 늦게 오므로, 받은 뒤 한 번 더 그린다
