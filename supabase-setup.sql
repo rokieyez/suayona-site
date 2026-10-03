@@ -2330,3 +2330,11 @@ create policy "family uploads voice" on storage.objects
 alter table public.andere_items drop constraint if exists andere_items_kind_check;
 alter table public.andere_items add constraint andere_items_kind_check
   check (kind = any (array['profile', 'character', 'event', 'picture', 'entry', 'scene']));
+
+-- ─────────────────────────────────────────────────────────────
+-- 안데레 벌점 장부 (2026-10-03) — andere_items 에 벌점(kind "demerit", id X…) 을 담게 한다.
+-- 한 줄이 벌점 한 번: data = { people: [캐릭터 id…], why, item(압수한 물건), created }.
+-- 표·규칙(누구나 읽기, 가족만 쓰기)은 그대로이고, 담을 수 있는 종류에 하나만 더한다.
+alter table public.andere_items drop constraint if exists andere_items_kind_check;
+alter table public.andere_items add constraint andere_items_kind_check
+  check (kind = any (array['profile', 'character', 'event', 'picture', 'entry', 'scene', 'demerit']));
