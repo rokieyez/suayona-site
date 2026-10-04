@@ -55,6 +55,34 @@ def trace(mask, color):
     return g
 
 
+def tone(c, k):
+    """k<0 이면 어둡게(같은 색 ×(1+k)), k>0 이면 흰색 쪽으로 섞는다."""
+    r, g, b = (int(c[i:i + 2], 16) for i in (1, 3, 5))
+    f = (lambda v: v * (1 + k)) if k < 0 else (lambda v: v + (255 - v) * k)
+    return "#%02x%02x%02x" % tuple(round(f(v)) for v in (r, g, b))
+
+
+def shift(m, dx, dy):
+    """out[y,x] = m[y+dy, x+dx] — 밖은 False."""
+    out = np.zeros_like(m)
+    h, w = m.shape
+    out[max(-dy, 0):h - max(dy, 0), max(-dx, 0):w - max(dx, 0)] = m[max(dy, 0):h - max(-dy, 0), max(dx, 0):w - max(-dx, 0)]
+    return out
+
+
+def shade(m, c):
+    """평평함을 덜게 칸마다 오른쪽 아래 그늘(−12%)·왼쪽 위 밝은 띠를 얹는다."""
+    area = m.sum()
+    if area < (UP * 10) ** 2:
+        return [(m, c)]
+    d = int(np.clip(np.sqrt(area) * .1, UP * 2, UP * 12))
+    out = [(m, c), (m & ~shift(m, d, d), tone(c, -.12))]
+    if area > (UP * 25) ** 2:
+        a = max(d // 2, UP)
+        out.append((m & shift(m, -a, -a) & ~shift(m, -a - a * 2 // 3, -a - a * 2 // 3) & shift(m, d, d), tone(c, .4)))
+    return out
+
+
 def main():
     path, name, x0, y0, x1, y1, base, *picks = sys.argv[1:]
     img = Image.open(path).crop(tuple(int(v) for v in (x0, y0, x1, y1)))
@@ -93,7 +121,15 @@ def main():
     for p in picks:                              # 찍은 칸만 다른 색(none 이면 구멍)
         xy, col = p.split("=")
         fx, fy = (float(v) for v in xy.split(","))
-        l = lab[int(fy * h), int(fx * w)]
+        py, px = int(fy * h), int(fx * w)
+        l = lab[py, px]
+        if not l:                                # 선 위를 찍었으면 둘레 UP*8 안의 가장 가까운 칸으로 붙인다
+            r = UP * 8
+            win = lab[max(py - r, 0):py + r, max(px - r, 0):px + r]
+            ys, xs = np.nonzero(win)
+            if len(ys):
+                i = np.argmin((ys + max(py - r, 0) - py) ** 2 + (xs + max(px - r, 0) - px) ** 2)
+                l = win[ys[i], xs[i]]
         if not l:
             print(f"! {name}: {xy} 는 선 위라 칸을 못 찾음", file=sys.stderr)
             continue
@@ -102,7 +138,7 @@ def main():
             holes |= reg & ~ink
         else:
             layers.append((reg, col))
-    layers = [(m & ~holes, c) for m, c in layers]
+    layers = [l for m, c in layers for l in shade(m & ~holes, c)]
     layers.append((ink, INK))
     # 그린 것만 남게 둘레를 잘라 낸다
     ys, xs = np.where(inside | ink)
