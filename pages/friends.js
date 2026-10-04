@@ -77,6 +77,9 @@ const FRIENDS = [
 ];
 BOOKS.forEach(b => FRIENDS.filter(f => f.book === b.id).forEach((f, i) => f.no = i + 1));
 
+// 사이트 공통 머리줄 — common.js 가 못 실려도 도감은 그대로 돈다
+if (typeof buildChrome === "function") buildChrome("friends");
+
 (function () {
   const $ = s => document.querySelector(s);
   const book = id => BOOKS.find(b => b.id === id);
@@ -106,7 +109,7 @@ BOOKS.forEach(b => FRIENDS.filter(f => f.book === b.id).forEach((f, i) => f.no =
           <button class="item" data-id="${f.id}" aria-label="${esc(f.name)}${f.kind ? ", " + esc(f.kind) : ""}${met[f.id] ? ", 뽑기로 만남" : ""}">
             ${pic(f)}
             <span class="crate"><b>${esc(f.name)}</b>${met[f.id] ? `<i class="stamp" aria-hidden="true">만남!</i>` : ""}</span>
-            <span class="tag" aria-hidden="true"${f.tags[0] ? ` style="--t:${TAGS[f.tags[0]].color}"` : ""}>No.${f.no}${f.kind ? `<small>${esc(f.kind)}</small>` : ""}</span>
+            <span class="ptag" aria-hidden="true"${f.tags[0] ? ` style="--t:${TAGS[f.tags[0]].color}"` : ""}>No.${f.no}${f.kind ? `<small>${esc(f.kind)}</small>` : ""}</span>
           </button>`).join("")}</div>
       </section>`).join("");
     const n = FRIENDS.filter(f => met[f.id]).length;

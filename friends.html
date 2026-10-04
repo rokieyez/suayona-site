@@ -9,10 +9,18 @@
 <meta property="og:title" content="연아네 냠냠 시장">
 <meta property="og:description" content="연아가 그리고 만든 프렌즈 도감 — 가게 앞 뽑기로 친구를 만나요">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%93%3C/text%3E%3C/svg%3E">
+<link rel="preload" href="/fonts/PretendardVariable.subset.woff2" as="font" type="font/woff2" crossorigin>
+<link href="/fonts/dot.css" rel="stylesheet">
+<link href="/style.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Nanum+Gothic+Coding:wght@400;700&display=swap">
 <style>
+/* 사이트 공통 머리줄(수아랑 연아랑)은 이 쪽에서 늘 보이게 — 내려도 숨기지 않는다(로키즈 요청 2026-10-04).
+   공통 style.css 가 먼저 실리고, 아래 규칙이 이 쪽 모양을 덮는다. */
+header.site.hidden { transform: none; }
+header.site { font-family: 'Suayona Sans', 'Pretendard', system-ui, sans-serif; }
+body { padding-top: var(--header-h); }
 :root {
   --bg: #fff6e6; --ink: #3b2a1c; --soft: #8a6f55;
   --wood: #d79b5f; --wood-d: #a8692f; --wood-l: #ebbd85;
@@ -36,7 +44,7 @@ button { font: inherit; color: inherit; }
   background: radial-gradient(circle at 24px 0, var(--a) 23px, transparent 24px) 0 0 / 96px 22px repeat-x,
               radial-gradient(circle at 24px 0, var(--b) 23px, transparent 24px) 48px 0 / 96px 22px repeat-x;
   filter: drop-shadow(0 4px 0 rgba(0, 0, 0, .08)); }
-header { text-align: center; padding-bottom: 6px; }
+.market-head { text-align: center; padding-bottom: 6px; }
 .sign-wrap { display: inline-block; margin-top: 30px; position: relative; transform-origin: 50% -30px; animation: sway 4s ease-in-out infinite; }
 .sign-wrap::before, .sign-wrap::after { content: ""; position: absolute; top: -34px; width: 3px; height: 38px; background: #6b4a2b; }
 .sign-wrap::before { left: 18%; } .sign-wrap::after { right: 18%; }
@@ -109,7 +117,7 @@ header { text-align: center; padding-bottom: 6px; }
 .actions { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
 
 /* ── 가게 고르기 ── */
-.tabs { position: sticky; top: 0; z-index: 10; display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; padding: 12px 0; margin: 22px 0 0;
+.tabs { position: sticky; top: var(--header-h); z-index: 10; display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; padding: 12px 0; margin: 22px 0 0;
   background: linear-gradient(var(--bg) 70%, transparent); }
 .tab { border: 2px solid var(--ink); background: #fff; border-radius: 99px; padding: 7px 16px; cursor: pointer; box-shadow: 0 3px 0 var(--ink); font-family: "Jua"; font-size: 17px; }
 .tab[aria-pressed="true"] { background: var(--ink); color: #fff; }
@@ -119,7 +127,7 @@ a.tab { text-decoration: none; color: var(--ink); }
 .met button { background: none; border: 0; padding: 0; color: var(--soft); text-decoration: underline; cursor: pointer; font-size: 13px; margin-left: 6px; }
 
 /* ── 가게 한 칸 ── */
-.stall { margin: 30px 0 46px; scroll-margin-top: 70px; }
+.stall { margin: 30px 0 46px; scroll-margin-top: calc(var(--header-h) + 70px); }
 .stall .awning { height: 46px; border-radius: 12px 12px 0 0; }
 .board-name { position: relative; z-index: 2; margin: 30px auto 0; width: max-content; max-width: 100%; text-align: center; display: block;
   background: var(--paper); border: 3px solid var(--ink); border-radius: 10px; padding: 6px 22px; box-shadow: 0 4px 0 var(--ink); }
@@ -137,11 +145,11 @@ a.tab { text-decoration: none; color: var(--ink); }
 .crate b { position: absolute; left: 50%; bottom: 8px; translate: -50% 0; font-family: "Jua"; font-weight: 400; color: #fff; font-size: 19px; text-shadow: 0 2px 0 var(--ink); white-space: nowrap; }
 .stamp { position: absolute; left: -10px; top: -16px; width: 46px; height: 46px; border-radius: 50%; border: 3px solid #d8382f; color: #d8382f; background: rgba(255, 255, 255, .85);
   display: grid; place-items: center; font-style: normal; font-family: "Jua"; font-size: 13px; rotate: -14deg; }
-.tag { position: absolute; z-index: 3; right: -6px; top: 18%; rotate: 9deg; background: #fffbe9; border: 2px solid var(--ink); border-radius: 4px 10px 10px 4px;
+.ptag { position: absolute; z-index: 3; right: -6px; top: 18%; rotate: 9deg; background: #fffbe9; border: 2px solid var(--ink); border-radius: 4px 10px 10px 4px;
   padding: 2px 9px 2px 14px; font-size: 13px; line-height: 1.3; text-align: left; box-shadow: 0 2px 0 var(--ink); clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%); }
-.tag::before { content: ""; position: absolute; left: 6px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: var(--ink); }
-.tag small { display: block; color: var(--soft); font-size: 11px; }
-.tag[style] { box-shadow: 0 2px 0 var(--ink), inset 0 -4px 0 var(--t); } /* 연아 범례 색 */
+.ptag::before { content: ""; position: absolute; left: 6px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: var(--ink); }
+.ptag small { display: block; color: var(--soft); font-size: 11px; }
+.ptag[style] { box-shadow: 0 2px 0 var(--ink), inset 0 -4px 0 var(--t); } /* 연아 범례 색 */
 .rels { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 10px 0 2px; }
 .rel { border: 2px solid var(--t); color: var(--ink); background: color-mix(in srgb, var(--t) 18%, #fff); border-radius: 99px; padding: 1px 10px; font-family: "Jua"; font-size: 14px; }
 
@@ -168,7 +176,7 @@ dialog[open] { animation: print .45s cubic-bezier(.2, 1.2, .4, 1); }
 .link { background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; font-weight: 700; }
 .close { position: absolute; right: 12px; top: 16px; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--ink); background: #fff; cursor: pointer; font-size: 16px; }
 /* ── 관계도: 코르크 판에 색 테두리 쪽지 ── */
-.rel-wrap { margin: 20px 0 30px; scroll-margin-top: 70px; text-align: center; }
+.rel-wrap { margin: 20px 0 30px; scroll-margin-top: calc(var(--header-h) + 70px); text-align: center; }
 .rel-wrap > h2 { margin: 0; font-size: clamp(26px, 5vw, 36px); }
 .rel-wrap > p { margin: 2px 0 16px; color: var(--soft); }
 .rel-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; padding: 22px; text-align: left;
@@ -188,8 +196,8 @@ dialog[open] { animation: print .45s cubic-bezier(.2, 1.2, .4, 1); }
 .who-chip .pic { width: 70px; height: 70px; object-fit: contain; }
 .who-chip b { font-family: "Jua"; font-weight: 400; font-size: 14px; line-height: 1.2; text-align: center; word-break: keep-all; }
 .who-chip small { font-size: 11px; line-height: 1; }
-footer { text-align: center; color: var(--soft); font-size: 13px; padding: 20px 16px 60px; }
-footer a { color: var(--soft); }
+.market-foot { text-align: center; color: var(--soft); font-size: 13px; padding: 20px 16px 40px; margin: 0; }
+.market-foot a { color: var(--soft); }
 
 @media (max-width: 760px) {
   .front { grid-template-columns: 1fr; gap: 26px; }
@@ -200,7 +208,7 @@ footer a { color: var(--soft); }
   .today-pic .pic { width: 96px; }
   .today .who { font-size: 26px; }
   .shelf { grid-template-columns: repeat(2, 1fr); gap: 26px 14px; padding: 22px 12px 18px; }
-  .tag { right: -4px; font-size: 12px; }
+  .ptag { right: -4px; font-size: 12px; }
   .tabs { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding: 10px 2px 12px; scrollbar-width: none; }
   .rel-board { grid-template-columns: 1fr; padding: 14px; }
   .who-chip { width: 72px; } .who-chip .pic { width: 58px; height: 58px; }
@@ -212,7 +220,7 @@ footer a { color: var(--soft); }
 </head>
 <body>
 <div class="awning" aria-hidden="true"></div>
-<header>
+<header class="market-head">
   <div class="sign-wrap"><div class="sign"><small>연아가 그리고 만든</small><h1>냠냠 시장</h1></div></div>
   <p class="lead">프룻프렌즈 · 디저트프렌즈 · 넛프렌즈 · 스낵프렌즈 — 책 네 권의 친구들이 가게마다 상자에 앉아 있어요. 가게 앞 뽑기로 친구를 만나 보세요!</p>
 </header>
@@ -243,9 +251,15 @@ footer a { color: var(--soft); }
     <div class="rel-board" id="relBoard"></div>
   </section>
 </main>
-<footer>뽑기로 만난 친구는 이 기기에만 적혀요. · <a href="/">수아연아 마을로</a></footer>
+<p class="market-foot">뽑기로 만난 친구는 이 기기에만 적혀요. · <a href="/">수아연아 마을로</a></p>
 <dialog id="dlg" aria-labelledby="dlgTitle"></dialog>
 
-<script src="/pages/friends.js?v=1004d"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
+        crossorigin="anonymous"
+        onerror="window.__sbFailed=1"></script>
+<script src="/pixel.js"></script>
+<script src="/common.js"></script>
+<script src="/pages/friends.js?v=1004e"></script>
 </body>
 </html>
