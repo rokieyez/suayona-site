@@ -9,6 +9,7 @@
 
 쓰는 법: python3 tools/friends-art.py <사진> <이름> x0 y0 x1 y1 <바탕색> [x,y=색 ...] > 결과.svg
   좌표는 사진 픽셀. x,y=색 은 오린 칸 안의 한 점(0~1 비율)을 찍어 그 칸만 다른 색으로 칠한다.
+  몸통 밖이라 못 찾으면 크게 닫아 다시 찾는다. +x,y=색 은 처음부터 크게 닫은 칸(틈 벌어진 얼굴 따위)으로.
   바탕색 none 이면 칠하지 않는다.
 """
 import subprocess, sys, tempfile, os
@@ -118,10 +119,9 @@ def main():
     if base != "none":
         layers.append((inside, base))
     holes = np.zeros_like(ink)
-    for p in picks:                              # 찍은 칸만 다른 색(none 이면 구멍)
-        xy, col = p.split("=")
-        fx, fy = (float(v) for v in xy.split(","))
-        py, px = int(fy * h), int(fx * w)
+    big = []                                     # 몸통 밖(벌어진 뿔·막대·꼬리)을 찾을 때만 크게 닫아 다시 나눈다
+
+    def find(lab, py, px):
         l = lab[py, px]
         if not l:                                # 선 위를 찍었으면 둘레 UP*8 안의 가장 가까운 칸으로 붙인다
             r = UP * 8
@@ -130,10 +130,23 @@ def main():
             if len(ys):
                 i = np.argmin((ys + max(py - r, 0) - py) ** 2 + (xs + max(px - r, 0) - px) ** 2)
                 l = win[ys[i], xs[i]]
+        return l
+    for p in picks:                              # 찍은 칸만 다른 색(none 이면 구멍)
+        xy, col = p.split("=")
+        fx, fy = (float(v) for v in xy.lstrip("+").split(","))   # 앞에 + 를 붙이면 처음부터 크게 닫은 칸에서 찾는다
+        py, px = int(fy * h), int(fx * w)
+        lab_, ins = lab, inside
+        l = 0 if xy[0] == "+" else find(lab, py, px)
+        if not l:
+            if not big:
+                ins2 = body(UP * 14) | inside
+                big[:] = [nd.label(~nd.binary_dilation(ink, st, iterations=R) & ins2)[0], ins2]
+            lab_, ins = big
+            l = find(lab_, py, px)
         if not l:
             print(f"! {name}: {xy} 는 선 위라 칸을 못 찾음", file=sys.stderr)
             continue
-        reg = nd.binary_dilation(lab == l, st, iterations=R) & inside
+        reg = nd.binary_dilation(lab_ == l, st, iterations=R) & ins
         if col == "none":
             holes |= reg & ~ink
         else:
@@ -141,7 +154,7 @@ def main():
     layers = [l for m, c in layers for l in shade(m & ~holes, c)]
     layers.append((ink, INK))
     # 그린 것만 남게 둘레를 잘라 낸다
-    ys, xs = np.where(inside | ink)
+    ys, xs = np.where(inside | ink | (big[1] if big else False))
     pad = UP * 4
     by0, by1, bx0, bx1 = max(ys.min() - pad, 0), min(ys.max() + pad, h), max(xs.min() - pad, 0), min(xs.max() + pad, w)
     body = "".join(trace(m[by0:by1, bx0:bx1], c) for m, c in layers)
