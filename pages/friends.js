@@ -73,7 +73,7 @@ const FRIENDS = [
   F("snack", "choco", "쪼꼬이", "초콜릿"),
   F("snack", "chip", "칩이", "", ["bullied"]),
   F("snack", "rainbow", "레인보우 7형제", "", ["sib"]),
-  F("snack", "hotdog", "쌔겨자 패거리", "핫도그", ["bad"]),
+  F("snack", "hotdog", "핫도그 패거리", "핫도그", ["bad"]),
 ];
 BOOKS.forEach(b => FRIENDS.filter(f => f.book === b.id).forEach((f, i) => f.no = i + 1));
 
