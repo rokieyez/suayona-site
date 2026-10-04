@@ -147,8 +147,14 @@ if (typeof buildChrome === "function") buildChrome("friends");
         `<button data-pool="${id}" aria-pressed="${pool === id}">${t}</button>`).join("")}</div>`;
   }
 
+  // 소리는 common.js 의 tone(파일 없이 그 자리에서 만듦, 사이트 소리 끄기를 따름)
+  const play = (...a) => typeof tone === "function" && tone(...a);
+
   function turn() {
     if (busy) return; busy = true;
+    for (let i = 0; i < 9; i++) play(1150 - i * 35, .03, "square", .035, i * .1);   // 드르륵 손잡이
+    const at = reduced ? 0 : .95;
+    play(190, .09, "sine", .09, at); play(330, .06, "sine", .05, at + .13); play(280, .05, "sine", .035, at + .22);   // 캡슐이 톡, 또르르
     $("#hint").hidden = true;
     $("#chute").innerHTML = "";
     $("#knob").style.transform = `rotate(${deg += 360}deg)`;
@@ -170,6 +176,8 @@ if (typeof buildChrome === "function") buildChrome("friends");
     const f = friend(id), b = book(f.book), isNew = !met[id];
     if (isNew) { met[id] = fmt(new Date()); save(); }
     last = id; busy = false;
+    play(620, .04, "square", .06); play(1100, .07, "square", .05, .04);   // 뽕 열림
+    (isNew ? [1046, 1318, 1568, 2093] : [1046, 1568]).forEach((hz, i) => play(hz, i === 3 ? .22 : .1, "triangle", .05, .13 + i * .07));   // 새 친구면 반짝 길게
     $("#chute").innerHTML = "";
     const COL = ["#ff6b81", "#ffd84d", "#7ed6a5", "#6cc4ff", "#b08cff", "#ff8fc4", "#fff"];
     const conf = Array.from({ length: 22 }, (_, i) => {
