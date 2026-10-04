@@ -133,11 +133,11 @@ a.tab { text-decoration: none; color: var(--ink); }
   background: var(--paper); border: 3px solid var(--ink); border-radius: 10px; padding: 6px 22px; box-shadow: 0 4px 0 var(--ink); }
 .board-name h2 { margin: 0; font-size: clamp(22px, 4vw, 30px); }
 .board-name span { font-size: 14px; color: var(--soft); }
-.shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 30px 22px; padding: 26px 18px 22px;
+.shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 54px 22px; padding: 26px 18px 52px;
   background: rgba(255, 255, 255, .55); border: 3px solid var(--ink); border-top: 0; border-radius: 0 0 14px 14px; position: relative; }
 .shelf::after { content: ""; position: absolute; left: -3px; right: -3px; bottom: -14px; height: 14px; background: var(--wood-d); border-radius: 0 0 10px 10px; border: 3px solid var(--ink); border-top: 0; }
 .item { position: relative; display: block; width: 100%; background: none; border: 0; padding: 0; cursor: pointer; text-align: center; }
-.item .pic { position: relative; z-index: 1; display: block; width: 74%; height: auto; aspect-ratio: 120 / 124; object-fit: contain; margin: 0 auto -34px; transition: transform .25s cubic-bezier(.3, 1.6, .5, 1); }
+.item .pic { position: relative; z-index: 1; display: block; width: 74%; height: auto; aspect-ratio: 120 / 124; object-fit: contain; object-position: 50% 100%; margin: 0 auto -4px; transition: transform .25s cubic-bezier(.3, 1.6, .5, 1); }
 .item:hover .pic, .item:focus-visible .pic { transform: translateY(-12px) rotate(-3deg); }
 .crate { position: relative; z-index: 2; display: block; height: 62px; border: 3px solid var(--ink); border-radius: 6px;
   background: repeating-linear-gradient(180deg, var(--wood-l) 0 17px, var(--wood-d) 17px 20px); box-shadow: inset 0 -8px 0 rgba(0, 0, 0, .1); }
@@ -145,7 +145,7 @@ a.tab { text-decoration: none; color: var(--ink); }
 .crate b { position: absolute; left: 50%; bottom: 8px; translate: -50% 0; font-family: "Jua"; font-weight: 400; color: #fff; font-size: 19px; text-shadow: 0 2px 0 var(--ink); white-space: nowrap; }
 .stamp { position: absolute; left: -10px; top: -16px; width: 46px; height: 46px; border-radius: 50%; border: 3px solid #d8382f; color: #d8382f; background: rgba(255, 255, 255, .85);
   display: grid; place-items: center; font-style: normal; font-family: "Jua"; font-size: 13px; rotate: -14deg; }
-.ptag { position: absolute; z-index: 3; right: -6px; top: 18%; rotate: 9deg; background: #fffbe9; border: 2px solid var(--ink); border-radius: 4px 10px 10px 4px;
+.ptag { position: absolute; z-index: 3; right: 8px; top: calc(100% - 6px); rotate: -4deg; transform-origin: 90% 0; background: #fffbe9; border: 2px solid var(--ink); border-radius: 4px 10px 10px 4px;
   padding: 2px 9px 2px 14px; font-size: 13px; line-height: 1.3; text-align: left; box-shadow: 0 2px 0 var(--ink); clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%); }
 .ptag::before { content: ""; position: absolute; left: 6px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: var(--ink); }
 .ptag small { display: block; color: var(--soft); font-size: 11px; }
@@ -207,8 +207,8 @@ dialog[open] { animation: print .45s cubic-bezier(.2, 1.2, .4, 1); }
   .today { grid-template-columns: 96px 1fr; gap: 12px; }
   .today-pic .pic { width: 96px; }
   .today .who { font-size: 26px; }
-  .shelf { grid-template-columns: repeat(2, 1fr); gap: 26px 14px; padding: 22px 12px 18px; }
-  .ptag { right: -4px; font-size: 12px; }
+  .shelf { grid-template-columns: repeat(2, 1fr); gap: 50px 14px; padding: 22px 12px 48px; }
+  .ptag { right: 4px; font-size: 12px; }
   .tabs { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding: 10px 2px 12px; scrollbar-width: none; }
   .rel-board { grid-template-columns: 1fr; padding: 14px; }
   .who-chip { width: 72px; } .who-chip .pic { width: 58px; height: 58px; }
@@ -260,6 +260,6 @@ dialog[open] { animation: print .45s cubic-bezier(.2, 1.2, .4, 1); }
         onerror="window.__sbFailed=1"></script>
 <script src="/pixel.js"></script>
 <script src="/common.js"></script>
-<script src="/pages/friends.js?v=1004f"></script>
+<script src="/pages/friends.js?v=1004g"></script>
 </body>
 </html>

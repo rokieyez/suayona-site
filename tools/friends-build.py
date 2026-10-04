@@ -4,6 +4,7 @@
 import subprocess, sys, os
 D = os.path.expanduser("~/Desktop/연아 프렌즈 사진/")
 P1, P2 = D + "KakaoTalk_Photo_2026-10-04-17-22-05 001.jpeg", D + "KakaoTalk_Photo_2026-10-04-17-22-06 002.jpeg"
+P3 = D + "KakaoTalk_Photo_2026-10-04-22-58-07.jpeg"   # 방울이(10-04 밤에 더 받음)
 GREEN = "#6cc46a"
 RAIN = ["#ff6b6b", "#ffa53d", "#ffd84d", "#7ed67a", "#6cc4ff", "#6c8de0", "#b08cff"]
 # id, 사진, 칸, 바탕색, [찍기·지우기 ...]
@@ -58,7 +59,7 @@ ART = [
     ("chip", P2, (1572, 1539, 1701, 1698), "#e8c07a", []),
     ("rainbow", P2, (1771, 1514, 2180, 1663), "#ffd84d",
      [f"{x},{y}={c}" for (x, y), c in zip([(.07, .3), (.24, .3), (.40, .3), (.56, .3), (.72, .3), (.91, .3), (.05, .86)], RAIN)]),
-    ("bangul", P1, (110, 195, 312, 410), "#ff5a4e", []),
+    ("bangul", P3, (440, 975, 710, 1213), "#ff5a4e", ["+0.45,0.18=" + GREEN]),
     ("hotdog", P2, (2200, 1440, 2560, 1790), "#e08a4f", ["close:7", "erase:15,0,340,45", "erase:10,45,112,86", "erase:245,80,345,128"]),
 ]
 want = set(sys.argv[1:])
