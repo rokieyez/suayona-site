@@ -65,7 +65,7 @@ const FRIENDS = [
   F("dessert", "dessert", "디저필스", "요리사"),
   F("dessert", "bar", "딸기바 아줌마", "딸기 아이스바", ["love"], "soda"),
   F("dessert", "soda", "소다아저씨", "소다", ["love"], "bar"),
-  F("dessert", "icecop", "아이스 컵", "", ["villain"]),
+  F("dessert", "icecop", "아이스 킴", "", ["villain"]),
   F("snack", "berry2", "베리", "", ["revive"]),
   F("snack", "ddakbbang", "딱빵이"),
   F("snack", "jjondeugi", "쫀두기·쫀도기", "쫀드기", ["sib"]),
