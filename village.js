@@ -1809,6 +1809,7 @@ VS.draw = function(env){
     { text: '농장', href: '/farm.html', x: 5.6, y: 10.7, z: 28 },
     { text: '그림 그리기', href: '/draw.html', x: 0.7, y: 10.5, z: 52 },   // 이젤이 아이소로 서며 키가 커져(40도트) 꼬리표를 올렸다
     { text: '가볼 곳', href: '/event/#want', x: 3.2, y: 9.45, z: 48 },
+    { text: '냠냠 시장', href: '/friends.html', x: 5.8, y: 3.85, z: 52 },   // 광장 빨간 과일가게 — 연아 프렌즈 도감(2026-10-04)
   ];
 };
 
