@@ -22,7 +22,7 @@ const TAGS = {
 
 // 친구 하나 = 한 줄. 그림은 friends/<id>.svg — 연아 그림을 tools/friends-build.py 가 선 정리·색칠한 것.
 // 이름은 연아 손글씨를 읽어 옮긴 것, 종류(kind)는 그림을 보고 내가 붙인 것이다. love = 짝 표시(♥ ○ △ ☆)로 이어진 상대.
-const F = (book, id, name, kind = "", tags = [], love = "") => ({ book, id, name, kind, tags, love, img: `/friends/${id}.svg?v=1004g` });
+const F = (book, id, name, kind = "", tags = [], love = "") => ({ book, id, name, kind, tags, love, img: `/friends/${id}.svg?v=1004i` });
 const FRIENDS = [
   F("fruit", "cherry", "이체리", "체리", ["revive"]),
   F("fruit", "orange", "오렌지", "오렌지"),

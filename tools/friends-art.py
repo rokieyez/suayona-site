@@ -92,6 +92,12 @@ def main():
         ex0, ey0, ex1, ey1 = (int(v) for v in e[6:].split(","))
         raw[ey0:ey1, ex0:ex1] = False
     picks = [p for p in picks if not p.startswith("erase:")]
+    # redink:색 — 빨간 펜 선(핫도그 케첩)을 검은 선 대신 그 색 선으로 얹는다
+    red = [p[7:] for p in picks if p.startswith("redink:")]
+    picks = [p for p in picks if not p.startswith("redink:")]
+    if red:
+        a = np.asarray(img.convert("RGB")).astype(int)
+        red = (smooth((a[..., 0] > 150) & (a[..., 1] < 100) & (a[..., 2] < 100)), red[0])
     ink = smooth(raw)
     h, w = ink.shape
     st = nd.generate_binary_structure(2, 1)
@@ -152,9 +158,11 @@ def main():
         else:
             layers.append((reg, col))
     layers = [l for m, c in layers for l in shade(m & ~holes, c)]
+    if red:
+        layers.append(red)
     layers.append((ink, INK))
     # 그린 것만 남게 둘레를 잘라 낸다
-    ys, xs = np.where(inside | ink | (big[1] if big else False))
+    ys, xs = np.where(inside | ink | (big[1] if big else False) | (red[0] if red else False))
     pad = UP * 4
     by0, by1, bx0, bx1 = max(ys.min() - pad, 0), min(ys.max() + pad, h), max(xs.min() - pad, 0), min(xs.max() + pad, w)
     body = "".join(trace(m[by0:by1, bx0:bx1], c) for m, c in layers)
