@@ -72,12 +72,13 @@ def shift(m, dx, dy):
 
 
 def shade(m, c):
-    """평평함을 덜게 칸마다 오른쪽 아래 그늘(−12%)·왼쪽 위 밝은 띠를 얹는다."""
+    """평평함을 덜게 칸마다 오른쪽 아래 그늘(−12%)·왼쪽 위 밝은 띠를 얹는다. 색/그늘색 으로 그늘색을 따로 줄 수 있다."""
+    c, _, sc = c.partition("/")
     area = m.sum()
     if area < (UP * 10) ** 2:
         return [(m, c)]
     d = int(np.clip(np.sqrt(area) * .1, UP * 2, UP * 12))
-    out = [(m, c), (m & ~shift(m, d, d), tone(c, -.12))]
+    out = [(m, c), (m & ~shift(m, d, d), sc or tone(c, -.12))]
     if area > (UP * 25) ** 2:
         a = max(d // 2, UP)
         out.append((m & shift(m, -a, -a) & ~shift(m, -a - a * 2 // 3, -a - a * 2 // 3) & shift(m, d, d), tone(c, .4)))
@@ -97,11 +98,20 @@ def main():
     picks = [p for p in picks if not p.startswith("redink:")]
     if red:
         a = np.asarray(img.convert("RGB")).astype(int)
-        red = (smooth((a[..., 0] > 150) & (a[..., 1] < 100) & (a[..., 2] < 100)), red[0])
+        rm = smooth((a[..., 0] > 150) & (a[..., 1] < 100) & (a[..., 2] < 100))
+        k = np.hypot(*np.ogrid[-UP * 3:UP * 3 + 1, -UP * 3:UP * 3 + 1]) <= UP * 3
+        red = (nd.binary_fill_holes(nd.binary_closing(rm, k)) | rm, red[0])   # 빨간 선 안쪽도 같은 빨강으로 채운다
     ink = smooth(raw)
     h, w = ink.shape
     st = nd.generate_binary_structure(2, 1)
 
+    # wall:x0,y0,x1,y1 — 선이 벌어진 곳에 안 보이는 벽을 세운다(0~1 비율). 칸 나누기와 몸통 채우기에만 쓴다
+    wall = np.zeros_like(ink)
+    for p in [p for p in picks if p.startswith("wall:")]:
+        x0_, y0_, x1_, y1_ = (float(v) for v in p[5:].split(","))
+        for t in np.linspace(0, 1, 400):
+            wall[min(int((y0_ + (y1_ - y0_) * t) * h), h - 1), min(int((x0_ + (x1_ - x0_) * t) * w), w - 1)] = True
+    picks = [p for p in picks if not p.startswith("wall:")]
     # 몸통 = 바깥 선 안쪽 전부. 아이 그림은 선 끝이 벌어져 있어서, 선을 굵혔다 되돌려(닫기) 틈을 메운 뒤 속을 채운다.
     # 틈이 크면 덜 메워져 몸통이 빈다 — 반지름을 늘려 가며 채워지는 넓이가 확 늘어나는(틈이 닫히는) 곳을 고른다.
     def body(r):
@@ -109,7 +119,7 @@ def main():
         yy, xx = np.ogrid[-r:r + 1, -r:r + 1]
         k = xx * xx + yy * yy <= r * r
         pad = r + 2
-        m = np.pad(ink, pad)
+        m = np.pad(ink | nd.binary_dilation(wall, st, iterations=UP), pad)
         return nd.binary_fill_holes(nd.binary_closing(m, k))[pad:-pad, pad:-pad] | ink
     force = [int(p[6:]) for p in picks if p.startswith("close:")]  # 틈이 아주 크면 반지름을 직접 준다
     picks = [p for p in picks if not p.startswith("close:")]
@@ -120,7 +130,12 @@ def main():
             inside = tries[i]
     # 찍은 칸을 찾을 칸 나누기 — 선을 조금 굵혀 작은 틈은 막는다
     R = UP * 2
-    lab, _ = nd.label(~nd.binary_dilation(ink, st, iterations=R) & inside)
+    block = nd.binary_dilation(ink, st, iterations=R) | nd.binary_dilation(wall, st, iterations=UP)
+    lab, _ = nd.label(~block & inside)
+    if os.environ.get("LABDUMP"):                # 칸 나뉨을 눈으로 볼 때: LABDUMP=파일.png
+        rng = np.random.default_rng(1)
+        pal = np.r_[[[255, 255, 255]], rng.integers(60, 230, (lab.max(), 3))].astype(np.uint8)
+        Image.fromarray(np.where(nd.binary_dilation(wall, iterations=UP)[..., None], [255, 0, 0], np.where(ink[..., None], 0, pal[lab])).astype(np.uint8)).resize((w // UP, h // UP)).save(os.environ["LABDUMP"])
     layers = []
     if base != "none":
         layers.append((inside, base))
@@ -139,6 +154,14 @@ def main():
         return l
     for p in picks:                              # 찍은 칸만 다른 색(none 이면 구멍)
         xy, col = p.split("=")
+        if xy[0] == "*":                         # *x,y=색 — 단추처럼 선을 굵히면 사라지는 작은 칸을 그 자리 그대로 칠한다
+            fx, fy = (float(v) for v in xy[1:].split(","))
+            sl = nd.label(~ink)[0]
+            if sl[int(fy * h), int(fx * w)]:
+                layers.append((sl == sl[int(fy * h), int(fx * w)], col))
+            else:
+                print(f"! {name}: {xy} 는 선 위", file=sys.stderr)
+            continue
         fx, fy = (float(v) for v in xy.lstrip("+").split(","))   # 앞에 + 를 붙이면 처음부터 크게 닫은 칸에서 찾는다
         py, px = int(fy * h), int(fx * w)
         lab_, ins = lab, inside
@@ -146,7 +169,7 @@ def main():
         if not l:
             if not big:
                 ins2 = body(UP * 14) | inside
-                big[:] = [nd.label(~nd.binary_dilation(ink, st, iterations=R) & ins2)[0], ins2]
+                big[:] = [nd.label(~block & ins2)[0], ins2]
             lab_, ins = big
             l = find(lab_, py, px)
         if not l:
