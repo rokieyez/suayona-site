@@ -178,6 +178,7 @@ const MENU = [
 // 여기 한 줄만 늘리면 된다.
 const PRIVATE_LINKS = [
   { href: '/time.html',  icon: '🗓️', label: '시간표',     key: 'time',  who: 'any'   },
+  { href: '/study.html', icon: '📚', label: '공부 계획',  key: 'study', who: 'any'   },
   { href: '/notes.html', icon: '💌',  label: '자매 우체통', key: 'notes', who: 'child' },
   { href: '/settings.html', icon: '🔒', label: '공개 설정', key: 'settings', who: 'parent' },
 ];

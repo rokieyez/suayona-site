@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>공부 계획 · 수아랑 연아랑</title>
+<!-- 시간표를 끌어다 쓰므로 시간표처럼 가족만 보고, 검색엔진에도 올리지 않는다. -->
+<meta name="robots" content="noindex, nofollow">
+
+<link rel="preload" href="/fonts/PretendardVariable.subset.woff2" as="font" type="font/woff2" crossorigin>
+<link href="/fonts/dot.css" rel="stylesheet">
+<link href="./style.css" rel="stylesheet">
+<style>
+  .gate{max-width:420px; margin:0 auto;}
+  .gate .why{font-size:13.5px; line-height:1.85; color:var(--ink-soft); text-align:center; margin-bottom:20px;}
+
+  .who-pick{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+  .who-pick .dot-btn{background:var(--cream);}
+  .who-pick .dot-btn.on{background:var(--coral); color:var(--ink);}
+  .day-head{margin:0 0 14px; font-size:17px; font-weight:900;
+    border-bottom:var(--px) solid var(--ink); padding-bottom:8px;}
+  .hint{font-size:12.5px; color:var(--ink-soft); line-height:1.7;}
+  .box{border:var(--px) solid var(--ink); background:var(--paper);
+    box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28); margin-bottom:30px;}
+
+  /* ---------- 오늘 할 것 ---------- */
+  .today > h4{margin:0; padding:12px 16px; font-size:15px; font-weight:900; background:var(--lemon);
+    border-bottom:var(--px) solid var(--ink); display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;}
+  .today > h4 small{font-size:12px; font-weight:800; margin-left:auto;}
+  .today ul{list-style:none; margin:0; padding:4px 0;}
+  .today li{display:flex; gap:10px; align-items:center; padding:10px 16px; flex-wrap:wrap;
+    border-bottom:2px dashed rgba(47,42,36,.18);}
+  .today li:last-child{border-bottom:none;}
+  .today li .nm{font-weight:900; font-size:14.5px;}
+  .today li .amt{font-size:13px; font-weight:800;}
+  .today li .min{font-size:12px; color:var(--ink-soft);}
+  .today li .go{margin-left:auto; display:flex; gap:6px; align-items:center;}
+  .today li .go input{width:64px; text-align:right;}
+  .today li.ok{background:var(--mint);}
+  .today li.ok .nm::after{content:' ✔';}
+  .today .none{padding:18px 16px; font-size:13.5px; color:var(--ink-soft);}
+  .bar{height:8px; border:2px solid var(--ink); background:var(--cream); flex-basis:100%; position:relative;}
+  .bar i{position:absolute; inset:0 auto 0 0; background:var(--ink);}
+
+  /* ---------- 여유 ---------- */
+  .cush{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; margin-bottom:30px;}
+  .cc{border:var(--px) solid var(--ink); background:var(--paper); padding:12px 14px 13px;
+    box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28); cursor:pointer; text-align:left;
+    font-family:inherit; color:var(--ink);}
+  .cc:hover{filter:brightness(1.03);}
+  .cc .top{display:flex; gap:8px; align-items:baseline;}
+  .cc .top b{font-size:14.5px; font-weight:900;}
+  .cc .top .dd{margin-left:auto; font-size:11.5px; font-weight:900; border:2px solid var(--ink); padding:0 5px;}
+  .cc .sub{font-size:12px; color:var(--ink-soft); margin:4px 0 9px;}
+  /* 막대 하나에 「마감까지 빈 시간」 전체를 깔고, 그 위에 「남은 일」을 얹는다.
+     남은 일이 막대를 넘치면 시간이 모자란 것이다 — 숫자보다 먼저 눈에 들어온다. */
+  .cbar{height:14px; border:2px solid var(--ink); background:var(--cream); position:relative; overflow:hidden;}
+  .cbar i{position:absolute; inset:0 auto 0 0;}
+  .cc .lv{margin-top:8px; font-size:12.5px; font-weight:900;}
+  .lv-easy  .cbar i{background:var(--mint);}
+  .lv-tight .cbar i{background:var(--lemon);}
+  .lv-short .cbar i{background:#e8735f;}
+  .lv-short .lv{color:#c0392b;}
+  .lv-done{opacity:.6;}
+  .lv-done .cbar i{background:var(--mint);}
+
+  /* ---------- 한 주 미리보기 ---------- */
+  .week{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); margin-bottom:12px;}
+  .week .d{border-right:1px solid rgba(47,42,36,.18); min-height:120px; padding:0 0 6px;}
+  .week .d:last-child{border-right:none;}
+  .week .d h5{margin:0 0 5px; padding:7px 2px; text-align:center; font-size:12.5px; font-weight:900;
+    background:var(--cream); border-bottom:var(--px) solid var(--ink);}
+  .week .d h5 small{display:block; font-size:10.5px; font-weight:700; color:var(--ink-soft);}
+  .week .d.today h5{background:var(--lemon);}
+  .week .d .fr{font-size:10.5px; color:var(--ink-soft); text-align:center; margin-bottom:4px;}
+  .week .chip{margin:3px 4px; padding:3px 4px; border:2px solid var(--ink); font-size:11px; line-height:1.3;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .week .chip b{font-weight:900;}
+
+  .tools{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:10px;}
+
+  /* ---------- 창 ---------- */
+  .sheet{position:fixed; inset:0; z-index:120; background:rgba(47,42,36,.55);
+    display:flex; align-items:center; justify-content:center; padding:18px;}
+  .sheet[hidden]{display:none;}
+  .sheet-in{width:100%; max-width:430px; max-height:88vh; overflow-y:auto; background:var(--paper); padding:20px 22px 18px;}
+  .sheet-in h4{margin:0 0 14px; font-size:16px; font-weight:900;}
+  .sheet-in .field{display:block; font-size:11.5px; font-weight:800; margin:12px 0 5px;}
+  .sheet-in input, .sheet-in select{width:100%;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .row3{display:grid; grid-template-columns:2.2em 1fr 1fr; gap:8px; align-items:center; margin-top:7px;}
+  .row3 b{font-size:13px; font-weight:900; text-align:center;}
+  .sheet-btns{display:flex; gap:8px; align-items:center; margin-top:20px;}
+  .quick{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;}
+  .quick button{font-family:inherit; font-size:11.5px; font-weight:800; cursor:pointer;
+    border:2px solid var(--ink); background:var(--cream); padding:4px 9px;}
+  .quick button:hover{background:var(--lemon);}
+
+  @media (max-width:640px){
+    .week{grid-template-columns:repeat(7,minmax(0,1fr));}
+    .week .chip{font-size:10px; margin:2px; padding:2px;}
+    .week .chip span{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<main class="page-top section-pad">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow pixel">STUDY</span>
+      <h1>공부 계획</h1>
+      <p>숙제랑 문제집을 넣으면, 마감까지 남은 빈 시간에 알아서 나눠 줘요.</p>
+    </div>
+
+    <div id="gate" class="gate reveal"></div>
+
+    <div id="app" hidden>
+      <div class="who-pick" id="whoPick">
+        <button class="dot-btn small on" data-who="sua">수아</button>
+        <button class="dot-btn small" data-who="yona">연아</button>
+      </div>
+
+      <div class="box today" id="today"></div>
+
+      <h3 class="day-head">마감까지 여유</h3>
+      <div class="cush" id="cush"></div>
+
+      <h3 class="day-head">한 주 미리보기</h3>
+      <div class="box"><div class="week" id="week"></div></div>
+
+      <div class="tools" id="tools">
+        <button class="dot-btn primary small" id="addBtn">＋ 할 일 넣기</button>
+        <button class="dot-btn small" id="winBtn">공부 시간 정하기</button>
+      </div>
+      <p class="hint" id="hint"></p>
+    </div>
+  </div>
+</main>
+
+<!-- 할 일 하나 -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-in dot-card" role="dialog" aria-modal="true" aria-labelledby="shTitle">
+    <h4 id="shTitle">할 일 넣기</h4>
+    <label class="field" for="fTitle">이름</label>
+    <input id="fTitle" placeholder="수학 익힘책, 영어 단어…" autocomplete="off">
+
+    <div class="row2">
+      <div><label class="field" for="fTotal">전체 분량</label><input type="number" id="fTotal" min="1" step="1" inputmode="numeric"></div>
+      <div><label class="field" for="fUnit">세는 말</label>
+        <select id="fUnit"><option>쪽</option><option>문제</option><option>장</option><option>개</option><option>번</option><option>분</option></select>
+      </div>
+    </div>
+    <div class="row2">
+      <div><label class="field" for="fBase">벌써 한 것</label><input type="number" id="fBase" min="0" step="1" inputmode="numeric" value="0"></div>
+      <div><label class="field" for="fPer">하나에 몇 분</label><input type="number" id="fPer" min="1" step="1" inputmode="numeric"></div>
+    </div>
+    <label class="field" for="fDue">마감</label>
+    <input type="date" id="fDue">
+    <div class="quick" id="fDueQuick">
+      <button type="button" data-d="1">내일</button>
+      <button type="button" data-d="3">3일 뒤</button>
+      <button type="button" data-d="7">일주일</button>
+      <button type="button" data-d="14">2주</button>
+    </div>
+
+    <div class="sheet-btns">
+      <button class="dot-btn danger small" id="fDel" hidden>지우기</button>
+      <span style="flex:1"></span>
+      <button class="dot-btn small" id="fCancel">닫기</button>
+      <button class="dot-btn primary small" id="fSave">저장</button>
+    </div>
+    <div class="msg" id="fMsg"></div>
+  </div>
+</div>
+
+<!-- 요일별 공부 시간대 -->
+<div class="sheet" id="winSheet" hidden>
+  <div class="sheet-in dot-card" role="dialog" aria-modal="true" aria-labelledby="wTitle">
+    <h4 id="wTitle">공부 시간 정하기</h4>
+    <p class="hint">요일마다 공부할 수 있는 시간대를 적어요. 그 안에 시간표의 학교·학원이 있으면 그만큼은 빼고 계산해요.
+      쉬는 날은 두 칸을 비워 두세요.</p>
+    <div id="wRows"></div>
+    <div class="sheet-btns">
+      <span style="flex:1"></span>
+      <button class="dot-btn small" id="wCancel">닫기</button>
+      <button class="dot-btn primary small" id="wSave">저장</button>
+    </div>
+    <div class="msg" id="wMsg"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0"
+        integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi"
+        crossorigin="anonymous"></script>
+<script src="./common.js"></script>
+<script src="/pages/study-plan.js"></script>
+<script src="/pages/study.js"></script>
+</body>
+</html>

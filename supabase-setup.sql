@@ -2338,3 +2338,25 @@ alter table public.andere_items add constraint andere_items_kind_check
 alter table public.andere_items drop constraint if exists andere_items_kind_check;
 alter table public.andere_items add constraint andere_items_kind_check
   check (kind = any (array['profile', 'character', 'event', 'picture', 'entry', 'scene', 'demerit']));
+
+-- ─────────────────────────────────────────────────────────────
+-- 공부 계획 (2026-10-05) — study.html. 아이마다 한 줄, 할 일·공부 시간대를 data 에 통째로 담는다.
+-- data = { win: { "0".."6": [시작분, 끝분] | null }, tasks: [{ id, title, unit, total, per, due, base, log:{날짜:단위} }] }
+-- 읽기는 가족, 쓰기는 부모(아무 줄)와 아이(제 줄만). 이 SQL 을 돌리기 전까지 쪽은 그 기기 브라우저에만 저장한다.
+create table if not exists public.study_plans (
+  who        text primary key check (who in ('sua', 'yona')),
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  constraint study_plans_size check (pg_column_size(data) < 65536)
+);
+alter table public.study_plans enable row level security;
+drop policy if exists "family reads study" on public.study_plans;
+create policy "family reads study" on public.study_plans for select
+  using (public.my_role() is not null);
+drop policy if exists "family writes study" on public.study_plans;
+create policy "family writes study" on public.study_plans for insert
+  with check (public.my_role() = 'parent' or (public.my_role() = 'child' and who = public.my_author_key()));
+drop policy if exists "family updates study" on public.study_plans;
+create policy "family updates study" on public.study_plans for update
+  using      (public.my_role() = 'parent' or (public.my_role() = 'child' and who = public.my_author_key()))
+  with check (public.my_role() = 'parent' or (public.my_role() = 'child' and who = public.my_author_key()));

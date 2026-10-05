@@ -84,6 +84,8 @@ const pairs = [
   { files: ['pages/index.js', 'pages/run.js'] },
   // 「나들이」 한 쪽을 둘이 나눠 맡는다
   { files: ['pages/outing-trips.js', 'pages/outing-places.js'] },
+  // 공부 계획 — 셈(study-plan, node 점검도 같이 씀)과 화면
+  { files: ['pages/study-plan.js', 'pages/study.js'] },
 ].map(p => ({
   files: p.files,
   languageOptions: { globals: Object.assign({}, ...p.files.map(topLevelNames)) },
