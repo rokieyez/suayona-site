@@ -168,7 +168,8 @@ const MENU = [
   // 그리기는 메뉴에 두지 않는다 — 첫 화면의 「그리러 가기」로 충분하고, 항목이
   // 일곱이면 좁은 화면에서 한 줄이 넘친다.
   // 놀이는 한 자리에 모았다 — 한 번 눌러 뛰기·지뢰찾기·모험단 (2026-09-12)
-  { href: '/games.html',    label: '게임',      key: 'games' },
+  // 2026-10-05 부모 요청: 메뉴가 많아 「게임」을 빼고 그 자리에 공부 계획. 게임은 첫 화면 마을 광장의 파란 가게로 들어간다
+  { href: '/study.html',    label: '공부 계획', key: 'study' },
   { href: '/farm.html',     label: '수아연아 농장',   key: 'farm' },
 ];
 
@@ -178,7 +179,6 @@ const MENU = [
 // 여기 한 줄만 늘리면 된다.
 const PRIVATE_LINKS = [
   { href: '/time.html',  icon: '🗓️', label: '시간표',     key: 'time',  who: 'any'   },
-  { href: '/study.html', icon: '📚', label: '공부 계획',  key: 'study', who: 'any'   },
   { href: '/notes.html', icon: '💌',  label: '자매 우체통', key: 'notes', who: 'child' },
   { href: '/settings.html', icon: '🔒', label: '공개 설정', key: 'settings', who: 'parent' },
 ];
