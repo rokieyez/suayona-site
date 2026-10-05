@@ -318,42 +318,209 @@
       g.restore();
     }
     // ⑦ 길가 소품 — 능력치가 Lv.3 이 되면 그 능력치의 물건이 길가에 서고, Lv.6 이면 커진다. (0,0) = 바닥
+    // 2026-10-05 부모 요청 「트로피 같은 것들도 아이소메트릭에 맞게 다시 고화소로」 — 모두 2:1 아이소 입체로 다시 그렸다.
+    // 빛은 길·나무처럼 왼쪽 위에서 온다: 윗면이 가장 밝고, 왼쪽 면(+v 쪽)이 중간, 오른쪽 면(+u 쪽)이 어둡다. 아래 도우미는 prop 안(옮긴 자리)에서만 쓴다.
+    const iso = (u, v, z) => [u - v, (u + v) / 2 - (z || 0)];          // 소품 좌표(u: 오른쪽 아래, v: 왼쪽 아래, z: 위) → 화면
+    function shade(c, k){ const n = parseInt(c.slice(1), 16), t = k < 0 ? 0 : 255, f = x => Math.round(x + (t - x) * Math.abs(k)); return 'rgb(' + f(n >> 16) + ',' + f(n >> 8 & 255) + ',' + f(n & 255) + ')'; }   // k>0 밝게 · k<0 어둡게
+    function poly(pts, fill){ g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); if (fill){ g.fillStyle = fill; g.fill(); } }
+    const thin = a => { g.strokeStyle = 'rgba(47,42,36,' + (a || 0.35) + ')'; g.lineWidth = 0.6; g.stroke(); };
+    // 상자 — 가운데 (u, v), 반너비 a(u 쪽)·b(v 쪽), 높이 h, 바닥 높이 z
+    function box(u, v, a, b, h, z, col, lw){
+      const W0 = iso(u - a, v + b, z), S0 = iso(u + a, v + b, z), E0 = iso(u + a, v - b, z), W1 = iso(u - a, v + b, z + h), S1 = iso(u + a, v + b, z + h), E1 = iso(u + a, v - b, z + h), N1 = iso(u - a, v - b, z + h);
+      poly([W0, S0, S1, W1], col); poly([S0, E0, E1, S1], shade(col, -0.3)); poly([N1, E1, S1, W1], shade(col, 0.22));
+      g.beginPath(); g.moveTo(S0[0], S0[1]); g.lineTo(S1[0], S1[1]); g.moveTo(W1[0], W1[1]); g.lineTo(S1[0], S1[1]); g.lineTo(E1[0], E1[1]); thin();
+      if (h > 1.6){ g.beginPath(); g.moveTo(W1[0] + 0.4, W1[1] + 0.7); g.lineTo(S1[0] - 0.4, S1[1] + 0.7); g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = 0.6; g.stroke(); }   // 앞 윗모서리 빛
+      poly([W0, S0, E0, E1, N1, W1]); ink(lw || 1.1);
+    }
+    // 면에 붙여 그리기 — 'L' 왼쪽 면(x: +u, y: 아래) · 'R' 오른쪽 면(x: -v, y: 아래) · 'T' 윗면(x: +u, y: +v). (u, v, z) 가 그 면의 (0,0)
+    function face(kind, u, v, z, fn){ const p = iso(u, v, z); g.save(); g.translate(p[0], p[1]); if (kind === 'L') g.transform(1, 0.5, 0, 1, 0, 0); else if (kind === 'R') g.transform(1, -0.5, 0, 1, 0, 0); else g.transform(1, 0.5, -1, 0.5, 0, 0); fn(); g.restore(); }
+    // 세운 원기둥 — 왼쪽이 밝고 오른쪽이 어둡다. 윗면은 아이소 타원(세로 = 가로 ÷ 2)
+    function cyl(u, v, r, h, z, col, lw){
+      const p = iso(u, v, z), q = iso(u, v, z + h), gr = g.createLinearGradient(p[0] - r, 0, p[0] + r, 0);
+      gr.addColorStop(0, shade(col, 0.1)); gr.addColorStop(0.3, shade(col, 0.32)); gr.addColorStop(0.62, col); gr.addColorStop(1, shade(col, -0.38));
+      g.beginPath(); g.moveTo(q[0] - r, q[1]); g.lineTo(p[0] - r, p[1]); g.ellipse(p[0], p[1], r, r / 2, 0, Math.PI, 0, true); g.lineTo(q[0] + r, q[1]); g.ellipse(q[0], q[1], r, r / 2, 0, 0, Math.PI, true); g.closePath(); g.fillStyle = gr; g.fill(); ink(lw || 1);
+      g.beginPath(); g.ellipse(q[0], q[1], r, r / 2, 0, 0, TAU); g.fillStyle = shade(col, 0.22); g.fill(); ink((lw || 1) * 0.7);
+    }
+    // 바닥 그림자 — 발밑 아이소 마름모 두 겹(빛 반대쪽인 오른쪽 아래로 조금 밀린다)
+    function foot(a, b){ [[2, '.08'], [0, '.15']].forEach(s => poly([iso(-a - s[0] + 1.5, -b - s[0] + 0.5), iso(a + s[0] + 1.5, -b - s[0] + 0.5), iso(a + s[0] + 1.5, b + s[0] + 0.5), iso(-a - s[0] + 1.5, b + s[0] + 0.5)], 'rgba(40,30,20,' + s[1] + ')')); }
+    // 막대 — 먹선 위에 나무색을 얹은 다리·살
+    function stick(a, b, w, col){ g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.strokeStyle = INK; g.lineWidth = w + 1.6; g.stroke(); g.strokeStyle = col; g.lineWidth = w; g.stroke(); g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = w * 0.35; g.beginPath(); g.moveTo(a[0] - w * 0.25, a[1]); g.lineTo(b[0] - w * 0.25, b[1]); g.stroke(); }
     function prop(x, y, key, big){
-      g.save(); g.translate(x, y); const s = big ? 1.25 : 1; g.scale(s, s);
-      if (key === 'art'){                                                 // 🎨 이젤과 그림
-        g.strokeStyle = '#7a5232'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(-9, 0); g.lineTo(-2, -34); g.moveTo(9, 0); g.lineTo(2, -34); g.moveTo(0, -30); g.lineTo(5, 1); g.stroke();
-        rrect(-12, -32, 24, 19, 1.5); g.fillStyle = big ? '#c9a24a' : '#fffaf0'; g.fill(); ink(1.4); R(-9.5, -29.5, 19, 14, '#bfe4f7'); R(-9.5, -21, 19, 5.5, '#7cc46a'); circ(5, -25, 2.6, '#ffd24d'); circ(-4, -22, 3.2, '#3f8a3a');
-        R(-13, -13, 26, 2.2, '#8a5a34'); if (big){ circ(-14, -4, 3, '#ff7f8a'); circ(-10, -2, 2.4, '#6cc7b3'); circ(-13, 0, 2, '#ffd24d'); }
-      } else if (key === 'stage'){                                        // 🎹 길가 피아노(큰 것은 음표가 떠오른다)
-        rrect(-15, -27, 30, 22, 2); g.fillStyle = '#3b3346'; g.fill(); ink(1.4); R(-13, -12, 26, 5, '#fffaf2'); for (let i = 0; i < 6; i++) R(-11 + i * 4.4, -12, 1.6, 3, INK);
-        R(-14, -5, 3, 5, '#3b3346'); R(11, -5, 3, 5, '#3b3346'); R(-12, -25, 24, 2, 'rgba(255,255,255,.18)');
-        if (big){ const f = (st.t * 0.7) % 1; g.globalAlpha = 1 - f; outlined('♪', 8, -32 - f * 14, '#b9a3d6', 11, 2.5); g.globalAlpha = 1; }
-      } else if (key === 'write'){                                        // ✍️ 책 더미와 연필
-        const C = ['#ff7f8a', '#6cc7b3', '#ffd979', '#8ec9ee', '#b9a3d6'], n = big ? 5 : 3;
-        for (let i = 0; i < n; i++){ rrect(-11 + (i % 2) * 2, -6 - i * 6, 22, 6, 1); g.fillStyle = C[i]; g.fill(); ink(1.1); R(-8 + (i % 2) * 2, -4.5 - i * 6, 16, 1, 'rgba(255,255,255,.7)'); }
-        g.save(); g.translate(6, -6 - n * 6); g.rotate(-0.6); R(-1.5, -12, 3, 12, '#ffd24d'); g.beginPath(); g.moveTo(-1.5, -12); g.lineTo(0, -16); g.lineTo(1.5, -12); g.fillStyle = '#f3c58e'; g.fill(); R(-1.5, 0, 3, 2, '#ff9fb0'); g.restore();
-      } else if (key === 'body'){                                         // 🏃 깃발(큰 것은 결승선 깃발 둘)
-        const flag = (fx, col) => { R(fx - 1, -40, 2, 40, '#8a5a34'); const w = Math.sin(st.t * 4 + fx) * 2; g.beginPath(); g.moveTo(fx + 1, -40); g.quadraticCurveTo(fx + 8, -42 + w, fx + 16, -37 + w); g.quadraticCurveTo(fx + 8, -33 + w, fx + 1, -31); g.closePath(); g.fillStyle = col; g.fill(); ink(1.1); };
-        flag(-4, '#8ec9ee'); if (big) flag(8, '#ffd24d');
-      } else if (key === 'heart'){                                        // 💗 하트 꽃덤불
-        oval(0, -7, 13, 8, '#4f9a4a'); oval(-3, -9, 8, 5, '#6cbb5c');
-        [[-6, -11, 3.4, '#ff5d7a'], [5, -12, 3, '#ff9fb0'], [0, -6, 2.6, '#ff7f8a']].concat(big ? [[-9, -4, 2.6, '#ffd24d'], [9, -5, 2.6, '#ff5d7a']] : []).forEach(h => { heartPath(h[0], h[1], h[2]); g.fillStyle = h[3]; g.fill(); ink(0.9); });
-      } else if (key === 'grit'){                                         // 🏆 받침 위 트로피
-        rrect(-9, -10, 18, 10, 1.5); g.fillStyle = '#a97c47'; g.fill(); ink(1.2);
-        const c = big ? '#ffd24d' : '#d8d8e2'; g.beginPath(); g.moveTo(-8, -28); g.lineTo(8, -28); g.quadraticCurveTo(7, -17, 0, -16); g.quadraticCurveTo(-7, -17, -8, -28); g.closePath(); g.fillStyle = c; g.fill(); ink(1.2);
-        R(-1.5, -16, 3, 4, c); R(-5, -12, 10, 2.2, c); g.strokeStyle = INK; g.lineWidth = 1.2; g.beginPath(); g.arc(-8, -24, 3.5, Math.PI * 0.5, Math.PI * 1.5); g.arc(8, -24, 3.5, -Math.PI * 0.5, Math.PI * 0.5); g.stroke(); R(-5, -26, 2, 6, 'rgba(255,255,255,.7)');
-        if (big){ const a = (Math.sin(st.t * 3) + 1) / 2; g.globalAlpha = a; outlined('✦', 10, -32, '#fff6c4', 9, 2); g.globalAlpha = 1; }
-      } else if (key === 'wisdom'){                                       // 📚 펼친 책을 얹은 독서대
-        R(-1.5, -18, 3, 18, '#7a5232'); R(-7, -1, 14, 2, '#7a5232');
-        g.beginPath(); g.moveTo(-13, -22); g.lineTo(0, -19); g.lineTo(13, -22); g.lineTo(13, -30); g.lineTo(0, -27); g.lineTo(-13, -30); g.closePath(); g.fillStyle = '#fffaf0'; g.fill(); ink(1.2);
-        g.strokeStyle = 'rgba(47,42,36,.4)'; g.lineWidth = 0.7; g.beginPath(); for (let i = 0; i < 3; i++){ g.moveTo(-11, -27 + i * 2); g.lineTo(-2, -25 + i * 2); g.moveTo(2, -25 + i * 2); g.lineTo(11, -27 + i * 2); } g.stroke();
-        if (big) circ(0, -34, 2.4, '#ffe27a');
-      } else if (key === 'lamp'){                                         // 가로등(밤엔 불빛이 번진다)
-        R(-1.5, -44, 3, 44, '#4a4458'); R(-4, -2, 8, 2, '#4a4458'); rrect(-5, -52, 10, 9, 2); g.fillStyle = world.tod === 'night' || world.tod === 'dusk' ? '#ffe9a0' : '#e9e4d4'; g.fill(); ink(1.2); R(-6, -54, 12, 2.5, '#4a4458');
-      } else if (key === 'sign'){                                         // 나무 이정표
-        R(-1.5, -30, 3, 30, '#8a5a34'); g.beginPath(); g.moveTo(-12, -30); g.lineTo(9, -30); g.lineTo(14, -26); g.lineTo(9, -22); g.lineTo(-12, -22); g.closePath(); g.fillStyle = '#c99a62'; g.fill(); ink(1.2); outlined('→', -1, -26, '#fffaf0', 7, 2);
-      } else {                                                            // 바위 둘
-        oval(-3, -4, 9, 6, '#a8a29a'); oval(-5, -6, 5, 3, '#c9c4bc'); oval(7, -3, 6, 4, '#98928a'); g.beginPath(); g.ellipse(-3, -4, 9, 6, 0, 0, TAU); ink(1.1);
+      g.save(); g.translate(x, y); const s = big ? 1.25 : 1; g.scale(s, s); g.lineJoin = 'round'; g.lineCap = 'round';
+      const lit = world.tod === 'night' || world.tod === 'dusk';
+      if (key === 'art'){                                                 // 🎨 세 다리 이젤 · 두께 있는 캔버스 · 바닥 팔레트(큰 것은 금빛 액자 + 붓통)
+        foot(11, 9);
+        stick(iso(0, -9, 0), iso(0, -0.5, 34), 1.8, '#7a5232');
+        stick(iso(-8.5, 2.8, 0), iso(-1.4, 1.4, 35), 2, '#8a5a34'); stick(iso(8.5, 2.8, 0), iso(1.4, 1.4, 35), 2, '#8a5a34');
+        box(0, 3, 13, 1.6, 1.7, 11.5, '#8a5a34', 1);                      // 받침대
+        const fr = big ? '#d9ac4a' : '#f4ead8';
+        box(0, 1.2, 11, 1.1, 21, 13, fr, 1.2);                            // 캔버스(두께 2.2)
+        face('L', -11, 2.3, 34, () => {                                   // 앞면 그림 — 하늘·해·언덕·나무
+          const sk = g.createLinearGradient(0, 1.6, 0, 19.4); sk.addColorStop(0, '#9fd3f2'); sk.addColorStop(1, '#e6f5fb'); R(1.6, 1.6, 18.8, 17.8, sk);
+          circ(15.5, 5.6, 2.6, '#ffd24d'); circ(14.8, 4.9, 1, 'rgba(255,255,255,.7)');
+          g.beginPath(); g.moveTo(1.6, 13); g.quadraticCurveTo(7, 8.5, 12, 12); g.quadraticCurveTo(16, 10, 20.4, 12.5); g.lineTo(20.4, 19.4); g.lineTo(1.6, 19.4); g.closePath(); g.fillStyle = '#7cc46a'; g.fill();
+          g.beginPath(); g.moveTo(1.6, 16); g.quadraticCurveTo(10, 13, 20.4, 16.5); g.lineTo(20.4, 19.4); g.lineTo(1.6, 19.4); g.closePath(); g.fillStyle = '#5aa850'; g.fill();
+          R(5.6, 10.5, 1, 4, '#7a5232'); circ(6.1, 9.6, 2.8, '#3f8a3a'); circ(5.3, 8.8, 1.1, '#7cc46a');
+          g.strokeStyle = 'rgba(255,127,138,.85)'; g.lineWidth = 0.9; g.beginPath(); g.moveTo(10, 17.2); g.quadraticCurveTo(13, 15.8, 16, 17.4); g.stroke();
+          g.strokeStyle = 'rgba(47,42,36,.5)'; g.lineWidth = 0.5; g.strokeRect(1.6, 1.6, 18.8, 17.8);
+        });
+        box(0, 1.2, 2.2, 1.7, 2.6, 33, '#7a5232', 0.9);                   // 위 집게
+        face('T', 0.5, 4.5, 0.4, () => {                                  // 팔레트 — 바닥에 눕힌 물감판
+          g.beginPath(); g.ellipse(6, 4.5, 7, 4.6, 0, 0, TAU); g.fillStyle = '#9a6a3a'; g.fill();
+          g.translate(-0.7, -0.7); g.beginPath(); g.ellipse(6, 4.5, 7, 4.6, 0, 0, TAU); g.fillStyle = '#d9a86a'; g.fill(); ink(0.8);
+          circ(2.4, 5.8, 1.1, '#9a6a3a'); [[4, 2.2, '#ff7f8a'], [7, 1.8, '#ffd24d'], [9.8, 3, '#6cc7b3'], [10.2, 6, '#8ec9ee'], [7.4, 7.2, '#b9a3d6']].forEach(d => { circ(d[0], d[1], 1.2, d[2]); circ(d[0] - 0.35, d[1] - 0.35, 0.4, 'rgba(255,255,255,.75)'); });
+        });
+        if (big){ cyl(-9, 7, 2.6, 5, 0, '#8ec9ee', 0.9); [[-1.2, '#ff7f8a', -0.25], [0.6, '#ffd24d', 0.1], [1.6, '#6cc7b3', 0.35]].forEach(b => { const p = iso(-9, 7, 4.5); g.save(); g.translate(p[0] + b[0], p[1]); g.rotate(b[2]); R(-0.5, -7, 1, 7, '#c99a62'); circ(0, -7.6, 0.9, b[1]); g.restore(); }); }
+      } else if (key === 'stage'){                                        // 🎹 업라이트 피아노 · 건반 윗면 · 의자(큰 것은 음표가 떠오른다)
+        foot(13, 10);
+        const V0 = -3.5, BODY = '#3b3346';
+        box(0, V0, 12, 4.5, 26, 0, BODY, 1.2);                            // 몸통
+        face('L', -12, V0 + 4.5, 26, () => {                              // 앞판 — 윗판·악보·아랫판
+          rrect(2, 2, 20, 9, 1.2); g.fillStyle = '#4a4158'; g.fill(); thin(0.5);
+          R(7.5, 3.4, 9, 6.6, '#fffaf2'); g.strokeStyle = 'rgba(47,42,36,.55)'; g.lineWidth = 0.35; g.beginPath(); for (let i = 0; i < 3; i++){ g.moveTo(8.3, 4.8 + i * 1.7); g.lineTo(15.7, 4.8 + i * 1.7); } g.stroke(); [[9.5, 5.4], [11.6, 4.6], [13.7, 6.2]].forEach(n => circ(n[0], n[1], 0.55, INK));
+          R(6.8, 10, 10.4, 0.8, '#2a2433');
+          rrect(2, 15.5, 20, 8.5, 1.2); g.fillStyle = '#453c52'; g.fill(); thin(0.5); R(10.5, 25, 3, 1, '#e9c25a');
+        });
+        box(-10.6, V0 + 8.2, 1, 1, 11, 0, BODY, 0.8); box(10.6, V0 + 8.2, 1, 1, 11, 0, BODY, 0.8);   // 건반 다리
+        box(0, V0 + 7, 12, 2.5, 2.2, 11, BODY, 1);                         // 건반 선반
+        face('T', -12, V0 + 4.5, 13.2, () => {                            // 건반 윗면 — 흰 건반 14개 · 검은 건반
+          R(0.6, 0.5, 22.8, 4, '#fffaf2'); const kw = 22.8 / 14;
+          g.strokeStyle = 'rgba(47,42,36,.45)'; g.lineWidth = 0.3; g.beginPath(); for (let i = 1; i < 14; i++){ g.moveTo(0.6 + i * kw, 0.5); g.lineTo(0.6 + i * kw, 4.5); } g.stroke();
+          for (let i = 0; i < 13; i++) if ([0, 1, 3, 4, 5].includes(i % 7)) R(0.6 + (i + 1) * kw - 0.5, 0.5, 1, 2.4, INK);
+        });
+        const tp = iso(-6, V0 - 2, 26); R(tp[0] - 0.5, tp[1] - 6, 1, 6, '#e9c25a'); circ(tp[0], tp[1] - 6.6, 1.4, '#fff6c4');   // 뚜껑 위 촛대
+        box(0, V0 + 13.6, 6.5, 2.6, 6.5, 0, '#6b4a3a', 1);                // 의자
+        box(0, V0 + 13.6, 6.5, 2.6, 1.6, 6.5, '#b9a3d6', 1);               // 방석
+        if (big){ const f = (st.t * 0.7) % 1; g.globalAlpha = 1 - f; outlined('♪', 9, -38 - f * 14, '#b9a3d6', 12, 2.5); g.globalAlpha = 1; }
+      } else if (key === 'write'){                                        // ✍️ 쌓인 책 — 책등·페이지 단면 · 위에 누운 연필
+        foot(11, 10);
+        const C = ['#ff7f8a', '#6cc7b3', '#ffd979', '#8ec9ee', '#b9a3d6'], n = big ? 5 : 3, BH = 4.4;
+        let top = null;
+        for (let i = 0; i < n; i++){
+          const turn = i % 2, a = turn ? 6.5 : 9.5, b = turn ? 9.5 : 6.5, du = (h2(i, 7) - 0.5) * 2.4, dv = (h2(i, 8) - 0.5) * 2.4, z = i * BH, c = C[i];
+          box(du, dv, a, b, BH, z, c, 1);
+          const pages = (k, w) => face(k, k === 'L' ? du - a : du + a, dv + b, z + BH - 0.8, () => { R(0.6, 0, w - 1.2, BH - 1.6, '#fbf3e0'); if (k === 'R') R(0.6, 0, w - 1.2, BH - 1.6, 'rgba(60,40,20,.12)'); g.strokeStyle = 'rgba(120,100,70,.45)'; g.lineWidth = 0.25; g.beginPath(); for (let j = 1; j < 3; j++){ g.moveTo(0.8, j * (BH - 1.6) / 3); g.lineTo(w - 0.8, j * (BH - 1.6) / 3); } g.stroke(); });
+          const spine = (k, w) => face(k, k === 'L' ? du - a : du + a, dv + b, z + BH, () => { R(2, 0.2, 0.9, BH - 0.4, shade(c, -0.25)); R(w - 2.9, 0.2, 0.9, BH - 0.4, shade(c, -0.25)); R(w / 2 - 2, 1.4, 4, 1.4, '#fff6c4'); });
+          if (turn){ pages('L', 2 * a); spine('R', 2 * b); } else { spine('L', 2 * a); pages('R', 2 * b); }
+          top = [du, dv, a, b, z + BH];
+        }
+        face('T', top[0] - top[2], top[1] - top[3], top[4], () => {      // 연필 — 윗책 위에 비스듬히 눕힘
+          g.translate(top[2] * 0.95, top[3]); g.rotate(-0.55);
+          R(-7, 0.6, 13, 2.4, 'rgba(40,30,20,.18)');
+          R(-7, -1.2, 11, 2.4, '#ffd24d'); R(-7, -1.2, 11, 0.8, '#ffe68a'); R(-7, 0.6, 11, 0.6, '#e0a92a');
+          g.beginPath(); g.moveTo(4, -1.2); g.lineTo(7.5, 0); g.lineTo(4, 1.2); g.closePath(); g.fillStyle = '#f3c58e'; g.fill(); g.beginPath(); g.moveTo(6.4, -0.4); g.lineTo(7.5, 0); g.lineTo(6.4, 0.4); g.fillStyle = INK; g.fill();
+          R(-8.4, -1.2, 1.4, 2.4, '#c9c4bc'); R(-10, -1.2, 1.6, 2.4, '#ff9fb0');
+          g.beginPath(); g.rect(-10, -1.2, 14, 2.4); g.moveTo(4, -1.2); g.lineTo(7.5, 0); g.lineTo(4, 1.2); ink(0.6);
+        });
+      } else if (key === 'body'){                                         // 🏃 아이소 돌 받침 + 펄럭이는 깃발(큰 것은 둘 + 결승 테이프)
+        const flag = (u, v, col) => {
+          box(u, v, 4, 4, 3, 0, '#c9c4bc', 1);
+          cyl(u, v, 1.1, 40, 3, '#8a5a34', 0.8);
+          const k = iso(u, v, 44.2); circ(k[0], k[1], 1.9, '#ffd24d'); g.beginPath(); g.arc(k[0], k[1], 1.9, 0, TAU); ink(0.7); circ(k[0] - 0.6, k[1] - 0.6, 0.6, '#fff6c4');
+          face('L', u + 1.1, v, 42.5, () => {
+            const w = Math.sin(st.t * 4 + u) * 1.6, w2 = Math.sin(st.t * 4 + u - 1.6) * 1.6;
+            g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(5, -1 + w, 10, 1 + w2 * 0.4); g.quadraticCurveTo(14, 2.6 - w, 18, 5.5 + w2 * 0.6);
+            g.quadraticCurveTo(13, 7.6 + w, 9, 9 - w2 * 0.3); g.quadraticCurveTo(4, 10.6 + w * 0.5, 0, 11); g.closePath();
+            const gr = g.createLinearGradient(0, 0, 18, 0); gr.addColorStop(0, col); gr.addColorStop(0.3, shade(col, 0.28)); gr.addColorStop(0.55, shade(col, -0.16)); gr.addColorStop(0.8, shade(col, 0.18)); gr.addColorStop(1, shade(col, -0.1));
+            g.fillStyle = gr; g.fill(); ink(1);
+            circ(5.5, 5.4, 2.1, '#fffaf2'); g.beginPath(); g.arc(5.5, 5.4, 2.1, 0, TAU); ink(0.5); star5(5.5, 5.5, 1.4, 0); g.fillStyle = col; g.fill();
+          });
+        };
+        foot(big ? 12 : 6, big ? 12 : 6);
+        if (big){
+          flag(4, -8, '#ffd24d');
+          const a = iso(-6, 0, 22), b = iso(4, -8, 22), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 3];
+          g.beginPath(); g.moveTo(a[0], a[1]); g.quadraticCurveTo(m[0], m[1], b[0], b[1]); g.strokeStyle = INK; g.lineWidth = 2.6; g.stroke(); g.strokeStyle = '#fffaf2'; g.lineWidth = 1.5; g.stroke(); g.setLineDash([1.6, 1.6]); g.strokeStyle = '#ff7f8a'; g.stroke(); g.setLineDash([]);
+        }
+        flag(-6, 0, '#8ec9ee');
+      } else if (key === 'heart'){                                        // 💗 하트 꽃덤불 — 둥근 잎 덩어리가 겹친다
+        foot(13, 9);
+        const B = [[2, -6, 7, 7], [-7, -2, 6, 6.5], [6, 1, 6, 6.5], [-1, 0, 7, 8], [-4, 5, 4.5, 5], [4, 6, 4.2, 4.6]].concat(big ? [[-11, 4, 3.6, 4.2], [10, 6, 3.4, 4]] : []);
+        const ctr = B.map(b => { const p = iso(b[0], b[1], b[2]); return [p[0], p[1], b[3]]; });
+        g.beginPath(); ctr.forEach(c => { g.moveTo(c[0] + c[2], c[1]); g.arc(c[0], c[1], c[2], 0, TAU); }); g.strokeStyle = INK; g.lineWidth = 2.6; g.stroke();
+        ctr.forEach(c => {
+          const gr = g.createRadialGradient(c[0] - c[2] * 0.4, c[1] - c[2] * 0.45, 0.5, c[0], c[1], c[2] * 1.15); gr.addColorStop(0, '#a6df82'); gr.addColorStop(0.55, '#5aa850'); gr.addColorStop(1, '#2f6b3a');
+          circ(c[0], c[1], c[2], gr);
+          g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 0.7; g.beginPath(); g.arc(c[0] - c[2] * 0.15, c[1] - c[2] * 0.1, c[2] * 0.6, Math.PI * 1.1, Math.PI * 1.55); g.stroke();
+          g.strokeStyle = 'rgba(30,70,35,.4)'; g.beginPath(); g.arc(c[0] + c[2] * 0.1, c[1] + c[2] * 0.1, c[2] * 0.62, Math.PI * 0.05, Math.PI * 0.45); g.stroke();
+        });
+        const H = [[-8, -6, 3.2, '#ff5d7a'], [3, -12, 3, '#ff9fb0'], [-1, -6.5, 2.6, '#ff7f8a'], [9, -6, 2.6, '#ff5d7a'], [-4, -1, 2.2, '#ff9fb0']].concat(big ? [[-13, -3, 2.4, '#ffd24d'], [12, -1.5, 2.2, '#ff7f8a'], [5, -2, 2.4, '#ffd24d']] : []);
+        H.forEach(h => { heartPath(h[0], h[1], h[2]); g.fillStyle = h[3]; g.fill(); ink(0.9); circ(h[0] - h[2] * 0.42, h[1] - h[2] * 0.42, h[2] * 0.24, 'rgba(255,255,255,.8)'); });
+      } else if (key === 'grit'){                                         // 🏆 두 층 받침(이름판) · 손잡이 둘 · 반짝이는 잔
+        foot(9, 9);
+        box(0, 0, 8, 8, 5, 0, '#7a5232', 1.1);
+        face('L', -8, 8, 5, () => { rrect(3, 1, 10, 3, 0.6); g.fillStyle = '#e9c25a'; g.fill(); ink(0.5); R(5, 2.3, 6, 0.45, 'rgba(110,70,20,.65)'); });   // 이름판
+        box(0, 0, 5.5, 5.5, 4, 5, '#a97c47', 1.1);
+        const M = big ? ['#fff6c4', '#ffd24d', '#c98e1c'] : ['#ffffff', '#d8d8e2', '#8e8ea4'];
+        cyl(0, 0, 4, 1.4, 9, M[1], 0.9); cyl(0, 0, 1.4, 4.4, 10.4, M[1], 0.8); cyl(0, 0, 2.4, 1.1, 14, M[1], 0.8);
+        const hd = (sx, col) => { g.beginPath(); g.moveTo(sx * 8.4, -25.5); g.bezierCurveTo(sx * 15, -27, sx * 15, -18, sx * 5.5, -19.4); g.strokeStyle = INK; g.lineWidth = 3.4; g.stroke(); g.strokeStyle = col; g.lineWidth = 1.7; g.stroke(); };
+        hd(-1, M[1]); hd(1, M[2]);
+        g.beginPath(); g.moveTo(-9, -28); g.bezierCurveTo(-9, -20, -4, -16.4, -1.6, -15.6); g.lineTo(1.6, -15.6); g.bezierCurveTo(4, -16.4, 9, -20, 9, -28); g.ellipse(0, -28, 9, 4.5, 0, 0, Math.PI, true); g.closePath();
+        const gr = g.createLinearGradient(-9, 0, 9, 0); gr.addColorStop(0, M[1]); gr.addColorStop(0.22, M[0]); gr.addColorStop(0.5, M[1]); gr.addColorStop(1, M[2]); g.fillStyle = gr; g.fill(); ink(1.2);
+        g.beginPath(); g.ellipse(0, -28, 7.6, 3.5, 0, 0, TAU); const ig = g.createLinearGradient(0, -31.5, 0, -24.5); ig.addColorStop(0, M[2]); ig.addColorStop(1, M[1]); g.fillStyle = ig; g.fill(); thin(0.5);
+        g.beginPath(); g.ellipse(0, -28, 9, 4.5, 0, Math.PI * 0.95, Math.PI * 1.6); g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 0.8; g.stroke();
+        star5(1.5, -21.6, 2.6, 0); g.fillStyle = M[2]; g.fill(); ink(0.5);
+        g.beginPath(); g.moveTo(-6.4, -25.4); g.quadraticCurveTo(-6, -19.4, -2.8, -17.2); g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 1.5; g.stroke(); circ(-6.6, -27.6, 0.7, '#fff');
+        if (big){ const a = (Math.sin(st.t * 3) + 1) / 2; g.globalAlpha = a; outlined('✦', 11, -34, '#fff6c4', 9, 2); g.globalAlpha = 1 - a; outlined('✦', -12, -30, '#fff6c4', 6, 1.6); g.globalAlpha = 1; }
+      } else if (key === 'wisdom'){                                       // 📚 독서대 — 받침·기둥·비스듬한 판 위에 페이지가 휜 펼친 책
+        foot(9, 9);
+        box(0, 0, 7, 7, 2.5, 0, '#6b4a2e', 1.1); box(0, 0, 2, 2, 18, 2.5, '#8a5a34', 1);
+        const T = (u, v, d) => iso(u, v, 23 - v * 0.45 + (d || 0));      // 판 윗면(뒤가 높다)
+        const up = (p, l) => [p[0], p[1] - l];
+        poly([T(-11, 6.5), T(11, 6.5), T(11, 6.5, -2), T(-11, 6.5, -2)], '#8a5a34'); poly([T(11, -6.5), T(11, 6.5), T(11, 6.5, -2), T(11, -6.5, -2)], '#5e3d24'); poly([T(-11, -6.5), T(11, -6.5), T(11, 6.5), T(-11, 6.5)], '#b07d4a');
+        poly([T(-11, -6.5), T(11, -6.5), T(11, -6.5, -2), T(11, 6.5, -2), T(-11, 6.5, -2), T(-11, 6.5)]); ink(1.1);
+        poly([T(-11, 6.5), T(11, 6.5), up(T(11, 6.5), 1.4), up(T(-11, 6.5), 1.4)], '#7a5232'); ink(0.8);   // 앞 턱
+        poly([T(-10, -5.2, 0.3), T(10, -5.2, 0.3), T(10, 5.2, 0.3), T(-10, 5.2, 0.3)], '#3f7d4a'); ink(0.9);   // 겉표지
+        const lift = t => 0.6 + 2.6 * Math.sin(Math.PI * Math.pow(t, 0.6));
+        [-1, 1].forEach(sd => {
+          const edge = v => { const out = []; for (let i = 0; i <= 10; i++){ const t = i / 10; out.push(up(T(sd * t * 9.4, v, 0.3), lift(t))); } return out; };
+          const top = edge(-4.6), bot = edge(4.6).reverse();
+          poly(top.concat(bot).map(p => [p[0] + 0.5, p[1] + 0.8]), '#d9cbb0');                     // 페이지 두께
+          poly(top.concat(bot), sd < 0 ? '#fffaf0' : '#efe5d0'); ink(0.8);
+          g.strokeStyle = 'rgba(47,42,36,.32)'; g.lineWidth = 0.45; g.beginPath();
+          for (let k = 0; k < 5; k++){ const v = -3.4 + k * 1.7; for (let i = 2; i <= 8; i++){ const t = i / 10, p = up(T(sd * t * 9.4, v, 0.3), lift(t)); if (i === 2) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]); } } g.stroke();
+        });
+        const r0 = up(T(0.3, 4.6, 0.3), 0.6), r1 = T(0.8, 6.5, -3.5); g.beginPath(); g.moveTo(r0[0], r0[1]); g.quadraticCurveTo(r0[0] + 1, r0[1] + 3, r1[0], r1[1] + 2); g.strokeStyle = '#ff5d7a'; g.lineWidth = 1.2; g.stroke();   // 책갈피 끈
+        if (big){ const o = iso(0, 0, 36), gl = g.createRadialGradient(o[0], o[1], 0.5, o[0], o[1], 8); gl.addColorStop(0, 'rgba(255,240,170,.75)'); gl.addColorStop(1, 'rgba(255,240,170,0)'); R(o[0] - 8, o[1] - 8, 16, 16, gl); circ(o[0], o[1], 2.4, '#ffe27a'); g.beginPath(); g.arc(o[0], o[1], 2.4, 0, TAU); ink(0.6); circ(o[0] - 0.8, o[1] - 0.8, 0.7, '#fff'); }
+      } else if (key === 'lamp'){                                         // 가로등 — 두 층 받침·기둥·유리 등갓·지붕(밤·저녁엔 불이 켜진다)
+        foot(5, 5);
+        box(0, 0, 4.5, 4.5, 2.5, 0, '#4a4458', 1); box(0, 0, 3, 3, 2.5, 2.5, '#5a5468', 0.9);
+        cyl(0, 0, 1.3, 38, 5, '#4a4458', 0.8); cyl(0, 0, 2, 1.2, 20, '#5a5468', 0.7);
+        box(0, 0, 3.6, 3.6, 1.4, 43, '#4a4458', 0.9);
+        box(0, 0, 3, 3, 8, 44.4, lit ? '#ffe9a0' : '#d8e6ec', 1);         // 유리
+        if (lit){ const o = iso(0, 0, 48.4), gl = g.createRadialGradient(o[0], o[1], 0.5, o[0], o[1], 5); gl.addColorStop(0, '#fffdf0'); gl.addColorStop(1, 'rgba(255,233,160,0)'); R(o[0] - 5, o[1] - 5, 10, 10, gl); }
+        else { face('L', -3, 3, 51.4, () => { g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 0.7; g.beginPath(); g.moveTo(1.2, 5.5); g.lineTo(3, 1.2); g.moveTo(2.4, 6.2); g.lineTo(3.6, 3.4); g.stroke(); }); }
+        [[-3, 3], [3, 3], [3, -3]].forEach(c => { const a = iso(c[0], c[1], 44.4), b = iso(c[0], c[1], 52.4); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.strokeStyle = '#4a4458'; g.lineWidth = 1; g.stroke(); });
+        const ap = iso(0, 0, 57.2), rw = iso(-4.6, 4.6, 52.4), rs = iso(4.6, 4.6, 52.4), re = iso(4.6, -4.6, 52.4);
+        poly([rw, rs, ap], '#5a5468'); poly([rs, re, ap], '#3c3748'); g.beginPath(); g.moveTo(rs[0], rs[1]); g.lineTo(ap[0], ap[1]); thin(0.4); poly([rw, rs, re, ap]); ink(1);
+        circ(ap[0], ap[1] - 1, 1.1, '#4a4458'); g.beginPath(); g.arc(ap[0], ap[1] - 1, 1.1, 0, TAU); ink(0.6);
+      } else if (key === 'sign'){                                         // 나무 이정표 — 네모 기둥·두께 있는 화살 판자 둘·나뭇결·못
+        foot(5, 5);
+        box(0, 0, 1.8, 1.8, 32, 0, '#8a5a34', 1);
+        const ct = iso(0, 0, 35), cw = iso(-2.4, 2.4, 32), cs = iso(2.4, 2.4, 32), ce = iso(2.4, -2.4, 32); poly([cw, cs, ct], '#9c6a3c'); poly([cs, ce, ct], '#6b4426'); poly([cw, cs, ce, ct]); ink(0.9);
+        const plank = (z, dir, len, col) => face('L', -len / 2, 2.4, z, () => {
+          const pts = dir > 0 ? [[0, 0], [len - 4, 0], [len, 4], [len - 4, 8], [0, 8]] : [[4, 0], [len, 0], [len, 8], [4, 8], [0, 4]];
+          const shape = (o) => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0] + o, p[1] - o) : g.moveTo(p[0] + o, p[1] - o)); g.closePath(); };
+          shape(1.8); g.fillStyle = shade(col, -0.35); g.fill(); ink(1.8);
+          for (let o = 1.5; o > 0; o -= 0.3){ shape(o); g.fillStyle = shade(col, -0.35); g.fill(); }
+          shape(0); g.fillStyle = col; g.fill();
+          g.strokeStyle = 'rgba(110,70,30,.45)'; g.lineWidth = 0.4; g.beginPath(); [1.8, 4.2, 6.4].forEach((yy, i) => { g.moveTo(dir > 0 ? 0.6 : 4.6, yy); g.bezierCurveTo(len * 0.3, yy - 0.8 + i * 0.3, len * 0.6, yy + 0.9, len - (dir > 0 ? 4.6 : 0.6), yy - 0.2); }); g.stroke();
+          g.beginPath(); g.ellipse(len * 0.3, 4.6, 1.2, 0.6, 0, 0, TAU); g.stroke();
+          const ax = dir > 0 ? len * 0.62 : len * 0.38; g.beginPath(); g.moveTo(ax - dir * 3.5, 4); g.lineTo(ax + dir * 2, 4); g.moveTo(ax + dir * 0.2, 2.2); g.lineTo(ax + dir * 2, 4); g.lineTo(ax + dir * 0.2, 5.8); g.strokeStyle = '#fffaf0'; g.lineWidth = 1.2; g.stroke();
+          circ(len / 2 + 0.2, 2, 0.55, '#5a5148'); circ(len / 2 + 0.2, 6, 0.55, '#5a5148');
+          shape(0); ink(1.1);
+        });
+        plank(30, 1, 22, '#c99a62'); plank(20.5, -1, 18, '#b98a55');
+      } else {                                                            // 바위 둘 — 면이 있는 돌(윗면 밝게 · 오른쪽 면 어둡게) · 이끼
+        foot(10, 7);
+        const rock = (sil, f) => { poly(sil); g.save(); g.clip(); f.forEach(p => poly(p[0], p[1])); g.restore(); f.forEach((p, i) => { if (i){ poly(p[0]); thin(0.3); } }); poly(sil); ink(1.1); };
+        rock([[-14, 1], [-13, -5], [-8, -11], [-1, -12.5], [5, -9], [8, -3], [6, 1.5], [-5, 3]],
+          [[[[-15, 4], [-15, -6], [10, -14], [10, 4]], '#aaa49b'], [[[-13, -5], [-8, -11], [-1, -12.5], [5, -9], [0, -6], [-7, -5.5]], '#d6d1c8'], [[[0, -6], [5, -9], [8, -3], [6, 1.5], [-1, 1]], '#86807a'], [[[-14, 1], [-13, -5], [-7, -5.5], [-9, 1.5]], '#bab4ab']]);
+        g.fillStyle = 'rgba(110,160,80,.75)'; g.beginPath(); g.ellipse(-5, -9.8, 3.4, 1.3, -0.2, 0, TAU); g.ellipse(-9.6, -8, 1.6, 0.8, -0.5, 0, TAU); g.fill();
+        g.beginPath(); g.moveTo(-2, -4); g.lineTo(-3, -1.2); g.lineTo(-1.8, 1); thin(0.45);
+        rock([[3, 2.5], [4, -3], [8, -6], [12, -5], [14.5, -1], [12.5, 3], [7, 4.2]],
+          [[[[2, 5], [2, -7], [16, -7], [16, 5]], '#a8a29a'], [[[4, -3], [8, -6], [12, -5], [10, -2]], '#d0cbc2'], [[[10, -2], [12, -5], [14.5, -1], [12.5, 3], [8.5, 4]], '#85807a']]);
+        circ(-11, 3.4, 1, '#a8a29a'); circ(16, 3.6, 0.8, '#98928a');
       }
       g.restore();
     }
