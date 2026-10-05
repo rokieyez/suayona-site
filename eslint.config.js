@@ -67,6 +67,7 @@ const vendor = {
   WALKSHEET: 'readonly',  // pages/kid-art.js — 걷는 관객·경비원·강아지 그림 시트(PNG)
   GALLERY: 'readonly',    // pages/gallery-room.js — 포트폴리오 미술관 방(IIFE, window.GALLERY 만 내놓는다)
   CONCERT: 'readonly',    // pages/concert-room.js — 포트폴리오 연주회장(IIFE, window.CONCERT 만 내놓는다)
+  HEROWALK: 'readonly',   // pages/hero-walk.js — 인생 퀘스트 무대(아이소메트릭 길을 걷는 수아·연아, IIFE, window.HEROWALK 만 내놓는다)
   module: 'writable',     // farm-rules / quest-rules 가 node 에서도 돌게 한다
   require: 'readonly',
 };
@@ -84,8 +85,10 @@ const pairs = [
   { files: ['pages/index.js', 'pages/run.js'] },
   // 「나들이」 한 쪽을 둘이 나눠 맡는다
   { files: ['pages/outing-trips.js', 'pages/outing-places.js'] },
-  // 공부 계획 — 셈(study-plan, node 점검도 같이 씀)과 화면
-  { files: ['pages/study-plan.js', 'pages/study.js'] },
+  // 공부 계획 — 셈(study-plan)·경험치(study-xp, 둘 다 node 점검도 같이 씀)과 화면
+  { files: ['pages/study-plan.js', 'pages/study-xp.js', 'pages/study.js'] },
+  // 인생 퀘스트의 📚 지혜 — life.js 가 study-xp 의 studyEvents 를 쓴다(셈 두 파일을 앞에 싣는다)
+  { files: ['pages/life.js', 'pages/study-plan.js', 'pages/study-xp.js'] },
 ].map(p => ({
   files: p.files,
   languageOptions: { globals: Object.assign({}, ...p.files.map(topLevelNames)) },

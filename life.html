@@ -19,7 +19,9 @@
   /* 인생 퀘스트 — 모험단이 기록을 전투력으로 바꿔 노는 곳이라면, 여기는 기록 그 자체가 주인공인 캐릭터 시트 */
   .life-wrap{max-width:860px; margin:0 auto;}
   .life-stage{line-height:0; border:var(--px) solid var(--ink); background:#f3e6cf; box-shadow:var(--px) var(--px) 0 rgba(47,42,36,.28);}
-  .life-cv{display:block; width:100%; aspect-ratio:512/330; image-rendering:pixelated; cursor:pointer; touch-action:manipulation; -webkit-user-select:none; user-select:none;}
+  /* 무대는 걷는 세계라 넓게(16:7) — 폰에서는 아이들이 너무 작아지지 않게 4:3. 그림은 고화소(devicePixelRatio)로 그려서 픽셀 늘이기를 안 쓴다 */
+  .life-cv{display:block; width:100%; aspect-ratio:16/7; cursor:pointer; touch-action:manipulation; -webkit-user-select:none; user-select:none;}
+  @media (max-width:600px){ .life-cv{aspect-ratio:4/3;} }
   .life-msg{min-height:1.6em; text-align:center; font-size:12.5px; color:var(--ink-soft); margin:8px 0 0; line-height:1.6;}
   .life-tools{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:8px 0 22px;}
   .life-tools .dot-btn[aria-pressed="true"]{background:var(--lemon);}
@@ -106,7 +108,7 @@
       <p>현실에서 그리고, 쓰고, 뛰고, 해낸 것들이 경험치가 돼요. 키가 크면 아바타도 자라요.</p>
     </div>
 
-    <div class="life-stage"><canvas class="life-cv" id="lifeCv" width="1024" height="660" tabindex="0" aria-label="수아와 연아의 도트 아바타. 실제 키만큼 자라고, 능력치가 오르면 장비가 생겨요. 아바타를 누르면 그 아이의 기록이 아래에 나와요."></canvas></div>
+    <div class="life-stage"><canvas class="life-cv" id="lifeCv" width="1600" height="700" tabindex="0" aria-label="수아와 연아가 길을 걸으며 공부몹을 물리치는 장면. 능력치가 오르면 길가에 물건이 생기고 공격 모양이 바뀌어요. 아이를 누르면 그 아이의 기록이 아래에 나와요."></canvas></div>
     <p class="life-msg" id="lifeMsg" aria-live="polite"></p>
     <div class="life-tools" id="lifeTools" style="margin-bottom:6px;"></div>
     <label class="life-scrub"><span>🕰 시간 여행</span><input type="range" id="lifeScrub" min="0" max="1000" value="1000" aria-label="첫 기록부터 오늘까지 — 끌면 그때의 모습"></label>
@@ -135,6 +137,9 @@
         onerror="window.__sbFailed=1"></script>
 <script src="./common.js"></script>
 <script src="/pages/kid-art.js?v=0929c"></script>
-<script src="/pages/life.js"></script>
+<script src="/pages/hero-walk.js?v=1005a"></script>
+<script src="/pages/study-plan.js"></script>
+<script src="/pages/study-xp.js"></script>
+<script src="/pages/life.js?v=1005a"></script>
 </body>
 </html>

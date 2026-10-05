@@ -14,16 +14,15 @@ buildChrome('life');
   function todayISO(){ const d = new Date(), z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); }
   const q = s => document.querySelector(s);
   const STILL = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const RW = 512, RH = 330, FLOOR = 296, PX_PER_CM = 1.2, INK = '#2f2a24';
+  const INK = '#2f2a24';
   const FONT = '"Suayona Sans", Pretendard, system-ui, sans-serif';
   const KIDS = ['sua', 'yona'], KID_NAME = { sua: '수아', yona: '연아' }, KID_COLOR = { sua: '#ff7f8a', yona: '#6cc7b3' };
-  const KID_X = { sua: 128, yona: 384 };
   const PROPOSE_ON = true;                                                // 3단계: 아이의 퀘스트 제안(migration life_quests_propose, 2026-09-17)
   const ROOM_LV = 3, ROOM_BIG = 6;                                        // 벽 물건이 생기는 레벨 · 커지는 레벨
   const DAY = 86400000;
 
   // ---------- 규칙 ----------
-  // 능력치 여섯. xp 는 사건 하나의 값, gear 는 Lv.2 에 생기는 장비(Lv.5 부터 반짝인다)
+  // 능력치 일곱(지혜는 2026-10-05 공부 계획에서). xp 는 사건 하나의 값, gear 는 Lv.2 에 생기는 장비(Lv.5 부터 반짝인다)
   const STATS = [
     { key: 'art',   icon: '🎨', name: '예술', color: '#ff9f68', gear: '베레모와 붓',   nick: ['꼬마 화가', '그림 장인'],     from: '그림·만들기 작품', unit: '작품' },
     { key: 'stage', icon: '🎹', name: '무대', color: '#b9a3d6', gear: '마이크',        nick: ['무대의 새싹', '무대의 주인공'], from: '연주·영상',        unit: '영상' },
@@ -31,6 +30,7 @@ buildChrome('life');
     { key: 'body',  icon: '🏃', name: '체력', color: '#8ec9ee', gear: '민트 운동화',   nick: ['바람돌이', '번개 다리'],       from: '달리기 놀이',      unit: '달리기' },
     { key: 'heart', icon: '💗', name: '마음', color: '#f7a8bf', gear: '하트 배지',     nick: ['마음 부자', '모두의 친구'],    from: '받은 박수·같이 만든 것', unit: '박수' },
     { key: 'grit',  icon: '🏆', name: '끈기', color: '#ffd979', gear: '금메달',        nick: ['끈기 대장', '해내는 사람'],    from: '상장·급수·직함',   unit: '업적' },
+    { key: 'wisdom', icon: '📚', name: '지혜', color: '#9ccf7a', gear: '책가방',       nick: ['꼬마 학자', '지혜의 별'],     from: '공부 계획(공부한 날)', unit: '공부' },   // 2026-10-05 — study_plans → study-xp.js
   ];
   const XP = { work: 10, video: 10, diary: 10, run: 3, clap: 5, together: 10, award: 10, level: 10, title: 15, first: 10 };
   const RUN_BEST_CAP = 50;                                               // 달리기 최고 점수 덤(1000점에 1) 상한
@@ -79,7 +79,8 @@ buildChrome('life');
   // 🎭 직업 — 가장 높은 두 능력치의 짝으로 정한다. 으뜸 능력치 Lv.3 부터 직업이 생기고, Lv.5 숙련 · Lv.8 전설
   const JOBS = { 'art+stage': '무대 미술가', 'art+write': '그림책 작가', 'art+body': '활동파 화가', 'art+heart': '마음을 그리는 화가', 'art+grit': '미술 장인',
     'stage+write': '싱어송라이터', 'body+stage': '댄서', 'heart+stage': '모두의 연주자', 'grit+stage': '피아니스트',
-    'body+write': '모험 작가', 'heart+write': '편지 작가', 'grit+write': '꼬마 학자', 'body+heart': '팀의 주장', 'body+grit': '운동선수', 'grit+heart': '든든한 리더' };
+    'body+write': '모험 작가', 'heart+write': '편지 작가', 'grit+write': '꼬마 학자', 'body+heart': '팀의 주장', 'body+grit': '운동선수', 'grit+heart': '든든한 리더',
+    'art+wisdom': '미술 박사', 'stage+wisdom': '음악 박사', 'wisdom+write': '책벌레 작가', 'body+wisdom': '탐험 박사', 'heart+wisdom': '친절한 선생님', 'grit+wisdom': '공부 대장' };
   function jobOf(st){
     const two = STATS.slice().sort((a, b) => st[b.key].xp - st[a.key].xp).slice(0, 2), top = st[two[0].key];
     if (top.lv < ROOM_LV || st[two[1].key].xp <= 0) return { name: '모험가 견습생', icons: '🌱' };
@@ -151,59 +152,6 @@ buildChrome('life');
     return (avatarBuf[key] = c);
   }
 
-  // ---------- 무대 ----------
-  let bgCv = null, bgFam = null;
-  // 방은 겹겹이 굽는다(2026-09-18 부모: 「방 그래픽이 너무 단순해, 다중 레이어로 디테일하게」) —
-  // ① 벽지(그러데이션·세로 줄·작은 무늬) ② 천장 몰딩과 그 그림자·액자 레일 ③ 허리 판벽(모서리마다 밝은 선·어두운 선) ④ 굽도리
-  // ⑤ 마루(엇갈린 널·나뭇결·옹이·벽 밑 그림자) ⑥ 키 재는 자(나무 틀·그림자) ⑦ 구석이 어두운 비네트. 0.5 단위로 그려 화면의 1px 까지 쓴다
-  const hash = n => { let h = (n * 2654435761) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13; return (h >>> 0) / 4294967296; };
-  const WAIN = FLOOR - 50;                                               // 허리 판벽이 시작하는 높이
-  function background(){
-    if (bgCv && bgFam === fam) return bgCv;
-    bgFam = fam;
-    const c = document.createElement('canvas'); c.width = RW * 2; c.height = RH * 2;
-    const g = c.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0);
-    const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
-    // ① 벽지
-    const wg = g.createLinearGradient(0, 0, 0, WAIN); wg.addColorStop(0, '#efe0c2'); wg.addColorStop(0.35, '#f7ecd6'); wg.addColorStop(1, '#f4e6cb'); R(0, 0, RW, WAIN, wg);
-    for (let x = 0; x < RW; x += 32){ R(x, 0, 16, WAIN, 'rgba(255,255,255,.22)'); R(x + 16, 0, 0.5, WAIN, 'rgba(160,120,70,.18)'); R(x, 0, 0.5, WAIN, 'rgba(255,255,255,.5)'); }
-    for (let y = 18, row = 0; y < WAIN - 6; y += 14, row++) for (let x = (row % 2 ? 16 : 8); x < RW; x += 16){ const a = 'rgba(190,150,90,.28)'; R(x, y - 1.5, 0.5, 3, a); R(x - 1.5, y, 3.5, 0.5, a); R(x - 0.5, y - 0.5, 1.5, 1.5, 'rgba(255,255,255,.55)'); }
-    // ② 천장 몰딩 · 그림자 · 액자 레일
-    R(0, 0, RW, 2.5, '#fbf3e2'); R(0, 2.5, RW, 1.5, '#e2cfa6'); R(0, 4, RW, 1.5, '#f3e6c8'); R(0, 5.5, RW, 1, '#b79a66');
-    const cg = g.createLinearGradient(0, 6.5, 0, 22); cg.addColorStop(0, 'rgba(90,60,25,.22)'); cg.addColorStop(1, 'rgba(90,60,25,0)'); R(0, 6.5, RW, 16, cg);
-    R(0, 8, RW, 1.5, '#b8923f'); R(0, 8, RW, 0.5, '#f0d891'); R(0, 9.5, RW, 0.5, 'rgba(70,45,15,.45)');
-    for (let x = 20; x < RW; x += 118){ R(x, 7, 3, 3.5, '#8a6a2a'); R(x + 0.5, 7.5, 1, 1, '#f0d891'); }
-    // ③ 허리 판벽
-    R(0, WAIN - 4, RW, 1, '#f0d9a8'); R(0, WAIN - 3, RW, 3, '#cfa86e'); R(0, WAIN, RW, 1.5, 'rgba(70,40,10,.35)');
-    const pg = g.createLinearGradient(0, WAIN, 0, FLOOR); pg.addColorStop(0, '#dcbd8c'); pg.addColorStop(1, '#cfae7b'); R(0, WAIN + 1.5, RW, FLOOR - WAIN - 1.5, pg);
-    for (let x = 6; x < RW; x += 62){ const px = x, py = WAIN + 7, pw = 50, ph = 30;
-      R(px, py, pw, ph, 'rgba(120,80,35,.16)'); R(px, py, pw, 1, 'rgba(70,40,10,.4)'); R(px, py, 1, ph, 'rgba(70,40,10,.32)'); R(px, py + ph - 1, pw, 1, 'rgba(255,245,215,.75)'); R(px + pw - 1, py, 1, ph, 'rgba(255,245,215,.6)');
-      R(px + 4, py + 4, pw - 8, ph - 8, 'rgba(255,240,205,.28)'); R(px + 4, py + 4, pw - 8, 0.5, 'rgba(255,255,255,.7)'); R(px + 4, py + ph - 4.5, pw - 8, 0.5, 'rgba(70,40,10,.3)');
-      R(x + 56, WAIN + 2, 0.5, FLOOR - WAIN - 9, 'rgba(70,40,10,.18)'); }
-    // ④ 굽도리
-    R(0, FLOOR - 8, RW, 8, '#a97c47'); R(0, FLOOR - 8, RW, 1, '#d9b57c'); R(0, FLOOR - 7, RW, 0.5, 'rgba(255,255,255,.35)'); R(0, FLOOR - 1.5, RW, 1.5, '#6e4a22');
-    // ⑤ 마루
-    const fh = (RH - FLOOR) / 4;
-    for (let row = 0; row < 4; row++){ const y = FLOOR + row * fh, tone = ['#c8975c', '#c08d52', '#cc9d63', '#bd8a50'][row]; R(0, y, RW, fh, tone);
-      R(0, y, RW, 0.5, 'rgba(255,235,190,.35)'); R(0, y + fh - 0.5, RW, 0.5, 'rgba(60,30,5,.4)');
-      for (let x = -40 + (row * 37) % 90; x < RW; x += 90){ R(x, y, 0.5, fh, 'rgba(60,30,5,.45)'); R(x + 0.5, y, 0.5, fh, 'rgba(255,235,190,.25)'); R(x + 2, y + fh / 2 - 0.5, 1, 1, 'rgba(60,30,5,.35)'); R(x - 3, y + fh / 2 - 0.5, 1, 1, 'rgba(60,30,5,.35)'); }
-      for (let k = 0; k < 26; k++){ const r1 = hash(row * 97 + k), r2 = hash(row * 131 + k + 7), r3 = hash(row * 53 + k + 19); R(r1 * RW, y + 1 + r2 * (fh - 2), 6 + r3 * 22, 0.5, r3 > 0.5 ? 'rgba(80,45,10,.22)' : 'rgba(255,230,180,.22)'); }
-      const kx = hash(row * 17 + 3) * RW; g.fillStyle = 'rgba(80,45,10,.3)'; g.beginPath(); g.ellipse(kx, y + fh / 2, 3, 1.4, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(60,30,5,.35)'; g.beginPath(); g.ellipse(kx, y + fh / 2, 1.2, 0.6, 0, 0, Math.PI * 2); g.fill(); }
-    const sg = g.createLinearGradient(0, FLOOR, 0, FLOOR + 9); sg.addColorStop(0, 'rgba(50,25,5,.38)'); sg.addColorStop(1, 'rgba(50,25,5,0)'); R(0, FLOOR, RW, 9, sg);
-    // ⑥ 키 재는 자 — 나무 틀에 흰 눈금판. 눈금 수치는 늘 보인다(키는 손님에게도 연다)
-    const rx = RW / 2 - 9, rt = FLOOR - 175 * PX_PER_CM;
-    R(rx + 20, rt + 4, 3, 175 * PX_PER_CM - 4, 'rgba(60,35,10,.16)');
-    R(rx - 3, rt - 4, 24, 175 * PX_PER_CM + 4, INK); R(rx - 2, rt - 3, 22, 175 * PX_PER_CM + 3, '#a0714a'); R(rx - 2, rt - 3, 22, 1, '#c99a62'); R(rx - 2, rt - 3, 1, 175 * PX_PER_CM + 3, '#c99a62'); R(rx + 19, rt - 3, 1, 175 * PX_PER_CM + 3, '#6e4a22');
-    R(rx, rt, 18, 175 * PX_PER_CM, '#fffaf2'); R(rx, rt, 18, 1, 'rgba(60,35,10,.25)'); R(rx, rt, 1, 175 * PX_PER_CM, 'rgba(60,35,10,.15)');
-    for (let cm = 10; cm <= 170; cm += 5){ const y = Math.round(FLOOR - cm * PX_PER_CM), big = cm % 10 === 0; R(rx, y, big ? 9 : 5, 1, big ? INK : '#9a8f80'); if (!big) continue;
-      if (cm >= 100){ g.font = '700 7px ' + FONT; g.fillStyle = INK; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String(cm), rx + 17, y); } }
-    for (let cm = 1; cm <= 174; cm++) if (cm % 5) R(rx, Math.round((FLOOR - cm * PX_PER_CM) * 2) / 2, 2.5, 0.5, 'rgba(120,105,90,.55)');
-    R(rx - 5, FLOOR - 3, 28, 3, INK); R(rx - 4, FLOOR - 2.5, 26, 2, '#8a5a34');
-    R(rx - 6, rt - 17, 30, 12, INK); R(rx - 5, rt - 16, 28, 10, '#ffd979'); g.font = '800 7px ' + FONT; g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('키 재는 자', RW / 2, rt - 10.5);
-    // ⑦ 비네트
-    const vg = g.createRadialGradient(RW / 2, RH * 0.55, RH * 0.45, RW / 2, RH * 0.55, RW * 0.72); vg.addColorStop(0, 'rgba(60,30,10,0)'); vg.addColorStop(1, 'rgba(60,30,10,.2)'); R(0, 0, RW, RH, vg);
-    return (bgCv = c);
-  }
   // ---------- 방이 자란다 — 능력치가 Lv.3 이 되면 그 아이 쪽 벽에 물건이 하나씩 걸리고, Lv.6 이면 커진다. 빈 자리는 점선 ----------
   function wallItem(g, key, x, y, lv){
     const R = (a, b, w, h, c) => { g.fillStyle = c; g.fillRect(x + a, y + b, w, h); };
@@ -216,18 +164,12 @@ buildChrome('life');
     if (key === 'write'){ R(0, 8, 30, 34, INK); R(2, 10, 26, 30, '#8a5a34'); R(2, 24, 26, 2, INK); const C = ['#ff7f8a', '#6cc7b3', '#ffd979', '#8ec9ee', '#b9a3d6', '#ff9f68']; for (let i = 0; i < 6; i++){ R(3 + i * 4, 12 + i % 2 * 2, 3, 12 - i % 2 * 2, C[i]); if (big || i < 3) R(3 + i * 4, 28 + (i + 1) % 2 * 2, 3, 12 - (i + 1) % 2 * 2, C[(i + 3) % 6]); } }
     if (key === 'body'){ R(2, 6, 2, 36, INK); R(3, 6, 1, 36, '#8a5a34'); for (let i = 0; i < 22; i++){ const h = Math.max(2, 20 - i); R(4 + i, 8 + Math.floor(i / 2), 1, h, i % 6 < 3 ? '#6cc7b3' : '#fff'); } R(4, 7, 23, 1, INK); if (big){ R(10, 14, 6, 6, '#ffd979'); R(12, 16, 2, 2, '#fff'); } }
     if (key === 'heart'){ g.fillStyle = INK; for (let d = 0; d < 30; d++) g.fillRect(x + d, y + 8 + Math.round(Math.sin(d / 29 * Math.PI) * 5), 1, 1); const H = (a, b, c) => { R(a, b, 2, 2, c); R(a + 3, b, 2, 2, c); R(a, b + 2, 5, 2, c); R(a + 1, b + 4, 3, 1, c); R(a + 2, b + 5, 1, 1, c); }; H(3, 14, '#ff5d7a'); H(13, 17, '#ff9fb0'); H(22, 14, '#ff5d7a'); if (big){ H(8, 26, '#ffd979'); H(18, 27, '#6cc7b3'); } }
+    if (key === 'wisdom'){ R(0, 6, 30, 36, INK); R(2, 8, 26, 32, '#8a5a34'); R(2, 23, 26, 2, INK); const C = ['#9ccf7a', '#8ec9ee', '#ff9f68', '#ffd979', '#b9a3d6']; for (let i = 0; i < 5; i++){ R(3 + i * 5, 11 + i % 2 * 2, 4, 12 - i % 2 * 2, C[i]); if (big) R(3 + i * 5, 27 + i % 3, 4, 13 - i % 3, C[4 - i]); } }   // 책장
     if (key === 'grit'){ R(0, 36, 30, 3, INK); R(1, 37, 28, 1, '#c9a24a'); const T = (a, c) => { R(a, 18, 10, 9, INK); R(a + 1, 19, 8, 7, c); R(a + 3, 27, 4, 5, INK); R(a + 4, 27, 2, 5, c); R(a + 1, 32, 8, 4, INK); R(a + 2, 33, 6, 2, '#8a5a34'); R(a + 2, 20, 2, 3, '#fff3ae'); }; T(big ? 3 : 10, '#ffd24d'); if (big) T(17, '#d8d8e2'); }
   }
   // ---------- 말풍선 · 레벨 업 ----------
   let bubbleNow = null, cele = null;
   function fanfare(){ if (typeof tone === 'function') [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.16, 'triangle', 0.05, i * 0.1)); }   // 소리를 꺼 두었거나 아직 화면을 안 눌렀으면 조용히 넘어간다
-  function wrap(g, text, maxW){ const out = []; let line = ''; text.split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > maxW && line){ out.push(line); line = w; } else line = t; }); if (line) out.push(line); return out; }
-  function drawBubble(g, cx, tipY, text){
-    g.font = '700 10px ' + FONT; const lines = wrap(g, text, 150), w = Math.ceil(Math.max(...lines.map(l => g.measureText(l).width))) + 14, h = lines.length * 13 + 9;
-    const x = Math.max(4, Math.min(RW - w - 4, Math.round(cx - w / 2))), y = Math.max(4, tipY - h - 6);
-    g.fillStyle = INK; g.fillRect(x - 1, y - 1, w + 2, h + 2); g.fillRect(cx - 3, y + h, 7, 4); g.fillStyle = '#fff'; g.fillRect(x, y, w, h); g.fillRect(cx - 2, y + h - 1, 5, 3);
-    g.fillStyle = INK; g.textAlign = 'left'; g.textBaseline = 'top'; lines.forEach((l, i) => g.fillText(l, x + 7, y + 5 + i * 13));
-  }
   function talk(k){
     const st = statsAt(k, now()), top = topStat(st), recent = events.filter(e => e.k === k && e.label).sort((a, b) => b.t - a.t)[0];
     const lines = [st[top.key].xp > 0 ? '요즘 제일 자신 있는 건 ' + top.icon + ' ' + top.name + '!' : '이제 막 시작했어. 지켜봐 줘!'];
@@ -270,51 +212,6 @@ buildChrome('life');
   // ---------- 방 꾸밈 — 여섯 능력치 레벨의 합이 오르면 그 아이 쪽 방이 채워진다: 8 러그 · 14 창문(계절 하늘) · 20 화분 ----------
   const sumLv = st => STATS.reduce((n, s) => n + st[s.key].lv, 0);
   const ROOM_STEPS = [[8, '러그'], [14, '창문'], [20, '화분']];
-  function roomExtras(g, k, st, at){
-    const n = sumLv(st), left = k === 'sua', x = KID_X[k], R = (a, b, w, h, c) => { g.fillStyle = c; g.fillRect(a, b, w, h); }, KC = KID_COLOR[k], se = seasonOf(at) || 'autumn';
-    const wx = left ? 5 : RW - 47, wy = 66;                                // 창문 자리(바깥쪽 벽)
-    if (n >= 14){                                                          // 창으로 드는 빛 — 벽과 마루에 비스듬히(아바타보다 먼저 그려 뒤에 깔린다)
-      const dir = left ? 1 : -1, x0 = wx + (left ? 40 : 2), lg = g.createLinearGradient(x0, wy, x0 + dir * 150, FLOOR + 30); lg.addColorStop(0, se === 'winter' ? 'rgba(235,242,255,.34)' : 'rgba(255,244,196,.38)'); lg.addColorStop(1, 'rgba(255,244,196,0)');
-      g.fillStyle = lg; g.beginPath(); g.moveTo(x0, wy + 4); g.lineTo(x0, wy + 56); g.lineTo(x0 + dir * 120, RH); g.lineTo(x0 + dir * 215, RH); g.closePath(); g.fill();
-    }
-    if (n >= 8){                                                           // 러그 — 그림자 · 술 · 테두리 띠 · 마름모 무늬
-      const rx = x - 74, rw = 148, ry = FLOOR + 3, rh = 17;
-      R(rx + 2, ry + rh, rw, 2, 'rgba(50,25,5,.28)');
-      for (let i = 0; i < rh; i += 2){ R(rx - 4, ry + i, 4, 1, '#f3e6cb'); R(rx + rw, ry + i, 4, 1, '#f3e6cb'); R(rx - 4, ry + i + 1, 4, 0.5, 'rgba(80,45,10,.35)'); R(rx + rw, ry + i + 1, 4, 0.5, 'rgba(80,45,10,.35)'); }
-      R(rx, ry, rw, rh, INK); R(rx + 1, ry + 1, rw - 2, rh - 2, KC); R(rx + 1, ry + 1, rw - 2, 1, 'rgba(255,255,255,.45)');
-      R(rx + 3, ry + 3, rw - 6, rh - 6, '#fff6e2'); R(rx + 4.5, ry + 4.5, rw - 9, rh - 9, KC); R(rx + 4.5, ry + rh - 5.5, rw - 9, 1, 'rgba(47,42,36,.2)');
-      for (let i = 0; i < 9; i++){ const cx = rx + 14 + i * 15, cy = ry + rh / 2; g.fillStyle = '#fff6e2'; g.beginPath(); g.moveTo(cx, cy - 3.5); g.lineTo(cx + 4.5, cy); g.lineTo(cx, cy + 3.5); g.lineTo(cx - 4.5, cy); g.closePath(); g.fill(); R(cx - 0.5, cy - 0.5, 1.5, 1.5, left ? '#c03a4b' : '#2f8f78'); }
-    }
-    if (n >= 14){                                                          // 창문 — 봉과 커튼 · 틀의 두께 · 하늘 그러데이션 · 먼 산 · 계절 · 유리 반사 · 창턱
-      const W2 = 42, H2 = 60, sky = { spring: ['#bfe4f7', '#eaf6fb'], summer: ['#5fb0ea', '#bfe4f7'], autumn: ['#f2b978', '#fbe3b8'], winter: ['#aebbd2', '#e4eaf4'] }[se];
-      R(wx + 3, wy + 3, W2, H2, 'rgba(60,35,10,.22)');
-      R(wx - 2, wy - 2, W2 + 4, H2 + 4, INK); R(wx - 1, wy - 1, W2 + 2, H2 + 2, '#b98a55'); R(wx - 1, wy - 1, W2 + 2, 1, '#e0bb85'); R(wx - 1, wy - 1, 1, H2 + 2, '#e0bb85'); R(wx + W2, wy - 1, 1, H2 + 2, '#7a5228'); R(wx + 3, wy + 3, W2 - 6, H2 - 6, INK);
-      const gx = wx + 4, gy = wy + 4, gw = W2 - 8, gh = H2 - 8, sg = g.createLinearGradient(0, gy, 0, gy + gh); sg.addColorStop(0, sky[0]); sg.addColorStop(1, sky[1]); R(gx, gy, gw, gh, sg);
-      const hill = { spring: ['#8fcf86', '#6db868'], summer: ['#5fae5a', '#3f8f48'], autumn: ['#d79a4e', '#b8742f'], winter: ['#f4f7fb', '#d5deea'] }[se];
-      g.save(); g.beginPath(); g.rect(gx, gy, gw, gh); g.clip();
-      g.fillStyle = hill[1]; g.beginPath(); g.ellipse(gx + gw * 0.2, gy + gh + 4, 22, 17, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = hill[0]; g.beginPath(); g.ellipse(gx + gw * 0.85, gy + gh + 6, 26, 19, 0, 0, Math.PI * 2); g.fill();
-      if (se === 'summer'){ R(gx + gw - 12, gy + 5, 8, 8, '#ffd24d'); R(gx + gw - 10.5, gy + 6.5, 5, 5, '#fff3ae'); }
-      if (se !== 'winter'){ const cl = (a, b, w) => { R(a, b, w, 3, 'rgba(255,255,255,.92)'); R(a + 2, b - 2, w - 5, 2, 'rgba(255,255,255,.92)'); R(a, b + 3, w, 0.5, 'rgba(120,150,180,.35)'); }; cl(gx + 3, gy + 9, 13); cl(gx + 17, gy + 19, 10); }
-      const dots = { spring: '#ff9fb0', autumn: '#e8672a', winter: '#ffffff' }[se]; if (dots) for (let i = 0; i < 9; i++) R(gx + hash(i * 7 + 1) * (gw - 2), gy + hash(i * 13 + 5) * (gh - 12), se === 'winter' ? 1.5 : 2, se === 'winter' ? 1.5 : 2, dots);
-      g.fillStyle = 'rgba(255,255,255,.28)'; g.beginPath(); g.moveTo(gx + 3, gy + gh); g.lineTo(gx + 17, gy); g.lineTo(gx + 23, gy); g.lineTo(gx + 9, gy + gh); g.closePath(); g.fill();
-      g.restore();
-      R(gx + gw / 2 - 1, gy, 2, gh, '#b98a55'); R(gx + gw / 2 - 1, gy, 0.5, gh, '#e0bb85'); R(gx, gy + gh / 2 - 1, gw, 2, '#b98a55'); R(gx, gy + gh / 2 - 1, gw, 0.5, '#e0bb85'); R(gx, gy, gw, 1, 'rgba(40,25,10,.35)');
-      R(wx - 5, wy + H2 + 1, W2 + 10, 4, INK); R(wx - 4, wy + H2 + 1.5, W2 + 8, 3, '#c99a62'); R(wx - 4, wy + H2 + 1.5, W2 + 8, 0.5, '#f0d9a8'); R(wx - 3, wy + H2 + 5, W2 + 6, 1.5, 'rgba(60,35,10,.25)');
-      R(wx - 7, wy - 8, W2 + 14, 2, INK); R(wx - 6, wy - 7.5, W2 + 12, 1, '#b8923f'); R(wx - 9, wy - 9, 3, 4, INK); R(wx + W2 + 6, wy - 9, 3, 4, INK); R(wx - 8.5, wy - 8.5, 1, 1, '#f0d891'); R(wx + W2 + 6.5, wy - 8.5, 1, 1, '#f0d891');
-      [[wx - 5, 1], [wx + W2 - 6, -1]].forEach(cu => { const cx = cu[0]; R(cx - 0.5, wy - 6, 12, H2 + 2, INK); R(cx, wy - 5.5, 11, H2 + 1, KC); for (let i = 0; i < 4; i++){ R(cx + 1.5 + i * 2.8, wy - 5.5, 0.5, H2 + 1, 'rgba(47,42,36,.22)'); R(cx + 2.5 + i * 2.8, wy - 5.5, 0.5, H2 + 1, 'rgba(255,255,255,.35)'); }
-        R(cx, wy + H2 * 0.62, 11, 2.5, '#fff6e2'); R(cx, wy + H2 * 0.62 + 2.5, 11, 0.5, 'rgba(47,42,36,.3)'); R(cx, wy + H2 - 6, 11, 1.5, 'rgba(255,255,255,.5)'); });
-    }
-    if (n >= 20){                                                          // 화분 — 그림자 · 테 두른 화분 · 잎맥 있는 잎 다섯
-      const px = left ? 30 : RW - 30, by = FLOOR + 9;
-      g.fillStyle = 'rgba(50,25,5,.3)'; g.beginPath(); g.ellipse(px + 1, by + 1, 14, 3, 0, 0, Math.PI * 2); g.fill();
-      const leaf = (dx, dy, len, ang, col, hi) => { g.save(); g.translate(px + dx, by - 17 + dy); g.rotate(ang); g.fillStyle = INK; g.beginPath(); g.ellipse(0, -len / 2, 4.6, len / 2 + 1, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = col; g.beginPath(); g.ellipse(0, -len / 2, 3.6, len / 2, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = hi; g.fillRect(-0.25, -len + 2, 0.5, len - 3); g.fillRect(-2, -len * 0.55, 2, 0.5); g.fillRect(0, -len * 0.4, 2, 0.5); g.restore(); };
-      leaf(-5, 2, 17, -0.75, '#2f7a3e', '#79c77c'); leaf(5, 2, 17, 0.75, '#2f7a3e', '#79c77c'); leaf(-3, 0, 24, -0.3, '#3f9650', '#9ad89b'); leaf(3, 0, 24, 0.32, '#3f9650', '#9ad89b'); leaf(0, -1, 29, 0, '#5cb85c', '#c4ecc0');
-      R(px - 11, by - 19, 22, 5, INK); R(px - 10, by - 18, 20, 3, '#d98a5a'); R(px - 10, by - 18, 20, 0.5, '#f3b78c');
-      g.fillStyle = INK; g.beginPath(); g.moveTo(px - 10, by - 14); g.lineTo(px + 10, by - 14); g.lineTo(px + 7.5, by + 1); g.lineTo(px - 7.5, by + 1); g.closePath(); g.fill();
-      g.fillStyle = '#c8794a'; g.beginPath(); g.moveTo(px - 9, by - 14); g.lineTo(px + 9, by - 14); g.lineTo(px + 6.7, by); g.lineTo(px - 6.7, by); g.closePath(); g.fill();
-      R(px - 7, by - 13, 2, 11, 'rgba(255,225,190,.5)'); R(px + 4, by - 13, 3, 12, 'rgba(90,40,10,.28)'); R(px - 8, by - 8, 16, 1, 'rgba(90,40,10,.3)');
-    }
-  }
   // 🐣 짝꿍 새 — 능력치 레벨의 합으로 자란다: 알 → 아기새(6) → 병아리(12) → 파랑새(20) → 황금새(32). 아이와 키 재는 자 사이에 선다
   const PET_STEPS = [[0, '알'], [6, '아기새'], [12, '병아리'], [20, '파랑새'], [32, '황금새']];
   const PET_ART = [
@@ -326,96 +223,48 @@ buildChrome('life');
   ];
   const PET_PAL = { k: '#2f2a24', w: '#fffaf2', y: '#ffe27a', Y: '#f2c94c', e: '#2f2a24', o: '#ff9f43', K: '#c9772a', b: '#7fb8f0', B: '#4f8fd6', g: '#ffd24d', G: '#e0a92a' };
   const petStage = st => { const n = sumLv(st); let i = 0; PET_STEPS.forEach((p2, j) => { if (n >= p2[0]) i = j; }); return i; };
-  const petX = k => (k === 'sua' ? RW / 2 - 40 : RW / 2 + 40);
-  function drawPet(g, k, st){
-    const i = petStage(st), art = PET_ART[i], x = petX(k) - 12, up = !STILL && !replay && (frameN + (k === 'sua' ? 3 : 7)) % 6 === 0 ? 1 : 0, y = FLOOR - 22 - (i > 0 ? up * 2 : 0);
-    g.fillStyle = 'rgba(47,42,36,.2)'; g.fillRect(x + 3, FLOOR + 1, 18, 2);
-    for (let r = 0; r < 12; r++) for (let c = 0; c < 12; c++){ const ch = art[r][k === 'sua' ? c : 11 - c]; if (ch !== '.'){ g.fillStyle = PET_PAL[ch]; g.fillRect(x + c * 2, y + r * 2, 2, 2); } }
-  }
   function petTalk(k){
     const st = statsAt(k, now()), i = petStage(st), n = sumLv(st), nx = PET_STEPS[i + 1];
     const t = (i === 0 ? '(알이 살짝 흔들려요)' : ['', '삐… 삐약?', '삐약삐약!', '짹짹! 오늘도 같이 가자!', '✨ 찌르르 — 황금빛 노래!'][i]) + ' · ' + KID_NAME[k] + '의 짝꿍 ' + PET_STEPS[i][1] + (nx ? fam ? ' · 능력치 레벨을 ' + (nx[0] - n) + ' 더 올리면 ' + nx[1] : ' · 더 자라면 ' + nx[1] : ' · 다 자랐어요');
     cele = null; bubbleNow = { k, i: -1, text: t.split(' · ')[0], until: now() + 2600, pet: true }; say(t); draw(); setTimeout(() => { if (bubbleNow && now() >= bubbleNow.until){ bubbleNow = null; draw(); } }, 2700);
   }
-  // 고르면 폴짝
-  const HOP_MS = 520; let hop = null;
-  function startHop(k){ if (STILL) return; hop = { k, t0: now() }; const t = setInterval(() => { if (!hop || now() - hop.t0 >= HOP_MS){ clearInterval(t); hop = null; } draw(); }, 40); }
-  // 🔦 고른 아이에게 조명 — 방 전체를 한 겹 어둡게 덮고 고른 아이 쪽 절반만 걷어 낸다 — 안 고른 아이와 그 둘레가 어두워진다(2026-09-17 부모 요청).
-  // 이름표·띠·말풍선은 이 뒤에 그려서 또렷하다
-  const SPOT_DIM = 0.42;
-  const spotCv = document.createElement('canvas'); spotCv.width = RW * 2; spotCv.height = RH * 2;
-  function spotlight(g, at){
-    const L = spotCv.getContext('2d'); L.setTransform(2, 0, 0, 2, 0, 0); L.globalCompositeOperation = 'source-over'; L.clearRect(0, 0, RW, RH);
-    L.fillStyle = 'rgba(24,16,40,' + SPOT_DIM + ')'; L.fillRect(0, 0, RW, RH);
-    L.globalCompositeOperation = 'destination-out';
-    // 고른 아이 쪽 절반을 통째로 밝힌다 — 가운데(키 재는 자)에서 40px 에 걸쳐 부드럽게 어두워진다. 네모로 도려냈더니 벽 띠 가장자리가 딱 끊겨 보였다
-    const left = sel === 'sua', hg = L.createLinearGradient(left ? RW / 2 - 24 : RW / 2 + 24, 0, left ? RW / 2 + 16 : RW / 2 - 16, 0);
-    hg.addColorStop(0, 'rgba(0,0,0,1)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
-    L.fillStyle = hg; L.fillRect(left ? 0 : RW / 2 - 16, 0, RW / 2 + 16, RH);
-    L.globalCompositeOperation = 'source-over';
-    g.drawImage(spotCv, 0, 0, RW, RH);
-    // 이름표는 어둠 위에 다시 — 고른 아이는 노란 테와 ▼
-    const tagY = FLOOR + 14;
-    KIDS.forEach(k => { if (k !== sel) return; const kx = KID_X[k]; g.fillStyle = '#ffd979'; g.fillRect(kx - 5, tagY - 9, 11, 3); g.fillRect(kx - 3, tagY - 6, 7, 2); g.fillRect(kx - 1, tagY - 4, 3, 2); });
-  }
   const now = () => Date.now();
   function viewAt(){ return replay ? replay.at : now(); }
-  let frameN = 0;
-  function draw(){
-    const cv = q('#lifeCv'); if (!cv) return;
-    const g = cv.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); g.imageSmoothingEnabled = false;
-    g.clearRect(0, 0, RW, RH); g.drawImage(background(), 0, 0, RW, RH);
-    const at = viewAt();
-    KIDS.forEach(k => { const st = statsAt(k, at); roomExtras(g, k, st, at); });
-    KIDS.forEach(k => { const st = statsAt(k, at), x0 = k === 'sua' ? 10 : 274; STATS.forEach((s, i) => wallItem(g, s.key, x0 + i * 38, 10, st[s.key].lv)); });
-    KIDS.forEach(k => {
-      const st = statsAt(k, at), cm = heightAt(k, at), x = KID_X[k];
-      const bob = !STILL && !replay && (frameN + (k === 'sua' ? 0 : 2)) % 8 < 1 ? 1 : 0;
-      const blink = !STILL && !replay && seasonOf(at) !== 'summer' && (frameN + (k === 'sua' ? 5 : 11)) % 15 === 0;   // 선글라스를 쓴 여름엔 눈이 안 보인다
-      const hopY = hop && hop.k === k ? -Math.round(Math.abs(Math.sin((now() - hop.t0) / HOP_MS * Math.PI * 2)) * 7 * (1 - (now() - hop.t0) / HOP_MS)) : 0;
-      const img = avatar(k, st, 0, seasonOf(at), blink), u = cm * PX_PER_CM / img.tall;   // 도트 한 칸의 화면 크기 — 머리끝~발끝(위아래 빈 줄 뺀)이 실제 키
-      if (k === sel){ const hh = cm * PX_PER_CM, gl = g.createRadialGradient(x, FLOOR - hh * 0.5, 30, x, FLOOR - hh * 0.5, hh * 0.85); gl.addColorStop(0, 'rgba(255,240,180,.75)'); gl.addColorStop(1, 'rgba(255,240,180,0)'); g.fillStyle = gl; g.fillRect(x - 170, FLOOR - hh - 60, 340, hh + 60); }   // 뒤에서 비추는 따뜻한 빛
-      if (k === sel){ g.fillStyle = 'rgba(255,217,121,.95)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 66, 12, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,243,196,.9)'; g.beginPath(); g.ellipse(x, FLOOR + 6, 46, 8, 0, 0, Math.PI * 2); g.fill(); }
-      g.fillStyle = 'rgba(47,42,36,.22)'; g.beginPath(); g.ellipse(x, FLOOR + 5, 34, 5, 0, 0, Math.PI * 2); g.fill();
-      const w = img.width * u, h = img.height * u, x0 = Math.round(x - w / 2), y0 = Math.round(FLOOR + 4 - img.feet * u + bob + hopY);
-      g.drawImage(img, x0, y0, Math.round(w), Math.round(h));
-      if (!STILL) STATS.forEach(s => {                                   // ✦ 반짝임
-        if (st[s.key].lv < SHINE_LV || (frameN + s.key.length) % 6 > 2) return;
-        const p = img.shine[s.key], sx = Math.round(x0 + (MX + p[0]) * u), sy = Math.round(y0 + (MY + p[1]) * u);
-        g.fillStyle = '#fff6c4'; g.fillRect(sx - 3, sy, 7, 1); g.fillRect(sx, sy - 3, 1, 7); g.fillStyle = '#fff'; g.fillRect(sx - 1, sy - 1, 3, 3);
-      });
-      // 이름표
-      const label = KID_NAME[k] + (fam && ageYears(k, at) !== null ? ' · Lv.' + ageYears(k, at) : '');
-      g.font = '800 10px ' + FONT; const tw = Math.ceil(g.measureText(label).width) + 10;
-      g.fillStyle = INK; g.fillRect(Math.round(x - tw / 2) - 1, FLOOR + 14, tw + 2, 15); g.fillStyle = KID_COLOR[k]; g.fillRect(Math.round(x - tw / 2), FLOOR + 15, tw, 13);
-      g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(label, x, FLOOR + 17);
-      { const y = Math.round(FLOOR - cm * PX_PER_CM), dir = k === 'sua' ? 1 : -1; const mx = dir > 0 ? RW / 2 - 35 : RW / 2 + 10; g.fillStyle = KID_COLOR[k]; g.fillRect(mx, y, 25, 2); g.fillStyle = INK; g.fillRect(dir > 0 ? mx : mx + 23, y - 1, 2, 4); }   // 머리끝이 자에 닿는 자리
+  // ---------- 무대 — 아이소메트릭 길을 걸으며 공부몹을 물리치는 장면(pages/hero-walk.js). 2026-10-05 부모: 방 한 칸 → 걷는 세계, 캐릭터는 히어로 걷기 그림 ----------
+  // 장면은 스스로 움직인다. 여기서는 「보고 있는 날」의 능력치·키·짝꿍·이름표와 말풍선·축하 띠만 건넨다. draw() 는 그걸 다시 읽으라는 신호다.
+  // 예전 방의 키 재는 자·벽 물건·방 꾸밈은 걷는 장면에서 뺐다 — 대신 능력치 Lv.3 부터 그 능력치의 소품이 길가에 선다(Lv.6 이면 커진다)
+  let scene = null;
+  function draw(){ if (scene){ scene.setSel(sel); scene.refresh(); } }
+  function streakNow(k){ return quests.filter(x => x.repeat && kidsOf(x.who).includes(k)).reduce((n, x) => Math.max(n, streakOf(x)), 0); }
+  function mountScene(cv){
+    if (!window.HEROWALK) return null;
+    return HEROWALK.mount(cv, {
+      kids: KIDS, sel, stats: STATS,
+      getStats: k => statsAt(k, viewAt()),
+      at: viewAt,
+      height: k => heightAt(k, viewAt()),
+      streak: k => replay ? 0 : streakNow(k),
+      label: k => KID_NAME[k] + (fam && ageYears(k, viewAt()) !== null ? ' · Lv.' + ageYears(k, viewAt()) : ''),
+      badge: k => isBirthday(k) ? '🎂' : '',
+      pet: k => { const i = petStage(statsAt(k, viewAt())); return { rows: PET_ART[i], pal: PET_PAL, stage: i }; },
+      overlay: () => {
+        const t = now(), d = replay ? new Date(replay.at) : null;
+        return { banner: cele && t < cele.until ? cele.text : null,
+          bubble: bubbleNow && !replay && t < bubbleNow.until ? { k: bubbleNow.k, text: bubbleNow.text, pet: !!bubbleNow.pet } : null,
+          stamp: d ? d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') : null };
+      },
+      onTap: hit => { if (replay) return; if (hit.pet){ petTalk(hit.pet); return; } if (hit.kid === sel) talk(hit.kid); else pick(hit.kid); },
     });
-    KIDS.forEach(k => drawPet(g, k, statsAt(k, at)));
-    spotlight(g, at);
-    if (cele && now() < cele.until){
-      const x = KID_X[cele.k], top = FLOOR - heightAt(cele.k, at) * PX_PER_CM;
-      for (let i = 0; i < 10; i++){ const a = i / 10 * Math.PI * 2 + frameN * 0.5, r = 70 + (frameN + i) % 3 * 8, sx = Math.round(x + Math.cos(a) * r), sy = Math.round(top + 90 + Math.sin(a) * r * 0.8); g.fillStyle = ['#ffd979', '#ff7f8a', '#6cc7b3', '#fff'][i % 4]; g.fillRect(sx - 3, sy, 7, 1); g.fillRect(sx, sy - 3, 1, 7); }
-      g.font = '800 11px ' + FONT; const tw = Math.min(RW - 16, Math.ceil(g.measureText(cele.text).width) + 16);
-      g.fillStyle = INK; g.fillRect(Math.round(RW / 2 - tw / 2) - 1, 62, tw + 2, 22); g.fillStyle = '#ffd979'; g.fillRect(Math.round(RW / 2 - tw / 2), 63, tw, 20); g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(cele.text, RW / 2, 67, tw - 10);
-    }
-    if (bubbleNow && bubbleNow.pet && !replay && now() < bubbleNow.until) drawBubble(g, petX(bubbleNow.k), FLOOR - 30, bubbleNow.text);
-    else if (bubbleNow && !replay && now() < bubbleNow.until) drawBubble(g, KID_X[bubbleNow.k], Math.round(FLOOR - heightAt(bubbleNow.k, at) * PX_PER_CM) - 8, bubbleNow.text);
-    if (replay){
-      const d = new Date(replay.at), t = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0');
-      g.font = '800 13px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'top';
-      g.fillStyle = INK; g.fillRect(RW / 2 - 40, 8, 80, 22); g.fillStyle = '#ffd979'; g.fillRect(RW / 2 - 39, 9, 78, 20); g.fillStyle = INK; g.fillText(t, RW / 2, 12);
-    }
   }
 
   // ---------- 시트 ----------
   function say(t){ const el = q('#lifeMsg'); if (el) el.textContent = t || ''; }
   function radarSVG(st){
-    const R = 78, C = 100, pt = (i, r) => { const a = -Math.PI / 2 + i * Math.PI / 3; return [(C + Math.cos(a) * r).toFixed(1), (C + Math.sin(a) * r).toFixed(1)]; };
+    const R = 78, C = 100, pt = (i, r) => { const a = -Math.PI / 2 + i * Math.PI * 2 / STATS.length; return [(C + Math.cos(a) * r).toFixed(1), (C + Math.sin(a) * r).toFixed(1)]; };
     const ring = r => STATS.map((s, i) => pt(i, r).join(',')).join(' ');
     const cap = Math.max(6, ...STATS.map(s => st[s.key].lv));
     const shape = STATS.map((s, i) => { const o = st[s.key], f = Math.min(1, (o.lv + Math.min(1, (o.xp - need(o.lv)) / Math.max(1, need(o.lv + 1) - need(o.lv)))) / cap); return pt(i, 8 + (R - 8) * f).join(','); }).join(' ');
-    return '<svg class="life-radar" viewBox="0 0 200 200" role="img" aria-label="능력치 여섯의 모양">' +
+    return '<svg class="life-radar" viewBox="0 0 200 200" role="img" aria-label="능력치 ' + STATS.length + '개의 모양">' +
       [R, R * 0.66, R * 0.33].map(r => '<polygon points="' + ring(r) + '" fill="none" stroke="#c9bfae" stroke-width="1"/>').join('') +
       STATS.map((s, i) => '<line x1="' + C + '" y1="' + C + '" x2="' + pt(i, R)[0] + '" y2="' + pt(i, R)[1] + '" stroke="#c9bfae" stroke-width="1"/>').join('') +
       '<polygon points="' + shape + '" fill="' + KID_COLOR[sel] + '" fill-opacity=".55" stroke="#2f2a24" stroke-width="2" stroke-linejoin="round"/>' +
@@ -465,7 +314,7 @@ buildChrome('life');
     let run = 0; quests.filter(x => x.repeat && x.status === 'done' && kidsOf(x.who).includes(sel)).forEach(x => { run = Math.max(run, longestRun(x)); });
     const rows = [['🌱', '첫 기록', ymd(first) + (first.name ? ' · ' + first.name : ''), '그로부터 ' + days.toLocaleString('ko-KR') + '일'],
       ['📅', '가장 바빴던 달', bestMonth.key, fam ? '경험치 +' + bestMonth.xp : ''], ['📆', '가장 많이 자란 해', bestYear.key, fam ? '경험치 +' + bestYear.xp : ''],
-      ['⚡', '하루에 가장 많이', bestDay.key, '기록 ' + bestDay.n + '개'], ['🎯', '해 본 분야', kinds + ' / ' + STATS.length, kinds === STATS.length ? '여섯 가지를 다 해 봤어요' : '']];
+      ['⚡', '하루에 가장 많이', bestDay.key, '기록 ' + bestDay.n + '개'], ['🎯', '해 본 분야', kinds + ' / ' + STATS.length, kinds === STATS.length ? '모든 분야를 다 해 봤어요' : '']];
     if (run > 1) rows.push(['🔥', '가장 긴 연속', run + (run ? '번 내리' : ''), '']);
     box.innerHTML = '<h2>🏟 기록실</h2><ul class="stat-detail" style="margin:0; border-style:solid;">' + rows.map(r => '<li><span>' + r[0] + ' <b>' + r[1] + '</b> — ' + escapeHTML(r[2]) + '</span><time>' + r[3] + '</time></li>').join('') + '</ul>';
   }
@@ -513,7 +362,7 @@ buildChrome('life');
     { icon: '🌟', name: '꿈을 이루다',    calc: k => { const t = dreamsOf(k).map(d => dreamState(d, now()).t).filter(Boolean).sort((a, b) => a - b)[0]; return t || null; }, hint: '꿈 목표 하나를 다 채우면' },
     { icon: '✦', name: '첫 반짝 장비',    lv: st => STATS.some(s => st[s.key].lv >= SHINE_LV) },
     { icon: '★', name: '첫 전설 장비',    lv: st => STATS.some(s => st[s.key].lv >= LEGEND_LV), hint: '능력치 하나가 Lv.' + LEGEND_LV },
-    { icon: '🌈', name: '팔방미인',        lv: st => STATS.every(s => st[s.key].lv >= ROOM_LV), hint: '여섯 능력치 모두 Lv.' + ROOM_LV },
+    { icon: '🌈', name: '팔방미인',        lv: st => STATS.every(s => st[s.key].lv >= ROOM_LV), hint: '모든 능력치 Lv.' + ROOM_LV },
   ];
   let badgeMemo = { key: '', list: [] };
   function badgesOf(k){                                                  // [{ b, t }] — t 는 딴 날(없으면 아직)
@@ -668,9 +517,9 @@ buildChrome('life');
       (body || '<p class="life-nick" style="margin:0;">' + (isAdmin ? '아직 낸 퀘스트가 없어요. 「＋ 퀘스트 내기」로 첫 퀘스트를 내 보세요.' : '아직 퀘스트가 없어요.') + '</p>');
     const on = (sel2, fn) => box.querySelectorAll(sel2).forEach(b => b.addEventListener('click', () => fn(Number(Object.values(b.dataset)[0]), b)));
     on('[data-claim]', id => { noting = id; renderBoard(); const i = box.querySelector('[data-note]'); if (i) i.focus(); });
-    on('[data-send]', id => { const i = box.querySelector('[data-note="' + id + '"]'); change(id, { status: 'claimed', claim_note: i && i.value.trim() ? i.value.trim().slice(0, 120) : null }, '✋ 보냈어요 — 엄마 아빠가 확인하면 경험치가 들어와요'); });
+    on('[data-send]', id => { const i = box.querySelector('[data-note="' + id + '"]'); change(id, { status: 'claimed', claim_note: i && i.value.trim() ? i.value.trim().slice(0, 120) : null }, '✋ 보냈어요 — 엄마 아빠가 확인하면 경험치가 들어와요', () => { if (scene) scene.burst(me && KIDS.includes(me.author_key) ? me.author_key : sel, '✋ 했어요!'); }); });
     on('[data-accept]', id => { const x = box.querySelector('[data-xp="' + id + '"]'); change(id, { status: 'open', xp: Number(x && x.value) || 20 }, '👍 퀘스트로 받아 줬어요'); });
-    on('[data-done]', id => { const x = quests.find(y => y.id === id); change(id, { status: 'done' }, x && x.repeat ? '✔ 확인했어요 — 같은 퀘스트가 다시 열렸어요 🔁' : '✔ 확인했어요 — 경험치가 들어갔어요', () => { if (!x) return; const s = statOf(x.stat); bubbleNow = null; fanfare(); cele = { k: sel, text: '📜 퀘스트 완료! ' + s.icon + ' ' + s.name + ' +' + x.xp, until: now() + 4000 }; setTimeout(() => { cele = null; draw(); }, 4100); draw(); }); });
+    on('[data-done]', id => { const x = quests.find(y => y.id === id); change(id, { status: 'done' }, x && x.repeat ? '✔ 확인했어요 — 같은 퀘스트가 다시 열렸어요 🔁' : '✔ 확인했어요 — 경험치가 들어갔어요', () => { if (!x) return; const s = statOf(x.stat); bubbleNow = null; fanfare(); cele = { k: sel, text: '📜 퀘스트 완료! ' + s.icon + ' ' + s.name + ' +' + x.xp, until: now() + 4000 }; if (scene) scene.burst(sel, s.icon + ' +' + x.xp + ' XP'); setTimeout(() => { cele = null; draw(); }, 4100); draw(); }); });
     on('[data-redo]', id => change(id, { status: 'open', claim_note: null }, '↩ 다시 진행 중으로 돌렸어요'));
     on('[data-del]', id => { if (window.confirm('이 퀘스트를 지울까요?')) sb.from('life_quests').delete().eq('id', id).select('id').then(after('지웠어요'), fail); });
     const add = q('#qbAdd'); if (add) add.addEventListener('click', () => { adding = !adding; renderBoard(); });
@@ -725,14 +574,14 @@ buildChrome('life');
     g.fillStyle = INK; g.textAlign = 'left'; g.font = '800 40px ' + FONT; g.fillText(KID_NAME[k], 352, 104);
     g.font = '700 18px ' + FONT; g.fillStyle = '#6f6558'; g.fillText('「' + nickOf(st) + '」', 348, 186); g.fillStyle = INK; g.font = '800 19px ' + FONT; g.fillText(jobOf(st).icons + ' ' + jobOf(st).name, 350, 156);
     // 능력치 모양(육각형)
-    const cx = 460, cy = 330, R = 96, cap = Math.max(6, ...STATS.map(s => st[s.key].lv)), pt = (i, r) => { const a = -Math.PI / 2 + i * Math.PI / 3; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
+    const cx = 460, cy = 330, R = 96, cap = Math.max(6, ...STATS.map(s => st[s.key].lv)), pt = (i, r) => { const a = -Math.PI / 2 + i * Math.PI * 2 / STATS.length; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
     g.strokeStyle = '#c9bfae'; g.lineWidth = 2; [1, 0.66, 0.33].forEach(f => { g.beginPath(); STATS.forEach((s, i) => { const p2 = pt(i, R * f); if (i) g.lineTo(p2[0], p2[1]); else g.moveTo(p2[0], p2[1]); }); g.closePath(); g.stroke(); });
     g.beginPath(); STATS.forEach((s, i) => { const p2 = pt(i, 10 + (R - 10) * Math.min(1, st[s.key].lv / cap)); if (i) g.lineTo(p2[0], p2[1]); else g.moveTo(p2[0], p2[1]); }); g.closePath();
     g.globalAlpha = 0.6; g.fillStyle = KID_COLOR[k]; g.fill(); g.globalAlpha = 1; g.strokeStyle = INK; g.lineWidth = 4; g.stroke();
     g.font = '22px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; STATS.forEach((s, i) => { const p2 = pt(i, R + 22); g.fillText(s.icon, p2[0], p2[1]); });
     // 방 물건 · 장비
     g.textBaseline = 'top'; g.textAlign = 'left'; g.fillStyle = INK; g.font = '800 17px ' + FONT; g.fillText('내 방', 28, 500);
-    g.save(); g.translate(28, 524); g.scale(2, 2); STATS.forEach((s, i) => wallItem(g, s.key, i * 46, -4, st[s.key].lv)); g.restore();
+    g.save(); g.translate(28, 524); g.scale(2, 2); STATS.forEach((s, i) => wallItem(g, s.key, i * 40, -4, st[s.key].lv)); g.restore();
     g.fillStyle = INK; g.font = '800 17px ' + FONT; g.fillText('장비', 28, 636);
     let gx = 28, gy = 664; g.font = '700 16px ' + FONT;
     STATS.forEach(s => { const has = st[s.key].lv >= GEAR_LV, t = s.icon + ' ' + (has ? s.gear + (st[s.key].lv >= SHINE_LV ? ' ✦' : '') : '???'), w = Math.ceil(g.measureText(t).width) + 20; if (gx + w > W - 28){ gx = 28; gy += 40; }
@@ -780,7 +629,7 @@ buildChrome('life');
     });
     sc.addEventListener('change', () => { clearTimeout(sheetTimer); sheetTimer = 0; renderSheet(); });
   }
-  function pick(k){ if (!KIDS.includes(k) || k === sel){ return; } sel = k; roadAll = false; renderTools(); renderSheet(); renderRoad(); draw(); startHop(k); }
+  function pick(k){ if (!KIDS.includes(k) || k === sel){ return; } sel = k; roadAll = false; renderTools(); renderSheet(); renderRoad(); draw(); }
 
   // ---------- 자라 온 길 다시 보기 — 첫 기록부터 오늘까지 6초. 시계는 setInterval(가려진 탭에서도 끝까지 간다) ----------
   const REPLAY_MS = 6000;
@@ -807,7 +656,7 @@ buildChrome('life');
     if (fam){ try { born = await loadKids(); } catch (e) { born = {}; } }
     if (!loaded && isChild && me && KIDS.includes(me.author_key)) sel = me.author_key;
     const ask = (t, cols, f) => { let r = sb.from(t).select(cols); if (f) r = f(r); return r.then(x => { if (x.error){ loadErr = true; return []; } return x.data || []; }).catch(() => { loadErr = true; return []; }); };
-    const [works, posts, runs, honors, grow, wclaps, hclaps, qrows, drows] = await Promise.all([
+    const [works, posts, runs, honors, grow, wclaps, hclaps, qrows, drows, splans] = await Promise.all([
       ask('works', 'id, author, media_type, title, made_on, created_at', r => r.eq('status', 'published')),
       ask('posts', 'author, title, happened_on, created_at', r => r.eq('status', 'published')),
       ask('run_scores', 'who, score, created_at', r => r.in('who', KIDS)),
@@ -818,6 +667,8 @@ buildChrome('life');
       fam ? ask('life_quests', 'id, who, stat, title, xp, due_on, status, claimed_by, claim_note, done_at, created_at, repeat, series, dream_id', r => r.order('created_at', { ascending: false }))
           : sb.rpc('life_quest_list').then(x => x.error ? [] : x.data || []).catch(() => []),
       fam ? ask('life_dreams', 'id, who, title, target, created_at', r => r.order('created_at', { ascending: false })) : sb.rpc('life_dream_list').then(x => x.error ? [] : x.data || []).catch(() => []),
+      // 📚 지혜 — 공부 계획(study_plans). 가족만 읽는다. 표를 못 읽어도 「다 불러오지 못했어요」로 치지 않는다(공부 계획을 안 쓰는 집도 있다)
+      fam && typeof studyEvents === 'function' ? sb.from('study_plans').select('who, data').then(x => x.error ? [] : x.data || []).catch(() => []) : [],
     ]);
     events = []; heights = { sua: [], yona: [] };
     const add = (who, e) => kidsOf(who).forEach(k => { if (Number.isFinite(e.t)) events.push(Object.assign({ k }, e)); });
@@ -842,6 +693,7 @@ buildChrome('life');
     hclaps.forEach(c => add(hWho[c.honor_id], { t: dayOf(c.created_at), stat: 'heart', xp: XP.clap, name: '「' + (hTitle[c.honor_id] || '업적') + '」에 받은 박수' }));
     grow.forEach(r => { const k = r.who === '수아' ? 'sua' : r.who === '연아' ? 'yona' : r.who; if (heights[k] && Number(r.cm) > 0) heights[k].push({ t: dayOf(r.measured_on), cm: Number(r.cm) }); });
     KIDS.forEach(k => heights[k].sort((a, b) => a.t - b.t));
+    splans.forEach(r => { if (KIDS.includes(r.who)) studyEvents(r.who, r.data).forEach(e => events.push(e)); });
     dreams = drows; quests = qrows;                                                      // 손님 것은 함수가 준 목록 — 한마디·누가 눌렀는지·제안은 안 온다
     qrows.forEach(x => {                                                 // 끝난 퀘스트는 그날의 사건이 된다(길에 📜 로 선다) — 가족·손님 모두
       if (x.status === 'done' && STATS.some(s => s.key === x.stat)) add(x.who, { t: dayOf(x.done_at), stat: x.stat, xp: Number(x.xp) || 0, quest: true, team: x.who === 'both' || x.who === 'family', family: x.who === 'family', name: '퀘스트 「' + (x.title || '') + '」', icon: '📜', label: x.repeat ? '' : '퀘스트 「' + (x.title || '') + '」' });   // 되풀이 퀘스트는 길에 세우지 않는다(날마다 한 줄씩 늘어난다) — 「무엇으로?」에는 나온다
@@ -856,12 +708,9 @@ buildChrome('life');
   // ---------- 누르기·움직임 ----------
   function wire(){
     const cv = q('#lifeCv'); if (!cv) return;
-    const petAt = e => { const rc = cv.getBoundingClientRect(); if (!rc.width) return null; const x = (e.clientX - rc.left) / rc.width * RW, y = (e.clientY - rc.top) / rc.height * RH; return y > FLOOR - 30 && y < FLOOR + 6 ? KIDS.filter(k => Math.abs(x - petX(k)) < 15)[0] || null : null; };
-    const kidAt = e => { const rc = cv.getBoundingClientRect(); if (!rc.width) return null; const x = (e.clientX - rc.left) / rc.width * RW; return x < RW / 2 ? 'sua' : 'yona'; };
-    cv.addEventListener('click', e => { if (replay) return; const p = petAt(e); if (p){ petTalk(p); return; } const k = kidAt(e); if (!k) return; if (k === sel) talk(k); else pick(k); });
     cv.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') pick('sua'); if (e.key === 'ArrowRight') pick('yona'); });
     wireScrub();
-    if (!STILL) setInterval(() => { if (document.hidden || replay || !loaded) return; const rc = cv.getBoundingClientRect(); if (rc.bottom < 0 || rc.top > (window.innerHeight || 800)) return; frameN++; draw(); }, 260);
+    scene = mountScene(cv);
   }
 
   (async function boot(){
@@ -871,5 +720,5 @@ buildChrome('life');
     if (typeof initReveal === 'function') initReveal();
   })();
 
-  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _talk: talk, _pet: petStage, _petTalk: petTalk, _sumLv: sumLv, _album: albumCanvas, _streak: streakOf, _dreams: () => dreams, _job: jobOf, _monthCard: monthCanvas, _season: seasonOf, _badges: badgesOf, _card: cardCanvas, _birthday: birthday, _celebrate: celebrate, _bubble: () => bubbleNow, _cele: () => cele, _tick: () => { frameN++; draw(); } };
+  window.LIFE = { draw, _stats: statsAt, _height: heightAt, _events: () => events, _pick: pick, _sel: () => sel, _replay: () => replay, _start: startReplay, _stop: stopReplay, _fam: () => fam, _level: levelOf, _need: need, _load: load, _quests: () => quests, _talk: talk, _pet: petStage, _petTalk: petTalk, _sumLv: sumLv, _album: albumCanvas, _streak: streakOf, _dreams: () => dreams, _job: jobOf, _monthCard: monthCanvas, _season: seasonOf, _badges: badgesOf, _card: cardCanvas, _birthday: birthday, _celebrate: celebrate, _bubble: () => bubbleNow, _cele: () => cele, _tick: draw, _scene: () => scene };
 })();

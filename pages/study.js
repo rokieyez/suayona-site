@@ -1,5 +1,5 @@
 // study.html 의 페이지 스크립트. 셈은 study-plan.js 에 있다.
-// 싣는 순서: supabase → common → study-plan → 이 파일.
+// 싣는 순서: supabase → common → study-plan → study-xp → (hero-walk, 있으면) → 이 파일.
 
 buildChrome('study');
 buildBackdrop('study');
@@ -14,6 +14,8 @@ let plan = null;                                     // { win, tasks }
 let schedules = [];                                  // 시간표(schedules) 전부
 let localOnly = false;                               // study_plans 표를 못 읽으면 이 기기에만 저장
 let editing = null;
+let gridAt = null;                                   // 잔디 달력이 보는 달 { y, m(1~12) } — null 이면 이번 달
+let walk = null;                                     // HEROWALK.mount 가 돌려준 것
 
 const toMin = t => { const p = String(t).split(':'); return (+p[0]) * 60 + (+p[1]); };
 const hhmm  = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
@@ -80,6 +82,7 @@ function render(){
   const r = compute();
   const byId = Object.fromEntries(plan.tasks.map(t => [t.id, t]));
   renderToday(r, byId);
+  renderGrass();
   renderCushion(r);
   renderWeek(r, byId);
   $('#tools').hidden = !canEdit();
@@ -87,12 +90,25 @@ function render(){
     (localOnly ? '지금은 이 기기에만 저장돼요.' : '');
 }
 
+// 오늘 몫 중 아직 안 한 분
+const leftToday = (r, byId) => (r.byDay[todayIso()] || []).reduce((a, x) => a + Math.max(0, x.units - doneToday(byId[x.id])) * byId[x.id].per, 0);
+
+// 🔥 연속 n일 — 하루 빠져 불씨만 남았으면 「불씨」, 배지(7·30일)가 3일 안이면 귀띔
+function fireTag(){
+  const s = studyStreak(plan, todayIso());
+  if (!s.alive) return '';
+  const goal = s.days < 7 ? 7 : s.days < 30 ? 30 : 0, more = goal - s.days;
+  return '<span class="fire' + (s.graceUsed ? ' ember' : '') + '" title="하루 빠지는 건 봐줘요. 이틀 연속 빠지면 끊겨요.">' +
+    (s.graceUsed ? '🔥 불씨 · 오늘 하면 ' + (s.days + 1) + '일' : '🔥 연속 ' + s.days + '일') +
+    (goal && more <= 3 ? '<em>' + more + '일 더 하면 배지!</em>' : '') + '</span>';
+}
+
 function renderToday(r, byId){
   const now = new Date();
   const list = r.byDay[todayIso()] || [];
   const total = list.reduce((a, x) => a + x.min, 0);
-  const left = list.reduce((a, x) => a + Math.max(0, x.units - doneToday(byId[x.id])) * byId[x.id].per, 0);
-  let html = '<h4>오늘 할 것 · ' + (now.getMonth() + 1) + '월 ' + now.getDate() + '일 ' + DAYNAME[now.getDay()] + '요일' +
+  const left = leftToday(r, byId);
+  let html = '<h4>오늘 할 것 · ' + (now.getMonth() + 1) + '월 ' + now.getDate() + '일 ' + DAYNAME[now.getDay()] + '요일' + fireTag() +
     (total ? '<small>' + (left ? '남은 시간 약 ' + minLabel(left) : '오늘 몫 끝! 🎉') + ' / 모두 ' + minLabel(total) + '</small>' : '') + '</h4>';
   if (!list.length) {
     html += '<div class="none">' + (plan.tasks.length ? '오늘은 정해진 공부가 없어요. 쉬어도 돼요!' : '아직 할 일이 없어요. 아래 「할 일 넣기」로 시작해요.') + '</div>';
@@ -111,6 +127,56 @@ function renderToday(r, byId){
     }).join('') + '</ul>';
   }
   $('#today').innerHTML = html;
+}
+
+// 이번 달 공부 잔디 — 진하기는 그날 공부한 분(30·60·90분 경계)
+function renderGrass(){
+  const now = new Date(), at = gridAt || { y: now.getFullYear(), m: now.getMonth() + 1 };
+  const g = monthGrid(plan, at.y, at.m), today = todayIso();
+  const lv = min => (min <= 0 ? 0 : min < 30 ? 1 : min < 60 ? 2 : min < 90 ? 3 : 4);
+  const lead = (g[0].wd + 6) % 7;                      // 월요일부터
+  const n = g.filter(x => x.units > 0).length, open = g.filter(x => x.open);
+  const full = open.length > 0 && open.every(x => x.units > 0);
+  const isNow = at.y === now.getFullYear() && at.m === now.getMonth() + 1;
+  $('#grass').innerHTML =
+    '<div class="gh"><button type="button" class="dot-btn small" data-gm="-1" aria-label="앞 달">◀</button>' +
+      '<b>' + at.y + '년 ' + at.m + '월</b>' +
+      '<button type="button" class="dot-btn small" data-gm="1" aria-label="다음 달"' + (isNow ? ' disabled' : '') + '>▶</button></div>' +
+    '<div class="gcal">' + ['월','화','수','목','금','토','일'].map(d => '<span class="wd">' + d + '</span>').join('') +
+      '<span></span>'.repeat(lead) +
+      g.map(x => '<span class="c g' + lv(x.min) + (x.open ? '' : ' off') + (x.date === today ? ' now' : '') + '" title="' +
+        x.date + (x.units ? ' · ' + minLabel(x.min) + ' 공부' : x.open ? '' : ' · 쉬는 날') + '">' + x.day + '</span>').join('') +
+    '</div>' +
+    '<p class="gsum">' + (isNow ? '이번 달' : at.m + '월에') + ' ' + n + '일 공부' + (full ? ' 🎉 한 달을 다 채웠어요!' : '') + '</p>' +
+    '<div class="glegend">조금 <i style="background:#d6f0e9"></i><i style="background:#a6dccd"></i><i style="background:var(--mint)"></i><i style="background:var(--mint-ink)"></i> 많이</div>';
+}
+$('#grass').addEventListener('click', e => {
+  const b = e.target.closest('[data-gm]');
+  if (!b) return;
+  const now = new Date(), at = gridAt || { y: now.getFullYear(), m: now.getMonth() + 1 };
+  const d = new Date(at.y, at.m - 1 + (+b.dataset.gm), 1);
+  gridAt = { y: d.getFullYear(), m: d.getMonth() + 1 };
+  renderGrass();
+});
+
+// ---------- 걷기 장면(HEROWALK 가 있을 때만) ----------
+function studyLv(){
+  const xp = studyEvents(who, plan).reduce((a, e) => a + e.xp, 0);
+  let lv = 0;
+  while (lv < 12 && xp >= 5 * (lv + 1) * (lv + 2)) lv++;     // life.js 와 같은 need(n) = 5n(n+1), 최고 Lv.12
+  return lv;
+}
+function mountWalk(){
+  const cv = $('#studyWalk');
+  if (walk && walk.destroy) walk.destroy();
+  walk = null;
+  if (typeof window.HEROWALK === 'undefined') { cv.hidden = true; return; }
+  cv.hidden = false;
+  walk = window.HEROWALK.mount(cv, {
+    kids: [who], compact: true,
+    getStats: () => ({ wisdom: { lv: studyLv() } }),
+    streak: () => studyStreak(plan, todayIso()).days,
+  });
 }
 
 function renderCushion(r){
@@ -168,9 +234,15 @@ $('#today').addEventListener('click', async e => {
   const day = todayIso();
   t.log = t.log || {};
   if (did) {
+    const before = leftToday(compute(), Object.fromEntries(plan.tasks.map(x => [x.id, x])));
     const n = Math.max(1, Math.floor(+$('[data-amt="' + id + '"]').value || 0));
     t.log[day] = Math.min(t.total - (doneOf(t) - doneToday(t)), doneToday(t) + n);
-    sfx('sparkle');
+    const after = leftToday(compute(), Object.fromEntries(plan.tasks.map(x => [x.id, x])));
+    if (walk && walk.burst) walk.burst(who, '+10');
+    if (before > 0 && after === 0) {                   // 오늘 몫을 다 채운 순간
+      sfx('fanfare');
+      cheer('오늘 몫 끝! 📚 지혜 +10');
+    } else sfx('sparkle');
   } else {
     delete t.log[day];
   }
@@ -178,6 +250,16 @@ $('#today').addEventListener('click', async e => {
   const err = await savePlan();
   if (err) $('#hint').textContent = '저장하지 못했어요 — ' + err;
 });
+
+// 화면 아래 잠깐 뜨는 축하 한 줄
+let cheerTimer = 0;
+function cheer(text){
+  const el = $('#cheer');
+  el.hidden = true; void el.offsetWidth;               // 연달아 눌러도 움직임이 처음부터 다시 돈다
+  el.textContent = text; el.hidden = false;
+  clearTimeout(cheerTimer);
+  cheerTimer = setTimeout(() => { el.hidden = true; }, 2700);
+}
 
 // ---------- 할 일 창 ----------
 function openSheet(t){
@@ -270,7 +352,7 @@ $('#whoPick').addEventListener('click', async e => {
   if (!b || b.dataset.who === who) return;
   who = b.dataset.who;
   $$('#whoPick .dot-btn').forEach(x => x.classList.toggle('on', x === b));
-  await loadPlan(); render();
+  await loadPlan(); render(); mountWalk();
 });
 
 // ---------- 시작 ----------
@@ -283,6 +365,7 @@ async function load(){
   schedules = res.error ? [] : (res.data || []);
   await loadPlan();
   render();
+  mountWalk();
 }
 
 function showGate(){
