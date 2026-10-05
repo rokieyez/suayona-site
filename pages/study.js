@@ -6,12 +6,18 @@ buildBackdrop('study');
 
 const DAYNAME = ['일','월','화','수','목','금','토'];
 const AHEAD = 7;                                     // 「한 주 미리보기」 날 수
-// 처음 쓰는 아이의 기본 공부 시간대 — 평일 16~19시, 주말 10~12시
-const DEFAULT_WIN = { 0:[600,720], 1:[960,1140], 2:[960,1140], 3:[960,1140], 4:[960,1140], 5:[960,1140], 6:[600,720] };
+// 처음 쓰는 아이의 기본 공부 시간대 — 평일 16시·주말 10시부터 밤 11시 반까지(2026-10-05 부모: 집 공부는 보통 23:30 까지).
+// 학교·학원·그 밖 일정은 시간표에서 빠지니, 저녁 먹는 시간 같은 건 「공부 시간 정하기」에서 줄이면 된다
+const DEFAULT_WIN = { 0:[600,1410], 1:[960,1410], 2:[960,1410], 3:[960,1410], 4:[960,1410], 5:[960,1410], 6:[600,1410] };
 
 let who = 'sua';
-let plan = null;                                     // { win, tasks }
+let plan = null;                                     // { win, tasks } — 지금 보는 아이(who)의 것
+let view = 'both';                                   // 처음엔 둘을 나란히(2026-10-05 부모 요청), 탭을 누르면 한 아이
+const plans = {};                                    // 아이별 계획
+// 셈·그리기·저장은 who/plan 을 본다. 둘을 나란히 그릴 때는 잠깐 그 아이로 바꿔 부른다
+function withKid(k, fn){ const w = who, p = plan; who = k; plan = plans[k]; try { return fn(); } finally { who = w; plan = p; } }
 let schedules = [];                                  // 시간표(schedules) 전부
+let scheduleOk = false;                               // 시간표를 읽었나(가족만 읽힌다)
 let localOnly = false;                               // study_plans 표를 못 읽으면 이 기기에만 저장
 let editing = null;
 let gridAt = null;                                   // 잔디 달력이 보는 달 { y, m(1~12) } — null 이면 이번 달
@@ -27,12 +33,16 @@ const canEdit = () => isAdmin || (me && me.author_key === who);
 // ---------- 저장 ----------
 // ponytail: 표를 못 읽으면(SQL 을 아직 안 돌렸거나 망이 끊김) 이 기기에만 저장한다.
 //           두 기기에서 따로 쓰면 어긋난다 — study_plans 를 만든 뒤에는 서버로만 간다.
-async function loadPlan(){
-  const { data, error } = await sb.from('study_plans').select('data').eq('who', who).maybeSingle();
+async function loadPlans(){
+  const { data, error } = await sb.from('study_plans').select('who, data');
   localOnly = !!error;
-  let d = data && data.data;
-  if (error) { try { d = JSON.parse(localStorage.getItem('sy.study.' + who) || 'null'); } catch (e) { d = null; } }
-  plan = { win: (d && d.win) || DEFAULT_WIN, tasks: (d && d.tasks) || [] };
+  ['sua', 'yona'].forEach(k => {
+    let d = (data || []).find(r => r.who === k);
+    d = d && d.data;
+    if (error) { try { d = JSON.parse(localStorage.getItem('sy.study.' + k) || 'null'); } catch (e) { d = null; } }
+    plans[k] = { win: (d && d.win) || DEFAULT_WIN, tasks: (d && d.tasks) || [], free: (d && d.free) || {} };
+  });
+  plan = plans[who];
 }
 async function savePlan(){
   if (localOnly) {
@@ -69,7 +79,11 @@ function compute(){
   const lastDue = open.reduce((m, t) => (t.due > m ? t.due : m), today);
   const days = [];
   for (let d = new Date(); studyIso(d) <= lastDue || days.length < AHEAD; d = addDays(d, 1)) {
-    days.push({ date: studyIso(d), free: freeMinutes(plan.win[d.getDay()], busyOn(d)), wd: d.getDay(), d: new Date(d) });
+    const ds = studyIso(d);
+    // 시간표는 가족만 읽는다. 손님은 가족이 볼 때 적어 둔 「그날 빈 분」(plan.free)을 쓰고, 없으면 시간대만으로 센다
+    const free = scheduleOk ? freeMinutes(plan.win[d.getDay()], busyOn(d))
+      : (plan.free[ds] != null ? plan.free[ds] : freeMinutes(plan.win[d.getDay()], []));
+    days.push({ date: ds, free, wd: d.getDay(), d: new Date(d) });
   }
   const r = planStudy(days, open.map(t => ({
     id: t.id, per: t.per, due: t.due, left: t.total - doneOf(t) + doneToday(t),
@@ -77,9 +91,23 @@ function compute(){
   return Object.assign(r, { days });
 }
 
+// 가족(고칠 수 있는 사람)이 볼 때 날짜별 빈 분만 계획에 적어 둔다 — 손님이 같은 계획을 보게.
+// 시각·장소는 안 남기고 「그날 몇 분 비는지」만. ponytail: 시간표를 바꾼 뒤 가족이 한 번 열어야 손님 쪽도 맞춰진다
+function syncFree(days){
+  if (!scheduleOk || !canEdit()) return;
+  const free = Object.fromEntries(days.map(x => [x.date, x.free]));
+  if (JSON.stringify(free) === JSON.stringify(plan.free)) return;
+  plan.free = free;
+  savePlan();
+}
+
 // ---------- 그리기 ----------
 function render(){
+  const both = view === 'both';
+  $('#single').hidden = both; $('#both').hidden = !both;
+  if (both) { renderBoth(); renderGrass(); $('#tools').hidden = true; return; }
   const r = compute();
+  syncFree(r.days);
   const byId = Object.fromEntries(plan.tasks.map(t => [t.id, t]));
   renderToday(r, byId);
   renderGrass();
@@ -87,8 +115,34 @@ function render(){
   renderWeek(r, byId);
   $('#tools').hidden = !canEdit();
   $('#hint').textContent = (canEdit() ? '여유 카드를 누르면 고치거나 지울 수 있어요. ' : '') +
-    (localOnly ? '지금은 이 기기에만 저장돼요.' : '');
+    (localOnly ? '지금은 이 기기에만 저장돼요.' : '') +
+    (isLoggedIn ? '' : '보기만 할 수 있어요. 고치거나 「했어요」를 누르려면 위의 로그인을 눌러 주세요.');
 }
+
+// 둘을 나란히 — 아이마다 「오늘 할 것」과 여유 카드. 잔디·한 주·할 일 넣기는 탭에서 한 아이씩
+function renderBoth(){
+  $('#both').innerHTML = ['sua', 'yona'].map(k =>
+    '<div class="bcol" data-k="' + k + '"><h3 class="day-head">' + HERO_NAMES[k] +
+      ' <button type="button" class="dot-btn small" data-more="' + k + '">자세히 ›</button></h3>' +
+      '<div class="box today"></div><div class="cush"></div></div>').join('');
+  ['sua', 'yona'].forEach(k => withKid(k, () => {
+    const r = compute(), col = $('#both [data-k="' + k + '"]');
+    syncFree(r.days);
+    renderToday(r, Object.fromEntries(plan.tasks.map(t => [t.id, t])), col.querySelector('.today'));
+    renderCushion(r, col.querySelector('.cush'));
+  }));
+  $('#hint').textContent = '이름 옆 「자세히」나 위의 탭을 누르면 그 아이의 잔디·한 주·할 일 넣기가 나와요.' +
+    (isLoggedIn ? '' : ' 지금은 보기만 할 수 있어요 — 고치려면 로그인해 주세요.');
+}
+$('#both').addEventListener('click', e => {
+  const m = e.target.closest('[data-more]'), c = e.target.closest('.cc');
+  if (m) pick(m.dataset.more);
+  else if (c) {                                        // 여유 카드를 누르면 그 아이 탭으로 가서 고친다
+    const k = c.closest('[data-k]').dataset.k;
+    pick(k);
+    if (canEdit()) openSheet(plan.tasks.find(t => t.id === c.dataset.edit));
+  }
+});
 
 // 오늘 몫 중 아직 안 한 분
 const leftToday = (r, byId) => (r.byDay[todayIso()] || []).reduce((a, x) => a + Math.max(0, x.units - doneToday(byId[x.id])) * byId[x.id].per, 0);
@@ -103,7 +157,7 @@ function fireTag(){
     (goal && more <= 3 ? '<em>' + more + '일 더 하면 배지!</em>' : '') + '</span>';
 }
 
-function renderToday(r, byId){
+function renderToday(r, byId, el){
   const now = new Date();
   const list = r.byDay[todayIso()] || [];
   const total = list.reduce((a, x) => a + x.min, 0);
@@ -126,29 +180,44 @@ function renderToday(r, byId){
       '</li>';
     }).join('') + '</ul>';
   }
-  $('#today').innerHTML = html;
+  (el || $('#today')).innerHTML = html;
 }
 
-// 이번 달 공부 잔디 — 진하기는 그날 공부한 분(30·60·90분 경계)
+// 이번 달 공부 잔디 — 진하기는 그날 공부한 분(30·60·90분 경계), 색은 아이마다(수아 코랄·연아 민트).
+// 「둘 다」면 한 칸을 대각선으로 반반 — 왼쪽 위 수아, 오른쪽 아래 연아
+const GRASS_RGB = { sua: '255,127,138', yona: '108,199,179' };
+const grassTint = (k, min) => { const a = min <= 0 ? 0 : min < 30 ? 0.3 : min < 60 ? 0.55 : min < 90 ? 0.8 : 1; return a ? 'rgba(' + GRASS_RGB[k] + ',' + a + ')' : 'transparent'; };
 function renderGrass(){
   const now = new Date(), at = gridAt || { y: now.getFullYear(), m: now.getMonth() + 1 };
-  const g = monthGrid(plan, at.y, at.m), today = todayIso();
-  const lv = min => (min <= 0 ? 0 : min < 30 ? 1 : min < 60 ? 2 : min < 90 ? 3 : 4);
+  const kids = view === 'both' ? ['sua', 'yona'] : [who];
+  const grids = Object.fromEntries(kids.map(k => [k, monthGrid(plans[k], at.y, at.m)]));
+  const g = grids[kids[0]], today = todayIso();
   const lead = (g[0].wd + 6) % 7;                      // 월요일부터
-  const n = g.filter(x => x.units > 0).length, open = g.filter(x => x.open);
-  const full = open.length > 0 && open.every(x => x.units > 0);
   const isNow = at.y === now.getFullYear() && at.m === now.getMonth() + 1;
+  const cell = (x, i) => {
+    const mins = kids.map(k => grids[k][i].min), open = kids.some(k => grids[k][i].open);
+    const bg = kids.length === 1 ? grassTint(kids[0], mins[0])
+      : 'linear-gradient(135deg,' + grassTint('sua', mins[0]) + ' 50%,' + grassTint('yona', mins[1]) + ' 50%)';
+    const tip = x.date + kids.map((k, j) => mins[j] ? ' · ' + (kids.length > 1 ? HERO_NAMES[k] + ' ' : '') + minLabel(mins[j]) : '').join('') + (open ? '' : ' · 쉬는 날');
+    return '<span class="c' + (open ? '' : ' off') + (x.date === today ? ' now' : '') + '" title="' + tip + '"' +
+      (mins.some(m => m > 0) ? ' style="background:' + bg + '"' : '') + '>' + x.day + '</span>';
+  };
+  const sum = kids.map(k => {
+    const gg = grids[k], n = gg.filter(x => x.units > 0).length, op = gg.filter(x => x.open);
+    const full = op.length > 0 && op.every(x => x.units > 0);
+    return (kids.length > 1 ? '<i class="gdot" style="background:rgb(' + GRASS_RGB[k] + ')"></i>' + HERO_NAMES[k] + ' ' : '') + n + '일' + (full ? ' 🎉' : '');
+  }).join(' · ');
+  const legend = kids.map(k => (kids.length > 1 ? HERO_NAMES[k] + ' ' : '조금 ') +
+    [10, 40, 70, 100].map(m => '<i style="background:' + grassTint(k, m) + '"></i>').join('') + (kids.length > 1 ? '' : ' 많이')).join(' &nbsp; ');
   $('#grass').innerHTML =
     '<div class="gh"><button type="button" class="dot-btn small" data-gm="-1" aria-label="앞 달">◀</button>' +
       '<b>' + at.y + '년 ' + at.m + '월</b>' +
       '<button type="button" class="dot-btn small" data-gm="1" aria-label="다음 달"' + (isNow ? ' disabled' : '') + '>▶</button></div>' +
     '<div class="gcal">' + ['월','화','수','목','금','토','일'].map(d => '<span class="wd">' + d + '</span>').join('') +
-      '<span></span>'.repeat(lead) +
-      g.map(x => '<span class="c g' + lv(x.min) + (x.open ? '' : ' off') + (x.date === today ? ' now' : '') + '" title="' +
-        x.date + (x.units ? ' · ' + minLabel(x.min) + ' 공부' : x.open ? '' : ' · 쉬는 날') + '">' + x.day + '</span>').join('') +
+      '<span></span>'.repeat(lead) + g.map(cell).join('') +
     '</div>' +
-    '<p class="gsum">' + (isNow ? '이번 달' : at.m + '월에') + ' ' + n + '일 공부' + (full ? ' 🎉 한 달을 다 채웠어요!' : '') + '</p>' +
-    '<div class="glegend">조금 <i style="background:#d6f0e9"></i><i style="background:#a6dccd"></i><i style="background:var(--mint)"></i><i style="background:var(--mint-ink)"></i> 많이</div>';
+    '<p class="gsum">' + (isNow ? '이번 달 ' : at.m + '월에 ') + sum + ' 공부</p>' +
+    '<div class="glegend">' + legend + '</div>';
 }
 $('#grass').addEventListener('click', e => {
   const b = e.target.closest('[data-gm]');
@@ -173,13 +242,13 @@ function mountWalk(){
   if (typeof window.HEROWALK === 'undefined') { cv.hidden = true; return; }
   cv.hidden = false;
   walk = window.HEROWALK.mount(cv, {
-    kids: [who], compact: true,
-    getStats: () => ({ wisdom: { lv: studyLv() } }),
-    streak: () => studyStreak(plan, todayIso()).days,
+    kids: view === 'both' ? ['sua', 'yona'] : [who], compact: true,
+    getStats: k => withKid(k, () => ({ wisdom: { lv: studyLv() } })),
+    streak: k => withKid(k, () => studyStreak(plan, todayIso()).days),
   });
 }
 
-function renderCushion(r){
+function renderCushion(r, el){
   const today = todayIso();
   const rows = plan.tasks.map(t => {
     // 셈은 아침 기준이라, 보여 줄 때는 오늘 한 만큼을 빼서 지금 남은 일로 고친다
@@ -208,7 +277,7 @@ function renderCushion(r){
   // 급한 것부터: 모자람 → 빠듯 → 넉넉 → 끝
   const order = { short: 0, tight: 1, easy: 2, done: 3 };
   rows.sort((a, b) => order[a.lv] - order[b.lv] || (a.t.due < b.t.due ? -1 : 1));
-  $('#cush').innerHTML = rows.length ? rows.map(x => x.html).join('') : '<p class="hint">할 일을 넣으면 여기에 여유가 보여요.</p>';
+  (el || $('#cush')).innerHTML = rows.length ? rows.map(x => x.html).join('') : '<p class="hint">할 일을 넣으면 여기에 여유가 보여요.</p>';
 }
 
 function renderWeek(r, byId){
@@ -226,16 +295,20 @@ function renderWeek(r, byId){
 }
 
 // ---------- 했어요 ----------
-$('#today').addEventListener('click', async e => {
-  const did = e.target.closest('[data-did]'), undo = e.target.closest('[data-undo]');
-  const id = (did || undo) && (did || undo).dataset[did ? 'did' : 'undo'];
-  if (!id) return;
+$('#app').addEventListener('click', e => {
+  const did = e.target.closest('.today [data-did]'), undo = e.target.closest('.today [data-undo]');
+  if (!did && !undo) return;
+  const col = e.target.closest('[data-k]');
+  if (col) withKid(col.dataset.k, () => logDone(e, did, undo, col)); else logDone(e, did, undo, $('#today'));
+});
+async function logDone(e, did, undo, box){
+  const id = (did || undo).dataset[did ? 'did' : 'undo'];
   const t = plan.tasks.find(x => x.id === id);
   const day = todayIso();
   t.log = t.log || {};
   if (did) {
     const before = leftToday(compute(), Object.fromEntries(plan.tasks.map(x => [x.id, x])));
-    const n = Math.max(1, Math.floor(+$('[data-amt="' + id + '"]').value || 0));
+    const n = Math.max(1, Math.floor(+box.querySelector('[data-amt="' + id + '"]').value || 0));
     t.log[day] = Math.min(t.total - (doneOf(t) - doneToday(t)), doneToday(t) + n);
     const after = leftToday(compute(), Object.fromEntries(plan.tasks.map(x => [x.id, x])));
     if (walk && walk.burst) walk.burst(who, '+10');
@@ -246,10 +319,10 @@ $('#today').addEventListener('click', async e => {
   } else {
     delete t.log[day];
   }
+  const err = await savePlan();                       // 저장을 먼저 — render 가 who 를 되돌리기 전에
   render();
-  const err = await savePlan();
   if (err) $('#hint').textContent = '저장하지 못했어요 — ' + err;
-});
+}
 
 // 화면 아래 잠깐 뜨는 축하 한 줄
 let cheerTimer = 0;
@@ -349,39 +422,34 @@ document.addEventListener('keydown', e => {
 // ---------- 누구 ----------
 $('#whoPick').addEventListener('click', async e => {
   const b = e.target.closest('[data-who]');
-  if (!b || b.dataset.who === who) return;
-  who = b.dataset.who;
-  $$('#whoPick .dot-btn').forEach(x => x.classList.toggle('on', x === b));
-  await loadPlan(); render(); mountWalk();
+  if (!b) return;
+  pick(b.dataset.who);
 });
+function pick(v){
+  if (v === view) return;
+  view = v;
+  if (v !== 'both') { who = v; plan = plans[v]; }
+  $$('#whoPick .dot-btn').forEach(x => x.classList.toggle('on', x.dataset.who === v));
+  render(); mountWalk();
+}
 
 // ---------- 시작 ----------
 async function load(){
   if (me && (me.author_key === 'sua' || me.author_key === 'yona')) {
-    who = me.author_key;
-    $$('#whoPick .dot-btn').forEach(x => x.classList.toggle('on', x.dataset.who === who));
+    who = me.author_key;                               // 탭을 누르면 먼저 제 것. 처음 화면은 그래도 둘 다
   }
-  const res = await sb.from('schedules').select('*');
+  const res = isLoggedIn ? await sb.from('schedules').select('*') : { error: true };
+  scheduleOk = !res.error;
   schedules = res.error ? [] : (res.data || []);
-  await loadPlan();
+  await loadPlans();
   render();
   mountWalk();
 }
 
-function showGate(){
-  const gate = $('#gate');
-  gate.innerHTML = '';
-  if (isLoggedIn) { $('#app').hidden = false; return true; }
-  $('#app').hidden = true;
-  gate.innerHTML = '<p class="why">공부 계획은 시간표를 끌어다 써서, 시간표처럼 가족만 볼 수 있어요.</p>';
-  mountLoginBox(gate, reboot);
-  revealNow(gate);
-  return false;
-}
-async function reboot(){ await refreshAuth(); if (showGate()) await load(); }
-
+// 2026-10-05 부모 요청: 손님도 보게 한다. 고치기·「했어요」는 canEdit() 이 로그인한 가족에게만 연다
 (async () => {
   await refreshAuth();
-  if (showGate()) await load();
+  $('#app').hidden = false;
+  await load();
   initReveal();
 })();

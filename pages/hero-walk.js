@@ -57,7 +57,7 @@
   function mount(cv, opts){
     opts = opts || {};
     const compact = !!opts.compact;
-    const kids = (opts.kids || ['sua', 'yona']).filter(k => ATLAS[k]).slice(0, compact ? 1 : 2);
+    const kids = (opts.kids || ['sua', 'yona']).filter(k => ATLAS[k]).slice(0, 2);   // compact 도 둘까지(공부 계획 첫 화면이 둘을 함께 보인다)
     const LH = compact ? 210 : 330;                                      // 논리 높이 — 화면 높이에 맞춰 늘리고 줄인다(너비는 비율대로)
     const g = cv.getContext('2d');
     let LW = 600, K = 1, DPR = 1, CX = 0, CY = 0, HY = 0;

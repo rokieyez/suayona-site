@@ -2360,3 +2360,9 @@ drop policy if exists "family updates study" on public.study_plans;
 create policy "family updates study" on public.study_plans for update
   using      (public.my_role() = 'parent' or (public.my_role() = 'child' and who = public.my_author_key()))
   with check (public.my_role() = 'parent' or (public.my_role() = 'child' and who = public.my_author_key()));
+
+-- 공부 계획 손님에게 열기 (2026-10-05 부모 요청) — 읽기는 누구나, 쓰기는 그대로 가족만.
+-- 시간표(schedules)는 계속 가족만 읽고, 공부 계획에는 날짜별 빈 분(data.free)만 담긴다.
+drop policy if exists "family reads study" on public.study_plans;
+drop policy if exists "anyone reads study" on public.study_plans;
+create policy "anyone reads study" on public.study_plans for select using (true);

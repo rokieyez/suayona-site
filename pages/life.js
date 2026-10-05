@@ -667,8 +667,8 @@ buildChrome('life');
       fam ? ask('life_quests', 'id, who, stat, title, xp, due_on, status, claimed_by, claim_note, done_at, created_at, repeat, series, dream_id', r => r.order('created_at', { ascending: false }))
           : sb.rpc('life_quest_list').then(x => x.error ? [] : x.data || []).catch(() => []),
       fam ? ask('life_dreams', 'id, who, title, target, created_at', r => r.order('created_at', { ascending: false })) : sb.rpc('life_dream_list').then(x => x.error ? [] : x.data || []).catch(() => []),
-      // 📚 지혜 — 공부 계획(study_plans). 가족만 읽는다. 표를 못 읽어도 「다 불러오지 못했어요」로 치지 않는다(공부 계획을 안 쓰는 집도 있다)
-      fam && typeof studyEvents === 'function' ? sb.from('study_plans').select('who, data').then(x => x.error ? [] : x.data || []).catch(() => []) : [],
+      // 📚 지혜 — 공부 계획(study_plans). 2026-10-05 부터 손님도 읽는다(쓰기는 가족만). 표를 못 읽어도 「다 불러오지 못했어요」로 치지 않는다(공부 계획을 안 쓰는 집도 있다)
+      typeof studyEvents === 'function' ? sb.from('study_plans').select('who, data').then(x => x.error ? [] : x.data || []).catch(() => []) : [],
     ]);
     events = []; heights = { sua: [], yona: [] };
     const add = (who, e) => kidsOf(who).forEach(k => { if (Number.isFinite(e.t)) events.push(Object.assign({ k }, e)); });

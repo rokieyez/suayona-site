@@ -9,15 +9,13 @@
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>공부 계획 · 수아랑 연아랑</title>
-<!-- 시간표를 끌어다 쓰므로 시간표처럼 가족만 보고, 검색엔진에도 올리지 않는다. -->
+<!-- 손님도 볼 수 있다(고치기는 가족만). 검색엔진에는 올리지 않는다. 시간표 자체는 가족만 — 계획엔 날짜별 빈 분만 담긴다. -->
 <meta name="robots" content="noindex, nofollow">
 
 <link rel="preload" href="/fonts/PretendardVariable.subset.woff2" as="font" type="font/woff2" crossorigin>
 <link href="/fonts/dot.css" rel="stylesheet">
 <link href="./style.css" rel="stylesheet">
 <style>
-  .gate{max-width:420px; margin:0 auto;}
-  .gate .why{font-size:13.5px; line-height:1.85; color:var(--ink-soft); text-align:center; margin-bottom:20px;}
 
   .who-pick{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
   .who-pick .dot-btn{background:var(--cream);}
@@ -106,13 +104,20 @@
   .gcal .c{aspect-ratio:1; border:2px solid rgba(47,42,36,.25); background:var(--cream); position:relative;
     font-size:10.5px; font-weight:800; color:var(--ink-soft); padding:1px 3px;}
   .gcal .c.off{background:repeating-linear-gradient(45deg,var(--paper) 0 4px,rgba(47,42,36,.06) 4px 6px);}
-  .gcal .c.g1{background:#d6f0e9;} .gcal .c.g2{background:#a6dccd;}
-  .gcal .c.g3{background:var(--mint); color:var(--ink);} .gcal .c.g4{background:var(--mint-ink); color:#fff;}
+  /* 칸 색은 study.js 가 아이 색(수아 코랄·연아 민트)으로 칠한다. 둘 다면 칸을 대각선으로 반반 */
   .gcal .c.now{border:3px solid var(--ink);}
+  .grass .gdot{display:inline-block; width:10px; height:10px; border:2px solid var(--ink); margin-right:3px; vertical-align:-1px;}
   .grass .gsum{margin:10px 0 0; text-align:center; font-size:13px; font-weight:900;}
   .grass .glegend{display:flex; gap:3px; align-items:center; justify-content:center; margin-top:6px; font-size:11px; color:var(--ink-soft);}
   .grass .glegend i{width:12px; height:12px; border:2px solid rgba(47,42,36,.25); display:inline-block;}
 
+  /* 둘 다 — 두 아이를 나란히(좁으면 위아래) */
+  .both{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:10px;}
+  .both .bcol{min-width:0;}
+  .both .day-head{display:flex; align-items:center; gap:8px;}
+  .both .day-head .dot-btn{margin-left:auto;}
+  .both .cush{grid-template-columns:1fr;}
+  @media (max-width:760px){ .both{grid-template-columns:1fr;} }
   .tools{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:10px;}
 
   /* ---------- 창 ---------- */
@@ -149,26 +154,29 @@
       <p>숙제랑 문제집을 넣으면, 마감까지 남은 빈 시간에 알아서 나눠 줘요.</p>
     </div>
 
-    <div id="gate" class="gate reveal"></div>
 
     <div id="app" hidden>
       <div class="who-pick" id="whoPick">
-        <button class="dot-btn small on" data-who="sua">수아</button>
+        <button class="dot-btn small on" data-who="both">둘 다</button>
+        <button class="dot-btn small" data-who="sua">수아</button>
         <button class="dot-btn small" data-who="yona">연아</button>
       </div>
 
       <canvas id="studyWalk" class="walk" width="640" height="160" hidden></canvas>
+      <div class="both" id="both" hidden></div>
+      <div id="single">
       <div class="box today" id="today"></div>
 
       <h3 class="day-head">마감까지 여유</h3>
       <div class="cush" id="cush"></div>
 
-      <h3 class="day-head">이번 달 공부 잔디</h3>
-      <div class="box grass" id="grass"></div>
 
       <h3 class="day-head">한 주 미리보기</h3>
       <div class="box"><div class="week" id="week"></div></div>
 
+      </div>
+      <h3 class="day-head">이번 달 공부 잔디</h3>
+      <div class="box grass" id="grass"></div>
       <div class="tools" id="tools">
         <button class="dot-btn primary small" id="addBtn">＋ 할 일 넣기</button>
         <button class="dot-btn small" id="winBtn">공부 시간 정하기</button>
