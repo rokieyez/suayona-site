@@ -229,6 +229,15 @@ buildChrome('life');
     cele = null; bubbleNow = { k, i: -1, text: t.split(' · ')[0], until: now() + 2600, pet: true }; say(t); draw(); setTimeout(() => { if (bubbleNow && now() >= bubbleNow.until){ bubbleNow = null; draw(); } }, 2700);
   }
   const now = () => Date.now();
+  let studyData = {};                                                    // 아이별 공부 계획(study_plans.data) — 지역·부모 도장
+  // 공부 계획에서 부모가 찍은 👍 도장 중 이 기기에서 아직 안 본 것을 그 아이 말풍선으로(공부 계획 화면과 「봤음」을 같이 쓴다)
+  function stampBubble(){
+    if (isAdmin || typeof unseenStamp !== 'function') return;
+    const today = studyIso(new Date()), s = KIDS.map(k => unseenStamp(k, studyData[k], today)).find(Boolean);
+    if (!s || (bubbleNow && now() < bubbleNow.until)) return;
+    markStamp(s); bubbleNow = { k: s.k, i: -1, text: s.text, until: now() + 6000 }; draw();
+    setTimeout(() => { if (bubbleNow && now() >= bubbleNow.until){ bubbleNow = null; draw(); } }, 6100);
+  }
   function viewAt(){ return replay ? replay.at : now(); }
   // ---------- 무대 — 아이소메트릭 길을 걸으며 공부몹을 물리치는 장면(pages/hero-walk.js). 2026-10-05 부모: 방 한 칸 → 걷는 세계, 캐릭터는 히어로 걷기 그림 ----------
   // 장면은 스스로 움직인다. 여기서는 「보고 있는 날」의 능력치·키·짝꿍·이름표와 말풍선·축하 띠만 건넨다. draw() 는 그걸 다시 읽으라는 신호다.
@@ -247,6 +256,8 @@ buildChrome('life');
       label: k => KID_NAME[k] + (fam && ageYears(k, viewAt()) !== null ? ' · Lv.' + ageYears(k, viewAt()) : ''),
       badge: k => isBirthday(k) ? '🎂' : '',
       pet: k => { const i = petStage(statsAt(k, viewAt())); return { rows: PET_ART[i], pal: PET_PAL, stage: i }; },
+      // 지역(숲·바닷가·성 앞)은 공부 계획의 누적 공부일로 — 지나간 날을 돌려 볼 때는 숲
+      region: k => replay || !studyData[k] || typeof studyRegion !== 'function' ? null : studyRegion(studyData[k]),
       overlay: () => {
         const t = now(), d = replay ? new Date(replay.at) : null;
         return { banner: cele && t < cele.until ? cele.text : null,
@@ -693,7 +704,7 @@ buildChrome('life');
     hclaps.forEach(c => add(hWho[c.honor_id], { t: dayOf(c.created_at), stat: 'heart', xp: XP.clap, name: '「' + (hTitle[c.honor_id] || '업적') + '」에 받은 박수' }));
     grow.forEach(r => { const k = r.who === '수아' ? 'sua' : r.who === '연아' ? 'yona' : r.who; if (heights[k] && Number(r.cm) > 0) heights[k].push({ t: dayOf(r.measured_on), cm: Number(r.cm) }); });
     KIDS.forEach(k => heights[k].sort((a, b) => a.t - b.t));
-    splans.forEach(r => { if (KIDS.includes(r.who)) studyEvents(r.who, r.data).forEach(e => events.push(e)); });
+    splans.forEach(r => { if (KIDS.includes(r.who)) { studyData[r.who] = r.data; studyEvents(r.who, r.data).forEach(e => events.push(e)); } });
     dreams = drows; quests = qrows;                                                      // 손님 것은 함수가 준 목록 — 한마디·누가 눌렀는지·제안은 안 온다
     qrows.forEach(x => {                                                 // 끝난 퀘스트는 그날의 사건이 된다(길에 📜 로 선다) — 가족·손님 모두
       if (x.status === 'done' && STATS.some(s => s.key === x.stat)) add(x.who, { t: dayOf(x.done_at), stat: x.stat, xp: Number(x.xp) || 0, quest: true, team: x.who === 'both' || x.who === 'family', family: x.who === 'family', name: '퀘스트 「' + (x.title || '') + '」', icon: '📜', label: x.repeat ? '' : '퀘스트 「' + (x.title || '') + '」' });   // 되풀이 퀘스트는 길에 세우지 않는다(날마다 한 줄씩 늘어난다) — 「무엇으로?」에는 나온다
@@ -702,7 +713,7 @@ buildChrome('life');
     q('#lifeGuest').hidden = fam;
     renderTools(); renderSheet(); renderRoad(); draw();
     say(loadErr ? '기록을 다 불러오지 못했어요 — 잠시 뒤 다시 열어 주세요' : '아바타를 누르면 그 아이의 기록이 나와요 · 한 번 더 누르면 말해요');
-    if (!celebrated && !loadErr){ celebrated = true; celebrate(); birthday(); }
+    if (!celebrated && !loadErr){ celebrated = true; celebrate(); birthday(); stampBubble(); }
   }
 
   // ---------- 누르기·움직임 ----------

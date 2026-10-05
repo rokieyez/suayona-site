@@ -22,6 +22,7 @@ let localOnly = false;                               // study_plans 표를 못 �
 let editing = null;
 let gridAt = null;                                   // 잔디 달력이 보는 달 { y, m(1~12) } — null 이면 이번 달
 let walk = null;                                     // HEROWALK.mount 가 돌려준 것
+let stampQ = [];                                     // 걷는 장면에 띄울 부모 도장(아직 안 본 것)
 
 const toMin = t => { const p = String(t).split(':'); return (+p[0]) * 60 + (+p[1]); };
 const hhmm  = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
@@ -43,18 +44,43 @@ async function loadPlans(){
     // 손님도 읽는 줄이라 화면에 그대로 찍히는 숫자 칸은 숫자로 다진다(아이 계정은 제 줄 data 를 아무 JSON 으로나 쓸 수 있다)
     const num = v => Math.max(0, Math.floor(+v) || 0);
     const tasks = ((d && d.tasks) || []).map(t => Object.assign({}, t, { total: num(t.total), per: Math.max(1, num(t.per)), base: Math.floor(+t.base) || 0 }));
-    plans[k] = { win: (d && d.win) || DEFAULT_WIN, tasks, free: (d && d.free) || {} };
+    plans[k] = { win: (d && d.win) || DEFAULT_WIN, tasks, free: (d && d.free) || {}, stamps: (d && d.stamps) || {} };
   });
   plan = plans[who];
 }
 async function savePlan(){
+  const k = who, p = plan;                             // withKid 가 await 사이에 who·plan 을 되돌려 놓으니 먼저 잡아 둔다
   if (localOnly) {
-    try { localStorage.setItem('sy.study.' + who, JSON.stringify(plan)); return null; }
+    try { localStorage.setItem('sy.study.' + k, JSON.stringify(p)); return null; }
     catch (e) { return '이 브라우저는 저장이 막혀 있어요.'; }
   }
+  // 도장(stamps)은 부모만 서버에 바로 찍는다(toggleStamp) — 이 화면이 열린 뒤 찍힌 도장을 덮어 지우지 않게 서버 것을 따른다
+  const cur = await sb.from('study_plans').select('data').eq('who', k).maybeSingle();
+  if (!cur.error && cur.data && cur.data.data) p.stamps = cur.data.data.stamps || {};
   const { error } = await sb.from('study_plans')
-    .upsert({ who, data: plan, updated_at: new Date().toISOString() });
+    .upsert({ who: k, data: p, updated_at: new Date().toISOString() });
   return error ? readableError(error) : null;
+}
+
+// 👍 부모 도장 — 그날 기록에 찍는다. 다른 기기에서 적은 「했어요」를 덮지 않게 서버의 지금 줄을 읽어 도장만 바꿔 쓴다
+async function toggleStamp(k){
+  const day = todayIso(), cur = await sb.from('study_plans').select('data').eq('who', k).maybeSingle();
+  if (cur.error) { $('#hint').textContent = '도장을 찍지 못했어요 — ' + readableError(cur.error); render(); return; }
+  const data = (cur.data && cur.data.data) || JSON.parse(JSON.stringify(plans[k]));
+  const stamps = Object.assign({}, data.stamps);
+  if (stamps[day]) delete stamps[day]; else stamps[day] = { at: Date.now() };
+  data.stamps = stamps;
+  const { error } = await sb.from('study_plans').upsert({ who: k, data, updated_at: new Date().toISOString() });
+  if (error) { $('#hint').textContent = '도장을 찍지 못했어요 — ' + readableError(error); render(); return; }
+  if (stamps[day]) { sfx('sparkle'); cheer(HERO_NAMES[k] + '에게 👍 도장! 다음에 열면 보여요'); }
+  await loadPlans(); render();
+}
+// 오늘 도장 — 부모에게는 찍는 단추, 다른 사람에게는 받은 표시만
+function stampTag(){
+  const got = !!(plan.stamps || {})[todayIso()];
+  if (isAdmin && !localOnly) return '<button type="button" class="dot-btn small stamp' + (got ? ' on' : '') + '" data-stamp="' + who + '" aria-pressed="' + got + '" title="' +
+    (got ? '한 번 더 누르면 도장을 지워요' : '오늘 공부에 「👍 잘했어」 도장을 찍어요') + '">' + (got ? '👍 도장 찍음' : '👍 도장') + '</button>';
+  return got ? '<span class="stamp on">👍 도장</span>' : '';
 }
 
 // ---------- 셈에 넣을 것 ----------
@@ -165,7 +191,7 @@ function renderToday(r, byId, el){
   const list = r.byDay[todayIso()] || [];
   const total = list.reduce((a, x) => a + x.min, 0);
   const left = leftToday(r, byId);
-  let html = '<h4>오늘 할 것 · ' + (now.getMonth() + 1) + '월 ' + now.getDate() + '일 ' + DAYNAME[now.getDay()] + '요일' + fireTag() +
+  let html = '<h4>오늘 할 것 · ' + (now.getMonth() + 1) + '월 ' + now.getDate() + '일 ' + DAYNAME[now.getDay()] + '요일' + fireTag() + stampTag() +
     (total ? '<small>' + (left ? '남은 시간 약 ' + minLabel(left) : '오늘 몫 끝! 🎉') + ' / 모두 ' + minLabel(total) + '</small>' : '') + '</h4>';
   if (!list.length) {
     html += '<div class="none">' + (plan.tasks.length ? '오늘은 정해진 공부가 없어요. 쉬어도 돼요!' : '아직 할 일이 없어요. 아래 「할 일 넣기」로 시작해요.') + '</div>';
@@ -249,6 +275,16 @@ function mountWalk(){
     kids: view === 'both' ? ['sua', 'yona'] : [who], compact: true,
     getStats: k => withKid(k, () => ({ wisdom: { lv: studyLv() } })),
     streak: k => withKid(k, () => studyStreak(plan, todayIso()).days),
+    // 둘이 함께 걸을 때는 덜 걸은 아이의 지역에서 같이 걷는다
+    region: () => (view === 'both' ? ['sua', 'yona'] : [who]).map(k => studyRegion(plans[k])).reduce((a, b) => b.days < a.days ? b : a),
+    overlay: () => {                                    // 아직 안 본 부모 도장을 그 아이 머리 위 말풍선으로 6초씩
+      const t = Date.now();
+      stampQ = stampQ.filter(x => !x.until || t <= x.until);
+      const s = stampQ.find(x => view === 'both' || x.k === who);
+      if (!s) return null;
+      if (!s.until) { s.until = t + 6000; markStamp(s); }
+      return { bubble: { k: s.k, text: s.text } };
+    },
   });
 }
 
@@ -301,6 +337,8 @@ function renderWeek(r, byId){
 
 // ---------- 했어요 ----------
 $('#app').addEventListener('click', e => {
+  const sb2 = e.target.closest('[data-stamp]');
+  if (sb2) { sb2.disabled = true; toggleStamp(sb2.dataset.stamp); return; }
   const did = e.target.closest('.today [data-did]'), undo = e.target.closest('.today [data-undo]');
   if (!did && !undo) return;
   const col = e.target.closest('[data-k]');
@@ -448,6 +486,7 @@ async function load(){
   scheduleOk = !res.error;
   schedules = res.error ? [] : (res.data || []);
   await loadPlans();
+  stampQ = isAdmin ? [] : ['sua', 'yona'].map(k => unseenStamp(k, plans[k], todayIso())).filter(Boolean);   // 부모는 찍는 사람이라 안 띄운다
   render();
   mountWalk();
 }

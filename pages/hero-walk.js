@@ -51,6 +51,10 @@
     winter: { grass: ['#f3f7fc', '#dfe8f3'], hill: '#cfdcec', blade: ['#9fb4cc', '#ffffff'], leaf: [['#2f6b52', '#3f8566', '#e9f2fa'], ['#2f6b52', '#3f8566', '#e9f2fa']], fl: ['#ffffff', '#d8e6f6', '#ffffff', '#ffd6e0'], fg: '#c4d3e6' },
   };
 
+  // 바닷가 지역의 모래밭(겨울이면 그냥 눈밭) — 잎 빛깔은 여름 것을 빌린다
+  const SAND = { grass: ['#f1e2b4', '#e4cf98'], hill: '#e4cf98', blade: ['#a4ad62', '#ccd68a'], leaf: LAND.summer.leaf, fl: ['#ffffff', '#ffd0dc', '#ffe6a8', '#bfe3f0'], fg: '#8d9a52' };
+  const SEA = { dawn: ['#8a9fd6', '#d6c4dc'], day: ['#3d9bd6', '#8fd6ee'], dusk: ['#6a5c9c', '#e09a92'], night: ['#121c46', '#2a3a78'] };
+
   const imgs = {};
   function sheet(k){ if (!imgs[k]){ const im = new Image(); im.decoding = 'async'; im.src = ATLAS[k].src; imgs[k] = im; } return imgs[k]; }
 
@@ -66,7 +70,7 @@
     const st = { t: 0, camU: 0, walkT: 0, fight: false, mobs: [], shots: [], parts: [], texts: [], weather: [], cool: 0.8, count: 0, pick: {} };
     const team = kids.map((k, i) => ({ k, du: i ? -1.6 : 0, v: kids.length > 1 ? (i ? 0.72 : -0.42) : 0, atk: 0.35 + i * 0.42, hop: -9, dash: null, dust: i * 0.11, phase: i * 0.37 }));
     const info = {};
-    const world = { lv: {}, keys: [], season: 'autumn', tod: 'day', hour: 12 };
+    const world = { lv: {}, keys: [], season: 'autumn', tod: 'day', hour: 12, region: 'forest', note: '' };
     let hits = [], spots = {}, lamps = [];
 
     // ---------- 페이지에서 받는 것 — 능력치·연속·이름표·키·짝꿍. 매 장면이 아니라 refresh() 와 2초마다 한 번만 묻는다 ----------
@@ -84,8 +88,11 @@
       });
       world.lv = lv; world.keys = Object.keys(lv).filter(key => lv[key] >= PROP_LV);
       world.season = seasonOf(at);
+      const rg = opts.region ? opts.region(sel) : null;                 // 지역(숲·바닷가·성 앞)과 「다음 지역까지 N일」 — 페이지가 정한다
+      world.region = (rg && rg.key) || 'forest'; world.note = (rg && rg.note) || '';
       const d = new Date(); world.hour = d.getHours() + d.getMinutes() / 60; world.tod = todOf(world.hour);
     }
+    const landOf = se => world.region === 'sea' && se !== 'winter' ? SAND : LAND[se];
     const kidTall = k => (info[k] ? info[k].cm : CM[k]) * 0.6;           // 1cm = 0.6 논리 단위 — 키가 크면 그림도 자란다
 
     // ---------- 자리 — 세계(u: 길 방향 남동, v: 길 건너 남서) → 화면. 카메라는 앞선 아이를 따라간다 ----------
@@ -220,12 +227,47 @@
       if (snow){ g.save(); g.clip(); const sg = g.createLinearGradient(0, base - amp * 1.15, 0, base - amp * 0.72); sg.addColorStop(0, snow); sg.addColorStop(1, 'rgba(255,255,255,0)'); R(0, base - amp * 1.3, LW, amp * 0.6, sg); g.restore(); }
     }
     function drawMountains(sky, se){
+      if (world.region === 'sea') return drawSea(sky);
       if (!compact) ridge(st.camU * TW * 0.03, HY - 2, HY * 0.5, 0.011, 1.3, sky.far, se === 'winter' ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.4)');
       ridge(st.camU * TW * 0.07, HY + 2, HY * (compact ? 0.42 : 0.32), 0.019, 4.1, sky.mid2, se === 'winter' ? 'rgba(255,255,255,.8)' : null);
     }
+    // ③' 바닷가 — 산 대신 수평선까지 바다. 물결 줄·반짝임·돛단배 하나·갈매기 둘
+    function drawSea(sky){
+      const C = SEA[world.tod], top = HY - (compact ? 9 : 14), night = world.tod === 'night';
+      const sg = g.createLinearGradient(0, top, 0, HY + 4); sg.addColorStop(0, C[0]); sg.addColorStop(1, C[1]); R(0, top, LW, HY + 4 - top, sg);
+      R(0, top, LW, 1, 'rgba(255,255,255,.55)');
+      g.strokeStyle = night ? 'rgba(200,215,255,.35)' : 'rgba(255,255,255,.7)'; g.lineWidth = 0.8; g.lineCap = 'round'; g.beginPath();
+      for (let i = 0; i < (compact ? 14 : 22); i++){ const y = top + 3 + hash(i * 5 + 1) * (HY - top - 1), w = 4 + hash(i * 3) * 8, x = ((hash(i * 7) * (LW + 40) - st.camU * TW * 0.05 + Math.sin(st.t * 0.8 + i) * 3) % (LW + 40) + LW + 40) % (LW + 40) - 20; g.moveTo(x, y); g.lineTo(x + w, y); }
+      g.stroke();
+      const bx = ((LW * 0.62 + st.t * 3 - st.camU * TW * 0.04) % (LW + 60) + LW + 60) % (LW + 60) - 30, by = top + 2 + Math.sin(st.t * 1.4) * 0.6;
+      poly([[bx - 7, by + 2], [bx + 7, by + 2], [bx + 5, by + 5], [bx - 5, by + 5]], '#8a5a3a');
+      poly([[bx, by + 1.5], [bx, by - 11], [bx + 7, by + 1.5]], night ? '#c8cde6' : '#ffffff'); poly([[bx - 1, by + 1.5], [bx - 1, by - 8], [bx - 6, by + 1.5]], '#ff9fa8');
+      if (night) return;
+      g.strokeStyle = INK; g.lineWidth = 1.1; g.beginPath();
+      [[0.3, 0.45, 5], [0.38, 0.38, 4]].forEach((b, i) => { const x = ((LW * b[0] + st.t * (6 + i * 2)) % (LW + 40)) - 20, y = HY * b[1] + Math.sin(st.t * 2 + i) * 2, w = b[2], f = Math.sin(st.t * 6 + i * 2) * 1.5; g.moveTo(x - w, y - 1 + f); g.quadraticCurveTo(x - w / 2, y - 3, x, y); g.quadraticCurveTo(x + w / 2, y - 3, x + w, y - 1 + f); });
+      g.stroke();
+    }
+    // ③'' 성 앞 — 먼 산 앞 언덕 위에 성 하나(가운데 큰 탑 + 양옆 탑, 깃발). 아주 멀어서 거의 안 움직인다
+    function drawCastle(sky, se){
+      const s = compact ? 0.8 : 1.15, x0 = LW * 0.66, y0 = HY + 3, night = world.tod === 'night';
+      const W = se === 'winter' ? ['#eef2f8', '#cdd6e4'] : ['#efe3cf', '#d2bf9f'], ROOF = ['#ff8f9a', '#8fb8e8'];
+      g.save(); g.translate(x0, y0); g.scale(s, s); g.lineJoin = 'round';
+      const block = (x, y, w, h, cren) => { R(x, y, w, h, W[0]); R(x + w * 0.62, y, w * 0.38, h, W[1]); g.strokeStyle = INK; g.lineWidth = 1.2; g.strokeRect(x, y, w, h);
+        if (cren) for (let i = 0; i < w - 2; i += 5){ R(x + i, y - 3, 3, 3, W[0]); g.strokeRect(x + i, y - 3, 3, 3); } };
+      const roof = (x, y, w, col) => { poly([[x - 2, y], [x + w / 2, y - w * 1.15], [x + w + 2, y]], col); ink(1.2); g.strokeStyle = INK; g.lineWidth = 0.8; g.beginPath(); g.moveTo(x + w / 2, y - w * 1.15); g.lineTo(x + w / 2, y - w * 1.15 - 7); g.stroke(); poly([[x + w / 2, y - w * 1.15 - 7], [x + w / 2 + 6, y - w * 1.15 - 5.5 + Math.sin(st.t * 4) * 0.8], [x + w / 2, y - w * 1.15 - 4]], col); };
+      const win = (x, y) => { R(x, y, 2.4, 3.6, night ? '#ffd27a' : '#5a4a6a'); };
+      block(-36, -18, 72, 18, true);                                     // 성벽
+      block(-44, -34, 14, 34, false); roof(-44, -34, 14, ROOF[1]); win(-38.5, -26);
+      block(30, -34, 14, 34, false); roof(30, -34, 14, ROOF[1]); win(35.5, -26);
+      block(-12, -46, 24, 46, false); roof(-12, -46, 24, ROOF[0]); win(-6, -38); win(3.6, -38); win(-1.2, -28);
+      g.beginPath(); g.moveTo(-6, 0); g.lineTo(-6, -9); g.arc(0, -9, 6, Math.PI, 0); g.lineTo(6, 0); g.closePath(); g.fillStyle = night ? '#6a4a2a' : '#8a5a3a'; g.fill(); ink(1.2);
+      g.restore();
+    }
     // ④ 언덕 — 철 빛깔 + 능선 위 작은 나무 실루엣
     function drawHills(sky, se){
-      const L = LAND[se], off = st.camU * TW * 0.15, base = HY + 3, amp = compact ? 10 : 15;
+      if (world.region === 'sea') return;
+      if (world.region === 'castle') drawCastle(sky, se);
+      const L = landOf(se), off = st.camU * TW * 0.15, base = HY + 3, amp = compact ? 10 : 15;
       ridge(off, base, amp, 0.03, 2.2, L.hill, null);
       const hz = g.createLinearGradient(0, base - amp * 1.3, 0, base); hz.addColorStop(0, sky.haze + '.35)'); hz.addColorStop(1, sky.haze + '0)'); R(0, base - amp * 1.4, LW, amp * 1.4, hz);
       g.fillStyle = se === 'winter' ? '#5d7f74' : 'rgba(40,80,50,.55)';
@@ -238,7 +280,7 @@
     }
     function diamond(path, u, v, inset){ const a = 0.5 - (inset || 0); let p = P(u - a, v - a); path.moveTo(p[0], p[1]); p = P(u + a, v - a); path.lineTo(p[0], p[1]); p = P(u + a, v + a); path.lineTo(p[0], p[1]); p = P(u - a, v + a); path.lineTo(p[0], p[1]); path.closePath(); }
     function drawGround(sky, se, tr){
-      const L = LAND[se];
+      const L = landOf(se);
       g.save(); g.beginPath(); g.rect(0, HY, LW, LH - HY); g.clip();
       const gg = g.createLinearGradient(0, HY, 0, LH); gg.addColorStop(0, L.grass[0]); gg.addColorStop(1, L.grass[1]); R(0, HY, LW, LH - HY, gg);
       const lite = new Path2D(), dark = new Path2D(), flowers = L.fl.map(() => new Path2D()), pebbles = new Path2D(), tufts = new Path2D();
@@ -289,7 +331,7 @@
 
     // ⑥ 나무 — 둥근 나무·바늘잎 나무·(겨울) 빈 가지. 철 빛깔. (0,0) = 밑동
     function tree(x, y, s, type, se, sway){
-      const L = LAND[se];
+      const L = landOf(se);
       g.save(); g.translate(x, y); g.scale(s, s);
       if (type === 'pine'){
         R(-2.2, -12, 4.4, 12, '#7a5232'); R(0.6, -12, 1.6, 12, '#5e3d24');
@@ -670,7 +712,7 @@
     }
     // ⑪ 앞쪽 풀숲(빨리 흐른다) · 오른쪽 위 나뭇가지
     function foreground(se){
-      const L = LAND[se], gap = 34, off = st.camU * TW * 0.62;
+      const L = landOf(se), gap = 34, off = st.camU * TW * 0.62;
       for (let j = Math.floor(off / gap) - 1; j <= Math.floor((off + LW) / gap) + 1; j++){
         if (hash(j * 3 + 7) > 0.55) continue;
         const x = j * gap - off + hash(j) * 12, hgt = 14 + hash(j * 5) * 16, sw = Math.sin(st.t * 1.6 + j) * 2;
@@ -740,6 +782,7 @@
       g.fillStyle = INK; g.textAlign = 'left'; g.textBaseline = 'top'; lines.forEach((l, i) => g.fillText(l, x + 8, y + 6 + i * 13));
     }
     function drawOverlay(){
+      if (world.note){ g.font = '800 10px ' + FONT; const w = Math.ceil(g.measureText(world.note).width) + 14, y = LH - 26; rrect(6, y, w, 19, 9.5); g.fillStyle = 'rgba(255,255,255,.92)'; g.fill(); ink(1.4); g.fillStyle = INK; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(world.note, 13, y + 10); }
       const o = opts.overlay && opts.overlay(); if (!o) return;
       if (o.stamp){ g.font = '800 12px ' + FONT; const w = Math.ceil(g.measureText(o.stamp).width) + 18; rrect(8, 8, w, 22, 5); g.fillStyle = '#ffd979'; g.fill(); ink(1.6); g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.stamp, 8 + w / 2, 19.5); }
       if (o.bubble && o.bubble.text){ const sp = spots[(o.bubble.pet ? 'pet-' : '') + o.bubble.k]; if (sp) bubble(sp.x, sp.top - (o.bubble.pet ? 2 : 22), o.bubble.text); }
@@ -765,7 +808,7 @@
       const list = [], rows = compact ? [[-3.1, 0.6, 2.4], [3.3, 0.3, 1.5]] : [[-3.1, 0.62, 2.2], [-6.4, 0.55, 3.2], [-10.5, 0.5, 3], [3.5, 0.4, 1.6], [6.6, 0.6, 3]];
       for (let iu = tr.u0 - 2; iu <= tr.u1 + 2; iu++){
         rows.forEach((r, ri) => {
-          if (h2(iu, ri + 11) >= r[1]) return;
+          if (h2(iu, ri + 11) >= r[1] * (world.region === 'sea' ? 0.35 : world.region === 'castle' ? 0.55 : 1)) return;
           const u = iu + h2(iu, ri + 21) * 0.8, v = r[0] + Math.sign(r[0]) * h2(iu, ri + 31) * r[2], p = P(u, v);
           if (p[1] < HY + 2 || p[1] > LH + 70 || p[0] < -50 || p[0] > LW + 50) return;
           const th = h2(iu, ri + 41), type = th < 0.3 ? 'pine' : th < 0.6 ? 'round' : th < 0.82 ? 'round2' : 'round3', s = (0.78 + h2(iu, ri + 51) * 0.45) * clamp((p[1] - HY) / 60 + 0.55, 0.55, 1);

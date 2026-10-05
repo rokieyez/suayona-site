@@ -95,4 +95,24 @@ function monthGrid(data, year, month){
   return out;
 }
 
-if (typeof module !== 'undefined') module.exports = { studyEvents, studyStreak, monthGrid, STUDY_XP };
+// 걷는 장면의 지역 — 누적 공부일(공부한 날 수)로 숲 → 바닷가 → 성 앞. 연속이 끊겨도 뒤로 가지 않는다(2026-10-05 부모 요청)
+const STUDY_REGIONS = [{ key: 'forest', name: '숲', icon: '🍂', at: 0 }, { key: 'sea', name: '바닷가', icon: '🌊', at: 10 }, { key: 'castle', name: '성 앞', icon: '🏰', at: 30 }];
+function studyRegion(data){
+  const days = Object.keys(sxByDay(data)).length;
+  let i = 0;
+  STUDY_REGIONS.forEach((r, j) => { if (days >= r.at) i = j; });
+  const next = STUDY_REGIONS[i + 1] || null, r = STUDY_REGIONS[i];
+  return { key: r.key, days, note: r.icon + ' ' + r.name + (next ? ' · ' + next.name + '까지 ' + (next.at - days) + '일' : ' · 끝까지 왔어요!') };
+}
+
+// 부모 도장 — data.stamps = { 'YYYY-MM-DD': { at } }. 이 기기에서 아직 안 본, 사흘 안의 가장 최근 도장 하나
+function unseenStamp(k, data, today){
+  const s = (data && data.stamps) || {}, d = Object.keys(s).sort().pop();
+  if (!d || d < sxNext(today, -3)) return null;
+  let seen = '';
+  try { seen = localStorage.getItem('sy.stamp.' + k) || ''; } catch (e) { /* 저장이 막힌 브라우저 — 열 때마다 뜬다 */ }
+  return seen >= d ? null : { k, date: d, text: '👍 잘했어! — 엄마·아빠 도장' };
+}
+function markStamp(st){ try { localStorage.setItem('sy.stamp.' + st.k, st.date); } catch (e) { /* 위와 같음 */ } }
+
+if (typeof module !== 'undefined') module.exports = { studyEvents, studyStreak, monthGrid, studyRegion, unseenStamp, STUDY_XP };
