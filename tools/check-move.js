@@ -72,7 +72,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
       assert(a.x >= 0 && a.y >= 0 && a.x < R.gridOf(wf).w && a.y < R.gridOf(wf).h, f.id + ' ' + a.id + ' 지도 밖');
       assert(!R.fieldHas(wf, a.x, a.y), f.id + ' ' + a.id + ' 밭과 겹침');
       rocks.slice(k + 1).forEach(b => assert(!hit(a, b), f.id + ' ' + a.id + ' ' + b.id + '과 겹침'));
-      assert(!hit(a, { x: R.PEDDLER.x, y: R.PEDDLER.y, w: R.PEDDLER.w + 1, h: 1 }) || !i, f.id + ' ' + a.id + ' 떠돌이 상인 자리');
+      assert(!hit(a, (P => ({ x: P.x, y: P.y, w: P.w + 1, h: 1 }))(R.peddlerSpot(wf))) || !i, f.id + ' ' + a.id + ' 떠돌이 상인 자리');
       ['house', 'stall'].forEach(id => assert(!hit(a, R.spotOf(wf, id)), f.id + ' ' + a.id + ' ' + id + '과 겹침'));
     });
     all.forEach((a, k) => {
@@ -81,7 +81,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
       R.fieldCells(wf).forEach(c => assert(!hit(a, { x: c.x, y: c.y, w: 1, h: 1 }), f.id + ' ' + a.id + ' 밭(' + c.id + ')과 겹침'));
       rocks.forEach(n => assert(!hit(a, n), f.id + ' ' + a.id + ' ' + n.id + '과 겹침'));
       all.slice(k + 1).forEach(b => assert(!hit(a, b), f.id + ' ' + a.id + ' ' + b.id + '과 겹침'));
-      if (i) assert(!hit(a, { x: R.PEDDLER.x, y: R.PEDDLER.y, w: R.PEDDLER.w + 1, h: 1 }), f.id + ' ' + a.id + ' 떠돌이 상인 자리');
+      if (i) assert(!hit(a, (P => ({ x: P.x, y: P.y, w: P.w + 1, h: 1 }))(R.peddlerSpot(wf))), f.id + ' ' + a.id + ' 떠돌이 상인 자리');
     });
   });
   // 옮겼다가 처음 자리로 되돌리면 layout 에서 빠진다(그 농장의 처음 자리 기준)

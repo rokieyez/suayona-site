@@ -517,7 +517,7 @@ function onFarmTap(e){
   if (inSpot('greenhouse', tx, ty)){ if (built('greenhouse')) openGreenhouse(); else flash('온실 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('well', tx, ty)){ flash(built('well') ? '우물이에요. 물뿌리개를 키울 수 있어요' : '우물 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('pond', tx, ty)){ startFishing(); return; }
-  if (R.peddlerHere(W, now()) && inBox({ x: R.PEDDLER.x, y: R.PEDDLER.y, w: R.PEDDLER.w + 1, h: R.PEDDLER.h }, tx, ty)){ openPeddler(); sfx('cart'); return; }
+  if (R.peddlerHere(W, now()) && (P => inBox({ x: P.x, y: P.y, w: P.w + 1, h: P.h }, tx, ty))(R.peddlerSpot(W))){ openPeddler(); sfx('cart'); return; }
   if (inSpot('firepit', tx, ty)){ const r = act((w, m) => R.fireSit(w, m, now())); if (r.ok) sfx(r.both ? 'fanfare' : 'fire'); return; }
   if (inSpot('bench', tx, ty) || inSpot('swing', tx, ty)){ flash('쉬는 자리예요. 앉으면 기분이 좋아져요'); return; }
   // 동물이 있는 곳은 어디를 눌러도 동물 카드로

@@ -721,7 +721,7 @@ const VOID_CTX = document.createElement('canvas').getContext('2d');   // 'back' 
    줄무늬 덮개와 둥근 바퀴로 가게 좌판과 구별한다 — 네모 바퀴는 탁자 다리로 읽혔다.
    행상인은 발끝까지 있는 56도트 그림(2026-10-02)이라 바닥 줄에 그대로 세운다. 수레 쪽(왼쪽 아래)을 보고 서성인다(npcIdle). */
 function drawPeddler(t){
-  const b = R.PEDDLER, X = b.x * T, Y = b.y * T, G = Y + T;      // G: 바닥 줄
+  const b = R.peddlerSpot(W), X = b.x * T, Y = b.y * T, G = Y + T;      // G: 바닥 줄
   px(X + 2, G - 4, 86, 4, '#00000018');
   // 둥근 바퀴 둘
   const wheel = (wx, wy) => {
@@ -6570,8 +6570,14 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
     cast.push({ d: q.x + q.y + 1, go: () => withBB(flatOffAt(q.x * T + 16, q.y * T + 26, q.x + 0.5, q.y + 0.55, 3), () => drawSprinkler(q.x * T, q.y * T, t, good)) });
   });
   if (R.peddlerHere(W, now())){
-    const P = R.PEDDLER;
-    cast.push({ d: P.x + P.y + 1.5, go: () => withBB(flatOffAt((P.x + 1.2) * T, (P.y + 1) * T, P.x + 1.2, P.y + 0.9), () => drawPeddler(t)) });
+    const P = R.peddlerSpot(W);
+    // 수레 덮개·행상인 몸을 눌러도 열리게 — 전에는 바닥 줄만 맞아서 머리를 누르면 뒤 칸이 잡혔다.
+    // 그림 끝(수레 X+2 ~ 행상인 X+91, 키 58)을 flatOffAt 과 같은 셈으로 옮긴 상자. 그릴 때 넣어야 앞뒤 순서가 맞는다
+    const q = isoP(P.x + 1.2, P.y + 0.9);
+    cast.push({ d: P.x + P.y + 1.5, go: () => {
+      withBB(flatOffAt((P.x + 1.2) * T, (P.y + 1) * T, P.x + 1.2, P.y + 0.9), () => drawPeddler(t));
+      isoHits.push({ x0: q.x - 36, x1: q.x + 54, y0: q.y - 58, y1: q.y + 2, tx: P.x, ty: P.y });
+    } });
   }
   if (walkers) walkers.forEach(w => cast.push({ d: (w.x + w.y) / T, go: () => drawWalkerIso(w, t) }));
   if (STILL && !farmGuest && visitAt == null && weekendKST()) farmGuest = stillFarmGuest();
@@ -6744,7 +6750,7 @@ function drawFarmIn(cv, tms){
     const q = R.parseId(id), good = (W.sprinklers[id] || {}).k === 'good';
     cast.push({ y: q.y * T + 30, go: () => drawSprinkler(q.x * T, q.y * T, t, good) });
   });
-  if (R.peddlerHere(W, now())) cast.push({ y: R.PEDDLER.y * T + 30, go: () => drawPeddler(t) });
+  if (R.peddlerHere(W, now())) cast.push({ y: R.peddlerSpot(W).y * T + 30, go: () => drawPeddler(t) });
   { const b = spot('stall'); cast.push({ y: b.y * T + 36, go: () => drawStallKeeper2D(t) }); }
   if (walkers) walkers.forEach(w => cast.push({ y: w.y, go: () => drawWalker(w, t) }));
   if (beasts) beasts.list.forEach(a => cast.push({ y: a.y, go: () => drawBeast(a, t) }));
