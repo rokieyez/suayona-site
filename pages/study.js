@@ -40,7 +40,10 @@ async function loadPlans(){
     let d = (data || []).find(r => r.who === k);
     d = d && d.data;
     if (error) { try { d = JSON.parse(localStorage.getItem('sy.study.' + k) || 'null'); } catch (e) { d = null; } }
-    plans[k] = { win: (d && d.win) || DEFAULT_WIN, tasks: (d && d.tasks) || [], free: (d && d.free) || {} };
+    // 손님도 읽는 줄이라 화면에 그대로 찍히는 숫자 칸은 숫자로 다진다(아이 계정은 제 줄 data 를 아무 JSON 으로나 쓸 수 있다)
+    const num = v => Math.max(0, Math.floor(+v) || 0);
+    const tasks = ((d && d.tasks) || []).map(t => Object.assign({}, t, { total: num(t.total), per: Math.max(1, num(t.per)), base: Math.floor(+t.base) || 0 }));
+    plans[k] = { win: (d && d.win) || DEFAULT_WIN, tasks, free: (d && d.free) || {} };
   });
   plan = plans[who];
 }
@@ -173,9 +176,9 @@ function renderToday(r, byId, el){
         '<span class="nm">' + escapeHTML(t.title) + '</span>' +
         '<span class="amt">' + x.units + escapeHTML(t.unit) + '</span>' +
         '<span class="min">약 ' + minLabel(x.min) + (got ? ' · ' + got + escapeHTML(t.unit) + ' 했어요' : '') + '</span>' +
-        (canEdit() ? '<span class="go"><input type="number" min="1" step="1" inputmode="numeric" value="' + (rest || 1) + '" data-amt="' + t.id + '">' +
-          '<button class="dot-btn small primary" data-did="' + t.id + '">했어요</button>' +
-          (got ? '<button class="dot-btn small" data-undo="' + t.id + '" title="오늘 적은 것 되돌리기">↶</button>' : '') + '</span>' : '') +
+        (canEdit() ? '<span class="go"><input type="number" min="1" step="1" inputmode="numeric" value="' + (rest || 1) + '" data-amt="' + escapeHTML(t.id) + '" aria-label="' + escapeHTML(t.title) + ' 한 만큼(' + escapeHTML(t.unit) + ')">' +
+          '<button class="dot-btn small primary" data-did="' + escapeHTML(t.id) + '" aria-label="' + escapeHTML(t.title) + ' 했어요">했어요</button>' +
+          (got ? '<button class="dot-btn small" data-undo="' + escapeHTML(t.id) + '" title="오늘 적은 것 되돌리기" aria-label="' + escapeHTML(t.title) + ' 오늘 적은 것 되돌리기">↶</button>' : '') + '</span>' : '') +
         '<span class="bar"><i style="width:' + Math.min(100, got / x.units * 100) + '%"></i></span>' +
       '</li>';
     }).join('') + '</ul>';
@@ -199,7 +202,7 @@ function renderGrass(){
     const bg = kids.length === 1 ? grassTint(kids[0], mins[0])
       : 'linear-gradient(135deg,' + grassTint('sua', mins[0]) + ' 50%,' + grassTint('yona', mins[1]) + ' 50%)';
     const tip = x.date + kids.map((k, j) => mins[j] ? ' · ' + (kids.length > 1 ? HERO_NAMES[k] + ' ' : '') + minLabel(mins[j]) : '').join('') + (open ? '' : ' · 쉬는 날');
-    return '<span class="c' + (open ? '' : ' off') + (x.date === today ? ' now' : '') + '" title="' + tip + '"' +
+    return '<span class="c' + (open ? '' : ' off') + (x.date === today ? ' now' : '') + '" title="' + tip + '" role="img" aria-label="' + tip + '"' +
       (mins.some(m => m > 0) ? ' style="background:' + bg + '"' : '') + '>' + x.day + '</span>';
   };
   const sum = kids.map(k => {
@@ -217,7 +220,8 @@ function renderGrass(){
       '<span></span>'.repeat(lead) + g.map(cell).join('') +
     '</div>' +
     '<p class="gsum">' + (isNow ? '이번 달 ' : at.m + '월에 ') + sum + ' 공부</p>' +
-    '<div class="glegend">' + legend + '</div>';
+    '<div class="glegend">' + legend + '</div>' +
+    (kids.length > 1 ? '<p class="glegend">한 칸의 왼쪽 위 ◤ 는 수아, 오른쪽 아래 ◢ 는 연아예요.</p>' : '');
 }
 $('#grass').addEventListener('click', e => {
   const b = e.target.closest('[data-gm]');
@@ -255,18 +259,19 @@ function renderCushion(r, el){
     const q = r.perTask[t.id] || { need: 0, room: 0, cushion: 0 };
     const got = doneToday(t) * t.per;
     const p = { need: Math.max(0, q.need - got), room: q.room, cushion: q.cushion + got };
-    const lv = doneOf(t) >= t.total ? 'done' : cushionLevel(p);
     const days = Math.round((new Date(t.due) - new Date(today)) / 86400000);
+    // 마감이 지났으면 오늘 빈 시간이 남아도 「넉넉」이 아니다 — 맨 위(급함)로 올린다
+    const lv = doneOf(t) >= t.total ? 'done' : days < 0 ? 'short' : cushionLevel(p);
     const dd = lv === 'done' ? '끝' : days < 0 ? '마감 지남' : days === 0 ? '오늘까지' : 'D-' + days;
     const label = {
       done: '다 했어요 👏',
       easy: '넉넉해요 · 여유 ' + minLabel(p.cushion),
       tight: '빠듯해요 · 여유 ' + minLabel(p.cushion),
-      short: '시간이 ' + minLabel(-p.cushion) + ' 모자라요',
+      short: p.cushion < 0 ? '시간이 ' + minLabel(-p.cushion) + ' 모자라요' : '마감이 지났어요 · 오늘 끝내요',
     }[lv];
     const fill = p.room ? Math.min(100, p.need / p.room * 100) : (p.need ? 100 : 0);
     return { t, lv, html:
-      '<button type="button" class="cc lv-' + lv + '" data-edit="' + t.id + '">' +
+      '<button type="button" class="cc lv-' + lv + '" data-edit="' + escapeHTML(t.id) + '">' +
         '<div class="top"><b>' + escapeHTML(t.title) + '</b><span class="dd">' + dd + '</span></div>' +
         '<div class="sub">' + doneOf(t) + ' / ' + t.total + escapeHTML(t.unit) +
           (lv === 'done' ? '' : ' · 남은 일 ' + minLabel(p.need) + ' · 빈 시간 ' + minLabel(p.room)) + '</div>' +
@@ -308,7 +313,7 @@ async function logDone(e, did, undo, box){
   t.log = t.log || {};
   if (did) {
     const before = leftToday(compute(), Object.fromEntries(plan.tasks.map(x => [x.id, x])));
-    const n = Math.max(1, Math.floor(+box.querySelector('[data-amt="' + id + '"]').value || 0));
+    const n = Math.max(1, Math.floor(+box.querySelector('[data-amt="' + CSS.escape(id) + '"]').value || 0));
     t.log[day] = Math.min(t.total - (doneOf(t) - doneToday(t)), doneToday(t) + n);
     const after = leftToday(compute(), Object.fromEntries(plan.tasks.map(x => [x.id, x])));
     if (walk && walk.burst) walk.burst(who, '+10');
@@ -376,7 +381,8 @@ $('#fSave').addEventListener('click', async () => {
 $('#fDel').addEventListener('click', async () => {
   if (!editing || !confirm('「' + editing.title + '」을(를) 지울까요?')) return;
   plan.tasks = plan.tasks.filter(t => t !== editing);
-  await savePlan();
+  const err = await savePlan();
+  if (err) { $('#fMsg').className = 'msg error'; $('#fMsg').textContent = '지우지 못했어요 — ' + err; return; }
   closeSheet(); render();
 });
 $('#cush').addEventListener('click', e => {
@@ -429,7 +435,7 @@ function pick(v){
   if (v === view) return;
   view = v;
   if (v !== 'both') { who = v; plan = plans[v]; }
-  $$('#whoPick .dot-btn').forEach(x => x.classList.toggle('on', x.dataset.who === v));
+  $$('#whoPick .dot-btn').forEach(x => { x.classList.toggle('on', x.dataset.who === v); x.setAttribute('aria-pressed', x.dataset.who === v); });
   render(); mountWalk();
 }
 
@@ -445,6 +451,10 @@ async function load(){
   render();
   mountWalk();
 }
+
+// 자정을 넘겨 열어 둔 탭(휴대폰·태블릿)이 어제 「오늘 할 것」·「오늘 몫 끝!」을 계속 보이지 않게 — 날이 바뀌면 다시 그린다
+let shownDay = todayIso();
+setInterval(() => { if (todayIso() !== shownDay && plan) { shownDay = todayIso(); render(); } }, 60000);
 
 // 2026-10-05 부모 요청: 손님도 보게 한다. 고치기·「했어요」는 canEdit() 이 로그인한 가족에게만 연다
 (async () => {

@@ -157,12 +157,12 @@
 
     <div id="app" hidden>
       <div class="who-pick" id="whoPick">
-        <button class="dot-btn small on" data-who="both">둘 다</button>
-        <button class="dot-btn small" data-who="sua">수아</button>
-        <button class="dot-btn small" data-who="yona">연아</button>
+        <button class="dot-btn small on" data-who="both" aria-pressed="true">둘 다</button>
+        <button class="dot-btn small" data-who="sua" aria-pressed="false">수아</button>
+        <button class="dot-btn small" data-who="yona" aria-pressed="false">연아</button>
       </div>
 
-      <canvas id="studyWalk" class="walk" width="640" height="160" hidden></canvas>
+      <canvas id="studyWalk" class="walk" width="640" height="160" role="img" aria-label="수아와 연아가 길을 걸으며 공부몹을 물리치는 장면. 「했어요」를 누르면 몹 하나를 물리쳐요." hidden></canvas>
       <div class="both" id="both" hidden></div>
       <div id="single">
       <div class="box today" id="today"></div>
