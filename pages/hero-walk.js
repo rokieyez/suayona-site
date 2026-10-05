@@ -10,9 +10,12 @@
   const V = '1005a';
   // tools/hero-atlas.py 가 찍은 칸 정보 — 줄 = S·SW·W·NW·N, 칸 = 서기·걷기 4. foot = 칸 안의 발끝 줄, cx = 윗몸 가운데 열, tall = 서기 칸 키(px)
   const ATLAS = {
-    sua:  { src: '/pages/hero-sua.png?v=' + V,  w: 166, h: 231, foot: 228, cx: 83, tall: 220 },
-    yona: { src: '/pages/hero-yona.png?v=' + V, w: 144, h: 229, foot: 226, cx: 72, tall: 220 },
+    sua:  { src: '/pages/hero-sua.png?v=' + V,  w: 166, h: 231, foot: 228, cx: 83, tall: 220, hip: 179, cut: [78, 70] },
+    yona: { src: '/pages/hero-yona.png?v=' + V, w: 144, h: 229, foot: 226, cx: 72, tall: 220, hip: 177, cut: [68, 61] },
   };
+  // 원본 걷기 칸은 늘 같은 다리가 앞이라(힉스필드로 다시 그려도 같았다, 2026-10-05) 걸을 때는 서기 칸을 몸통·두 다리로 잘라
+  // 다리를 엉덩이에서 서로 반대로 흔든다. hip = 반바지 아랫단 줄, cut = 두 다리를 가르는 선의 [엉덩이 쪽, 발 쪽] 열(서기 칸 기준)
+  const LEG_SWING = 13, LEG_LIFT = 8;                                    // 발끝이 앞뒤로 가는 거리 · 앞으로 나오는 발을 드는 높이(시트 px)
   const ROW_SW = 1;                                                      // 앞옆(SW) 줄을 좌우로 뒤집어 남동(SE)으로 걷는다
   const FONT = '"Suayona Sans", Pretendard, system-ui, sans-serif';
   const INK = '#2f2a24', TAU = Math.PI * 2;
@@ -420,17 +423,42 @@
       if (hs < 0.12){ g.save(); g.globalCompositeOperation = 'lighter'; const c = MOB_Z[m.kind], gl = g.createRadialGradient(x, y - c, 2, x, y - c, 26); gl.addColorStop(0, 'rgba(255,255,255,.7)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); R(x - 28, y - c - 28, 56, 56, gl); g.restore(); }
     }
     // ⑨ 아이 — 시트에서 한 칸을 뒤집어 그린다. 발끝이 (x, y)
+    // 서기 칸을 몸통·먼 다리·가까운 다리로 한 번만 잘라 둔다. 가까운 다리 = 시트에서 오른쪽(발끝이 더 아래)
+    const parts = {};
+    function partsOf(k, im){
+      if (parts[k]) return parts[k];
+      const A = ATLAS[k], cut = (pathOf) => { const c = document.createElement('canvas'); c.width = A.w; c.height = A.h; const x = c.getContext('2d'); x.beginPath(); pathOf(x); x.clip(); x.drawImage(im, 0, ROW_SW * A.h, A.w, A.h, 0, 0, A.w, A.h); return c; };
+      const top = A.hip - 3;                                             // 다리 위 끝은 반바지 속으로 조금 넣어 몸통이 이음매를 덮게
+      return (parts[k] = {
+        body: cut(x => x.rect(0, 0, A.w, A.hip + 1)),
+        far:  cut(x => { x.moveTo(0, top); x.lineTo(A.cut[0], top); x.lineTo(A.cut[1], A.h); x.lineTo(0, A.h); }),
+        near: cut(x => { x.moveTo(A.cut[0], top); x.lineTo(A.w, top); x.lineTo(A.w, A.h); x.lineTo(A.cut[1], A.h); }),
+      });
+    }
+    // 한 다리 — 엉덩이를 축으로 밀어 기울이고(도트가 덜 깨지게 회전 대신 기울이기), 앞으로 나올 때 발을 든다
+    function drawLeg(P, A, leg, th){
+      const len = A.foot - A.hip, sw = Math.sin(th), up = Math.max(0, Math.cos(th)) * LEG_LIFT;
+      g.save(); g.translate(0, A.hip);
+      g.transform(1, 0, -sw * LEG_SWING / len, 1 - up / len, 0, 0);      // 앞 = 시트의 왼쪽(뒤집기 전)
+      g.drawImage(P[leg], 0, -A.hip); g.restore();
+    }
     function drawKid(m, x, y){
       const A = ATLAS[m.k], im = sheet(m.k), tall = kidTall(m.k), sc = tall / A.tall;
-      let frame = 0, lift = 0;
-      if (!st.fight && !STILL){ const ph = st.walkT * 5 + m.phase * 4; frame = 1 + Math.floor(ph) % 4; lift = frame % 2 ? 1 : 0; }
-      const ha = st.t - m.hop; if (ha >= 0 && ha < 0.34){ lift += Math.sin(ha / 0.34 * Math.PI) * 8; frame = 2; }
+      let frame = 0, lift = 0, th = null;
+      // 네 칸 한 바퀴(ph 4) = 왼발·오른발 한 번씩
+      if (!st.fight && !STILL){ const ph = st.walkT * 5 + m.phase * 4; th = ph / 4 * TAU; lift = (1 - Math.abs(Math.sin(th))) * 1.5; }
+      const ha = st.t - m.hop; if (ha >= 0 && ha < 0.34){ lift += Math.sin(ha / 0.34 * Math.PI) * 8; frame = 2; th = null; }
       const pk = st.t - (st.pick[m.k] === undefined ? -9 : st.pick[m.k]); if (pk >= 0 && pk < 0.55) lift += Math.abs(Math.sin(pk / 0.55 * Math.PI * 2)) * 10 * (1 - pk / 0.55);
       spots[m.k] = { x, y, top: y - tall - lift, tall, lift };
       hits.push({ kid: m.k, x: x - tall * 0.3, y: y - tall - lift - 4, w: tall * 0.6, h: tall + 8 });
       if (!im.complete || !im.naturalWidth) return;
       g.save(); g.translate(x, y - lift); g.scale(-1, 1);
-      g.drawImage(im, frame * A.w, ROW_SW * A.h, A.w, A.h, -A.cx * sc, -A.foot * sc, A.w * sc, A.h * sc);
+      if (th === null) g.drawImage(im, frame * A.w, ROW_SW * A.h, A.w, A.h, -A.cx * sc, -A.foot * sc, A.w * sc, A.h * sc);
+      else {
+        const P = partsOf(m.k, im);
+        g.scale(sc, sc); g.translate(-A.cx, -A.foot);
+        drawLeg(P, A, 'far', th); drawLeg(P, A, 'near', th + Math.PI); g.drawImage(P.body, 0, 0);
+      }
       g.restore();
       if (m.dash && m.dash.t < m.dash.dur * 0.6){ g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 1.6; g.beginPath(); for (let i = 0; i < 4; i++){ const yy = y - tall * (0.25 + i * 0.17); g.moveTo(x - tall * 0.28 - 4, yy - 2); g.lineTo(x - tall * 0.28 - 18 - i * 3, yy - 9); } g.stroke(); }
     }
