@@ -168,6 +168,7 @@ section.block { margin: 56px 0; }
 .th-F { --c1: #101b5c; --c2: #3450c4; --on: #fff; --rim: #c9d4ff; --glow: #5f7cff; --deep: #1f2f86; --room-ink: #eef1ff; }
 .th-G { --c1: #050507; --c2: #2d2d38; --on: #e6e6ee; --rim: #8a8a99; --glow: #a9a9c4; --deep: #1c1c24; --room-ink: #e6e6ee; }
 .th-S { --c1: #57b8f0; --c2: #cdeeff; --on: #0d3f63; --rim: #fff; --glow: #9fdcff; --deep: #2a86c2; --name-ink: #1b5f8c; --room-ink: #0d3656; }
+.th-O { --c1: #4a5a2a; --c2: #cfe0a8; --on: #263012; --rim: #fbffe8; --glow: #c6e27a; --deep: #5f7434; --name-ink: #3f4f20; --room-ink: #263012; }
 .th-T { --c1: #3b2472; --c2: #8a6bd1; --on: #fff; --rim: #e9c46a; --glow: #e9c46a; --deep: #4b2f8f; --room-ink: #fff; }
 
 /* ── 반 섹션 ── */
@@ -235,6 +236,7 @@ section.block { margin: 56px 0; }
 .rel .ico { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; color: #fff; }
 .rel.rival .ico { background: var(--t-rival); }
 .rel.sib .ico { background: var(--gold-deep); }
+.rel.love .ico { background: #e0457b; }
 .rel-name { border: none; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer;
   text-decoration: underline; text-decoration-color: rgba(58, 42, 26, .3); text-underline-offset: 3px; }
 .rel-name:hover { text-decoration-color: currentColor; }
@@ -266,6 +268,13 @@ p.empty { color: var(--text-soft); padding: 30px 0; text-align: center; }
 .vs small { font-size: 11px; color: var(--text-soft); }
 .rival-panel .vs .sym { color: #ff8a80; }
 .sib-panel .vs .sym { color: var(--t-sib); }
+.love-panel .vs .sym { color: #ff8fb5; }
+.pair .unpair { border: none; background: none; color: var(--text-soft); cursor: pointer; font-size: 13px; padding: 2px 4px; margin-left: 4px; }
+.pair .unpair:hover { color: #ff8fb5; }
+.couple-add { margin: 0 0 14px 8px; }
+.couple-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: end; }
+.couple-row .heart-mid { color: #e0457b; font-size: 22px; padding-bottom: 8px; }
+#coupleDlg { max-width: min(92vw, 520px); }
 .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--text-soft); margin: 18px 0 0; }
 .legend i { display: inline-block; width: 22px; height: 5px; border-radius: 3px; margin-right: 6px; vertical-align: 3px; }
 
@@ -385,6 +394,8 @@ dialog.confirm { max-width: min(92vw, 380px);
 #relGraph .edge circle { fill: var(--map-dot); stroke-width: 1.5; }
 #relGraph .edge.rival circle { stroke: #ff6b6b; }
 #relGraph .edge.sib circle { stroke: #f2c400; }
+#relGraph .edge.love path { stroke: #ff6f9f; stroke-width: 3; }
+#relGraph .edge.love circle { stroke: #ff6f9f; }
 #relGraph .edge text { fill: var(--map-label); font-size: 11px; text-anchor: middle; dominant-baseline: central; }
 /* 얼굴을 길게 눌러도 이름 글자가 잡히지 않게 (하늘색 네모는 html 에서 이미 껐다) */
 #relGraph .gnode { cursor: pointer; outline: none; -webkit-user-select: none; user-select: none; }
@@ -397,6 +408,10 @@ dialog.confirm { max-width: min(92vw, 380px);
 .graph-legend { justify-content: center; margin-top: 8px; }
 .legend i.line { height: 0; border-top: 3px solid #ff6b6b; border-radius: 0; background: none; }
 .legend i.line.sib { border-top: 3px dashed #f2c400; }
+.legend i.line.love { border-top: 3px solid #ff6f9f; }
+.more-btn { display: block; margin: 14px auto 0; }
+/* 연대기·이야기책: 길면 위쪽만 보이고 아래로 흐려진다. 더보기를 누르면 다 펼친다 */
+.folded { max-height: 460px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
 
 /* ── 소리 버튼 ── */
 .float-btn { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 15; border: 1px solid var(--panel-line); background: var(--float-bg); color: var(--text);
@@ -913,7 +928,7 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
 <main class="wrap">
   <section class="block">
     <div class="block-head"><h2>🏰 기숙사</h2></div>
-    <p class="intro">문장을 누르면 그 반의 문이 열려요. 새 캐릭터는 각 반 맨 끝의 ＋ 칸에서 추가할 수 있어요.</p>
+    <p class="intro">문장을 누르면 그 반의 문이 열려요. 새 캐릭터는 각 반 맨 끝의 ＋ 칸에서 추가할 수 있어요. 학교에 다니지 않는 캐릭터는 🌍 학교 밖에 넣어요.</p>
     <div class="crests" id="hall"></div>
   </section>
 
@@ -930,12 +945,14 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
     <div class="chips view-toggle" role="group" aria-label="관계도 보기 방식">
       <button class="chip" data-relview="map" aria-pressed="true">🕸 관계 지도</button>
       <button class="chip" data-relview="list" aria-pressed="false">📋 짝 목록</button>
+      <button class="chip couple-add" id="coupleAdd">💕 커플 잇기</button>
     </div>
     <div id="relMap" class="rel-map">
       <div id="relGraph"></div>
       <div class="legend graph-legend">
         <span><i class="line rival"></i>라이벌</span>
         <span><i class="line sib"></i>형제·자매·남매</span>
+        <span><i class="line love"></i>커플</span>
         <span>얼굴을 가리키거나 키보드로 고르면 그 캐릭터의 관계만 밝아져요. 누르면 자세히 볼 수 있어요.</span>
       </div>
     </div>
@@ -949,6 +966,11 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
         <h3>🌟 형제 · 자매 · 남매</h3>
         <p>노란 형광펜 + 같은 노란 기호/테두리</p>
         <div class="pairs" id="sibPairs"></div>
+      </div>
+      <div class="rel-panel love-panel">
+        <h3>💕 커플</h3>
+        <p>서로 사귀는 사이 · 💕 커플 잇기로 더해요</p>
+        <div class="pairs" id="lovePairs"></div>
       </div>
     </div>
     <div class="legend">
@@ -972,12 +994,14 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
     <p class="intro">학교에서 일어난 일을 순서대로 적어 두는 곳이에요. 사건마다 등장한 캐릭터를 이어 둘 수 있어요.</p>
     <button class="chip add-event" id="timelineAdd">＋ 사건 추가</button>
     <div id="timeline"></div>
+    <button class="chip more-btn" data-more="timeline" hidden></button>
   </section>
 
   <section class="block">
     <div class="block-head"><h2>📖 안데레 이야기책</h2></div>
     <p class="intro">연대기의 사건 하나가 이야기책의 한 장이 돼요. 장면마다 배경을 고르고, 캐릭터를 세우고, 글과 말풍선을 적어요.</p>
     <div id="story"></div>
+    <button class="chip more-btn" data-more="story" hidden></button>
   </section>
 
   <section class="block">
@@ -1041,6 +1065,7 @@ footer { color: var(--text-soft); font-size: 13px; text-align: center; padding: 
 <dialog id="addDlg" aria-labelledby="addTitle"></dialog>
 <dialog id="confirmDlg" class="confirm" aria-labelledby="confirmMsg"></dialog>
 <dialog id="eventDlg" aria-labelledby="eventTitle"></dialog>
+<dialog id="coupleDlg" aria-labelledby="coupleTitle"></dialog>
 <dialog id="entryDlg" aria-labelledby="entryTitle"></dialog>
 <dialog id="storyDlg" aria-labelledby="storyTitle"></dialog>
 <dialog id="sceneDlg" aria-labelledby="sceneTitle"></dialog>
@@ -1070,7 +1095,10 @@ const GROUPS = [
   { id: "G", title: "G반", dorm: "남자기숙사", emb: "🌙" },
   { id: "S", title: "★ 특별반", letter: "★", dorm: "특별반", emb: "☁️" },
   { id: "T", title: "선생님", letter: "師", dorm: "교직원", emb: "📜" },
+  { id: "O", title: "학교 밖", letter: "外", dorm: "학교 밖 사람들", emb: "🌍" }, // 학교 소속이 아닌 캐릭터 (직접 추가만)
 ];
+// 학생인가 — 선생님(T)과 학교 밖(O)은 벌점·학생 수·교실에서 뺀다
+const isStudent = p => p.group !== "T" && p.group !== "O";
 
 // [이름, 나이, 표시 태그(main=주연/조연, secret=수상함/비밀), 메모]
 const STUDENTS = {
@@ -1700,9 +1728,22 @@ function refreshPeople() {
    지도·카드의 관계 줄·짝 목록·찾기·통계가 모두 이 목록을 읽는다. 지도는 이 목록에 든 캐릭터만
    그리므로, 관계가 없는 추가 캐릭터는 저절로 지도에 안 나온다. 기호는 수아의 표시와 가르려고 ✎. */
 const BASE_RIVALS = RIVALS.length, BASE_SIBLINGS = SIBLINGS.length;
+
+/* 커플(서로 사귀는 사이): 어느 캐릭터끼리든 이을 수 있다. 서버 표의 종류(kind)를 늘리지 않으려고
+   "entry" 줄에 data.type "couple" 로 담는다 — cleanEntries 는 ENTRY_TYPES 에 없는 type 을 버리므로
+   지도·사전에는 섞이지 않는다. data = { type: "couple", ids: [캐릭터 id 둘], created } */
+const COUPLES = [];
+let couples = [];
+const loadCouples = () => Cloud.list("entry")
+  .filter(r => r.data?.type === "couple" && isEntryId(r.id))
+  .map(r => ({ id: r.id, ids: relIds(r.data.ids, "") }))
+  .filter(c => c.ids.length === 2);
+
 function applyCustomRelations() {
   RIVALS.length = BASE_RIVALS;
   SIBLINGS.length = BASE_SIBLINGS;
+  COUPLES.length = 0;
+  for (const c of couples) if (c.ids.every(id => byId[id])) COUPLES.push({ sym: "💕", ids: c.ids, custom: true, cid: c.id });
   const seen = new Set();
   for (const c of customCharacters) {
     for (const [kind, list] of [["rival", c.rivals], ["sib", c.sibs]]) {
@@ -1748,7 +1789,7 @@ function askConfirm(message, okLabel = "확인") {
 
 /* ── 관계 ── */
 const othersIn = (sets, id) => sets.filter(s => s.ids.includes(id)).flatMap(s => s.ids.filter(x => x !== id).map(x => ({ id: x, sym: s.sym, custom: !!s.custom })));
-const relsOf = id => ({ rival: othersIn(RIVALS, id), sib: othersIn(SIBLINGS, id) });
+const relsOf = id => ({ rival: othersIn(RIVALS, id), sib: othersIn(SIBLINGS, id), love: othersIn(COUPLES, id) });
 const hasTag = (p, t) => (t === "rival" || t === "sib") ? relsOf(p.id)[t].length > 0 : p.tags.includes(t);
 const sibWordOf = id => SIBLINGS.find(x => x.ids.includes(id))?.word || "형제·자매";
 
@@ -1762,7 +1803,7 @@ function relLines(p) {
   const line = (kind, ico, label, list) => list.length
     ? `<div class="rel ${kind}"><span class="ico" aria-hidden="true">${ico}</span><span class="lbl">${label}</span>
         <span>${list.map(o => `<button class="rel-name" data-open="${o.id}">${esc(byId[o.id].name)}</button>`).join(", ")}</span></div>` : "";
-  return line("rival", "⚔", "라이벌", r.rival) + line("sib", "♥", sibWordOf(p.id), r.sib);
+  return line("rival", "⚔", "라이벌", r.rival) + line("sib", "♥", sibWordOf(p.id), r.sib) + line("love", "💕", "커플", r.love);
 }
 
 function tagHtml(p) {
@@ -1774,7 +1815,7 @@ function tagHtml(p) {
 
 function cardHtml(p) {
   const g = groupOf(p.group);
-  const sub = p.group === "T" ? esc(p.role || "선생님") : `${g.title} ${p.no}번<span class="sub-dorm"> · ${g.dorm}</span>`; // 폰에서는 기숙사를 뺀다
+  const sub = p.group === "T" ? esc(p.role || "선생님") : p.group === "O" ? `${g.emb} ${esc(p.role || "학교 밖")}` : `${g.title} ${p.no}번<span class="sub-dorm"> · ${g.dorm}</span>`; // 폰에서는 기숙사를 뺀다
   const age = p.age ? `<small>${p.age}살</small>` : "";
   const rels = relLines(p);
   return `<article class="card th-${p.group}" data-id="${p.id}">
@@ -1795,7 +1836,7 @@ function whoHtml(id, extra = "") {
 const GRAPH = { size: 640, radius: 232, node: 19 };
 
 function graphNodes() {
-  const ids = [...new Set([...RIVALS, ...SIBLINGS].flatMap(s => s.ids))];
+  const ids = [...new Set([...RIVALS, ...SIBLINGS, ...COUPLES].flatMap(s => s.ids))];
   const order = id => GROUPS.findIndex(g => g.id === byId[id].group) * 100 + byId[id].no;
   return ids.sort((a, b) => order(a) - order(b));
 }
@@ -1828,7 +1869,7 @@ function bandsSvg(ids, angleOf, step) {
 /* 선 위의 움직임: 라이벌은 양 끝에서 불꽃이 달려와 가운데 기호에서 부딪치고,
    형제·자매는 하트가 두 사람 사이를 오간다. 선마다 시작을 어긋나게 해서 한꺼번에 깜빡이지 않게.
    움직임 줄이기를 켠 사람에게는 CSS 가 불꽃·하트를 숨긴다. */
-const SPARK_DUR = { rival: 2.4, sib: 5 };
+const SPARK_DUR = { rival: 2.4, sib: 5, love: 3.2 };
 function motionSvg(pathId, dur, delay, keyPoints, keyTimes, opacity = "") {
   const common = `dur="${dur}s" begin="-${delay}s" repeatCount="indefinite"`;
   return `<animateMotion ${common} calcMode="linear" keyPoints="${keyPoints}" keyTimes="${keyTimes}"><mpath href="#${pathId}"/></animateMotion>` +
@@ -1840,6 +1881,12 @@ function sparksSvg(kind, pathId, delay) {
     return `<g class="spark" aria-hidden="true">
       <circle r="4">${motionSvg(pathId, dur, delay, "0;0.5;0.5", "0;0.45;1", "1;1;0;0")}</circle>
       <circle r="4">${motionSvg(pathId, dur, delay, "1;0.5;0.5", "0;0.45;1", "1;1;0;0")}</circle>
+    </g>`;
+  }
+  if (kind === "love") { // 커플은 두 사람에게서 하트가 나와 가운데에서 만난다
+    return `<g class="spark" aria-hidden="true">
+      <text class="heart">♥${motionSvg(pathId, dur, delay, "0;0.5;0.5", "0;0.45;1", "1;1;0;0")}</text>
+      <text class="heart">♥${motionSvg(pathId, dur, delay, "1;0.5;0.5", "0;0.45;1", "1;1;0;0")}</text>
     </g>`;
   }
   return `<g class="spark" aria-hidden="true"><text class="heart">♥${motionSvg(pathId, dur, delay, "0;1;0", "0;0.5;1")}</text></g>`;
@@ -1885,7 +1932,7 @@ function renderRelationGraph(box) {
   const pos = Object.fromEntries(ids.map(id => [id, polar(angleOf[id], GRAPH.radius)]));
   box.innerHTML = `<svg viewBox="-60 -20 ${GRAPH.size + 120} ${GRAPH.size + 40}" role="group" aria-label="캐릭터 관계 지도">
       ${bandsSvg(ids, angleOf, step)}
-      ${RIVALS.map(s => edgesSvg(s, "rival", pos)).join("")}${SIBLINGS.map(s => edgesSvg(s, "sib", pos)).join("")}
+      ${RIVALS.map(s => edgesSvg(s, "rival", pos)).join("")}${SIBLINGS.map(s => edgesSvg(s, "sib", pos)).join("")}${COUPLES.map(s => edgesSvg(s, "love", pos)).join("")}
       ${ids.map(id => nodeSvg(id, pos[id], angleOf[id])).join("")}
     </svg>`;
   if (box.classList.contains("paused")) box.querySelector("svg").pauseAnimations?.(); // 멈춘 채 다시 그려졌을 때
@@ -1988,10 +2035,13 @@ function openGate(gid) {
 function renderRelations() {
   const pairHtml = (s, label) => {
     const vs = `<div class="vs"><span class="sym">${s.sym}</span><small>${label}</small></div>`;
-    return `<div class="pair">${s.ids.map(id => whoHtml(id, `<small>${groupOf(byId[id].group).title}</small>`)).join(vs)}</div>`;
+    const unpair = s.cid ? `<button class="unpair" data-couple-del="${s.cid}" aria-label="${s.ids.map(id => esc(byId[id].name)).join("·")} 커플 풀기">💔</button>` : "";
+    return `<div class="pair">${s.ids.map(id => whoHtml(id, `<small>${groupOf(byId[id].group).title}</small>`)).join(vs)}${unpair}</div>`;
   };
   document.getElementById("rivalPairs").innerHTML = RIVALS.map(s => pairHtml(s, "VS")).join("");
   document.getElementById("sibPairs").innerHTML = SIBLINGS.map(s => pairHtml(s, s.word)).join("");
+  document.getElementById("lovePairs").innerHTML = COUPLES.length ? COUPLES.map(s => pairHtml(s, "커플")).join("")
+    : `<p class="empty">아직 커플이 없어요. 💕 커플 잇기를 눌러 보세요.</p>`;
   renderRelationGraph(document.getElementById("relGraph"));
   showRelView(state.relView);
 }
@@ -2019,10 +2069,11 @@ function renderFinder() {
 }
 
 function renderStats() {
-  const students = people.filter(p => p.group !== "T");
+  const students = people.filter(isStudent);
   const count = dorm => students.filter(p => groupOf(p.group).dorm === dorm).length;
   const items = [[students.length, "학생"], [count("여자기숙사"), "여자기숙사"], [count("남자기숙사"), "남자기숙사"],
-    [count("특별반"), "특별반"], [people.length - students.length, "선생님"], [RIVALS.length, "라이벌 관계"], [SIBLINGS.length, "형제·자매·남매"]];
+    [count("특별반"), "특별반"], [people.filter(p => p.group === "T").length, "선생님"], [RIVALS.length, "라이벌 관계"], [SIBLINGS.length, "형제·자매·남매"], [COUPLES.length, "커플"],
+    ...(membersOf("O").length ? [[membersOf("O").length, "학교 밖"]] : [])];
   document.getElementById("stats").innerHTML = items.map(([n, l]) => `<div class="stat"><b>${n}</b><small>${l}</small></div>`).join("");
 }
 
@@ -2235,6 +2286,8 @@ async function openPerson(id) {
   const g = groupOf(p.group);
   const rows = p.group === "T"
     ? [["이름", p.full || p.name], ["담당", p.role || "선생님"]]
+    : p.group === "O"
+    ? [["소속", "학교 밖"], ...(p.role ? [["하는 일", p.role]] : []), ...(p.age ? [["나이", `${p.age}살`]] : [])]
     : [["반", `${g.title} ${p.no}번`], ["기숙사", g.dorm], ...(p.age ? [["나이", `${p.age}살`]] : []), ...(p.note ? [["특징", p.note]] : [])];
   const r = relsOf(id);
   const relBlock = (title, list) => list.length
@@ -2257,7 +2310,8 @@ async function openPerson(id) {
           <p class="hint-small">프로필·서사·그림은 가족 모두에게 보여요. 쓰기는 가족 계정만 돼요.</p>
           ${relBlock("⚔️ 라이벌", r.rival)}
           ${relBlock(`🌟 ${sibWordOf(id)}`, r.sib)}
-          ${p.group === "T" ? "" : `<div data-demerit-box="${id}">${demeritBlockHtml(id)}</div>`}
+          ${relBlock("💕 커플", r.love)}
+          ${!isStudent(p) ? "" : `<div data-demerit-box="${id}">${demeritBlockHtml(id)}</div>`}
           ${eventsBlock(id)}
           ${entryLinksBlock(id)}
           ${p.custom ? `<div class="story-actions char-actions"><button data-edit-char="${id}">✏️ 캐릭터 고치기</button><button class="danger" data-del-char="${id}">🗑 이 캐릭터 지우기</button></div>` : ""}
@@ -2396,7 +2450,7 @@ function openAddCharacter(gid = "A", editId = null) {
         <label class="prof-field"><span>이름 *</span><input name="name" maxlength="${LIMITS.name}" required autocomplete="off" value="${esc(c?.name || "")}"></label>
         <label class="prof-field"><span>반 *</span><select name="group">${options}</select></label>
         <label class="prof-field" data-when="student"><span>나이</span><input name="age" type="number" min="1" max="999" inputmode="numeric" value="${c?.age ?? ""}"></label>
-        <label class="prof-field" data-when="teacher" hidden><span>담당</span><input name="role" maxlength="${LIMITS.role}" placeholder="예: 별자리 수업 담당" value="${esc(c?.role || "")}"></label>
+        <label class="prof-field" data-when="teacher" hidden><span data-role-label>담당</span><input name="role" maxlength="${LIMITS.role}" placeholder="예: 별자리 수업 담당" value="${esc(c?.role || "")}"></label>
         <fieldset class="checks"><legend>수아의 표시</legend>
           <label><input type="checkbox" name="main"${has("main")}> 주연/조연</label>
           <label><input type="checkbox" name="secret"${has("secret")}> 수상함/비밀</label>
@@ -2461,7 +2515,8 @@ function syncAddForm(form) {
   const teacher = gid === "T";
   form.closest("dialog").className = `th-${gid}`;
   form.querySelector('[data-when="student"]').hidden = teacher;
-  form.querySelector('[data-when="teacher"]').hidden = !teacher;
+  form.querySelector('[data-when="teacher"]').hidden = !teacher && gid !== "O";
+  form.querySelector("[data-role-label]").textContent = gid === "O" ? "하는 일 (없어도 돼요)" : "담당";
 }
 
 function readAddForm(form) {
@@ -2479,6 +2534,7 @@ function readAddForm(form) {
       group: field(form, "group").value,
       name,
       ...(teacher ? { role: field(form, "role").value.trim() || "선생님", full: name } : { age: age ? Number(age) : null }),
+      ...(field(form, "group").value === "O" && field(form, "role").value.trim() ? { role: field(form, "role").value.trim() } : {}),
       tags: ["main", "secret"].filter(k => field(form, k).checked),
       rivals: [...relDraft].filter(([, k]) => k === "rival").map(([id]) => id).sort(),
       sibs: [...relDraft].filter(([, k]) => k === "sib").map(([id]) => id).sort(),
@@ -2591,6 +2647,30 @@ function whenText(e) {
 
 const eventsOf = id => sortedEvents().filter(e => e.people.includes(id));
 
+/* 더보기: 상자(#timeline·#story)가 접힌 높이보다 많이 길 때만 접고 단추를 보인다 */
+const FOLD_H = 460;
+const more = { timeline: false, story: false }; // 펼쳤나
+function applyFold(key) {
+  const box = document.getElementById(key);
+  const btn = document.querySelector(`[data-more="${key}"]`);
+  const long = box.scrollHeight > FOLD_H + 120; // 조금 넘는 건 접지 않고 다 보여 준다
+  box.classList.toggle("folded", long && !more[key]);
+  btn.hidden = !long;
+  btn.setAttribute("aria-expanded", String(more[key]));
+  btn.textContent = more[key] ? "▲ 접기" : "▼ 더보기";
+}
+function toggleMore(key) {
+  more[key] = !more[key];
+  applyFold(key);
+  // 접으면 단추가 화면 위로 멀리 올라가므로 상자 머리로 돌아간다
+  if (!more[key]) document.getElementById(key).closest("section").scrollIntoView({ block: "start", behavior: reduceMotion() ? "instant" : "smooth" });
+}
+// 연대기의 사건 칸 — 접혀 있으면 펼친 뒤 준다
+function eventItem(id) {
+  if (!more.timeline) { more.timeline = true; applyFold("timeline"); }
+  return document.getElementById(`event-${id}`);
+}
+
 function renderTimeline() {
   renderStory(); // 이야기책 차례와 안데레 일보는 연대기를 따른다
   renderPaperTeaser();
@@ -2598,6 +2678,7 @@ function renderTimeline() {
   const list = sortedEvents();
   if (!list.length) {
     box.innerHTML = `<p class="empty">아직 적힌 사건이 없어요. <b>＋ 사건 추가</b>를 눌러 첫 이야기를 적어 보세요.</p>`;
+    applyFold("timeline");
     return;
   }
   box.innerHTML = `<ol class="tl">${list.map(e => {
@@ -2613,6 +2694,7 @@ function renderTimeline() {
       </div>
     </li>`;
   }).join("")}</ol>`;
+  applyFold("timeline");
 }
 
 /* ── 사건 쓰기 창 ── */
@@ -2634,7 +2716,8 @@ function openEventEditor(id = null) {
           <label class="prof-field"><span>월</span><select name="month">${months}</select></label>
           <label class="prof-field"><span>일</span><input name="day" type="number" min="1" max="31" inputmode="numeric" value="${e.day ?? ""}"></label>
         </div>
-        <label class="prof-field"><span>📍 어디서 일어났나요?</span><select name="place">${placeOptions(e.place)}</select></label>
+        <label class="prof-field"><span>📍 어디서 일어났나요?</span><select name="place">${placeOptions(e.place)}<option value="${NEW_PLACE}">＋ 새 장소 직접 적기…</option></select></label>
+        <label class="prof-field" data-new-place hidden><span>새 장소 이름 <small>(학교 지도 가운데에 핀이 생겨요. 지도에서 옮길 수 있어요)</small></span><input name="newPlace" maxlength="${ENTRY_LIMITS.name}" placeholder="예: 별빛 온실"></label>
         <label class="prof-field"><span>제목 *</span><input name="title" maxlength="${EVENT_LIMITS.title}" value="${esc(e.title)}" placeholder="예: 입학식 날 생긴 일"></label>
         <label class="prof-field"><span>무슨 일이 있었나요?</span><textarea class="story" name="body" maxlength="${EVENT_LIMITS.body}">${esc(e.body)}</textarea></label>
         <fieldset class="people-pick"><legend>등장한 캐릭터 <small data-picked-count></small></legend>
@@ -2655,7 +2738,7 @@ function openEventEditor(id = null) {
 // 고른 캐릭터를 앞에, 나머지는 반 순서대로 (벌점은 학생만 받는다)
 function renderPeopleChips(dlg, filter) {
   const match = p => !filter || [p.name, p.full].some(s => s && s.includes(filter));
-  const pool = dlg.id === "demeritDlg" ? people.filter(p => p.group !== "T") : people;
+  const pool = dlg.id === "demeritDlg" ? people.filter(isStudent) : people;
   const list = [...pool.filter(p => draftPeople.has(p.id)), ...pool.filter(p => !draftPeople.has(p.id) && match(p))];
   dlg.querySelector(".people-chips").innerHTML = list.map(p =>
     `<button type="button" class="pchip th-${p.group}" data-pick="${p.id}" aria-pressed="${draftPeople.has(p.id)}">
@@ -2674,7 +2757,7 @@ function togglePick(btn) {
 function readEventForm(form) {
   const n = name => { const v = field(form, name).value.trim(); return v === "" ? null : Number(v); };
   return { year: n("year"), month: n("month"), day: n("day"), title: field(form, "title").value.trim(),
-    body: field(form, "body").value.trim(), place: field(form, "place").value, people: [...draftPeople].sort() };
+    body: field(form, "body").value.trim(), place: field(form, "place").value, newPlace: field(form, "newPlace").value.trim(), people: [...draftPeople].sort() };
 }
 
 function eventFormIsDirty() {
@@ -2685,6 +2768,7 @@ function eventFormIsDirty() {
 
 function validateEvent(v, form) {
   if (!v.title) return "제목을 적어 주세요.";
+  if (v.place === NEW_PLACE && !v.newPlace) return "새 장소 이름을 적어 주세요.";
   if (field(form, "year").validity.badInput || (v.year !== null && !(Number.isInteger(v.year) && v.year >= 1 && v.year <= 999))) return "몇 년차는 1~999 사이 숫자로 적어 주세요.";
   if (field(form, "day").validity.badInput || (v.day !== null && !(Number.isInteger(v.day) && v.day >= 1 && v.day <= 31))) return "일은 1~31 사이 숫자로 적어 주세요.";
   return "";
@@ -2697,11 +2781,13 @@ async function submitEventForm(form) {
   const error = validateEvent(v, form);
   if (error) { errorBox.textContent = error; return; }
   const id = form.dataset.eventId;
-  const ev = id ? { ...events.find(e => e.id === id), ...v } : { id: `V${Date.now().toString(36)}`, created: Date.now(), ...v };
+  const { newPlace, ...fields } = v;
+  const ev = id ? { ...events.find(e => e.id === id), ...fields } : { id: `V${Date.now().toString(36)}`, created: Date.now(), ...fields };
   const submitBtn = form.querySelector('[type="submit"]');
   form.dataset.busy = "1";
   if (submitBtn) submitBtn.disabled = true;
   try {
+    if (ev.place === NEW_PLACE) ev.place = await placeNamed(newPlace);
     const { id: evId, ...data } = ev;
     await Cloud.put("event", evId, data);
   } catch (e) {
@@ -2714,7 +2800,20 @@ async function submitEventForm(form) {
   events = loadEvents();
   document.getElementById("eventDlg").close();
   renderTimeline();
-  document.getElementById(`event-${ev.id}`)?.focus();
+  eventItem(ev.id)?.focus();
+}
+
+// 같은 이름의 장소가 있으면 그것을, 없으면 지도 가운데에 새 장소를 만든다
+const NEW_PLACE = "__new";
+async function placeNamed(name) {
+  const same = entriesOf("place").find(p => p.name.trim() === name);
+  if (same) return same.id;
+  const id = `L${Date.now().toString(36)}`;
+  await Cloud.put("entry", id, { type: "place", name: name.slice(0, ENTRY_LIMITS.name), emoji: "", words: "", body: "", place: "",
+    x: 50, y: 50, hidden: false, forbidden: false, people: [], created: Date.now() });
+  entries = loadEntries();
+  renderCodex(); // 학교 지도에 새 핀
+  return id;
 }
 
 async function deleteEvent(id) {
@@ -2735,6 +2834,70 @@ async function deleteEvent(id) {
   document.getElementById("timelineAdd").focus();
 }
 
+/* ── 커플 잇기 창 ── */
+function openCoupleEditor() {
+  const dlg = document.getElementById("coupleDlg");
+  const options = `<option value="">고르기…</option>` + GROUPS.map(g => {
+    const list = membersOf(g.id);
+    return list.length ? `<optgroup label="${g.emb} ${g.title}">${list.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>` : "";
+  }).join("");
+  dlg.className = "th-C";
+  dlg.innerHTML = `<button class="close" aria-label="닫기">×</button>
+    <form class="add-form" novalidate>
+      <div class="band"><div class="kicker">💕 관계도</div><h3 id="coupleTitle">커플 잇기</h3></div>
+      <div class="content">
+        <div class="couple-row">
+          <label class="prof-field"><span>한 사람</span><select name="a">${options}</select></label>
+          <span class="heart-mid" aria-hidden="true">💕</span>
+          <label class="prof-field"><span>다른 사람</span><select name="b">${options}</select></label>
+        </div>
+        <p class="form-error" role="alert"></p>
+        <div class="story-actions"><button class="primary" type="submit">💕 잇기</button><button type="button" data-couple-cancel>취소</button></div>
+        <p class="hint-small">이은 커플은 관계 지도와 짝 목록에 나와요. 짝 목록의 💔 를 누르면 풀 수 있어요.</p>
+      </div>
+    </form>`;
+  dlg.showModal();
+  field(dlg.querySelector("form"), "a").focus();
+}
+
+async function submitCoupleForm(form) {
+  if (form.dataset.busy) return;
+  const a = field(form, "a").value, b = field(form, "b").value;
+  const errorBox = form.querySelector(".form-error");
+  if (!a || !b) { errorBox.textContent = "두 사람을 골라 주세요."; return; }
+  if (a === b) { errorBox.textContent = "서로 다른 두 사람을 골라 주세요."; return; }
+  const ids = [a, b].sort();
+  if (COUPLES.some(c => c.ids.join() === ids.join())) { errorBox.textContent = "이미 이은 커플이에요."; return; }
+  form.dataset.busy = "1";
+  try {
+    await Cloud.put("entry", `L${Date.now().toString(36)}`, { type: "couple", ids, created: Date.now() });
+  } catch (e) {
+    errorBox.textContent = `저장하지 못했어요 (${e.message})`;
+    return;
+  } finally {
+    delete form.dataset.busy;
+  }
+  couples = loadCouples();
+  applyCustomRelations();
+  renderPeopleViews();
+  document.getElementById("coupleDlg").close();
+  document.getElementById("coupleAdd").focus();
+}
+
+async function deleteCouple(cid) {
+  const c = COUPLES.find(x => x.cid === cid);
+  if (!c || !(await askConfirm(`${c.ids.map(id => byId[id].name).join("·")} 커플을 풀까요?`, "풀기"))) return;
+  try {
+    await Cloud.remove("entry", cid);
+  } catch (e) {
+    await askConfirm(`풀지 못했어요 (${e.message})`, "확인");
+    return;
+  }
+  couples = loadCouples();
+  applyCustomRelations();
+  renderPeopleViews();
+}
+
 // 상세 창에서 사건을 누르면 연대기의 그 사건으로 이동
 async function goToEvent(id) {
   closeEntryView();
@@ -2747,7 +2910,7 @@ async function goToEvent(id) {
   if (story.open) story.close(); // 이야기책에서 캐릭터를 거쳐 왔으면 읽기 창을 닫고 연대기로
   const paper = document.getElementById("paperDlg");
   if (paper.open) paper.close(); // 신문을 거쳐 왔어도
-  const item = document.getElementById(`event-${id}`);
+  const item = eventItem(id);
   if (!item) return;
   item.scrollIntoView({ behavior: reduceMotion() ? "instant" : "smooth", block: "center" });
   item.focus({ preventScroll: true });
@@ -2757,8 +2920,15 @@ async function goToEvent(id) {
 }
 
 function wireEventDialog() {
+  document.getElementById("coupleDlg").addEventListener("submit", e => { e.preventDefault(); submitCoupleForm(e.target); });
   const dlg = document.getElementById("eventDlg");
   dlg.addEventListener("submit", e => { e.preventDefault(); submitEventForm(e.target); });
+  dlg.addEventListener("change", e => { // 「새 장소 직접 적기」를 고르면 이름 칸이 나온다
+    if (e.target.name !== "place") return;
+    const box = dlg.querySelector("[data-new-place]");
+    box.hidden = e.target.value !== NEW_PLACE;
+    if (!box.hidden) box.querySelector("input").focus();
+  });
   dlg.addEventListener("input", e => { if (e.target.matches(".people-filter")) renderPeopleChips(dlg, e.target.value.trim()); });
 }
 </script>
@@ -3717,6 +3887,7 @@ function renderStory() {
   const list = sortedEvents();
   if (!list.length) {
     box.innerHTML = `<p class="empty">연대기에 사건을 적으면, 그 사건이 이야기책의 한 장이 돼요.</p>`;
+    applyFold("story");
     return;
   }
   box.innerHTML = `<div class="chapters">${list.map((e, i) => {
@@ -3733,6 +3904,7 @@ function renderStory() {
       </div>
     </article>`;
   }).join("")}</div>`;
+  applyFold("story");
 }
 
 /* ── 읽기 창 ── 0쪽은 표지, 1쪽부터 장면.
@@ -4118,7 +4290,7 @@ function bgChoices() {
   const first = places.filter(p => p.id === e?.place);
   return [
     ...[...first, ...places.filter(p => p.id !== e?.place)].map(p => ({ key: `place:${p.id}`, name: p.name, icon: "📍" })),
-    ...GROUPS.filter(g => g.id !== "T").map(g => ({ key: `class-${g.id}`, name: `${g.title} 교실`, icon: g.emb })),
+    ...GROUPS.filter(g => g.id !== "T" && g.id !== "O").map(g => ({ key: `class-${g.id}`, name: `${g.title} 교실`, icon: g.emb })),
     ...Object.entries(SCENE_BGS).map(([key, b]) => ({ key, name: b.name, icon: b.icon })),
   ];
 }
@@ -4548,7 +4720,7 @@ function conductOf(id) {
     daysLeft: jailed ? Math.ceil((jailUntil - Date.now()) / DAY_MS) : 0,
   };
 }
-const ranked = () => people.filter(p => p.group !== "T").map(p => ({ p, c: conductOf(p.id) })).filter(x => x.c.n)
+const ranked = () => people.filter(isStudent).map(p => ({ p, c: conductOf(p.id) })).filter(x => x.c.n)
   .sort((a, b) => b.c.n - a.c.n || a.p.name.localeCompare(b.p.name, "ko"));
 const inmates = () => people.filter(p => conductOf(p.id).jailed);
 const isJailPlace = e => e.type === "place" && e.name.includes("감옥");
@@ -4659,7 +4831,7 @@ function renderConduct() {
 
 /* ── 벌점 주기 창 ── */
 function openDemeritEditor(personId = null, preset = {}) {
-  draftPeople = new Set(personId && hasPerson(personId) && byId[personId].group !== "T" ? [personId] : []);
+  draftPeople = new Set(personId && hasPerson(personId) && isStudent(byId[personId]) ? [personId] : []);
   const reasons = [...new Set(demerits.map(d => d.why).filter(Boolean))].slice(-20); // 전에 적은 까닭을 다시 고르기 쉽게
   const dlg = document.getElementById("demeritDlg");
   dlg.className = "th-A";
@@ -5066,6 +5238,10 @@ const CLICKS = [
   ["[data-add]", b => openAddCharacter(b.dataset.add)],
   ["[data-add-cancel]", () => closeDialog(document.getElementById("addDlg"))],
   ["#timelineAdd", () => openEventEditor()],
+  ["#coupleAdd", () => openCoupleEditor()],
+  ["[data-couple-cancel]", () => document.getElementById("coupleDlg").close()],
+  ["[data-couple-del]", b => deleteCouple(b.dataset.coupleDel)],
+  ["[data-more]", b => toggleMore(b.dataset.more)],
   ["[data-event-edit]", b => openEventEditor(b.dataset.eventEdit)],
   ["[data-event-del]", b => deleteEvent(b.dataset.eventDel)],
   ["[data-event-cancel]", () => closeDialog(document.getElementById("eventDlg"))],
@@ -5109,7 +5285,7 @@ const CLICKS = [
 ];
 
 // 표의 규칙이 진짜로 막고, 여기서는 누르는 순간 알려 주기만 한다
-const WRITES = '[data-prof-act="edit"], [data-pic-del], [data-del-char], [data-edit-char], [data-add], #timelineAdd, [data-event-edit], [data-event-del], .thumb.add, [data-entry-add], [data-entry-edit], [data-entry-del], [data-scene-new], [data-scene-edit], [data-scene-del], [data-scene-move], [data-demerit-add], [data-demerit-del], [data-seiken-write]';
+const WRITES = '#coupleAdd, [data-couple-del], [data-prof-act="edit"], [data-pic-del], [data-del-char], [data-edit-char], [data-add], #timelineAdd, [data-event-edit], [data-event-del], .thumb.add, [data-entry-add], [data-entry-edit], [data-entry-del], [data-scene-new], [data-scene-edit], [data-scene-del], [data-scene-move], [data-demerit-add], [data-demerit-del], [data-seiken-write]';
 
 document.addEventListener("click", e => {
   const t = e.target;
@@ -5283,6 +5459,7 @@ async function moveLegacyToCloud() {
 
 // 서버에서 받은 것으로 캐릭터·연대기·그림을 다시 그린다
 function refreshFromCloud() {
+  couples = loadCouples();
   refreshPeople();
   events = loadEvents();
   scenes = loadScenes();
