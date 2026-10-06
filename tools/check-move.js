@@ -172,4 +172,19 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   assert.strictEqual(wk.decor.lighthouse.keep, 'seaside');
   assert(wk.animals.some(x => x.kind === 'goat' && x.baby), '산골 새 식구는 아기 염소');
 }
+// 채집 나무·바위·덤불과 풍경도 옮긴다(2026-10-07) — 빈 칸으로만, 처음 자리로 돌리면 기록이 지워진다, 저장 뒤에도 남는다
+{
+  const wp = R.fixWorld(null, now), m = R.fixMine(null, 'sua'); wp.farm = 3;
+  const free = (() => { for (let y = 0; y < 20; y++) for (let x = 0; x < 24; x++) if (!R.placeBlocked(wp, 'tree1', x, y)) return { x, y }; })();
+  assert(free && R.moveThing(wp, m, 'tree1', free.x, free.y).ok, '채집 나무를 빈 칸으로 옮긴다');
+  assert.deepStrictEqual(R.nodeSpot(wp, 'tree1'), free);
+  const sc = R.sceneryOf(wp)[0];
+  assert(!R.moveThing(wp, m, 'sc0', free.x, free.y).ok, '옮긴 나무 자리에는 못 놓는다');
+  assert(!R.moveThing(wp, m, 'sc0', R.fieldCells(wp)[0].x, R.fieldCells(wp)[0].y).ok, '밭에는 못 놓는다');
+  const w3 = R.fixWorld(JSON.parse(JSON.stringify(wp)), now);
+  assert.deepStrictEqual(R.nodeSpot(w3, 'tree1'), free, '저장·불러오기 뒤에도 옮긴 자리');
+  assert(R.moveThing(wp, m, 'sc0', sc.x, sc.y).ok && !wp.layout.sc0, '처음 자리면 기록하지 않는다');
+  assert(!R.moveThing(wp, m, 'tree1', 99, 99).ok, '농장 밖으로는 못 옮긴다');
+  assert(!R.moveThing(wp, m, 'nope', 1, 1).ok, '없는 것은 못 옮긴다');
+}
 console.log('이사 규칙 점검 통과');

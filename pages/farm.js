@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '21';
+const PLAY_V = '22';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -3163,7 +3163,8 @@ function drawPlaceOverlay(t){
     if (id === placePick){ const blink = Math.sin(t / 180) > 0; outlineBox(b, blink ? '#ffe066' : '#ffffff'); }
     else outlineBox(b, R.PLACE[id].move ? '#7fe0a8' : '#ff9aa2');
   });
-  Object.keys(R.NODES).forEach(n => { const N = nodeOf(n); ctx.globalAlpha = 0.3; px(N.x * T, N.y * T, T, T, '#ff5a4a'); ctx.globalAlpha = 1; });
+  // 채집 나무·바위·덤불과 풍경도 옮길 수 있다 — 한 칸 초록 테두리(2026-10-07)
+  Object.keys(R.NODES).map(n => Object.assign({ id: n }, nodeOf(n))).concat(R.sceneryOf(W)).forEach(N => outlineBox({ x: N.x, y: N.y, w: 1, h: 1 }, N.id === placePick ? (Math.sin(t / 180) > 0 ? '#ffe066' : '#ffffff') : '#7fe0a8'));
 }
 
 // 나무·바위·덤불의 자리 — 새 농장은 저마다 다르다(규칙의 nodeSpot). 그림에 넘길 때는 종류·계절 표에 자리를 얹는다
@@ -7237,7 +7238,11 @@ function isoPlaceOverlay(t){
     const a = isoP(b.x, b.y), r = isoP(b.x + b.w, b.y), f = isoP(b.x + b.w, b.y + b.h), l = isoP(b.x, b.y + b.h);
     [[a, r], [r, f], [f, l], [l, a]].forEach(([p, q]) => isoSeg(p, q, c, 2));
   });
-  Object.keys(R.NODES).map(nodeOf).concat(R.sceneryOf(W)).forEach(N => { ctx.globalAlpha = 0.3; dia({ x: N.x, y: N.y, w: 1, h: 1 }, '#ff5a4a'); ctx.globalAlpha = 1; });
+  Object.keys(R.NODES).map(n => Object.assign({ id: n }, nodeOf(n))).concat(R.sceneryOf(W)).forEach(N => {   // 채집 나무·바위·덤불과 풍경 — 한 칸 초록 테두리
+    const c = N.id === placePick ? (Math.sin(t / 180) > 0 ? '#ffe066' : '#ffffff') : '#7fe0a8';
+    const a = isoP(N.x, N.y), r = isoP(N.x + 1, N.y), f = isoP(N.x + 1, N.y + 1), l = isoP(N.x, N.y + 1);
+    [[a, r], [r, f], [f, l], [l, a]].forEach(([p, q]) => isoSeg(p, q, c, 1));
+  });
 }
 // 한 장 — 아이소 섬
 function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){

@@ -554,7 +554,10 @@ const FARM = (() => {
     mountain: { tree1: [1, 9], tree2: [0, 11], tree3: [2, 13], tree4: [4, 10], bush: [7, 10], bush2: [5, 13], snow: [8, 13], rock1: [21, 2], rock2: [23, 7], rock3: [21, 9] },
     cloud:    { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
   };
+  // 아이들이 옮긴 자리(world.layout[이름])가 있으면 그 자리(2026-10-07 로키즈 「채집 나무·덤불도 재배치」)
   function nodeSpot(world, id){
+    const L = world && world.layout && world.layout[id];
+    if (L) return { x: L.x, y: L.y };
     const N = NODES[id], h = (NODE_SPOT[farmOf(world).id] || {})[id];
     return h ? { x: h[0], y: h[1] } : { x: N.x, y: N.y };
   }
@@ -565,7 +568,10 @@ const FARM = (() => {
     mountain: [['tree', 0, 8], ['tree', 2, 10], ['tree', 1, 12], ['tree', 3, 12], ['tree', 0, 14], ['tree', 2, 15], ['tree', 0, 16], ['tree', 3, 17], ['tree', 4, 8], ['rock', 20, 0], ['rock', 22, 1], ['rock', 23, 4], ['rock', 22, 8], ['rock', 23, 10], ['bush', 15, 16], ['rock', 19, 17], ['tree', 17, 15], ['tree', 23, 14], ['rock', 16, 17], ['tree', 13, 11]],
     cloud:    [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['bush', 8, 0], ['bush', 9, 0], ['bush', 10, 0], ['bush', 11, 0], ['bush', 9, 1], ['bush', 10, 1], ['bush', 11, 1], ['bush', 13, 0], ['bush', 14, 0], ['bush', 15, 0], ['rock', 15, 1], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9]],
   };
-  function sceneryOf(world){ return (SCENERY[farmOf(world).id] || []).map(([kind, x, y], i) => ({ id: 'sc' + i, kind, x, y })); }
+  function sceneryOf(world){
+    const lay = (world && world.layout) || {};
+    return (SCENERY[farmOf(world).id] || []).map(([kind, x, y], i) => { const L = lay['sc' + i]; return { id: 'sc' + i, kind, x: L ? L.x : x, y: L ? L.y : y }; });
+  }
   /* 풍경도 다 채집된다(2026-10-01 로키즈 「풍경 나무도 다 벨 수 있게」 → 「바위랑 덤불도」). 채집 자리와 똑같이 생겨서, 안 되면 고장처럼 보였다.
      기록은 mine.nodes['sc3'] 처럼 풍경 번호로 적는다. 채집 자리보다 조금 덜 주고 이틀에 한 번 돌아온다. */
   const SCENERY_NODE = {
@@ -936,7 +942,7 @@ const FARM = (() => {
     ['plots', 'buildings', 'orders', 'festival', 'seen', 'decor', 'layout'].forEach(k => { if (!o[k] || typeof o[k] !== 'object') o[k] = {}; });
     // 옮긴 자리는 늘 지도 안에 있어야 한다 — 지도가 바뀌어도 물건이 밖으로 나가지 않게.
     Object.keys(o.layout).forEach(id => {
-      const P = PLACE[id], L = o.layout[id];
+      const P = PLACE[id] || ((NODES[id] || /^sc\d+$/.test(id)) && { w: 1, h: 1 }), L = o.layout[id];   // 채집 자리·풍경도 옮긴 자리를 적는다
       if (!P || !L || typeof L.x !== 'number' || typeof L.y !== 'number'){ delete o.layout[id]; return; }
       L.x = Math.max(0, Math.min(gridOf(o).w - P.w, Math.round(L.x)));
       L.y = Math.max(0, Math.min(gridOf(o).h - P.h, Math.round(L.y)));

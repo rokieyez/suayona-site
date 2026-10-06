@@ -636,19 +636,20 @@ function togglePlace(){
   placeMode = !placeMode; placePick = null;
   $('#placeBtn').classList.toggle('on', placeMode);
   $('#placeBar').hidden = !placeMode;
-  flash(placeMode ? '옮길 것을 눌러요. 초록 테두리는 옮길 수 있는 것, 빨강은 못 옮기는 것이에요' : '');
+  flash(placeMode ? '옮길 것을 눌러요. 초록 테두리는 옮길 수 있는 것(나무·바위·덤불도), 빨강은 못 옮기는 것이에요' : '');
   dropLayers(); if (STILL) drawFarm(liveCv);
 }
 function onPlaceTap(tx, ty){
   if (!placePick){
-    const id = R.PLACE_IDS.find(i => here(i) && inSpot(i, tx, ty));
+    const id = R.PLACE_IDS.find(i => here(i) && inSpot(i, tx, ty)) || nodeAt(tx, ty);   // 채집 나무·바위·덤불과 풍경도 든다
     if (!id){ flash('옮길 것을 눌러요', true); return; }
-    if (!R.PLACE[id].move){ flash(R.PLACE[id].name + '은 옮길 수 없어요', true); return; }
+    const P = R.placeInfo(W, id);
+    if (!P.move){ flash(P.name + '은 옮길 수 없어요', true); return; }
     placePick = id; sfx('prop');
-    flash('<b>' + R.PLACE[id].name + '</b>을 들었어요. 놓을 곳을 눌러요');
+    flash('<b>' + P.name + '</b>을 들었어요. 놓을 곳을 눌러요');
     return;
   }
-  const P = R.PLACE[placePick];
+  const P = R.placeInfo(W, placePick);
   const nx = tx - Math.floor(P.w / 2), ny = ty - Math.floor(P.h / 2);
   const r = act((w, m) => R.moveThing(w, m, placePick, nx, ny));
   if (r.ok){ placePick = null; sfx('thud'); dropLayers(); }

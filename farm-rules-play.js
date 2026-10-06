@@ -165,11 +165,18 @@
   }
   function thingsOn(world){ return PLACE_IDS.filter(id => thingHere(world, id)).map(id => spotOf(world, id)); }
   function boxHit(a, b){ return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
+  // 채집 나무·바위·덤불과 풍경(sc0…)도 옮긴다 — 한 칸짜리. 이름은 종류로 부른다.
+  const NODE_NAME = { tree: '나무', rock: '바위', bush: '덤불', snow: '눈더미' };
+  function placeInfo(world, id){
+    if (PLACE[id]) return PLACE[id];
+    const d = nodeDef(world, id);
+    return d ? { w: 1, h: 1, move: true, node: true, name: NODE_NAME[d.kind] || '나무' } : null;
+  }
   // 왜 못 놓는지 한 마디로 돌려준다. 놓을 수 있으면 빈 문자열.
   function placeBlocked(world, id, x, y){
-    const P = PLACE[id]; if (!P) return '없는 자리예요';
+    const P = placeInfo(world, id); if (!P) return '없는 자리예요';
     if (!P.move) return P.name + '은 옮길 수 없어요';
-    if (!thingHere(world, id)) return '아직 농장에 없어요';
+    if (!P.node && !thingHere(world, id)) return '아직 농장에 없어요';
     const me = { x, y, w: P.w, h: P.h };
     if (x < 0 || y < 0 || x + P.w > gridOf(world).w || y + P.h > gridOf(world).h) return '농장 밖이에요';
     for (let yy = y; yy < y + P.h; yy++) for (let xx = x; xx < x + P.w; xx++) if (fieldHas(world, xx, yy)) return '밭 자리에는 놓을 수 없어요';
@@ -178,10 +185,11 @@
       if (boxHit(me, spotOf(world, other))) return PLACE[other].name + '과 겹쳐요';
     }
     for (const n in NODES){
+      if (n === id) continue;
       const N = nodeSpot(world, n);
       if (boxHit(me, { x: N.x, y: N.y, w: 1, h: 1 })) return '나무나 바위가 있어요';
     }
-    if (sceneryOf(world).some(c => boxHit(me, { x: c.x, y: c.y, w: 1, h: 1 }))) return '나무나 바위가 있어요';
+    if (sceneryOf(world).some(c => c.id !== id && boxHit(me, { x: c.x, y: c.y, w: 1, h: 1 }))) return '나무나 바위가 있어요';
     return '';
   }
   function moveThing(world, mine, id, x, y){
@@ -189,8 +197,8 @@
     const why = placeBlocked(world, id, x, y);
     if (why) return fail(why);
     world.layout = world.layout || {};
-    const P = PLACE[id];
-    const home = spotOf(Object.assign({}, world, { layout: {} }), id);   // 농장마다 처음 자리가 다르다
+    const P = placeInfo(world, id), w0 = Object.assign({}, world, { layout: {} });
+    const home = P.node ? (NODES[id] ? nodeSpot(w0, id) : sceneryOf(w0).find(c => c.id === id)) : spotOf(w0, id);   // 농장마다 처음 자리가 다르다
     if (x === home.x && y === home.y) delete world.layout[id]; else world.layout[id] = { x, y };
     return okay(eul(P.name) + ' 옮겼어요');
   }
@@ -1228,7 +1236,7 @@
     fish,
     thingsOn,
     placeBlocked,
-    moveThing,
+    moveThing, placeInfo,
     resetLayout,
     dayEndMs,
     nextSeason,
