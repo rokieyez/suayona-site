@@ -64,17 +64,17 @@ const FRIENDS = [
   F("dessert", "cake", "케이크 왕", "케이크", ["bad"]),
   F("dessert", "madeleine", "마들렌", "마들렌"),
   F("dessert", "dessert", "디저필스", "요리사"),
-  F("dessert", "bar", "딸기바 아줌마", "딸기 아이스바", ["love"], "soda"),
-  F("dessert", "soda", "소다아저씨", "소다", ["love"], "bar"),
-  F("dessert", "icecop", "아이스 킴", "", ["villain"]),
   F("snack", "berry2", "베리", "", ["revive"]),
   F("snack", "ddakbbang", "딱빵이"),
   F("snack", "jjondeugi", "쫀두기·쫀도기", "쫀드기", ["sib"]),
   F("snack", "marshmallow", "마시로", "마시멜로"),
-  F("snack", "choco", "쪼꼬이", "초콜릿"),
+  F("snack", "choco", "쪼꽁이", "초코웨하스"),
   F("snack", "chip", "칩이", "", ["bullied"]),
   F("snack", "rainbow", "레인보우 7형제", "", ["sib"]),
   F("snack", "hotdog", "핫도그 패거리", "핫도그", ["bad"]),
+  F("snack", "bar", "딸기바 아줌마", "딸기 아이스바", ["love"], "soda"),
+  F("snack", "soda", "소다아저씨", "소다", ["love"], "bar"),
+  F("snack", "icecop", "아이스 킴", "", ["villain"]),
 ];
 BOOKS.forEach(b => FRIENDS.filter(f => f.book === b.id).forEach((f, i) => f.no = i + 1));
 
