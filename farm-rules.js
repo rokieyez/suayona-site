@@ -346,20 +346,21 @@ const FARM = (() => {
     // 그 농장에서만 파는 꾸미개(2026-09-28 로키즈 「전부 진행」). farm 이 붙은 것은 그 농장에 살 때만 사고, 이사 조건에도 그때만 든다.
     lighthouse: { name: '등대',     icon: '🗼', cost: 2800, lv: 5, farm: 'seaside',  desc: '밤이면 불빛이 바다를 비춰요' },
     palm:     { name: '야자수',     icon: '🌴', cost: 600,  lv: 3, farm: 'seaside',  desc: '바닷바람에 잎이 살랑여요' },
-    cairn:    { name: '돌탑',       icon: '🪨', cost: 500,  lv: 3, farm: 'mountain', desc: '소원을 빌며 하나씩 쌓았어요' },
-    waterfall:{ name: '작은 폭포',  icon: '💧', cost: 3200, lv: 6, farm: 'mountain', desc: '바위에서 물이 쏟아져요' },
-    balloon:  { name: '열기구',     icon: '🎈', cost: 4000, lv: 7, farm: 'cloud',    desc: '줄에 매여 둥실 떠 있어요' },
-    skybridge:{ name: '무지개 다리', icon: '🌈', cost: 3000, lv: 6, farm: 'cloud',    desc: '구름 사이로 무지개가 걸려요' },
+    cairn:    { name: '흑요석 돌탑', icon: '🪨', cost: 500,  lv: 3, farm: 'mountain', desc: '돌마다 새긴 무늬가 불빛처럼 빛나요' },
+    waterfall:{ name: '용암 폭포',  icon: '🌋', cost: 3200, lv: 6, farm: 'mountain', desc: '바위 틈에서 용암이 쏟아져요' },
+    // 꽃구름 전용 꾸미개는 2026-10-07 「일본에서만 볼 법한 것」으로 바꿨다 — 아이디는 그대로(산 것·놓은 자리가 안 깨지게)
+    balloon:  { name: '음료 자판기', icon: '🥤', cost: 4000, lv: 7, farm: 'cloud',    desc: '밤에도 환하게 불이 켜진 자판기 두 대' },
+    skybridge:{ name: '붉은 북다리', icon: '🌉', cost: 3000, lv: 6, farm: 'cloud',    desc: '개울 위로 둥글게 솟은 붉은 다리' },
     // 농장마다 셋 더(2026-09-29 로키즈 「처음 농장과 확연히 다른 분위기」) — 그리스 바닷가·스위스 산골·일본 꽃구름
     anchor:   { name: '닻',         icon: '⚓', cost: 700,  lv: 3, farm: 'seaside',  desc: '밧줄을 감은 오래된 닻이에요' },
     boat:     { name: '고깃배',     icon: '🚣', cost: 1500, lv: 4, farm: 'seaside',  desc: '모래밭에 올려 둔 파란 나무배' },
     parasol:  { name: '파라솔',     icon: '⛱️', cost: 450,  lv: 2, farm: 'seaside',  desc: '줄무늬 그늘 아래 수건을 깔았어요' },
-    woodpile: { name: '장작더미',   icon: '🪵', cost: 400,  lv: 2, farm: 'mountain', desc: '겨울을 나려고 차곡차곡 쌓았어요' },
-    milkcans: { name: '우유통',     icon: '🥛', cost: 550,  lv: 3, farm: 'mountain', desc: '아침마다 짠 우유를 담아요' },
-    alphorn:  { name: '알프호른',   icon: '📯', cost: 1600, lv: 5, farm: 'mountain', desc: '길게 불면 산이 대답해요' },
+    woodpile: { name: '숯 장작더미', icon: '🪵', cost: 400,  lv: 2, farm: 'mountain', desc: '그을린 장작 사이로 불씨가 깜빡여요' },
+    milkcans: { name: '불씨 항아리', icon: '🏺', cost: 550,  lv: 3, farm: 'mountain', desc: '꺼지지 않는 불씨를 담아 뒀어요' },
+    alphorn:  { name: '용뿔 나팔',  icon: '📯', cost: 1600, lv: 5, farm: 'mountain', desc: '길게 불면 화산이 우르릉 대답해요' },
     shishi:   { name: '대나무 물통', icon: '🎋', cost: 1400, lv: 4, farm: 'cloud',    desc: '물이 차면 딸깍! 하고 돌을 두드려요' },
     koinobori:{ name: '잉어 깃발',  icon: '🎏', cost: 1100, lv: 4, farm: 'cloud',    desc: '바람을 먹고 잉어가 헤엄쳐요' },
-    toro:     { name: '석등',       icon: '🏮', cost: 800,  lv: 3, farm: 'cloud',    desc: '밤이면 돌 속에 불이 켜져요' },
+    toro:     { name: '지장보살',   icon: '🙏', cost: 800,  lv: 3, farm: 'cloud',    desc: '빨간 턱받이 지장님 — 밤엔 촛불을 켜요' },
   };
 
   // ---------- 이사 ----------
@@ -371,8 +372,8 @@ const FARM = (() => {
   const FARMS = [
     { id: 'meadow',   name: '들판 농장',   icon: '🌾', desc: '처음 연 농장이에요' },
     { id: 'seaside',  name: '바닷가 농장', icon: '🌊', desc: '모래밭 너머로 파도가 쳐요',        room: 12, animals: 10, grid: { w: 22, h: 18 }, peddler: { x: 15, y: 12 } },
-    { id: 'mountain', name: '산골 농장',   icon: '⛰️', desc: '바위와 소나무 사이 서늘한 땅이에요', room: 16, animals: 14, grid: { w: 24, h: 18 }, peddler: { x: 16, y: 16 } },
-    { id: 'cloud',    name: '꽃구름 농장', icon: '☁️', desc: '구름 위에 꽃이 흐드러져요',        room: 20, animals: 16, grid: { w: 24, h: 20 }, peddler: { x: 15, y: 13 } },
+    { id: 'mountain', name: '화산 농장',   icon: '🌋', desc: '용암이 흐르고 재가 날리는 메마른 땅이에요', room: 16, animals: 14, grid: { w: 24, h: 18 }, peddler: { x: 16, y: 16 } },
+    { id: 'cloud',    name: '꽃구름 농장', icon: '☁️', desc: '벚꽃 흩날리는 구름 위 일본 마을, 신칸센이 지나가요', room: 20, animals: 16, grid: { w: 24, h: 20 }, peddler: { x: 15, y: 13 } },
   ];
   /* 새 농장일수록 섬이 넓다(2026-09-29 로키즈 「새 농장은 전체 크기를 더 크게」) — 들판 20×16 → 22×18 → 24×18 → 24×20.
      늘어난 땅은 오른쪽(x 20~)과 아래(y 16~), 곧 섬의 앞쪽 두 가장자리다. 집·가게·밭·나무 자리는 그대로라 좌표가 안 바뀐다. */
@@ -426,8 +427,8 @@ const FARM = (() => {
     palm:       { name: '야자수',   w: 1, h: 1, x: 19, y: 12, kind: 'decor',  move: true },
     cairn:      { name: '돌탑',     w: 1, h: 1, x: 12, y: 12, kind: 'decor',  move: true },
     waterfall:  { name: '작은 폭포', w: 2, h: 2, x: 11, y: 14, kind: 'decor',  move: true },
-    balloon:    { name: '열기구',   w: 2, h: 2, x: 13, y: 0,  kind: 'decor',  move: true },
-    skybridge:  { name: '무지개 다리', w: 2, h: 1, x: 16, y: 15, kind: 'decor',  move: true },
+    balloon:    { name: '음료 자판기', w: 2, h: 2, x: 13, y: 0,  kind: 'decor',  move: true },
+    skybridge:  { name: '붉은 북다리', w: 2, h: 1, x: 16, y: 15, kind: 'decor',  move: true },
     anchor:     { name: '닻',       w: 1, h: 1, x: 4,  y: 12, kind: 'decor',  move: true },
     boat:       { name: '고깃배',   w: 2, h: 1, x: 9, y: 16, kind: 'decor',  move: true },
     parasol:    { name: '파라솔',   w: 1, h: 1, x: 14, y: 12, kind: 'decor',  move: true },
@@ -436,7 +437,7 @@ const FARM = (() => {
     alphorn:    { name: '알프호른', w: 2, h: 1, x: 6,  y: 8, kind: 'decor',  move: true },
     shishi:     { name: '대나무 물통', w: 1, h: 1, x: 1, y: 9,  kind: 'decor',  move: true },
     koinobori:  { name: '잉어 깃발', w: 1, h: 1, x: 2, y: 9,  kind: 'decor',  move: true },
-    toro:       { name: '석등',     w: 1, h: 1, x: 5,  y: 15, kind: 'decor',  move: true },
+    toro:       { name: '지장보살', w: 1, h: 1, x: 5,  y: 15, kind: 'decor',  move: true },
   };
   const PLACE_IDS = Object.keys(PLACE);
   /* 새 농장은 처음 자리부터 다르다(2026-09-28 로키즈 「이전 농장과 완전히 다른 느낌」). 여기 없는 것은 PLACE 의 자리.
@@ -448,7 +449,7 @@ const FARM = (() => {
     seaside: { mail: [4, 1], board: [5, 0], birdhouse: [7, 0], statue: [14, 0], lighthouse: [21, 0], sign: [5, 2], greenhouse: [17, 2], coop: [0, 3], pethouse: [3, 3], well: [1, 5], clothesline: [2, 5], hive: [4, 5], scarecrow: [16, 5], barn: [18, 5], flowerbed: [6, 8], flag: [21, 8], swing: [3, 9], fountain: [9, 9], lantern: [13, 9], windmill: [17, 10], arch: [7, 11], sandbox: [12, 11], pond: [5, 13], pasture: [16, 13], bench: [3, 16], firepit: [8, 16], wagon: [3, 17], path: [7, 17], palm: [15, 17], anchor: [4, 12], boat: [9, 16], parasol: [14, 12] },
     mountain: { mail: [4, 1], board: [5, 0], sign: [6, 1], birdhouse: [8, 0], windmill: [12, 0], flag: [23, 0], pethouse: [16, 2], coop: [18, 2], barn: [20, 4], statue: [20, 7], scarecrow: [16, 5], well: [1, 3], hive: [3, 4], greenhouse: [16, 11], pasture: [9, 12], pond: [19, 14], waterfall: [22, 12], cairn: [23, 17], path: [6, 17], fountain: [9, 9], lantern: [11, 9], bench: [4, 16], swing: [6, 12], arch: [12, 10], sandbox: [17, 9], firepit: [7, 15], clothesline: [2, 6], flowerbed: [6, 7], wagon: [14, 17], woodpile: [1, 7], milkcans: [23, 6], alphorn: [6, 8],
       lighthouse: [10, 0], palm: [14, 0], anchor: [23, 2], boat: [4, 15], parasol: [18, 5] },
-    cloud: { mail: [4, 1], board: [5, 0], flag: [7, 0], statue: [12, 0], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [17, 2], greenhouse: [20, 2], fountain: [10, 7], balloon: [21, 7], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19], skybridge: [22, 19], shishi: [1, 9], koinobori: [2, 9], toro: [5, 15],
+    cloud: { mail: [4, 1], board: [5, 0], flag: [7, 0], statue: [12, 0], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [16, 7], greenhouse: [20, 2], fountain: [10, 7], balloon: [21, 7], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19], skybridge: [22, 19], shishi: [1, 9], koinobori: [2, 9], toro: [5, 15],
       lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], anchor: [14, 17], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5] },
   };
   function spotOf(world, id){
@@ -845,7 +846,7 @@ const FARM = (() => {
     { id: 'hundred', col: '#a9c4d6',  name: '백 날의 농부', icon: '📅', desc: '농장에 백 날 와요',           coins: 1000, need: (w, m) => (m.playDays || []).length >= 100 },
     // 농장 여권 — 이사할 때마다 도장 하나, 넷을 다 모으면 큰 선물(2026-09-30 로키즈 「이사 보상」)
     { id: 'stampSea', col: '#5fb3e8',   name: '바닷가 도장', icon: '🌊', desc: '바닷가 농장으로 이사 가요',   coins: 300,  need: (w) => (w.farm || 0) >= 1 },
-    { id: 'stampMt', col: '#7fae6a',    name: '산골 도장',   icon: '⛰️', desc: '산골 농장으로 이사 가요',     coins: 500,  need: (w) => (w.farm || 0) >= 2 },
+    { id: 'stampMt', col: '#c8461a',    name: '화산 도장',   icon: '🌋', desc: '화산 농장으로 이사 가요',     coins: 500,  need: (w) => (w.farm || 0) >= 2 },
     { id: 'stampCloud', col: '#f2b8d8', name: '꽃구름 도장', icon: '☁️', desc: '꽃구름 농장으로 이사 가요',   coins: 800,  need: (w) => (w.farm || 0) >= 3 },
     { id: 'passport', col: '#ffd25a',   name: '네 농장 여권', icon: '🗺️', desc: '이사 도장 셋을 모두 받아요', coins: 3000, gift: { id: 'seed:star', n: 5 },
       need: (w, m) => ['stampSea', 'stampMt', 'stampCloud'].every(k => (m.medals || []).indexOf(k) >= 0) },

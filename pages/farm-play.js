@@ -399,7 +399,7 @@ function hintFor(){
   }
   const here = R.farmOf(W).id;
   return '다 자란 작물·나무·바위·동물·집·우편함·게시판·가게를 눌러요. 밭 위를 끌면 익은 것만 줄줄이 거둬요.'
-    + (here === 'seaside' ? ' 섬 밖 바다를 누르면 바다낚시를 해요.' : here === 'mountain' ? ' 산골 바위에는 가끔 반짝돌이 박혀 있어요.' : '');
+    + (here === 'seaside' ? ' 섬 밖 바다를 누르면 바다낚시를 해요.' : here === 'mountain' ? ' 화산 바위에는 가끔 반짝돌이 박혀 있어요.' : '');
 }
 // where: 'sea' 면 바닷가 섬 밖 바다에 던진 것 — at 은 찌가 떨어진 화면 도트
 function startFishing(where, at){
