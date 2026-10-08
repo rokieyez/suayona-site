@@ -572,6 +572,9 @@ const STONE = { hi: '#d5cec5', mid: '#c2bab0', low: '#a49c92', dark: '#857d75', 
 // 여덟 방향 이름 — 화면에서 움직인 쪽(아래가 +y). 가만히 섰으면 앞(S).
 const DIR8 = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'];
 function dir8(x, y){ return x || y ? DIR8[(Math.round(Math.atan2(y, x) / (Math.PI / 4)) + 8) % 8] : 'S'; }
+// 들판(u, v)에서 움직인 쪽을 화면 방향으로 — 마름모가 가로 IT·세로 IH(2:1)라 세로를 절반으로 눌러야 한다.
+// 안 누르면 옆으로 가는 오리가 비스듬히 아래(SE)를 봤다(2026-10-09 실제 루프에서 표본 40% 어긋남).
+function isoDir8(du, dv){ return dir8((du - dv) * IT, (du + dv) * IH); }
 // 눈 감은 정면 — 서기 장의 두 눈 네모를 눈 바로 밑 살빛으로 덮고, 맨 아랫줄만 눈의 짙은 색으로 남긴다
 function kidBlink(A){
   const rows = A.dirs.S[0].map(r => Array.from(r));
@@ -6705,7 +6708,7 @@ function drawDollIso(o, t){
   charBlit(charSprite('d|' + o.kind + '|' + d + '|' + f, () => doll3d(o.kind, d, f)), o.x, o.y, bob);
 }
 function isoFaceOf(o){                                                          // 움직인 쪽을 본다 — 멈추면 마지막 방향
-  if (o._lx != null){ const dx = o.x - o._lx, dy = o.y - o._ly; if (Math.abs(dx) + Math.abs(dy) > 0.05) { o._face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'u' : '-u') : (dy > 0 ? 'v' : '-v'); o._d8 = dir8(dx - dy, dx + dy); } }
+  if (o._lx != null){ const dx = o.x - o._lx, dy = o.y - o._ly; if (Math.abs(dx) + Math.abs(dy) > 0.05) { o._face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'u' : '-u') : (dy > 0 ? 'v' : '-v'); o._d8 = isoDir8(dx, dy); } }
   o._lx = o.x; o._ly = o.y;
   return o._face || (o.flip ? '-u' : 'v');
 }
@@ -6715,7 +6718,7 @@ function isoFaceOf(o){                                                          
 // 스테이지2(고화소) 농장에서는 라이프퀘스트 걷기 그림(hero-*.png)을 세운다 — 그림이 아직 안 왔으면 도트 그림으로
 const HD_KID_TALL = { sua: 46, yona: 42 };
 function drawWalkerIso(w, t){
-  const A = KIDART[w.who] || KIDART.yona, d = w.moving ? dir8(w.vx - w.vy, w.vx + w.vy) : 'S', f = KIDSTEP(w.moving, w.phase);   // 멈추면 화면(정면)을 본다
+  const A = KIDART[w.who] || KIDART.yona, d = w.moving ? isoDir8(w.vx, w.vy) : 'S', f = KIDSTEP(w.moving, w.phase);   // 멈추면 화면(정면)을 본다
   const lift = w.moving ? 0 : (Math.sin(t / 900 + w.phase) > 0.8 ? 1 : 0), q = isoP(w.x / T, w.y / T);
   if (hdOn() && hd(c => window.FARMHD.kid(c, w.who, q.x, q.y - lift, d, f, HD_KID_TALL[w.who] || 44))) return;
   isoEllipse(w.x / T + 0.06, w.y / T + 0.06, 0.34, 0.28, 0, 'rgba(30,44,24,0.2)');
@@ -6804,7 +6807,7 @@ function stillFarmGuest(n){
 }
 // 그림 한 칸은 1도트 = 캔버스 2px 에 테 1도트가 둘러져 있다 — 아이 그림과 같은 도트 크기로 줄여 붙인다. 발끝은 칸 밑단에서 두 도트 위.
 function drawFarmGuestIso(v, t){
-  const d = dir8(v.vx - v.vy, v.vx + v.vy);
+  const d = isoDir8(v.vx, v.vy);
   const a = Math.max(0, Math.min(1, (t - v.born) / 500, v.out ? 1 - (t - v.out) / 600 : 1));
   const nod = !v.moving && !v.still && Math.sin(t / 650) > 0.85 ? 1 : 0;           // 구경하며 가끔 끄덕
   const q = isoP(v.x / T, v.y / T);
