@@ -718,27 +718,52 @@
     for (let i = 0; i < 6; i++){ const p = q(u0 + 0.25 + (i % 3) * 0.35, v - 0.1 + (i > 2 ? 0.2 : 0), 10 + (i > 2 ? 0 : 3)); oval(p[0], p[1], 2.6, 1.8, tone(E, '#8a5a3c')); oval(p[0] + 1.2, p[1], 1.4, 1.4, tone(E, '#d8b088')); }
     const p = q((u0 + u1) / 2, v, 15); oval(p[0], p[1], 8, 2.4, L.drift[0]);
   };
-  // 풍차 — 하얀 돌 탑, 빨간 지붕(날개는 live)
+  // ---- 둥근 탑(아이소) — 2026-10-09 로키즈 「풍차·등대가 아이소메트릭이 아닌 듯」. 밑면·윗면이 타원(가로:세로 2:1), 왼쪽이 밝고 오른쪽이 그늘 ----
+  // (x, y) = 밑면 가운데, r0·r1 = 밑·위 반지름, h = 높이(도트). bands = [[z0, z1, 빛깔]] 둥글게 휜 띠
+  const rAt = (r0, r1, h, z) => r0 + (r1 - r0) * z / h;
+  function towerPath(x, y, r0, r1, h){ g.beginPath(); g.moveTo(x - r0, y); g.ellipse(x, y, r0, r0 / 2, 0, Math.PI, 0, true); g.lineTo(x + r1, y - h); g.ellipse(x, y - h, r1, r1 / 2, 0, 0, -Math.PI, true); g.closePath(); }
+  function tower(E, x, y, r0, r1, h, col, bands){
+    towerPath(x, y, r0, r1, h); g.fillStyle = lin(x - r0, 0, x + r0, 0, [shade(col, 0.12), col, shade(col, -0.18), shade(col, -0.34)]); g.fill();
+    if (bands){ g.save(); towerPath(x, y, r0, r1, h); g.clip(); bands.forEach(([z0, z1, c]) => {
+      const a = rAt(r0, r1, h, z0), b2 = rAt(r0, r1, h, z1);
+      g.beginPath(); g.moveTo(x - a, y - z0); g.ellipse(x, y - z0, a, a / 2, 0, Math.PI, 0, true); g.lineTo(x + b2, y - z1); g.ellipse(x, y - z1, b2, b2 / 2, 0, 0, Math.PI, false); g.closePath();
+      g.fillStyle = lin(x - r0, 0, x + r0, 0, [shade(c, 0.1), c, shade(c, -0.2), shade(c, -0.36)]); g.fill(); }); g.restore(); }
+    towerPath(x, y, r0, r1, h); g.strokeStyle = INK; g.lineWidth = LW; g.stroke();
+  }
+  // 탑 앞면(보는 쪽으로 조금 오른쪽) 위의 점 — 문·창을 타원 둘레에 붙인다. f = -1(왼 끝)~1(오른 끝)
+  const onTower = (x, y, r0, r1, h, z, f) => { const r = rAt(r0, r1, h, z); return [x + r * f, y - z + r / 2 * Math.sqrt(Math.max(0, 1 - f * f))]; };
+  function towerWin(E, x, y, r0, r1, h, z, f, w, hh, col){ const p = onTower(x, y, r0, r1, h, z, f), sq = Math.sqrt(Math.max(0.2, 1 - f * f)); R(p[0] - w / 2 * sq - 0.8, p[1] - hh - 0.8, w * sq + 1.6, hh + 1.6, tone(E, '#f2ece0')); R(p[0] - w / 2 * sq, p[1] - hh, w * sq, hh, col); g.strokeStyle = INK; g.lineWidth = 0.5; g.strokeRect(p[0] - w / 2 * sq - 0.8, p[1] - hh - 0.8, w * sq + 1.6, hh + 1.6); return p; }
+  // 원뿔 지붕 — 밑면 타원 + 꼭짓점, 위쪽에 눈
+  function cone(E, x, y, r, h, col){
+    const L = look(E);
+    g.beginPath(); g.moveTo(x - r, y); g.ellipse(x, y, r, r / 2, 0, Math.PI, 0, true); g.lineTo(x, y - h); g.closePath();
+    g.fillStyle = lin(x - r, 0, x + r, 0, [shade(col, 0.12), col, shade(col, -0.3)]); g.fill(); g.strokeStyle = INK; g.lineWidth = LW; g.stroke();
+    g.save(); g.clip(); g.beginPath(); g.moveTo(x, y - h - 1); g.lineTo(x - r * 0.7, y - h * 0.3); for (let i = 0; i <= 6; i++) g.lineTo(x - r * 0.7 + r * 1.4 * i / 6, y - h * 0.3 + (i % 2 ? 2.5 : 0) + r * 0.25 * Math.sin(i / 6 * Math.PI)); g.closePath(); g.fillStyle = L.drift[0]; g.fill(); g.restore();
+  }
+  // 풍차 — 하얀 둥근 돌 탑, 빨간 원뿔 지붕(날개는 live — 동남(+u)을 보는 면에서 돈다)
   D.windmill = (E, b) => {
-    const c = q(b.x + b.w / 2, b.y + b.h / 2, 0), L = look(E), x = c[0], y = c[1];
-    oval(x + 3, y + 1.5, 22, 8, L.shadow);
-    poly([[x - 13, y], [x + 13, y], [x + 9, y - 46], [x - 9, y - 46]], vgrad(y - 46, y, [tone(E, '#f2ece0'), tone(E, '#cfc6b4')]), true);
-    poly([[x + 2, y], [x + 13, y], [x + 9, y - 46], [x + 1.5, y - 46]], 'rgba(0,0,40,.14)');
-    R(x - 3, y - 12, 6, 12, tone(E, '#6a4430')); g.strokeStyle = INK; g.lineWidth = LW; g.strokeRect(x - 3, y - 12, 6, 12);
-    R(x - 2, y - 30, 4, 6, E.night ? L.win : '#6f9ec4'); if (E.night) E.lamp(x, y - 27, 20, '#ffcf7a');
-    poly([[x - 11, y - 45], [x, y - 60], [x + 11, y - 45]], tone(E, FALU), true);
-    poly([[x - 11, y - 45.6], [x, y - 60.6], [x + 11, y - 45.6], [x, y - 54]], L.drift[0]);
+    const c = q(b.x + b.w / 2, b.y + b.h / 2, 0), L = look(E), x = c[0], y = c[1], r0 = 13, r1 = 9.5, h = 44;
+    oval(x + 4, y + 2, 20, 8, L.shadow);
+    tower(E, x, y, r0, r1, h, tone(E, '#efe8da'), [[0, 4, tone(E, '#9aa0ae')]]);
+    for (let z = 8; z < h - 4; z += 6) for (let k = 0; k < 4; k++){ const f = -0.8 + k * 0.5 + ((z / 6) % 2) * 0.25, p = onTower(x, y, r0, r1, h, z, f); line([p[0] - 1.2, p[1]], [p[0] + 1.2, p[1]], 'rgba(120,100,80,.25)', 0.5); }
+    const d = onTower(x, y, r0, r1, h, 0, 0.35), sq = Math.sqrt(1 - 0.35 * 0.35);
+    g.beginPath(); g.moveTo(d[0] - 3 * sq, d[1]); g.lineTo(d[0] - 3 * sq, d[1] - 9); g.ellipse(d[0], d[1] - 9, 3 * sq, 3, 0, Math.PI, 0); g.lineTo(d[0] + 3 * sq, d[1]); g.closePath(); g.fillStyle = tone(E, '#6a4430'); g.fill(); g.strokeStyle = INK; g.lineWidth = 0.5; g.stroke();
+    const w = towerWin(E, x, y, r0, r1, h, 26, 0.3, 4, 6, E.night ? L.win : '#6f9ec4'); if (E.night) E.lamp(w[0], w[1] - 3, 20, '#ffcf7a');
+    oval(x, y - h, r1, r1 / 2, tone(E, '#d8d0c0'));
+    cone(E, x, y - h + 1, r1 + 2.5, 17, tone(E, FALU));
   };
   D.windmillLive = (E, b) => {
-    const c = q(b.x + b.w / 2, b.y + b.h / 2, 0), x = c[0] + 1, y = c[1] - 44, a0 = STILL ? 0.3 : E.t * 0.9;
+    const c = q(b.x + b.w / 2, b.y + b.h / 2, 0), hub = [c[0] + 8, c[1] - 40], a0 = STILL ? 0.3 : E.t * 0.9;
+    const V = [-0.894, 0.447];                                            // 날개 면 = v 축과 z 축이 이루는 면(동남을 본다)
+    const P = (a, r, s) => { const ca = Math.cos(a), sa = Math.sin(a), m = ca * r - sa * s, n = sa * r + ca * s; return [hub[0] + m * V[0], hub[1] + m * V[1] - n]; };
+    line([c[0] + 3, c[1] - 41.5], hub, tone(E, '#5a4034'), 1.6);         // 굴대
     for (let i = 0; i < 4; i++){
-      const a = a0 + i * Math.PI / 2, ca = Math.cos(a), sa = Math.sin(a), Lb = 26, wd = 5;
-      const p = (r, s) => [x + ca * r - sa * s, y + sa * r + ca * s];
-      line(p(0, 0), p(Lb, 0), tone(E, '#5a4034'), 1.2);
-      poly([p(6, 0.6), p(Lb, 0.6), p(Lb, wd), p(6, wd)], 'rgba(242,236,224,.92)', 0.5);
-      for (let k = 1; k < 4; k++) line(p(6 + k * 5, 0.6), p(6 + k * 5, wd), 'rgba(90,64,52,.6)', 0.35);
+      const a = a0 + i * Math.PI / 2, Lb = 26, wd = 5;
+      line(P(a, 0, 0), P(a, Lb, 0), tone(E, '#5a4034'), 1.1);
+      poly([P(a, 6, 0.6), P(a, Lb, 0.6), P(a, Lb, wd), P(a, 6, wd)], 'rgba(242,236,224,.92)', 0.5);
+      for (let k = 1; k < 4; k++) line(P(a, 6 + k * 5, 0.6), P(a, 6 + k * 5, wd), 'rgba(90,64,52,.6)', 0.35);
     }
-    oval(x, y, 2.2, 2.2, tone(E, '#3a3f52'));
+    oval(hub[0], hub[1], 2, 2.2, tone(E, '#3a3f52'));
   };
   // ---- 오로라 농장 꾸미개 셋 ----
   // 이글루 — 눈 벽돌 반구, 앞에 굴 입구, 밤이면 안에서 불빛이 샌다
@@ -780,16 +805,17 @@
 
   // ---- 앞 농장에서 「추억」으로 들고 온 꾸미개 15종(2026-10-09) — 오로라 눈 섬에 맞게 눈을 얹어 다시 그린다 ----
   // 바닷가: 등대·야자수·닻·고깃배·파라솔 · 화산: 흑요석 돌탑·용암 폭포·장작더미·우유통·용뿔 나팔 · 꽃구름: 자판기·붉은 북다리·대나무 물통·잉어 깃발·지장보살
-  D.lighthouse = (E, b) => {
-    const p = q(b.x + 0.5, b.y + 0.5, 0), x = p[0], y = p[1], L = look(E), top = y - 52;
-    oval(x + 2, y + 1, 11, 4, L.shadow);
-    poly([[x - 8, y], [x + 8, y], [x + 5, top], [x - 5, top]], vgrad(top, y, [tone(E, '#f6f2ea'), tone(E, '#d8d2c6')]), true);
-    for (let k = 0; k < 3; k++){ const y0 = y - 8 - k * 15, w0 = 8 - (k * 15 + 8) / 52 * 3, w1 = 8 - (k * 15 + 15) / 52 * 3; poly([[x - w0, y0], [x + w0, y0], [x + w1, y0 - 7], [x - w1, y0 - 7]], tone(E, '#d9433e')); }
-    poly([[x + 1, y], [x + 8, y], [x + 5, top], [x + 0.5, top]], 'rgba(0,0,40,.14)');
-    R(x - 7, top - 2, 14, 2.4, tone(E, '#3a3f52'));
-    R(x - 4, top - 9, 8, 7, E.night ? '#ffe7a4' : 'rgba(200,230,250,.9)'); g.strokeStyle = INK; g.lineWidth = LW; g.strokeRect(x - 4, top - 9, 8, 7);
-    poly([[x - 5.5, top - 9], [x, top - 15], [x + 5.5, top - 9]], tone(E, '#d9433e'), true); oval(x, top - 11, 4, 1.4, L.drift[0]);
-    if (E.night) E.lamp(x, top - 5, 40, '#ffe08a');
+  D.lighthouse = (E, b) => {                                             // 등대 — 빨강·흰 띠 둥근 탑, 난간 두른 등실, 둥근 지붕
+    const p = q(b.x + 0.5, b.y + 0.5, 0), x = p[0], y = p[1], L = look(E), r0 = 8.5, r1 = 5.5, h = 48;
+    oval(x + 3, y + 1.5, 12, 5, L.shadow);
+    tower(E, x, y, r0, r1, h, tone(E, '#f6f2ea'), [[6, 14, tone(E, '#d9433e')], [22, 30, tone(E, '#d9433e')], [38, 46, tone(E, '#d9433e')]]);
+    const d = onTower(x, y, r0, r1, h, 0, 0.3); R(d[0] - 2, d[1] - 7, 4, 7, tone(E, '#3a3f52'));
+    oval(x, y - h, 8, 4, tone(E, '#3a3f52')); oval(x, y - h - 0.8, 8, 4, tone(E, '#545a70'));     // 난간 바닥
+    tower(E, x, y - h - 1, 4.6, 4.6, 8, E.night ? '#ffe7a4' : '#bcdcf0');                        // 유리 등실
+    for (let k = -1; k <= 1; k++){ const pp = onTower(x, y - h - 1, 4.6, 4.6, 8, 0, k * 0.6); line(pp, [pp[0], pp[1] - 8], tone(E, '#3a3f52'), 0.5); }
+    g.strokeStyle = tone(E, '#3a3f52'); g.lineWidth = 0.6; g.beginPath(); g.ellipse(x, y - h - 4, 8, 4, 0, 0, Math.PI); g.stroke();   // 앞 난간
+    cone(E, x, y - h - 9, 5.6, 7, tone(E, '#d9433e')); oval(x, y - h - 16.5, 1, 1, tone(E, '#3a3f52'));
+    if (E.night) E.lamp(x, y - h - 5, 40, '#ffe08a');
   };
   D.palm = (E, b) => {                                                   // 야자수 — 눈 섬에선 화분에 담아 털옷을 입혔다
     const p = q(b.x + 0.5, b.y + 0.55, 0), x = p[0], y = p[1], L = look(E);
