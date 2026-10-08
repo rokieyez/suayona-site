@@ -30,8 +30,6 @@
   // ================= 사람 =================
   // hat: fur(귀덮개 털모자) · beanie(방울 털실 모자) · hood(털 테 두른 파카 모자)
   const LOOKS = {
-    keeper:  { skin: '#f7c9a4', hair: '#5a3a28', hat: 'fur', hatC: '#6b4a34', trim: '#efe4d2', coat: '#2f5d8a', scarf: '#d9504a', mitt: '#d9504a', boots: '#4a3428', apron: '#f4efe4', mustache: '#5a3a28' },
-    peddler: { skin: '#f2c19c', hair: '#9a9590', hat: 'fur', hatC: '#5f3f96', trim: '#e9dcc6', coat: '#7a5236', scarf: '#8a5cc7', mitt: '#8a5cc7', boots: '#3e2c24', beard: '#ece6dc', pack: '#a8794a' },
     guest: [
       { skin: '#f7cfae', hair: '#3a2a22', hat: 'beanie', hatC: '#d9504a', trim: '#ffffff', coat: '#f0e6d6', scarf: '#d9504a', mitt: '#d9504a', boots: '#6b4a34' },
       { skin: '#eebd96', hair: '#e2b45a', hat: 'fur', hatC: '#3e5f8a', trim: '#f2ece2', coat: '#4f8fb8', scarf: '#f2c94c', mitt: '#f2c94c', boots: '#3e2c24' },
@@ -111,12 +109,12 @@
     g.restore();
     return true;
   }
-  // kind: 'keeper' | 'peddler' | 'guest'. n 은 손님 번호(0~7)
+  // kind: 'guest' 만 남았다 — 가게 아저씨·행상인은 2026-10-09 로키즈 「퀄리티가 낮아」로 스테이지1 도트 그림을 쓴다. n 은 손님 번호(0~7)
   function npc(gg, kind, x, y, o){
     o = Object.assign({}, o);
-    if (kind === 'guest'){ const n = ((o.n | 0) % 8 + 8) % 8; o.tall = o.tall || GUEST_TALL[n]; return person(gg, x, y, LOOKS.guest[n], o); }
-    o.tall = o.tall || (kind === 'keeper' ? 54 : 53);
-    return person(gg, x, y, LOOKS[kind] || LOOKS.keeper, o);
+    if (kind !== 'guest') return false;
+    const n = ((o.n | 0) % 8 + 8) % 8; o.tall = o.tall || GUEST_TALL[n];
+    return person(gg, x, y, LOOKS.guest[n], o);
   }
   // 여덟 방향(dir8) → 그림 방향
   const facing = d => ({ back: /N/.test(d), flip: /E/.test(d), side: d !== 'S' && d !== 'N' });

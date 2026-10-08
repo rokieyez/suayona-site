@@ -725,10 +725,9 @@ function npcIdle(t, salt){
 // 아이소 가게 아저씨 — 가게 그림의 뒤 겹과 앞 겹 사이에 매 장 그린다(drawFarmIso). 그림은 왼쪽 아래를 보고, 오른쪽으로 옮길 땐 뒤집는다.
 // 왼쪽 앞에 세운다 — 가운데면 오른쪽 앞 기둥이 몸 한가운데를 지나고 매단 것이 얼굴에 걸린다. 서성임은 ±0.2칸(±4도트)까지만.
 function stallKeeperAt(b){ const O = isoGeo(b, 0.18, 0); return { u: O.u0 + (O.u1 - O.u0) * 0.3, v: O.v0 + 0.85 }; }
-function drawStallKeeperIso(b, t, after){
+function drawStallKeeperIso(b, t){
   const s = npcIdle(t, 'shop'), at = stallKeeperAt(b), q = isoP(at.u + s.off * 0.2, at.v), fr = SHOPKEEP[s.frame];
-  // 스테이지2(고화소) — 털모자 쓴 벡터 아저씨(pages/farm-hd-people.js, 2026-10-09). 차양을 높여 가게 안(뒤 겹과 판대 사이)에 선다
-  if (hdOn() && window.FARMHD.npc){ if (after) return; if (hd(c => window.FARMHD.npc(c, 'keeper', q.x, q.y - s.bob, { frame: s.frame, flip: s.dir > 0 }))) return; }
+  // 스테이지2(고화소)도 이 도트 아저씨를 판대 뒤에 세운다 — 털모자 벡터 아저씨는 2026-10-09 로키즈 「퀄리티가 너무 낮아」로 뺐다
   art(fr, Math.round(q.x) - (fr[0].length >> 1), Math.round(q.y) - 54 - s.bob, SHOPPAL, s.dir > 0);
 }
 // 들판(2D) 가게 아저씨 — 좌판 오른쪽 끝, 위 28줄(좌판 앞턱 위)만
@@ -822,7 +821,6 @@ function isoPeddlerCart(P){
 }
 function drawPeddlerIso(P, t){
   const s = npcIdle(t, 'ped'), at = pedKeeperAt(P), q = isoP(at.u + s.off * 0.15, at.v), fr = PEDKEEP[s.frame];
-  if (hdOn() && window.FARMHD.npc && hd(c => window.FARMHD.npc(c, 'peddler', q.x, q.y + 2 - s.bob, { frame: s.frame, flip: s.dir > 0, side: true }))) return;   // 스테이지2 고화소(2026-10-09)
   art(fr, Math.round(q.x) - (fr[0].length >> 1), Math.round(q.y) - fr.length + 2 - s.bob, PEDPAL, s.dir > 0);
 }
 // 도감·카드에서도 쓰는 그림. s 는 도트 한 개의 크기.
@@ -7417,7 +7415,6 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
       const e = isoSprite(id, sigB + '|' + season + '|' + id, isoBoxOf(b), paint(id === 'stall' ? 'front' : null), ink);
       for (let i = 0; i < e.lamps.length; i++) lamps.push(e.lamps[i]);
       isoHits.push({ e, tx: b.x, ty: b.y });
-      if (id === 'stall' && hdThing && window.FARMHD.npc) drawStallKeeperIso(b, t, true);         // 고화소 아저씨는 앞 겹 뒤, 판대 앞에(2026-10-09)
       if (hdThing) hd((c, E) => window.FARMHD.live(c, E, id, b));
       else if (ISO_OWN[id]) isoOwnLive(id, b, t, L, season);
       else if (ISO_PROP_LIVE[id]) ISO_PROP_LIVE[id](b, t, L, season, isoTheme());

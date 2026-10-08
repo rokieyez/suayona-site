@@ -387,7 +387,7 @@ const FARM = (() => {
     // skip — 2026-10-09 로키즈 「화산농장은 아이들이 싫어할 것 같아 스킵」. 바닷가에서 바로 꽃구름으로 간다.
     // 줄은 지우지 않는다: world.farm 이 이 표의 번호라서, 빼면 뒤 농장 번호와 도장 조건이 다 밀린다. 그림·?farm=mountain 구경은 남는다
     { id: 'mountain', name: '화산 농장',   icon: '🌋', desc: '용암이 흐르고 재가 날리는 메마른 땅이에요', skip: true, room: 16, animals: 14, grid: { w: 24, h: 18 }, peddler: { x: 16, y: 16 } },
-    { id: 'cloud',    name: '꽃구름 농장', icon: '☁️', desc: '벚꽃 흩날리는 구름 위 일본 마을, 신칸센이 지나가요', room: 20, animals: 16, grid: { w: 24, h: 20 }, peddler: { x: 15, y: 13 } },
+    { id: 'cloud',    name: '꽃구름 농장', icon: '☁️', desc: '벚꽃 흩날리는 구름 위 일본 마을, 신칸센이 지나가요', room: 16, animals: 14, grid: { w: 24, h: 20 }, peddler: { x: 15, y: 13 } },
     // 스테이지2 — 여기서부터 고화소 그림(pages/farm-hd.js). 2026-10-08 로키즈 「오로라부터 고화소로 전부 다시」
     { id: 'aurora',   name: '오로라 농장', icon: '🌌', desc: '오로라가 춤추는 북쪽 눈 섬, 통나무집에 불이 켜져요', room: 22, animals: 17, grid: { w: 26, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2 },
   ];
