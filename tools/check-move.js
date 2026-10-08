@@ -193,4 +193,17 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   assert(!R.moveThing(wp, m, 'tree1', 99, 99).ok, '농장 밖으로는 못 옮긴다');
   assert(!R.moveThing(wp, m, 'nope', 1, 1).ok, '없는 것은 못 옮긴다');
 }
+// 스테이지2 — 꽃구름에서 오로라로 이사하면 아기 순록이 따라오고 오로라 도장을 받는다(2026-10-09)
+{
+  const wa = R.fixWorld(null, now), ms = R.fixMine(null, 'sua'), my = R.fixMine(null, 'yona'); wa.farm = 3;
+  Object.keys(R.DECOR).forEach(d => { if (!R.DECOR[d].farm || R.DECOR[d].farm === 'cloud') wa.decor[d] = { by: 'sua' }; });
+  ['sua', 'yona', 'living'].forEach(r => { wa.house[r] = {}; for (let i = 0; i < 22; i++) wa.house[r][i + ',0'] = { f: 'bed1', r: 0 }; });
+  for (let i = 0; i < 17; i++) wa.animals.push({ id: 'y' + i, kind: 'duck', name: '오리' });
+  assert(R.askMove(wa, ms, now).ok && R.askMove(wa, my, now).moved, '꽃구름 → 오로라 이사');
+  assert.strictEqual(R.farmOf(wa).id, 'aurora');
+  const baby = wa.animals[wa.animals.length - 1];
+  assert(baby.kind === 'reindeer' && baby.baby, '오로라 새 식구는 아기 순록');
+  assert(R.claimMedal(wa, ms, 'stampAurora', now).ok, '오로라 도장');
+  assert(!R.moveState(wa, ms).next, '오로라가 지금 마지막 농장');
+}
 console.log('이사 규칙 점검 통과');
