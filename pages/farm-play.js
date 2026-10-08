@@ -281,7 +281,7 @@ function arrivalGifts(to){
   const passed = R.FARMS.slice(i0 + 1, (W.farm || 0) + 1).map(f => f.id);
   const babies = Object.keys(R.ANIMALS).filter(k => passed.indexOf(R.ANIMALS[k].gift) >= 0)
     .map(k => (W.animals || []).filter(a => a.gift && a.kind === k).pop()).filter(Boolean);
-  const stamp = R.MEDALS.find(Md => Md.id === { seaside: 'stampSea', cloud: 'stampCloud', aurora: 'stampAurora' }[to.id]);
+  const stamp = R.MEDALS.find(Md => Md.id === { seaside: 'stampSea', cloud: 'stampCloud', aurora: 'stampAurora', desert: 'stampDesert' }[to.id]);
   const li = [
     '📮 우편함에 이사 선물 동전 ' + (R.MOVE_GIFT || 0),
     keeps.length ? '🧳 들고 온 추억: ' + keeps.map(id => R.DECOR[id].icon + ' ' + R.DECOR[id].name).join(' · ') : '',
@@ -298,7 +298,11 @@ function openArrival(){
   const inner = $('#modalInner');
   // 스테이지2 로 넘어가는 이사는 비행선 장면(2026-10-09, pages/farm-hd-people.js) — 고화소 그림이 안 왔으면 짐수레 그대로
   const air = to.stage === 2 && !(from.stage >= 2) && window.FARMHD && window.FARMHD.airship;
-  inner.innerHTML = (air ? '<h3 class="pixel">✈️ 스테이지2 — ' + to.name + '으로!</h3>'
+  // 스테이지2 안의 사막 이사는 마법 양탄자 장면(2026-10-09)
+  const carpet = !air && to.id === 'desert' && window.FARMHD && window.FARMHD.airship;
+  inner.innerHTML = (carpet ? '<h3 class="pixel">🧞 마법 양탄자 — ' + to.name + '으로!</h3>'
+      + '<p class="sub">' + from.name + '을 떠나 마법 양탄자를 타고 모래 언덕 바다를 건너 <b>' + to.name + '</b>에 내려앉았어요. ' + (to.desc || '') + '</p>' + window.FARMHD.AIRSHIP_CV
+      : air ? '<h3 class="pixel">✈️ 스테이지2 — ' + to.name + '으로!</h3>'
       + '<p class="sub">' + from.name + '을 떠나 비행선을 타고 구름 바다를 건너 <b>' + to.name + '</b>에 내려앉았어요. 여기서부터 <b>스테이지2</b>예요! ' + (to.desc || '') + '</p>' + window.FARMHD.AIRSHIP_CV
       : '<h3 class="pixel">🚚 이삿날!</h3>'
       + '<p class="sub">' + from.name + '을 떠나 <b>' + to.name + '</b>에 도착했어요. ' + (to.desc || '') + '</p>'
@@ -308,7 +312,8 @@ function openArrival(){
     + '<div class="modal-actions"><button type="button" class="dot-btn small primary" id="arriveGo">🏝 새 농장 둘러보기</button>'
     + (P ? '<button type="button" class="dot-btn small" id="arriveSnap">📷 ' + from.name + ' 마지막 한 장 내기</button>' : '') + '</div>';
   $('#modal').hidden = false;
-  if (air) window.FARMHD.airship($('#arriveCv'), { sub: to.icon + ' ' + to.name, onDone: () => sfx('sparkle') });
+  if (carpet) window.FARMHD.airship($('#arriveCv'), { carpet: true, title: '오아시스 도착!', sub: to.icon + ' ' + to.name, onDone: () => sfx('sparkle') });
+  else if (air) window.FARMHD.airship($('#arriveCv'), { sub: to.icon + ' ' + to.name, onDone: () => sfx('sparkle') });
   else {
   const cv = $('#arriveCv'), g = cv.getContext('2d');
   g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0);
@@ -411,7 +416,8 @@ function hintFor(){
   const here = R.farmOf(W).id;
   return '다 자란 작물·나무·바위·동물·집·우편함·게시판·가게를 눌러요. 밭 위를 끌면 익은 것만 줄줄이 거둬요.'
     + (here === 'seaside' ? ' 섬 밖 바다를 누르면 바다낚시를 해요.' : here === 'mountain' ? ' 화산 바위에는 가끔 반짝돌이 박혀 있어요.'
-      : here === 'aurora' ? ' 얼음낚시 구멍을 누르면 얼음낚시를 해요. 밤엔 땅에 떨어진 오로라 빛 조각을 주워요.' : '');
+      : here === 'aurora' ? ' 얼음낚시 구멍을 누르면 얼음낚시를 해요. 밤엔 땅에 떨어진 오로라 빛 조각을 주워요.'
+      : here === 'desert' ? ' 낮엔 모래 위에 놓인 사막 장미 돌을 주워요. 요술 램프를 놓으면 가끔 램프 요정 편지가 와요.' : '');
 }
 // where: 'sea' 면 바닷가 섬 밖 바다에 던진 것 — at 은 찌가 떨어진 화면 도트
 function startFishing(where, at){
@@ -763,7 +769,7 @@ function closeModal(){ $('#modal').hidden = true; }
 function openMail(){
   const box = W.mail[key] || [];
   const inner = $('#modalInner');
-  const who = g => g.from === 'festival' ? '축제' : g.from === 'board' ? '게시판' : g.from === 'move' ? '이삿날' : g.from === 'santa' ? '🎅 산타 할아버지' : NAME[g.from] || '';
+  const who = g => g.from === 'festival' ? '축제' : g.from === 'board' ? '게시판' : g.from === 'move' ? '이삿날' : g.from === 'santa' ? '🎅 산타 할아버지' : g.from === 'genie' ? '🧞 램프 요정' : NAME[g.from] || '';
   inner.innerHTML = '<h3 class="pixel">우편함</h3>' + (box.length ? box.map(g =>
     '<div class="mailrow"><b>' + (g.id === 'note' ? '💌 쪽지' : g.id === 'coins' ? '🪙 ' + g.n + ' 동전' : escapeHTML(R.itemName(g.id)) + ' ' + g.n + '개') + '</b>' +
     '<span class="from">' + who(g) + (g.note ? ' · "' + escapeHTML(g.note) + '"' : '') + '</span></div>').join('') :
@@ -1150,7 +1156,7 @@ function itemIcon(id){
     return cv;
   }
   const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; const g = cv.getContext('2d');
-  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', sprinkler2: '#c9d6e0', firefly: '#ffe66d', shard: '#9ef0d0', moss: '#9fb88a', pinecone: '#8a5a32' }[id] || (k === 'f' ? R.FURNITURE[v].c : '#ddd');
+  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', sprinkler2: '#c9d6e0', firefly: '#ffe66d', shard: '#9ef0d0', moss: '#9fb88a', pinecone: '#8a5a32', sandrose: '#e8b088', date: '#a0522a' }[id] || (k === 'f' ? R.FURNITURE[v].c : '#ddd');
   g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, 32, 32); g.fillStyle = col; g.fillRect(8, 8, 16, 16); g.fillStyle = '#3a3226'; g.fillRect(8, 8, 16, 2); g.fillRect(8, 22, 16, 2); g.fillRect(8, 8, 2, 16); g.fillRect(22, 8, 2, 16);
   return cv;
 }
@@ -1850,7 +1856,7 @@ function renderTree(){
 function renderDex(){
   const box = $('#dex'); box.innerHTML = '';
   const all = R.CROP_IDS.map(c => ['crop:' + c, c]).concat(R.CROP_IDS.filter(c => R.CROPS[c].giant).map(c => ['giant:' + c, 'giant:' + c]))
-    .concat(['egg', 'bigegg', 'milk', 'goldmilk', 'wool', 'honey', 'firefly', 'shard', 'moss', 'pinecone'].map(k => [k, k]))
+    .concat(['egg', 'bigegg', 'milk', 'goldmilk', 'wool', 'honey', 'firefly', 'shard', 'moss', 'pinecone', 'sandrose', 'date'].map(k => [k, k]))
     .concat(R.FISH_IDS.map(f => ['fish:' + f, 'fish:' + f])).concat(Object.keys(R.DISHES).map(d => ['dish:' + d, 'dish:' + d]));
   let got = 0, gold = 0;
   all.forEach(([id, dexKey]) => {

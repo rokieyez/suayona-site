@@ -743,6 +743,70 @@
     K.ov(x, y - 12, 2.4, 0.8, '#c9d4da', 0.4); K.curve([[x - 3, y - 6], [x - 1, y - 7.4], [x + 1, y - 6], [x + 3, y - 7.2]], '#5d8fb8', 0.45);
   });
   // ================= 벽에 거는 것 — 평평한 칸 x 0..40, y 0..58 (ROOMHD 가 벽 기울기대로 붙인다) =================
+  // ================= 사막 오아시스(모로코 리아드) 가구 넷 — 2026-10-09 =================
+  // 민트 차 상 — 둥근 놋쟁반 탁자(나무 여섯모 다리), 위에 은빛 찻주전자와 금테 유리잔 넷, 민트 잎. 김이 오른다(FURN_ANIM)
+  def('teaset', (g, C) => {
+    const K = kit(g, C), P = C.P, t = C.t || 0, cx = C.E / 2, cy = C.D / 2;
+    if (C.lit) return;
+    K.shadow();
+    // 여섯모 다리 받침 — 나무 판 셋, 아치 구멍
+    const legs = []; for (let i = 0; i < 6; i++){ const a = (i + 0.5) / 6 * TAU; legs.push([cx + Math.cos(a) * 8, cy + Math.sin(a) * 8]); }
+    for (let i = 0; i < 6; i++){ const a = legs[i], b = legs[(i + 1) % 6]; if ((a[1] + b[1]) / 2 < cy - 1 && (a[0] + b[0]) / 2 < cx + 1) continue;
+      K.poly([P(a[0], a[1], 0), P(b[0], b[1], 0), P(b[0], b[1], 14), P(a[0], a[1], 14)], K.lg(0, P(a[0], a[1], 14)[1], 0, P(a[0], a[1], 0)[1], ['#8a5030', '#5a3018']), 0.5);
+      const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], q = P(m[0], m[1], 0); K.poly([[q[0] - 2, q[1]], [q[0] - 2, q[1] - 5], [q[0], q[1] - 7.5], [q[0] + 2, q[1] - 5], [q[0] + 2, q[1]]], '#2a1408'); }
+    // 놋쟁반 — 두꺼운 테, 새김 무늬
+    const rim = K.iel(cx, cy, 11, 11, 15), tray = K.iel(cx, cy, 10, 10, 15.6);
+    K.poly(K.iel(cx, cy, 11, 11, 14), '#9a6a20', 0.5); K.poly(rim, K.lg(0, P(cx, cy - 11, 15)[1], 0, P(cx, cy + 11, 15)[1], ['#f2d07a', '#d0a040', '#a87818']), 0.5);
+    K.poly(tray, K.lg(0, P(cx, cy - 10, 15)[1], 0, P(cx, cy + 10, 15)[1], ['#e8c060', '#c89a30']));
+    for (let i = 0; i < 8; i++){ const a = i / 8 * TAU, p0 = P(cx + Math.cos(a) * 3, cy + Math.sin(a) * 3, 15.6), p1 = P(cx + Math.cos(a) * 8.5, cy + Math.sin(a) * 8.5, 15.6); K.ln(p0, p1, 'rgba(120,80,20,.4)', 0.35); }
+    K.poly(K.iel(cx, cy, 3, 3, 15.6, 16), 'rgba(120,80,20,.3)');
+    // 유리잔 넷 — 금테, 민트 차 빛
+    [[-6, -2], [-2, 5], [5, 4], [3, -6]].forEach(([dx, dy], i) => { const b = P(cx + dx, cy + dy, 15.6), h = 4.4;
+      K.poly([[b[0] - 1.5, b[1]], [b[0] + 1.5, b[1]], [b[0] + 2, b[1] - h], [b[0] - 2, b[1] - h]], K.lg(b[0] - 2, 0, b[0] + 2, 0, ['rgba(200,230,170,.8)', 'rgba(120,170,80,.85)', 'rgba(90,140,60,.85)']), 0.4);
+      K.ov(b[0], b[1] - h, 2, 0.7, 'rgba(230,245,210,.9)', 0.35); K.ln([b[0] - 1.8, b[1] - h + 1.2], [b[0] + 1.8, b[1] - h + 1.2], '#e8b040', 0.6);
+      K.ln([b[0] - 0.9, b[1] - 0.6], [b[0] - 1.2, b[1] - h + 1.8], 'rgba(255,255,255,.6)', 0.4); });
+    // 찻주전자 — 은빛 둥근 몸, 긴 주둥이, 뾰족 뚜껑
+    const tp = P(cx + 1, cy + 0.5, 15.6), x = tp[0], y = tp[1];
+    K.ball(x, y - 5, 5, 4.6, '#d8dce4', 0.5);
+    K.poly([[x + 4, y - 5], [x + 9.5, y - 10], [x + 10.4, y - 9.4], [x + 5, y - 3]], K.lg(x + 4, 0, x + 10, 0, ['#e8ecf2', '#a8b0bc']), 0.45);
+    g.beginPath(); g.ellipse(x - 5.6, y - 5.5, 2.2, 3, 0, Math.PI * 0.5, Math.PI * 1.5); g.strokeStyle = '#8a92a0'; g.lineWidth = 0.9; g.stroke();
+    K.ov(x, y - 9.4, 2.6, 1, '#c0c6d0', 0.4); K.poly([[x - 1.8, y - 9.6], [x, y - 14], [x + 1.8, y - 9.6]], K.lg(0, y - 14, 0, y - 9.5, ['#f0f2f6', '#a0a8b4']), 0.4); K.ov(x, y - 14.4, 0.8, 0.8, '#e8b040', 0.3);
+    K.ov(x - 1.6, y - 7, 1.4, 1, 'rgba(255,255,255,.7)');
+    // 민트 잎 한 줌
+    const mp = P(cx - 5, cy + 6.5, 15.6); for (let i = 0; i < 5; i++){ const a = -Math.PI / 2 + (i - 2) * 0.55; K.ov(mp[0] + Math.cos(a) * 1.8, mp[1] - 1 + Math.sin(a) * 1.4, 1.4, 0.7, i % 2 ? '#4aa048' : '#6ac060', 0.3, a); }
+    // 김
+    for (let i = 0; i < 3; i++){ const k = ((t / 1800) + i / 3) % 1; K.ov(x + 10 + Math.sin(k * 6 + i) * 1.4, y - 11 - k * 9, 1 + k * 1.8, 0.8 + k * 1.2, 'rgba(255,255,255,' + (0.5 * (1 - k)).toFixed(2) + ')'); }
+  });
+  // 베르베르 양탄자 — 크림 바탕에 붉은·쪽빛 마름모 줄, 양 끝 술
+  def('kilim', (g, C) => {
+    const K = kit(g, C), O = K.O, p = O.p, L = O.L, W = O.W;
+    if (C.lit) return;
+    const u0 = 3, u1 = L - 3, v0 = 3, v1 = W - 3, z = 0.6;
+    K.poly([p(u0, v0, 0), p(u1, v0, 0), p(u1, v1, 0), p(u0, v1, 0)], 'rgba(26,18,10,.12)');
+    K.poly([p(u0, v0, z), p(u1, v0, z), p(u1, v1, z), p(u0, v1, z)], '#f2e2c4', 0.5);
+    K.poly([p(u0 + 1.5, v0 + 1.5, z), p(u1 - 1.5, v0 + 1.5, z), p(u1 - 1.5, v1 - 1.5, z), p(u0 + 1.5, v1 - 1.5, z)], '#b0302a');
+    K.poly([p(u0 + 3, v0 + 3, z), p(u1 - 3, v0 + 3, z), p(u1 - 3, v1 - 3, z), p(u0 + 3, v1 - 3, z)], '#f2e2c4');
+    const n = Math.max(3, Math.round((u1 - u0 - 6) / 9)), vm = (v0 + v1) / 2, hv = (v1 - v0 - 6) / 2 - 1;
+    for (let i = 0; i < n; i++){ const um = u0 + 3 + (u1 - u0 - 6) * (i + 0.5) / n, hu = (u1 - u0 - 6) / n / 2 - 0.4, c = i % 2 ? '#2f4f9a' : '#b0302a';
+      K.poly([p(um, vm - hv, z), p(um + hu, vm, z), p(um, vm + hv, z), p(um - hu, vm, z)], c);
+      K.poly([p(um, vm - hv * 0.45, z), p(um + hu * 0.45, vm, z), p(um, vm + hv * 0.45, z), p(um - hu * 0.45, vm, z)], '#e8b040'); }
+    for (let k = 0; k < 2; k++){ const v = k ? v1 - 2.2 : v0 + 2.2; for (let i = 0; i < 12; i++){ const u = u0 + 2 + (u1 - u0 - 4) * i / 11, a = p(u, v, z); K.ov(a[0], a[1], 0.45, 0.45, '#2f4f9a'); } }
+    [u0, u1].forEach((u, k) => { for (let i = 0; i <= 8; i++){ const v = v0 + (v1 - v0) * i / 8, a = p(u, v, z), b = p(u + (k ? 1.8 : -1.8), v, z); K.ln(a, b, '#e8d8b8', 0.45); } });
+  });
+  // 가죽 방석(푸프) — 둥근 낮은 가죽 쿠션, 위에 별 수 놓고 옆에 아치 무늬
+  def('pouf', (g, C) => {
+    const K = kit(g, C), P = C.P, cx = C.E / 2, cy = C.D / 2, c = C.c || '#c87a3a';
+    if (C.lit) return;
+    const b = P(cx, cy, 0), t = P(cx, cy, 13), rx = 9 * 1.414, ry = 9 * 0.707;
+    K.blob(b[0] + 1, b[1] + 1, rx + 1, ry + 1.4);
+    g.beginPath(); g.ellipse(b[0], b[1], rx, ry, 0, 0, Math.PI); g.bezierCurveTo(t[0] - rx - 1.6, b[1] - 6, t[0] - rx - 0.6, t[1] + 2, t[0] - rx + 0.6, t[1]); g.ellipse(t[0], t[1], rx - 0.6, ry - 0.3, 0, Math.PI, TAU); g.bezierCurveTo(t[0] + rx + 0.6, t[1] + 2, t[0] + rx + 1.6, b[1] - 6, b[0] + rx, b[1]); g.closePath();
+    g.fillStyle = K.lg(b[0] - rx, 0, b[0] + rx, 0, [C.shade(c, 0.18), c, C.shade(c, -0.3)]); g.fill(); g.strokeStyle = C.INK; g.lineWidth = 0.5; g.stroke();
+    for (let i = 0; i < 5; i++){ const f = -0.8 + i * 0.4, x = b[0] + f * rx, y = b[1] - 6.5 + Math.sqrt(1 - f * f) * ry; K.poly([[x - 2, y + 3], [x - 2, y - 1], [x, y - 3], [x + 2, y - 1], [x + 2, y + 3]], null, 0); g.strokeStyle = '#7a3a18'; g.lineWidth = 0.6; g.stroke(); }
+    K.ov(t[0], t[1], rx - 0.6, ry - 0.3, K.rg(t[0] - 3, t[1] - 1.5, rx, [C.shade(c, 0.32), C.shade(c, 0.08)]), 0.5);
+    g.save(); g.translate(t[0], t[1]); g.scale(1, 0.5); g.fillStyle = '#f2d080'; for (let i = 0; i < 8; i++){ g.rotate(TAU / 8); g.beginPath(); g.moveTo(0, 0); g.lineTo(1.2, -2.4); g.lineTo(0, -5.4); g.lineTo(-1.2, -2.4); g.closePath(); g.fill(); } g.restore();
+    K.ov(t[0], t[1], 1.2, 0.6, '#7a3a18');
+  });
+
   const defW = (kind, fn) => { RH.wall[kind] = fn; };
   // 못과 걸이줄
   function hang(K, cx, top, half){ K.ln([cx, top + 1], [cx - half, top + 6], '#8a7b6e', 0.45); K.ln([cx, top + 1], [cx + half, top + 6], '#8a7b6e', 0.45); K.ov(cx, top + 1, 1.1, 1.1, '#6f6257', 0.3); }

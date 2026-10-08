@@ -100,7 +100,7 @@
     }
     g.restore();
     // 앞 모서리 아래 눈 부스러기 몇 — 눈밭에 판 두둑
-    const sn = NIGHT ? '#a3b7e0' : '#ffffff';
+    const sn = E.farm === 'desert' ? (NIGHT ? '#8a7a8e' : '#f2d49c') : NIGHT ? '#a3b7e0' : '#ffffff';   // 사막은 모래 부스러기
     for (let k = 0; k < 3; k++){ const f = hash(u * 9 + v * 5 + k * 7); if (f < 0.45) continue; const p = k < 2 ? P(u + 0.15 + f * 0.7, v + 1.02, 0) : P(u + 1.02, v + 0.2 + f * 0.6, 0); oval(p[0], p[1], 1.4 + f, 0.7, sn); }
   }
   // 다음에 열 땅 — 둥근 점선(눈 위에 줄을 띄워 둔 것처럼)
@@ -338,6 +338,18 @@
     oval(x, y, 1, 0.9, '#ffffff');
     [[-5, -3], [5, 1], [3, -5]].forEach(([a, b]) => twinkle(x + a, y + b, 1.3, 'rgba(255,255,255,.9)'));
   };
+  // 용과(사막, 2026-10-09) — 마디진 세모 선인장 줄기 셋이 뻗고, 익으면 분홍 비늘 열매, 덜 익으면 큰 흰 꽃봉오리
+  CROP.dragonfruit = (C, ripe) => {
+    const arm = (pts, w) => { g.strokeStyle = INK; g.lineWidth = w + 1; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); g.strokeStyle = C.G.mid; g.lineWidth = w; g.stroke(); g.strokeStyle = C.G.hi; g.lineWidth = w * 0.3; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0] - w * 0.2, p[1]) : g.moveTo(p[0] - w * 0.2, p[1])); g.stroke(); pts.slice(1).forEach(p => oval(p[0], p[1], w * 0.35, w * 0.2, C.G.dk)); };
+    arm([[0, 0], [0.5, -7], [0, -14], [1, -20]], 2.6); arm([[0.3, -6], [-4, -9], [-6, -15]], 2.2); arm([[0.4, -11], [5, -13], [6.5, -18]], 2.2);
+    const tips = [[1, -21.5], [-6, -16.5], [6.5, -19.5]];
+    tips.forEach(([x, y], i) => {
+      if (!ripe){ if (i !== 1) bud(x, y, pal('#f4f0d8'), 1.3); return; }
+      g.fillStyle = lin(x - 3, y - 3, x + 3, y + 3, [tn('#ff7aa8'), tn('#e8407a'), tn('#b02a5a')]); g.beginPath(); g.ellipse(x, y, 2.8, 3.4, 0, 0, TAU); g.fill(); ink(0.5);
+      for (let k = 0; k < 4; k++){ const a = -Math.PI / 2 + (k - 1.5) * 0.9; poly([[x + Math.cos(a) * 1.6, y + Math.sin(a) * 2], [x + Math.cos(a) * 3.8, y + Math.sin(a) * 3.8 - 0.6], [x + Math.cos(a + 0.25) * 2.4, y + Math.sin(a + 0.25) * 2.6]], tn('#7ac06a'), 0.35); }
+      oval(x - 1, y - 1.2, 0.8, 1, 'rgba(255,255,255,.5)');
+    });
+  };
   CROP.daffodil = (C, ripe) => {
     leaf(-0.5, 0, -1.8, 12, 1, C.G, { bend: 0.1, vein: false }); leaf(0.5, 0, -1.3, 11, 1, C.G, { bend: -0.1, vein: false });
     stem(0, 0, 0.5, -10, 1, -18, C.G.dk, 0.8); stem(1, -18, 2, -19, 3, -18.5, C.G.dk, 0.6);
@@ -502,6 +514,7 @@
     if (back) o.head(true, by);                                                  // 뒷모습 — 머리가 몸 뒤
     if (!back && o.tail) o.tail(false, by);
     torso(0, by, L, Hh, cols3(o.body));
+    if (o.top) o.top(by);                                                        // 몸 위에 얹는 것(낙타 혹)
     if (o.pat){ g.save(); g.beginPath(); g.ellipse(0, by, L, Hh, 0, 0, TAU); g.clip(); o.pat(by); g.restore(); }
     xs.forEach((x, i) => leg(x - 0.6, by + Hh * 0.45, o.legW, lc, hoof, i ? -sw : sw));          // 가까운 쪽 다리
     if (back && o.tail) o.tail(true, by);
@@ -592,6 +605,28 @@
       antler(1, false);
       if (!bk){ g.strokeStyle = tn('#c8323a'); g.lineWidth = 1.6; g.beginPath(); g.ellipse(hx - 2.5, hy + 4.6, 3.4, 1.4, -0.4, 0, Math.PI); g.stroke(); ball(hx - 2.2, hy + 6.6, 1.3, pal('#f2c040'), 1.3, 0.45); }   // 빨간 목줄과 금방울
     } }, f, back);
+  // 낙타(사막 이사 식구, 2026-10-09) — 긴 다리, 등에 혹 하나와 줄무늬 안장 천, 길게 휜 목, 졸린 눈
+  BEASTS.camel = (f, back) => quad({ L: 12.5, H: 6.5, legH: 15, legW: 2.3, leg: '#d0a068', hoof: '#8a6440', body: ['#f0cc94', '#d8a868', '#a87a48'],
+    top: by => {
+      g.beginPath(); g.moveTo(-7, by - 4); g.bezierCurveTo(-6, by - 15, 4, by - 15, 5.5, by - 4); g.closePath();
+      g.fillStyle = lin(0, by - 14, 0, by - 3, [tn('#f4d29c'), tn('#d8a868')]); g.fill(); ink(0.6);
+      g.save(); g.beginPath(); g.moveTo(-7, by - 4); g.bezierCurveTo(-6, by - 15, 4, by - 15, 5.5, by - 4); g.closePath(); g.clip();
+      g.fillStyle = tn('#b8302a'); g.fillRect(-8, by - 8, 15, 5); g.fillStyle = tn('#e8b040'); g.fillRect(-8, by - 6.4, 15, 1); g.fillStyle = tn('#2f4f9a'); g.fillRect(-8, by - 4.6, 15, 0.8); g.restore();
+      oval(-2.5, by - 12, 3, 1.2, 'rgba(255,255,255,.35)');
+    },
+    tail: (bk, by) => { stem(-12.4, by - 2, -14.2, by + 2, -13.6, by + 7, tn('#c89a60'), 0.9); ovalI(-13.6, by + 7.6, 1, 1.6, tn('#8a6440'), 0.4); },
+    head: (bk, by) => {
+      const hx = 17, hy = by - 13;
+      // 목 — 몸 앞에서 앞으로 숙였다가 위로 휘어 오른다
+      g.beginPath(); g.moveTo(9, by - 4); g.quadraticCurveTo(15.5, by + 1, 15.5, hy + 4); g.lineTo(hx + 1.5, hy + 3); g.quadraticCurveTo(hx + 0.5, by - 3, 11, by + 2.5); g.closePath();
+      g.fillStyle = lin(9, hy, 17, by, [tn('#f0cc94'), tn('#d0a064')]); g.fill(); ink(0.55);
+      headAt(hx, hy, 3.6, ['#f4d6a2', '#d8aa6c', '#a87a48'], bk, { wide: 1.15,
+        ears: (x, y) => { ear(x - 2.6, y - 2.6, 0.9, 2.2, -0.9, '#c89a60'); if (!bk) ear(x + 1, y - 3.2, 0.9, 2.2, 0.5, '#c89a60'); },
+        face: (x, y, r) => { g.fillStyle = tn('#e8c48c'); g.beginPath(); g.ellipse(x + 3.2, y + 1.2, 2.8, 2.2, 0, 0, TAU); g.fill(); ink(0.45);
+          oval(x + 5, y + 0.6, 0.45, 0.8, tn('#6a4a30')); line(x + 3.4, y + 2.8, x + 5.2, y + 2.6, tn('#8a6440'), 0.5);
+          eye(x + 0.4, y - 0.6, 0.75); line(x - 0.6, y - 1.5, x + 1.4, y - 1.3, tn('#6a4a30'), 0.6); blush(x - 0.6, y + 1.3); } });
+      if (!bk){ g.strokeStyle = tn('#2f4f9a'); g.lineWidth = 1.3; g.beginPath(); g.ellipse(15.6, by - 4, 2.6, 1.2, -0.5, 0, Math.PI); g.stroke(); ball(15.4, by - 2.2, 1.1, pal('#f2c040'), 1.1, 0.45); }   // 쪽빛 목줄과 금방울
+    } }, f, back);
   BEASTS.goat = (f, back) => quad({ L: 10, H: 6, legH: 10, legW: 2, leg: '#ece2cf', hoof: '#4a4038', body: ['#fffcf4', '#f1e7d4', '#cdbd9e'],
     tail: (bk, by) => leaf(-9.5, by - 3, -2.4, 3.4, 1, pal('#e6d6ba'), { vein: false }),
     head: (bk, by) => headAt(11.5, by - 7, 4.4, ['#fffcf4', '#f1e7d4', '#d4c4a6'], bk, {
@@ -634,7 +669,7 @@
     ears: (x, y, r) => { ear(x - 1.4, y - r * 0.6, 1.3, 6.4, -0.25, '#fbf6ee', '#ffb3c4'); if (!bk) ear(x + 0.8, y - r * 0.7, 1.3, 6.2, 0.15, '#fbf6ee', '#ffb3c4'); },
     face: (x, y, r) => { oval(x + 2.6, y + r * 0.3, 0.6, 0.45, tn('#ff9ab0')); eye(x + 0.2, y - 0.3, 0.75); eye(x + 2, y - 0.4, 0.75); blush(x - 0.8, y + 1.2); } });
   // 맨 위 높이(도트) — 다 되었다는 말풍선을 그 위에 띄운다
-  const TOPZ = { chicken: 20, duck: 17, gull: 17, crane: 34, cow: 32, reindeer: 44, goat: 28, sheep: 26, pig: 22, dog: 22, cat: 19, rabbit: 21 };
+  const TOPZ = { chicken: 20, duck: 17, gull: 17, crane: 34, cow: 32, reindeer: 44, camel: 46, goat: 28, sheep: 26, pig: 22, dog: 22, cat: 19, rabbit: 21 };
   const BABY = 2 / 3;
   const beastBuf = {};
   function beastSprite(kind, back, frame, baby, sc){
@@ -698,7 +733,7 @@
   function animal(gg, E, kind, x, y, d, frame, baby, lift, ready, d8, phase){
     set(gg, E);
     const sc = Math.max(1, Math.abs(gg.getTransform().a) || 1), back = d === '-u' || d === '-v', flip = d === 'v' || d === '-u', k = baby ? BABY : 1;
-    oval(x + 1, y + 0.6, (kind === 'cow' || kind === 'reindeer' ? 13 : kind === 'goat' || kind === 'sheep' || kind === 'pig' ? 10 : 7) * k, (kind === 'cow' || kind === 'reindeer' ? 4.4 : 3.2) * k, shadowC());
+    oval(x + 1, y + 0.6, (kind === 'cow' || kind === 'reindeer' || kind === 'camel' ? 13 : kind === 'goat' || kind === 'sheep' || kind === 'pig' ? 10 : 7) * k, (kind === 'cow' || kind === 'reindeer' || kind === 'camel' ? 4.4 : 3.2) * k, shadowC());
     if (d8 && beastAtlas(kind, x, y, d8, phase, k, NIGHT)){
       if (ready){ const by = y - ((TOPZ[kind] || 22) + 4) * k - 7 + Math.sin(E.t * 2.5) * 1.2; readyBubble(x, by, kind); }
       return;

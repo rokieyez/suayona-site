@@ -207,6 +207,22 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   const baby = wa.animals[wa.animals.length - 1];
   assert(baby.kind === 'reindeer' && baby.baby, '오로라 새 식구는 아기 순록');
   assert(R.claimMedal(wa, ms, 'stampAurora', now).ok, '오로라 도장');
-  assert(!R.moveState(wa, ms).next, '오로라가 지금 마지막 농장');
+  assert(R.moveState(wa, ms).next && R.moveState(wa, ms).next.id === 'desert', '오로라 다음은 사막 오아시스');
+}
+// 스테이지2 둘째 — 오로라에서 사막 오아시스로 이사하면 아기 낙타가 따라오고 오아시스 도장을 받는다(2026-10-09)
+{
+  const wd = R.fixWorld(null, now), ms = R.fixMine(null, 'sua'), my = R.fixMine(null, 'yona'); wd.farm = R.FARMS.findIndex(f => f.id === 'aurora');
+  Object.keys(R.DECOR).forEach(d => { if (!R.DECOR[d].farm || R.DECOR[d].farm === 'aurora') wd.decor[d] = { by: 'sua' }; });
+  const need = R.FARMS.find(f => f.id === 'desert');
+  ['sua', 'yona', 'living'].forEach(r => { wd.house[r] = {}; for (let i = 0; i < need.room - 1; i++) wd.house[r][i + ',0'] = { f: 'bed1', r: 0 }; });
+  for (let i = 0; i < need.animals; i++) wd.animals.push({ id: 'z' + i, kind: 'duck', name: '오리' });
+  assert(!R.askMove(wd, ms, now).ok || !R.askMove(wd, my, now).moved, '방 가구가 모자라면 못 떠난다');
+  delete wd.moveAsk; ['sua', 'yona', 'living'].forEach(r => { wd.house[r][(need.room - 1) + ',0'] = { f: 'bed1', r: 0 }; });
+  assert(R.askMove(wd, ms, now).ok && R.askMove(wd, my, now).moved, '오로라 → 사막 오아시스 이사');
+  assert.strictEqual(R.farmOf(wd).id, 'desert');
+  const baby = wd.animals[wd.animals.length - 1];
+  assert(baby.kind === 'camel' && baby.baby, '오아시스 새 식구는 아기 낙타');
+  assert(R.claimMedal(wd, ms, 'stampDesert', now).ok, '오아시스 도장');
+  assert(!R.moveState(wd, ms).next, '사막 오아시스가 지금 마지막 농장');
 }
 console.log('이사 규칙 점검 통과');

@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '25';
+const PLAY_V = '26';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -549,6 +549,8 @@ const FARM_LOOK = {
               path: ['#bdb8ac', '#aaa498', '#cdc8bd'], pathEdge: '#8a857a', petals: true },
   // 오로라 — 늘 눈 덮인 땅(밭 흙 빛깔 정도만 이 표를 본다)
   aurora:   { tint: '#dfe8f2', amt: 0.7, dry: '#e8eef4', rock: '#9aa0ae', bloom: ['#ffffff', '#d8ecff'], bloomX: 0 },
+  // 사막 오아시스 — 늘 금빛 모래 땅(밭 흙 빛깔 정도만 이 표를 본다)
+  desert:   { tint: '#e8c48c', amt: 0.7, dry: '#f2d49c', rock: '#c88a58', bloom: ['#e8407a', '#ffd040'], bloomX: 0 },
 };
 function farmLook(){ return (W && R.farmOf && FARM_LOOK[R.farmOf(W).id]) || null; }
 const palMemo = {};
@@ -3609,17 +3611,19 @@ const ISO_LOOK = {
   // 오로라 — 하늘·섬·건물은 pages/farm-hd.js 가 고화소로 그린다(hdOn). 이 표는 비·안개 같은 공통 셈이 보는 값만
   aurora:   { sky: ['#050a1e', '#0b1a3c', '#123a5a', '#1d5a6e'], horizon: ITOP + 34, below: 'ice',
               strata: ['#3a4766', '#2c3654', '#222a44', '#181e34'], deep: ICLIFF },
+  desert:   { sky: ['#3d8bd8', '#78b6e6', '#cfe2e8', '#f6e2bc'], horizon: ITOP + 34, below: 'sand',
+              strata: ['#dca062', '#c98850', '#ae6c3e', '#8e5432'], deep: ICLIFF },
 };
 function isoLook(){ return ISO_LOOK[R.farmOf(W).id] || ISO_LOOK.seaside; }
 /* ---- 스테이지2 고화소 그림(pages/farm-hd.js) ----
    여기 적힌 농장은 하늘·섬·건물·꾸미개·나무·아이를 도트 대신 FARMHD 로 칠한다. 좌표는 같은 도트 단위라 ctx 를 S 배 키워 놓고 부르면 된다.
    FARMHD 에 그림이 없는 것(작물·동물·앞 농장 추억 꾸미개)은 도트 그림 그대로다. 밤(등 켜는 때, L.lamp)이면 밤 빛깔 */
-const HD_FARMS = { aurora: 1 };
+const HD_FARMS = { aurora: 1, desert: 1 };
 let hdLight = null;
 function hdOn(){ return !!window.FARMHD && !!W && !!HD_FARMS[R.farmOf(W).id]; }
 function hdEnv(){
   return { P: (u, v, z) => { const p = isoP(u, v, z); return [p.x, p.y]; }, cols: COLS, rows: ROWS, top: ITOP, cliff: ICLIFF, w: ISO_W, h: ISO_H,
-    night: !!(hdLight ? hdLight.lamp : dayLight().lamp), t: STILL ? 0 : performance.now() / 1000,
+    night: !!(hdLight ? hdLight.lamp : dayLight().lamp), t: STILL ? 0 : performance.now() / 1000, farm: R.farmOf(W).id,
     lamp: (x, y, r, c) => lamp(x, y, r, c), chimney: (x, y) => { isoChimney = { x, y }; } };
 }
 function hd(fn){ ctx.save(); ctx.scale(S, S); try { return fn(ctx, hdEnv()); } finally { ctx.restore(); } }
@@ -8028,7 +8032,7 @@ const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars:
                      board: 1, garland: 1, wshelf: 1, rainbow: 1,
                      heightbar: 1, worldmap: 1, mobile: 1, wreath: 1,
                      whale: 1, wlight: 1, medalcase: 1,
-                     blueplate: 1, cuckoo: 1, scroll: 1, advent: 1 };
+                     blueplate: 1, cuckoo: 1, scroll: 1, advent: 1, mlamp: 1 };
 /* 옛 세이브에만 남은 규칙 — 벽에 거는 것을 바닥 칸에 두고 어느 벽인지 어림하던 방법.
    지금은 벽 격자('w,벽,칸,단')에 걸므로, fixWorld 가 아직 못 옮긴 것만 이 길로 그린다. */
 function wallSlot(Rm, x, y){
@@ -8841,7 +8845,7 @@ function drawRoomShell(g, r, L, wallItems){
   const LW = Rm.w * (TW / 2), LH = Rm.h * (TW / 2);          // 두 벽의 가로 길이
   if (roomHd()){                                              // 고화소 방 — 창·문 자리는 아래 도트 방과 같다(wallCovers·햇살이 그 자리를 본다)
     const dv0 = W_MOULD + 4;
-    window.ROOMHD.shell(g, { HS, r, Rm, ox, LW, LH, WALLH, TW, TH, dark: L.dark, win: { u: Math.max(6, Math.floor((LW / 2 - 30) / 2) * 2), v: 14, w: 60, h: 42 },
+    window.ROOMHD.shell(g, { HS, r, Rm, ox, LW, LH, WALLH, TW, TH, dark: L.dark, farm: roomTheme(), win: { u: Math.max(6, Math.floor((LW / 2 - 30) / 2) * 2), v: 14, w: 60, h: 42 },
       door: r === 'living' ? { u: Math.max(6, Math.floor((LH - 44) / 2 / 2) * 2), v: dv0, w: 40, h: WALLH - dv0 - 6 } : null });
     (wallItems || []).forEach(it => {
       const len = it.side ? LW : LH, wl = wallPaint(g, Rm, it.side);
@@ -9102,7 +9106,7 @@ function drawRoomShell(g, r, L, wallItems){
    바뀌므로 그림 자체를 다시 그린다 — 캔버스를 회전시키면 계단 모양이 흐트러진다. */
 let furnBuf = null;
 // 불꽃이 흔들리는 것만 매번 다시 그리고, 나머지는 한 번 그려 담아 둔다
-const FURN_ANIM = { fire: 1, stove: 1, woodstove: 1, rockchair: 1 };   // 오로라 장작 난로 불꽃·흔들의자(2026-10-09)
+const FURN_ANIM = { fire: 1, stove: 1, woodstove: 1, rockchair: 1, teaset: 1 };   // 민트 차 김(사막)   // 오로라 장작 난로 불꽃·흔들의자(2026-10-09)
 /* 방 안에서 빛을 내는 가구. c 는 빛 색(그 가구의 불빛 색), r 은 번지는 반지름(도트),
    dy 는 빛의 가운데를 발자국 가운데에서 얼마나 올릴지, flick 은 흔들림의 갈래.
    밤에는 방을 통째로 어둡게 물들이므로(grade) 불빛도 같이 죽는다 — 그래서 물들인 뒤에
@@ -9113,6 +9117,7 @@ const ROOM_LIGHT = {
   stove:    { c: '#ff9a3a', r: 56, dy: -14, flick: 'fire' },
   woodstove:{ c: '#ff9a3a', r: 64, dy: -14, flick: 'fire' },        // 오로라 무쇠 장작 난로
   advent:   { c: '#ffc878', r: 50, wall: true, flick: 'breathe' },   // 오로라 대림절 별 등
+  mlamp:    { c: '#ffc070', r: 54, wall: true, flick: 'breathe' },   // 사막 모로코 등
   xmas:     { c: '#ffd979', r: 54, dy: -16, flick: 'twinkle' },
   pumpkin:  { c: '#ff8c3a', r: 44, dy: -10, flick: 'fire' },
   nightsky: { c: '#8f9fe6', r: 78, dy: -6,  flick: 'breathe' },
@@ -9169,7 +9174,8 @@ const FURN_H = { rug: 2, bed: 24, bunk: 72, table: 28, desk: 32, chair: 38, sofa
                  fox: 40, sangre: 34, rabbit: 44, pcdesk: 62, sunflower: 58, rose: 44,
                  bigbear: 80,
                  amphora: 46, olive: 52, kachel: 66, sled: 24, kotatsu: 30, andon: 52,
-                 woodstove: 64, furrug: 2, rockchair: 46 };                   // 오로라 가구(2026-10-09) — 그림은 room-hd-furn.js
+                 woodstove: 64, furrug: 2, rockchair: 46,
+                 teaset: 36, kilim: 2, pouf: 18 };                            // 사막 가구(2026-10-09)                   // 오로라 가구(2026-10-09) — 그림은 room-hd-furn.js
 // 가구마다의 재질 — 적지 않은 것은 나무로 친다
 const FURN_MAT = {
   rug:'cloth', bed:'cloth', sofa:'cloth', cushion:'cloth', catbed:'cloth', beanbag:'cloth',
@@ -9185,6 +9191,7 @@ const FURN_MAT = {
   bigbear:'cloth',
   amphora:'plain', olive:'plain', kachel:'plain', sled:'wood', kotatsu:'cloth', andon:'plain',
   woodstove:'metal', furrug:'cloth', rockchair:'wood',
+  teaset:'metal', kilim:'cloth', pouf:'cloth',
 };
 function furnArt(f, rot){
   const F = R.FURNITURE[f], b = R.furnBox(f, rot);

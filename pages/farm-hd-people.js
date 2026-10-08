@@ -351,7 +351,95 @@
     }
     return kidsOk;
   }
-  // cv 에 장면을 건다. 다 날면 onDone(). 돌려주는 stop() 으로 멈춘다
+  // ================= 마법 양탄자 장면(오로라 → 사막 오아시스, 2026-10-09) =================
+  // 오로라 밤의 눈 섬에서 양탄자가 떠올라 → 동이 트며 모래 언덕 바다 위를 날고 → 한낮의 오아시스 섬(카스바·대추야자)에 내려앉는다
+  const DSKY0 = SKY1, DSKY_DAWN = ['#3a3a7a', '#b06a8a', '#f4a07a', '#ffd8a0'], DSKY1 = ['#3d8bd8', '#78b6e6', '#cfe2e8', '#f6e2bc'];
+  // 모래 언덕 둑 — 부드러운 봉우리가 흐른다
+  function duneBank(y, amp, par, cam, col, hi, seed){
+    const sh = cam * par;
+    g.beginPath(); g.moveTo(-10, SH + 10); for (let x = -10; x <= SW + 10; x += 4){ const X = x + sh; g.lineTo(x, y - amp * (0.5 + 0.5 * Math.sin(X * 0.018 + seed)) * (0.7 + 0.3 * Math.sin(X * 0.007 + seed * 2))); } g.lineTo(SW + 10, SH + 10); g.closePath();
+    g.fillStyle = lin(0, y - amp, 0, SH, [hi, col]); g.fill();
+    g.strokeStyle = 'rgba(255,240,210,.25)'; g.lineWidth = 0.8; g.beginPath(); for (let i = 0; i < 6; i++){ const x = ((i * 97 + seed * 31 - sh) % (SW + 60) + SW + 60) % (SW + 60) - 30, yy = y + 14 + (i % 3) * 10; g.moveTo(x - 18, yy); g.quadraticCurveTo(x, yy - 3, x + 18, yy); } g.stroke();
+  }
+  function palm(x, y, s){
+    g.strokeStyle = '#8a6040'; g.lineWidth = 3 * s; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 4 * s, y - 18 * s, x + 2 * s, y - 34 * s); g.stroke();
+    for (let i = 0; i < 7; i++){ const a = -Math.PI / 2 + (i - 3) * 0.5, ex = x + 2 * s + Math.cos(a) * 20 * s, ey = y - 34 * s + Math.sin(a) * 8 * s + 8 * s; g.fillStyle = i % 2 ? '#3f8a3e' : '#2f7034'; g.beginPath(); g.moveTo(x + 2 * s, y - 34 * s); g.quadraticCurveTo((x + ex) / 2, ey - 10 * s, ex, ey); g.quadraticCurveTo((x + ex) / 2, ey - 4 * s, x + 2 * s, y - 32 * s); g.fill(); }
+    [[-2, 0], [2, 1], [0, 2]].forEach(([a, b]) => oval(x + 2 * s + a * s, y - 31 * s + b * s, 1.6 * s, 1.6 * s, '#c86a2a'));
+  }
+  function kasbah(x, y){
+    rrect(x - 30, y - 30, 60, 30, 1, lin(0, y - 30, 0, y, ['#ecb478', '#c8864e']), 1);
+    for (let i = 0; i < 6; i++) rrect(x - 30 + i * 11, y - 35, 6, 6, 0.5, '#e8ac70', 0.7);
+    rrect(x + 16, y - 52, 11, 24, 1, '#e0a468', 0.9); rrect(x + 15, y - 56, 13, 5, 0.5, '#ecb478', 0.7);
+    g.fillStyle = '#2f6fb0'; g.beginPath(); g.moveTo(x - 5, y); g.lineTo(x - 5, y - 11); g.arc(x, y - 11, 5, Math.PI, 0); g.lineTo(x + 5, y); g.closePath(); g.fill(); ink(0.8);
+    [-20, 10].forEach(wx => { g.fillStyle = '#4a6e96'; g.beginPath(); g.moveTo(wx + x, y - 14); g.lineTo(wx + x, y - 20); g.arc(wx + x + 3, y - 20, 3, Math.PI, 0); g.lineTo(wx + x + 6, y - 14); g.closePath(); g.fill(); ink(0.6); });
+  }
+  // 양탄자 — (x, y) 는 양탄자 가운데. 물결치는 천, 술, 위에 앉은 두 아이와 짐
+  function rug(x, y, t, flying){
+    const wv = i => flying && !STILL ? Math.sin(t * 5 - i * 0.6) * 2.4 : 0, N = 10, L = 92, Dp = 16;
+    const top = [], bot = [];
+    for (let i = 0; i <= N; i++){ const f = i / N, xx = x - L / 2 + L * f; top.push([xx + 8, y - Dp / 2 + wv(i)]); bot.push([xx - 8, y + Dp / 2 + wv(i) + 1]); }
+    // 술
+    [[top[0], bot[0]], [top[N], bot[N]]].forEach(([a, b], k) => { for (let j = 0; j <= 5; j++){ const px = a[0] + (b[0] - a[0]) * j / 5, py = a[1] + (b[1] - a[1]) * j / 5; g.strokeStyle = '#e8b040'; g.lineWidth = 1; g.beginPath(); g.moveTo(px, py); g.lineTo(px + (k ? 5 : -5), py + 1 + wv(k * N)); g.stroke(); } });
+    poly(top.concat(bot.slice().reverse()), '#b02a2a', 1);
+    poly(bot.concat(bot.map(p => [p[0], p[1] + 2.6]).reverse()), '#7a1a1a', 0.7);                    // 천 두께
+    const inner = (k, c) => { const tt = top.map((p, i) => [p[0] + (bot[i][0] - p[0]) * k, p[1] + (bot[i][1] - p[1]) * k]), bb = top.map((p, i) => [p[0] + (bot[i][0] - p[0]) * (1 - k), p[1] + (bot[i][1] - p[1]) * (1 - k)]); poly(tt.slice(1, N).concat(bb.slice(1, N).reverse()), c); };
+    inner(0.18, '#e8b040'); inner(0.3, '#2f4f9a');
+    for (let i = 2; i < N - 1; i += 2){ const m = [(top[i][0] + bot[i][0]) / 2, (top[i][1] + bot[i][1]) / 2]; poly([[m[0], m[1] - 3], [m[0] + 4, m[1]], [m[0], m[1] + 3], [m[0] - 4, m[1]]], '#f2e2c0'); }
+    // 짐·아이
+    rrect(x - 40, y - 16, 13, 12, 2, '#c08850', 0.9); rrect(x - 38, y - 24, 11, 9, 2, '#6aa0d0', 0.9);
+    const kd = window.FARMHD && window.FARMHD.kid, a = kd && kd(g, 'yona', x - 8, y + 2, 'SE', 0, 40), b = kd && kd(g, 'sua', x + 14, y + 2, 'SE', 0, 44);
+    if (flying && !STILL) for (let i = 0; i < 6; i++){ const k = (t * 0.8 + i / 6) % 1; oval(x - L / 2 - 6 - k * 40, y + Math.sin(i * 2 + t) * 6, 1.2, 1.2, 'rgba(255,240,180,' + (0.8 * (1 - k)).toFixed(2) + ')'); }   // 반짝 꼬리
+    return a && b;
+  }
+  function carpetFrame(cx, p, t, opts){
+    g = cx;
+    const dawn = smooth(0.25, 0.55, p), day = smooth(0.5, 0.8, p), cam = camAt(p);
+    const sky = DSKY0.map((c, i) => mix(mix(c, DSKY_DAWN[i], dawn), DSKY1[i], day));
+    g.fillStyle = lin(0, 0, 0, SH, sky); g.fillRect(0, 0, SW, SH);
+    const na = 1 - smooth(0.2, 0.45, p);
+    if (na > 0){ for (let i = 0; i < 90; i++){ const x = ((hash(i * 7 + 1) * SW * 1.4 - cam * 0.04) % SW + SW) % SW, y = hash(i * 11 + 3) * 150, k = 0.35 + 0.65 * Math.abs(Math.sin(t * (0.6 + hash(i) * 1.4) + i)); g.fillStyle = 'rgba(235,245,255,' + (na * k).toFixed(2) + ')'; g.fillRect(x, y, 0.8, 0.8); }
+      g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = na;
+      AUR.forEach(r => { const im = auroraStrip(r.c); for (let x = 0; x < SW; x += 2){ const k = 0.5 + 0.5 * Math.sin(x * 0.02 + t * 0.7 + r.f * 100) * Math.sin(x * 0.007 - t * 0.25); if (k < 0.1) continue; const base = r.y + r.a * Math.sin(x * r.f + t * r.s), h = r.h * (0.7 + 0.5 * k); g.globalAlpha = na * k; g.drawImage(im, x, base - h, 2.2, h); } });
+      g.restore(); }
+    // 해 — 동틀 녘 지평선에서 떠오른다
+    const sunY = lerp(230, 70, smooth(0.3, 0.85, p)), sa = smooth(0.3, 0.5, p);
+    if (sa > 0){ g.globalAlpha = sa; glow(SW * 0.78, sunY, 90, 'rgba(255,230,180,', 0.8); oval(SW * 0.78, sunY, 15, 15, '#fff6dc'); g.globalAlpha = 1; }
+    // 피라미드(끝 무렵)
+    const pa = smooth(0.55, 0.8, p);
+    if (pa > 0){ g.globalAlpha = pa; [[120, 46], [180, 30]].forEach(([x, h]) => { const X = x - cam * 0.08 + 60; poly([[X - h * 1.1, 186], [X, 186 - h], [X + h * 0.3, 186]], mix('#a87a5a', '#ecc282', day)); poly([[X + h * 0.3, 186], [X, 186 - h], [X + h * 1.1, 186]], mix('#6a4a4a', '#b9834e', day)); }); g.globalAlpha = 1; }
+    // 아래 — 처음엔 밤 구름 바다, 동이 트면 모래 언덕 바다
+    const da = smooth(0.3, 0.5, p);
+    if (da < 1) cloudBank(198, 10, 0.3, cam, mix('#41557e', sky[3], 0.3), '#8aa0c8', 3, t);
+    if (da > 0){ g.globalAlpha = da; duneBank(196, 16, 0.3, cam, mix('#8a5a5a', '#d9a064', day), mix('#c88a6a', '#f2c88a', day), 2); g.globalAlpha = 1; }
+    // 섬 둘 — 떠나는 오로라 눈 섬, 닿는 오아시스 섬
+    const x0 = 200 - cam, x1 = LEN + 285 - cam;
+    if (x0 > -200){ isle(x0, 188, 320, ['#c4d4f2', '#8197c6'], ['#3a4766', '#181e34'], 5); fir(x0 - 150, 186, 1.2, true); fir(x0 - 136, 198, 0.9, true); fir(x0 + 108, 184, 1.3, true); fir(x0 + 128, 196, 0.95, true); cabin(x0 - 98, 186, true, t); }
+    if (x1 < SW + 200){
+      isle(x1, 188, 320, ['#f6dca8', '#e4b97c'], ['#dca062', '#8e5432'], 7);
+      oval(x1 + 100, 196, 36, 9, '#c79a62'); oval(x1 + 100, 195, 32, 7.5, lin(0, 188, 0, 202, ['#4ad0d0', '#1e8fb0'])); oval(x1 + 92, 193, 14, 2, 'rgba(255,255,255,.3)');   // 오아시스 — 양탄자 내릴 자리 옆
+      kasbah(x1 - 92, 186); palm(x1 - 150, 192, 1.1); palm(x1 - 52, 184, 0.9); palm(x1 + 140, 190, 1.15); palm(x1 + 70, 186, 0.85);
+    }
+    // 양탄자
+    const lift = p < 0.04 ? 0 : p < 0.2 ? (k => k * k * (3 - 2 * k))((p - 0.04) / 0.16) : p < 0.74 ? 1 : 1 - (k => k * k * (3 - 2 * k))(clamp01((p - 0.74) / 0.18));
+    const sx = 200 + 100 * smooth(0.7, 0.92, p), ground = lerp(186, 190, smooth(0.5, 0.8, p));
+    const sy = lerp(ground, 118, lift) + (lift > 0.5 && !STILL ? Math.sin(t * 2.2) * 4 * lift : 0);
+    const kidsOk = rug(sx, sy - 8, t, p > 0.03 && p < 0.93);
+    // 앞 언덕·구름
+    if (da < 1) cloudBank(256, 8, 1.25, cam, '#2c3d66', '#6e86b4', 9, t);
+    if (da > 0){ g.globalAlpha = da; duneBank(258, 12, 1.25, cam, mix('#6a4040', '#c88850', day), mix('#a07060', '#e8b878', day), 5); g.globalAlpha = 1; }
+    // 큰 제목
+    const ta = smooth(0.84, 0.94, p);
+    if (ta > 0){
+      const sc = 0.6 + 0.4 * (1 - Math.pow(1 - ta, 3)) + (ta < 1 ? Math.sin(ta * Math.PI) * 0.08 : 0), fam = getComputedStyle(document.body).fontFamily;
+      g.save(); g.globalAlpha = ta; g.translate(SW / 2, 52); g.scale(sc, sc); g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+      g.font = '900 40px ' + fam; g.lineWidth = 9; g.strokeStyle = '#4a2410'; g.strokeText(opts.title, 0, 0);
+      g.fillStyle = lin(-140, -20, 140, 20, ['#ffe08a', '#ffb060', '#ff8a8a']); g.fillText(opts.title, 0, 0);
+      g.font = '800 17px ' + fam; g.lineWidth = 5; g.strokeText(opts.sub, 0, 34); g.fillStyle = '#ffffff'; g.fillText(opts.sub, 0, 34);
+      g.restore();
+    }
+    return kidsOk;
+  }
+  // cv 에 장면을 건다. 다 날면 onDone(). 돌려주는 stop() 으로 멈춘다. opts.carpet 이면 마법 양탄자(오로라 → 사막)
   function airship(cv, opts){
     opts = Object.assign({ title: '스테이지2 시작!', sub: '🌌 오로라 농장' }, opts);
     const t0 = performance.now(); let dead = false, done = false, tries = 0;
@@ -361,7 +449,7 @@
       if (cv.width !== W2 || cv.height !== H2){ cv.width = W2; cv.height = H2; }
       const c = cv.getContext('2d'), el = performance.now() - t0, p = opts.at != null ? opts.at : STILL ? 1 : Math.min(1, el / DUR);   // at: 시험용 멈춘 자리
       c.setTransform(W2 / SW, 0, 0, H2 / SH, 0, 0); c.imageSmoothingEnabled = true;
-      const ok = airshipFrame(c, p, STILL ? 3 : (p < 1 ? el : DUR) / 1000, opts);
+      const ok = (opts.carpet ? carpetFrame : airshipFrame)(c, p, STILL ? 3 : (p < 1 ? el : DUR) / 1000, opts);
       if (p >= 1 && !done){ done = true; if (opts.onDone) opts.onDone(); }
       if (p < 1 || (!ok && tries++ < 60)) requestAnimationFrame(frame);       // 끝난 뒤에도 아이 그림이 늦게 오면 올 때까지 다시 그린다
     };
@@ -372,6 +460,17 @@
   const AIRSHIP_CV = '<canvas id="arriveCv" class="arrive" style="image-rendering:auto;aspect-ratio:16/9;max-width:560px" aria-label="비행선이 구름 바다를 건너 오로라 농장에 내려앉는 그림"></canvas>';
 
   // ---------- 로그인 없이 보기: farm.html?airship=1 ----------
+  // farm.html?carpet=1 — 마법 양탄자(오로라 → 사막 오아시스)
+  if (/[?&]carpet=1\b/.test(location.search)) window.addEventListener('load', () => setTimeout(() => {
+    const md = document.getElementById('modal'), inner = document.getElementById('modalInner'); if (!md || !inner) return;
+    inner.innerHTML = '<h3 class="pixel">🧞 마법 양탄자 — 오아시스 농장으로!</h3>' + AIRSHIP_CV
+      + '<div class="modal-actions"><button type="button" class="dot-btn small" id="airAgain">🔁 다시 보기</button><button type="button" class="dot-btn small primary" id="airClose">닫기</button></div>';
+    md.hidden = false;
+    const at = (location.search.match(/[?&]at=([\d.]+)/) || [])[1], O = () => ({ carpet: true, title: '오아시스 도착!', sub: '🐪 오아시스 농장', at: at != null ? +at : null });
+    let run = airship(document.getElementById('arriveCv'), O());
+    document.getElementById('airAgain').addEventListener('click', () => { run.stop(); run = airship(document.getElementById('arriveCv'), O()); });
+    document.getElementById('airClose').addEventListener('click', () => { run.stop(); md.hidden = true; });
+  }, 400));
   if (/[?&]airship=1\b/.test(location.search)) window.addEventListener('load', () => setTimeout(() => {
     const md = document.getElementById('modal'), inner = document.getElementById('modalInner'); if (!md || !inner) return;
     inner.innerHTML = '<h3 class="pixel">✈️ 스테이지2 — 오로라 농장으로!</h3>'

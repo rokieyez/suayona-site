@@ -168,17 +168,18 @@
   function shell(g, S){
     const pal = PAL[S.r] || PAL.living, ph = phase(S.dark), H = S.WALLH, ox = S.ox;
     g.save(); g.scale(S.HS, S.HS); g.lineJoin = 'round'; g.lineCap = 'round';
-    onWall(g, S, 1, () => logWall(g, pal, S.LW, H, 1, S.r));
-    onWall(g, S, 0, () => logWall(g, pal, S.LH, H, 0, S.r));
+    const DZ = S.farm === 'desert', wallFn = DZ ? plasterWall : logWall;   // 사막은 리아드 회벽·타일
+    onWall(g, S, 1, () => wallFn(g, pal, S.LW, H, 1, S.r));
+    onWall(g, S, 0, () => wallFn(g, pal, S.LH, H, 0, S.r));
     if (S.win) onWall(g, S, 1, () => winFrame(g, pal, S.win));
     if (S.door) onWall(g, S, 0, () => door(g, S.LH - S.door.u - S.door.w, S.door.v, S.door.w, S.door.h));
-    floor(g, S, pal);
+    if (DZ) tileFloor(g, S); else floor(g, S, pal);
     // 두 벽이 만나는 구석 — 세로 그늘 한 줄
     g.fillStyle = K.lin(g, ox - 3, 0, ox + 3, 0, ['rgba(30,16,8,0)', 'rgba(30,16,8,.28)', 'rgba(30,16,8,0)']); g.fillRect(ox - 3, 0, 6, H);
     g.restore();
     toneOver(g, ph);
     // 창밖은 누르지 않는다 — 밤 하늘·오로라는 제 빛깔로
-    if (S.win){ g.save(); g.scale(S.HS, S.HS); onWall(g, S, 1, () => winGlass(g, pal, S.win, ph, S.r)); g.restore(); }
+    if (S.win){ g.save(); g.scale(S.HS, S.HS); onWall(g, S, 1, () => (DZ ? winGlassDesert : winGlass)(g, pal, S.win, ph, S.r)); g.restore(); }
   }
   // 벽 한 면을 평평한 좌표(x 0..len, y 0..104)로 — 왼쪽 벽은 구석이 x = len
   function onWall(g, S, side, fn){
@@ -396,6 +397,79 @@
     g.fillStyle = K.lin(g, 0, 0, 0.7, 0, ['rgba(30,16,8,.45)', 'rgba(30,16,8,0)']); g.fillRect(0, 0, 0.7, Rm.h);
     g.fillStyle = K.lin(g, 0, 0, Rm.w, Rm.h, ['rgba(255,220,160,.08)', 'rgba(0,0,0,0)', 'rgba(30,16,8,.12)']); g.fillRect(0, 0, Rm.w, Rm.h);
     g.restore();
+  }
+
+  // ================= 사막 오아시스 방(2026-10-09) — 모로코 리아드: 흙빛 회벽, 아래는 별무늬 젤리주 타일, 위엔 삼나무 들보, 바닥은 붉은 테라코타 =================
+  const TILE = { sua: ['#2f6fb0', '#e88aa0'], yona: ['#1a8a8a', '#e8b040'], living: ['#2f6fb0', '#c0402a'] };
+  function plasterWall(g, pal, len, H, side, room){
+    const seed = side * 101 + hs(room), T = TILE[room] || TILE.living;
+    // 회벽 — 손으로 문지른 얼룩
+    g.fillStyle = K.lin(g, 0, 0, 0, 70, ['#f2dcb8', '#ecd0a6']); g.fillRect(0, 0, len, 70);
+    for (let k = 0; k < len / 5; k++){ const x = hash(seed + k * 7) * len, y = 8 + hash(seed * 3 + k) * 58, r = 4 + hash(k * 9 + seed) * 9; K.oval(g, x, y, r, r * 0.6, hash(k + seed) > 0.5 ? 'rgba(255,245,225,.18)' : 'rgba(180,120,70,.07)'); }
+    // 삼나무 들보 — 위 몰딩 대신 굵은 들보와 끝 단면
+    g.fillStyle = K.lin(g, 0, 0, 0, 7, ['#5a3420', '#8a5a38', '#4a2a18']); g.fillRect(0, 0, len, 7);
+    for (let x = 6; x < len; x += 18){ g.fillStyle = '#6a4028'; g.fillRect(x, 6, 5, 3); g.fillStyle = 'rgba(30,16,8,.3)'; g.fillRect(x, 9, 5, 1); }
+    // 허리 — 깎은 회반죽 띠(무늬 새김)
+    g.fillStyle = K.lin(g, 0, 70, 0, 75, ['#fff4e0', '#e0c8a0']); g.fillRect(0, 70, len, 5);
+    for (let x = 2; x < len; x += 6){ K.path(g, [[x, 71], [x + 3, 73.6], [x + 6, 71]]); g.strokeStyle = 'rgba(150,100,60,.45)'; g.lineWidth = 0.5; g.stroke(); }
+    // 젤리주 타일 — 흰 바탕에 여덟 갈래 별, 사이에 작은 십자
+    const ty0 = 75, th = 11.5;
+    for (let row = 0; row < 2; row++) for (let x = 0; x < len; x += th){
+      const y = ty0 + row * th, cx = x + th / 2, cy = y + th / 2, c = T[(row + Math.floor(x / th)) % 2];
+      g.fillStyle = '#f6f0e4'; g.fillRect(x, y, th, th);
+      g.save(); g.translate(cx, cy); g.fillStyle = c; for (let i = 0; i < 8; i++){ g.rotate(TAU / 8); K.path(g, [[0, 0], [1.3, -2], [0, -4.6], [-1.3, -2]]); g.fill(); } g.restore();
+      K.oval(g, cx, cy, 1, 1, '#f6f0e4'); K.oval(g, x, y, 1.6, 1.6, shade(c, -0.2));
+      g.fillStyle = 'rgba(80,60,40,.25)'; g.fillRect(x, y, th, 0.4); g.fillRect(x, y, 0.4, th);
+    }
+    g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(0, ty0, len, 1);
+    // 걸레받이 — 짙은 타일
+    g.fillStyle = K.lin(g, 0, BASE, 0, H, [shade(T[0], -0.1), shade(T[0], -0.4)]); g.fillRect(0, BASE, len, H - BASE);
+    const cx = side ? 0 : len, dir = side ? 1 : -1;
+    g.fillStyle = K.lin(g, cx, 0, cx + dir * 24, 0, ['rgba(60,30,10,.28)', 'rgba(60,30,10,0)']); g.fillRect(Math.min(cx, cx + dir * 24), 0, 24, H);
+    if (!side){ g.fillStyle = 'rgba(30,20,40,.12)'; g.fillRect(0, 0, len, H); }
+  }
+  function tileFloor(g, S){
+    const Rm = S.Rm, seed = hs(S.r), F = ['#c8704a', '#bc6644', '#d27a52', '#b45e3e'];
+    g.save(); g.transform(S.TW / 2, S.TH / 2, -S.TW / 2, S.TH / 2, S.ox, S.WALLH);
+    for (let a = 0; a < Rm.w * 2; a++) for (let b = 0; b < Rm.h * 2; b++){
+      const x = a / 2, y = b / 2, c = F[Math.floor(hash(seed + a * 31 + b * 17) * 4)];
+      g.fillStyle = K.lin(g, x, y, x + 0.5, y + 0.5, [shade(c, 0.1), c, shade(c, -0.08)]); g.fillRect(x, y, 0.5, 0.5);
+      if (hash(a * 7 + b * 3 + seed) > 0.8){ g.fillStyle = 'rgba(255,230,200,.12)'; g.beginPath(); g.ellipse(x + 0.25, y + 0.25, 0.12, 0.08, 0, 0, TAU); g.fill(); }
+    }
+    g.fillStyle = 'rgba(240,220,190,.7)'; for (let a = 0; a <= Rm.w * 2; a++) g.fillRect(a / 2 - 0.012, 0, 0.024, Rm.h); for (let b = 0; b <= Rm.h * 2; b++) g.fillRect(0, b / 2 - 0.012, Rm.w, 0.024);
+    g.fillStyle = K.lin(g, 0, 0, 0, 0.7, ['rgba(40,16,8,.35)', 'rgba(40,16,8,0)']); g.fillRect(0, 0, Rm.w, 0.7);
+    g.fillStyle = K.lin(g, 0, 0, 0.7, 0, ['rgba(40,16,8,.4)', 'rgba(40,16,8,0)']); g.fillRect(0, 0, 0.7, Rm.h);
+    g.restore();
+  }
+  // 사막 창밖 — 모래 언덕과 피라미드, 대추야자, 밤이면 은하수와 금빛 초승달
+  const DSKY = [['#4a96dc', '#9ccbe8', '#f4e2bc'], ['#e8806a', '#f8b888', '#ffe0b0'], ['#3a2a6a', '#8a4e88', '#e08a7a'], ['#0a0c2a', '#1b1f55', '#4a3a78']];
+  function winGlassDesert(g, pal, W, ph, room){
+    const x = W.u, y = W.v, w = W.w, h = W.h, night = ph >= 2;
+    g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+    g.fillStyle = K.lin(g, 0, y, 0, y + h, DSKY[ph]); g.fillRect(x, y, w, h);
+    if (night){
+      g.save(); g.translate(x + w / 2, y + h * 0.35); g.rotate(-0.4); g.fillStyle = K.lin(g, 0, -6, 0, 6, ['rgba(200,180,255,0)', 'rgba(210,190,255,.22)', 'rgba(200,180,255,0)']); g.fillRect(-w, -6, w * 2, 12); g.restore();
+      for (let i = 0; i < 34; i++){ const sx = x + hash(i * 3 + 7) * w, sy = y + hash(i * 5 + 1) * h * 0.6; K.oval(g, sx, sy, 0.3 + hash(i) * 0.35, 0.3 + hash(i) * 0.35, 'rgba(255,245,225,' + (0.5 + hash(i * 9) * 0.5).toFixed(2) + ')'); }
+      if (ph >= 3){ K.glow(g, x + w * 0.8, y + h * 0.18, 7, 'rgba(255,220,150,', 0.4); K.oval(g, x + w * 0.8, y + h * 0.18, 2.6, 2.6, '#ffe7b0'); K.oval(g, x + w * 0.8 + 1, y + h * 0.18 - 0.6, 2.3, 2.4, DSKY[3][0]); }
+    } else { K.glow(g, x + w * 0.78, y + h * 0.28, 16, ph ? 'rgba(255,210,160,' : 'rgba(255,248,220,', 0.8); K.oval(g, x + w * 0.78, y + h * 0.28, 3.2, 3.2, ph ? '#fff0d0' : '#fffdf0'); }
+    const gy = y + h * 0.7, pyr = ['#e0b070', '#d89068', '#6a4a6a', '#3a3058'][ph], pyd = ['#b07a48', '#a86848', '#4a3450', '#28203e'][ph];
+    [[0.25, 13], [0.42, 9]].forEach(([fx, ph2]) => { const px = x + w * fx; K.poly(g, [[px - ph2 * 1.1, gy], [px, gy - ph2], [px + ph2 * 0.3, gy]], pyr); K.poly(g, [[px + ph2 * 0.3, gy], [px, gy - ph2], [px + ph2 * 1.1, gy]], pyd); });
+    const dune = ['#e8b878', '#e09a6a', '#7a5a7a', '#3a3058'][ph], dune2 = ['#f2cc90', '#eab07a', '#8a6a86', '#4a3e66'][ph];
+    g.beginPath(); g.moveTo(x, gy + 1); for (let xx = 0; xx <= w; xx += 2) g.lineTo(x + xx, gy - 2 - 3 * Math.sin(xx * 0.08 + 1)); g.lineTo(x + w, y + h); g.lineTo(x, y + h); g.closePath(); g.fillStyle = dune; g.fill();
+    g.beginPath(); g.moveTo(x, gy + 6); for (let xx = 0; xx <= w; xx += 2) g.lineTo(x + xx, gy + 4 - 4 * Math.sin(xx * 0.06 + 3)); g.lineTo(x + w, y + h); g.lineTo(x, y + h); g.closePath(); g.fillStyle = K.lin(g, 0, gy, 0, y + h, [dune2, dune]); g.fill();
+    // 대추야자 둘
+    const leaf = ['#3f8a3e', '#5a7a3a', '#2a4a3a', '#1a2e30'][ph], trunk = ['#8a6040', '#7a5038', '#4a3438', '#2a2030'][ph];
+    [[0.1, 20], [0.9, 16]].forEach(([fx, th]) => { const bx = x + w * fx, by = y + h; g.strokeStyle = trunk; g.lineWidth = 1.8; g.beginPath(); g.moveTo(bx, by); g.quadraticCurveTo(bx + 2, by - th * 0.6, bx + 1, by - th); g.stroke();
+      for (let i = 0; i < 7; i++){ const a = -Math.PI / 2 + (i - 3) * 0.5, ex = bx + 1 + Math.cos(a) * 9, ey = by - th + Math.sin(a) * 4 + 3; g.strokeStyle = leaf; g.lineWidth = 1.6; g.beginPath(); g.moveTo(bx + 1, by - th); g.quadraticCurveTo((bx + ex) / 2, ey - 4, ex, ey + 1); g.stroke(); } });
+    if (night){ K.glow(g, x + w * 0.6, gy + 3, 5, 'rgba(255,200,120,', 0.6); K.oval(g, x + w * 0.6, gy + 3, 0.9, 0.7, '#ffd98a'); }
+    g.fillStyle = 'rgba(255,255,255,' + (night ? 0.06 : 0.16) + ')'; K.path(g, [[x + 6, y], [x + 16, y], [x + 4, y + h], [x - 6, y + h]]); g.fill();
+    g.restore();
+    // 창살 — 무쇠 격자(모로코 창), 위는 둥근 아치 장식
+    g.strokeStyle = '#3a2a22'; g.lineWidth = 1.1; g.beginPath();
+    for (let k = 1; k < 4; k++){ g.moveTo(x + w * k / 4, y); g.lineTo(x + w * k / 4, y + h); }
+    for (let k = 1; k < 3; k++){ g.moveTo(x, y + h * k / 3); g.lineTo(x + w, y + h * k / 3); }
+    g.stroke();
+    for (let k = 1; k < 4; k++) for (let j = 1; j < 3; j++) K.oval(g, x + w * k / 4, y + h * j / 3, 1, 1, '#c8a050');
   }
 
   // ================= 가구 — 앞 절반(amphora ~ mirror) =================
@@ -1148,6 +1222,27 @@
 
   // 대림절 별 등(오로라 농장) — 스웨덴·핀란드 창가에 거는 종이 별. 다섯 뿔이 접힌 두 면(빛 받는 면·그늘 면)으로 서고,
   //   뿔마다 오린 구멍(점·마름모) 사이로 속불이 샌다. 못에 건 줄, 아래 금빛 술. lit 이면 번짐·빛나는 종이·구멍만
+  // 모로코 등(사막) — 사슬에 매단 놋쇠 별 등, 구멍 무늬 사이로 빛 점이 벽에 흩어진다. lit 이면 빛과 빛 점만
+  wall.mlamp = (g, C) => {
+    const x = 20, y = 30, lit = C.lit, k = 0.9 + 0.1 * Math.sin((C.t || 0) / 900);
+    if (lit){
+      K.glow(g, x, y, 26, 'rgba(255,200,120,', 0.5 * k);
+      for (let i = 0; i < 14; i++){ const a = i / 14 * TAU + 0.2, r = 10 + (i % 3) * 5; K.oval(g, x + Math.cos(a) * r * 1.2, y + Math.sin(a) * r, 0.9, 0.9, 'rgba(255,214,140,' + (0.6 * k).toFixed(2) + ')'); }
+      K.poly(g, [[x - 5, y - 6], [x + 5, y - 6], [x + 7, y + 2], [x + 3, y + 9], [x - 3, y + 9], [x - 7, y + 2]], 'rgba(255,220,150,.55)');
+      return;
+    }
+    hang(g, 20, 2.5, 0); for (let i = 0; i < 6; i++) K.oval(g, 20, 4.5 + i * 2.6, 0.7, 1.2, null, 0.4);
+    K.line(g, [20, 3], [20, y - 10], '#8a6a30', 0.5);
+    K.poly(g, [[x - 3, y - 10], [x + 3, y - 10], [x + 5, y - 6], [x - 5, y - 6]], K.lin(g, x - 5, 0, x + 5, 0, ['#f2d07a', '#c89a30', '#8a6418']), true);
+    const body = [[x - 5, y - 6], [x + 5, y - 6], [x + 7, y + 2], [x + 3, y + 9], [x - 3, y + 9], [x - 7, y + 2]];
+    K.poly(g, body, K.lin(g, x - 7, 0, x + 7, 0, ['#f2d07a', '#d8a840', '#9a6c1a']), true);
+    // 구멍 무늬 — 빛이 새는 작은 별과 점
+    const holes = [[-3.5, -2.5], [0, -3], [3.5, -2.5], [-4.5, 1.5], [-1.5, 1], [1.5, 1], [4.5, 1.5], [-2, 5], [2, 5]];
+    holes.forEach(([dx, dy], i) => K.oval(g, x + dx, y + dy, i % 2 ? 0.7 : 1, i % 2 ? 0.7 : 1, C.night ? '#ffe0a0' : '#5a3a10'));
+    K.line(g, [x - 7, y + 2], [x + 7, y + 2], '#8a6418', 0.4);
+    K.oval(g, x, y + 10.4, 1.2, 1.4, '#c89a30', true); K.line(g, [x, y + 11.6], [x, y + 14], '#c89a30', 0.6);
+    K.oval(g, x - 3, y - 3, 1, 2.2, 'rgba(255,255,255,.35)');
+  };
   wall.advent = (g, C) => {
     const c = C.c || '#d94a3c', x = 20, y = 29, R = 16.5, r = 6.6, lit = C.lit, glowK = 0.85 + 0.15 * Math.sin((C.t || 0) / 1400);
     const at = (k, rr) => { const a = -Math.PI / 2 + k * TAU / 5; return [x + Math.cos(a) * rr, y + Math.sin(a) * rr]; };

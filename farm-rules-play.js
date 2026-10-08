@@ -5,7 +5,7 @@
 // farm-rules.js 가 먼저 돌아야 한다. 저 파일의 닫힘 안에 있는 것들은 FARM.__inner 로 받는다.
 (() => {
   if (typeof FARM === 'undefined' || !FARM.__inner) throw new Error('farm-rules.js 를 먼저 실어야 해요');
-  const { farmOk, SHARD_MAX, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
+  const { farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
 
   function dayEndMs(t){ return dayStartMs(dayKey(t)) + DAY_MS; }
   function nextSeason(s){ return SEASONS[(SEASONS.indexOf(s) + 1) % 4]; }
@@ -573,17 +573,19 @@
     return okay('반딧불이를 잡았어요 ✨ (오늘 ' + mine.ffGot + '/' + FIREFLY_MAX + ')');
   }
   // 오로라 빛 조각 줍기 — 기운은 안 든다. 줍는 몫은 각자(mine.shard)
+  // 사막에서는 같은 틀로 낮 모래 위의 사막 장미 돌을 줍는다(PICKS)
   function pickShard(world, mine, i, now){
-    if (farmOf(world).id !== 'aurora') return fail('빛 조각은 오로라 농장에만 떨어져요');
-    if (!isNight(now)) return fail('빛 조각은 밤에만 떨어져 있어요');
+    const PK = PICKS[farmOf(world).id], nm = PK && GOODS[PK.item] ? GOODS[PK.item].name : '빛 조각';
+    if (!PK) return fail('빛 조각은 오로라 농장에만 떨어져요');
+    if (isNight(now) !== PK.night) return fail(nm + (PK.night ? '은 밤에만 떨어져 있어요' : '은 낮에만 모래 위에 보여요'));
     const key = dayKey(now), q = shardSpots(world, now).find(s => s.i === i);
     if (!q) return fail('여기엔 빛 조각이 없어요');
     if (!mine.shard || mine.shard.day !== key) mine.shard = { day: key, got: [] };
     if (mine.shard.got.indexOf(i) >= 0) return fail('이미 주운 조각이에요');
     mine.shard.got.push(i);
-    give(mine, 'shard', 1); mine.xp += 3;
-    if (mine.dex.indexOf('shard') < 0) mine.dex.push('shard');
-    return okay('<b>오로라 빛 조각</b>을 주웠어요 ✨ (오늘 ' + mine.shard.got.length + '/' + SHARD_MAX + ')');
+    give(mine, PK.item, 1); mine.xp += 3;
+    if (mine.dex.indexOf(PK.item) < 0) mine.dex.push(PK.item);
+    return okay('<b>' + nm + '</b>' + (jong(nm) ? '을' : '를') + ' 주웠어요 ✨ (오늘 ' + mine.shard.got.length + '/' + SHARD_MAX + ')');
   }
   function fireSit(world, mine, now){
     if (!(world.decor && world.decor.firepit)) return fail('모닥불이 아직 없어요');
@@ -1250,6 +1252,12 @@
       const G = SANTA_GIFTS[Math.floor(prand('santag' + key) * SANTA_GIFTS.length)];
       ['sua', 'yona'].forEach(k => { (world.mail[k] = world.mail[k] || []).push({ id: G.id, n: G.n, from: 'santa', note: '착한 ' + NAME[k] + '에게 — 산타 할아버지가', t: now }); });
       notes.push('📮 산타 우체통에 <b>산타 할아버지 편지</b>가 왔어요! 우편함을 열어 봐요');
+    }
+    if (farmOf(world).id === 'desert' && world.decor && world.decor.genielamp && world.genieDay !== key && prand('genie' + key) < SANTA_CHANCE){
+      world.genieDay = key;
+      const G = GENIE_GIFTS[Math.floor(prand('genieg' + key) * GENIE_GIFTS.length)];
+      ['sua', 'yona'].forEach(k => { (world.mail[k] = world.mail[k] || []).push({ id: G.id, n: G.n, from: 'genie', note: NAME[k] + '에게 — 램프 요정이 소원 하나 대신', t: now }); });
+      notes.push('🪔 요술 램프에서 <b>램프 요정 편지</b>가 나왔어요! 우편함을 열어 봐요');
     }
     world.hot = hotCrop(world, now);
     return notes;
