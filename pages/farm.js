@@ -540,9 +540,10 @@ const FARM_LOOK = {
   // 그리스: 볕에 마른 풀·석회 길·부겐빌레아 / 화산: 잿빛 메마른 땅·검은 화산석·불꽃 꽃 / 일본: 이끼 빛 땅·흰 자갈·진달래
   seaside:  { tint: '#e0c982', amt: 0.62,  dry: '#f1e6c8', rock: '#f7efe4', bloom: ['#e0529a', '#ffffff', '#f27ab8', '#8fb8ff'], front: 'sea' },
   /* 산골은 스위스 풀밭이었다가 2026-10-06 로키즈 「무시무시하고 척박한 용암지대」로 바꿨다.
-     ash: 겨울에도 눈 대신 재가 덮인 땅 그대로(계절 빛깔을 거의 다 덮는다) · path: 검붉은 화산재 길 · cracks: 땅에 용암 틈 */
-  mountain: { tint: '#4a403d', amt: 0.84, dry: '#5c4d46', rock: '#2a2527', bloom: ['#ff6a1a', '#ffb02e', '#e8321e'], front: 'rocks', pebble: 0.66, bloomX: 0.3,
-              ash: true, soot: 0.6, tuft: '#6a5642', path: ['#5e4640', '#4f3a35', '#6e534a'], pathEdge: '#2e2220', cracks: 0.2 },
+     ash: 겨울에도 눈 대신 재가 덮인 땅 그대로(계절 빛깔을 거의 다 덮는다) · path: 검붉은 화산재 길 · cracks: 땅에 용암 틈
+     2026-10-08 로키즈 「너무 음울하다, 조금 밝게」 — 땅은 볕 든 붉은 화산토, 그을음 얼룩은 줄였다. */
+  mountain: { tint: '#8a6e5c', amt: 0.74, dry: '#9a8270', rock: '#4a3e40', bloom: ['#ff6a1a', '#ffb02e', '#e8321e'], front: 'rocks', pebble: 0.66, bloomX: 0.3,
+              ash: true, soot: 0.7, tuft: '#8a7250', path: ['#9a6e58', '#8a5e4a', '#aa7e66'], pathEdge: '#5a3e34', cracks: 0.2 },
   /* 일본: 이끼 빛 땅에 회색 돌을 깐 길(이시다타미), 바닥엔 진 벚꽃잎이 소복이(petals — 2026-10-07 로키즈 「농장 바닥엔 분홍 벚꽃들이 많이 쌓여」) */
   cloud:    { tint: '#7fb47a', amt: 0.48, dry: '#e8e4d8', rock: '#d9d6cc', bloom: ['#ff8fb8', '#ffffff', '#ffb7d5', '#c9a8ff'], front: 'cloud', bloomX: 1.2,
               path: ['#bdb8ac', '#aaa498', '#cdc8bd'], pathEdge: '#8a857a', petals: true },
@@ -3560,8 +3561,9 @@ const ISO_LOOK = {
   seaside:  { sky: ['#8fd0f2', '#addcf5', '#cdebf9', '#eef8fd'], horizon: 176, below: 'sea',
               strata: ['#e0c393', '#cfa574', '#b98c66', '#9a7b66'], deep: 64 },
   // 화산 — 검붉은 하늘, 분화하는 화산, 섬 아래는 용암 바다. 땅켜는 검은 현무암(2026-10-06 로키즈 「무시무시하고 척박한 용암지대」)
-  mountain: { sky: ['#120a0e', '#2a0f13', '#5e1a12', '#a83514'], horizon: 250, below: 'lava',
-              strata: ['#3a302c', '#2a2422', '#201a1a', '#161213'], deep: ICLIFF },
+  // 2026-10-08 로키즈 「너무 음울하다」 — 검붉은 밤하늘 대신 노을 진 하늘, 땅켜도 한 톤 밝게
+  mountain: { sky: ['#4a2430', '#8e3a2c', '#d8683a', '#f6b25a'], horizon: 250, below: 'lava',
+              strata: ['#6a5248', '#54423c', '#403432', '#2c2424'], deep: ICLIFF },
   // 일본 — 옅은 쪽빛 하늘, 섬 옆구리는 성처럼 쌓은 돌담(이시가키) 아래 이끼 낀 흙(2026-10-07 로키즈 「좀 더 일본스럽게」)
   cloud:    { sky: ['#a9d2f2', '#c6e2f6', '#e6eef4', '#fbeaee'], horizon: 330, below: 'clouds',
               strata: ['#a29e94', '#959188', '#6a5848', '#4f4236'], deep: ICLIFF, wall: true },
@@ -3805,11 +3807,11 @@ function isoBackdrop(season){
     // 하늘을 덮은 화산재 구름 — 아래쪽이 용암 빛을 받아 붉다
     for (let i = 0; i < 11; i++){
       const x = Math.floor(hash2(i, 1, 960) * (ISO_W + 60)) - 30, y = 10 + Math.floor(hash2(i, 2, 961) * 70);
-      isoCloudPuff(x, y, 70 + Math.floor(hash2(i, 3, 962) * 60), 16, y > 50 ? ['#3a1e1c', '#4a2622', '#24130f'] : ['#1e1216', '#2a1a1e', '#140c10'], 'iva' + i);
+      isoCloudPuff(x, y, 70 + Math.floor(hash2(i, 3, 962) * 60), 16, y > 50 ? ['#7a4236', '#9a5844', '#5a3028'] : ['#5a3a3e', '#6e4a4a', '#3e282c'], 'iva' + i);
     }
-    isoRidge(214, 44, '#2c1416', 6.3, null, K.horizon);                       // 먼 산줄기 — 톱니처럼 날카롭다
+    isoRidge(214, 44, '#5a2e2a', 6.3, null, K.horizon);                       // 먼 산줄기 — 톱니처럼 날카롭다
     VOLCS.forEach(v => isoVolcano(v));
-    isoRidge(244, 20, '#170b0d', 8.1, null, K.horizon + 1);                    // 가까운 검은 등성이가 화산 밑동을 가린다
+    isoRidge(244, 20, '#3a1e1e', 8.1, null, K.horizon + 1);                    // 가까운 검은 등성이가 화산 밑동을 가린다
     for (let x = 0; x < ISO_W; x += 2) if (hash2(x >> 2, 1, 963) > 0.55) px(x, K.horizon - 1 - Math.floor(hash2(x, 2, 963) * 3), 2, 1, '#ff6a1a');   // 등성이 너머 용암 빛
     // 섬 아래 — 굳은 껍질 사이로 용암이 흐르는 바다
     isoLavaSea(K.horizon, ISO_H);
@@ -4382,7 +4384,7 @@ function isoSprite(id, sig, box, paint, ink){
     ctx = g; lamps = e.lamps;
     try { paint(); } finally { ctx = keepCtx; lamps = keepLamps; }
     if (isoLook().below === 'lava'){
-      if (ink === INK.build) scorchSprite(e.cv, id);
+      if (ink === INK.build) scorchSprite(e.cv, id, { fade: 0.6, burn: 0.6 });   // 10-08 「음울하다」 — 바램·그을음 덜
       else if (ink === INK.tree || id.slice(0, 4) === 'crop') duskPlants(e.cv);
     }
     if (ink) inkRim(e.cv, ink);
