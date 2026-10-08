@@ -661,11 +661,48 @@
     else { g.fillStyle = lin(x - 3, y - 3, x + 3, y + 3, ['#fff3b8', '#ffd84a', '#e8a828']); g.beginPath(); for (let i = 0; i < 10; i++){ const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? 1.4 : 3.4; g.lineTo(x + Math.cos(a) * rr, y + 0.4 + Math.sin(a) * rr); } g.closePath(); g.fill(); ink(0.5); }
     twinkle(x + 5, y - 5, 1.4, '#ffe680');
   }
+  // 여덟 방향 그림 한 장(pages/beasts.webp, tools/beast-atlas.py 로 굽는다) — 줄 = 동물, 칸 = 방향. 칸 크기·발끝 줄은 도구가 찍어 준 값
+  const BEAST_ATLAS = { src: '/pages/beasts.webp?v=1009a', cw: 147, ch: 136, foot: 132, tall: 128,
+    kinds: ['cow', 'chicken', 'duck', 'sheep', 'pig', 'rabbit', 'dog', 'cat', 'gull', 'goat', 'crane', 'reindeer'],
+    dirs: ['S', 'SW', 'W', 'NW', 'N', 'NE', 'E', 'SE'] };
+  let beastImg = null;
+  const beastCell = {};
+  // 한 칸을 따로 굽는다 — 밤이면 그 칸 안에서만 쪽빛으로 누른다(바탕까지 덮지 않게)
+  function beastCellOf(row, col, night){
+    const key = row + '|' + col + '|' + (night ? 1 : 0);
+    let cv = beastCell[key]; if (cv) return cv;
+    const A = BEAST_ATLAS;
+    cv = document.createElement('canvas'); cv.width = A.cw; cv.height = A.ch;
+    const c = cv.getContext('2d');
+    c.drawImage(beastImg, col * A.cw, row * A.ch, A.cw, A.ch, 0, 0, A.cw, A.ch);
+    if (night){ c.globalCompositeOperation = 'source-atop'; c.globalAlpha = 0.34; c.fillStyle = '#14204a'; c.fillRect(0, 0, A.cw, A.ch); }
+    return (beastCell[key] = cv);
+  }
+  // 그림이 아직 안 왔거나 없는 동물이면 false — 그때는 예전 코드 그림으로
+  function beastAtlas(kind, x, y, d8, phase, k, NIGHT){
+    const A = BEAST_ATLAS, row = A.kinds.indexOf(kind), col = A.dirs.indexOf(d8);
+    if (row < 0 || col < 0) return false;
+    if (!beastImg){ beastImg = new Image(); beastImg.decoding = 'async'; beastImg.src = A.src; }
+    if (!beastImg.complete || !beastImg.naturalWidth) return false;
+    const tall = ((TOPZ[kind] || 22) + 4) * k, sc = tall / A.tall;
+    // 걸을 때 — 한 걸음에 한 번 들썩이고 좌우로 살짝 기우뚱(발끝을 축으로)
+    const s = phase == null ? 0 : Math.sin(phase * Math.PI), lift = Math.abs(s) * 1.6 * k, tilt = s * 0.05;
+    g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    g.translate(x, y); g.rotate(tilt); g.translate(0, -lift);
+    g.drawImage(beastCellOf(row, col, NIGHT), -A.cw / 2 * sc, -A.foot * sc, A.cw * sc, A.ch * sc);
+    g.restore();
+    return true;
+  }
   // 동물 한 마리 — (x, y) 발끝(도트), d = 'u' | 'v' | '-u' | '-v', frame 0·1, lift = 들썩임(도트), ready = 거둘 것이 있음
-  function animal(gg, E, kind, x, y, d, frame, baby, lift, ready){
+  // d8 = 화면 여덟 방향(S·SW·…), phase = 걸음 위상(서 있으면 null) — 있으면 여덟 방향 그림으로 그린다
+  function animal(gg, E, kind, x, y, d, frame, baby, lift, ready, d8, phase){
     set(gg, E);
     const sc = Math.max(1, Math.abs(gg.getTransform().a) || 1), back = d === '-u' || d === '-v', flip = d === 'v' || d === '-u', k = baby ? BABY : 1;
     oval(x + 1, y + 0.6, (kind === 'cow' || kind === 'reindeer' ? 13 : kind === 'goat' || kind === 'sheep' || kind === 'pig' ? 10 : 7) * k, (kind === 'cow' || kind === 'reindeer' ? 4.4 : 3.2) * k, shadowC());
+    if (d8 && beastAtlas(kind, x, y, d8, phase, k, NIGHT)){
+      if (ready){ const by = y - ((TOPZ[kind] || 22) + 4) * k - 7 + Math.sin(E.t * 2.5) * 1.2; readyBubble(x, by, kind); }
+      return;
+    }
     const cv = beastSprite(kind, back, frame ? 1 : 0, baby, Math.round(sc * 4) / 4);
     const px = Math.round(x * sc) / sc, py = Math.round((y - (lift || 0)) * sc) / sc;
     g.save(); g.translate(px, py); if (flip) g.scale(-1, 1);

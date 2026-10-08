@@ -6705,7 +6705,7 @@ function drawDollIso(o, t){
   charBlit(charSprite('d|' + o.kind + '|' + d + '|' + f, () => doll3d(o.kind, d, f)), o.x, o.y, bob);
 }
 function isoFaceOf(o){                                                          // 움직인 쪽을 본다 — 멈추면 마지막 방향
-  if (o._lx != null){ const dx = o.x - o._lx, dy = o.y - o._ly; if (Math.abs(dx) + Math.abs(dy) > 0.05) o._face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'u' : '-u') : (dy > 0 ? 'v' : '-v'); }
+  if (o._lx != null){ const dx = o.x - o._lx, dy = o.y - o._ly; if (Math.abs(dx) + Math.abs(dy) > 0.05) { o._face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'u' : '-u') : (dy > 0 ? 'v' : '-v'); o._d8 = dir8(dx - dy, dx + dy); } }
   o._lx = o.x; o._ly = o.y;
   return o._face || (o.flip ? '-u' : 'v');
 }
@@ -6830,7 +6830,7 @@ function drawBeastIso(a, t){
   const d = isoFaceOf(a), f = a.moving ? (Math.floor(a.phase) % 2) : 0, B = BEAST3D[a.kind] || BEAST3D.chicken;
   const bob = a.moving ? f : (Math.sin(t / 1100 + a.phase) > 0.7 ? 1 : 0);
   // 스테이지2 농장은 고화소 동물(farm-hd-life.js). 순록은 도트 그림이 없어 어느 농장에서나 고화소로(2026-10-09)
-  if (window.FARMHD && window.FARMHD.animal && (hdOn() || !BEAST3D[a.kind])){ const q = isoP(a.x / T, a.y / T); return hd((c, E) => window.FARMHD.animal(c, E, a.kind, q.x, q.y, d, f, baby, bob, rec && rec.ready)); }
+  if (window.FARMHD && window.FARMHD.animal && (hdOn() || !BEAST3D[a.kind])){ const q = isoP(a.x / T, a.y / T); return hd((c, E) => window.FARMHD.animal(c, E, a.kind, q.x, q.y, d, f, baby, bob, rec && rec.ready, a._d8 || 'SW', a.moving ? a.phase : null)); }
   isoEllipse(a.x / T + 0.05, a.y / T + 0.05, (B.L + 2) * DOT * k, (B.L + 1) * DOT * k, 0, 'rgba(30,44,24,0.18)');
   charBlit(charSprite('b|' + a.kind + '|' + d + '|' + f + '|' + (baby ? 1 : 0), () => beast3d(a.kind, d, f, k)), a.x, a.y, bob);
   if (rec && rec.ready){
