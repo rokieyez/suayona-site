@@ -84,6 +84,12 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
       if (i) assert(!hit(a, (P => ({ x: P.x, y: P.y, w: P.w + 1, h: 1 }))(R.peddlerSpot(wf))), f.id + ' ' + a.id + ' 떠돌이 상인 자리');
     });
   });
+  // 꾸미개를 행상인 자리에 옮겨 두면 행상인이 가까운 빈자리로 비켜 선다(2026-10-08 모래놀이터)
+  const wp = R.fixWorld(null, now); wp.farm = 1; wp.decor.sandbox = { by: 'sua' };
+  const p0 = R.peddlerSpot(wp);
+  assert(R.moveThing(wp, sua, 'sandbox', p0.x, p0.y).ok, '모래놀이터를 행상인 자리로');
+  const p1 = R.peddlerSpot(wp);
+  assert((p1.x !== p0.x || p1.y !== p0.y) && !hit(R.spotOf(wp, 'sandbox'), { x: p1.x, y: p1.y, w: p1.w + 1, h: 1 }), '행상인이 비켜 서야');
   // 옮겼다가 처음 자리로 되돌리면 layout 에서 빠진다(그 농장의 처음 자리 기준)
   const wm = R.fixWorld(null, now); wm.farm = 1; wm.decor.lighthouse = { by: 'sua' };
   assert(R.moveThing(wm, sua, 'lighthouse', 20, 0).ok && wm.layout.lighthouse);

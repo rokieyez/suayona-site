@@ -869,7 +869,24 @@ const FARM = (() => {
   function peddlerHere(world, now){ return prand('pd' + dayKey(now)) < PEDDLER.chance; }
   /* 수레 자리는 농장마다 다르다 — 바닷가에서 (16,8)은 오른쪽 아래 흰 집에 가려 휴대폰에서 누르기 어려웠다.
      아래쪽 가운데 즈음 빈 칸으로 옮겼다(2026-10-05 로키즈). 들판은 원래 자리. */
-  function peddlerSpot(world){ return Object.assign({}, PEDDLER, farmOf(world).peddler); }
+  /* 꾸미개는 이 자리에도 옮겨 놓을 수 있다 — 2026-10-08 모래놀이터를 옮겨 두자 수레가 그 위에 겹쳐 섰다.
+     자리를 막아 두면 행상인이 안 오는 날에도 못 쓰니, 막힌 날엔 가장 가까운 빈자리(수레+행상인, 가로 w+1 칸)로 비켜 선다. */
+  function peddlerSpot(world){
+    const P = Object.assign({}, PEDDLER, farmOf(world).peddler);
+    if (!world) return P;
+    const G = gridOf(world), w = P.w + 1, hit = (b, x, y) => x < b.x + b.w && b.x < x + w && y < b.y + b.h && b.y <= y;
+    const things = PLACE_IDS.filter(id => thingHere(world, id)).map(id => spotOf(world, id))
+      .concat(Object.keys(NODES).map(n => Object.assign({ w: 1, h: 1 }, nodeSpot(world, n))), sceneryOf(world).map(c => ({ x: c.x, y: c.y, w: 1, h: 1 })));
+    const free = (x, y) => {
+      if (x < 0 || y < 0 || x + w > G.w || y >= G.h) return false;
+      for (let i = 0; i < w; i++) if (fieldHas(world, x + i, y)) return false;
+      return !things.some(b => hit(b, x, y));
+    };
+    for (let r = 0; r <= 6; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++){
+      if (Math.max(Math.abs(dx), Math.abs(dy)) === r && free(P.x + dx, P.y + dy)) return Object.assign(P, { x: P.x + dx, y: P.y + dy });
+    }
+    return P;
+  }
   /* 오늘 그가 두 배로 쳐 주는 물건 하나. 열 개까지만 사 간다 —
      끝없이 사 주면 「모아 뒀다가 오는 날 판다」가 아니라 그냥 돈 나오는 구멍이 된다.
      날짜로 정해지므로 둘이 같은 물건을 본다. */

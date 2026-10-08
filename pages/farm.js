@@ -749,6 +749,63 @@ function drawPeddler(t){
   const s = npcIdle(t, 'ped'), fr = PEDKEEP[s.frame];
   art(fr, X + 73 - (fr[0].length >> 1) + Math.round(s.off * 6), G - fr.length - s.bob, PEDPAL, s.dir > 0);
 }
+/* 아이소 행상인 수레(2026-10-08 로키즈 「아이소메트릭에 맞춰 다시 디자인」) — 평면 그림을 붙이면 섬 위에서 납작한 판때기로 보였다.
+   u 쪽으로 긴 나무 짐칸에 보라·크림 줄무늬 포장을 반원통으로 씌우고, 앞(u1)은 열어 물건을 내보인다. 끌채는 앞으로 뻗고 행상인은 그 곁에. */
+const PED_CART = { u0: 0.12, u1: 1.5, v0: 0.22, v1: 0.78, bed: 12, top: 20, hood: 26, cream: '#fff6e9', purple: '#8a5cc7', rim: '#5f3f96' };
+function pedCartGeo(P){ const C = PED_CART; return { u0: P.x + C.u0, u1: P.x + C.u1, v0: P.y + C.v0, v1: P.y + C.v1 }; }
+function pedKeeperAt(P){ const G = pedCartGeo(P); return { u: G.u1 + 0.55, v: G.v0 - 0.2 }; }   // 끌채 건너편 — 앞에 서면 열린 짐칸을 가렸다
+// 포장 — u 쪽으로 누운 반원통. θ 는 앞(v1, 0)에서 뒤(v0, π)로. 뒤 띠부터 칠하면 앞 띠가 덮는다
+function pedHood(G, z0){
+  const C = PED_CART, cv = (G.v0 + G.v1) / 2, rv = (G.v1 - G.v0) / 2 + 0.04, N = 14, M = 6, len = G.u1 - G.u0;
+  const at = (u, th) => [u, cv + rv * Math.cos(th), z0 + C.hood * Math.sin(th)];
+  for (let i = N - 1; i >= 0; i--){
+    const a = i / N * Math.PI, b = (i + 1) / N * Math.PI, lit = Math.round(Math.sin((a + b) / 2) * 14) - (i < 3 ? 8 : 0);
+    for (let k = 0; k < M; k++){
+      const ua = G.u0 + len * k / M, ub = G.u0 + len * (k + 1) / M;
+      poly3([at(ua, a), at(ub, a), at(ub, b), at(ua, b)], shade(k % 2 ? C.purple : C.cream, lit));
+    }
+  }
+  isoSeg(isoP(...at(G.u0, 0)), isoP(...at(G.u1, 0)), C.rim, 2);                                                       // 포장 아랫단
+  return { cv, rv, at };
+}
+function isoPeddlerCart(P){
+  const C = PED_CART, G = pedCartGeo(P), len = G.u1 - G.u0, body = WOOD.mid;
+  ishadow((G.u0 + G.u1) / 2 + 0.2, (G.v0 + G.v1) / 2, len / 2 + 0.25, 0.4);
+  // 바퀴 — 살 여덟 개짜리 큰 바퀴. 건너편 둘은 짐칸보다 먼저 그려 아래쪽만 보인다
+  const wheel = (Gf, a, rim, hub) => {
+    const ra = 0.3, rz = 11, zc = 11;
+    for (let i = 0; i < 40; i++){ const an = i / 40 * Math.PI * 2, q = faceMid(Gf, 'L', a + Math.cos(an) * ra, zc + Math.sin(an) * rz); px(Math.round(q.x) - 1, Math.round(q.y) - 1, 3, 2, rim); }
+    for (let i = 0; i < 4; i++){ const an = i / 4 * Math.PI; isoSeg(faceMid(Gf, 'L', a + Math.cos(an) * ra * 0.9, zc + Math.sin(an) * rz * 0.9), faceMid(Gf, 'L', a - Math.cos(an) * ra * 0.9, zc - Math.sin(an) * rz * 0.9), shade(rim, 22), 1); }
+    const c = faceMid(Gf, 'L', a, zc), x = Math.round(c.x), y = Math.round(c.y); px(x - 1, y - 2, 3, 5, hub); px(x - 2, y - 1, 5, 3, hub); px(x, y - 1, 1, 1, '#c9c2b4');   // 둥근 굴대 머리
+  };
+  const back = { u0: G.u0, u1: G.u1, v0: G.v0 - 0.06, v1: G.v0 - 0.02 }, front = { u0: G.u0, u1: G.u1, v0: G.v0, v1: G.v1 + 0.04 };
+  [0.32, len - 0.36].forEach(a => wheel(back, a, shade(WOOD.dark, -18), '#3e3a35'));
+  // 끌채 둘 — 앞(u1)에서 땅 쪽으로. 건너편 것을 먼저
+  const shaft = v => { isoSeg(isoP(G.u1 - 0.1, v, C.bed + 2), isoP(G.u1 + 0.62, v, 5), WOOD.dark, 2); };
+  shaft(G.v0 + 0.08);
+  // 짐칸 — 나무 상자. 앞면에 널 이음과 쇠 띠
+  isoCube(G.u0, G.v0, len, G.v1 - G.v0, C.bed, C.top, shade(body, 14), wallTex(body, 'L', 'wood', 83), shade(body, -28));
+  faceRect(G, 'L', 0, len, C.bed, C.bed + 1, shade(body, -30));
+  [0.06, len / 2, len - 0.1].forEach(a => { faceRect(G, 'L', a, a + 0.05, C.bed, C.top, shade(body, -36)); const q = faceMid(G, 'L', a + 0.025, C.top - 3); px(Math.round(q.x), Math.round(q.y), 1, 1, '#e0dcd2'); });
+  // 포장, 열린 앞쪽 — 속은 어둡고 물건(항아리·두루마리·보따리)이 내다본다
+  const H = pedHood(G, C.top);
+  { const pts = []; for (let i = 0; i <= 16; i++){ const q = isoP(...H.at(G.u1, i / 16 * Math.PI)); pts.push([q.x, q.y]); } polyFill(pts, '#2a1d2c'); }
+  isoDrum(G.u1 - 0.12, H.cv - 0.12, 0.09, C.top, C.top + 9, '#c8643a', '#e08458');                                      // 항아리
+  isoDrum(G.u1 - 0.12, H.cv + 0.14, 0.08, C.top, C.top + 6, '#4f8fd0', '#7cb2e6');                                      // 단지
+  ibox(G.u1 - 0.2, H.cv - 0.02, 0.14, 0.12, C.top, C.top + 13, '#d9a93a');                                             // 세운 두루마리
+  [0, 1].forEach(e => { const u = e ? G.u1 : G.u0 + 0.02; for (let i = 0; i < 16; i++) isoSeg(isoP(...H.at(u, i / 16 * Math.PI)), isoP(...H.at(u, (i + 1) / 16 * Math.PI)), PED_CART.rim, 2); });
+  // 앞 테에 매단 등불
+  { const q = isoP(G.u1 + 0.02, H.cv + 0.1, C.top + C.hood - 4), x = Math.round(q.x), y = Math.round(q.y);
+    px(x, y, 1, 4, '#3a2a1f'); px(x - 2, y + 4, 5, 1, '#3a2a1f'); px(x - 2, y + 5, 5, 6, '#ffcf5a'); px(x - 1, y + 6, 3, 4, '#fff1b0'); px(x - 2, y + 11, 5, 1, '#3a2a1f');
+    lamp(x + 0.5, y + 8, 22); }
+  [0.32, len - 0.36].forEach(a => wheel(front, a, WOOD.dark, '#4a4540'));
+  shaft(G.v1 - 0.08);
+  isoSeg(isoP(G.u1 + 0.6, G.v0 + 0.08, 6), isoP(G.u1 + 0.6, G.v1 - 0.08, 6), WOOD.low, 2);                              // 끌채 끝 가로대
+}
+function drawPeddlerIso(P, t){
+  const s = npcIdle(t, 'ped'), at = pedKeeperAt(P), q = isoP(at.u + s.off * 0.15, at.v), fr = PEDKEEP[s.frame];
+  art(fr, Math.round(q.x) - (fr[0].length >> 1), Math.round(q.y) - fr.length + 2 - s.bob, PEDPAL, s.dir > 0);
+}
 // 도감·카드에서도 쓰는 그림. s 는 도트 한 개의 크기.
 function drawAnimalAt(g, kind, X, Y, s, flip, k){
   const B = BEAST[kind] || BEAST.chicken;
@@ -7307,13 +7364,14 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
   });
   if (R.peddlerHere(W, now())){
     const P = R.peddlerSpot(W);
-    // 수레 덮개·행상인 몸을 눌러도 열리게 — 전에는 바닥 줄만 맞아서 머리를 누르면 뒤 칸이 잡혔다.
-    // 그림 끝(수레 X+2 ~ 행상인 X+91, 키 58)을 flatOffAt 과 같은 셈으로 옮긴 상자. 그릴 때 넣어야 앞뒤 순서가 맞는다
-    const q = isoP(P.x + 1.2, P.y + 0.9);
-    cast.push({ d: P.x + P.y + 1.5, go: () => {
-      withBB(flatOffAt((P.x + 1.2) * T, (P.y + 1) * T, P.x + 1.2, P.y + 0.9), () => drawPeddler(t));
-      isoHits.push({ x0: q.x - 36, x1: q.x + 54, y0: q.y - 58, y1: q.y + 2, tx: P.x, ty: P.y });
+    // 수레는 칠해진 도트로, 행상인은 몸 상자로 누른다. 그릴 때 넣어야 앞뒤 순서가 맞는다
+    const k = pedKeeperAt(P), q = isoP(k.u, k.v);
+    cast.push({ d: P.x + P.y + 1.3, go: () => {
+      const e = isoSprite('peddler', P.x + ',' + P.y, isoBoxOf({ x: P.x, y: P.y, w: 2.3, h: 1 }), () => isoPeddlerCart(P), INK.beast);
+      for (let i = 0; i < e.lamps.length; i++) lamps.push(e.lamps[i]);
+      isoHits.push({ e, tx: P.x, ty: P.y });
     } });
+    cast.push({ d: k.u + k.v, go: () => { drawPeddlerIso(P, t); isoHits.push({ x0: q.x - 14, x1: q.x + 14, y0: q.y - 56, y1: q.y + 2, tx: P.x, ty: P.y }); } });
   }
   if (walkers) walkers.forEach(w => cast.push({ d: (w.x + w.y) / T, go: () => drawWalkerIso(w, t) }));
   if (STILL && !farmGuest && visitAt == null && weekendKST()) farmGuest = stillFarmGuest();
