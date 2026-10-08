@@ -196,6 +196,14 @@ const FARM = (() => {
       '2210000123',
       '3211001123',
       '.332..233.'] },
+    aurora: { x0: 6, y0: 1, rows: [
+      '..333333..',
+      '.32222223.',
+      '3211111123',
+      '3210000123',
+      '3210000123',
+      '3210000123',
+      '..332233..'] },
   };
   const fieldMemo = {};
   // 그 농장의 밭 칸 전부(아직 안 연 것까지) — 열리는 차례, 그다음 위에서 아래·왼쪽에서 오른쪽 순
@@ -361,6 +369,10 @@ const FARM = (() => {
     shishi:   { name: '대나무 물통', icon: '🎋', cost: 1400, lv: 4, farm: 'cloud',    desc: '물이 차면 딸깍! 하고 돌을 두드려요' },
     koinobori:{ name: '잉어 깃발',  icon: '🎏', cost: 1100, lv: 4, farm: 'cloud',    desc: '바람을 먹고 잉어가 헤엄쳐요' },
     toro:     { name: '지장보살',   icon: '🙏', cost: 800,  lv: 3, farm: 'cloud',    desc: '빨간 턱받이 지장님 — 밤엔 촛불을 켜요' },
+    // 오로라(스테이지2 첫 농장, 2026-10-09) — 그림은 pages/farm-hd.js
+    igloo:    { name: '이글루',     icon: '🛖', cost: 3600, lv: 7, farm: 'aurora',   desc: '눈 벽돌로 쌓은 집 — 밤이면 안에서 불빛이 새요' },
+    sled:     { name: '빨간 썰매',  icon: '🛷', cost: 1500, lv: 4, farm: 'aurora',   desc: '금빛 날이 둥글게 말린 썰매, 선물 상자를 실었어요' },
+    icefish:  { name: '얼음낚시 구멍', icon: '🎣', cost: 900, lv: 3, farm: 'aurora', desc: '얼음판에 뚫은 구멍과 낚싯대, 생선 담은 양동이' },
   };
 
   // ---------- 이사 ----------
@@ -374,6 +386,8 @@ const FARM = (() => {
     { id: 'seaside',  name: '바닷가 농장', icon: '🌊', desc: '모래밭 너머로 파도가 쳐요',        room: 12, animals: 10, grid: { w: 22, h: 18 }, peddler: { x: 15, y: 12 } },
     { id: 'mountain', name: '화산 농장',   icon: '🌋', desc: '용암이 흐르고 재가 날리는 메마른 땅이에요', room: 16, animals: 14, grid: { w: 24, h: 18 }, peddler: { x: 16, y: 16 } },
     { id: 'cloud',    name: '꽃구름 농장', icon: '☁️', desc: '벚꽃 흩날리는 구름 위 일본 마을, 신칸센이 지나가요', room: 20, animals: 16, grid: { w: 24, h: 20 }, peddler: { x: 15, y: 13 } },
+    // 스테이지2 — 여기서부터 고화소 그림(pages/farm-hd.js). 2026-10-08 로키즈 「오로라부터 고화소로 전부 다시」
+    { id: 'aurora',   name: '오로라 농장', icon: '🌌', desc: '오로라가 춤추는 북쪽 눈 섬, 통나무집에 불이 켜져요', room: 24, animals: 18, grid: { w: 26, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2 },
   ];
   /* 새 농장일수록 섬이 넓다(2026-09-29 로키즈 「새 농장은 전체 크기를 더 크게」) — 들판 20×16 → 22×18 → 24×18 → 24×20.
      늘어난 땅은 오른쪽(x 20~)과 아래(y 16~), 곧 섬의 앞쪽 두 가장자리다. 집·가게·밭·나무 자리는 그대로라 좌표가 안 바뀐다. */
@@ -438,6 +452,9 @@ const FARM = (() => {
     shishi:     { name: '대나무 물통', w: 1, h: 1, x: 1, y: 9,  kind: 'decor',  move: true },
     koinobori:  { name: '잉어 깃발', w: 1, h: 1, x: 2, y: 9,  kind: 'decor',  move: true },
     toro:       { name: '지장보살', w: 1, h: 1, x: 5,  y: 15, kind: 'decor',  move: true },
+    igloo:      { name: '이글루',   w: 2, h: 2, x: 21, y: 7,  kind: 'decor',  move: true },
+    sled:       { name: '빨간 썰매', w: 2, h: 1, x: 22, y: 19, kind: 'decor',  move: true },
+    icefish:    { name: '얼음낚시 구멍', w: 1, h: 1, x: 5, y: 15, kind: 'decor', move: true },
   };
   const PLACE_IDS = Object.keys(PLACE);
   /* 새 농장은 처음 자리부터 다르다(2026-09-28 로키즈 「이전 농장과 완전히 다른 느낌」). 여기 없는 것은 PLACE 의 자리.
@@ -451,6 +468,10 @@ const FARM = (() => {
       lighthouse: [10, 0], palm: [14, 0], anchor: [23, 2], boat: [4, 15], parasol: [18, 5] },
     cloud: { mail: [4, 1], board: [5, 0], flag: [7, 0], statue: [12, 0], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [16, 7], greenhouse: [20, 2], fountain: [10, 7], balloon: [21, 7], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19], skybridge: [22, 19], shishi: [1, 9], koinobori: [2, 9], toro: [5, 15],
       lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], anchor: [14, 17], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5] },
+    // 오로라 — 꽃구름 자리를 바탕으로, 밭 아래 끝이 가운데로 내려와 분수는 넓어진 오른쪽 끝으로
+    aurora: { mail: [4, 1], board: [5, 0], flag: [24, 3], statue: [19, 4], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [16, 7], greenhouse: [20, 2], fountain: [24, 9], igloo: [21, 7], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19], sled: [22, 19], icefish: [5, 15],
+      lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], anchor: [14, 17], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5],
+      shishi: [1, 9], koinobori: [2, 9], toro: [24, 2], balloon: [24, 4], skybridge: [24, 17] },
   };
   function spotOf(world, id){
     const P = PLACE[id]; if (!P) return null;
@@ -553,6 +574,7 @@ const FARM = (() => {
     seaside:  { tree1: [0, 7], tree2: [3, 7], tree3: [0, 10], tree4: [6, 11], rock1: [20, 11], rock2: [12, 15], rock3: [14, 13], bush: [2, 12], bush2: [11, 14], snow: [12, 16] },
     mountain: { tree1: [1, 9], tree2: [0, 11], tree3: [2, 13], tree4: [4, 10], bush: [7, 10], bush2: [5, 13], snow: [8, 13], rock1: [21, 2], rock2: [23, 7], rock3: [21, 9] },
     cloud:    { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
+    aurora:   { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
   };
   // 아이들이 옮긴 자리(world.layout[이름])가 있으면 그 자리(2026-10-07 로키즈 「채집 나무·덤불도 재배치」)
   function nodeSpot(world, id){
@@ -567,6 +589,7 @@ const FARM = (() => {
     seaside:  [['tree', 1, 8], ['tree', 1, 11], ['tree', 1, 13], ['tree', 2, 15], ['bush', 0, 15], ['rock', 0, 17], ['rock', 20, 9], ['bush', 14, 16], ['tree', 10, 12], ['bush', 19, 1], ['rock', 21, 4], ['tree', 9, 15], ['bush', 4, 14], ['tree', 19, 10], ['tree', 21, 12], ['tree', 6, 16]],
     mountain: [['tree', 0, 8], ['tree', 2, 10], ['tree', 1, 12], ['tree', 3, 12], ['tree', 0, 14], ['tree', 2, 15], ['tree', 0, 16], ['tree', 3, 17], ['tree', 4, 8], ['rock', 20, 0], ['rock', 22, 1], ['rock', 23, 4], ['rock', 22, 8], ['rock', 23, 10], ['bush', 15, 16], ['rock', 19, 17], ['tree', 17, 15], ['tree', 23, 14], ['rock', 16, 17], ['tree', 13, 11]],
     cloud:    [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['bush', 8, 0], ['bush', 9, 0], ['bush', 10, 0], ['bush', 11, 0], ['bush', 9, 1], ['bush', 10, 1], ['bush', 11, 1], ['bush', 13, 0], ['bush', 14, 0], ['bush', 15, 0], ['rock', 15, 1], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9]],
+    aurora:   [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9], ['tree', 25, 7], ['tree', 25, 12], ['tree', 25, 15], ['tree', 24, 19], ['rock', 25, 0]],
   };
   function sceneryOf(world){
     const lay = (world && world.layout) || {};

@@ -40,7 +40,7 @@ assert.strictEqual(w.past[0].farm, 'meadow'); assert.deepStrictEqual(w.past[0].l
 const w2 = R.fixWorld(JSON.parse(JSON.stringify(w)), now);
 assert.strictEqual(R.farmOf(w2).id, 'seaside');
 // 마지막 농장에서는 더 못 간다
-w2.farm = 3; Object.keys(R.DECOR).forEach(d => { w2.decor[d] = { by: 'sua' }; });
+w2.farm = R.FARMS.length - 1; Object.keys(R.DECOR).forEach(d => { w2.decor[d] = { by: 'sua' }; });
 assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
 // 농장 전용 꾸미개 — 그 농장에서만 사고, 이사 조건에도 그때만 든다
 {

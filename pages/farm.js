@@ -547,6 +547,8 @@ const FARM_LOOK = {
   /* 일본: 이끼 빛 땅에 회색 돌을 깐 길(이시다타미), 바닥엔 진 벚꽃잎이 소복이(petals — 2026-10-07 로키즈 「농장 바닥엔 분홍 벚꽃들이 많이 쌓여」) */
   cloud:    { tint: '#7fb47a', amt: 0.48, dry: '#e8e4d8', rock: '#d9d6cc', bloom: ['#ff8fb8', '#ffffff', '#ffb7d5', '#c9a8ff'], front: 'cloud', bloomX: 1.2,
               path: ['#bdb8ac', '#aaa498', '#cdc8bd'], pathEdge: '#8a857a', petals: true },
+  // 오로라 — 늘 눈 덮인 땅(밭 흙 빛깔 정도만 이 표를 본다)
+  aurora:   { tint: '#dfe8f2', amt: 0.7, dry: '#e8eef4', rock: '#9aa0ae', bloom: ['#ffffff', '#d8ecff'], bloomX: 0 },
 };
 function farmLook(){ return (W && R.farmOf && FARM_LOOK[R.farmOf(W).id]) || null; }
 const palMemo = {};
@@ -3083,6 +3085,12 @@ function drawCritters(season, t, L){
 function drawSmoke(t){
   if (isoView && !isoChimney) return;
   const b = spot('house'), X = isoView ? isoChimney.x - 2 : b.x * T + b.w * T - 34, Y = isoView ? isoChimney.y : b.y * T - 4;
+  if (isoView && hdOn()) return hd(c => {                                // 고화소 농장 — 둥글고 흐린 연기 뭉치
+    for (let i = 0; i < 6; i++){
+      const ph = ((t / 24) + i * 75) % 450, y = Y + 4 - ph / 4.5, r = 1.6 + ph / 70, x = X + 2 + Math.sin(ph / 55 + i) * (3 + ph / 50);
+      c.fillStyle = 'rgba(220,226,238,' + Math.max(0, 0.38 - ph / 1200).toFixed(3) + ')'; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+    }
+  });
   for (let i = 0; i < 5; i++){
     const ph = ((t / 24) + i * 90) % 450;
     const y = Y - ph / 4.5, sz = 4 + ph / 95;
@@ -3567,8 +3575,24 @@ const ISO_LOOK = {
   // 일본 — 옅은 쪽빛 하늘, 섬 옆구리는 성처럼 쌓은 돌담(이시가키) 아래 이끼 낀 흙(2026-10-07 로키즈 「좀 더 일본스럽게」)
   cloud:    { sky: ['#a9d2f2', '#c6e2f6', '#e6eef4', '#fbeaee'], horizon: 330, below: 'clouds',
               strata: ['#a29e94', '#959188', '#6a5848', '#4f4236'], deep: ICLIFF, wall: true },
+  // 오로라 — 하늘·섬·건물은 pages/farm-hd.js 가 고화소로 그린다(hdOn). 이 표는 비·안개 같은 공통 셈이 보는 값만
+  aurora:   { sky: ['#050a1e', '#0b1a3c', '#123a5a', '#1d5a6e'], horizon: ITOP + 34, below: 'ice',
+              strata: ['#3a4766', '#2c3654', '#222a44', '#181e34'], deep: ICLIFF },
 };
 function isoLook(){ return ISO_LOOK[R.farmOf(W).id] || ISO_LOOK.seaside; }
+/* ---- 스테이지2 고화소 그림(pages/farm-hd.js) ----
+   여기 적힌 농장은 하늘·섬·건물·꾸미개·나무·아이를 도트 대신 FARMHD 로 칠한다. 좌표는 같은 도트 단위라 ctx 를 S 배 키워 놓고 부르면 된다.
+   FARMHD 에 그림이 없는 것(작물·동물·앞 농장 추억 꾸미개)은 도트 그림 그대로다. 밤(등 켜는 때, L.lamp)이면 밤 빛깔 */
+const HD_FARMS = { aurora: 1 };
+let hdLight = null;
+function hdOn(){ return !!window.FARMHD && !!W && !!HD_FARMS[R.farmOf(W).id]; }
+function hdEnv(){
+  return { P: (u, v, z) => { const p = isoP(u, v, z); return [p.x, p.y]; }, cols: COLS, rows: ROWS, top: ITOP, cliff: ICLIFF, w: ISO_W, h: ISO_H,
+    night: !!(hdLight ? hdLight.lamp : dayLight().lamp), t: STILL ? 0 : performance.now() / 1000,
+    lamp: (x, y, r, c) => lamp(x, y, r, c), chimney: (x, y) => { isoChimney = { x, y }; } };
+}
+function hd(fn){ ctx.save(); ctx.scale(S, S); try { return fn(ctx, hdEnv()); } finally { ctx.restore(); } }
+const hdHas = id => hdOn() && window.FARMHD.has(id);
 // 하늘은 네 빛깔을 띠로 깔고 사이를 흩뿌려 잇는다
 function isoSky(K, y0, y1){ isoGrad(y0, y1, K.sky); }
 /* 빛깔 띠를 흩뿌림으로 잇는다. 도트마다 칠하면 한 장에 20만 번이라(재 봄) 한 도트 = 한 픽셀인
@@ -4204,6 +4228,7 @@ function isoFloor(season){
     const P = R.PLACE[id];
     if (P.kind === 'build' && !here(id) && id !== 'scarecrow') isoGhost(spot(id));
   });
+  if (hdOn()){ ['pasture', 'pond', 'path'].forEach(id => { if (here(id)){ const b = spot(id); hd((c, E) => window.FARMHD.floor(c, E, id, b)); } }); return; }
   if (here('pasture')) isoPastureFloor(season, spot('pasture'));
   if (here('pond')) isoPond(season, spot('pond'));
   if (here('path')) isoFlowerPath(season, spot('path'));
@@ -4217,6 +4242,7 @@ function isoFencePost(p, hgt){
 // 울타리 한 토막 — (ua,va) 에서 (ub,vb) 까지 가로대 둘, 양 끝 기둥
 // 그리스는 낮은 흰 돌담, 일본은 대나무 울, 스위스는 빗살 댄 나무 울타리
 function isoFenceSeg(ua, va, ub, vb){
+  if (hdOn()) return hd((c, E) => window.FARMHD.fence(c, E, ua, va, ub, vb));
   const th = isoTheme();
   if (th === 'seaside') return isoWallSeg(ua, va, ub, vb);
   if (th === 'cloud') return isoBambooSeg(ua, va, ub, vb);
@@ -6668,9 +6694,12 @@ function isoFaceOf(o){                                                          
 // ■ 수아·연아 — 판 그림(kid-art.js)을 그대로 세운다. 그 그림이 2:1 아이소 카메라로 그려져 여덟 방향이 섬 위에서도 맞는다.
 // 지도에서 움직인 쪽(u·v)을 45도 돌려 방향을 고른다: +u → SE, +v → SW, -u → NW, -v → NE, u·v 같이 → S·N, 엇갈리면 E·W.
 // 걸음 네 장에 오르내림이 이미 들어 있어서, 들썩임은 서 있을 때만.
+// 스테이지2(고화소) 농장에서는 라이프퀘스트 걷기 그림(hero-*.png)을 세운다 — 그림이 아직 안 왔으면 도트 그림으로
+const HD_KID_TALL = { sua: 46, yona: 42 };
 function drawWalkerIso(w, t){
   const A = KIDART[w.who] || KIDART.yona, d = w.moving ? dir8(w.vx - w.vy, w.vx + w.vy) : 'S', f = KIDSTEP(w.moving, w.phase);   // 멈추면 화면(정면)을 본다
   const lift = w.moving ? 0 : (Math.sin(t / 900 + w.phase) > 0.8 ? 1 : 0), q = isoP(w.x / T, w.y / T);
+  if (hdOn() && hd(c => window.FARMHD.kid(c, w.who, q.x, q.y - lift, d, f, HD_KID_TALL[w.who] || 44))) return;
   isoEllipse(w.x / T + 0.06, w.y / T + 0.06, 0.34, 0.28, 0, 'rgba(30,44,24,0.2)');
   artOut(w.who + d + f, A.dirs[d][f], Math.round(q.x - A.w / 2), Math.round(q.y - A.h - lift), KIDPAL[w.who]);
 }
@@ -7259,6 +7288,7 @@ function isoBeam(g, t, L){
   g.restore();
 }
 function paintIsoThing(id, b, cal, night, season){
+  if (hdHas(id)) return hd((c, E) => window.FARMHD.thing(c, E, id, b, night, stallPart));
   if (id === 'lighthouse') return isoLighthouse(b, night);
   if (id === 'palm') return isoPalm(b);
   if (id === 'cairn') return isoCairn(b, season);
@@ -7328,12 +7358,20 @@ function isoPlaceOverlay(t){
 }
 // 한 장 — 아이소 섬
 function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
-  const cw = cv.width, ch = cv.height, hs = spot('house');
-  paintLayer('iground', cw, ch, 'i|' + sigGround(season, wk) + '|' + hs.x + ',' + hs.y, () => isoGround(season));
+  const cw = cv.width, ch = cv.height, hs = spot('house'), HD = hdOn();
   const sigB = sigBuilt(cal, L.lamp);
-  paintLayer('ifloor', cw, ch, 'i|' + season + '|' + sigField() + '|' + sigB, () => { isoFloor(season); isoField(); });
+  hdLight = L;
+  if (HD){
+    // 하늘·오로라·얼음 바다는 매 장(오로라가 흐른다), 섬은 배치·밤낮이 바뀔 때만
+    ctx = g; hd((c, E) => window.FARMHD.backdrop(c, E));
+    const busy = new Set();
+    R.PLACE_IDS.forEach(id => { if (id === 'path' || !here(id)) return; const b = spot(id); for (let x = b.x; x < b.x + b.w; x++) for (let y = b.y; y < b.y + b.h; y++) busy.add(x + ',' + y); });
+    paintLayer('iground', cw, ch, 'hd|' + sigB, () => hd((c, E) => window.FARMHD.island(c, E, pathCells(), (u, v) => busy.has(u + ',' + v) || R.fieldHas(W, u, v))));
+  } else paintLayer('iground', cw, ch, 'i|' + sigGround(season, wk) + '|' + hs.x + ',' + hs.y, () => isoGround(season));
+  paintLayer('ifloor', cw, ch, 'i|' + season + '|' + sigField() + '|' + sigB + (HD ? '|hd' : ''), () => { isoFloor(season); isoField(); });
   g.drawImage(composeBack(cw, ch, ['iground', 'ifloor']), 0, 0);
   ctx = g; lamps = []; isoHits = []; cropHits = [];
+  if (HD) hd((c, E) => window.FARMHD.sparkle(c, E));
   if (isoLook().below === 'lava') isoLavaBack(t);
   if (isoTheme() === 'cloud') isoTrain(t, L);
   const cast = [];
@@ -7344,14 +7382,16 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
     cast.push({ d: id === 'pasture' ? b.x + b.y + 0.3 : b.x + b.w / 2 + b.y + b.h / 2, go: () => {
       if (seeThrough) ctx.globalAlpha = SEE_ALPHA;
       const paint = part => () => { stallPart = part; try { paintIsoThing(id, b, cal, L.lamp, season); } finally { stallPart = null; } };
+      const hdThing = hdHas(id), ink = hdThing ? null : INK.build;
       if (id === 'stall'){                                                     // 가게는 뒤 겹 → 서성이는 아저씨 → 앞 겹
-        isoHits.push({ e: isoSprite('stall:b', sigB + '|' + season + '|' + id, isoBoxOf(b), paint('back'), INK.build), tx: b.x, ty: b.y });
+        isoHits.push({ e: isoSprite('stall:b', sigB + '|' + season + '|' + id, isoBoxOf(b), paint('back'), ink), tx: b.x, ty: b.y });
         drawStallKeeperIso(b, t);
       }
-      const e = isoSprite(id, sigB + '|' + season + '|' + id, isoBoxOf(b), paint(id === 'stall' ? 'front' : null), INK.build);
+      const e = isoSprite(id, sigB + '|' + season + '|' + id, isoBoxOf(b), paint(id === 'stall' ? 'front' : null), ink);
       for (let i = 0; i < e.lamps.length; i++) lamps.push(e.lamps[i]);
       isoHits.push({ e, tx: b.x, ty: b.y });
-      if (ISO_OWN[id]) isoOwnLive(id, b, t, L, season);
+      if (hdThing) hd((c, E) => window.FARMHD.live(c, E, id, b));
+      else if (ISO_OWN[id]) isoOwnLive(id, b, t, L, season);
       else if (ISO_PROP_LIVE[id]) ISO_PROP_LIVE[id](b, t, L, season, isoTheme());
       else if (W.decor[id]) withBB(bbOffset(b), () => onlyDecor(id, () => drawDecorLive(season, t, L)));
       ctx.globalAlpha = 1;
@@ -7364,7 +7404,8 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
     cast.push({ d: N.x + N.y + 1, go: () => {
       const ready = W && M ? R.nodeReady(W, M, n, now()) : true;
       if (seeThrough) ctx.globalAlpha = SEE_ALPHA;
-      isoSprite('n:' + n, isoTheme() + '|' + season + '|' + (ready ? 1 : 0) + '|' + N.x + ',' + N.y, nodeBox(N), () => isoNode(n, N, ready, season, isoTheme()), INK.tree);
+      if (HD) isoSprite('n:' + n, 'hd|' + (L.lamp ? 1 : 0) + '|' + (ready ? 1 : 0) + '|' + N.x + ',' + N.y, nodeBox(N), () => hd((c, E) => window.FARMHD.node(c, E, N.kind, N.x, N.y, ready, n.length * 7 + n.charCodeAt(n.length - 1))), null);
+      else isoSprite('n:' + n, isoTheme() + '|' + season + '|' + (ready ? 1 : 0) + '|' + N.x + ',' + N.y, nodeBox(N), () => isoNode(n, N, ready, season, isoTheme()), INK.tree);
       ctx.globalAlpha = 1;
       const q = isoP(N.x + 0.5, N.y + 0.62);
       isoHits.push({ x0: q.x - 16, x1: q.x + 16, y0: q.y - 50, y1: q.y + 6, tx: N.x, ty: N.y });
@@ -7377,7 +7418,8 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
       // 채집한 날은 그루터기·돌 부스러기·열매 없는 덤불
       const ready = W && M ? R.nodeReady(W, M, c.id, now()) : true;
       if (seeThrough) ctx.globalAlpha = SEE_ALPHA;
-      const e = isoSprite('s:' + c.id, isoTheme() + '|' + season + '|' + c.kind + '|' + (ready ? 1 : 0) + '|' + c.x + ',' + c.y, nodeBox(N), () => isoNode(k, N, ready, season, isoTheme()), INK.tree);
+      const e = HD ? isoSprite('s:' + c.id, 'hd|' + (L.lamp ? 1 : 0) + '|' + c.kind + '|' + (ready ? 1 : 0) + '|' + c.x + ',' + c.y, nodeBox(N), () => hd((cc, E) => window.FARMHD.node(cc, E, c.kind, c.x, c.y, ready, i + 100)), null)
+        : isoSprite('s:' + c.id, isoTheme() + '|' + season + '|' + c.kind + '|' + (ready ? 1 : 0) + '|' + c.x + ',' + c.y, nodeBox(N), () => isoNode(k, N, ready, season, isoTheme()), INK.tree);
       ctx.globalAlpha = 1;
       // 칠해진 도트만 잡는다 — 뒤의 채집 나무를 가리지 않은 곳은 그 나무로 넘어간다
       isoHits.push({ e, tx: c.x, ty: c.y });
@@ -7413,7 +7455,8 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
   if (isoLook().below === 'lava') isoLavaFront(t);
   drawWeather(wk, season, t, cv);
   isoSeaRain(wk, t);
-  grade(g, cw, ch, isoLook().below === 'lava' ? lavaNight(L) : L);
+  if (HD){ hd((c, E) => window.FARMHD.snowfall(c, E)); grade(g, cw, ch, L, L.lamp ? 0.25 : 0.6); }
+  else grade(g, cw, ch, isoLook().below === 'lava' ? lavaNight(L) : L);
   if (L.lamp && lamps.length){
     g.save(); g.globalCompositeOperation = 'lighter';
     g.drawImage(paintLayer('glow', cw, ch, sigGlow(L.dark), gg => drawGlow(gg, L.dark)), 0, 0);
