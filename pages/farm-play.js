@@ -276,13 +276,17 @@ function arrivalFrame(g, from, to, p){
 // 이삿날 선물 목록 — 추억·새 식구·문패·도장(2026-09-30 로키즈 「이사 보상」)
 function arrivalGifts(to){
   const keeps = Object.keys(W.decor || {}).filter(id => W.decor[id].keep && R.DECOR[id]);
-  const baby = (W.animals || []).filter(a => a.gift && R.ANIMALS[a.kind] && R.ANIMALS[a.kind].gift === to.id).pop();
-  const stamp = R.MEDALS.find(Md => Md.id === { seaside: 'stampSea', mountain: 'stampMt', cloud: 'stampCloud', aurora: 'stampAurora' }[to.id]);
+  // 지나온 농장들(건너뛴 화산 포함)의 아기 동물 — 바닷가→꽃구름이면 염소와 두루미가 함께 온다
+  const P = (W.past || [])[(W.past || []).length - 1], i0 = P ? R.FARMS.findIndex(f => f.id === P.farm) : (W.farm || 0) - 1;
+  const passed = R.FARMS.slice(i0 + 1, (W.farm || 0) + 1).map(f => f.id);
+  const babies = Object.keys(R.ANIMALS).filter(k => passed.indexOf(R.ANIMALS[k].gift) >= 0)
+    .map(k => (W.animals || []).filter(a => a.gift && a.kind === k).pop()).filter(Boolean);
+  const stamp = R.MEDALS.find(Md => Md.id === { seaside: 'stampSea', cloud: 'stampCloud', aurora: 'stampAurora' }[to.id]);
   const li = [
     '📮 우편함에 이사 선물 동전 ' + (R.MOVE_GIFT || 0),
     keeps.length ? '🧳 들고 온 추억: ' + keeps.map(id => R.DECOR[id].icon + ' ' + R.DECOR[id].name).join(' · ') : '',
-    baby ? R.ANIMALS[baby.kind].icon + ' 새 식구 <b>' + escapeHTML(baby.name) + '</b>가 따라왔어요. 「👭 둘이서」 칸 동물 목록의 ✏️ 로 이름을 지어 줘요' : '',
-    '🪧 대문 문패가 <b>수아연아 농장 ' + ((W.farm || 0) + 1) + '호점</b>이 됐어요',
+    babies.length ? babies.map(b => R.ANIMALS[b.kind].icon).join('') + ' 새 식구 ' + babies.map(b => '<b>' + escapeHTML(b.name) + '</b>').join('와 ') + '가 따라왔어요. 「👭 둘이서」 칸 동물 목록의 ✏️ 로 이름을 지어 줘요' : '',
+    '🪧 대문 문패가 <b>수아연아 농장 ' + R.farmNo(W.farm || 0) + '호점</b>이 됐어요',
     stamp ? stamp.icon + ' 「📖 도감·기록」 칸 훈장에서 <b>' + stamp.name + '</b>을 받을 수 있어요' : '',
   ].filter(Boolean);
   return '<ul class="arrive-gifts">' + li.map(x => '<li>' + x + '</li>').join('') + '</ul>';
@@ -1220,9 +1224,9 @@ function moveCard(cls){
     : s.ready ? '준비가 다 됐어요! 둘 다 좋다고 하면 떠나요'
     : '아래를 모두 채우면 이사 갈 수 있어요';
   const list = s.conds.map(c => (c.left ? '⬜ ' : '✅ ') + c.icon + ' ' + c.name + ' ' + Math.min(c.have, c.need) + '/' + c.need).join('<br>');
-  const gk = Object.keys(R.ANIMALS).find(k => R.ANIMALS[k].gift === s.next.id);
+  const gk = R.movePath(W).map(f => Object.keys(R.ANIMALS).find(k => R.ANIMALS[k].gift === f.id)).filter(Boolean);   // 건너뛴 농장의 아기도
   d.innerHTML = '<div class="nm">🚚 ' + s.next.icon + ' ' + s.next.name + '으로 이사</div><div class="pr">' + s.next.desc + '<br>' + say + '<br>' + list +
-    '<br>🎁 이삿날 선물: 동전 ' + (R.MOVE_GIFT || 0) + ' · 추억 하나' + (gk ? ' · 아기 ' + R.ANIMALS[gk].name : '') + ' · 새 문패 · 여권 도장' +
+    '<br>🎁 이삿날 선물: 동전 ' + (R.MOVE_GIFT || 0) + ' · 추억 하나' + gk.map(k => ' · 아기 ' + R.ANIMALS[k].name).join('') + ' · 새 문패 · 여권 도장' +
     '<br><small>꾸미개와 다 지은 건물은 ' + s.farm.name + '에 두고 가요(고른 추억 하나는 들고 가요). 동전·가방·동물·집 가구·밭은 가져가요. 두고 간 농장은 언제든 다시 구경할 수 있어요.</small></div>';
   if (R.MOVE_OPEN === false){                                      // 새 농장을 짓는 동안은 조건만 보여 준다
     d.insertAdjacentHTML('beforeend', '<div class="pr">🔒 <b>' + s.next.name + '은 지금 짓고 있어요. 곧 열려요!</b> 그동안 조건을 채워 둬요.</div>');
@@ -1896,7 +1900,7 @@ function snapCanvas(label){
   g.fillStyle = '#3a3226';
   g.font = '700 ' + Math.round(BAR * 0.46) + 'px "Galmuri11", system-ui, sans-serif';
   g.textBaseline = 'middle';
-  g.fillText(label || ((W.farm && R.farmOf ? '수아연아 농장 ' + (W.farm + 1) + '호점 · ' + R.farmOf(W).name : '수아연아 농장') + ' · ' + R.dayKey(now())), PAD + 4, PAD + BAR * 0.5);
+  g.fillText(label || ((W.farm && R.farmOf ? '수아연아 농장 ' + R.farmNo(W.farm) + '호점 · ' + R.farmOf(W).name : '수아연아 농장') + ' · ' + R.dayKey(now())), PAD + 4, PAD + BAR * 0.5);
   const right = R.SEASON_ICON[cal.season] + ' ' + R.SEASON_NAME[cal.season] + ' ' + cal.year + '년째 · '
     + (WNAME[wk] || wk) + ' · Lv ' + R.levelOf(M.xp);
   g.textAlign = 'right';

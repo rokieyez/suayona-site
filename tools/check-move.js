@@ -28,12 +28,12 @@ assert.strictEqual(w.animals.length, 11, '새 식구 한 마리가 따라온다'
 assert(!R.buy(w, Object.assign(R.fixMine(null, 'sua'), { coins: 99999 }), 'animal:gull', now).ok, '새 식구는 가게에서 못 산다');
 assert.strictEqual(w.mail.sua.filter(g => g.from === 'move').length, 1);
 assert.strictEqual(w.past[0].farm, 'meadow'); assert.deepStrictEqual(w.past[0].layout, { statue: { x: 3, y: 3 } }); assert(w.past[0].buildings.coop && w.past[0].decor.statue); assert(!w.moveAsk);
-// 여권 도장 — 이사한 만큼 받고, 셋을 다 받으면 여권(별열매 씨앗 다섯)
+// 여권 도장 — 이사한 만큼 받고, 둘(바닷가·꽃구름 — 화산은 건너뜀)을 다 받으면 여권(별열매 씨앗 다섯)
 {
   const mm = R.fixMine(null, 'sua');
-  assert(R.claimMedal(w, mm, 'stampSea', now).ok && !R.claimMedal(w, mm, 'stampMt', now).ok, '산골 도장은 산골에 가서');
+  assert(R.claimMedal(w, mm, 'stampSea', now).ok && !R.claimMedal(w, mm, 'stampCloud', now).ok && !R.claimMedal(w, mm, 'passport', now).ok, '꽃구름 도장은 꽃구름에 가서');
+  assert(!R.MEDALS.some(M => M.id === 'stampMt'), '화산 도장은 없다');
   const w4 = R.fixWorld(null, now); w4.farm = 3;
-  assert(R.claimMedal(w4, mm, 'stampMt', now).ok && !R.claimMedal(w4, mm, 'passport', now).ok);
   assert(R.claimMedal(w4, mm, 'stampCloud', now).ok && R.claimMedal(w4, mm, 'passport', now).ok && mm.inv['seed:star'] === 5, '여권 선물');
 }
 // 저장·불러오기 뒤에도 그대로
@@ -176,7 +176,10 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   assert(R.askMove(wk, a, now, 'lighthouse').ok && R.askMove(wk, b, now).moved);
   assert.deepStrictEqual(Object.keys(wk.decor).sort(), ['lighthouse', 'windmill'], '추억은 쌓인다');
   assert.strictEqual(wk.decor.lighthouse.keep, 'seaside');
-  assert(wk.animals.some(x => x.kind === 'goat' && x.baby), '산골 새 식구는 아기 염소');
+  // 화산은 건너뛴다(2026-10-09) — 바닷가에서 바로 꽃구름으로, 건너뛴 화산의 아기 염소도 두루미와 함께 온다
+  assert.strictEqual(R.farmOf(wk).id, 'cloud', '바닷가 다음은 꽃구름');
+  assert(wk.animals.some(x => x.kind === 'goat' && x.baby) && wk.animals.some(x => x.kind === 'crane' && x.baby), '아기 염소와 두루미');
+  assert.deepStrictEqual([0, 1, 3, 4].map(R.farmNo), [1, 2, 3, 4], '문패는 건너뛴 농장을 안 센다');
 }
 // 채집 나무·바위·덤불과 풍경도 옮긴다(2026-10-07) — 빈 칸으로만, 처음 자리로 돌리면 기록이 지워진다, 저장 뒤에도 남는다
 {

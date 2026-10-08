@@ -5,7 +5,7 @@
 // farm-rules.js 가 먼저 돌아야 한다. 저 파일의 닫힘 안에 있는 것들은 FARM.__inner 로 받는다.
 (() => {
   if (typeof FARM === 'undefined' || !FARM.__inner) throw new Error('farm-rules.js 를 먼저 실어야 해요');
-  const { nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
+  const { nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
 
   function dayEndMs(t){ return dayStartMs(dayKey(t)) + DAY_MS; }
   function nextSeason(s){ return SEASONS[(SEASONS.indexOf(s) + 1) % 4]; }
@@ -400,7 +400,7 @@
   }
   // ---------- 이사 ----------
   function moveState(world, mine){
-    const next = FARMS[(world.farm || 0) + 1] || null, ask = world.moveAsk || null;
+    const next = FARMS[nextFarmIndex(world)] || null, ask = world.moveAsk || null;
     // 다른 농장 전용 꾸미개는 여기서 살 수 없으니 세지 않는다
     const here = farmOf(world).id, ids = Object.keys(DECOR).filter(d => !DECOR[d].farm || DECOR[d].farm === here);
     const have = ids.filter(d => world.decor && world.decor[d]).length;
@@ -451,7 +451,8 @@
     world.past.push({ farm: s.farm.id, until: dayKey(now), decor: JSON.parse(JSON.stringify(world.decor || {})),
       buildings: kept, layout: JSON.parse(JSON.stringify(world.layout || {})), expand: world.expand || 0 });
     const from = fieldCells(world), old = world.decor || {};
-    world.decor = {}; world.layout = {}; world.farm = (world.farm || 0) + 1;
+    const path = movePath(world).map(f => f.id);   // 건너뛴 농장의 아기 동물도 데려가려고 넘기기 전에 적는다
+    world.decor = {}; world.layout = {}; world.farm = nextFarmIndex(world);
     // 추억 — 예전에 들고 온 것과 이번에 고른 것. 자리는 새 농장의 처음 자리에 선다
     Object.keys(old).forEach(d => { if (old[d] && (old[d].keep || d === keep)) world.decor[d] = Object.assign({}, old[d], { keep: old[d].keep || s.farm.id }); });
     // 새 농장은 밭 모양이 달라 칸 이름(좌표)이 바뀐다 — 같은 넓히기 차례끼리 순서대로 옮겨 심는다(칸 수는 차례마다 같다).
@@ -469,8 +470,7 @@
     delete world.moveAsk;
     ['sua', 'yona'].forEach(k => { (world.mail[k] = world.mail[k] || []).push({ id: 'coins', n: MOVE_GIFT, from: 'move', note: s.next.name + ' 이사 선물', t: now }); });
     // 새 식구 — 그 농장에서만 만나는 동물이 새끼로 따라온다. 우리가 없으면 빈 터에서 논다(다른 동물처럼)
-    const gk = Object.keys(ANIMALS).find(k => ANIMALS[k].gift === s.next.id);
-    if (gk) world.animals.push({ id: 'a' + now + 'g', kind: gk, name: '아기 ' + ANIMALS[gk].name, by: mine.key, born: dayKey(now), love: 0, pet: [], since: 0, baby: true, gift: true });
+    Object.keys(ANIMALS).filter(k => path.indexOf(ANIMALS[k].gift) >= 0).forEach((gk, i) => world.animals.push({ id: 'a' + now + 'g' + (i || ''), kind: gk, name: '아기 ' + ANIMALS[gk].name, by: mine.key, born: dayKey(now), love: 0, pet: [], since: 0, baby: true, gift: true }));
     logAdd(world, mine.key, '수아와 연아가 ' + s.next.name + '으로 이사 왔어요', now);
     return okay(s.next.icon + ' <b>' + s.next.name + '</b>으로 이사 왔어요! 우편함에 이사 선물이 있어요. 건물은 둘이 다시 지어요', { moved: true });
   }

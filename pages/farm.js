@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '23';
+const PLAY_V = '24';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -7536,7 +7536,7 @@ function paintPastBar(el, pick){
   const day = k => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(k || ''); return m ? Number(m[1]) + '월 ' + Number(m[2]) + '일' : ''; };
   // 대문 문패 — 이사할 때마다 「N호점」이 붙는다(2026-09-30 로키즈 「이사 보상」). 옛 농장 구경 중이면 그 농장 번호
   const shown = visitAt != null && past[visitAt] ? R.FARMS.findIndex(f => f.id === past[visitAt].farm) : (W.farm || 0);
-  if (shown >= 1) text('<span class="doorplate">🪧 수아연아 농장 ' + (shown + 1) + '호점</span>');
+  if (shown >= 1) text('<span class="doorplate">🪧 수아연아 농장 ' + R.farmNo(shown) + '호점</span>');
   if (visitAt != null && past[visitAt]){
     const p = past[visitAt];
     text('<b>' + nameOf(p) + '</b> 구경 중' + (day(p.until) ? ' · ' + day(p.until) + '까지 살던 곳' : ''));
