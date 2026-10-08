@@ -697,8 +697,8 @@
     twinkle(x + 5, y - 5, 1.4, '#ffe680');
   }
   // 여덟 방향 그림 한 장(pages/beasts.webp, tools/beast-atlas.py 로 굽는다) — 줄 = 동물, 칸 = 방향. 칸 크기·발끝 줄은 도구가 찍어 준 값
-  const BEAST_ATLAS = { src: '/pages/beasts.webp?v=1009a', cw: 147, ch: 136, foot: 132, tall: 128,
-    kinds: ['cow', 'chicken', 'duck', 'sheep', 'pig', 'rabbit', 'dog', 'cat', 'gull', 'goat', 'crane', 'reindeer'],
+  const BEAST_ATLAS = { src: '/pages/beasts.webp?v=1009c', cw: 147, ch: 136, foot: 132, tall: 128,
+    kinds: ['cow', 'chicken', 'duck', 'sheep', 'pig', 'rabbit', 'dog', 'cat', 'gull', 'goat', 'crane', 'reindeer', 'camel'],
     dirs: ['S', 'SW', 'W', 'NW', 'N', 'NE', 'E', 'SE'] };
   let beastImg = null;
   const beastCell = {};
