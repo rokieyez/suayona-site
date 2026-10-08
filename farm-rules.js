@@ -129,8 +129,14 @@ const FARM = (() => {
 
     // 축제에서만 얻는 씨앗. 어느 계절이든 자라고, 온실이 없어도 겨울을 난다.
     star:       { name: '별열매',   season: SEASONS.slice(),     hours: 120, seed: 0,   sell: 400, yield: 1, half: null,   lv: 1, leaf: '#8fd8ff', fruit: '#ffe680', shape: 'flower', hardy: true, rare: true },
+    // 그 농장에서만 사고 심는 작물(farm) — 2026-10-09 로키즈 「오로라 농장만의 특색 있는 제품」. 맨 끝에 둬야 앞 작물 차례(주문·시세 뽑기)가 안 밀린다
+    cloudberry: { name: '클라우드베리', season: ['summer'],      hours: 60,  seed: 70,  sell: 95,  yield: 2, half: null,   lv: 1, leaf: '#6fa65a', fruit: '#ff9a2e', shape: 'bush', regrow: 36, farm: 'aurora' },
   };
   const CROP_IDS = Object.keys(CROPS);
+  // 농장 전용(farm)인 것은 그 농장에 살 때만 — 작물·물고기·꾸미개·가구 모두 같은 뜻
+  const farmOk = (world, X) => !X || !X.farm || X.farm === farmOf(world).id;
+  // 훈장의 작물 수는 어느 농장에서나 거둘 수 있는 것만 센다 — 농장 전용 작물이 늘어도 앞 농장 아이의 훈장 문턱이 안 바뀐다
+  const DEX_CROP_IDS = CROP_IDS.filter(c => !CROPS[c].farm);
   const GIANT_MULT = 5;          // 큰 작물은 다섯 배로 팔린다
   const GOLD_MULT = 2;           // 반짝 작물(★★★)은 두 배로 팔린다
   const GIANT_TIME = 1.6;        // 대신 시간이 더 걸린다
@@ -299,6 +305,10 @@ const FARM = (() => {
     sprinkler2:{ name: '좋은 스프링클러', sell: 0 },
     firefly: { name: '반딧불이', sell: 45 },      // 여름·가을 밤에만 날아다닌다
     box:     { name: '수수께끼 보따리', sell: 0 },  // 행상인에게서만. 사면 그 자리에서 풀린다
+    // 오로라 농장에서만 나는 것(2026-10-09)
+    shard:   { name: '오로라 빛 조각', sell: 150 },  // 오로라 밤에만 땅에 떨어져 있다
+    moss:    { name: '순록 이끼', sell: 35 },        // 순록이 가끔 물어 온다
+    pinecone:{ name: '솔방울',   sell: 20 },
   };
   // 파는 값. 작물은 그날 시세가 붙는다.
   // 가게에서 파는 재료 — 값은 되파는 값(시세 1.3배까지)보다 넉넉히 높다
@@ -372,7 +382,12 @@ const FARM = (() => {
     // 오로라(스테이지2 첫 농장, 2026-10-09) — 그림은 pages/farm-hd.js
     igloo:    { name: '이글루',     icon: '🛖', cost: 3600, lv: 7, farm: 'aurora',   desc: '눈 벽돌로 쌓은 집 — 밤이면 안에서 불빛이 새요' },
     sled:     { name: '빨간 썰매',  icon: '🛷', cost: 1500, lv: 4, farm: 'aurora',   desc: '금빛 날이 둥글게 말린 썰매, 선물 상자를 실었어요' },
-    icefish:  { name: '얼음낚시 구멍', icon: '🎣', cost: 900, lv: 3, farm: 'aurora', desc: '얼음판에 뚫은 구멍과 낚싯대, 생선 담은 양동이' },
+    icefish:  { name: '얼음낚시 구멍', icon: '🎣', cost: 900, lv: 3, farm: 'aurora', desc: '누르면 얼음낚시 — 북극곤들매기와 대구가 물어요' },
+    // 오로라 넷 더(2026-10-09 로키즈 「오로라 농장만의 특색 있는 꾸미개」) — 북유럽 눈 섬
+    sauna:    { name: '사우나 오두막', icon: '🧖', cost: 2600, lv: 6, farm: 'aurora', desc: '통나무 사우나 — 밤이면 굴뚝에서 김이 올라요' },
+    lavvu:    { name: '사미 천막',   icon: '⛺', cost: 1800, lv: 5, farm: 'aurora', desc: '원뿔 천막 앞 모닥불과 통나무 의자' },
+    icesculpt:{ name: '얼음 조각상', icon: '🦌', cost: 1200, lv: 4, farm: 'aurora', desc: '오로라 빛에 어른거리는 얼음 순록' },
+    santapost:{ name: '산타 우체통', icon: '📮', cost: 700,  lv: 3, farm: 'aurora', desc: '빨간 우체통 — 가끔 산타 할아버지 편지가 와요' },
   };
 
   // ---------- 이사 ----------
@@ -463,6 +478,10 @@ const FARM = (() => {
     igloo:      { name: '이글루',   w: 2, h: 2, x: 21, y: 7,  kind: 'decor',  move: true },
     sled:       { name: '빨간 썰매', w: 2, h: 1, x: 22, y: 19, kind: 'decor',  move: true },
     icefish:    { name: '얼음낚시 구멍', w: 1, h: 1, x: 5, y: 15, kind: 'decor', move: true },
+    sauna:      { name: '사우나 오두막', w: 2, h: 2, x: 23, y: 12, kind: 'decor', move: true },
+    lavvu:      { name: '사미 천막', w: 2, h: 2, x: 12, y: 17, kind: 'decor', move: true },
+    icesculpt:  { name: '얼음 조각상', w: 1, h: 1, x: 22, y: 9, kind: 'decor', move: true },
+    santapost:  { name: '산타 우체통', w: 1, h: 1, x: 6, y: 0, kind: 'decor', move: true },
   };
   const PLACE_IDS = Object.keys(PLACE);
   /* 새 농장은 처음 자리부터 다르다(2026-09-28 로키즈 「이전 농장과 완전히 다른 느낌」). 여기 없는 것은 PLACE 의 자리.
@@ -478,6 +497,7 @@ const FARM = (() => {
       lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], anchor: [14, 17], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5] },
     // 오로라 — 꽃구름 자리를 바탕으로, 밭 아래 끝이 가운데로 내려와 분수는 넓어진 오른쪽 끝으로
     aurora: { mail: [4, 1], board: [5, 0], flag: [24, 3], statue: [19, 4], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [16, 7], greenhouse: [20, 2], fountain: [24, 9], igloo: [21, 7], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19], sled: [22, 19], icefish: [5, 15],
+      sauna: [23, 12], lavvu: [12, 17], icesculpt: [22, 9], santapost: [6, 0],   // 사우나는 오른쪽 숲가, 천막은 앞 가운데, 조각상은 이글루 앞, 우체통은 우편함 곁
       lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], anchor: [14, 17], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5],
       shishi: [1, 9], koinobori: [2, 9], toro: [24, 2], balloon: [24, 4], skybridge: [24, 17] },
   };
@@ -515,7 +535,8 @@ const FARM = (() => {
     gull:    { name: '갈매기', cost: 0,   need: 'coop',    product: null,     best: 'gem',         every: 1, icon: '🕊️', find: ['fish:mackerel', 'fish:flounder', 'fish:seaweed'], gift: 'seaside' },
     goat:    { name: '염소',  cost: 0,   need: 'barn',    product: 'milk',    best: 'goldmilk',    every: 1, icon: '🐐', gift: 'mountain' },
     crane:   { name: '두루미', cost: 0,   need: 'pasture', product: null,     best: 'gem',         every: 1, icon: '🦢', find: ['fish:minnow', 'fish:crucian', 'fish:carp'], gift: 'cloud' },
-    reindeer:{ name: '순록',  cost: 0,   need: 'barn',    product: 'milk',    best: 'goldmilk',    every: 1, icon: '🦌', gift: 'aurora' },
+    // 순록은 우유를 주다가 가끔(findOdds) 눈 밑에서 이끼나 솔방울을 찾아 물어 온다(2026-10-09)
+    reindeer:{ name: '순록',  cost: 0,   need: 'barn',    product: 'milk',    best: 'goldmilk',    every: 1, icon: '🦌', gift: 'aurora', find: ['moss', 'pinecone'], findOdds: 0.35 },
   };
   const ANIMAL_MAX = { coop: 6, barn: 6, pasture: 4, pethouse: 2 };
   const LOVE_FOR_BEST = 5;
@@ -554,6 +575,9 @@ const FARM = (() => {
     seabream:{ name: '참돔',       sell: 260, w: 8,  c: '#e0707a', sea: true },
     tuna:    { name: '참치',       sell: 950, w: 2,  c: '#3f5f88', sea: true },
     seaweed: { name: '미역',       sell: 5,   w: 10, c: '#4f7a4a', sea: true, junk: true },
+    // 오로라 농장 얼음낚시 구멍(icefish)에서만 무는 것(ice). 연못·바다에서는 안 문다(2026-10-09)
+    cod:     { name: '대구',       sell: 110, w: 30, c: '#9a8f78', ice: true, farm: 'aurora' },
+    char:    { name: '북극곤들매기', sell: 280, w: 12, c: '#e0785a', ice: true, farm: 'aurora' },
   };
   const FISH_IDS = Object.keys(FISH);
   const FISH_MAX = 5;                    // 하루에 다섯 번
@@ -724,6 +748,11 @@ const FARM = (() => {
     kotatsu:  { name: '고타쓰',        cost: 700, w: 2, kind: 'kotatsu', energy: 4, cozy: 4, c: '#e8818f', flat: true, farm: 'cloud' },
     andon:    { name: '종이 등',       cost: 240, w: 1, kind: 'andon',   cozy: 3, c: '#fff3d6', farm: 'cloud' },
     scroll:   { name: '족자',          cost: 260, w: 1, kind: 'scroll',  cozy: 3, c: '#f4ecd8', wall: true, farm: 'cloud' },
+    // 오로라 = 북유럽 통나무집(2026-10-09). 흔들의자는 rocker(흔들목마)와 겹쳐 rockchair 로 둔다
+    woodstove:{ name: '무쇠 장작 난로', cost: 850, w: 1, kind: 'woodstove', energy: 4, cozy: 4, c: '#3a3634', farm: 'aurora' },
+    furrug:   { name: '순록 털 깔개',   cost: 380, w: 2, kind: 'furrug',    cozy: 3, c: '#e8dcc8', flat: true, farm: 'aurora' },
+    rockchair:{ name: '뜨개 담요 흔들의자', cost: 460, w: 1, kind: 'rockchair', cozy: 3, c: '#a97b4f', farm: 'aurora' },
+    advent:   { name: '대림절 별 등',   cost: 240, w: 1, kind: 'advent',    cozy: 3, c: '#ffd979', wall: true, farm: 'aurora' },
   };
   // 방은 가로 칸 수 × 세로 칸 수. 넓히는 건 언제든 안전하다 — 이미 놓인 가구는 그대로 있다.
   const ROOMS = {
@@ -871,10 +900,10 @@ const FARM = (() => {
      받을 때 동전과 경험치를 준다 — 도감이 목록이 아니라 발자국이 되도록. */
   const MEDALS = [
     { id: 'seedling', col: '#8fd66c', name: '첫 삽',       icon: '🌱', desc: '작물 다섯 가지를 거둬요',       coins: 100,  need: (w, m) => cropsInDex(m) >= 5 },
-    { id: 'farmer', col: '#e8c46a',   name: '밭의 주인',   icon: '🌾', desc: '작물 절반을 거둬요',           coins: 400,  need: (w, m) => cropsInDex(m) >= Math.ceil(CROP_IDS.length / 2) },
-    { id: 'master', col: '#ffd25a',   name: '온 밭 도감',  icon: '🏅', desc: '작물을 모두 거둬요',           coins: 1500, need: (w, m) => cropsInDex(m) >= CROP_IDS.length },
+    { id: 'farmer', col: '#e8c46a',   name: '밭의 주인',   icon: '🌾', desc: '작물 절반을 거둬요',           coins: 400,  need: (w, m) => cropsInDex(m) >= Math.ceil(DEX_CROP_IDS.length / 2) },
+    { id: 'master', col: '#ffd25a',   name: '온 밭 도감',  icon: '🏅', desc: '작물을 모두 거둬요',           coins: 1500, need: (w, m) => cropsInDex(m) >= DEX_CROP_IDS.length },
     { id: 'shiny', col: '#fff0a8',    name: '반짝반짝',    icon: '✨', desc: '반짝 작물 다섯 가지를 거둬요', coins: 500,  need: (w, m) => m.dex.filter(k => k.slice(0, 5) === 'gold:').length >= 5 },
-    { id: 'angler', col: '#6fb3e0',   name: '연못 지기',   icon: '🎣', desc: '물고기를 모두 낚아요',         coins: 800,  need: (w, m) => FISH_IDS.every(f => FISH[f].sea || m.dex.indexOf('fish:' + f) >= 0) },   // 바닷물고기는 연못 지기에 안 든다
+    { id: 'angler', col: '#6fb3e0',   name: '연못 지기',   icon: '🎣', desc: '물고기를 모두 낚아요',         coins: 800,  need: (w, m) => FISH_IDS.every(f => FISH[f].sea || FISH[f].ice || m.dex.indexOf('fish:' + f) >= 0) },   // 바닷물고기·얼음 물고기는 연못 지기에 안 든다
     { id: 'cook', col: '#ff9a2e',     name: '부엌 대장',   icon: '🍳', desc: '요리를 모두 만들어요',         coins: 900,  need: (w, m) => Object.keys(DISHES).every(d => m.dex.indexOf('dish:' + d) >= 0) },
     { id: 'giant', col: '#e8892f',    name: '둘이서 번쩍', icon: '🎃', desc: '큰 작물을 뽑아요',             coins: 300,  need: (w, m) => m.dex.some(k => k.slice(0, 6) === 'giant:') },
     { id: 'bestie', col: '#ff7f8a',   name: '마음이 가득', icon: '💗', desc: '동물의 마음을 10까지 채워요',  coins: 400,  need: (w) => (w.animals || []).some(a => (a.love || 0) >= 10) },
@@ -891,7 +920,7 @@ const FARM = (() => {
       need: (w, m) => ['stampSea', 'stampCloud'].every(k => (m.medals || []).indexOf(k) >= 0) },
   ];
   function cropsInDex(mine){
-    return CROP_IDS.filter(c => mine.dex.indexOf(c) >= 0).length;
+    return DEX_CROP_IDS.filter(c => mine.dex.indexOf(c) >= 0).length;
   }
 
   // ---------- 돌아다니는 행상인 ----------
@@ -946,6 +975,36 @@ const FARM = (() => {
     const key = dayKey(now);
     return mine.ffDay === key ? Math.max(0, FIREFLY_MAX - (mine.ffGot || 0)) : FIREFLY_MAX;
   }
+  /* 오로라 빛 조각(2026-10-09) — 오로라 농장의 밤에만 빈 땅 몇 군데에 떨어져 있다. 손으로 누르면 줍는다.
+     자리는 그날 날짜로 정해져 두 아이가 같은 자리를 보고, 줍는 몫은 각자다(반딧불이처럼).
+     손님 화면도 그리므로 자리 셈은 이 파일에 둔다. 줍기는 farm-rules-play.js 의 pickShard. */
+  const SHARD_MAX = 4;
+  function shardSpots(world, now){
+    if (!world || farmOf(world).id !== 'aurora' || !isNight(now)) return [];
+    const G = gridOf(world), key = dayKey(now), out = [];
+    const things = PLACE_IDS.filter(id => thingHere(world, id)).map(id => spotOf(world, id))
+      .concat(Object.keys(NODES).map(n => Object.assign({ w: 1, h: 1 }, nodeSpot(world, n))), sceneryOf(world).map(c => ({ x: c.x, y: c.y, w: 1, h: 1 })));
+    const busy = (x, y) => fieldHas(world, x, y) || things.some(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) || out.some(q => q.x === x && q.y === y);
+    // ponytail: 빈 칸을 날짜 주사위로 60번까지 던져 본다 — 섬이 꽉 차 빈 칸이 거의 없으면 넷이 안 될 수 있다
+    for (let k = 0; k < 60 && out.length < SHARD_MAX; k++){
+      const x = Math.floor(prand('shx' + key + k) * G.w), y = 1 + Math.floor(prand('shy' + key + k) * (G.h - 2));   // 맨 윗줄·맨 아랫줄은 섬 끝이라 뺀다
+      if (!busy(x, y)) out.push({ i: out.length, x, y });
+    }
+    return out;
+  }
+  // 아직 안 주운 조각 — mine 이 없으면(손님) 다 보인다
+  function shardsLeft(world, mine, now){
+    const got = mine && mine.shard && mine.shard.day === dayKey(now) ? mine.shard.got || [] : [];
+    return shardSpots(world, now).filter(q => got.indexOf(q.i) < 0);
+  }
+  /* 산타 우체통(2026-10-09) — 놓여 있으면 사흘에 한 번꼴로 아침 우편함에 산타 할아버지 편지와 작은 선물이 온다(newDay). */
+  const SANTA_CHANCE = 0.34;
+  const SANTA_GIFTS = [
+    { id: 'coins', n: 200 },
+    { id: 'seed:cloudberry', n: 2 },
+    { id: 'shard', n: 1 },
+    { id: 'coins', n: 120 },
+  ];
   /* 모닥불 — 밤에 앉으면 기운이 돈다. 하루에 한 번씩, 둘이 같은 날 앉으면 더 따뜻하다. */
   const FIRE_ENERGY = 12, FIRE_TOGETHER = 8;
 
@@ -1105,7 +1164,7 @@ const FARM = (() => {
   /* 놀이 규칙(farm-rules-play.js)이 이 닫힘 안의 것을 쓴다. 손으로 적은 목록이 아니라
      tools/split-rules.py 가 두 파일을 읽어 만든 것이다 — 하나라도 빠지면 그 규칙이
      돌 때 undefined 로 터진다. 놀이 규칙을 고쳤으면 그 도구를 다시 돌린다. */
-  const INNER = { nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, peddlerSpot, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
+  const INNER = { farmOk, SHARD_MAX, shardSpots, shardsLeft, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, peddlerSpot, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
@@ -1116,6 +1175,7 @@ const FARM = (() => {
     SKY_AT, setSky, skyOf, setSun, sunOf,
     plotIds, parseId, fieldCells, fieldHas, fieldBox,
     fireflyNight, fireflyLeft,
+    farmOk, SHARD_MAX, shardSpots, shardsLeft,
     peddlerHere, peddlerSpot,
     cropsInDex, tickPlot, stageOf, wetNow, growTime, lifeLeft, lifeFrom, CROP_LIFE_DAYS,
     nodeReady, placed, occupied, furnBox,

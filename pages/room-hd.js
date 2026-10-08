@@ -17,7 +17,7 @@
 //   그림은 f·rot%2·HS·밤 단계별로 한 번 구워 둔다 — 매 장 다시 그리는 것은 farm.js FURN_ANIM(fire·stove)뿐(C.t 로 움직인다).
 //   누르기·끌기는 칸으로 고르므로 그림 모양과 상관없다.
 // ■ 벽에 거는 것  ROOMHD.wall[kind] = function(g, C){ ... }
-//   (WALL_KINDS: frame poster clock mirror window stars mypic board garland wshelf rainbow heightbar worldmap mobile wreath whale wlight medalcase blueplate cuckoo scroll)
+//   (WALL_KINDS: frame poster clock mirror window stars mypic board garland wshelf rainbow heightbar worldmap mobile wreath whale wlight medalcase blueplate cuckoo scroll advent)
 //   g 는 벽 한 칸에 맞춘 평평한 좌표계(ROOMHD 가 따로 그린 뒤 벽 기울기대로 붙인다): x = 0..40 (보는 사람 기준 왼→오른쪽), y = 0..58 (벽 꼭대기에서 아래로).
 //     아래 단(row 1)이면 이미 12 내려 있다. 벽 높이는 104, 위 몰딩 0..6 — 거는 것은 대략 y 3..58 안에. 사방 6 까지는 넘쳐도 안 잘린다.
 //     오른쪽 벽·왼쪽 벽 모두 같은 그림이 그대로 붙는다(좌우가 뒤집히지 않는다). 벽에 뜬 그림자는 ROOMHD 가 깐다.
@@ -793,6 +793,46 @@
   };
   const archPts = (x, w, h) => { const pts = [[x, h]]; for (let a = Math.PI; a <= TAU + 0.01; a += 0.2) pts.push([x + w / 2 + Math.cos(a) * w / 2, h - 12 + Math.sin(a) * 8]); pts.push([x + w, h]); return pts; };
 
+  // 순록 털 깔개(오로라 농장) — 다리 넷·목·짧은 꼬리 자리가 삐죽한 가죽 모양. 등줄기는 짙은 밤색, 옆구리로 갈수록 크림빛.
+  //   털은 등줄기에서 바깥으로 눕고(끝쪽은 길게), 가장자리에서 삐져나온다. 크림·밤색 얼룩 몇 군데, 목엔 흰 갈기
+  furn.furrug = (g, C) => {
+    const L = LEN(C), Wd = WID(C), sp = SP(C), cs = L / 2, ct = Wd / 2, a = L / 2 - 3, b = Wd / 2 - 2.4, z = 1.1;
+    const bump = (th, c0, w) => { let d = Math.abs(th - c0) % TAU; if (d > Math.PI) d = TAU - d; return Math.exp(-(d * d) / (w * w)); };
+    // 가죽 모양 — 반지름에 다리(앞뒤 둘씩)·목·꼬리 혹을 얹고 허리는 잘록하게
+    const rad = th => 0.78 + 0.5 * (bump(th, 0.85, 0.17) + bump(th, -0.85, 0.17)) + 0.46 * (bump(th, Math.PI - 0.85, 0.17) + bump(th, Math.PI + 0.85, 0.17))
+      + 0.24 * bump(th, Math.PI, 0.17) + 0.14 * bump(th, 0, 0.1) - 0.12 * (bump(th, Math.PI / 2, 0.42) + bump(th, -Math.PI / 2, 0.42)) + (hash(Math.round(th * 30) + 7) - 0.5) * 0.03;
+    const N = 180, ring = Array.from({ length: N }, (_, i) => { const th = i / N * TAU, r = rad(th); return [cs + a * r * Math.cos(th), ct + b * r * Math.sin(th), th]; });
+    const at = zz => ring.map(q => sp(q[0], q[1], zz));
+    // 그림자와 가죽 두께
+    g.save(); g.translate(0.8, 1); K.poly(g, at(0), 'rgba(40,22,12,.26)'); g.restore();
+    K.poly(g, at(0.2), '#6a4a30');
+    const top = at(z), e0 = sp(cs, ct - b * 1.2, z), e1 = sp(cs, ct + b * 1.2, z);
+    K.poly(g, top, K.lin(g, e0[0], e0[1], e1[0], e1[1], ['#fbf3e2', '#e2c8a2', '#a07450', '#6a4630', '#a07450', '#e2c8a2', '#fbf3e2']));
+    g.save(); K.path(g, top); g.clip();
+    // 얼룩 — 크림·밤색, 등줄기 짙은 띠
+    for (let i = 0; i < 12; i++){ const s = cs + (hash(i * 5 + 1) * 2 - 1) * a * 0.75, t = ct + (hash(i * 9 + 2) * 2 - 1) * b * 0.8, q = sp(s, t, z), r = 3 + hash(i * 3) * 4.5, cr = i % 3 ? '255,248,232' : '86,56,34';
+      g.save(); g.translate(q[0], q[1]); g.scale(1, 0.5); g.fillStyle = K.rad(g, 0, 0, r, ['rgba(' + cr + ',.45)', 'rgba(' + cr + ',0)']); g.fillRect(-r, -r, r * 2, r * 2); g.restore(); }
+    const s0 = sp(cs - a * 0.9, ct, z), s1 = sp(cs + a * 0.85, ct, z);
+    g.save(); g.globalAlpha = 0.5; K.line(g, s0, s1, '#4a3020', 3.2); g.globalAlpha = 0.6; K.line(g, s0, s1, '#3a2416', 1.4); g.restore();
+    // 털 — 짧고 가늘게 촘촘히, 등줄기에서 바깥(끝쪽은 앞뒤)으로 눕는다
+    for (let i = 0; i < 1500; i++){
+      const s = cs + (hash(i * 3 + 1) * 2 - 1) * a * 1.15, t = ct + (hash(i * 7 + 2) * 2 - 1) * b * 1.2, sd = t >= ct ? 1 : -1, d = Math.min(1, Math.abs(t - ct) / b), ends = Math.max(0, Math.min(1, (Math.abs(s - cs) / a - 0.6) / 0.4));
+      const len = 0.7 + hash(i * 11) * 0.8, ds = len * (0.5 * (1 - ends) + Math.sign(s - cs) * 0.9 * ends), dt = sd * len * 0.8 * (1 - ends * 0.6);
+      const col = d < 0.18 ? '#3e2818' : d < 0.45 ? '#7a5434' : d < 0.72 ? '#c49a70' : '#f6ecd6';
+      g.globalAlpha = 0.35 + hash(i * 13) * 0.35; K.line(g, sp(s, t, z), sp(s + ds, t + dt, z), hash(i * 17) > 0.75 ? shade(col, 0.3) : col, 0.3);
+    }
+    g.globalAlpha = 1;
+    g.restore();
+    K.path(g, top); g.strokeStyle = 'rgba(90,60,36,.35)'; g.lineWidth = 0.3; g.stroke();
+    // 가장자리 털 — 짧게 삐져나온 끝, 둘레 빛깔을 따른다
+    g.globalAlpha = 0.6;
+    ring.forEach((q, i) => { if (hash(i + 300) < 0.35) return; const th = q[2] + (hash(i + 500) - 0.5) * 0.5, cx = Math.cos(th), sy = Math.sin(th), l = 0.2 + hash(i + 40) * 0.6;
+      K.line(g, sp(q[0] - cx * 0.7, q[1] - sy * 0.6, z), sp(q[0] + cx * l * 1.3, q[1] + sy * l, z), Math.abs(sy) > 0.4 ? '#eadcc2' : '#b89068', 0.28); });
+    g.globalAlpha = 1;
+    // 목 — 흰 갈기
+    for (let i = 0; i < 10; i++){ const t = ct + (hash(i + 90) * 2 - 1) * b * 0.28, s = cs - a * 0.98 + hash(i + 70) * 2.4; K.line(g, sp(s + 1.4, t, z), sp(s - 0.4, t + (t - ct) * 0.15, z), 'rgba(255,250,240,.5)', 0.3); }
+  };
+
   // 냉장고 — 둥근 옛날 냉장고, 손잡이, 아이 그림·자석
   furn.fridge = (g, C) => {
     const c = C.c;
@@ -1104,6 +1144,42 @@
     for (let i = 0; i < 12; i++){ const a = i / 12 * TAU; K.oval(g, 20 + Math.cos(a) * 5.2, 29 + Math.sin(a) * 5.2, 0.35, 0.35, '#3a2618'); }
     K.line(g, [20, 29], [20, 25], '#3a2618', 0.6); K.line(g, [20, 29], [23, 29.6], '#3a2618', 0.8);
     [[10.5, 35], [29.5, 35]].forEach(p => { K.oval(g, p[0], p[1], 1.6, 2.2, '#ffffff', 0.3); K.oval(g, p[0], p[1] + 2.4, 1.4, 1, '#3f6a2e'); });
+  };
+
+  // 대림절 별 등(오로라 농장) — 스웨덴·핀란드 창가에 거는 종이 별. 다섯 뿔이 접힌 두 면(빛 받는 면·그늘 면)으로 서고,
+  //   뿔마다 오린 구멍(점·마름모) 사이로 속불이 샌다. 못에 건 줄, 아래 금빛 술. lit 이면 번짐·빛나는 종이·구멍만
+  wall.advent = (g, C) => {
+    const c = C.c || '#d94a3c', x = 20, y = 29, R = 16.5, r = 6.6, lit = C.lit, glowK = 0.85 + 0.15 * Math.sin((C.t || 0) / 1400);
+    const at = (k, rr) => { const a = -Math.PI / 2 + k * TAU / 5; return [x + Math.cos(a) * rr, y + Math.sin(a) * rr]; };
+    const tip = k => at(k, R), inn = k => at(k + 0.5, r), lerp = (p, q, f) => [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f];
+    const star = [], base = lit ? mix(c, '#ffb468', 0.55) : c;
+    for (let k = 0; k < 5; k++) star.push(tip(k), inn(k));
+    if (!lit){
+      hang(g, 20, 2.5, 0); K.line(g, [20, 2.5], [20, y - R + 0.5], '#8a7b6e', 0.45);
+      // 아래 술 — 금실
+      const bi = inn(2); K.line(g, bi, [20, 47.5], '#c9a050', 0.45); K.oval(g, 20, 47.8, 1, 1, '#e8b04a', 0.3);
+      for (let k = -3; k <= 3; k++) K.line(g, [20 + k * 0.25, 48.6], [20 + k * 0.6, 54.4], k % 2 ? '#c9902a' : '#f2c860', 0.4);
+      K.poly(g, star.map(q => [q[0] + 1, q[1] + 1.2]), shade(c, -0.5), true);                              // 종이 두께
+    }
+    if (lit) K.glow(g, x, y, 25, 'rgba(255,196,120,', 0.5 * glowK);
+    else K.glow(g, x, y, 12, 'rgba(255,214,150,', 0.35);
+    // 뿔 — 가운데에서 끝으로, 왼쪽 위에서 오는 빛에 따라 두 면 밝기가 다르다
+    for (let k = 0; k < 5; k++){
+      const T = tip(k), sides = [[inn(k - 1), -1], [inn(k), 1]];
+      sides.forEach(([V, sd]) => {
+        const m = [(x + T[0] + V[0]) / 3, (y + T[1] + V[1]) / 3], lgt = 0.5 + 0.5 * Math.cos(Math.atan2(m[1] - y, m[0] - x) + Math.PI * 0.75);
+        const col = shade(base, lit ? -0.08 + 0.3 * lgt : -0.32 + 0.42 * lgt);
+        K.poly(g, [[x, y], V, T], K.lin(g, x, y, T[0], T[1], [lit ? '#fff0c4' : shade(col, 0.22), col, shade(col, -0.08)]));
+        // 오린 구멍 — 속불이 샌다
+        const hole = lit ? '#fff6d2' : '#ffd79a';
+        [[0.42, 0.42, 0.75], [0.62, 0.3, 0.55], [0.8, 0.18, 0.4]].forEach(([f, o, rr]) => { const q = lerp(lerp([x, y], T, f), V, o * 0.5); K.oval(g, q[0], q[1], rr, rr, hole); });
+        const dm = lerp(lerp([x, y], T, 0.25), V, 0.35); K.poly(g, [[dm[0], dm[1] - 1.1], [dm[0] + 0.7, dm[1]], [dm[0], dm[1] + 1.1], [dm[0] - 0.7, dm[1]]], hole);
+        if (!lit) K.poly(g, [[x, y], V, T], null, 0.3);
+      });
+      K.line(g, [x, y], T, lit ? 'rgba(255,250,225,.75)' : 'rgba(255,235,210,.45)', 0.4);                // 접힌 등성이
+    }
+    K.oval(g, x, y, 2.6, 2.6, K.rad(g, x, y, 2.6, [lit ? '#ffffff' : '#fff2d0', 'rgba(255,220,150,0)']));
+    if (!lit) K.poly(g, star, null, true);
   };
 
   // ■ 고양이 집 위에서 몸을 말고 자는 고양이(2026-10-09) — (x, y) 가 방석 한가운데(도트). 숨 쉬듯 부풀고, 꼬리 끝이 까딱, 귀가 가끔 쫑긋, 머리 위로 z

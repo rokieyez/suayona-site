@@ -5,7 +5,7 @@
 // farm-rules.js 가 먼저 돌아야 한다. 저 파일의 닫힘 안에 있는 것들은 FARM.__inner 로 받는다.
 (() => {
   if (typeof FARM === 'undefined' || !FARM.__inner) throw new Error('farm-rules.js 를 먼저 실어야 해요');
-  const { nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
+  const { farmOk, SHARD_MAX, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
 
   function dayEndMs(t){ return dayStartMs(dayKey(t)) + DAY_MS; }
   function nextSeason(s){ return SEASONS[(SEASONS.indexOf(s) + 1) % 4]; }
@@ -92,7 +92,7 @@
   }
   function hotCrop(world, now){
     const cal = calendar(world, now);
-    const list = CROP_IDS.filter(c => CROPS[c].seed > 0 && CROPS[c].season.indexOf(cal.season) >= 0);
+    const list = CROP_IDS.filter(c => CROPS[c].seed > 0 && CROPS[c].season.indexOf(cal.season) >= 0 && farmOk(world, CROPS[c]));
     return list[Math.floor(prand('h' + dayKey(now)) * list.length)];
   }
   // 먹으면 기운이 돈다. 작물은 조금, 요리는 많이.
@@ -214,7 +214,8 @@
         if (a.since >= A.every){
           a.since = 0;
           const good = A.best && (a.love || 0) >= LOVE_FOR_BEST;
-          if (A.find){
+          // 낳는 것이 있는 동물(순록)은 findOdds 만큼만 찾아 오고 나머지 날은 제 것을 낳는다
+          if (A.find && (!A.product || prand('rf' + a.id + key) < (A.findOdds || 0))){
             // 강아지와 고양이는 낳는 대신 물어 온다. 마음이 크면 가끔 반짝돌.
             a.ready = good && prand('g' + a.id + key) < 0.25 ? A.best
                     : A.find[Math.floor(prand('f' + a.id + key) * A.find.length)];
@@ -259,9 +260,11 @@
     return FISH_MAX - (mine.fishDay === key ? (mine.fishN || 0) : 0);
   }
   function fish(world, mine, now, grade, where){
-    const sea = where === 'sea';
+    const sea = where === 'sea', ice = where === 'ice';
     if (sea && farmOf(world).id !== 'seaside') return fail('바다는 바닷가 농장에만 있어요');
-    if (!sea && !(world.decor && world.decor.pond)) return fail('연못을 먼저 놓아요. 가게 꾸미기 칸에 있어요');
+    // 얼음낚시 — 오로라 농장에 얼음낚시 구멍(icefish)이 놓여 있을 때만(2026-10-09)
+    if (ice && !(farmOf(world).id === 'aurora' && world.decor && world.decor.icefish)) return fail('얼음낚시 구멍을 먼저 놓아요. 오로라 농장 가게 꾸미기 칸에 있어요');
+    if (!sea && !ice && !(world.decor && world.decor.pond)) return fail('연못을 먼저 놓아요. 가게 꾸미기 칸에 있어요');
     if (fishLeft(mine, now) <= 0) return fail('오늘은 많이 잡았어요. 내일 또 와요');
     if (!spend(mine, 'fish')) return fail('기운이 없어요');
     const key = dayKey(now), n = mine.fishDay === key ? (mine.fishN || 0) : 0;
@@ -269,6 +272,7 @@
     const pool = FISH_IDS.filter(f => {
       const F = FISH[f];
       if (!!F.sea !== sea) return false;               // 바다에서는 바닷물고기만, 연못에서는 민물고기만
+      if (!!F.ice !== ice) return false;               // 얼음 구멍에서는 얼음 물고기만
       if (F.season && F.season.indexOf(cal.season) < 0) return false;
       if (F.night && !night) return false;            // 달빛 물고기와 메기는 밤에만
       return true;
@@ -287,7 +291,7 @@
     mine.xp += XP.fish + (g === 'perfect' ? 3 : 0); bump(mine, 'fished', 1, now);
     if (FISH[got].junk) return okay(eul(FISH[got].name) + ' 건졌어요… 물고기는 아니네요', { junk: true });
     const two = cnt > 1 ? ' <b>두 마리</b>나!' : '';
-    if (got === 'golden' || got === 'moonfish' || got === 'tuna'){
+    if (got === 'golden' || got === 'moonfish' || got === 'tuna' || got === 'char'){
       logAdd(world, mine.key, NAME[mine.key] + '가 ' + eul(FISH[got].name) + ' 낚았어요!', now);
       return okay('<b>' + FISH[got].name + '</b>! 아주 귀한 물고기예요' + two, { rare: true });
     }
@@ -373,7 +377,7 @@
   }
   function ordersOf(world, now){
     const wk = weekKey(now), cal = calendar(world, now);
-    const pool = CROP_IDS.filter(c => CROPS[c].seed > 0 && CROPS[c].season.indexOf(cal.season) >= 0);
+    const pool = CROP_IDS.filter(c => CROPS[c].seed > 0 && CROPS[c].season.indexOf(cal.season) >= 0 && farmOk(world, CROPS[c]));   // 이 농장에서 못 심는 작물은 주문하지 않는다
     const out = [];
     for (let i = 0; i < 3; i++){
       const c = pool[Math.floor(prand('o' + wk + i) * pool.length)];
@@ -523,9 +527,10 @@
   function peddlerWant(world, now){
     if (!peddlerHere(world, now)) return null;
     const key = dayKey(now);
-    const pool = CROP_IDS.map(c => 'crop:' + c)
+    // 다른 농장 전용(클라우드베리·얼음 물고기)은 거기 살 때만 — 뒤에 붙어서 앞 농장의 뽑기 차례도 안 바뀐다
+    const pool = CROP_IDS.filter(c => farmOk(world, CROPS[c])).map(c => 'crop:' + c)
       .concat(['egg', 'bigegg', 'duckegg', 'milk', 'goldmilk', 'wool', 'honey', 'truffle', 'angora', 'downfeather', 'gem', 'berry'])
-      .concat(FISH_IDS.filter(f => !FISH[f].junk).map(f => 'fish:' + f));
+      .concat(FISH_IDS.filter(f => !FISH[f].junk && farmOk(world, FISH[f])).map(f => 'fish:' + f));
     return { id: pool[Math.floor(prand('pw' + key) * pool.length)], mult: PED_WANT_MULT, max: PED_WANT_MAX };
   }
   // 오늘 산 자리·판 개수는 날이 바뀌면 함께 지운다
@@ -566,6 +571,19 @@
     give(mine, 'firefly', 1); mine.xp += 3; bump(mine, 'caught', 1, now);
     if (mine.dex.indexOf('firefly') < 0) mine.dex.push('firefly');
     return okay('반딧불이를 잡았어요 ✨ (오늘 ' + mine.ffGot + '/' + FIREFLY_MAX + ')');
+  }
+  // 오로라 빛 조각 줍기 — 기운은 안 든다. 줍는 몫은 각자(mine.shard)
+  function pickShard(world, mine, i, now){
+    if (farmOf(world).id !== 'aurora') return fail('빛 조각은 오로라 농장에만 떨어져요');
+    if (!isNight(now)) return fail('빛 조각은 밤에만 떨어져 있어요');
+    const key = dayKey(now), q = shardSpots(world, now).find(s => s.i === i);
+    if (!q) return fail('여기엔 빛 조각이 없어요');
+    if (!mine.shard || mine.shard.day !== key) mine.shard = { day: key, got: [] };
+    if (mine.shard.got.indexOf(i) >= 0) return fail('이미 주운 조각이에요');
+    mine.shard.got.push(i);
+    give(mine, 'shard', 1); mine.xp += 3;
+    if (mine.dex.indexOf('shard') < 0) mine.dex.push('shard');
+    return okay('<b>오로라 빛 조각</b>을 주웠어요 ✨ (오늘 ' + mine.shard.got.length + '/' + SHARD_MAX + ')');
   }
   function fireSit(world, mine, now){
     if (!(world.decor && world.decor.firepit)) return fail('모닥불이 아직 없어요');
@@ -655,6 +673,7 @@
     const p = world.plots[id] || (world.plots[id] = {});
     if (!p.tilled) return fail('먼저 땅을 갈아요');
     if (p.crop) return fail('이미 무언가 자라고 있어요');
+    if (!farmOk(world, C)) return fail(eun(C.name) + ' ' + FARMS.find(f => f.id === C.farm).name + '에서만 자라요');
     const cal = calendar(world, now), gh = id[0] === 'g';
     if (!gh && !C.hardy && C.season.indexOf(cal.season) < 0) return fail(eun(C.name) + ' ' + SEASON_NAME[cal.season] + '에 자라지 않아요');
     if (!take(mine, 'seed:' + crop)) return fail(C.name + ' 씨앗이 없어요');
@@ -821,6 +840,7 @@
       const C = CROPS[v];
       if (!C || !C.seed) return fail('파는 씨앗이 아니에요');
       if (C.half && C.half !== mine.key) return fail('이 씨앗은 ' + NAME[C.half] + '의 가게에만 있어요. 선물로 받아야 해요');
+      if (!farmOk(world, C)) return fail(C.name + ' 씨앗은 ' + FARMS.find(f => f.id === C.farm).name + '에서만 팔아요');
       if ((C.lv || 1) > levelOf(mine.xp)) return fail('농장 레벨 ' + C.lv + '부터 살 수 있어요');
       /* 지금 심을 수 없는 씨앗은 팔지 않는다. 사 놓고 심지 못하면 동전만 버리는 셈이다.
          온실이 있으면 어느 계절이든 자라니 그때는 열어 준다. */
@@ -1182,7 +1202,7 @@
     if (!owed || !world || !world.started) return [];
     const season = calendar(world, now).season;
     // 별열매(rare)는 뺀다 — 그건 주문을 다 채운 사람에게만 오는 씨앗이다.
-    const pool = Object.keys(CROPS).filter(c => !CROPS[c].rare && CROPS[c].season.indexOf(season) >= 0);
+    const pool = Object.keys(CROPS).filter(c => !CROPS[c].rare && CROPS[c].season.indexOf(season) >= 0 && farmOk(world, CROPS[c]));
     if (!pool.length) return [];
     const got = [];
     for (let i = 0; i < owed; i++){
@@ -1225,6 +1245,12 @@
       const ids = Object.keys(world.plots).filter(id => world.plots[id].crop && !world.plots[id].giant && id[0] !== 'g');
       if (ids.length){ const id = ids[Math.floor(prand('cc' + key) * ids.length)]; const C = CROPS[world.plots[id].crop]; Object.assign(world.plots[id], { crop: null, progress: 0, fert: false }); notes.push('까마귀가 ' + eul(C.name) + ' 쪼아 갔어요. 허수아비가 있으면 막아요'); }
     }
+    if (farmOf(world).id === 'aurora' && world.decor && world.decor.santapost && world.santaDay !== key && prand('santa' + key) < SANTA_CHANCE){
+      world.santaDay = key;
+      const G = SANTA_GIFTS[Math.floor(prand('santag' + key) * SANTA_GIFTS.length)];
+      ['sua', 'yona'].forEach(k => { (world.mail[k] = world.mail[k] || []).push({ id: G.id, n: G.n, from: 'santa', note: '착한 ' + NAME[k] + '에게 — 산타 할아버지가', t: now }); });
+      notes.push('📮 산타 우체통에 <b>산타 할아버지 편지</b>가 왔어요! 우편함을 열어 봐요');
+    }
     world.hot = hotCrop(world, now);
     return notes;
   }
@@ -1251,6 +1277,7 @@
     sprinkled,
     sprinklerDay,
     catchFirefly,
+    pickShard,
     fireSit,
     peddlerStock,
     peddlerGot,

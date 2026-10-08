@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '24';
+const PLAY_V = '25';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -3063,6 +3063,23 @@ function flyAt(tx, ty){ const c = isoView ? isoP(tx + 0.5, ty + 0.5) : { x: tx *
 function flyAtPix(px0, py0){
   let best = -1, bd = 24;
   flies.forEach((f, i) => { const d = Math.hypot(f.x - px0, f.y - py0); if (d < bd){ bd = d; best = i; } });
+  return best;
+}
+/* 오로라 빛 조각(2026-10-09) — 오로라의 밤 땅에 떨어진 것. 자리는 규칙(R.shardsLeft)이 정하고, 그림은 FARMHD.shard(고화소)가,
+   그리개가 아직 없으면 작은 도트 반짝이로 대신 그린다. 옛 farm-rules.js 와 짝이면 아무것도 안 한다 */
+function shardList(){ return W && R.shardsLeft ? R.shardsLeft(W, M, now()) : []; }
+function shardPix(q){ return isoView ? isoP(q.x + 0.5, q.y + 0.5) : { x: q.x * T + T / 2, y: q.y * T + T / 2 }; }
+function drawShard(q, t){
+  const p = shardPix(q);
+  if (hdOn() && window.FARMHD.shard){ hd((c, E) => window.FARMHD.shard(c, E, p.x, p.y, t)); return; }
+  const k = Math.sin(t / 420 + q.i * 1.9), up = Math.round(Math.sin(t / 700 + q.i) * 1.5), c = k > 0 ? '#9ef0d0' : '#c9a8ff';
+  ctx.globalAlpha = 0.28 + 0.18 * Math.abs(k); px(p.x - 6, p.y - 7 + up, 12, 10, c); ctx.globalAlpha = 1;
+  px(p.x - 1, p.y - 6 + up, 2, 8, c); px(p.x - 3, p.y - 3 + up, 6, 2, c); px(p.x - 1, p.y - 4 + up, 2, 2, '#ffffff');
+}
+// 누른 화면 도트 가까이의 빛 조각 번호 — 없으면 -1
+function shardAtPix(px0, py0){
+  let best = -1, bd = 20;
+  shardList().forEach(q => { const p = shardPix(q), d = Math.hypot(p.x - px0, p.y - 4 - py0); if (d < bd){ bd = d; best = q.i; } });
   return best;
 }
 function drawCritters(season, t, L){
@@ -7455,6 +7472,7 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
     cast.push({ d: q.x + q.y + 1, go: () => HD ? hd((c, E) => window.FARMHD.sprinkler(c, E, q.x, q.y, t, good))   // 스테이지2 고화소(2026-10-09)
       : withBB(flatOffAt(q.x * T + 16, q.y * T + 26, q.x + 0.5, q.y + 0.55, 3), () => drawSprinkler(q.x * T, q.y * T, t, good)) });
   });
+  shardList().forEach(q => cast.push({ d: q.x + q.y + 0.9, go: () => drawShard(q, t) }));
   if (R.peddlerHere(W, now())){
     const P = R.peddlerSpot(W);
     // 수레는 칠해진 도트로, 행상인은 몸 상자로 누른다. 그릴 때 넣어야 앞뒤 순서가 맞는다
@@ -8010,7 +8028,7 @@ const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars:
                      board: 1, garland: 1, wshelf: 1, rainbow: 1,
                      heightbar: 1, worldmap: 1, mobile: 1, wreath: 1,
                      whale: 1, wlight: 1, medalcase: 1,
-                     blueplate: 1, cuckoo: 1, scroll: 1 };
+                     blueplate: 1, cuckoo: 1, scroll: 1, advent: 1 };
 /* 옛 세이브에만 남은 규칙 — 벽에 거는 것을 바닥 칸에 두고 어느 벽인지 어림하던 방법.
    지금은 벽 격자('w,벽,칸,단')에 걸므로, fixWorld 가 아직 못 옮긴 것만 이 길로 그린다. */
 function wallSlot(Rm, x, y){
@@ -9084,7 +9102,7 @@ function drawRoomShell(g, r, L, wallItems){
    바뀌므로 그림 자체를 다시 그린다 — 캔버스를 회전시키면 계단 모양이 흐트러진다. */
 let furnBuf = null;
 // 불꽃이 흔들리는 것만 매번 다시 그리고, 나머지는 한 번 그려 담아 둔다
-const FURN_ANIM = { fire: 1, stove: 1 };
+const FURN_ANIM = { fire: 1, stove: 1, woodstove: 1, rockchair: 1 };   // 오로라 장작 난로 불꽃·흔들의자(2026-10-09)
 /* 방 안에서 빛을 내는 가구. c 는 빛 색(그 가구의 불빛 색), r 은 번지는 반지름(도트),
    dy 는 빛의 가운데를 발자국 가운데에서 얼마나 올릴지, flick 은 흔들림의 갈래.
    밤에는 방을 통째로 어둡게 물들이므로(grade) 불빛도 같이 죽는다 — 그래서 물들인 뒤에
@@ -9093,6 +9111,8 @@ const ROOM_LIGHT = {
   lamp:     { c: '#ffe9a8', r: 54, dy: -16 },
   fire:     { c: '#ff9a3a', r: 76, dy: -16, flick: 'fire' },
   stove:    { c: '#ff9a3a', r: 56, dy: -14, flick: 'fire' },
+  woodstove:{ c: '#ff9a3a', r: 64, dy: -14, flick: 'fire' },        // 오로라 무쇠 장작 난로
+  advent:   { c: '#ffc878', r: 50, wall: true, flick: 'breathe' },   // 오로라 대림절 별 등
   xmas:     { c: '#ffd979', r: 54, dy: -16, flick: 'twinkle' },
   pumpkin:  { c: '#ff8c3a', r: 44, dy: -10, flick: 'fire' },
   nightsky: { c: '#8f9fe6', r: 78, dy: -6,  flick: 'breathe' },
@@ -9148,7 +9168,8 @@ const FURN_H = { rug: 2, bed: 24, bunk: 72, table: 28, desk: 32, chair: 38, sofa
                  blocks: 32, dresser: 46, nightsky: 24,
                  fox: 40, sangre: 34, rabbit: 44, pcdesk: 62, sunflower: 58, rose: 44,
                  bigbear: 80,
-                 amphora: 46, olive: 52, kachel: 66, sled: 24, kotatsu: 30, andon: 52 };
+                 amphora: 46, olive: 52, kachel: 66, sled: 24, kotatsu: 30, andon: 52,
+                 woodstove: 64, furrug: 2, rockchair: 46 };                   // 오로라 가구(2026-10-09) — 그림은 room-hd-furn.js
 // 가구마다의 재질 — 적지 않은 것은 나무로 친다
 const FURN_MAT = {
   rug:'cloth', bed:'cloth', sofa:'cloth', cushion:'cloth', catbed:'cloth', beanbag:'cloth',
@@ -9163,6 +9184,7 @@ const FURN_MAT = {
   fox:'cloth', sangre:'cloth', rabbit:'cloth', pcdesk:'wood', sunflower:'plain', rose:'plain',
   bigbear:'cloth',
   amphora:'plain', olive:'plain', kachel:'plain', sled:'wood', kotatsu:'cloth', andon:'plain',
+  woodstove:'metal', furrug:'cloth', rockchair:'wood',
 };
 function furnArt(f, rot){
   const F = R.FURNITURE[f], b = R.furnBox(f, rot);
@@ -9240,6 +9262,7 @@ function paintFurniture(g, f, rot, A, t, lit){
     isoTop(q, OX + 5, OY + 3, Math.max(4, E - 10), Math.max(4, D - 10), 'rgba(26,20,12,0.15)');
   }
   switch (F.kind){
+    case 'furrug':                     // 오로라 가구는 고화소 그림(room-hd-furn.js)이 없을 때만 비슷한 도트로
     case 'rug': {
       top(0, 0, 2, E, D, lo);
       top(3, 3, 2, E - 6, D - 6, c);
@@ -9286,6 +9309,7 @@ function paintFurniture(g, f, rot, A, t, lit){
       }
       break;
     }
+    case 'rockchair':
     case 'chair': {
       box(3, 3, 4, 4, 18, dk); box(E - 7, 3, 4, 4, 18, dk);
       box(3, D - 7, 4, 4, 18, dk); box(E - 7, D - 7, 4, 4, 18, dk);
@@ -9372,6 +9396,7 @@ function paintFurniture(g, f, rot, A, t, lit){
       box(0, 0, E, D, 4, '#3a3226', 29);                                           // 뚜껑
       break;
     }
+    case 'woodstove':
     case 'stove': {
       box(0, 0, E, D, 34, c);
       box(4, D - 4, E - 8, 4, 18, '#2a221b', 8);

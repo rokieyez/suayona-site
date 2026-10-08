@@ -410,7 +410,8 @@ function hintFor(){
   }
   const here = R.farmOf(W).id;
   return '다 자란 작물·나무·바위·동물·집·우편함·게시판·가게를 눌러요. 밭 위를 끌면 익은 것만 줄줄이 거둬요.'
-    + (here === 'seaside' ? ' 섬 밖 바다를 누르면 바다낚시를 해요.' : here === 'mountain' ? ' 화산 바위에는 가끔 반짝돌이 박혀 있어요.' : '');
+    + (here === 'seaside' ? ' 섬 밖 바다를 누르면 바다낚시를 해요.' : here === 'mountain' ? ' 화산 바위에는 가끔 반짝돌이 박혀 있어요.'
+      : here === 'aurora' ? ' 얼음낚시 구멍을 누르면 얼음낚시를 해요. 밤엔 땅에 떨어진 오로라 빛 조각을 주워요.' : '');
 }
 // where: 'sea' 면 바닷가 섬 밖 바다에 던진 것 — at 은 찌가 떨어진 화면 도트
 function startFishing(where, at){
@@ -513,6 +514,9 @@ function onFarmTap(e){
     if (r.ok) sfx('firefly');
     return;
   }
+  // 오로라 빛 조각 — 밤 땅에 떨어진 것을 누르면 줍는다(2026-10-09). 옛 farm.js 와 짝이면 shardAtPix 가 없다
+  const si = typeof shardAtPix === 'function' ? shardAtPix(p0.x, p0.y) : -1;
+  if (si >= 0){ const r = act((w, m) => R.pickShard(w, m, si, now())); if (r.ok) sfx('sparkle'); return; }
   const id = plotAtTile(tx, ty);
   if (id){ onPlot(id); return; }
   // 아이·인형·동물을 누르면 한마디. 밭보다는 뒤, 건물보다는 앞 — 우리 안의 동물도 말을 한다.
@@ -528,6 +532,8 @@ function onFarmTap(e){
   if (inSpot('greenhouse', tx, ty)){ if (built('greenhouse')) openGreenhouse(); else flash('온실 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('well', tx, ty)){ flash(built('well') ? '우물이에요. 물뿌리개를 키울 수 있어요' : '우물 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('pond', tx, ty)){ startFishing(); return; }
+  // 얼음낚시 구멍 — 오로라에서 누르면 그 구멍에 찌를 드리운다(2026-10-09)
+  if (inSpot('icefish', tx, ty) && R.farmOf(W).id === 'aurora'){ const b = spot('icefish'); startFishing('ice', isoView ? isoP(b.x + 0.5, b.y + 0.5) : { x: b.x * T + T / 2, y: b.y * T + T / 2 }); return; }
   if (R.peddlerHere(W, now()) && (P => inBox({ x: P.x, y: P.y, w: P.w + 1, h: P.h }, tx, ty))(R.peddlerSpot(W))){ openPeddler(); sfx('cart'); return; }
   if (inSpot('firepit', tx, ty)){ const r = act((w, m) => R.fireSit(w, m, now())); if (r.ok) sfx(r.both ? 'fanfare' : 'fire'); return; }
   if (inSpot('bench', tx, ty) || inSpot('swing', tx, ty)){ flash('쉬는 자리예요. 앉으면 기분이 좋아져요'); return; }
@@ -757,7 +763,7 @@ function closeModal(){ $('#modal').hidden = true; }
 function openMail(){
   const box = W.mail[key] || [];
   const inner = $('#modalInner');
-  const who = g => g.from === 'festival' ? '축제' : g.from === 'board' ? '게시판' : g.from === 'move' ? '이삿날' : NAME[g.from] || '';
+  const who = g => g.from === 'festival' ? '축제' : g.from === 'board' ? '게시판' : g.from === 'move' ? '이삿날' : g.from === 'santa' ? '🎅 산타 할아버지' : NAME[g.from] || '';
   inner.innerHTML = '<h3 class="pixel">우편함</h3>' + (box.length ? box.map(g =>
     '<div class="mailrow"><b>' + (g.id === 'note' ? '💌 쪽지' : g.id === 'coins' ? '🪙 ' + g.n + ' 동전' : escapeHTML(R.itemName(g.id)) + ' ' + g.n + '개') + '</b>' +
     '<span class="from">' + who(g) + (g.note ? ' · "' + escapeHTML(g.note) + '"' : '') + '</span></div>').join('') :
@@ -1144,7 +1150,7 @@ function itemIcon(id){
     return cv;
   }
   const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; const g = cv.getContext('2d');
-  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', sprinkler2: '#c9d6e0', firefly: '#ffe66d' }[id] || (k === 'f' ? R.FURNITURE[v].c : '#ddd');
+  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', sprinkler2: '#c9d6e0', firefly: '#ffe66d', shard: '#9ef0d0', moss: '#9fb88a', pinecone: '#8a5a32' }[id] || (k === 'f' ? R.FURNITURE[v].c : '#ddd');
   g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, 32, 32); g.fillStyle = col; g.fillRect(8, 8, 16, 16); g.fillStyle = '#3a3226'; g.fillRect(8, 8, 16, 2); g.fillRect(8, 22, 16, 2); g.fillRect(8, 8, 2, 16); g.fillRect(22, 8, 2, 16);
   return cv;
 }
@@ -1271,12 +1277,16 @@ function renderShop(){
   if (shopTab === 'seed'){
     const gh = built('greenhouse');
     $('#shopSub').innerHTML = R.SEASON_NAME[cal.season] + ' 씨앗. 흐린 것은 <b>' + NAME[R.OTHER[key]] + '의 가게</b>에만 있어요 — 선물로 받아요. 다음 계절(' + R.SEASON_NAME[R.nextSeason(cal.season)] + ') 씨앗은 ' + (gh ? '지금도 살 수 있어요 — 온실에서 자라요.' : '구경만 해요 — 그 계절이 오면 살 수 있어요.');
-    const list = R.CROP_IDS.filter(c => R.CROPS[c].seed > 0 && (R.CROPS[c].season.indexOf(cal.season) >= 0 || R.CROPS[c].season.indexOf(R.nextSeason(cal.season)) >= 0));
+    // 다른 농장 전용 씨앗(클라우드베리)은 거기 살 때만 — 이 농장 것은 맨 앞에, 꾸미개·가구와 같은 「이 농장에만」 표시
+    const here = R.farmOf(W).id;
+    const list = R.CROP_IDS.filter(c => R.CROPS[c].seed > 0 && (!R.CROPS[c].farm || R.CROPS[c].farm === here) && (R.CROPS[c].season.indexOf(cal.season) >= 0 || R.CROPS[c].season.indexOf(R.nextSeason(cal.season)) >= 0));
+    list.sort((a, b) => !R.CROPS[b].farm - !R.CROPS[a].farm);
     list.forEach(c => {
       const C = R.CROPS[c], mineHalf = !C.half || C.half === key, lvOk = (C.lv || 1) <= lv, inSeason = C.season.indexOf(cal.season) >= 0;
       // 지금 심을 수 없는 씨앗은 사지 못한다 — 온실이 있으면 아무 때나 자라니 그때만 열린다
       const seasonOk = inSeason || C.hardy || gh;
       const card = itemCard('seed:' + c, M.inv['seed:' + c] || 0, null, (!mineHalf || !lvOk || !seasonOk ? 'locked' : '') + (W.hot === c ? ' hot' : ''));
+      if (C.farm){ const tag = document.createElement('span'); tag.className = 'farm-only'; tag.textContent = '이 농장에만'; card.querySelector('.nm').appendChild(tag); }
       const pr = document.createElement('div'); pr.className = 'pr';
       pr.innerHTML = C.hours + '시간 · 🪙 ' + C.sell + (C.yield > 1 ? '×' + C.yield : '') + (C.regrow ? ' · 또 열려요' : '') + (C.giant ? ' · <b>둘이 나란히 심으면 큰 것</b>' : '') + (C.flower ? ' · 꽃' : '') +
         (!inSeason ? '<br>' + (gh ? '온실에서만 자라요 · ' : R.SEASON_NAME[cal.season] + '에는 못 사요 · ') + C.season.map(s => R.SEASON_NAME[s]).join('·') + '에 심어요' : '') +
@@ -1338,7 +1348,7 @@ function renderShop(){
       const card = document.createElement('div'); card.className = 'item' + (ok ? '' : ' locked');
       const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; cv.getContext('2d').imageSmoothingEnabled = false; drawAnimalAt(cv.getContext('2d'), k, 4, 5, 1);
       const nm = document.createElement('div'); nm.className = 'nm'; nm.appendChild(cv); nm.appendChild(document.createTextNode(A.name)); card.appendChild(nm);
-      const what = A.product ? R.itemName(A.product) + (A.every > 1 ? ' ' + A.every + '일마다' : ' 날마다')
+      const what = A.product ? R.itemName(A.product) + (A.every > 1 ? ' ' + A.every + '일마다' : ' 날마다') + (A.find ? ' · 가끔 ' + A.find.map(f => R.itemName(f)).join('·') + '을 찾아 와요' : '')
                              : A.find.map(f => R.itemName(f)).join('·') + ' 중 하나를 날마다 물어 와요';
       const pr = document.createElement('div'); pr.className = 'pr';
       pr.textContent = what + (A.best ? ' · 마음 ' + R.LOVE_FOR_BEST + '이면 ' + R.itemName(A.best) : '') + ' · 마음 ' + R.LOVE_FOR_BABY + '이면 새끼를 봐요' + (ok ? '' : ' · ' + R.BUILDINGS[A.need].name + ' 필요');
@@ -1840,7 +1850,7 @@ function renderTree(){
 function renderDex(){
   const box = $('#dex'); box.innerHTML = '';
   const all = R.CROP_IDS.map(c => ['crop:' + c, c]).concat(R.CROP_IDS.filter(c => R.CROPS[c].giant).map(c => ['giant:' + c, 'giant:' + c]))
-    .concat(['egg', 'bigegg', 'milk', 'goldmilk', 'wool', 'honey', 'firefly'].map(k => [k, k]))
+    .concat(['egg', 'bigegg', 'milk', 'goldmilk', 'wool', 'honey', 'firefly', 'shard', 'moss', 'pinecone'].map(k => [k, k]))
     .concat(R.FISH_IDS.map(f => ['fish:' + f, 'fish:' + f])).concat(Object.keys(R.DISHES).map(d => ['dish:' + d, 'dish:' + d]));
   let got = 0, gold = 0;
   all.forEach(([id, dexKey]) => {
