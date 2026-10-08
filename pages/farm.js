@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '26';
+const PLAY_V = '27';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -7560,6 +7560,11 @@ function paintPastBar(el, pick){
     const p = past[visitAt];
     text('<b>' + nameOf(p) + '</b> 구경 중' + (day(p.until) ? ' · ' + day(p.until) + '까지 살던 곳' : ''));
     add('🏡 지금 농장으로', true, () => pick(null));
+    // 옛 농장 선물(2026-10-09) — 구경 온 김에 하루 한 번 특산물(없으면 동전)을 받아 간다. 손님 화면(M 없음)엔 안 뜬다
+    if (typeof M !== 'undefined' && M && R.pastGift && typeof act === 'function'){
+      const got = M.pastDay === R.dayKey(Date.now());
+      add(got ? '🎁 오늘 선물 받았어요' : '🎁 옛 농장 선물 받기', false, () => { if (act((w, m) => R.pastGift(w, m, p.farm, now())).ok) paintPastBar(el, pick); });
+    }
   } else if (past.length){
     text('옛 농장 구경');
     past.forEach((p, i) => add(nameOf(p), false, () => pick(i)));

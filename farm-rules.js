@@ -408,15 +408,15 @@ const FARM = (() => {
      풍경(땅 빛깔·가장자리)은 farm.js 의 FARM_LOOK 이 농장마다 바꾼다. */
   const FARMS = [
     { id: 'meadow',   name: '들판 농장',   icon: '🌾', desc: '처음 연 농장이에요' },
-    { id: 'seaside',  name: '바닷가 농장', icon: '🌊', desc: '모래밭 너머로 파도가 쳐요',        room: 12, animals: 10, grid: { w: 22, h: 18 }, peddler: { x: 15, y: 12 } },
+    { id: 'seaside',  name: '바닷가 농장', icon: '🌊', desc: '모래밭 너머로 파도가 쳐요',        room: 12, animals: 10, grid: { w: 22, h: 18 }, peddler: { x: 15, y: 12 }, perk: { id: 'fish', icon: '🐟', text: '어시장 — 물고기를 1.25배에 팔아요' } },
     // skip — 2026-10-09 로키즈 「화산농장은 아이들이 싫어할 것 같아 스킵」. 바닷가에서 바로 꽃구름으로 간다.
     // 줄은 지우지 않는다: world.farm 이 이 표의 번호라서, 빼면 뒤 농장 번호와 도장 조건이 다 밀린다. 그림·?farm=mountain 구경은 남는다
     { id: 'mountain', name: '화산 농장',   icon: '🌋', desc: '용암이 흐르고 재가 날리는 메마른 땅이에요', skip: true, room: 16, animals: 14, grid: { w: 24, h: 18 }, peddler: { x: 16, y: 16 } },
-    { id: 'cloud',    name: '꽃구름 농장', icon: '☁️', desc: '벚꽃 흩날리는 구름 위 일본 마을, 신칸센이 지나가요', room: 16, animals: 14, grid: { w: 24, h: 20 }, peddler: { x: 15, y: 13 } },
+    { id: 'cloud',    name: '꽃구름 농장', icon: '☁️', desc: '벚꽃 흩날리는 구름 위 일본 마을, 신칸센이 지나가요', room: 16, animals: 14, grid: { w: 24, h: 20 }, peddler: { x: 15, y: 13 }, perk: { id: 'dish', icon: '🍱', text: '도시락 가게 — 요리를 1.25배에 팔아요' } },
     // 스테이지2 — 여기서부터 고화소 그림(pages/farm-hd.js). 2026-10-08 로키즈 「오로라부터 고화소로 전부 다시」
-    { id: 'aurora',   name: '오로라 농장', icon: '🌌', desc: '오로라가 춤추는 북쪽 눈 섬, 통나무집에 불이 켜져요', room: 22, animals: 17, grid: { w: 26, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2 },
+    { id: 'aurora',   name: '오로라 농장', icon: '🌌', desc: '오로라가 춤추는 북쪽 눈 섬, 통나무집에 불이 켜져요', room: 22, animals: 17, grid: { w: 26, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2, perk: { id: 'shard', icon: '✨', text: '긴 밤 — 빛 조각이 밤마다 두 배로 떨어져요' } },
     // 2026-10-09 로키즈 시안 ① — 오로라보다 조금 높게(가구 24 · 동물 18 = 우리를 다 채운 수, 아기 낙타 자리 포함)
-    { id: 'desert',   name: '오아시스 농장', icon: '🐪', desc: '모래 언덕 너머 대추야자 오아시스, 밤엔 은하수가 흘러요', room: 24, animals: 18, grid: { w: 28, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2 },
+    { id: 'desert',   name: '오아시스 농장', icon: '🐪', desc: '모래 언덕 너머 대추야자 오아시스, 밤엔 은하수가 흘러요', room: 24, animals: 18, grid: { w: 28, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2, perk: { id: 'water', icon: '💧', text: '오아시스 샘 — 물을 한 번 주면 30시간 촉촉해요' } },
   ];
   /* 새 농장일수록 섬이 넓다(2026-09-29 로키즈 「새 농장은 전체 크기를 더 크게」) — 들판 20×16 → 22×18 → 24×18 → 24×20.
      늘어난 땅은 오른쪽(x 20~)과 아래(y 16~), 곧 섬의 앞쪽 두 가장자리다. 집·가게·밭·나무 자리는 그대로라 좌표가 안 바뀐다. */
@@ -424,6 +424,30 @@ const FARM = (() => {
      room 은 수아 방·연아 방·거실 「각각」에 놓인 가구 수 — 한 아이 방만 채우고 떠나지 않게.
      가구와 동물은 이사 때 가져가니 갈수록 조금씩 높다. 동물은 우리를 다 채우면 18마리까지 산다. */
   const MOVE_KEEP = { kitchen: true };
+  /* 이사 갈 까닭(2026-10-09 로키즈 「전부 진행」)
+     perk — 농장마다 하나뿐인 능력(FARMS 줄). 그 농장에 사는 동안만 든다. 들판은 없다(처음 농장).
+     SPECIALS — 그 농장에서만 나는 것. 다른 농장에 살 때 팔면 TRADE_MULT 배, 다 모으면 도감 훈장,
+       떠난 뒤에는 옛 농장 구경 때 하루 한 번 몇 개 받아 온다(pastGift). 꽃구름·들판은 전용 물건이 없어 동전을 받는다. */
+  const SPECIALS = {
+    seaside: ['fish:mackerel', 'fish:squid', 'fish:flounder', 'fish:seabream'],
+    aurora: ['crop:cloudberry', 'shard', 'moss', 'pinecone', 'fish:cod', 'fish:char'],
+    desert: ['crop:dragonfruit', 'date', 'sandrose'],
+  };
+  const TRADE_MULT = 1.5, PAST_COINS = 120;
+  const perkOf = world => (farmOf(world).perk || {}).id || null;
+  // 물건이 난 농장 — 반짝·큰 작물도 그 작물의 농장
+  function originOf(id){ const b = String(id).replace(/^(gold|giant):/, 'crop:'); return Object.keys(SPECIALS).find(f => SPECIALS[f].indexOf(b) >= 0) || null; }
+  // 도감에 적히는 이름 — 작물은 앞머리 없이
+  const dexId = id => id.slice(0, 5) === 'crop:' ? id.slice(5) : id;
+  /* 농장 손님 — 그 농장에만 오는 손님이 사흘마다 하나씩 부탁한다(world.quest). 건네면 동전과 그 농장 가구.
+     want 가운데 날짜 주사위로 하나. 들판은 손님이 없다. */
+  const GUESTS = {
+    seaside: { name: '뱃사람 할아버지', icon: '⚓', want: [['fish:mackerel', 3], ['fish:flounder', 2], ['fish:squid', 2], ['egg', 6]] },
+    cloud:   { name: '떠돌이 화가',     icon: '🎨', want: [['honey', 2], ['milk', 3], ['egg', 6], ['berry', 8]] },
+    aurora:  { name: '순록 썰매꾼 아이노', icon: '🛷', want: [['crop:cloudberry', 4], ['moss', 3], ['pinecone', 4], ['fish:cod', 2]] },
+    desert:  { name: '대상 상인 하산',   icon: '🐫', want: [['crop:dragonfruit', 4], ['date', 6], ['sandrose', 2], ['milk', 3]] },
+  };
+  const QUEST_DAYS = 3, QUEST_MULT = 2;      // 사흘마다 새 부탁 · 동전은 파는 값의 두 배
   // 새 농장(아이소 화면)을 다 그릴 때까지 조건과 알림만 보이고 떠나지는 못했다. 2026-09-28 아이소 섬을 그려 열었다.
   const MOVE_OPEN = true;
   const MOVE_GIFT = 2000;                 // 이삿날 두 아이에게 우편으로 가는 동전
@@ -949,6 +973,10 @@ const FARM = (() => {
     // 스테이지2 첫 도장(2026-10-09). 여권(첫 세 농장 — 화산은 건너뜀)은 그대로 — 스테이지2 여권은 다섯 농장을 다 열면 만든다
     { id: 'stampAurora', col: '#8fe6c8', name: '오로라 도장', icon: '🌌', desc: '스테이지2 — 오로라 농장으로 이사 가요', coins: 1000, need: (w) => (w.farm || 0) >= 4 },
     { id: 'stampDesert', col: '#f2b860', name: '오아시스 도장', icon: '🐪', desc: '스테이지2 — 오아시스 농장으로 이사 가요', coins: 1200, need: (w) => (w.farm || 0) >= 5 },
+    // 농장 도감 — 그 농장 특산물을 모두 모으면(2026-10-09). 이름이 곧 칭호
+    { id: 'dexSea', col: '#5fb3e8',    name: '바다 박사',    icon: '🐚', desc: '바닷가 특산물 — 고등어·오징어·광어·참돔을 모두 모아요', coins: 800,  gift: { id: 'f:amphora', n: 1 }, need: (w, m) => SPECIALS.seaside.every(i => m.dex.indexOf(dexId(i)) >= 0) },
+    { id: 'dexAurora', col: '#8fe6c8', name: '오로라 박사',  icon: '🧭', desc: '오로라 특산물 — 클라우드베리·빛 조각·이끼·솔방울·대구·곤들매기를 모두 모아요', coins: 1500, gift: { id: 'f:advent', n: 1 }, need: (w, m) => SPECIALS.aurora.every(i => m.dex.indexOf(dexId(i)) >= 0) },
+    { id: 'dexDesert', col: '#f2b860', name: '오아시스 박사', icon: '📜', desc: '오아시스 특산물 — 용과·대추야자·사막 장미 돌을 모두 모아요', coins: 1500, gift: { id: 'f:mlamp', n: 1 }, need: (w, m) => SPECIALS.desert.every(i => m.dex.indexOf(dexId(i)) >= 0) },
     { id: 'passport', col: '#ffd25a',   name: '세 농장 여권', icon: '🗺️', desc: '이사 도장 둘을 모두 받아요', coins: 3000, gift: { id: 'seed:star', n: 5 },
       need: (w, m) => ['stampSea', 'stampCloud'].every(k => (m.medals || []).indexOf(k) >= 0) },
   ];
@@ -1012,6 +1040,7 @@ const FARM = (() => {
      자리는 그날 날짜로 정해져 두 아이가 같은 자리를 보고, 줍는 몫은 각자다(반딧불이처럼).
      손님 화면도 그리므로 자리 셈은 이 파일에 둔다. 줍기는 farm-rules-play.js 의 pickShard. */
   const SHARD_MAX = 4;
+  const shardMax = world => SHARD_MAX * (perkOf(world) === 'shard' ? 2 : 1);   // 오로라 능력 「긴 밤」
   // 농장마다 줍는 것 — 오로라는 밤의 빛 조각, 사막은 낮 모래 위의 사막 장미 돌(2026-10-09). 셈·그림 자리는 같은 틀
   const PICKS = { aurora: { item: 'shard', night: true }, desert: { item: 'sandrose', night: false } };
   function shardSpots(world, now){
@@ -1022,7 +1051,8 @@ const FARM = (() => {
       .concat(Object.keys(NODES).map(n => Object.assign({ w: 1, h: 1 }, nodeSpot(world, n))), sceneryOf(world).map(c => ({ x: c.x, y: c.y, w: 1, h: 1 })));
     const busy = (x, y) => fieldHas(world, x, y) || things.some(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) || out.some(q => q.x === x && q.y === y);
     // ponytail: 빈 칸을 날짜 주사위로 60번까지 던져 본다 — 섬이 꽉 차 빈 칸이 거의 없으면 넷이 안 될 수 있다
-    for (let k = 0; k < 60 && out.length < SHARD_MAX; k++){
+    const max = shardMax(world);
+    for (let k = 0; k < 60 && out.length < max; k++){
       const x = Math.floor(prand('shx' + key + k) * G.w), y = 1 + Math.floor(prand('shy' + key + k) * (G.h - 2));   // 맨 윗줄·맨 아랫줄은 섬 끝이라 뺀다
       if (!busy(x, y)) out.push({ i: out.length, x, y });
     }
@@ -1207,7 +1237,7 @@ const FARM = (() => {
   /* 놀이 규칙(farm-rules-play.js)이 이 닫힘 안의 것을 쓴다. 손으로 적은 목록이 아니라
      tools/split-rules.py 가 두 파일을 읽어 만든 것이다 — 하나라도 빠지면 그 규칙이
      돌 때 undefined 로 터진다. 놀이 규칙을 고쳤으면 그 도구를 다시 돌린다. */
-  const INNER = { farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, shardsLeft, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, peddlerSpot, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
+  const INNER = { SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, shardsLeft, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, peddlerSpot, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
@@ -1218,7 +1248,7 @@ const FARM = (() => {
     SKY_AT, setSky, skyOf, setSun, sunOf,
     plotIds, parseId, fieldCells, fieldHas, fieldBox,
     fireflyNight, fireflyLeft,
-    farmOk, SHARD_MAX, PICKS, shardSpots, shardsLeft,
+    farmOk, SHARD_MAX, PICKS, shardSpots, shardsLeft, shardMax, SPECIALS, TRADE_MULT, perkOf, originOf, GUESTS,
     peddlerHere, peddlerSpot,
     cropsInDex, tickPlot, stageOf, wetNow, growTime, lifeLeft, lifeFrom, CROP_LIFE_DAYS,
     nodeReady, placed, occupied, furnBox,

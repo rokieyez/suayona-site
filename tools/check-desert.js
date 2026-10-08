@@ -26,7 +26,7 @@ const rich = k => Object.assign(R.fixMine(null, k || 'sua'), { coins: 99999, xp:
   const de = world('desert'), au = world('aurora'), a = rich('sua'), b = rich('yona');
   assert.strictEqual(R.shardSpots(de, night).length, 0, '밤에는 없다');
   assert.strictEqual(R.shardSpots(au, day).length, 0, '오로라 낮에는 빛 조각이 없다');
-  assert.strictEqual(R.shardSpots(au, night).length, R.SHARD_MAX, '오로라 밤 빛 조각은 그대로');
+  assert.strictEqual(R.shardSpots(au, night).length, R.shardMax(au), '오로라 밤 빛 조각은 그대로');
   const S = R.shardSpots(de, day);
   assert.strictEqual(S.length, R.SHARD_MAX);
   S.forEach(q => assert(!R.fieldHas(de, q.x, q.y), '밭 위에 놓이지 않는다'));

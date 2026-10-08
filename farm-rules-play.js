@@ -5,7 +5,7 @@
 // farm-rules.js 가 먼저 돌아야 한다. 저 파일의 닫힘 안에 있는 것들은 FARM.__inner 로 받는다.
 (() => {
   if (typeof FARM === 'undefined' || !FARM.__inner) throw new Error('farm-rules.js 를 먼저 실어야 해요');
-  const { farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
+  const { SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
 
   function dayEndMs(t){ return dayStartMs(dayKey(t)) + DAY_MS; }
   function nextSeason(s){ return SEASONS[(SEASONS.indexOf(s) + 1) % 4]; }
@@ -46,7 +46,8 @@
     return Math.max(0, (growTime(plot) - (plot.progress || 0)) / H / (plot.fert ? FERT_SPEED : 1));
   }
   // 비료를 주면 1.5배 빨리 자라니 물 줄 기회도 그만큼 줄어든다 — 셈에 넣는다
-  function careNeed(plot){ const C = CROPS[plot.crop]; if (!C) return 1; const h = (plot.regrowLeft || C.hours) / (plot.fert ? FERT_SPEED : 1); return Math.max(1, Math.round(h / WATER_HOURS)); }
+  function careNeed(plot){ const C = CROPS[plot.crop]; if (!C) return 1; const h = (plot.regrowLeft || C.hours) / (plot.fert ? FERT_SPEED : 1); return Math.max(1, Math.round(h / (plot.wh || WATER_HOURS))); }
+  const waterHours = world => perkOf(world) === 'water' ? 30 : WATER_HOURS;   // 오아시스 능력 「오아시스 샘」
   function starOf(plot, gh){
     if (!plot || !plot.crop) return 0;
     let st = 1;
@@ -74,6 +75,12 @@
     return GOODS[id] ? GOODS[id].name : id;
   }
   function sellPrice(id, world, now){
+    const base = sellBase(id, world, now), o = world && originOf(id), pk = world && perkOf(world), k = id.split(':')[0];
+    let m = o && o !== farmOf(world).id ? TRADE_MULT : 1;                         // 다른 농장 특산물은 1.5배(농장끼리 장사)
+    if ((pk === 'fish' && k === 'fish') || (pk === 'dish' && k === 'dish')) m *= 1.25;   // 바닷가·꽃구름 능력
+    return m === 1 ? base : Math.round(base * m);
+  }
+  function sellBase(id, world, now){
     const [k, v] = id.split(':');
     const mult = world ? priceMult(world, now) : 1;
     if (k === 'crop') return Math.round(CROPS[v].sell * mult * (world && world.hot === v ? 1.5 : 1));
@@ -585,7 +592,7 @@
     mine.shard.got.push(i);
     give(mine, PK.item, 1); mine.xp += 3;
     if (mine.dex.indexOf(PK.item) < 0) mine.dex.push(PK.item);
-    return okay('<b>' + nm + '</b>' + (jong(nm) ? '을' : '를') + ' 주웠어요 ✨ (오늘 ' + mine.shard.got.length + '/' + SHARD_MAX + ')');
+    return okay('<b>' + nm + '</b>' + (jong(nm) ? '을' : '를') + ' 주웠어요 ✨ (오늘 ' + mine.shard.got.length + '/' + shardMax(world) + ')');
   }
   function fireSit(world, mine, now){
     if (!(world.decor && world.decor.firepit)) return fail('모닥불이 아직 없어요');
@@ -703,7 +710,7 @@
     if (p.wet > now) return fail('아직 촉촉해요');
     if (!spend(mine, 'water')) return fail('기운이 없어요');
     tickPlot(p, now, false);
-    p.wet = now + WATER_HOURS * H;
+    p.wh = waterHours(world); p.wet = now + p.wh * H;
     p.care = (p.care || 0) + 1;                        // 제때 준 물이 별이 된다
     mine.xp += XP.water; bump(mine, 'watered', 1, now);
     return okay('물을 줬어요');
@@ -747,7 +754,7 @@
       if (!p || !p.tilled) return;
       if ((p.wet || 0) > now) return;                  // 아직 촉촉하면 그냥 둔다
       tickPlot(p, now, false);
-      p.wet = now + WATER_HOURS * H;
+      p.wh = waterHours(world); p.wet = now + p.wh * H;
       if (p.crop) p.care = (p.care || 0) + 1;
       n++;
     });
@@ -1259,8 +1266,57 @@
       ['sua', 'yona'].forEach(k => { (world.mail[k] = world.mail[k] || []).push({ id: G.id, n: G.n, from: 'genie', note: NAME[k] + '에게 — 램프 요정이 소원 하나 대신', t: now }); });
       notes.push('🪔 요술 램프에서 <b>램프 요정 편지</b>가 나왔어요! 우편함을 열어 봐요');
     }
+    // ② 그림엽서 — 이사 조건을 절반 넘게 채우면 다음 농장에서 한 번 온다
+    const ms = moveState(world, mine), nx = ms.next;
+    if (nx && world.postcard !== nx.id){
+      const need = ms.conds.reduce((a, c) => a + c.need, 0), left = ms.conds.reduce((a, c) => a + c.left, 0);
+      if (need && left <= need / 2){
+        world.postcard = nx.id;
+        const sp = (SPECIALS[nx.id] || []).map(itemName).join('·'), pk = nx.perk;
+        const note = nx.icon + ' ' + nx.name + ' — ' + nx.desc + (pk ? ' · 능력: ' + pk.text : '') + (sp ? ' · 특산물: ' + sp : '');
+        ['sua', 'yona'].forEach(k => { (world.mail[k] = world.mail[k] || []).push({ id: 'note', n: 1, from: 'postcard', farm: nx.id, note, t: now }); });
+        notes.push('🖼️ ' + nx.name + '에서 <b>그림엽서</b>가 왔어요! 우편함을 열어 봐요');
+      }
+    }
+    const q = questOf(world, now);
+    if (q && !q.done && q.day === key) notes.push(q.icon + ' <b>' + q.name + '</b>' + (jong(q.name) ? '이' : '가') + ' 부탁을 하러 왔어요 — ' + itemName(q.id) + ' ' + q.n + '개. 「둘이서」에서 건네요');
     world.hot = hotCrop(world, now);
     return notes;
+  }
+  /* ⑥ 농장 손님 부탁 — 사흘마다 새로. 둘 중 한 명이 건네면 끝(world.quest). 받는 것은 동전(파는 값×2)과 그 농장 가구 하나 */
+  function questOf(world, now){
+    const f = farmOf(world).id, G = GUESTS[f]; if (!G) return null;
+    const today = dayKey(now), d = Math.max(0, daysBetween(world.started || today, today)), turn = Math.floor(d / QUEST_DAYS);
+    const day = dayKey(dayStartMs(today) - (d % QUEST_DAYS) * DAY_MS + 12 * H);   // 이번 부탁이 온 날(한낮으로 재서 서머타임에도 안 밀린다)
+    const [id, n] = G.want[Math.floor(prand('quest' + f + turn) * G.want.length)];
+    const furn = Object.keys(FURNITURE).filter(x => FURNITURE[x].farm === f);
+    const q = { farm: f, turn, day, id, n, name: G.name, icon: G.icon, coins: Math.max(100, sellBase(id, null, now) * n * QUEST_MULT),
+      gift: furn.length ? 'f:' + furn[Math.floor(prand('questf' + f + turn) * furn.length)] : null };
+    const w = world.quest; q.done = !!(w && w.farm === f && w.turn === turn && w.by);
+    if (q.done) q.by = w.by;
+    return q;
+  }
+  function giveQuest(world, mine, now){
+    const q = questOf(world, now);
+    if (!q) return fail('이 농장엔 부탁하러 오는 손님이 없어요');
+    if (q.done) return fail(NAME[q.by] + '가 벌써 건넸어요. 다음 부탁은 곧 와요');
+    if (!takeAny(mine, q.id, q.n)) return fail(itemName(q.id) + ' ' + q.n + '개가 있어야 해요 (지금 ' + countOf(mine, q.id) + '개)');
+    world.quest = { farm: q.farm, turn: q.turn, by: mine.key };
+    mine.coins += q.coins; mine.xp += 20; if (q.gift) give(mine, q.gift, 1);
+    logAdd(world, mine.key, NAME[mine.key] + '가 ' + q.name + '의 부탁을 들어줬어요', now);
+    return okay(q.icon + ' ' + q.name + ': 고마워! ' + q.coins + ' 동전' + (q.gift ? ' · ' + itemName(q.gift) : '') + '을 받았어요');
+  }
+  /* ④ 옛 농장 선물 — 옛 농장을 구경할 때 하루 한 번(각자). 특산물이 있으면 그중 하나를 두세 개, 없으면 동전 */
+  function pastGift(world, mine, farmId, now){
+    if (!(world.past || []).some(p => p.farm === farmId)) return fail('떠나온 농장이 아니에요');
+    const key = dayKey(now);
+    if (mine.pastDay === key) return fail('옛 농장 선물은 하루에 한 번이에요. 내일 또 와요');
+    mine.pastDay = key;
+    const S = SPECIALS[farmId], F = FARMS.find(f => f.id === farmId);
+    if (!S){ mine.coins += PAST_COINS; return okay(F.icon + ' ' + F.name + ' 이웃들이 ' + PAST_COINS + ' 동전을 챙겨 줬어요'); }
+    const id = S[Math.floor(prand('past' + key + mine.key) * S.length)], n = id.slice(0, 5) === 'fish:' ? 1 : 2;
+    give(mine, id, n); if (mine.dex.indexOf(dexId(id)) < 0) mine.dex.push(dexId(id));
+    return okay(F.icon + ' ' + F.name + '에서 <b>' + itemName(id) + '</b> ' + n + '개를 받아 왔어요' + (originOf(id) !== farmOf(world).id ? ' — 여기서 팔면 ' + TRADE_MULT + '배예요' : ''));
   }
 
   // 규칙을 FARM 에 얹는다. 이 뒤부터 R.till · R.buy … 를 부를 수 있다.
@@ -1293,6 +1349,9 @@
     peddlerSoldLeft,
     sellToPeddler,
     moveState,
+    questOf,
+    giveQuest,
+    pastGift,
     moveLeftText,
     askMove,
     cancelMove,

@@ -53,14 +53,14 @@ const rich = k => Object.assign(R.fixMine(null, k || 'sua'), { coins: 99999, xp:
   assert.strictEqual(R.shardSpots(au, day).length, 0, '낮에는 없다');
   assert.strictEqual(R.shardSpots(sea, night).length, 0, '오로라가 아니면 없다');
   const S = R.shardSpots(au, night);
-  assert.strictEqual(S.length, R.SHARD_MAX);
+  assert.strictEqual(S.length, R.shardMax(au));   // 오로라 능력 「긴 밤」 — 여덟
   S.forEach(q => assert(!R.fieldHas(au, q.x, q.y), '밭 위에 떨어지지 않는다'));
   assert(!R.pickShard(au, a, S[0].i, day).ok, '낮에는 못 줍는다');
   assert(R.pickShard(au, a, S[0].i, night).ok && a.inv.shard === 1);
   assert(!R.pickShard(au, a, S[0].i, night).ok, '같은 조각은 한 번');
   assert(R.pickShard(au, b, S[0].i, night).ok, '자매는 제 몫을 줍는다');
-  assert.strictEqual(R.shardsLeft(au, a, night).length, R.SHARD_MAX - 1);
-  assert.strictEqual(R.shardsLeft(au, null, night).length, R.SHARD_MAX, '손님은 다 본다');
+  assert.strictEqual(R.shardsLeft(au, a, night).length, R.shardMax(au) - 1);
+  assert.strictEqual(R.shardsLeft(au, null, night).length, R.shardMax(au), '손님은 다 본다');
   assert(R.sellPrice('shard', au, night) > 100, '빛 조각은 비싸게 팔린다');
   assert.deepStrictEqual(R.shardSpots(au, night), S, '같은 날은 같은 자리');
 }
