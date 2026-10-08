@@ -772,6 +772,147 @@
     oval(x + 8.4, y - 8.6, 2.6, 1, tone(E, '#e8a050')); poly([[x + 10.8, y - 8.6], [x + 12.4, y - 9.6], [x + 12.4, y - 7.6]], tone(E, '#e8a050'));
   };
 
+  // ---- 앞 농장에서 「추억」으로 들고 온 꾸미개 15종(2026-10-09) — 오로라 눈 섬에 맞게 눈을 얹어 다시 그린다 ----
+  // 바닷가: 등대·야자수·닻·고깃배·파라솔 · 화산: 흑요석 돌탑·용암 폭포·장작더미·우유통·용뿔 나팔 · 꽃구름: 자판기·붉은 북다리·대나무 물통·잉어 깃발·지장보살
+  D.lighthouse = (E, b) => {
+    const p = q(b.x + 0.5, b.y + 0.5, 0), x = p[0], y = p[1], L = look(E), top = y - 52;
+    oval(x + 2, y + 1, 11, 4, L.shadow);
+    poly([[x - 8, y], [x + 8, y], [x + 5, top], [x - 5, top]], vgrad(top, y, [tone(E, '#f6f2ea'), tone(E, '#d8d2c6')]), true);
+    for (let k = 0; k < 3; k++){ const y0 = y - 8 - k * 15, w0 = 8 - (k * 15 + 8) / 52 * 3, w1 = 8 - (k * 15 + 15) / 52 * 3; poly([[x - w0, y0], [x + w0, y0], [x + w1, y0 - 7], [x - w1, y0 - 7]], tone(E, '#d9433e')); }
+    poly([[x + 1, y], [x + 8, y], [x + 5, top], [x + 0.5, top]], 'rgba(0,0,40,.14)');
+    R(x - 7, top - 2, 14, 2.4, tone(E, '#3a3f52'));
+    R(x - 4, top - 9, 8, 7, E.night ? '#ffe7a4' : 'rgba(200,230,250,.9)'); g.strokeStyle = INK; g.lineWidth = LW; g.strokeRect(x - 4, top - 9, 8, 7);
+    poly([[x - 5.5, top - 9], [x, top - 15], [x + 5.5, top - 9]], tone(E, '#d9433e'), true); oval(x, top - 11, 4, 1.4, L.drift[0]);
+    if (E.night) E.lamp(x, top - 5, 40, '#ffe08a');
+  };
+  D.palm = (E, b) => {                                                   // 야자수 — 눈 섬에선 화분에 담아 털옷을 입혔다
+    const p = q(b.x + 0.5, b.y + 0.55, 0), x = p[0], y = p[1], L = look(E);
+    oval(x + 2, y + 1, 9, 3, L.shadow);
+    poly([[x - 6, y], [x + 6, y], [x + 7, y - 7], [x - 7, y - 7]], tone(E, '#c8683a'), true);
+    g.strokeStyle = tone(E, '#9a6a44'); g.lineWidth = 2.4; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, y - 7); g.quadraticCurveTo(x - 3, y - 20, x + 2, y - 32); g.stroke();
+    for (let k = 0; k < 5; k++) line([x - 2.4 + k * 0.4, y - 12 - k * 4], [x + 1.6 + k * 0.4, y - 13 - k * 4], tone(E, '#7a5034'), 0.5);
+    R(x - 3, y - 18, 5, 3, tone(E, '#d9433e'));                           // 목도리
+    for (let i = 0; i < 6; i++){ const a = -Math.PI / 2 + (i - 2.5) * 0.55, tx = x + 2 + Math.cos(a) * 14, ty = y - 32 + Math.sin(a) * 6 + 7;
+      g.fillStyle = L.fir[1]; g.beginPath(); g.moveTo(x + 2, y - 32); g.quadraticCurveTo((x + 2 + tx) / 2, ty - 7, tx, ty); g.quadraticCurveTo((x + 2 + tx) / 2, ty - 3, x + 2, y - 31); g.fill(); }
+    oval(x + 2, y - 34, 6, 1.6, L.drift[0]);
+  };
+  D.anchor = (E, b) => {
+    const p = q(b.x + 0.5, b.y + 0.55, 0), x = p[0], y = p[1], L = look(E), c = tone(E, '#4a5266');
+    oval(x + 1, y + 1, 9, 3, L.shadow);
+    line([x, y - 2], [x, y - 22], c, 2.2); line([x - 5, y - 18], [x + 5, y - 18], c, 1.8);
+    g.strokeStyle = c; g.lineWidth = 2.2; g.beginPath(); g.arc(x, y - 9, 7, 0.2, Math.PI - 0.2); g.stroke();
+    g.beginPath(); g.arc(x, y - 24, 2.4, 0, TAU); g.stroke();
+    poly([[x - 8, y - 9], [x - 5, y - 7], [x - 7, y - 4]], c); poly([[x + 8, y - 9], [x + 5, y - 7], [x + 7, y - 4]], c);
+    oval(x, y - 26.5, 2.4, 0.9, L.drift[0]); oval(x - 3, y - 18.8, 2, 0.7, L.drift[0]);
+  };
+  D.boat = (E, b) => {                                                   // 고깃배 — 얼음 위에 끌어 올려 둔 작은 배
+    const u0 = b.x + 0.1, u1 = b.x + b.w - 0.1, v = b.y + 0.5, L = look(E);
+    foot(E, (u0 + u1) / 2, v, (u1 - u0) / 2, 0.3);
+    poly3([[u0, v - 0.3, 6], [u1 - 0.3, v - 0.3, 6], [u1 + 0.1, v, 7], [u1 - 0.3, v + 0.3, 6], [u0, v + 0.3, 6]], tone(E, '#3f6ea0'));
+    poly3([[u0, v + 0.3, 6], [u1 - 0.3, v + 0.3, 6], [u1 + 0.1, v, 7], [u1 - 0.2, v + 0.15, 1], [u0 + 0.15, v + 0.2, 1]], tone(E, '#2f5888'), true);
+    line(q(u0 + 0.1, v + 0.3, 4.6), q(u1 - 0.3, v + 0.3, 4.6), tone(E, TRIM), 0.8);
+    poly3([[u0 + 0.1, v - 0.22, 6.2], [u1 - 0.35, v - 0.22, 6.2], [u1 - 0.35, v + 0.22, 6.2], [u0 + 0.1, v + 0.22, 6.2]], L.drift[0]);
+  };
+  D.parasol = (E, b) => {                                                // 파라솔 — 접어서 눈을 맞고 섰다
+    const p = q(b.x + 0.5, b.y + 0.55, 0), x = p[0], y = p[1], L = look(E);
+    oval(x + 1, y + 1, 6, 2, L.shadow); oval(x, y, 3.5, 1.4, tone(E, '#7a8090'));
+    R(x - 0.5, y - 34, 1, 34, tone(E, '#c8ccd6'));
+    poly([[x, y - 34], [x + 4, y - 22], [x + 2, y - 12], [x - 2, y - 12], [x - 4, y - 22]], tone(E, '#d9433e'), true);
+    poly([[x, y - 34], [x + 1.6, y - 22], [x + 0.8, y - 12], [x - 0.8, y - 12], [x - 1.6, y - 22]], tone(E, TRIM));
+    oval(x, y - 33, 2.6, 1.2, L.drift[0]);
+  };
+  D.cairn = (E, b) => {                                                  // 흑요석 돌탑 — 새긴 무늬가 밤에 빛난다
+    const p = q(b.x + 0.5, b.y + 0.55, 0), x = p[0], y = p[1], L = look(E);
+    oval(x + 2, y + 1, 10, 3.5, L.shadow);
+    [[0, 10, 4.5], [0.5, 8, 3.8], [-0.5, 6.5, 3.4], [0.4, 5, 3]].reduce((yy, [dx, w, h]) => { oval(x + dx, yy - h, w, h, tone(E, '#2a2630')); oval(x + dx - w * 0.3, yy - h * 1.4, w * 0.4, h * 0.3, 'rgba(255,255,255,.25)'); g.strokeStyle = INK; g.lineWidth = 0.5; g.beginPath(); g.ellipse(x + dx, yy - h, w, h, 0, 0, TAU); g.stroke(); return yy - h * 1.7; }, y);
+    [[-3, -4], [2, -10], [-1, -15]].forEach(([dx, dy]) => oval(x + dx, y + dy, 1.2, 0.7, E.night ? '#ffb040' : '#c86a2a'));
+    oval(x + 0.4, y - 23, 3, 1.2, L.drift[0]);
+    if (E.night) E.lamp(x, y - 10, 18, '#ff9a4a');
+  };
+  D.waterfall = (E, b) => {                                              // 용암 폭포 → 얼어붙은 폭포: 바위 틈에서 흘러내리다 굳은 얼음
+    const L = look(E), cu = b.x + b.w / 2, cv = b.y + b.h / 2, c = q(cu, cv, 0), x = c[0], y = c[1];
+    oval(x + 3, y + 2, 26, 9, L.shadow);
+    poly([[x - 24, y], [x - 20, y - 22], [x - 8, y - 36], [x + 10, y - 34], [x + 22, y - 18], [x + 24, y]], vgrad(y - 36, y, [tone(E, '#7a8090'), tone(E, '#4a5266')]), true);
+    poly([[x - 21, y - 21], [x - 8, y - 37], [x + 10, y - 35], [x + 20, y - 22], [x + 6, y - 28], [x - 6, y - 26]], L.drift[0]);
+    poly([[x - 6, y - 30], [x + 6, y - 30], [x + 9, y - 2], [x - 9, y - 2]], lin(x - 9, 0, x + 9, 0, [L.ice[1], L.ice[2], L.ice[0]]));
+    for (let i = 0; i < 6; i++) line([x - 5 + i * 2, y - 29], [x - 7 + i * 2.8, y - 3], 'rgba(255,255,255,.45)', 0.4);
+    oval(x, y, 14, 4.5, L.ice[0]); oval(x - 3, y - 1, 7, 1.8, 'rgba(255,255,255,.6)');
+  };
+  D.woodpile = (E, b) => {
+    const u0 = b.x + 0.12, u1 = b.x + b.w - 0.12, v = b.y + 0.5, L = look(E);
+    foot(E, (u0 + u1) / 2, v, (u1 - u0) / 2, 0.3);
+    for (let r = 0; r < 3; r++) for (let i = 0; i < 6 - r; i++){ const p = q(u0 + 0.12 + (i + r * 0.5) * (u1 - u0 - 0.24) / 6, v + 0.3, 2.6 + r * 4.6); oval(p[0], p[1], 2.6, 2.3, tone(E, '#8a5a3c')); oval(p[0], p[1], 1.8, 1.6, tone(E, '#d8b088')); oval(p[0], p[1], 0.7, 0.6, tone(E, '#a87850')); }
+    const p = q((u0 + u1) / 2, v + 0.2, 15); oval(p[0], p[1], 14, 2.6, L.drift[0]);
+  };
+  D.milkcans = (E, b) => {
+    const p = q(b.x + 0.5, b.y + 0.55, 0), L = look(E);
+    oval(p[0] + 2, p[1] + 1, 10, 3, L.shadow);
+    [[-4, 0, 1], [4, 1, 0.9]].forEach(([dx, dy, s]) => { const x = p[0] + dx, y = p[1] + dy, h = 13 * s, w = 3.6 * s;
+      R(x - w, y - h, w * 2, h, lin(x - w, 0, x + w, 0, [tone(E, '#e8ecf2'), tone(E, '#9aa0ae')])); oval(x, y - h, w, w * 0.4, tone(E, '#c8ccd6')); R(x - w * 0.5, y - h - 3, w, 3, tone(E, '#b8bec8')); oval(x, y - h - 3, w * 0.7, w * 0.3, L.drift[0]); g.strokeStyle = INK; g.lineWidth = 0.5; g.strokeRect(x - w, y - h, w * 2, h); });
+  };
+  D.alphorn = (E, b) => {                                                // 용뿔 나팔 — 받침에 걸친 긴 나무 나팔
+    const u0 = b.x + 0.15, u1 = b.x + b.w - 0.15, v = b.y + 0.5, a = q(u0, v, 14), c = q(u1, v, 2);
+    foot(E, (u0 + u1) / 2, v, (u1 - u0) / 2, 0.2);
+    post(E, u0 + 0.1, v, 0, 13, '#5a4034', 0.6);
+    g.strokeStyle = tone(E, '#9a6a44'); g.lineWidth = 2.4; g.lineCap = 'round'; g.beginPath(); g.moveTo(a[0], a[1]); g.quadraticCurveTo((a[0] + c[0]) / 2, (a[1] + c[1]) / 2 + 4, c[0] - 3, c[1]); g.stroke();
+    g.strokeStyle = tone(E, '#d9433e'); g.lineWidth = 0.8; [0.3, 0.55].forEach(f => { const x = a[0] + (c[0] - a[0]) * f, y = a[1] + (c[1] - a[1]) * f + 2; g.beginPath(); g.moveTo(x, y - 1.6); g.lineTo(x, y + 1.6); g.stroke(); });
+    oval(c[0], c[1] - 1, 4.4, 4, tone(E, '#7a5034')); oval(c[0] + 0.6, c[1] - 1, 3, 2.8, tone(E, '#3a2420'));
+  };
+  D.balloon = (E, b) => {                                                // 음료 자판기 두 대 — 눈 처마, 밤에 환하다
+    const L = look(E);
+    [[b.x + 0.15, '#d9433e'], [b.x + 1.05, '#3f6ea0']].forEach(([u, col]) => {
+      const G = { u0: u, v0: b.y + 0.7, u1: u + 0.8, v1: b.y + 1.3, H: 30 };
+      footBox(E, G); box(G.u0, G.v0, G.u1, G.v1, 0, G.H, tone(E, col));
+      onFace(G, 'L', 0.08, 0.72, 12, 27, E.night ? '#fff6d8' : '#e8f2fa', true);
+      for (let r = 0; r < 3; r++) for (let k = 0; k < 4; k++){ const pp = faceAt(G, 'L', 0.16 + k * 0.15, 15 + r * 4.4); R(pp[0] - 0.9, pp[1] - 2.4, 1.8, 2.4, ['#f2c040', '#8fbf6a', '#d9433e', '#6a9ad0'][(k + r) % 4]); }
+      onFace(G, 'L', 0.2, 0.6, 3, 7, tone(E, '#2a2a3a'));
+      const tp = q((G.u0 + G.u1) / 2, (G.v0 + G.v1) / 2, G.H); oval(tp[0], tp[1], 8, 2.6, L.drift[0]);
+      if (E.night){ const c = faceAt(G, 'L', 0.4, 20); E.lamp(c[0], c[1], 30, '#f0f4ff'); }
+    });
+  };
+  D.skybridge = (E, b) => {                                              // 붉은 북다리 — 얼어붙은 개울 위 반달 다리
+    const u0 = b.x + 0.05, u1 = b.x + b.w - 0.05, v = b.y + 0.5, L = look(E), arc = (dv, z) => { const pts = []; for (let i = 0; i <= 16; i++){ const f = i / 16; pts.push(q(u0 + (u1 - u0) * f, v + dv, z + Math.sin(f * Math.PI) * 12)); } return pts; };
+    const s0 = q(u0, v - 0.5, 0), s1 = q(u1, v - 0.5, 0), s2 = q(u1, v + 0.5, 0), s3 = q(u0, v + 0.5, 0); poly([s0, s1, s2, s3], L.ice[1]);
+    const back = arc(-0.32, 1), front = arc(0.32, 1);
+    path(back.concat(front.slice().reverse())); g.fillStyle = tone(E, '#b8302a'); g.fill(); g.strokeStyle = INK; g.lineWidth = LW; g.stroke();
+    path(front.concat(arc(0.32, -2).reverse())); g.fillStyle = tone(E, '#8a2420'); g.fill();
+    const rail = arc(0.32, 7); g.strokeStyle = tone(E, '#d9433e'); g.lineWidth = 1.2; g.beginPath(); rail.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke();
+    for (let i = 0; i <= 16; i += 4){ line(front[i], rail[i], tone(E, '#d9433e'), 1); oval(rail[i][0], rail[i][1] - 0.8, 1.6, 0.8, L.drift[0]); }
+    const top = arc(0, 1.6); g.strokeStyle = L.drift[0]; g.lineWidth = 2.2; g.beginPath(); top.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke();
+  };
+  D.shishi = (E, b) => {                                                 // 대나무 물통 — 겨울이라 고드름이 맺혔다
+    const p = q(b.x + 0.5, b.y + 0.55, 0), x = p[0], y = p[1], L = look(E);
+    oval(x, y, 10, 4, tone(E, '#6c7282')); oval(x, y - 1, 7, 2.6, L.ice[1]);
+    line([x - 7, y - 4], [x - 7, y - 16], tone(E, '#7a8a4a'), 1.4); line([x - 9, y - 12], [x + 6, y - 7], tone(E, '#9ab06a'), 2.4);
+    oval(x + 6, y - 7, 1.4, 1.2, tone(E, '#5a6a3a'));
+    poly([[x + 5, y - 6], [x + 7, y - 6], [x + 6, y - 1]], L.ice[2]);
+    oval(x - 4, y - 0.5, 3, 1.4, tone(E, '#8c93a3')); oval(x - 4, y - 1.4, 2.4, 0.8, L.drift[0]);
+  };
+  D.koinobori = (E, b) => {                                              // 잉어 깃발 — 장대(잉어는 live)
+    const p = q(b.x + 0.5, b.y + 0.6, 0), x = p[0], y = p[1], L = look(E);
+    oval(x + 1, y + 1, 6, 2, L.shadow); line([x, y], [x, y - 48], tone(E, '#c8b878'), 1.4); oval(x, y - 49, 1.6, 1.6, '#f2c040');
+  };
+  D.koinoboriLive = (E, b) => {
+    const p = q(b.x + 0.5, b.y + 0.6, 0), x = p[0] + 0.8, t = STILL ? 0 : E.t;
+    [['#d9433e', 44, 18], ['#3f6ea0', 33, 15], ['#f2a0b8', 24, 12]].forEach(([c, dy, len], k) => {
+      const y = p[1] - dy, pts = [], low = [];
+      for (let i = 0; i <= 6; i++){ const f = i / 6, w = Math.sin(t * 3.4 - f * 4 + k) * 1.6 * f, h = 3.2 * (1 - f * 0.45); pts.push([x + len * f, y + w - h]); low.push([x + len * f, y + w + h]); }
+      path(pts.concat(low.reverse())); g.fillStyle = tone(E, c); g.fill(); g.strokeStyle = INK; g.lineWidth = 0.4; g.stroke();
+      oval(x + 3, y - 0.6, 1.4, 1.4, '#ffffff'); oval(x + 3.2, y - 0.6, 0.6, 0.6, '#1a1a2a');
+    });
+  };
+  D.toro = (E, b) => {                                                   // 지장보살 — 빨간 턱받이와 털모자, 밤엔 촛불
+    const p = q(b.x + 0.5, b.y + 0.6, 0), x = p[0], y = p[1], L = look(E);
+    oval(x + 1.5, y + 1, 7, 2.4, L.shadow);
+    box(b.x + 0.25, b.y + 0.35, b.x + 0.75, b.y + 0.85, 0, 4, tone(E, '#8c93a3'));
+    oval(x, y - 10, 5, 6.5, tone(E, '#a8aebb')); oval(x, y - 19, 4.2, 4.2, tone(E, '#b8bec8'));
+    g.strokeStyle = INK; g.lineWidth = 0.5; g.beginPath(); g.ellipse(x, y - 10, 5, 6.5, 0, 0, TAU); g.stroke(); g.beginPath(); g.arc(x, y - 19, 4.2, 0, TAU); g.stroke();
+    poly([[x - 4.6, y - 15.5], [x + 4.6, y - 15.5], [x, y - 10]], tone(E, '#d9433e'));
+    poly([[x - 4.4, y - 21], [x + 4.4, y - 21], [x + 3, y - 25], [x, y - 26.5], [x - 3, y - 25]], tone(E, '#d9433e')); oval(x, y - 27, 1.4, 1.4, tone(E, TRIM));
+    g.strokeStyle = '#3a3a4a'; g.lineWidth = 0.5; g.beginPath(); g.arc(x - 1.5, y - 19, 0.9, 0.2, Math.PI - 0.2); g.stroke(); g.beginPath(); g.arc(x + 1.5, y - 19, 0.9, 0.2, Math.PI - 0.2); g.stroke();
+    if (E.night){ R(x + 5, y - 5, 1.4, 4, '#f2ece0'); oval(x + 5.7, y - 6, 0.9, 1.4, '#ffd06a'); E.lamp(x + 5.7, y - 6, 16, '#ffcf7a'); }
+  };
+
   // ---------- 바닥 ----------
   const F = {};
   // 연못 → 꽁꽁 언 연못: 얼음판에 금, 가장자리 눈 둔덕
@@ -796,28 +937,48 @@
   };
 
   // ---------- 아이 — 라이프퀘스트 걷기 그림 ----------
+  // hip·cut 은 hero-walk.js 와 같다 — 앞옆(SW) 서기 칸을 몸통·두 다리로 가르는 줄(엉덩이 줄, 다리 가르는 선의 [엉덩이 쪽, 발 쪽] 열)
   const ATLAS = {
-    sua:  { src: '/pages/hero-sua.png?v=1005a',  w: 166, h: 231, foot: 228, cx: 83, tall: 220 },
-    yona: { src: '/pages/hero-yona.png?v=1005a', w: 144, h: 229, foot: 226, cx: 72, tall: 220 },
+    sua:  { src: '/pages/hero-sua.png?v=1005a',  w: 166, h: 231, foot: 228, cx: 83, tall: 220, hip: 179, cut: [78, 70] },
+    yona: { src: '/pages/hero-yona.png?v=1005a', w: 144, h: 229, foot: 226, cx: 72, tall: 220, hip: 177, cut: [68, 61] },
   };
-  const imgs = {};
+  const imgs = {}, legParts = {};
   const ROW = { S: [0, false], SW: [1, false], W: [2, false], NW: [3, false], N: [4, false], SE: [1, true], E: [2, true], NE: [3, true] };
-  // 발끝이 (x, y). dir 은 여덟 방향(S·SW·…), frame 0 = 서기, 1~4 = 걷기. 그림이 아직 안 왔으면 false
+  const LEG_SWING = 13, LEG_LIFT = 8;
+  // 원본 걷기 칸은 늘 같은 다리가 앞이라(hero-walk.js 2026-10-05) 앞옆으로 걸을 때는 서기 칸을 잘라 다리를 엉덩이에서 서로 반대로 흔든다
+  function partsOf(k, im){
+    if (legParts[k]) return legParts[k];
+    const A = ATLAS[k], top = A.hip - 3, cut = fn => { const c = document.createElement('canvas'); c.width = A.w; c.height = A.h; const x = c.getContext('2d'); x.beginPath(); fn(x); x.clip(); x.drawImage(im, 0, A.h, A.w, A.h, 0, 0, A.w, A.h); return c; };
+    return (legParts[k] = {
+      body: cut(x => x.rect(0, 0, A.w, A.hip + 1)),
+      far: cut(x => { x.moveTo(0, top); x.lineTo(A.cut[0], top); x.lineTo(A.cut[1], A.h); x.lineTo(0, A.h); }),
+      near: cut(x => { x.moveTo(A.cut[0], top); x.lineTo(A.w, top); x.lineTo(A.w, A.h); x.lineTo(A.cut[1], A.h); }),
+    });
+  }
+  function leg(Pt, A, which, th){
+    const len = A.foot - A.hip, sw = Math.sin(th), up = Math.max(0, Math.cos(th)) * LEG_LIFT;
+    g.save(); g.translate(0, A.hip); g.transform(1, 0, -sw * LEG_SWING / len, 1 - up / len, 0, 0); g.drawImage(Pt[which], 0, -A.hip); g.restore();
+  }
+  // 발끝이 (x, y). dir 은 여덟 방향(S·SW·…), frame 0 = 서기, 1~4 = 걷기(앞옆·뒤옆은 다리를 흔들고, 나머지는 시트의 걷기 칸). 그림이 아직 안 왔으면 false
   function kid(gg, k, x, y, dir, frame, tall){
     g = gg;
     const A = ATLAS[k]; if (!A) return false;
     let im = imgs[k]; if (!im){ im = imgs[k] = new Image(); im.decoding = 'async'; im.src = A.src; }
     if (!im.complete || !im.naturalWidth) return false;
-    const r = ROW[dir] || ROW.S, sc = tall / A.tall;
+    const r = ROW[dir] || ROW.S, sc = tall / A.tall, swing = frame > 0 && r[0] === 1;
     oval(x, y + 0.5, tall * 0.2, tall * 0.07, 'rgba(10,16,40,.3)');
-    g.save(); g.translate(x, y); if (r[1]) g.scale(-1, 1);
-    g.drawImage(im, frame * A.w, r[0] * A.h, A.w, A.h, -A.cx * sc, -A.foot * sc, A.w * sc, A.h * sc);
+    g.save(); g.translate(x, y - (swing && frame % 2 ? 0.6 : 0)); if (r[1]) g.scale(-1, 1);
+    if (swing){
+      const Pt = partsOf(k, im), th = (frame - 1) / 4 * TAU + 0.6;
+      g.scale(sc, sc); g.translate(-A.cx, -A.foot);
+      leg(Pt, A, 'far', th); leg(Pt, A, 'near', th + Math.PI); g.drawImage(Pt.body, 0, 0);
+    } else g.drawImage(im, frame * A.w, r[0] * A.h, A.w, A.h, -A.cx * sc, -A.foot * sc, A.w * sc, A.h * sc);
     g.restore();
     return true;
   }
 
   // ---------- 바깥에 내놓는 것 ----------
-  const LIVE = { swing: D.swingLive, firepit: D.firepitLive, flag: D.flagLive, windmill: D.windmillLive };
+  const LIVE = { swing: D.swingLive, firepit: D.firepitLive, flag: D.flagLive, windmill: D.windmillLive, koinobori: D.koinoboriLive };
   function thing(gg, E, id, b, night, part){ g = gg; P3 = (u, v, z) => E.P(u, v, z); const f = B[id] || D[id]; if (!f) return false; f(E, b, night, part); return true; }
   function floor(gg, E, id, b){ g = gg; P3 = (u, v, z) => E.P(u, v, z); const f = F[id]; if (!f) return false; f(E, b); return true; }
   function live(gg, E, id, b){ g = gg; P3 = (u, v, z) => E.P(u, v, z); const f = LIVE[id]; if (f) f(E, b); return !!f; }
@@ -845,7 +1006,10 @@
       ['greenhouse', 16, 1, 4, 3], ['barn', 20, 4, 3, 3], ['scarecrow', 12, 9, 1, 1], ['pasture', 15, 15, 6, 4], ['fountain', 9, 4, 2, 2], ['statue', 12, 1, 1, 2], ['lantern', 5, 13, 1, 1],
       ['bench', 8, 12, 2, 1], ['swing', 1, 9, 2, 2], ['arch', 10, 15, 2, 1], ['sandbox', 6, 16, 2, 2], ['firepit', 13, 12, 1, 1], ['sign', 3, 3, 1, 1], ['clothesline', 1, 13, 2, 1],
       ['flowerbed', 9, 9, 2, 1], ['birdhouse', 14, 4, 1, 1], ['flag', 24, 3, 1, 1], ['wagon', 18, 12, 2, 1], ['windmill', 23, 9, 2, 2], ['igloo', 1, 16, 2, 2], ['sled', 10, 18, 2, 1], ['icefish', 14, 9, 1, 1],
-    ].map(a => ({ id: a[0], b: { x: a[1], y: a[2], w: a[3], h: a[4] } }));
+    ].concat(opts.set === 'memory' ? [['lighthouse', 8, 1, 1, 1], ['palm', 10, 1, 1, 1], ['anchor', 13, 6, 1, 1], ['boat', 16, 9, 2, 1], ['parasol', 12, 11, 1, 1], ['cairn', 20, 10, 1, 1], ['waterfall', 2, 6, 2, 2], ['woodpile', 6, 10, 2, 1],
+      ['milkcans', 22, 13, 1, 1], ['alphorn', 17, 17, 2, 1], ['balloon', 23, 15, 2, 2], ['skybridge', 13, 17, 2, 1], ['shishi', 3, 15, 1, 1], ['koinobori', 25, 7, 1, 1], ['toro', 8, 18, 1, 1]] : [])
+      .filter((a, i, all) => opts.set !== 'memory' || i >= all.length - 15 || ['house', 'stall'].includes(a[0]))
+      .map(a => ({ id: a[0], b: { x: a[1], y: a[2], w: a[3], h: a[4] } }));
     const FLOORS = [['pond', { x: 6, y: 6, w: 4, h: 3 }], ['path', { x: 12, y: 6, w: 3, h: 1 }], ['pasture', { x: 15, y: 15, w: 6, h: 4 }]];
     const NODES = [['tree', 0, 7], ['tree', 3, 7], ['tree', 0, 18], ['tree', 4, 18], ['tree', 25, 13], ['tree', 25, 17], ['tree', 22, 18], ['rock', 21, 10], ['rock', 12, 3], ['bush', 3, 11], ['bush', 24, 15], ['snow', 8, 15]];
     const busy = (u, v) => PLACED.some(o => u >= o.b.x && u < o.b.x + o.b.w && v >= o.b.y && v < o.b.y + o.b.h);
@@ -869,7 +1033,7 @@
         live(g2, E, o.id, o.b);
       } }));
       NODES.forEach(([k, x, y], i) => cast.push({ d: x + y + 1, go: () => node(g2, E, k, x, y, true, i) }));
-      cast.push({ d: 27, go: () => { const p = E.P(12.5, 14.5); kid(g2, 'sua', p[0], p[1], 'SE', 0, 46); } });
+      { const u = 6 + (E.t * 0.8) % 14, fr = 1 + Math.floor(E.t * 6) % 4; cast.push({ d: u + 14.5, go: () => { const p = E.P(u, 14.5); kid(g2, 'sua', p[0], p[1], 'SE', fr, 46); } }); }   // 걸어가는 수아 — 다리 흔들기 시험
       cast.push({ d: 26, go: () => { const p = E.P(11.6, 14.4); kid(g2, 'yona', p[0], p[1], 'S', 0, 42); } });
       cast.sort((a, b) => a.d - b.d).forEach(c => c.go());
       fence(g2, E, 15, 19, 21, 19); fence(g2, E, 21, 15, 21, 19);
