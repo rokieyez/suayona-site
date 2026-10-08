@@ -507,6 +507,7 @@ const FARM = (() => {
     gull:    { name: '갈매기', cost: 0,   need: 'coop',    product: null,     best: 'gem',         every: 1, icon: '🕊️', find: ['fish:mackerel', 'fish:flounder', 'fish:seaweed'], gift: 'seaside' },
     goat:    { name: '염소',  cost: 0,   need: 'barn',    product: 'milk',    best: 'goldmilk',    every: 1, icon: '🐐', gift: 'mountain' },
     crane:   { name: '두루미', cost: 0,   need: 'pasture', product: null,     best: 'gem',         every: 1, icon: '🦢', find: ['fish:minnow', 'fish:crucian', 'fish:carp'], gift: 'cloud' },
+    reindeer:{ name: '순록',  cost: 0,   need: 'barn',    product: 'milk',    best: 'goldmilk',    every: 1, icon: '🦌', gift: 'aurora' },
   };
   const ANIMAL_MAX = { coop: 6, barn: 6, pasture: 4, pethouse: 2 };
   const LOVE_FOR_BEST = 5;
@@ -877,6 +878,8 @@ const FARM = (() => {
     { id: 'stampSea', col: '#5fb3e8',   name: '바닷가 도장', icon: '🌊', desc: '바닷가 농장으로 이사 가요',   coins: 300,  need: (w) => (w.farm || 0) >= 1 },
     { id: 'stampMt', col: '#c8461a',    name: '화산 도장',   icon: '🌋', desc: '화산 농장으로 이사 가요',     coins: 500,  need: (w) => (w.farm || 0) >= 2 },
     { id: 'stampCloud', col: '#f2b8d8', name: '꽃구름 도장', icon: '☁️', desc: '꽃구름 농장으로 이사 가요',   coins: 800,  need: (w) => (w.farm || 0) >= 3 },
+    // 스테이지2 첫 도장(2026-10-09). 여권(첫 네 농장)은 그대로 — 스테이지2 여권은 다섯 농장을 다 열면 만든다
+    { id: 'stampAurora', col: '#8fe6c8', name: '오로라 도장', icon: '🌌', desc: '스테이지2 — 오로라 농장으로 이사 가요', coins: 1000, need: (w) => (w.farm || 0) >= 4 },
     { id: 'passport', col: '#ffd25a',   name: '네 농장 여권', icon: '🗺️', desc: '이사 도장 셋을 모두 받아요', coins: 3000, gift: { id: 'seed:star', n: 5 },
       need: (w, m) => ['stampSea', 'stampMt', 'stampCloud'].every(k => (m.medals || []).indexOf(k) >= 0) },
   ];

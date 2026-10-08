@@ -277,7 +277,7 @@ function arrivalFrame(g, from, to, p){
 function arrivalGifts(to){
   const keeps = Object.keys(W.decor || {}).filter(id => W.decor[id].keep && R.DECOR[id]);
   const baby = (W.animals || []).filter(a => a.gift && R.ANIMALS[a.kind] && R.ANIMALS[a.kind].gift === to.id).pop();
-  const stamp = R.MEDALS.find(Md => Md.id === { seaside: 'stampSea', mountain: 'stampMt', cloud: 'stampCloud' }[to.id]);
+  const stamp = R.MEDALS.find(Md => Md.id === { seaside: 'stampSea', mountain: 'stampMt', cloud: 'stampCloud', aurora: 'stampAurora' }[to.id]);
   const li = [
     '📮 우편함에 이사 선물 동전 ' + (R.MOVE_GIFT || 0),
     keeps.length ? '🧳 들고 온 추억: ' + keeps.map(id => R.DECOR[id].icon + ' ' + R.DECOR[id].name).join(' · ') : '',
