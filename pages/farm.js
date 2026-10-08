@@ -7698,6 +7698,8 @@ function loop(ts){
   });
   // 집 탭이 열려 있으면 방도 함께 — 불꽃과 먼지와 아이가 움직인다
   if (tab === 'house' && key && !$('#tab-house').hidden) drawRoom($('#houseCanvas'), room, ts);
+  // 손님 화면의 방 셋 — 고화소 방은 아이가 걸어 다니니 매 장 다시 그린다(2026-10-09)
+  if (!key && withView(roomHd)) [['living', '#peekLiving'], ['sua', '#peekSua'], ['yona', '#peekYona']].forEach(([r, sel]) => { const c = $(sel); if (c && c.getBoundingClientRect().bottom > 0 && c.getBoundingClientRect().top < innerHeight) drawRoom(c, r, ts); });
 }
 function startLoop(cv){
   liveCv = cv;
@@ -9921,6 +9923,32 @@ function roomKid(r){
   if (r === 'living') return key || 'sua';
   return R.ROOMS[r].owner;
 }
+/* 고화소 방의 아이는 빈 칸 사이를 걸어 다닌다(2026-10-09 로키즈 「방 안 아이 걷기도 고화소로」).
+   가구가 없는 칸만 밟는다(너비 우선 찾기). 닿으면 2~6초 쉬었다가 다른 빈 칸으로. 칸 좌표는 실수(칸 가운데 = 정수 + 0.5 가 아니라 정수 칸 자리) */
+const roomWalk = {};
+function roomWalker(r, t){
+  const Rm = RM(r), free = (x, y) => x >= 0 && y >= 0 && x < Rm.w && y < Rm.h && !R.occupied(W, r, x, y);
+  let s = roomWalk[r];
+  if (!s || !free(Math.round(s.x), Math.round(s.y)) && !s.path.length){ const p = freeTile(r, [[Math.floor(Rm.w / 2), Rm.h - 1], [1, Rm.h - 1], [Rm.w - 2, Rm.h - 1]]); s = roomWalk[r] = { x: p[0], y: p[1], path: [], wait: t + 1500, last: t, dir: 'S', ph: 0 }; }
+  const dt = Math.min(0.25, Math.max(0, (t - s.last) / 1000)); s.last = t;
+  if (STILL) return s;
+  if (!s.path.length){
+    if (t < s.wait) return s;
+    const at = [Math.round(s.x), Math.round(s.y)], prev = {}, q = [at], key2 = p => p[0] + ',' + p[1], cand = [];
+    prev[key2(at)] = null;
+    while (q.length){ const c = q.shift(); if (c[0] !== at[0] || c[1] !== at[1]) cand.push(c); [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => { const n = [c[0] + dx, c[1] + dy]; if (free(n[0], n[1]) && !(key2(n) in prev)){ prev[key2(n)] = c; q.push(n); } }); }
+    if (!cand.length){ s.wait = t + 4000; return s; }
+    let goal = cand[Math.floor(Math.random() * cand.length)];
+    const path = []; while (goal && key2(goal) !== key2(at)){ path.unshift(goal); goal = prev[key2(goal)]; }
+    s.path = path; return s;
+  }
+  const n = s.path[0], dx = n[0] - s.x, dy = n[1] - s.y, d = Math.hypot(dx, dy), step = 1.15 * dt;
+  if (d > 0.001) s.dir = dir8(dx - dy, dx + dy);
+  s.ph += dt * 6.5;
+  if (d <= step){ s.x = n[0]; s.y = n[1]; s.path.shift(); if (!s.path.length){ s.wait = t + 2000 + Math.random() * 4000; s.dir = 'S'; } }
+  else { s.x += dx / d * step; s.y += dy / d * step; }
+  return s;
+}
 function freeTile(r, prefer){
   const Rm = RM(r);
   for (const p of prefer) if (!R.occupied(W, r, p[0], p[1])) return p;
@@ -10038,8 +10066,17 @@ function drawRoom(cv, r, tms){
       }
     });
   }
+  // 고화소 방 — 걷는 아이를 깊이(x + y)에 맞춰 가구 사이에 끼운다
+  const walkHd = roomHd() && window.FARMHD && roomKid(r) ? roomWalker(r, t) : null;
+  let kidPend = !!walkHd;
+  const drawWalkHd = () => {
+    const who = roomKid(r), kx = isoX(Rm, walkHd.x, walkHd.y), ky = isoY(walkHd.x, walkHd.y) + TH / 2, moving = walkHd.path.length > 0;
+    const one = (c2, op) => { c2.save(); c2.scale(HS, HS); if (op) c2.globalCompositeOperation = op; try { return window.FARMHD.kid(c2, who, kx, ky - 4, moving ? walkHd.dir : 'S', moving ? 1 + (Math.floor(walkHd.ph) % 4) : 0, (HD_KID_TALL[who] || 44) * 1.2); } finally { c2.restore(); } };
+    if (one(g) && lg && litUsed) one(lg, 'destination-out');
+  };
   floorItems.sort((a, b) => (a.x + a.y) - (b.x + b.y) || (a.x - b.x)).forEach(it => {
     if (held && it.x === held.fx && it.y === held.fy) return;
+    if (kidPend && it.x + it.y > walkHd.x + walkHd.y + 0.2){ kidPend = false; drawWalkHd(); }
     drawFurnItem(g, it.f, it.r, Rm, it.x, it.y, t);
     if (!lg) return;
     const kind = R.FURNITURE[it.f].kind, LT = ROOM_LIGHT[kind];
@@ -10056,7 +10093,8 @@ function drawRoom(cv, r, tms){
   });
   // 아이와 고양이 — 앞에서 본 그림이라 레퍼런스처럼 방과 섞여도 어색하지 않다
   const keep2 = ctx; ctx = g;
-  const who = roomKid(r);
+  if (kidPend) drawWalkHd();
+  const who = walkHd ? null : roomKid(r);
   if (who){
     const sp = freeTile(r, [[Math.floor(Rm.w / 2), Rm.h - 1], [1, Rm.h - 1], [Rm.w - 2, Rm.h - 1]]);
     const A2 = KIDART[who] || KIDART.yona;
@@ -10077,7 +10115,10 @@ function drawRoom(cv, r, tms){
     }
   }
   const cat =floorItems.find(i => R.FURNITURE[i.f].kind === 'catbed');
-  if (cat){
+  if (cat && roomHd() && window.ROOMHD.cat){                            // 고화소 방 — 몸을 말고 자는 고양이(room-hd.js)
+    const one = (c2, op) => { c2.save(); c2.scale(HS, HS); if (op) c2.globalCompositeOperation = op; window.ROOMHD.cat(c2, isoX(Rm, cat.x, cat.y), isoY(cat.x, cat.y) + TH / 2 - 5, t, window.ROOMHD.phase(L.dark)); c2.restore(); };
+    one(g); if (lg && litUsed) one(lg, 'destination-out');
+  } else if (cat){
     const wag = Math.sin(t / 700) > 0 ? 0 : 2;
     const cb = outlined('bcat', BEAST.cat.art, BEAST.cat.pal, false, HS), cxp = Math.round((isoX(Rm, cat.x, cat.y) - 14) * HS), cyp = Math.round((isoY(cat.x, cat.y) - 4 - wag) * HS);
     g.drawImage(cb, cxp, cyp);

@@ -1106,5 +1106,34 @@
     [[10.5, 35], [29.5, 35]].forEach(p => { K.oval(g, p[0], p[1], 1.6, 2.2, '#ffffff', 0.3); K.oval(g, p[0], p[1] + 2.4, 1.4, 1, '#3f6a2e'); });
   };
 
-  window.ROOMHD = { furn, wall, kit: K, PAL, phase, shell, floorItem, wallItem };
+  // ■ 고양이 집 위에서 몸을 말고 자는 고양이(2026-10-09) — (x, y) 가 방석 한가운데(도트). 숨 쉬듯 부풀고, 꼬리 끝이 까딱, 귀가 가끔 쫑긋, 머리 위로 z
+  function cat(g, x, y, t, ph){
+    const T = toneOf(ph), s = t / 1000, br = 1 + Math.sin(s * 1.6) * 0.035, body = T('#f2a65a'), dk = T('#c9803c'), lt = T('#ffd29a'), cream = T('#fff2dc');
+    K.oval(g, x + 1, y + 1.5, 13, 4, 'rgba(26,20,12,.22)');
+    g.save(); g.translate(x, y); g.scale(1, br);
+    // 꼬리 — 몸을 빙 둘러 앞으로, 끝만 까딱
+    const tip = Math.sin(s * 2.3) > 0.6 ? Math.sin(s * 14) * 1.6 : 0;
+    g.strokeStyle = dk; g.lineWidth = 3.2; g.lineCap = 'round'; g.beginPath(); g.moveTo(8, -3); g.quadraticCurveTo(12, 3, 2, 4.2); g.quadraticCurveTo(-6, 5, -9 + tip, 2); g.stroke();
+    g.strokeStyle = body; g.lineWidth = 2.2; g.beginPath(); g.moveTo(8, -3); g.quadraticCurveTo(12, 3, 2, 4.2); g.quadraticCurveTo(-6, 5, -9 + tip, 2); g.stroke();
+    // 몸 — 둥근 빵, 등에 줄무늬
+    K.oval(g, 1, -4, 10.5, 6.6, K.lin(g, 0, -11, 0, 2, [lt, body, dk]), true);
+    g.save(); g.beginPath(); g.ellipse(1, -4, 10.5, 6.6, 0, 0, TAU); g.clip();
+    for (let i = 0; i < 4; i++){ g.strokeStyle = dk; g.lineWidth = 1.1; g.beginPath(); g.moveTo(-2 + i * 3.2, -10.5); g.quadraticCurveTo(-1 + i * 3.2, -7, -2.5 + i * 3.2, -4.5); g.stroke(); }
+    g.restore();
+    // 머리 — 앞발에 턱을 괴고, 눈은 감았다
+    const hx = -7, hy = -3.4, ear = Math.sin(s * 0.7) > 0.93 ? -1.2 : 0;
+    K.poly(g, [[hx - 4.6, hy - 2], [hx - 4.2, hy - 7.6 + ear], [hx - 1.2, hy - 4]], body, true); K.poly(g, [[hx + 1.4, hy - 4.2], [hx + 4, hy - 7.2], [hx + 4.4, hy - 1.6]], body, true);
+    K.poly(g, [[hx - 3.8, hy - 2.6], [hx - 3.6, hy - 6 + ear], [hx - 1.8, hy - 3.8]], T('#ff9aa8'));
+    K.oval(g, hx, hy, 5.2, 4.4, K.lin(g, 0, hy - 4, 0, hy + 4, [lt, body]), true);
+    K.oval(g, hx + 0.2, hy + 1.8, 2.8, 1.8, cream);
+    g.strokeStyle = '#3a2618'; g.lineWidth = 0.55; [-2, 2].forEach(dx => { g.beginPath(); g.arc(hx + dx, hy - 0.4, 1, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke(); });
+    K.oval(g, hx + 0.2, hy + 0.9, 0.6, 0.45, T('#e8707a'));
+    K.oval(g, hx - 2.6, hy + 3.8, 2.2, 1.3, cream, true); K.oval(g, hx + 2.2, hy + 4, 2.2, 1.3, cream, true);
+    g.restore();
+    // z — 몇 초마다 하나씩 떠오른다
+    const zp = (s * 0.45) % 1;
+    g.save(); g.globalAlpha = Math.max(0, 1 - zp) * 0.85; g.fillStyle = ph >= 3 ? '#cfe0ff' : '#5a6a8a'; g.font = '700 ' + (3 + zp * 2.5).toFixed(1) + 'px sans-serif'; g.textAlign = 'center'; g.fillText('z', x - 10 - zp * 4, y - 12 - zp * 9); g.restore();
+  }
+
+  window.ROOMHD = { furn, wall, kit: K, PAL, phase, shell, floorItem, wallItem, cat };
 })();

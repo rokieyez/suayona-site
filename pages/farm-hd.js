@@ -404,14 +404,20 @@
       const p = q(u0 + a + 0.2, v1 - 0.35, 15.5); for (let k = -1; k <= 1; k++) oval(p[0] + k * 2.2, p[1] - 0.6, 1.4, 1.2, tone(E, c));
     });
     // 차양 — 앞으로 기운 줄무늬 천, 끝은 물결. 아저씨(키 54)가 안에 서도 머리가 안 가리게 높이 단다(2026-10-09)
-    const n = 8, zt = 62, zb = 55, va = v0 - 0.05, vb = v1 + 0.3;
+    // 2026-10-09 로키즈 「털모자 아저씨 얼굴 보이게 차양을 반만 걷어」 — 차양은 뒤쪽 절반만 펴고, 앞 끝은 둘둘 말아 올린 천 뭉치
+    const n = 8, zt = 62, va = v0 - 0.05, vb = va + (v1 + 0.3 - va) * 0.5, zb = zt - (zt - 55) * 0.5;
     for (let i = 0; i < n; i++){
       const a0 = u0 - 0.15 + (u1 - u0 + 0.3) * i / n, a1 = u0 - 0.15 + (u1 - u0 + 0.3) * (i + 1) / n;
       poly3([[a0, va, zt], [a1, va, zt], [a1, vb, zb], [a0, vb, zb]], tone(E, i % 2 ? TRIM : '#d9433e'));
     }
     poly3([[u0 - 0.15, va, zt], [u1 + 0.15, va, zt], [u1 + 0.15, vb, zb], [u0 - 0.15, vb, zb]], null, true);
-    for (let i = 0; i < n; i++){ const a = u0 - 0.15 + (u1 - u0 + 0.3) * (i + 0.5) / n, p = q(a, vb, zb); oval(p[0], p[1] + 0.8, 2.6, 2, tone(E, i % 2 ? TRIM : '#d9433e')); }
-    poly3([[u0 - 0.1, va, zt + 1], [u1 + 0.1, va, zt + 1], [u1 + 0.1, va + (vb - va) * 0.6, zt - 2.4], [u0 - 0.1, va + (vb - va) * 0.6, zt - 2.4]], look(E).drift[0]);
+    { const a = q(u0 - 0.15, vb, zb - 1.6), c = q(u1 + 0.15, vb, zb - 1.6);                    // 말아 올린 천 — 줄무늬 원통
+      g.lineCap = 'round'; g.strokeStyle = INK; g.lineWidth = 4.6; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(c[0], c[1]); g.stroke();
+      for (let i = 0; i < n; i++){ const f0 = i / n, f1 = (i + 1) / n; g.strokeStyle = tone(E, i % 2 ? TRIM : '#d9433e'); g.lineWidth = 3.6; g.lineCap = 'butt'; g.beginPath(); g.moveTo(a[0] + (c[0] - a[0]) * f0, a[1] + (c[1] - a[1]) * f0); g.lineTo(a[0] + (c[0] - a[0]) * f1, a[1] + (c[1] - a[1]) * f1); g.stroke(); }
+      line([a[0], a[1] - 1], [c[0], c[1] - 1], 'rgba(255,255,255,.35)', 0.7);
+      [0.2, 0.8].forEach(f => { const x = a[0] + (c[0] - a[0]) * f, y = a[1] + (c[1] - a[1]) * f; line([x, y - 2.4], [x, y + 2.4], tone(E, '#8a5a3c'), 0.8); });   // 묶은 끈
+    }
+    poly3([[u0 - 0.1, va, zt + 1], [u1 + 0.1, va, zt + 1], [u1 + 0.1, va + (vb - va) * 0.7, zt - 1.5], [u0 - 0.1, va + (vb - va) * 0.7, zt - 1.5]], look(E).drift[0]);
     if (night){ const p = q((u0 + u1) / 2, vb, zb - 2); oval(p[0], p[1] + 3, 1.6, 2, '#ffe7a4'); E.lamp(p[0], p[1] + 3, 34, '#ffcf7a'); }
   };
   // 닭장 — 작은 팔루 빨강 집, 흰 테, 경사로
@@ -967,7 +973,8 @@
     if (!im.complete || !im.naturalWidth) return false;
     const r = ROW[dir] || ROW.S, sc = tall / A.tall, swing = frame > 0 && r[0] === 1;
     oval(x, y + 0.5, tall * 0.2, tall * 0.07, 'rgba(10,16,40,.3)');
-    g.save(); g.translate(x, y - (swing && frame % 2 ? 0.6 : 0)); if (r[1]) g.scale(-1, 1);
+    // 농장·방 캔버스는 도트용으로 부드럽게 줄이기를 꺼 둔다 — 큰 그림을 그대로 줄이면 눈 줄이 빠져 찌그러진다(2026-10-09 로키즈 「연아 눈」)
+    g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.translate(x, y - (swing && frame % 2 ? 0.6 : 0)); if (r[1]) g.scale(-1, 1);
     if (swing){
       const Pt = partsOf(k, im), th = (frame - 1) / 4 * TAU + 0.6;
       g.scale(sc, sc); g.translate(-A.cx, -A.foot);
