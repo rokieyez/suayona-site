@@ -292,14 +292,20 @@ function openArrival(){
   const from = (P && R.FARMS.find(f => f.id === P.farm)) || R.FARMS[Math.max(0, W.farm - 1)];
   try { localStorage.setItem(ARRIVE_KEY(), String(W.farm)); } catch (e) { /* 못 적으면 다음에 한 번 더 본다 */ }
   const inner = $('#modalInner');
-  inner.innerHTML = '<h3 class="pixel">🚚 이삿날!</h3>'
-    + '<p class="sub">' + from.name + '을 떠나 <b>' + to.name + '</b>에 도착했어요. ' + (to.desc || '') + '</p>'
-    + '<canvas id="arriveCv" class="arrive" width="640" height="280" aria-label="짐수레가 새 농장으로 건너가는 그림"></canvas>'
+  // 스테이지2 로 넘어가는 이사는 비행선 장면(2026-10-09, pages/farm-hd-people.js) — 고화소 그림이 안 왔으면 짐수레 그대로
+  const air = to.stage === 2 && !(from.stage >= 2) && window.FARMHD && window.FARMHD.airship;
+  inner.innerHTML = (air ? '<h3 class="pixel">✈️ 스테이지2 — ' + to.name + '으로!</h3>'
+      + '<p class="sub">' + from.name + '을 떠나 비행선을 타고 구름 바다를 건너 <b>' + to.name + '</b>에 내려앉았어요. 여기서부터 <b>스테이지2</b>예요! ' + (to.desc || '') + '</p>' + window.FARMHD.AIRSHIP_CV
+      : '<h3 class="pixel">🚚 이삿날!</h3>'
+      + '<p class="sub">' + from.name + '을 떠나 <b>' + to.name + '</b>에 도착했어요. ' + (to.desc || '') + '</p>'
+      + '<canvas id="arriveCv" class="arrive" width="640" height="280" aria-label="짐수레가 새 농장으로 건너가는 그림"></canvas>')
     + '<p class="sub">두고 온 ' + from.name + '은 농장 그림 위 「옛 농장 구경」에서 언제든 가 볼 수 있어요.</p>'
     + arrivalGifts(to)
     + '<div class="modal-actions"><button type="button" class="dot-btn small primary" id="arriveGo">🏝 새 농장 둘러보기</button>'
     + (P ? '<button type="button" class="dot-btn small" id="arriveSnap">📷 ' + from.name + ' 마지막 한 장 내기</button>' : '') + '</div>';
   $('#modal').hidden = false;
+  if (air) window.FARMHD.airship($('#arriveCv'), { sub: to.icon + ' ' + to.name, onDone: () => sfx('sparkle') });
+  else {
   const cv = $('#arriveCv'), g = cv.getContext('2d');
   g.imageSmoothingEnabled = false; g.setTransform(2, 0, 0, 2, 0, 0);
   const t0 = performance.now(), D = 2600;
@@ -310,6 +316,7 @@ function openArrival(){
     if (p < 1) requestAnimationFrame(step); else sfx('sparkle');
   };
   step();
+  }
   $('#arriveGo').addEventListener('click', closeModal);
   if (P) $('#arriveSnap').addEventListener('click', () => openSnap(past.length - 1));
 }

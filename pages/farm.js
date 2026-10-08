@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '22';
+const PLAY_V = '23';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -689,6 +689,15 @@ const BEAST = {
     '........l....l..........', '........l....l..........', '........l....l..........', '.......ll...ll..........',
     '......lll..lll..........',
   ], pal: { w: '#ffffff', W: '#d9d9d2', k: '#2a2a2e', r: '#e0303a', y: '#b8b08a', e: '#26241f', l: '#3a3a3e' } },
+  // 순록(오로라 이사 식구, 2026-10-09) — 섬 농장은 고화소 그림을 쓰고, 들판(판 화면)에서는 염소 몸에 갈래 뿔·밤빛 털·크림 목털
+  reindeer: { w: 28, art: [
+    '...............A..A..A..A...', '...............AA.A..A.AA...', '................AAA..AAA....', '..................hhhhhh....',
+    '................aahhhhhhh...', '................aahhhheehh..', '..t..............hhhhhhhhhn.', '.tt..............hhhhhhhhhnn',
+    '.tbbbbbbbbbbbbbbbbhhhhhhhhh.', 'bbbbbbbbbbbbbbbbbbbhhhhhh...', 'bbbbbbbbbbbbbbbbbbbbhDDhh...', 'bbbbbbbbbbbbbbbbbbbb.DD.....',
+    'bbbbbbbbbbbbbbbbbbbb.DD.....', 'bbbbbbbbbbbbbbbbbbbB..D.....', 'BBbbbbbbbbbbbbbbbbBB........', '.BBBBBBBBBBBBBBBBBB.........',
+    '..BBBBBBBBBBBBBBBB..........', '...ll.ll.....ll.ll..........', '...ll.ll.....ll.ll..........', '...ll.ll.....ll.ll..........',
+    '...ll.ll.....ll.ll..........', '...LL.LL.....LL.LL..........', '...LL.LL.....LL.LL..........',
+  ], pal: { b: '#a8784e', B: '#7e5634', h: '#b0825a', a: '#8a5e3c', e: '#2a2018', n: '#3a2a22', D: '#efe2c8', t: '#f2e8d8', l: '#6a4a32', L: '#2e241c', A: '#d8c09a' } },
 };
 // 가게 아저씨(파란 캡·흰 셔츠·초록 앞치마)와 행상인(보라 외투·붉은 목도리). 2026-10-02 관객·경비원과 같은 화풍으로 다시 그림(56도트, SW 를 봄).
 // 아래 토막은 tools/shopkeep-art.py 가 채운다 — 손으로 고치지 말 것.
@@ -713,8 +722,10 @@ function npcIdle(t, salt){
 // 아이소 가게 아저씨 — 가게 그림의 뒤 겹과 앞 겹 사이에 매 장 그린다(drawFarmIso). 그림은 왼쪽 아래를 보고, 오른쪽으로 옮길 땐 뒤집는다.
 // 왼쪽 앞에 세운다 — 가운데면 오른쪽 앞 기둥이 몸 한가운데를 지나고 매단 것이 얼굴에 걸린다. 서성임은 ±0.2칸(±4도트)까지만.
 function stallKeeperAt(b){ const O = isoGeo(b, 0.18, 0); return { u: O.u0 + (O.u1 - O.u0) * 0.3, v: O.v0 + 0.85 }; }
-function drawStallKeeperIso(b, t){
+function drawStallKeeperIso(b, t, after){
   const s = npcIdle(t, 'shop'), at = stallKeeperAt(b), q = isoP(at.u + s.off * 0.2, at.v), fr = SHOPKEEP[s.frame];
+  // 스테이지2(고화소) — 털모자 쓴 벡터 아저씨(pages/farm-hd-people.js, 2026-10-09). 차양을 높여 가게 안(뒤 겹과 판대 사이)에 선다
+  if (hdOn() && window.FARMHD.npc){ if (after) return; if (hd(c => window.FARMHD.npc(c, 'keeper', q.x, q.y - s.bob, { frame: s.frame, flip: s.dir > 0 }))) return; }
   art(fr, Math.round(q.x) - (fr[0].length >> 1), Math.round(q.y) - 54 - s.bob, SHOPPAL, s.dir > 0);
 }
 // 들판(2D) 가게 아저씨 — 좌판 오른쪽 끝, 위 28줄(좌판 앞턱 위)만
@@ -772,6 +783,7 @@ function pedHood(G, z0){
   return { cv, rv, at };
 }
 function isoPeddlerCart(P){
+  if (hdOn() && window.FARMHD.pedCart) return void hd((c, E) => window.FARMHD.pedCart(c, E, pedCartGeo(P), PED_CART));   // 스테이지2 고화소 수레(2026-10-09)
   const C = PED_CART, G = pedCartGeo(P), len = G.u1 - G.u0, body = WOOD.mid;
   ishadow((G.u0 + G.u1) / 2 + 0.2, (G.v0 + G.v1) / 2, len / 2 + 0.25, 0.4);
   // 바퀴 — 살 여덟 개짜리 큰 바퀴. 건너편 둘은 짐칸보다 먼저 그려 아래쪽만 보인다
@@ -807,6 +819,7 @@ function isoPeddlerCart(P){
 }
 function drawPeddlerIso(P, t){
   const s = npcIdle(t, 'ped'), at = pedKeeperAt(P), q = isoP(at.u + s.off * 0.15, at.v), fr = PEDKEEP[s.frame];
+  if (hdOn() && window.FARMHD.npc && hd(c => window.FARMHD.npc(c, 'peddler', q.x, q.y + 2 - s.bob, { frame: s.frame, flip: s.dir > 0, side: true }))) return;   // 스테이지2 고화소(2026-10-09)
   art(fr, Math.round(q.x) - (fr[0].length >> 1), Math.round(q.y) - fr.length + 2 - s.bob, PEDPAL, s.dir > 0);
 }
 // 도감·카드에서도 쓰는 그림. s 는 도트 한 개의 크기.
@@ -4297,6 +4310,7 @@ function isoPlot(id, p){
   const { x, y } = R.parseId(id);
   if (!p || !p.tilled) return;
   const wet = R.wetNow(p, now(), false), S3 = wet ? SOIL.wet : SOIL.dry;
+  if (hdOn()) return hd((c, E) => window.FARMHD.plot(c, E, x, y, wet, p.fert));   // 스테이지2 — 고화소 흙 두둑(farm-hd-life.js, 2026-10-09)
   const c0 = S3[0], c1 = S3[1], c2 = S3[2], hi = shade(c0, 24), n1 = shade(c0, 12), n2 = shade(c0, -12), fert = '#e8dcae';
   const b = isoP(x, y, 3);
   isoSideL(px, b.x, b.y, IT / 2, IT / 2, 3, shade(c0, -22));
@@ -4318,6 +4332,7 @@ function isoField(){
   const k = W.expand || 0;
   if (R.EXPANSIONS[k + 1]){                                        // 다음에 열 땅 — 그 모양 그대로 점선
     fieldEdges(openField(k + 1), 0).forEach(([ua, va, ub, vb]) => {
+      if (hdOn()) return hd((c, E) => window.FARMHD.ghost(c, E, ua, va, ub, vb));
       const p = isoP(ua, va), q = isoP(ub, vb), n = Math.round(Math.hypot(q.x - p.x, q.y - p.y) / 5);
       for (let j = 0; j < n; j += 2) isoSeg({ x: p.x + (q.x - p.x) * j / n, y: p.y + (q.y - p.y) * j / n }, { x: p.x + (q.x - p.x) * (j + 1) / n, y: p.y + (q.y - p.y) * (j + 1) / n }, '#00000030', 1);
     });
@@ -4336,7 +4351,7 @@ function isoCropBands(cast, windStep){
   });
   Object.keys(bands).forEach(k => {
     const ids = bands[k].sort(), n = Number(k);
-    let sig = windStep + '|' + curWind.toFixed(2) + '|';
+    let sig = windStep + '|' + curWind.toFixed(2) + '|' + (hdOn() ? 'hd' + (hdLight && hdLight.lamp ? 1 : 0) + '|' : '');   // 고화소는 밤낮 빛깔이 달라 표에 넣는다
     ids.forEach(id => { const p = W.plots[id]; sig += id + p.crop.charAt(0) + R.stageOf(p) + (p.wilted ? 'x' : '') + (p.giant ? 'G' : '') + ';'; });
     let x0 = Infinity, x1 = -Infinity;
     ids.forEach(id => { const q = R.parseId(id), c = isoP(q.x + 0.5, q.y + 0.5).x; x0 = Math.min(x0, c); x1 = Math.max(x1, c); });
@@ -4346,15 +4361,17 @@ function isoCropBands(cast, windStep){
 }
 function isoCrops(windStep, ids){
   const open = ids.slice();
-  const sway = (x, y) => Math.round(Math.sin(windStep / 640 + x * 0.7 + y * 0.4) * curWind);
+  const sway = (x, y) => Math.round(Math.sin(windStep / 640 + x * 0.7 + y * 0.4) * curWind), HDC = hdOn();
   open.forEach(id => {
     const p = W.plots[id], q = R.parseId(id);
     if (p.giant){
       if (!p.pairOf || id > p.pairOf) return;
       const o = R.parseId(p.pairOf), cu = (q.x + o.x) / 2 + 0.5, cv = (q.y + o.y) / 2 + 0.5;
+      if (HDC) return hd((c, E) => window.FARMHD.giant(c, E, cu, cv, p.crop, R.stageOf(p), p.pulls, sway(q.x, q.y)));   // 스테이지2 고화소(2026-10-09)
       withBB(flatOffAt(((q.x + o.x) / 2 + 0.5) * T, ((q.y + o.y) / 2 + 0.75) * T, cu, cv + 0.1, 3), () => withInk(INK.crop, () => drawGiant(id, p, sway(q.x, q.y))));
       return;
     }
+    if (HDC) return hd((c, E) => window.FARMHD.crop(c, E, q.x, q.y, p.crop, R.stageOf(p), p.wilted, sway(q.x, q.y)));
     withBB(flatOffAt(q.x * T + 16, q.y * T + 24, q.x + 0.5, q.y + 0.55, 3), () => cropAt(q.x * T, q.y * T, p.crop, R.stageOf(p), p.wilted, sway(q.x, q.y)));
   });
 }
@@ -6683,6 +6700,7 @@ function doll3d(kind, d, frame){
 function drawDollIso(o, t){
   if (!DOLLS[o.kind]) return;
   const d = isoFaceOf(o), f = o.moving ? (Math.floor(o.phase) % 2) : 0, bob = !o.moving && Math.sin(t / 1000 + o.phase) > 0.75 ? 1 : 0;
+  if (hdOn() && window.FARMHD.doll){ const q = isoP(o.x / T, o.y / T); if (hd(c => window.FARMHD.doll(c, o.kind, q.x, q.y - bob, d, f, DOLLS[o.kind].pal))) return; }   // 스테이지2 고화소 인형(2026-10-09)
   isoEllipse(o.x / T + 0.04, o.y / T + 0.04, 0.26, 0.22, 0, 'rgba(30,44,24,0.18)');
   charBlit(charSprite('d|' + o.kind + '|' + d + '|' + f, () => doll3d(o.kind, d, f)), o.x, o.y, bob);
 }
@@ -6786,11 +6804,15 @@ function stillFarmGuest(n){
 }
 // 그림 한 칸은 1도트 = 캔버스 2px 에 테 1도트가 둘러져 있다 — 아이 그림과 같은 도트 크기로 줄여 붙인다. 발끝은 칸 밑단에서 두 도트 위.
 function drawFarmGuestIso(v, t){
-  const d = dir8(v.vx - v.vy, v.vx + v.vy), cv = WALKSHEET.sprite('guest', v.n, v.moving ? d : WALKSHEET.diag(d, v.n & 1), KIDSTEP(v.moving, v.phase), null);   // 서 있을 땐 아이소 대각선(정면은 수아·연아만)
-  if (!cv) return;
+  const d = dir8(v.vx - v.vy, v.vx + v.vy);
   const a = Math.max(0, Math.min(1, (t - v.born) / 500, v.out ? 1 - (t - v.out) / 600 : 1));
   const nod = !v.moving && !v.still && Math.sin(t / 650) > 0.85 ? 1 : 0;           // 구경하며 가끔 끄덕
-  const q = isoP(v.x / T, v.y / T), w = cv.width / 2, h = cv.height / 2;
+  const q = isoP(v.x / T, v.y / T);
+  // 스테이지2(고화소) — 털모자·목도리 벡터 손님(pages/farm-hd-people.js, 2026-10-09)
+  if (hdOn() && window.FARMHD.npc && hd(c => window.FARMHD.npc(c, 'guest', q.x, q.y + nod * 0.5, Object.assign({ n: v.n, alpha: a, step: KIDSTEP(v.moving, v.phase) }, window.FARMHD.facing(d))))) return;
+  const cv = WALKSHEET.sprite('guest', v.n, v.moving ? d : WALKSHEET.diag(d, v.n & 1), KIDSTEP(v.moving, v.phase), null);   // 서 있을 땐 아이소 대각선(정면은 수아·연아만)
+  if (!cv) return;
+  const w = cv.width / 2, h = cv.height / 2;
   ctx.globalAlpha = a;
   isoEllipse(v.x / T + 0.06, v.y / T + 0.06, 0.34, 0.28, 0, 'rgba(30,44,24,0.2)');
   ctx.drawImage(cv, Math.round((q.x - w / 2) * S), Math.round((q.y - h + 2 + nod) * S), Math.round(w * S), Math.round(h * S));
@@ -6807,6 +6829,8 @@ function drawBeastIso(a, t){
   const rec = (W.animals || []).find(x => x.id === a.id), baby = rec && rec.baby, k = baby ? BABY_K : 1;
   const d = isoFaceOf(a), f = a.moving ? (Math.floor(a.phase) % 2) : 0, B = BEAST3D[a.kind] || BEAST3D.chicken;
   const bob = a.moving ? f : (Math.sin(t / 1100 + a.phase) > 0.7 ? 1 : 0);
+  // 스테이지2 농장은 고화소 동물(farm-hd-life.js). 순록은 도트 그림이 없어 어느 농장에서나 고화소로(2026-10-09)
+  if (window.FARMHD && window.FARMHD.animal && (hdOn() || !BEAST3D[a.kind])){ const q = isoP(a.x / T, a.y / T); return hd((c, E) => window.FARMHD.animal(c, E, a.kind, q.x, q.y, d, f, baby, bob, rec && rec.ready)); }
   isoEllipse(a.x / T + 0.05, a.y / T + 0.05, (B.L + 2) * DOT * k, (B.L + 1) * DOT * k, 0, 'rgba(30,44,24,0.18)');
   charBlit(charSprite('b|' + a.kind + '|' + d + '|' + f + '|' + (baby ? 1 : 0), () => beast3d(a.kind, d, f, k)), a.x, a.y, bob);
   if (rec && rec.ready){
@@ -7390,6 +7414,7 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
       const e = isoSprite(id, sigB + '|' + season + '|' + id, isoBoxOf(b), paint(id === 'stall' ? 'front' : null), ink);
       for (let i = 0; i < e.lamps.length; i++) lamps.push(e.lamps[i]);
       isoHits.push({ e, tx: b.x, ty: b.y });
+      if (id === 'stall' && hdThing && window.FARMHD.npc) drawStallKeeperIso(b, t, true);         // 고화소 아저씨는 앞 겹 뒤, 판대 앞에(2026-10-09)
       if (hdThing) hd((c, E) => window.FARMHD.live(c, E, id, b));
       else if (ISO_OWN[id]) isoOwnLive(id, b, t, L, season);
       else if (ISO_PROP_LIVE[id]) ISO_PROP_LIVE[id](b, t, L, season, isoTheme());
@@ -7427,14 +7452,15 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
   });
   Object.keys(W.sprinklers || {}).forEach(id => {
     const q = R.parseId(id), good = (W.sprinklers[id] || {}).k === 'good';
-    cast.push({ d: q.x + q.y + 1, go: () => withBB(flatOffAt(q.x * T + 16, q.y * T + 26, q.x + 0.5, q.y + 0.55, 3), () => drawSprinkler(q.x * T, q.y * T, t, good)) });
+    cast.push({ d: q.x + q.y + 1, go: () => HD ? hd((c, E) => window.FARMHD.sprinkler(c, E, q.x, q.y, t, good))   // 스테이지2 고화소(2026-10-09)
+      : withBB(flatOffAt(q.x * T + 16, q.y * T + 26, q.x + 0.5, q.y + 0.55, 3), () => drawSprinkler(q.x * T, q.y * T, t, good)) });
   });
   if (R.peddlerHere(W, now())){
     const P = R.peddlerSpot(W);
     // 수레는 칠해진 도트로, 행상인은 몸 상자로 누른다. 그릴 때 넣어야 앞뒤 순서가 맞는다
     const k = pedKeeperAt(P), q = isoP(k.u, k.v);
     cast.push({ d: P.x + P.y + 1.3, go: () => {
-      const e = isoSprite('peddler', P.x + ',' + P.y, isoBoxOf({ x: P.x, y: P.y, w: 2.3, h: 1 }), () => isoPeddlerCart(P), INK.beast);
+      const e = isoSprite('peddler', P.x + ',' + P.y + (HD ? '|hd' + (L.lamp ? 1 : 0) : ''), isoBoxOf({ x: P.x, y: P.y, w: 2.3, h: 1 }), () => isoPeddlerCart(P), HD ? null : INK.beast);
       for (let i = 0; i < e.lamps.length; i++) lamps.push(e.lamps[i]);
       isoHits.push({ e, tx: P.x, ty: P.y });
     } });
@@ -7453,7 +7479,7 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
   isoSkyLife(t);
   isoPetals(t, season);
   if (isoLook().below === 'lava') isoLavaFront(t);
-  drawWeather(wk, season, t, cv);
+  if (!HD) drawWeather(wk, season, t, cv);                                // 고화소 섬은 늘 눈(FARMHD.snowfall)
   isoSeaRain(wk, t);
   if (HD){ hd((c, E) => window.FARMHD.snowfall(c, E)); grade(g, cw, ch, L, L.lamp ? 0.25 : 0.6); }
   else grade(g, cw, ch, isoLook().below === 'lava' ? lavaNight(L) : L);
@@ -7920,6 +7946,16 @@ function isoBox(q, cx, cy, ew, eh, hgt, top, lf, rt){
    바닷가=그리스(회칠 벽·파란 덧창·테라코타 타일), 산골=스위스(소나무 널벽·체크 커튼·알프스),
    꽃구름=일본(흙벽과 기둥·장지·다다미). 들판은 처음 그대로. 아이 색(수아 분홍·연아 민트)은 어디서나 남긴다. */
 function roomTheme(){ return (W && R.farmOf) ? R.farmOf(W).id : 'meadow'; }
+/* 스테이지2(HD_FARMS) 방 — 껍데기·가구·벽 것을 pages/room-hd.js(ROOMHD)가 고화소로 칠한다. 그리개가 없는 kind 는 도트 그대로 */
+function roomHd(){ return !!window.ROOMHD && !!HD_FARMS[roomTheme()]; }
+const roomHdFurn = kind => roomHd() && !!window.ROOMHD.furn[kind];
+// 벽에 건 것 하나 — mode 'draw' | 'lit'(빛나는 부분만, 제 자리는 먼저 지운다) | 'cut'(지우기만). 그리개가 없으면 false
+function hdWallItem(g, Rm, r, f, side, u, dv, mode, pic){
+  const F = R.FURNITURE[f]; if (!F || !roomHd() || !window.ROOMHD.wall[F.kind]) return false;
+  return window.ROOMHD.wallItem(g, { HS, ox: isoOx(Rm), side, u, dv, mode, f, F, room: r, pic, dark: dayLight().dark, t: performance.now(),
+    cells: F.kind === 'mypic' ? (padDecode(pic) || padDecode(PAD_SAMPLE)) : null, PAD: PAD_PALETTE, PAD_BG,
+    medals: F.kind === 'medalcase' ? medalsOf(r) : null, MEDALS: R.MEDALS });
+}
 const ROOM_THEME_PAL = {
   seaside: {
     sua:    { wall: '#fbf3f1', wall2: '#f1e5e2', dot: '#ec8aa6' },
@@ -8783,6 +8819,19 @@ function drawRoomShell(g, r, L, wallItems){
   const Rm = RM(r), P = roomPal(r);
   const A = roomArt(Rm), ox = isoOx(Rm);
   const LW = Rm.w * (TW / 2), LH = Rm.h * (TW / 2);          // 두 벽의 가로 길이
+  if (roomHd()){                                              // 고화소 방 — 창·문 자리는 아래 도트 방과 같다(wallCovers·햇살이 그 자리를 본다)
+    const dv0 = W_MOULD + 4;
+    window.ROOMHD.shell(g, { HS, r, Rm, ox, LW, LH, WALLH, TW, TH, dark: L.dark, win: { u: Math.max(6, Math.floor((LW / 2 - 30) / 2) * 2), v: 14, w: 60, h: 42 },
+      door: r === 'living' ? { u: Math.max(6, Math.floor((LH - 44) / 2 / 2) * 2), v: dv0, w: 40, h: WALLH - dv0 - 6 } : null });
+    (wallItems || []).forEach(it => {
+      const len = it.side ? LW : LH, wl = wallPaint(g, Rm, it.side);
+      const u = it.col == null ? Math.min(Math.max(0, it.at * (TW / 2) - 8), len - 42) : wallU(len, wallColsOf(r, it.side), it.col), dv = it.row ? WALL_DROP : 0;
+      if (hdWallItem(g, Rm, r, it.f, it.side, u, dv, 'draw', it.pic)) return;
+      paintWallItem((uu, v, uw, vh) => wl(uu + 2, v + dv + 3, uw, vh, 'rgba(26,18,10,0.16)'), u, it.f, P, r, it.pic);
+      paintWallItem((uu, v, uw, vh, c) => wl(uu, v + dv, uw, vh, c), u, it.f, P, r, it.pic);
+    });
+    return;
+  }
   const q = dotFill(g);
   /* 벽면 좌표를 화면으로 옮긴다. u 는 벽을 따라 간 거리(가로 도트, 짝수),
      v 는 벽 꼭대기에서 내려온 거리. 비스듬한 벽이 2도트마다 1도트씩 내려간다. */
@@ -9122,7 +9171,8 @@ function furnArt(f, rot){
 function furnBitmap(f, rot, A, t, lit){
   const bw = Math.round(A.w * HS), bh = Math.round(A.h * HS);
   const anim = FURN_ANIM[R.FURNITURE[f].kind];
-  const key = f + '|' + (rot % 2) + '|' + HS + (lit ? '|lit' : '');
+  const hdF = roomHdFurn(R.FURNITURE[f].kind);                  // 고화소 가구는 밤 단계마다 따로 굽고, 도트 테두리를 안 두른다
+  const key = f + '|' + (rot % 2) + '|' + HS + (lit ? '|lit' : '') + (hdF ? '|hd' + window.ROOMHD.phase(dayLight().dark) : '');
   if (!anim){
     const hit = furnCache[key];
     if (hit && hit.width === bw && hit.height === bh) return hit;
@@ -9132,7 +9182,7 @@ function furnBitmap(f, rot, A, t, lit){
   const b = cv.getContext('2d'); b.imageSmoothingEnabled = false;
   b.clearRect(0, 0, bw, bh);
   paintFurniture(b, f, rot, A, t, lit);
-  if (lit){ if (!anim) furnCache[key] = cv; return cv; }          // 빛나는 부분만 — 테는 두르지 않는다
+  if (lit || hdF){ if (!anim) furnCache[key] = cv; return cv; }   // 빛나는 부분만·고화소 — 테는 두르지 않는다
   /* 어두운 테두리 한 도트 — Unpacking 이 또렷하게 읽히는 가장 큰 까닭이다.
      실루엣을 네 방향으로 한 도트씩 밀어 밑에 깔면 가구마다 윤곽이 선다. */
   const ol = document.createElement('canvas'); ol.width = bw; ol.height = bh;
@@ -9158,6 +9208,7 @@ function drawFurnItem(g, f, rot, Rm, tx, ty, t, lit){
    자리는 칸 방향으로 적는다 — ax 는 오른쪽아래로, ay 는 왼쪽아래로 간 가로 도트. */
 function paintFurniture(g, f, rot, A, t, lit){
   const F = R.FURNITURE[f], c = F.c;
+  if (roomHdFurn(F.kind) && window.ROOMHD.floorItem(g, { f, F, rot, A, t, lit, HS, dark: dayLight().dark, room })) return;
   MAT = FURN_MAT[F.kind] || 'wood';                            // 이 가구를 칠하는 동안의 재질
   MATSEED = f;
   const hi = shade(c, 24), lo = shade(c, -18), dk = shade(c, -36);
@@ -9972,16 +10023,18 @@ function drawRoom(cv, r, tms){
         const u = u0 + 20;
         glow.push({ x: (ox + (it.side ? u : -u)) * HS, y: (u / 2 + 30 + dv) * HS, r: LT.r * HS, c: LT.c, kind });
         lg.save(); lg.globalAlpha = 0.55 + 0.45 * flickOf(kind, t);
-        paintWallItem((uu, v, uw, vh, c) => {
+        if (!hdWallItem(lg, Rm, r, it.f, it.side, u0, dv, 'lit', it.pic)) paintWallItem((uu, v, uw, vh, c) => {
           const lc = litColor(kind, c);
           if (lc){ wl(uu, v + dv, uw, vh, lc); return; }
           lg.save(); lg.globalCompositeOperation = 'destination-out'; wl(uu, v + dv, uw, vh, '#000000'); lg.restore();
         }, u0, it.f, Pw, r, it.pic);
         lg.restore(); litUsed = true;
       } else if (litUsed){
-        lg.save(); lg.globalCompositeOperation = 'destination-out';
-        paintWallItem((uu, v, uw, vh) => wl(uu, v + dv, uw, vh, '#000000'), u0, it.f, Pw, r, it.pic);
-        lg.restore();
+        if (!hdWallItem(lg, Rm, r, it.f, it.side, u0, dv, 'cut', it.pic)){
+          lg.save(); lg.globalCompositeOperation = 'destination-out';
+          paintWallItem((uu, v, uw, vh) => wl(uu, v + dv, uw, vh, '#000000'), u0, it.f, Pw, r, it.pic);
+          lg.restore();
+        }
       }
     });
   }
@@ -10010,14 +10063,20 @@ function drawRoom(cv, r, tms){
     const blink = (Math.floor(t / 220) % 22) === 0;
     const bob = Math.sin(t / 900) > 0.75 ? 2 : 0;
     const kx = isoX(Rm, sp[0], sp[1]), ky = isoY(sp[0], sp[1]) + TH / 2 + bob;
+    // 고화소 방이면 라이프퀘스트 그림으로(farm-hd.js FARMHD.kid) — 칸이 바깥보다 1.2배 크니 키도 그만큼
+    const hdKid = (c2, op) => { if (!roomHd() || !window.FARMHD) return false; c2.save(); c2.scale(HS, HS); if (op) c2.globalCompositeOperation = op;
+      try { return window.FARMHD.kid(c2, who, kx, ky - 4, 'S', 0, (HD_KID_TALL[who] || 44) * 1.2); } finally { c2.restore(); } };
+    if (hdKid(g)){ if (lg && litUsed) hdKid(lg, 'destination-out'); }
+    else {
     isoTop(dotFill(g), kx, ky - 6, 14, 14, 'rgba(26,20,12,0.20)');
     const rows = blink ? kidBlink(A2) : A2.dirs.S[0];
     // outlined 는 둘레에 한 도트씩 테를 두르니 그만큼 더 민다 — 그림 밑단 가운데가 (kx, ky - 1)
     const kb = outlined(who + 'room' + (blink ? 1 : 0), rows, KIDPAL[who], false, HS), kxp = Math.round((kx - A2.w / 2 - 1) * HS), kyp = Math.round((ky - A2.h - 2) * HS);
     g.drawImage(kb, kxp, kyp);
     if (lg && litUsed){ lg.save(); lg.globalCompositeOperation = 'destination-out'; lg.drawImage(kb, kxp, kyp); lg.restore(); }
+    }
   }
-  const cat = floorItems.find(i => R.FURNITURE[i.f].kind === 'catbed');
+  const cat =floorItems.find(i => R.FURNITURE[i.f].kind === 'catbed');
   if (cat){
     const wag = Math.sin(t / 700) > 0 ? 0 : 2;
     const cb = outlined('bcat', BEAST.cat.art, BEAST.cat.pal, false, HS), cxp = Math.round((isoX(Rm, cat.x, cat.y) - 14) * HS), cyp = Math.round((isoY(cat.x, cat.y) - 4 - wag) * HS);
@@ -10026,7 +10085,7 @@ function drawRoom(cv, r, tms){
   }
   ctx = keep2;
   // 빛 — 방도 농장과 같은 표로 물들인다. 안쪽은 조금 덜 어둡게.
-  if (L.dark > 0.06) grade(g, cw, ch, L, 0.82);
+  if (L.dark > 0.06) grade(g, cw, ch, L, roomHd() ? 0.35 : 0.82);   // 고화소 방은 그림이 이미 쪽빛으로 눌려 있다
   if (L.dark > 0.12 && glow.length){
     // 빛 번짐 — 가구마다 제 불빛 색으로. 불은 흔들리고, 별은 깜박이고, 프로젝터는 숨 쉰다.
     g.save(); g.globalCompositeOperation = 'lighter';
@@ -10117,7 +10176,8 @@ function drawRoom(cv, r, tms){
     box(heldW.fside, heldW.fcol, heldW.frow, 'rgba(255,255,255,0.45)');
     const t2 = box(heldW.side, heldW.col, heldW.row, heldW.ok ? 'rgba(143,217,143,0.9)' : 'rgba(255,143,143,0.9)');
     g.save(); g.globalAlpha = heldW.ok ? 0.9 : 0.4;
-    paintWallItem((uu, v, uw, vh, c2) => t2.paint(uu, v + t2.dv, uw, vh, c2), t2.u, heldW.f, roomPal(r), r, heldW.pic);
+    if (!hdWallItem(g, Rm, r, heldW.f, heldW.side, t2.u, t2.dv, 'draw', heldW.pic))
+      paintWallItem((uu, v, uw, vh, c2) => t2.paint(uu, v + t2.dv, uw, vh, c2), t2.u, heldW.f, roomPal(r), r, heldW.pic);
     g.restore();
   }
   // 가구를 놓거나 돌릴 때는 칸을 보여 준다 — 마름모 격자다
