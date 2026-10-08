@@ -52,7 +52,7 @@ const FRIENDS = [
   F("nut", "raccoon", "캐리구리", "너구리", ["villain"]),
   F("dessert", "bread", "식빵이", "식빵", ["bullied"]),
   F("dessert", "donut", "도넛씨", "도넛"),
-  F("dessert", "sandwich", "썬두위치", "샌드위치"),
+  F("dessert", "sandwich", "샌두위치", "샌드위치"),
   F("dessert", "muffin", "머핀이", "머핀"),
   F("dessert", "croissant", "크루아상 군", "크루아상", ["love"], "creambun"),
   F("dessert", "creambun", "크림빵 양", "크림빵", ["love"], "croissant"),
