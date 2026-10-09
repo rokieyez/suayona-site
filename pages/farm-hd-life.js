@@ -100,7 +100,8 @@
     }
     g.restore();
     // 앞 모서리 아래 눈 부스러기 몇 — 눈밭에 판 두둑
-    const sn = E.farm === 'desert' ? (NIGHT ? '#8a7a8e' : '#f2d49c') : NIGHT ? '#a3b7e0' : '#ffffff';   // 사막은 모래 부스러기
+    // 사막은 모래 부스러기, 방주·무지개 농장(2026-10-09)은 풀 섞인 흙덩이
+    const sn = E.farm === 'desert' ? (NIGHT ? '#8a7a8e' : '#f2d49c') : E.farm === 'ark' || E.farm === 'newland' ? (NIGHT ? '#4a5a3a' : '#8aa858') : NIGHT ? '#a3b7e0' : '#ffffff';
     for (let k = 0; k < 3; k++){ const f = hash(u * 9 + v * 5 + k * 7); if (f < 0.45) continue; const p = k < 2 ? P(u + 0.15 + f * 0.7, v + 1.02, 0) : P(u + 1.02, v + 0.2 + f * 0.6, 0); oval(p[0], p[1], 1.4 + f, 0.7, sn); }
   }
   // 다음에 열 땅 — 둥근 점선(눈 위에 줄을 띄워 둔 것처럼)

@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '30';
+const PLAY_V = '31';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -372,7 +372,7 @@ function art(rows, mx, my, pal, flip){ drawArt(ctx, rows, mx * S, my * S, S, pal
 // 캔버스가 그림 크기의 몇 배인지. 아직 화면에 안 붙어 크기가 엉뚱하면 기본 배수로 맞춘다.
 function pixScale(cv, artW, artH, fallback){
   const k = cv.width / artW;
-  if (k >= 0.6 && k <= 8 && Math.abs(cv.height / artH - k) < 0.02) return k;
+  if (k >= 0.3 && k <= 8 && Math.abs(cv.height / artH - k) < 0.02) return k;
   cv.width = Math.round(artW * fallback); cv.height = Math.round(artH * fallback);
   return fallback;
 }
@@ -461,7 +461,8 @@ function fitPixelCanvas(cv, artW, artH, maxK){
   // 도트 하나가 화면에서 네 픽셀보다 크면 배수가 어중간할 때 자글거림이 눈에 띈다 — 정수로 못 박는다.
   // 그보다 작으면 어중간해도 안 보이므로 폭을 꽉 채우는 쪽이 낫다.
   if (k >= 4) k = Math.min(maxK || 8, k);
-  else k = Math.max(0.75, want / artW);
+  // 방주·무지개 농장(40×30, 2026-10-09)은 섬이 커서 0.75 로 막으면 틀 밖으로 넘친다 — 그때는 폭에 맞춰 더 줄인다(크게 보기 단추로 키운다)
+  else k = Math.max(artW > 1100 ? 0.3 : 0.75, want / artW);
   const w = Math.round(artW * k), h = Math.round(artH * k);
   const cw = w / dpr;
   cv.style.width = cw + 'px';
@@ -551,6 +552,9 @@ const FARM_LOOK = {
   aurora:   { tint: '#dfe8f2', amt: 0.7, dry: '#e8eef4', rock: '#9aa0ae', bloom: ['#ffffff', '#d8ecff'], bloomX: 0 },
   // 사막 오아시스 — 늘 금빛 모래 땅(밭 흙 빛깔 정도만 이 표를 본다)
   desert:   { tint: '#e8c48c', amt: 0.7, dry: '#f2d49c', rock: '#c88a58', bloom: ['#e8407a', '#ffd040'], bloomX: 0 },
+  // 방주 농장·무지개 농장(2026-10-09) — 풀 들판(밭 흙 빛깔 정도만 이 표를 본다)
+  ark:      { tint: '#a8c672', amt: 0.6, dry: '#c8b890', rock: '#bcae94', bloom: ['#ff8fa8', '#ffe070'], bloomX: 0 },
+  newland:  { tint: '#9cd06a', amt: 0.6, dry: '#c8c090', rock: '#cfc8b4', bloom: ['#ff5a5a', '#4aa8ff'], bloomX: 0 },
 };
 function farmLook(){ return (W && R.farmOf && FARM_LOOK[R.farmOf(W).id]) || null; }
 const palMemo = {};
@@ -3613,17 +3617,38 @@ const ISO_LOOK = {
               strata: ['#3a4766', '#2c3654', '#222a44', '#181e34'], deep: ICLIFF },
   desert:   { sky: ['#3d8bd8', '#78b6e6', '#cfe2e8', '#f6e2bc'], horizon: ITOP + 34, below: 'sand',
               strata: ['#dca062', '#c98850', '#ae6c3e', '#8e5432'], deep: ICLIFF },
+  // 방주 농장 · 무지개 농장(2026-10-09) — 하늘·섬은 pages/farm-ark.js
+  ark:      { sky: ['#6b8fb6', '#9ab8d0', '#cfdbe0', '#efe8cf'], horizon: ITOP + 34, below: 'plain',
+              strata: ['#8a6a48', '#74583c', '#5e4630', '#463424'], deep: ICLIFF },
+  newland:  { sky: ['#5fa8e6', '#8ccaf0', '#cbe8f6', '#f3f8e8'], horizon: ITOP + 34, below: 'plain',
+              strata: ['#7a5a40', '#644834', '#4e3828', '#3a2a1e'], deep: ICLIFF },
 };
 function isoLook(){ return ISO_LOOK[R.farmOf(W).id] || ISO_LOOK.seaside; }
 /* ---- 스테이지2 고화소 그림(pages/farm-hd.js) ----
    여기 적힌 농장은 하늘·섬·건물·꾸미개·나무·아이를 도트 대신 FARMHD 로 칠한다. 좌표는 같은 도트 단위라 ctx 를 S 배 키워 놓고 부르면 된다.
    FARMHD 에 그림이 없는 것(작물·동물·앞 농장 추억 꾸미개)은 도트 그림 그대로다. 밤(등 켜는 때, L.lamp)이면 밤 빛깔 */
-const HD_FARMS = { aurora: 1, desert: 1 };
+const HD_FARMS = { aurora: 1, desert: 1, ark: 1, newland: 1 };
+/* 방주가 한 단계 올라가는 연출(2026-10-09) — 이 기기에서 아직 못 본 단계면 ARK_ANIM_MS 동안 서서히 지어진다.
+   지은 아이는 그 자리에서, 자매는 다음에 농장을 열 때 본다(본 단계를 기기에 적어 둔다). 손님은 다 지어진 모습 */
+const ARK_ANIM_MS = 5200;
+let arkAnim = null;
+function arkSeenKey(){ return 'suayona.farm.arkseen.' + (typeof key !== 'undefined' && key ? key : 'guest'); }
+function arkNow(){
+  const st = W && R.arkStep ? R.arkStep(W) : 0;
+  if (!st || typeof key === 'undefined' || !key || STILL) return { step: st, k: 1 };
+  if (!arkAnim || arkAnim.step !== st){
+    let seen = st;
+    try { const v = localStorage.getItem(arkSeenKey()); seen = v == null ? st : Number(v) || 0; if (v == null) localStorage.setItem(arkSeenKey(), String(st)); } catch (e) { seen = st; }
+    if (seen < st){ arkAnim = { step: st, t0: performance.now() }; try { localStorage.setItem(arkSeenKey(), String(st)); } catch (e) { /* 다시 봐도 괜찮다 */ } }
+    else arkAnim = { step: st, t0: -1e9 };
+  }
+  return { step: st, k: Math.min(1, (performance.now() - arkAnim.t0) / ARK_ANIM_MS) };
+}
 let hdLight = null;
 function hdOn(){ return !!window.FARMHD && !!W && !!HD_FARMS[R.farmOf(W).id]; }
 function hdEnv(){
   return { P: (u, v, z) => { const p = isoP(u, v, z); return [p.x, p.y]; }, cols: COLS, rows: ROWS, top: ITOP, cliff: ICLIFF, w: ISO_W, h: ISO_H,
-    night: !!(hdLight ? hdLight.lamp : dayLight().lamp), t: STILL ? 0 : performance.now() / 1000, farm: R.farmOf(W).id,
+    night: !!(hdLight ? hdLight.lamp : dayLight().lamp), t: STILL ? 0 : performance.now() / 1000, farm: R.farmOf(W).id, ark: arkNow(),
     lamp: (x, y, r, c) => lamp(x, y, r, c), chimney: (x, y) => { isoChimney = { x, y }; } };
 }
 function hd(fn){ ctx.save(); ctx.scale(S, S); try { return fn(ctx, hdEnv()); } finally { ctx.restore(); } }
@@ -7433,7 +7458,8 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
         isoHits.push({ e: isoSprite('stall:b', sigB + '|' + season + '|' + id, isoBoxOf(b), paint('back'), ink), tx: b.x, ty: b.y });
         drawStallKeeperIso(b, t);
       }
-      const e = isoSprite(id, sigB + '|' + season + '|' + id, isoBoxOf(b), paint(id === 'stall' ? 'front' : null), ink);
+      const arkSig = id === 'ark' ? (A => '|a' + A.step + ':' + Math.round(A.k * 48))(arkNow()) : '';   // 방주는 짓는 연출 동안 한 장씩 다시
+      const e = isoSprite(id, sigB + '|' + season + '|' + id + arkSig, isoBoxOf(b), paint(id === 'stall' ? 'front' : null), ink);
       for (let i = 0; i < e.lamps.length; i++) lamps.push(e.lamps[i]);
       isoHits.push({ e, tx: b.x, ty: b.y });
       if (hdThing) hd((c, E) => window.FARMHD.live(c, E, id, b));

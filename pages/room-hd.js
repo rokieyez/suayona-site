@@ -168,7 +168,7 @@
   function shell(g, S){
     const pal = PAL[S.r] || PAL.living, ph = phase(S.dark), H = S.WALLH, ox = S.ox;
     g.save(); g.scale(S.HS, S.HS); g.lineJoin = 'round'; g.lineCap = 'round';
-    const DZ = S.farm === 'desert', wallFn = DZ ? plasterWall : logWall;   // 사막은 리아드 회벽·타일
+    const DZ = S.farm === 'desert' || S.farm === 'ark', wallFn = DZ ? plasterWall : logWall;   // 사막은 리아드 회벽·타일
     onWall(g, S, 1, () => wallFn(g, pal, S.LW, H, 1, S.r));
     onWall(g, S, 0, () => wallFn(g, pal, S.LH, H, 0, S.r));
     if (S.win) onWall(g, S, 1, () => winFrame(g, pal, S.win));

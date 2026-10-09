@@ -43,13 +43,17 @@
       fir: ['#4a8a4a', '#3a7a3e', '#2a6030'], firSnow: ['#6ab05a', '#4a9048'], frost: ['#8ab86a', '#6aa058', '#b0d088'], trunk: ['#8a6040', '#6a4630'],
       glow: 0, haze: 'rgba(250,230,190,', shadow: 'rgba(120,70,30,.22)', win: '#5a86b0', ice: ['#4ad0d0', '#1e8fb0', '#ffffff'], sand: ['#f2d49c', '#e4b97c'] },
   };
-  const look = E => (E.farm === 'desert' ? LOOK_DESERT : LOOK)[E.night ? 'night' : 'day'];
+  /* 농장마다의 빛깔표 — 방주·무지개 농장(2026-10-09)은 pages/farm-ark.js 가 addFarm 으로 넣는다.
+     건물은 사막 그림(DB·DF)을 같이 쓰는 농장이 있다(DZ) — 방주 농장은 메소포타미아 흙벽 마을이라 */
+  const LOOKS = { desert: LOOK_DESERT }, EXT = {}, DZ = { desert: 1 }, NIGHT_TINT = { desert: '#1d1a4e' };
+  const isDz = E => !!DZ[E.farm];
+  const look = E => (LOOKS[E.farm] || LOOK)[E.night ? 'night' : 'day'];
   const rgb = c => { const v = parseInt(c.slice(1), 16); return [v >> 16, (v >> 8) & 255, v & 255]; };
   function mix(a, b, k){ const A = rgb(a), B = rgb(b); return '#' + A.map((x, i) => Math.round(x + (B[i] - x) * k).toString(16).padStart(2, '0')).join(''); }
   const shade = (c, k) => c[0] !== '#' ? c : k > 0 ? mix(c, '#ffffff', k) : mix(c, '#000000', -k);
   const toneMemo = {};
   // 밤 누르기 — 오로라는 쪽빛, 사막은 보랏빛 밤
-  const tone = (E, c) => { if (!E.night || c[0] !== '#') return c; const k = (E.farm === 'desert' ? 'd' : '') + c; return toneMemo[k] || (toneMemo[k] = mix(c, E.farm === 'desert' ? '#1d1a4e' : '#14204a', 0.48)); };
+  const tone = (E, c) => { if (!E.night || c[0] !== '#') return c; const nt = NIGHT_TINT[E.farm] || '#14204a', k = nt + c; return toneMemo[k] || (toneMemo[k] = mix(c, nt, 0.48)); };
 
   // ---------- 붓 ----------
   let g = null;                                                          // 지금 칠하는 캔버스(부를 때마다 받는다)
@@ -216,6 +220,7 @@
   }
   function backdrop(gg, E){
     g = gg; P3 = (u, v, z) => E.P(u, v, z);
+    if (EXT[E.farm] && EXT[E.farm].backdrop) return EXT[E.farm].backdrop(E);
     if (E.farm === 'desert') return desertBackdrop(E);
     const L = look(E), hy = horizon(E), t = E.t;
     R(0, 0, E.w, hy + 2, vgrad(0, hy, L.sky));
@@ -284,6 +289,7 @@
   // 섬 — 절벽 · 눈 땅 · 길. paths = Set('x,y'), busy(u, v) = 밭·건물 자리라 눈더미·풀을 놓지 않을 칸
   function island(gg, E, paths, busy){
     g = gg; P3 = (u, v, z) => E.P(u, v, z);
+    if (EXT[E.farm] && EXT[E.farm].island) return EXT[E.farm].island(E, paths, busy);
     if (E.farm === 'desert') return desertIsland(E, paths, busy);
     const L = look(E), C = E.cols, Rw = E.rows, tc = q(0, 0, 0), rc = q(C, 0, 0), bc = q(C, Rw, 0), lc = q(0, Rw, 0);
     cliff(E);
@@ -313,6 +319,7 @@
   // 반짝이는 눈 알갱이 — 매 장(섬 겹 위에)
   function sparkle(gg, E){
     g = gg; P3 = (u, v, z) => E.P(u, v, z);
+    if (EXT[E.farm]){ if (EXT[E.farm].sparkle) EXT[E.farm].sparkle(E); return; }
     if (E.farm === 'desert'){ if (E.night) for (let i = 0; i < 30; i++){ const p = q(hash(i * 7 + 2) * E.cols, hash(i * 3 + 8) * E.rows, 0), a = Math.max(0, Math.sin(E.t * (1 + hash(i) * 2) + i * 2.3)); if (a > 0.7) R(p[0], p[1], 1, 1, 'rgba(255,230,180,' + ((a - 0.7) * 3).toFixed(2) + ')'); } return; }
     for (let i = 0; i < 70; i++){ const p = q(hash(i * 7 + 2) * E.cols, hash(i * 3 + 8) * E.rows, 0), a = Math.max(0, Math.sin(E.t * (1 + hash(i) * 2) + i * 2.3)); if (a < 0.6) continue; R(p[0] - 0.5, p[1] - 0.5, 1, 1, 'rgba(255,255,255,' + ((a - 0.6) * 2.4).toFixed(2) + ')'); }
   }
@@ -383,6 +390,7 @@
   function node(gg, E, kind, u, v, ready, seed){
     g = gg; P3 = (uu, vv, z) => E.P(uu, vv, z);
     const p = q(u + 0.5, v + 0.6, 0);
+    if (EXT[E.farm] && EXT[E.farm].node) return EXT[E.farm].node(E, kind, p[0], p[1], ready, seed);
     if (E.farm === 'desert') return desertNode(E, kind, p[0], p[1], ready, seed);
     if (kind === 'tree'){ if (!ready) return stump(E, p[0], p[1]); return hash(seed * 7 + 1) < 0.65 ? fir(E, p[0], p[1], 0.95 + hash(seed) * 0.25, seed) : frostTree(E, p[0], p[1], 0.85 + hash(seed) * 0.2); }
     if (kind === 'rock') return rock(E, p[0], p[1], 0.85, !ready);
@@ -563,7 +571,7 @@
     const f = [hx - 1.6, hy + 1];                                                    // 얼굴은 앞(v 쪽, 화면 왼쪽 아래)을 본다
     oval(f[0] - 1.7, f[1] - 1.6, 0.8, 0.8, '#2a2020'); oval(f[0] + 1.5, f[1] - 0.4, 0.8, 0.8, '#2a2020');
     g.strokeStyle = '#2a2020'; g.lineWidth = 0.5; g.beginPath(); g.moveTo(f[0] - 1.8, f[1] + 0.6); g.quadraticCurveTo(f[0] - 0.2, f[1] + 2.2, f[0] + 1.4, f[1] + 1.4); g.stroke();
-    if (E.farm === 'desert'){                                                        // 사막 — 쪽빛 터번
+    if (isDz(E)){                                                                    // 사막 — 쪽빛 터번
       oval(hx, hy - 3.6, 6.4, 3.2, tone(E, '#2f4f9a')); oval(hx - 0.6, hy - 5.4, 5, 2.6, tone(E, '#3f62b0')); oval(hx - 0.3, hy - 7, 3.2, 1.6, tone(E, '#4a72c4'));
       line([hx - 5, hy - 3], [hx + 5, hy - 5.6], tone(E, '#22386e'), 0.6); line([hx + 5.4, hy - 3], [hx + 7, hy + 3], tone(E, '#2f4f9a'), 1.6);
     } else {
@@ -795,7 +803,7 @@
     const at = (f, k) => [x + W * f, y + H * k + Math.sin(t * 4 - f * 5) * 1.4 * f];
     const top = [], bot = [];
     for (let i = 0; i <= 8; i++){ top.push(at(i / 8, 0)); bot.push(at(i / 8, 1)); }
-    const dz = E.farm === 'desert';                                       // 사막은 사프란 바탕에 쪽빛 띠 하나(십자 없음)
+    const dz = isDz(E);                                                   // 사막은 사프란 바탕에 쪽빛 띠 하나(십자 없음)
     upright([x, y], 'u', () => {
     path(top.concat(bot.reverse())); g.fillStyle = tone(E, dz ? '#e8a030' : '#3f6ea0'); g.fill(); g.strokeStyle = INK; g.lineWidth = 0.5; g.stroke();
     g.strokeStyle = tone(E, dz ? '#2f4f9a' : '#f2c040'); g.lineWidth = dz ? 2.4 : 1.8; g.beginPath();
@@ -1730,15 +1738,17 @@
 
   // ---------- 바깥에 내놓는 것 ----------
   const LIVE = { zellige: D.zelligeLive, genielamp: D.genielampLive, swing: D.swingLive, firepit: D.firepitLive, flag: D.flagLive, windmill: D.windmillLive, koinobori: D.koinoboriLive, sauna: D.saunaLive, lavvu: D.lavvuLive, icesculpt: D.icesculptLive };
-  function thing(gg, E, id, b, night, part){ g = gg; P3 = (u, v, z) => E.P(u, v, z); const f = (E.farm === 'desert' && DB[id]) || B[id] || D[id]; if (!f) return false; f(E, b, night, part); return true; }
-  function floor(gg, E, id, b){ g = gg; P3 = (u, v, z) => E.P(u, v, z); const f = (E.farm === 'desert' && DF[id]) || F[id]; if (!f) return false; f(E, b); return true; }
-  function live(gg, E, id, b){ g = gg; P3 = (u, v, z) => E.P(u, v, z); const f = LIVE[id]; if (f) f(E, b); return !!f; }
-  const has = id => !!(B[id] || D[id]);
-  const hasLive = id => !!LIVE[id];
+  function thing(gg, E, id, b, night, part){ g = gg; P3 = (u, v, z) => E.P(u, v, z); const X = EXT[E.farm], f = (X && X.thing && X.thing[id]) || (isDz(E) && DB[id]) || B[id] || D[id]; if (!f) return false; f(E, b, night, part); return true; }
+  function floor(gg, E, id, b){ g = gg; P3 = (u, v, z) => E.P(u, v, z); const X = EXT[E.farm], f = (X && X.floor && X.floor[id]) || (isDz(E) && DF[id]) || F[id]; if (!f) return false; f(E, b); return true; }
+  function live(gg, E, id, b){ g = gg; P3 = (u, v, z) => E.P(u, v, z); const X = EXT[E.farm], f = (X && X.live && X.live[id]) || LIVE[id]; if (f) f(E, b); return !!f; }
+  const has = id => !!(B[id] || D[id] || Object.keys(EXT).some(k => EXT[k].thing && EXT[k].thing[id]));
+  const hasLive = id => !!LIVE[id] || Object.keys(EXT).some(k => EXT[k].live && EXT[k].live[id]);
   // 내리는 눈 — 화면 기준
   const flakes = Array.from({ length: 90 }, (_, i) => ({ x: hash(i * 3 + 1), y: hash(i * 7 + 2), s: 0.35 + hash(i * 11) * 0.8, ph: hash(i) * TAU }));
   function snowfall(gg, E){
-    g = gg; if (E.farm === 'desert') return;                             // 사막엔 눈이 안 온다 g.fillStyle = 'rgba(255,255,255,.85)';
+    g = gg; P3 = (u, v, z) => E.P(u, v, z);
+    if (EXT[E.farm]){ if (EXT[E.farm].weather) EXT[E.farm].weather(E); return; }   // 방주·무지개 농장 — 비·빛(farm-ark.js)
+    if (E.farm === 'desert') return;                             // 사막엔 눈이 안 온다 g.fillStyle = 'rgba(255,255,255,.85)';
     flakes.forEach(f => { const x = ((f.x * E.w + Math.sin(E.t * 0.7 + f.ph) * 8 - E.t * 3.5 * f.s) % E.w + E.w) % E.w, y = ((f.y * E.h + E.t * 11 * f.s) % E.h + E.h) % E.h; g.beginPath(); g.arc(x, y, f.s, 0, TAU); g.fill(); });
   }
 
@@ -1753,6 +1763,7 @@
   }
   function shard(gg, E, x, y, t){
     g = gg; t = STILL ? 0 : t;
+    if (EXT[E.farm] && EXT[E.farm].pick) return EXT[E.farm].pick(E, x, y, t);
     if (E.farm === 'desert') return sandRose(x, y, t);
     const bob = Math.sin(t * 2.2 + x * 0.13) * 1.1, cy = y - 8.5 - bob, k = 0.5 + 0.5 * Math.sin(t * 0.9 + y * 0.07);
     const col = mix('#6affc0', '#b58cff', k), cc = 'rgba(' + rgb(col).join(',') + ',';
@@ -1829,5 +1840,13 @@
     requestAnimationFrame(loop);
   }
 
-  window.FARMHD = { backdrop, island, sparkle, node, thing, floor, live, fence, kid, snowfall, shard, has, hasLive, look, mount };
+  /* 새 농장 붙이기(2026-10-09 방주) — pages/farm-ark.js 가 부른다.
+     o = { look: { day, night }, nightTint, dz(사막 건물을 같이 쓰나), backdrop(E), island(E, paths, busy), sparkle(E), node(E, kind, x, y, ready, seed),
+           weather(E), pick(E, x, y, t), thing: { id: fn(E, b, night, part) }, floor: { id: fn(E, b) }, live: { id: fn(E, b) } }
+     그리는 함수들은 kit 의 붓을 쓴다 — 붓은 이 닫힘 안의 캔버스(g)·좌표(P3)에 칠한다. use(gg, E) 로 맞춘 뒤 부른다 */
+  function addFarm(id, o){ EXT[id] = o; if (o.look) LOOKS[id] = o.look; if (o.nightTint) NIGHT_TINT[id] = o.nightTint; if (o.dz) DZ[id] = 1; }
+  const kit = { R, path, poly, oval, lin, vgrad, glow, line, poly3, q, box, onFace, faceAt, roof, smallRoof, foot, footBox, geo, post, upright, lump, stones, diamond,
+    ovI, curve, along, archWin, archDoor, crenel, datePalm, rock, bush, fir, frostTree, stump, desertNode, look, tone, shade, mix, rgb, hash, h2, INK, LW, TAU, STILL,
+    ctx: () => g, use: (gg, E) => { g = gg; P3 = (u, v, z) => E.P(u, v, z); } };
+  window.FARMHD = { backdrop, island, sparkle, node, thing, floor, live, fence, kid, snowfall, shard, has, hasLive, look, mount, addFarm, kit };
 })();
