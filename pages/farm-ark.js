@@ -45,7 +45,9 @@
     for (let i = 0; i < 7; i++){ const f = i / 6, cx = x - w / 2 + w * f, cy = y - Math.sin(f * Math.PI) * h * 0.45 + (hash(sd + i) - 0.5) * h * 0.2, r = h * (0.42 + 0.3 * Math.sin(f * Math.PI) + hash(sd * 3 + i) * 0.12);
       oval(cx, cy + r * 0.2, r * 1.2, r * 0.8, dark); oval(cx - r * 0.2, cy - r * 0.15, r, r * 0.66, lite); }
   }
-  function storm(E){ const A = arkOf(E); return clamp01((A.step + (A.k < 1 ? A.k - 1 : 0)) / 10); }
+  /* 먹구름 짙기 0~1. 2026-10-09 로키즈 「방주 농장은 기본이 약간 비가 올 날씨처럼」 — 첫날부터 0.42(낮게 깔린 잿빛 구름·습한 안개),
+     방주를 지을수록 짙어져 7단계쯤부터 빗방울, 9단계부터 번개 */
+  function storm(E){ const A = arkOf(E); return 0.42 + 0.58 * clamp01((A.step + (A.k < 1 ? A.k - 1 : 0)) / 10); }
   function arkBackdrop(E){
     const L = look(E), hy = horizon(E), t = E.t, s = storm(E), gx = G();
     // 먹구름이 짙을수록 하늘이 잿빛으로
@@ -71,7 +73,7 @@
       cloudMass(x, y, w, 26 + hash(i * 9) * 20, dark + a.toFixed(2) + ')', lite + (a * 0.8).toFixed(2) + ')', i * 17);
     }
     // 번개 — 방주를 거의 다 지으면(9단계부터) 먼 데서 가끔 번쩍
-    if (s >= 0.85 && !STILL){
+    if (s >= 0.93 && !STILL){
       const cyc = Math.floor(t / 5.3), ph = t / 5.3 - cyc;
       if (ph < 0.06){
         const x0 = E.w * (0.15 + hash(cyc) * 0.7), gx2 = G();
@@ -191,8 +193,11 @@
   }
   // 비 — 방주를 거의 다 지으면(8단계부터) 보슬비, 다 지으면 굵어진다
   function arkWeather(E){
-    const s = storm(E), gx = G(); if (s < 0.75 || STILL) return;
-    const n = Math.round((s - 0.7) * 260), t = E.t;
+    const s = storm(E), gx = G(); if (STILL) return;
+    // 비 오기 전의 습한 안개 — 섬 위로 옅게 흘러간다
+    for (let i = 0; i < 5; i++){ const y = E.h * (0.25 + i * 0.13), x = ((E.t * (6 + i * 2) + hash(i) * E.w) % (E.w + 400)) - 200; oval(x, y, 180, 16, E.night ? 'rgba(80,90,110,.08)' : 'rgba(225,230,235,' + (0.08 + s * 0.06).toFixed(2) + ')'); }
+    if (s < 0.82) return;
+    const n = Math.round((s - 0.78) * 300), t = E.t;
     gx.strokeStyle = E.night ? 'rgba(170,190,230,.35)' : 'rgba(220,230,245,.55)'; gx.lineWidth = 0.6; gx.beginPath();
     for (let i = 0; i < n; i++){ const x = ((hash(i * 3 + 1) * E.w - t * 40) % E.w + E.w) % E.w, y = ((hash(i * 7 + 2) * E.h + t * 240 * (0.7 + hash(i) * 0.6)) % E.h + E.h) % E.h; gx.moveTo(x, y); gx.lineTo(x - 2.2, y + 9); }
     gx.stroke();

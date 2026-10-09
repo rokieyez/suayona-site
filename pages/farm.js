@@ -7530,6 +7530,11 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
   if (!HD) drawWeather(wk, season, t, cv);                                // 고화소 섬은 늘 눈(FARMHD.snowfall)
   isoSeaRain(wk, t);
   if (HD){ hd((c, E) => window.FARMHD.snowfall(c, E)); grade(g, cw, ch, L, L.lamp ? 0.25 : 0.6); }
+  // 방주 농장은 늘 비가 올 것 같은 흐린 날(2026-10-09 로키즈) — 잿빛을 곱해 해를 가린다. 방주를 지을수록 짙다
+  if (HD && R.farmOf(W).id === 'ark' && !(W.ark && W.ark.phase)){
+    const sk = 0.42 + 0.58 * Math.min(1, (R.arkStep ? R.arkStep(W) : 0) / 10);
+    g.save(); g.globalCompositeOperation = 'multiply'; g.globalAlpha = (L.lamp ? 0.18 : 0.3) * sk; g.fillStyle = '#5a6474'; g.fillRect(0, 0, cw, ch); g.restore();
+  }
   else grade(g, cw, ch, isoLook().below === 'lava' ? lavaNight(L) : L);
   if (L.lamp && lamps.length){
     g.save(); g.globalCompositeOperation = 'lighter';
