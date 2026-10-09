@@ -414,8 +414,10 @@
     else { const x = E.w * 0.14, y = hy * 0.4; glow(x, y, 70, 'rgba(255,248,220,', 0.7); oval(x, y, 9, 9, '#fffbea'); }
     // 무지개(창세기 9:13) — 낮엔 또렷하게, 밤엔 달무지개처럼 옅게
     const cx = E.w * 0.44, cy = hy + 60, rr = Math.min(E.w * 0.42, 300), cols = ['#ff5a5a', '#ff9a3a', '#ffe04a', '#5ad06a', '#4aa8ff', '#5a6ae8', '#a86ae8'];
-    gx.save(); gx.globalAlpha = E.night ? 0.12 : 0.55; gx.lineWidth = 5;
+    const vow = E.covenant && E.wet;   // 무지개 언약(첫 제단) 뒤 비 온 날 — 또렷한 쌍무지개(창세기 9:14 「구름 속에 무지개가 나타나면」)
+    gx.save(); gx.globalAlpha = E.night ? (vow ? 0.22 : 0.12) : vow ? 0.85 : 0.55; gx.lineWidth = 5;
     cols.forEach((c, i) => { gx.strokeStyle = c; gx.beginPath(); gx.arc(cx, cy, rr - i * 5, Math.PI * 1.05, Math.PI * 1.95); gx.stroke(); });
+    if (vow){ gx.globalAlpha *= 0.4; gx.lineWidth = 3; cols.slice().reverse().forEach((c, i) => { gx.strokeStyle = c; gx.beginPath(); gx.arc(cx, cy, rr + 26 + i * 3.4, Math.PI * 1.06, Math.PI * 1.94); gx.stroke(); }); }
     gx.restore();
     // 구름 몇 송이 — 비 갠 하늘
     for (let i = 0; i < 5; i++){ const w = 60 + hash(i * 5) * 60, x = ((hash(i * 13) * (E.w + w * 2) + t * (1.5 + hash(i))) % (E.w + w * 2)) - w, y = 18 + hash(i * 7) * hy * 0.4; cloudMass(x, y, w, 18, E.night ? 'rgba(40,50,80,.45)' : 'rgba(220,230,240,.85)', E.night ? 'rgba(70,80,110,.45)' : 'rgba(255,255,255,.95)', i * 11); }
@@ -644,9 +646,9 @@
     for (let i = 0; i < n; i++){ const x = ((hash(i * 3 + 1) * (w + 40) - t * 60) % (w + 40) + w + 40) % (w + 40) - 20, y = ((hash(i * 7 + 2) * h + t * 300 * (0.7 + hash(i) * 0.6)) % h + h) % h; gx.moveTo(x, y); gx.lineTo(x - 3, y + 11); }
     gx.stroke();
   }
-  function waves(gx, y0, h, w, t, deep, lite, n){
+  function waves(gx, y0, h, w, t, deep, lite, n, big){
     R(0, y0, w, h, lin(0, y0, 0, y0 + h, [lite, deep]));
-    for (let r = 0; r < n; r++){ const y = y0 + 4 + r * (h / n), amp = 2 + r * 0.8;
+    for (let r = 0; r < n; r++){ const y = y0 + 4 + r * (h / n), amp = (2 + r * 0.8) * (big || 1);
       gx.strokeStyle = 'rgba(255,255,255,' + (0.12 + r * 0.03).toFixed(2) + ')'; gx.lineWidth = 1; gx.beginPath();
       for (let x = 0; x <= w; x += 4) gx.lineTo(x, y + Math.sin(x * 0.05 + t * (1.2 + r * 0.2) + r) * amp); gx.stroke(); }
   }
@@ -657,6 +659,7 @@
     K.use(gg, E);
     const gx = gg, k0 = E.w / SW, H = E.h / k0, t = STILL ? 1 : E.t, m = st.month || 0;
     gx.save(); gx.scale(k0, k0);
+    const sea = st.sea || 'calm', rough = sea === 'wave' && m < 7 ? 2.4 : 1, hits = [];   // 큰 파도 — 물결 높이·흔들림이 커진다
     const dark = m <= 2 ? 1 : m <= 4 ? 0.75 : m <= 6 ? 0.45 : m <= 8 ? 0.18 : 0, rain = m <= 1 ? 1 : m === 2 ? 0.8 : m <= 4 ? 0.35 : m === 5 ? 0.15 : 0;
     const clear = E.night ? ['#060a1c', '#0e1630', '#1a2848', '#24365a'] : ['#5fa8e6', '#8ccaf0', '#cbe8f6', '#f3f8e8'], stormy = E.night ? ['#04060c', '#080c16', '#0e1420', '#141a26'] : ['#1e2430', '#2c3442', '#3e4656', '#4e5664'];
     const wl = H * 0.7;
@@ -676,10 +679,10 @@
     if (m >= 9){ const up = Math.min(1, (m - 8) / 3); peak(SW * 0.12, 50, 30 * up, E.night ? '#2a3448' : '#7a8a98', true); peak(SW * 0.9, 40, 22 * up, E.night ? '#2a3448' : '#8a98a6', true); peak(SW * 0.3, 26, 10 * up, E.night ? '#2a3448' : '#6a7a88', false); }
     // 바다
     const deep = mix(E.night ? '#0a1a30' : '#2a6a9a', '#1a2a38', dark), lite = mix(E.night ? '#1a3050' : '#5aa8d8', '#3a4a5a', dark);
-    waves(gx, wl, H - wl, SW, t, deep, lite, 7);
+    waves(gx, wl, H - wl, SW, t, deep, lite, 7, rough);
     if (m >= 11){ [[SW * 0.12, 60], [SW * 0.88, 50]].forEach(([x, w]) => { oval(x, wl + 6, w, 6, E.night ? '#24402e' : '#8ac060'); oval(x, wl + 4, w * 0.8, 3, E.night ? '#2e5038' : '#a8d878'); }); }   // 마른 땅이 드러난다
     // 방주 — 일곱째 달부터는 아라랏 산꼭대기에 얹혀 흔들리지 않는다
-    const rest = m >= 7, bob = rest || STILL ? 0 : Math.sin(t * 1.3) * 2.4, tilt = rest || STILL ? 0 : Math.sin(t * 0.9) * 0.012, s = Math.min(1.15, SW / 400), ax = SW * 0.5, ay = rest ? wl - 3 : wl + 10 + bob;
+    const rest = m >= 7, bob = rest || STILL ? 0 : Math.sin(t * 1.3) * 2.4 * rough, tilt = rest || STILL ? 0 : Math.sin(t * 0.9) * 0.012 * rough, s = Math.min(1.15, SW / 400), ax = SW * 0.5, ay = rest ? wl - 3 : wl + 10 + bob;
     // 아라랏 산꼭대기 — 물 위로 막 드러난 바위 등성이에 방주가 얹힌다
     if (rest){ const rk = E.night ? '#4a4652' : '#8a8274', rk2 = E.night ? '#5a5662' : '#a49a8a';
       poly([[ax - 170, wl + 3], [ax - 120, wl - 2], [ax - 60, wl - 6], [ax + 50, wl - 7], [ax + 120, wl - 2], [ax + 175, wl + 3]], rk, 0.8);
@@ -690,24 +693,37 @@
     sideArk(ax, ay, s, { cut: true, night: E.night, fill: (g2, D) => {
       // 아래층 — 큰 동물, 가운데층 — 작은 동물과 양식 자루, 위층(지붕집) — 수아·연아
       const big = kinds.filter(x => BIG[x.kind]), small = kinds.filter(x => !BIG[x.kind]);
-      const row = (list, dk, k, x0, x1) => { const all = []; list.forEach(x => { for (let i = 0; i < Math.min(2, x.n); i++) all.push(x.kind); }); const step = (x1 - x0) / Math.max(1, all.length); all.forEach((kd, i) => { const px = x0 + step * (i + 0.5), ph = STILL ? null : (t * 0.6 + i * 0.37) % 1 < 0.15 ? (t * 3 + i) % 1 : null; beast(g2, Es, kd, px, dk.y - 0.5, k, i % 2 ? 'SW' : 'SE', ph); }); };
+      // 동물마다 누를 자리(그림 도트) — farm-play.js 가 눌러서 밥·쓰다듬기(2026-10-09)
+      const row = (list, dk, k, x0, x1) => { const all = []; list.forEach(x => { for (let i = 0; i < Math.min(2, x.n); i++) all.push(x.kind); }); const step = (x1 - x0) / Math.max(1, all.length); all.forEach((kd, i) => { const px = x0 + step * (i + 0.5), ph = STILL ? null : (t * 0.6 + i * 0.37) % 1 < 0.15 ? (t * 3 + i) % 1 : null; beast(g2, Es, kd, px, dk.y - 0.5, k, i % 2 ? 'SW' : 'SE', ph);
+        const hw = Math.max(8, step * 0.5), X = ax + px * s, Y = ay + dk.y * s; hits.push({ kind: kd, x0: (X - hw * s) * k0, x1: (X + hw * s) * k0, y0: (Y - 22 * k * s) * k0, y1: (Y + 2 * s) * k0 });
+        if (st.hungry && st.hungry[kd]) oval(px, dk.y - 22 * k, 1.6, 1.6, '#ffd84a'); }); };   // 배고픈 동물 머리 위 노란 점
       row(big, D.low, Math.min(0.62, 1.6 / Math.max(1, big.length * 0.18 + 1)), D.low.x0, D.low.x1);
       const sacks = Math.max(0, Math.min(8, st.sacks || 0));
       row(small, D.mid, 0.62, D.mid.x0, D.mid.x1 - (sacks ? 34 : 0));
       for (let i = 0; i < sacks; i++){ const px = D.mid.x1 - 6 - (i % 4) * 8, py = D.mid.y - (i >= 4 ? 7 : 0); ovI(px, py - 4, 4.4, 4.4, i % 3 ? '#d8c08a' : '#c06a3a'); }
+      // 가족 방 가구(방주 꾸미기) — 작은 도트 상자로. 아이들 둘레 네 자리
+      (st.cabin || []).slice(0, 4).forEach((F, i) => { const x = [-72, -50, 38, 58][i], y = D.top.y - 0.5, c = F.c || '#c79a62', w = 6 + 4 * (F.w || 1);
+        if (F.kind === 'rug') { poly([[x - w / 2, y], [x + w / 2, y], [x + w / 2 - 2, y - 1.6], [x - w / 2 + 2, y - 1.6]], c, 0.4); return; }
+        if (F.kind === 'bed'){ R(x - w / 2, y - 4, w, 4, c); R(x - w / 2, y - 6, 4, 2, '#ffffff'); line([x - w / 2, y - 4], [x + w / 2, y - 4], INK, 0.4); return; }
+        if (F.kind === 'table'){ R(x - w / 2, y - 6, w, 1.6, c); R(x - w / 2 + 1, y - 4.4, 1, 4.4, shade(c, 0.3)); R(x + w / 2 - 2, y - 4.4, 1, 4.4, shade(c, 0.3)); return; }
+        R(x - 3.5, y - 8, 7, 8, c); line([x - 3.5, y - 8], [x + 3.5, y - 8], INK, 0.4); R(x - 2, y - 6, 4, 1, 'rgba(255,255,255,.4)'); });
       const kd = HD.kid; if (kd){ kd(g2, 'sua', -24, D.top.y - 0.5, 'S', 0, 20); kd(g2, 'yona', 14, D.top.y - 0.5, 'SW', 0, 18); }
-      // 위층 창가 — 열째 달 까마귀, 열한째 달 비둘기
-      if (m === 11) dove(66, D.top.y - 14, 0.9, t);
+      // 위층 창가 — 비둘기 심부름 결과(돌아왔으면 창가에, 올리브 잎을 물고). 심부름 전에는 열한째 장면에만
+      if (st.dove ? st.dove !== 'gone' : m === 11){ dove(66, D.top.y - 14, 0.9, t); if (st.dove === 'olive') oval(73, D.top.y - 14.6, 2, 0.8, '#6aa04a'); }
     } });
     gx.restore();
     // 밖의 새
     if (m === 10){ const x = ((t * 22) % (SW + 60)) - 30, y = wl * 0.35 + Math.sin(t * 2) * 6, f = STILL ? 0.5 : Math.sin(t * 8); poly([[x - 6, y], [x, y - 1], [x + 6, y], [x, y + 1]], '#1a1a20'); poly([[x - 1, y], [x + 1, y], [x - 4, y - 6 * f]], '#1a1a20'); }
-    if (m === 11){ const x = SW * 0.5 + 90 + Math.sin(t * 0.7) * 30, y = wl * 0.5 + Math.cos(t * 0.9) * 10; dove(x, y, 1.6, t); oval(x + 8, y - 0.8, 2.6, 1, '#6aa04a'); }
+    if (st.dove === 'gone'){ const x = SW * 0.5 + 120 + ((t * 9) % 140), y = wl * 0.3 - ((t * 3) % 40); dove(x, y, 0.8, t); }   // 돌아오지 않은 비둘기 — 멀리 날아간다
+    else if (m === 11 && !st.dove){ const x = SW * 0.5 + 90 + Math.sin(t * 0.7) * 30, y = wl * 0.5 + Math.cos(t * 0.9) * 10; dove(x, y, 1.6, t); oval(x + 8, y - 0.8, 2.6, 1, '#6aa04a'); }
+    // 안개 — 바다와 하늘에 옅은 막이 흘러간다
+    if (sea === 'fog'){ R(0, 0, SW, H, E.night ? 'rgba(60,70,90,.26)' : 'rgba(225,230,236,.3)'); for (let i = 0; i < 7; i++){ const y = wl * 0.4 + i * 22, x = ((t * (5 + i) + hash(i * 3) * SW) % (SW + 300)) - 150; oval(x, y, 160, 12, E.night ? 'rgba(90,100,120,.18)' : 'rgba(240,244,248,.32)'); } }
     // 비
     if (rain > 0 && !STILL) rainFall(gx, t, Math.round(220 * rain), SW, H, 0.35 + 0.3 * rain);
     gx.restore();
     // 누르기 — 방주 자리(그림 도트)와 물 높이
     HD.ark.voyageBox = { x0: (ax - 140 * s) * k0, x1: (ax + 140 * s) * k0, y0: (ay - 100 * s) * k0, y1: (ay + 4) * k0, water: wl * k0 };
+    HD.ark.voyageHits = hits;
   }
 
   // ---------- 장면 틀 — 캔버스에 걸고 p 0→1 로 돌린다(비행선 장면과 같은 모양) ----------
@@ -745,12 +761,14 @@
     for (let i = 0; i < 9; i++){ const a = Math.PI / 2 + (i - 4) * 0.16 + Math.sin(t * 0.4 + i) * 0.02, len = 320; gx.fillStyle = 'rgba(255,240,190,' + (0.13 * glowA * (0.6 + 0.4 * Math.sin(t * 1.3 + i * 1.7))).toFixed(3) + ')'; gx.beginPath(); gx.moveTo(SW / 2, -20); gx.lineTo(SW / 2 + Math.cos(a - 0.05) * len, -20 + Math.sin(a - 0.05) * len); gx.lineTo(SW / 2 + Math.cos(a + 0.05) * len, -20 + Math.sin(a + 0.05) * len); gx.closePath(); gx.fill(); }   // 빛줄기 — 하늘 가운데서 아래로
     glow(SW / 2, 10, 120, 'rgba(255,248,220,', 0.8 * glowA);
     gx.restore();
+    // 무지개 언약(창세기 9:13, 첫 제단을 지은 날) — 갈라진 구름 사이로 큰 무지개
+    if (opts.bow){ const a = smooth(0.2, 0.7, p); gx.save(); gx.globalAlpha = 0.75 * a; ['#ff5a5a', '#ff9a3a', '#ffe04a', '#5ad06a', '#4aa8ff', '#5a6ae8', '#a86ae8'].forEach((c, i) => { gx.strokeStyle = c; gx.lineWidth = 6; gx.beginPath(); gx.arc(SW / 2, 250, 230 - i * 6, Math.PI, Math.PI * (1 + a)); gx.stroke(); }); gx.restore(); }
     // 구름이 양쪽으로 갈라진다
     for (let i = 0; i < 6; i++){ const side = i % 2 ? 1 : -1, x = SW / 2 + side * (40 + i * 18 + open * 160), y = 20 + (i >> 1) * 22; cloudMass(x, y, 110, 26, 'rgba(120,120,150,' + (0.85 - open * 0.3).toFixed(2) + ')', 'rgba(255,250,235,' + (0.7 + glowA * 0.3).toFixed(2) + ')', i * 13); }
     // 빛 알갱이가 내려앉는다
     for (let i = 0; i < 30; i++){ const k = (t * 0.12 + hash(i)) % 1, x = SW / 2 + (hash(i * 3) - 0.5) * 220 * (0.4 + k), y = 30 + k * 200; const a = glowA * Math.sin(k * Math.PI); oval(x, y, 1.2, 1.2, 'rgba(255,250,210,' + a.toFixed(2) + ')'); }
-    // 땅 — 떠나는 오아시스 농장 언덕과 대추야자
-    gx.fillStyle = lin(0, 210, 0, SH, ['#e8c890', '#c89a62']); gx.beginPath(); gx.moveTo(0, 222); for (let x = 0; x <= SW; x += 8) gx.lineTo(x, 214 + Math.sin(x * 0.02) * 6); gx.lineTo(SW, SH); gx.lineTo(0, SH); gx.closePath(); gx.fill();
+    // 땅 — 떠나는 오아시스 농장 언덕과 대추야자(무지개 언약 때는 새 땅의 풀밭)
+    gx.fillStyle = lin(0, 210, 0, SH, opts.bow ? ['#9ccc70', '#6aa850'] : ['#e8c890', '#c89a62']); gx.beginPath(); gx.moveTo(0, 222); for (let x = 0; x <= SW; x += 8) gx.lineTo(x, 214 + Math.sin(x * 0.02) * 6); gx.lineTo(SW, SH); gx.lineTo(0, SH); gx.closePath(); gx.fill();
     [[60, 218, 1], [420, 214, 1.1], [100, 222, 0.8]].forEach(([x, y, s2]) => { gx.strokeStyle = '#8a6040'; gx.lineWidth = 3 * s2; gx.beginPath(); gx.moveTo(x, y); gx.quadraticCurveTo(x + 4 * s2, y - 20 * s2, x + 2 * s2, y - 36 * s2); gx.stroke(); for (let i = 0; i < 7; i++){ const a = -Math.PI / 2 + (i - 3) * 0.5; gx.fillStyle = i % 2 ? '#3f8a3e' : '#2f7034'; gx.beginPath(); gx.moveTo(x + 2 * s2, y - 36 * s2); gx.quadraticCurveTo(x + 2 * s2 + Math.cos(a) * 12 * s2, y - 44 * s2, x + 2 * s2 + Math.cos(a) * 22 * s2, y - 36 * s2 + Math.sin(a) * 8 * s2 + 10 * s2); gx.quadraticCurveTo(x + 2 * s2 + Math.cos(a) * 10 * s2, y - 38 * s2, x + 2 * s2, y - 36 * s2); gx.fill(); } });
     // 동물 몇과 두 아이 — 빛을 올려다본다(뒷모습)
     const Es = sceneE(t, false);
@@ -796,6 +814,22 @@
       list.push({ y: pt[1] + 0.1, go: () => { const ok = kd(gx, who, pt[0], pt[1], d < L1 ? 'SE' : 'NE', 1 + Math.floor(t * 8) % 4, tall * 0.62); kidsOk = kidsOk && ok; } });
     });
     list.sort((a, b) => a.y - b.y).forEach(o => o.go());
+    /* 노아의 명부(2026-10-09) — 왼쪽 위 양피지. 짝이 문으로 들어가면 한 줄씩 그어 지우고,
+       끝에 짝이 모자란 종은 「아직 못 데려온 친구들」. opts.ledger = [{ kind, icon, name, n }] */
+    const LG = opts.ledger, la = 1 - smooth(0.8, 0.84, p);
+    if (LG && LG.length && la > 0){
+      const fam = getComputedStyle(document.body).fontFamily, come = LG.filter(x => x.n >= 1), miss = LG.filter(x => x.n < 2);
+      const cols = come.length > 9 ? 2 : 1, rows = Math.ceil(come.length / cols), cw = 88, x0 = 8, y0 = 54, w = cols * cw + 8, h = 22 + rows * 12 + (p > 0.6 && miss.length ? 26 : 0);
+      gx.save(); gx.globalAlpha = la;
+      R(x0, y0, w, h, 'rgba(244,228,190,.94)'); gx.strokeStyle = '#7a5a34'; gx.lineWidth = 1; gx.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1);
+      gx.textBaseline = 'middle'; gx.fillStyle = '#4a3420'; gx.font = '800 11px ' + fam; gx.fillText('📜 노아의 명부', x0 + 5, y0 + 10);
+      gx.font = '700 9.5px ' + fam;
+      come.forEach((x, j) => { const i = kinds.indexOf(x.kind), cx = x0 + 5 + (j % cols) * cw, cy = y0 + 25 + Math.floor(j / cols) * 12, done = i >= 0 && p > 0.04 + i * slot + 0.025 + dur * 0.92;
+        gx.fillStyle = done ? 'rgba(74,52,32,.45)' : '#4a3420'; gx.fillText(x.icon + ' ' + x.name + (x.n >= 2 ? ' ×2' : ' ×1'), cx, cy);
+        if (done){ gx.strokeStyle = '#b0402a'; gx.lineWidth = 1; gx.beginPath(); gx.moveTo(cx - 1, cy); gx.lineTo(cx + Math.min(cw - 6, gx.measureText(x.icon + ' ' + x.name + ' ×2').width + 2), cy); gx.stroke(); } });
+      if (p > 0.6 && miss.length){ const my = y0 + 25 + rows * 12; gx.fillStyle = '#7a3a2a'; gx.font = '800 9.5px ' + fam; gx.fillText('아직 못 데려온 친구들', x0 + 5, my + 2); gx.font = '10px ' + fam; gx.fillText(miss.slice(0, 14).map(x => x.icon).join(''), x0 + 5, my + 15); }
+      gx.restore();
+    }
     // 물이 차오른다
     if (rise > 0){ const wl = SH - rise * 70; waves(gx, wl, SH - wl, SW, t, '#1a3048', '#3a6a8a', 4); }
     if (rainA > 0 && !STILL) rainFall(gx, t, Math.round(260 * rainA), SW, SH, 0.5 * rainA);
@@ -848,7 +882,8 @@
     const at = (location.search.match(/[?&]at=([\d.]+)/) || [])[1], kinds = ['cow', 'sheep', 'camel', 'chicken', 'duck', 'reindeer', 'goat', 'pig', 'rabbit', 'dog', 'cat', 'gull', 'crane'];
     inner.innerHTML = '<h3 class="pixel">장면 시험 — ' + qs[1] + '</h3>' + SCENE_CV('arkCv', '장면');
     md.hidden = false;
-    const fn = { voice, board: boarding, land: landing }[qs[1]];
-    if (fn) fn(document.getElementById('arkCv'), { kinds, at: at != null ? +at : null });
+    const fn = { voice, board: boarding, land: landing, covenant: voice }[qs[1]];
+    const ledger = kinds.map((k, i) => ({ kind: k, icon: '🐾', name: k, n: i < 10 ? 2 : 1 })).concat([{ kind: 'elephant', icon: '🐘', name: 'elephant', n: 0 }]);
+    if (fn) fn(document.getElementById('arkCv'), { kinds, at: at != null ? +at : null, bow: qs[1] === 'covenant', ledger });
   }, 400));
 })();

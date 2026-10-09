@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '33';
+const PLAY_V = '34';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -3666,8 +3666,11 @@ function hdOn(){ return !!window.FARMHD && !!W && !!HD_FARMS[R.farmOf(W).id]; }
 function hdEnv(){
   return { P: (u, v, z) => { const p = isoP(u, v, z); return [p.x, p.y]; }, cols: COLS, rows: ROWS, top: ITOP, cliff: ICLIFF, w: ISO_W, h: ISO_H,
     night: !!(hdLight ? hdLight.lamp : dayLight().lamp), t: STILL ? 0 : performance.now() / 1000, farm: R.farmOf(W).id, ark: arkNow(),
+    covenant: !!(W.ark && W.ark.covenant), wet: hdWet(),
     lamp: (x, y, r, c) => lamp(x, y, r, c), chimney: (x, y) => { isoChimney = { x, y }; } };
 }
+// 오늘 비가 오나 — 무지개 농장은 언약 뒤 비 온 날마다 쌍무지개(farm-ark.js newBackdrop)
+function hdWet(){ if (!W || !W.ark || !W.ark.covenant) return false; const w = R.weatherOf(R.dayKey(now()), R.calendar(W, now()).season); return w === 'rain' || w === 'storm'; }
 function hd(fn){ ctx.save(); ctx.scale(S, S); try { return fn(ctx, hdEnv()); } finally { ctx.restore(); } }
 const hdHas = id => hdOn() && window.FARMHD.has(id);
 // 하늘은 네 빛깔을 띠로 깔고 사이를 흩뿌려 잇는다
@@ -7651,7 +7654,11 @@ function drawVoyage(g, t, L){
   (R.ARK_KINDS || Object.keys(R.ANIMALS)).forEach(k => { const n = (W.animals || []).filter(a => a.kind === k).length; if (n) kinds.push({ kind: k, n }); });
   // 그림은 열두 달 장면(0~12)으로 그린다 — 며칠째인지(열흘씩)를 창세기 날짜에 맞춰 그 장면 번호로 바꾼다
   const day = Math.min(370, (W.ark.month || 0) * 10), scene = [1, 20, 40, 60, 100, 120, 150, 180, 224, 264, 271, 370].filter(d => day >= d).length;
-  const st = { month: scene, food: W.ark.food || 0, sacks: Math.ceil((W.ark.food || 0) / 40), kinds };
+  // 방주 더하기(2026-10-09) — 이번 열흘 바다, 가족 방 가구, 비둘기 심부름, 배고픈 동물(머리 위 노란 점)
+  const today = R.dayKey(now()), hungry = {};
+  (W.animals || []).forEach(a => { if (a.fedDay !== today) hungry[a.kind] = true; });
+  const doves = W.ark.doves || [], cabin = (W.ark.cabin || []).filter(f => R.FURNITURE[f]).map(f => ({ kind: R.FURNITURE[f].kind, c: R.FURNITURE[f].c, w: R.FURNITURE[f].w }));
+  const st = { month: scene, food: W.ark.food || 0, sacks: Math.ceil((W.ark.food || 0) / 40), kinds, sea: R.arkSea ? R.arkSea(W, W.ark.month || 0) : 'calm', cabin, dove: doves.length ? doves[doves.length - 1].r : null, hungry };
   ctx = g; lamps = []; isoHits = []; cropHits = [];
   hd((c, E) => window.FARMHD.ark.voyage(c, E, st));
   ctx = g;

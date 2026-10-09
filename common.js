@@ -1330,6 +1330,7 @@ const SOUND = {
   dove:    () => { slide(520, 430, .28, 'sine', .05); slide(545, 420, .38, 'sine', .05, .38); },
   creak:   () => slide(230, 130, .55, 'sawtooth', .03),
   rainbow: () => [523, 587, 659, 784, 880, 1046, 1318].forEach((f, i) => tone(f, .28, 'triangle', .045, i * .08)),
+  card:    () => { noise(.12, .05, 0, 2600, 'highpass'); tone(1318, .18, 'triangle', .045, .1); tone(1760, .3, 'triangle', .04, .2); },   // 노아 이야기 카드 한 장 — 종이 넘김 + 방울
   // ---- 단풍·밀림·사바나 ----
   glug:    () => { slide(420, 250, .08, 'sine', .06); slide(380, 220, .09, 'sine', .06, .1); tone(1568, .1, 'triangle', .03, .2); },     // 메이플 시럽 양동이
   fruit:   () => { tone(210, .06, 'sine', .07); tone(900, .06, 'triangle', .04, .05); tone(1320, .1, 'triangle', .035, .1); },          // 망고·바오밥·올리브 줍기
