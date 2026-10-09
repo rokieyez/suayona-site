@@ -831,6 +831,13 @@ function drawPeddlerIso(P, t){
 }
 // 도감·카드에서도 쓰는 그림. s 는 도트 한 개의 크기.
 function drawAnimalAt(g, kind, X, Y, s, flip, k){
+  // 도트 그림이 없는 동물(낙타 등 고화소로만 그린 것)은 닭으로 보이던 것을 그림 글자로(2026-10-09)
+  if (!BEAST[kind] && R.ANIMALS[kind] && R.ANIMALS[kind].icon){
+    const z = (k || 1) * 22 * s;
+    g.save(); g.font = z + 'px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+    if (flip){ g.translate((X + 12) * s * 2, 0); g.scale(-1, 1); }
+    g.fillText(R.ANIMALS[kind].icon, (X + 12) * s, (Y + 25) * s); g.restore(); return;
+  }
   const B = BEAST[kind] || BEAST.chicken;
   if (!k || k === 1){ drawArt(g, B.art, X * s, Y * s, s, B.pal, flip); return; }
   // 새끼는 작게. 발이 같은 줄에 놓이도록 아래로 밀고 가로는 가운데를 맞춘다
