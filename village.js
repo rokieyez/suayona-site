@@ -1135,7 +1135,7 @@ function drawSchool(q0, cx, cy, k){
     });
     ellipse(q, X, Y - H, R + 2, (R + 2) / 2, (x, y) => y > Y - H ? '#3a2d6e' : '#5a48a0');
     cone(q, X, Y - H - 1, R + 2, roofH, (a, v, x, y) => hash(x, y, 45) < 0.05 ? '#ffd166' : shade(v % 3 === 0 ? shade(roofCol, -30) : roofCol, a < 0.2 ? -8 : a < 0.5 ? 14 : a < 0.75 ? -6 : -26));
-    if (NIGHT) LIGHTS.push({ x: X, y: Y - H * 0.55, r: R * 2, c: '#ffd77a' });
+    if (NIGHT) LIGHTS.push({ x: X, y: Y - H * 0.55, r: R * 2, c: '#ffd77a', school: !!VS.schoolF });   // 띄운 섬의 불은 첫화면이 섬과 함께 움직여 켠다
     return [X, Y - H - roofH - 1];
   };
   const side = tower(C[0] - n(15), C[1] + n(2), n(7), n(26), n(18), '#c45a9a');
@@ -1266,7 +1266,10 @@ function drawSky(q, W, H){
   VS.school = null;
   // 도시·밭 위에 얹는다(먼저 그리면 빌딩에 가린다). 롯데타워(0.72W) 오른쪽 먼 하늘.
   // 세로 화면(폰)은 제목 글자가 커서 높이 띄우면 꼬리표가 부제를 덮는다 — 빌딩 높이까지 내린다
-  drawSchool(q, Math.round(0.82 * W), H > W ? SKY - 6 : SKY - 40, 0.55);
+  // 첫화면이 둥실 띄우는 판(floatSchool)이면 마을에 굽지 않고 따로 받아 둔다 — 앞을 가린 도트는 render 가 지운다
+  const scx = Math.round(0.82 * W), scy = H > W ? SKY - 6 : SKY - 40;
+  if (VS.schoolF){ const F = VS.schoolF; F.x = scx - 40; F.y = scy - 70; drawSchool((x, y, w, h, c) => F.D.q(x - F.x, y - F.y, w, h, c), scx, scy, 0.55); }
+  else drawSchool(q, scx, scy, 0.55);
 }
 // ---------- 땅 덩어리와 절벽 ----------
 function drawGround(q){
@@ -1705,6 +1708,7 @@ VS.draw = function(env){
   const q = env.q, W = VS.w, H = VS.h;
   ORG.x = VS.orgX; ORG.y = SKY;
   drawSky(q, W, H);
+  if (env.afterSky) env.afterSky();
   // 하늘에 그린 것은 겹을 거치지 않아 누를 자리 번호가 안 적힌다. 두 타워만 직접 적어 준다
   if (env.mark && VS.skyHits && typeof HITS !== 'undefined') VS.skyHits.forEach(L => {
     HITS.push({ key: L.key, x: L.x, y: L.y, w: L.w, h: L.h });
@@ -2008,7 +2012,20 @@ function render(o){
     };
   }
   VS.windmill = null; VS.flags = []; VS.boat = null; VS.vane = null;
+  // 안데레 섬을 따로 그려 첫화면이 둥실 띄운다. 하늘만 그린 판을 찍어 두었다가, 그 뒤에 바뀐 도트(앞 물건·땅)는 섬에서 지운다
+  VS.schoolF = R && o.floatSchool && typeof document !== 'undefined' ? { D: new Dots(80, 110) } : null;
+  let skyOnly = null;
+  if (VS.schoolF) env.afterSky = () => { skyOnly = R.d.slice(); };
   VS.draw(env);
+  if (VS.schoolF && skyOnly){
+    const F = VS.schoolF, d = F.D.d;
+    for (let y = 0; y < F.D.h; y++) for (let x = 0; x < F.D.w; x++){
+      const i = (y * F.D.w + x) * 4, X = F.x + x, Y = F.y + y;
+      if (!d[i + 3] || X < 0 || Y < 0 || X >= VS.w || Y >= VS.h) continue;
+      const j = (Y * VS.w + X) * 4;
+      if (R.d[j] !== skyOnly[j] || R.d[j + 1] !== skyOnly[j + 1] || R.d[j + 2] !== skyOnly[j + 2] || R.d[j + 3] !== skyOnly[j + 3]) d[i + 3] = 0;
+    }
+  }
   // 눈 오는 날 — 지붕과 나무 꼭대기에 눈이 쌓인다. 물건마다 따로 그리지 않고,
   // 겹을 얹을 때 적어 둔 번호판(ids)으로 열마다 「맨 위 물건 도트」를 찾아 그 위에 흰 점을 놓는다.
   // 하늘에 그린 것(도시·능선)에는 번호가 없어서 저절로 빠진다 — 먼 산까지 하얘지면 과하다.
@@ -2072,6 +2089,8 @@ function render(o){
     sails: sailFrames(own, w, h),               // 풍차 날개 — 도는 위상 12장, 앞 물건에 가린 도트는 미리 뺐다. 첫화면이 돌려 그린다
     vane: vaneFrames(),                         // 작품전시실 풍향계 화살표 — 한 바퀴 16장. 첫화면이 바람 따라 돌린다
     flags: flagFrames(own, w, h),               // 깃발 천 — 나부끼는 위상 8장씩. 첫화면이 차례로 그린다
+    // 안데레 섬 한 장 — 기준점은 왼쪽 위. floatSchool 을 켠 첫화면만 받는다(안 켜면 마을 그림에 박혀 있다)
+    school: VS.schoolF ? { x: VS.schoolF.x, y: VS.schoolF.y, frame: { w: 80, h: 110, ox: 0, oy: 0, canvas: (() => { const c = document.createElement('canvas'); c.width = 80; c.height = 110; c.getContext('2d').putImageData(new ImageData(VS.schoolF.D.d, 80, 110), 0, 0); return c; })() } } : null,
     boat: boatFrame(own, w, h),                 // 나룻배 한 장 — 첫화면이 물 위에서 천천히 오르내리게 그린다
     smoke: VS.smoke || null,                    // 굴뚝 아가리 — 첫화면이 연기를 피운다
     ruler: VS.ruler || null,                    // 키 재기 기둥 — 첫화면이 두 아이 눈금을 얹는다

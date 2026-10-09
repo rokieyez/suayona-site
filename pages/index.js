@@ -800,6 +800,7 @@ const belowFold = (() => {
       w: vw, h: vh, hs: HS * dpr, orgX: Math.round(vw / 2 - 24), orgY, cliff, night: dim, litP: CLOCK.litP, snow: weather.snow,
       season: SEASON,                                  // 풀·나무·꽃·먼 밭이 계절 색을 입는다 (농장과 같은 넉 달 갈아입기)
       liveCrops: true,                                 // 밭은 비워 두고, 진짜 농장을 보고 여기서 심는다
+      floatSchool: true,                               // 안데레 섬은 따로 받아 하늘에 둥실 띄운다(drawSchool 아래)
       sprites: SPRITES, pal: PAL,
       frames: hung.map(h => h ? drawingToCanvas(h) : null),
     });
@@ -813,12 +814,14 @@ const belowFold = (() => {
     if (HAS_PHASE && VG.sails) VG.sails.frames.forEach(f => tintLayer(f.canvas.getContext('2d'), f.w, f.h, PHASE));   // 풍차 날개도 마을과 같은 시간대 색
     if (HAS_PHASE && VG.flags) VG.flags.forEach(fl => fl.frames.forEach(f => tintLayer(f.canvas.getContext('2d'), f.w, f.h, PHASE)));   // 깃발·배도
     if (HAS_PHASE && VG.vane) VG.vane.frames.forEach(f => tintLayer(f.canvas.getContext('2d'), f.w, f.h, PHASE));
+    if (HAS_PHASE && VG.school) tintLayer(VG.school.frame.canvas.getContext('2d'), 80, 110, PHASE);
     if (HAS_PHASE && VG.boat) tintLayer(VG.boat.frame.canvas.getContext('2d'), VG.boat.frame.w, VG.boat.frame.h, PHASE);
     // 덮개 뒤에 켜는 불 — 가로등·창·횃불. 덮기 전에 그리면 같이 어두워져서 불이 꺼진 것처럼 보인다.
     if (dim) {
       const k = HS * dpr, a = NIGHT ? 0.55 : 0.26;
       g.save(); g.globalCompositeOperation = 'lighter';
       VG.lights.forEach(l => {
+        if (l.school) return;                            // 띄운 섬의 창 불은 섬 그림 위에서 함께 오르내린다(drawSchool)
         const gr = g.createRadialGradient(l.x * k, l.y * k, 0, l.x * k, l.y * k, l.r * k);
         gr.addColorStop(0, hexA(l.c, a)); gr.addColorStop(1, hexA(l.c, 0));
         g.fillStyle = gr;
@@ -826,6 +829,7 @@ const belowFold = (() => {
       });
       g.restore();
     }
+    if (VG.school) VG.school.glow = dim ? { a: NIGHT ? 0.55 : 0.26, lights: VG.lights.filter(l => l.school) } : null;
     layoutTags();
     maybePanHint();
   }
@@ -1387,6 +1391,21 @@ const belowFold = (() => {
     const wind = Math.min(2, weather.wind || 1);
     VG.flags.forEach((f, i) => blitDots(f.frames[Math.floor(t * 7 * wind + i * 3) % f.frames.length], f.x, f.y, gx, gy, false));
   }
+  // 안데레 마법학교 섬 — 먼 하늘에서 5초에 한 번 두 도트쯤 천천히 오르내린다
+  function drawSchool(gx, gy){
+    const s = VG.school, bob = Math.round(Math.sin(t * 1.25) * 2);
+    blitDots(s.frame, s.x, s.y + bob, gx, gy, false);
+    if (!s.glow) return;
+    // 창 불 — 마을과 같은 빛을 섬 그림 위에 얹는다. 마을에 구우면 떠오른 섬에 가려 꺼진 것처럼 보였다
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    s.glow.lights.forEach(l => {
+      const x = l.x * HS + gx, y = (l.y + bob) * HS + gy, r = l.r * HS;
+      const gr = ctx.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, hexA(l.c, s.glow.a)); gr.addColorStop(1, hexA(l.c, 0));
+      ctx.fillStyle = gr; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    });
+    ctx.restore();
+  }
   // 나룻배 — 물 위에서 천천히(4초에 한 번) 한 도트씩 오르내리고, 뱃머리·꼬리에 잔물결이 번져 나간다
   function drawBoat(gx, gy){
     const b = VG.boat, bob = Math.round(Math.sin(t * 1.5) * 1.2);
@@ -1883,6 +1902,7 @@ const belowFold = (() => {
 
     // 5b) 강의 오리와 천막의 연 — 마을 그림 위에서 움직인다
     if (VG && SPR2) { drawDucks(gx, gy); if (VG.kite) drawKite(gx, gy); }
+    if (VG && VG.school) drawSchool(gx, gy);
     if (VG && VG.boat) drawBoat(gx, gy);
     if (VG && VG.sails) drawSails(gx, gy);
     if (VG && VG.vane) drawVane(gx, gy);
