@@ -121,7 +121,7 @@ function daily(w, m){
     notice(says.join('<br>'));
     // 아침 소식 중 가장 반가운 것을 소리로도 알린다 — 글을 아직 잘 못 읽는 아이를 위해
     const joined = says.join(' ');
-    sfx(/새끼를 낳았어요/.test(joined) ? 'chick' : /원정|행상인/.test(joined) ? 'cart'
+    sfx(/새끼를 낳았어요/.test(joined) ? 'chick' : /스콜|비가 와서/.test(joined) ? 'rain' : /짝꿍/.test(joined) ? 'fanfare' : /원정|행상인/.test(joined) ? 'cart'
       : /스프링클러/.test(joined) ? 'sprinkle' : 'prop');
   }
   return { ok: changed };
@@ -354,8 +354,8 @@ function openArrival(){
       + '<ul class="arrive-gifts">' + li.map(x => '<li>' + x + '</li>').join('') + '</ul>'
       + '<div class="modal-actions"><button type="button" class="dot-btn small primary" id="arriveGo">🌈 새 땅 둘러보기</button></div>';
     $('#modal').hidden = false;
-    const run = AH.landing($('#arriveCv'), { kinds, onDone: () => sfx('fanfare') });
-    $('#arriveGo').addEventListener('click', () => { run.stop(); closeModal(); });
+    const run = AH.landing($('#arriveCv'), { kinds, onDone: () => sfx('fanfare') }), hush = landSounds(kinds);
+    $('#arriveGo').addEventListener('click', () => { run.stop(); hush(); closeModal(); });
     return;
   }
   // 스테이지2 로 넘어가는 이사는 비행선 장면(2026-10-09, pages/farm-hd-people.js) — 고화소 그림이 안 왔으면 짐수레 그대로
@@ -598,7 +598,7 @@ function onFarmTap(e){
   }
   // 오로라 빛 조각 — 밤 땅에 떨어진 것을 누르면 줍는다(2026-10-09). 옛 farm.js 와 짝이면 shardAtPix 가 없다
   const si = typeof shardAtPix === 'function' ? shardAtPix(p0.x, p0.y) : -1;
-  if (si >= 0){ const r = act((w, m) => R.pickShard(w, m, si, now())); if (r.ok) sfx('sparkle'); return; }
+  if (si >= 0){ const r = act((w, m) => R.pickShard(w, m, si, now())); if (r.ok){ const it = (R.PICKS[R.farmOf(W).id] || {}).item; sfx(it === 'syrup' ? 'glug' : it === 'shard' || it === 'sandrose' ? 'sparkle' : 'fruit'); } return; }
   const id = plotAtTile(tx, ty);
   if (id){ onPlot(id); return; }
   // 아이·인형·동물을 누르면 한마디. 밭보다는 뒤, 건물보다는 앞 — 우리 안의 동물도 말을 한다.
@@ -773,7 +773,7 @@ function onPlot(id){
   const p = W.plots[id];
   if (p && p.crop){
     R.tickPlot(p, now(), gh);
-    if (p.wilted || R.ripe(p)){ const r = act((w, m) => R.harvest(w, m, id, now())); if (r.ok) sfx(r.giant ? 'fanfare' : r.waiting ? 'prop' : 'pop'); return; }
+    if (p.wilted || R.ripe(p)){ const r = act((w, m) => R.harvest(w, m, id, now())); if (r.ok) sfx(r.giant ? 'fanfare' : r.waiting ? 'prop' : r.bonus ? 'harvest' : 'pop'); return; }
     const C = R.CROPS[p.crop];
     // 지금까지 돌본 만큼의 별 — 물을 다 주면 하나 더, 비료까지 주면 반짝 작물이 된다
     const st = R.starOf(p, gh), need = R.careNeed(p);
@@ -1366,7 +1366,7 @@ function renderShop(){
   SHOP_TABS.forEach(([k, l]) => st.appendChild(btn(l, shopTab === k ? 'on' : '', () => { shopTab = k; renderShop(); })));
   const box = $('#shop'); box.innerHTML = '';
   const cal = R.calendar(W, now()), lv = R.levelOf(M.xp);
-  const buyBtn = (id, cost, ok) => btn('🪙 ' + cost, 'buy', () => { const r = act((w, m) => R.buy(w, m, id, now())); if (r.ok) sfx(r.animal ? 'fanfare' : 'pop'); if (r.animal) nameDialog(r.animal); renderShop(); }, !ok);
+  const buyBtn = (id, cost, ok) => btn('🪙 ' + cost, 'buy', () => { const r = act((w, m) => R.buy(w, m, id, now())); if (r.ok) sfx(r.animal ? animalCall(r.animal.kind) : 'pop'); if (r.animal) nameDialog(r.animal); renderShop(); }, !ok);
   if (shopTab === 'seed'){
     const gh = built('greenhouse');
     $('#shopSub').innerHTML = R.SEASON_NAME[cal.season] + ' 씨앗. 흐린 것은 <b>' + NAME[R.OTHER[key]] + '의 가게</b>에만 있어요 — 선물로 받아요. 다음 계절(' + R.SEASON_NAME[R.nextSeason(cal.season)] + ') 씨앗은 ' + (gh ? '지금도 살 수 있어요 — 온실에서 자라요.' : '구경만 해요 — 그 계절이 오면 살 수 있어요.');
@@ -1914,7 +1914,7 @@ function renderDuo(){
     // 기운이 모자라면 누르기 전에 알려 준다 — 눌러서 거절당하는 것보다 낫다
     const tired = (M.energy || 0) < R.COST.feed && a.fedDay !== today;
     act2.appendChild(btn(tired ? '🍚 밥 · ⚡부족' : '🍚 밥', 'sm', () => act((w, m) => R.feed(w, m, a.id, now())), a.fedDay === today || tired));
-    act2.appendChild(btn('🤚 쓰다듬기', 'sm', () => { const r = act((w, m) => R.pet(w, m, a.id, now())); if (r.love) sfx('purr'); }, petted.indexOf(key) >= 0));
+    act2.appendChild(btn('🤚 쓰다듬기', 'sm', () => { const r = act((w, m) => R.pet(w, m, a.id, now())); if (r.love) sfx(animalCall(a.kind)); }, petted.indexOf(key) >= 0));
     if (a.ready) act2.appendChild(btn('줍기', 'sm buy', () => { act((w, m) => R.collect(w, m, a.id, now())); sfx('pop'); }));
     act2.appendChild(btn('✏️', 'sm', () => nameDialog(a)));
     d.appendChild(act2); ab.appendChild(d);
@@ -1988,7 +1988,7 @@ function renderArk(){
         const ok = S.id === 'store' ? s.food >= s.foodMin : R.canPay(M, S.each);
         const b = btn(s.paid[o] ? '내 몫 내기 — ' + NAME[o] + '가 기다려요!' : '내 몫 내기', 'sm' + (ok ? ' buy' : ''), () => {
           const r = act((w, m) => R.arkPay(w, m, now()));
-          if (r.ok){ sfx(r.built ? 'fanfare' : 'pop'); if (r.built){ flash(r.msg + ' <b>농장 가운데를 봐요!</b>'); window.scrollTo({ top: 0, behavior: STILL ? 'auto' : 'smooth' }); } }
+          if (r.ok){ sfx(r.built ? 'build' : 'hammer'); if (r.built){ flash(r.msg + ' <b>농장 가운데를 봐요!</b>'); window.scrollTo({ top: 0, behavior: STILL ? 'auto' : 'smooth' }); } }
         }, !ok);
         b.style.marginTop = '6px'; c.appendChild(b);
       }
@@ -2021,7 +2021,7 @@ function renderArk(){
     const a = document.createElement('div'); a.className = 'act';
     a.appendChild(btn('🌙 한 달 보내기 (양식 −' + s.ration + ')', 'buy', () => {
       const r = act((w, m) => R.arkMonth(w, m, now()));
-      if (r.ok) sfx(r.landed ? 'fanfare' : 'sparkle');
+      if (r.ok) sfx(r.landed ? 'rainbow' : 'waves');
     }, s.monthDone || s.food < s.ration));
     a.appendChild(btn('🎣 창밖 낚시', '', () => { const B = window.FARMHD && window.FARMHD.ark && window.FARMHD.ark.voyageBox; startFishing('flood', B ? { x: B.x0 - 30, y: B.water + 24 } : null); if (liveCv) liveCv.scrollIntoView({ block: 'center', behavior: STILL ? 'auto' : 'smooth' }); }));
     c.appendChild(a);
@@ -2051,7 +2051,7 @@ function renderArk(){
       if (!L.open){ st.appendChild(card('stepline', '⬜ ' + L.icon + ' ' + L.name)); return; }
       const c = card('build move', '<div class="nm">' + L.icon + ' ' + L.name + '</div><div>' + escapeHTML(L.say) + '</div>'
         + '<div class="who"><span class="' + (L.paid.sua ? 'paid' : '') + '">수아' + (L.paid.sua ? ' ✓' : '') + '</span><span class="' + (L.paid.yona ? 'paid' : '') + '">연아' + (L.paid.yona ? ' ✓' : '') + '</span></div><div class="need">각자 ' + arkCost(L.each) + '</div>');
-      if (!L.paid[key]){ const b = btn(L.paid[o] ? '내 몫 내기 — ' + NAME[o] + '가 기다려요!' : '내 몫 내기', 'sm' + (R.canPay(M, L.each) ? ' buy' : ''), () => { const r = act((w, m) => R.landPay(w, m, L.id, now())); if (r.ok) sfx(r.built ? 'fanfare' : 'pop'); }, !R.canPay(M, L.each)); b.style.marginTop = '6px'; c.appendChild(b); }
+      if (!L.paid[key]){ const b = btn(L.paid[o] ? '내 몫 내기 — ' + NAME[o] + '가 기다려요!' : '내 몫 내기', 'sm' + (R.canPay(M, L.each) ? ' buy' : ''), () => { const r = act((w, m) => R.landPay(w, m, L.id, now())); if (r.ok) sfx(r.built ? 'build' : 'hammer'); }, !R.canPay(M, L.each)); b.style.marginTop = '6px'; c.appendChild(b); }
       st.appendChild(c);
     });
     L1.appendChild(st);
@@ -2116,7 +2116,7 @@ function openVoice(then){
     const t = $('#voiceText'); let n = 0; clearInterval(typing);
     if (STILL){ t.textContent = text; return; }
     typing = setInterval(() => { n += 2; t.textContent = text.slice(0, n); if (n >= text.length) clearInterval(typing); }, 40);
-    if (who === 'God' && i === 1) sfx('sparkle');
+    if (who === 'God') sfx(i === 0 ? 'heaven' : 'chime');
   };
   const finish = () => {
     clearInterval(typing); if (run) run.stop();
@@ -2136,6 +2136,20 @@ function openVoice(then){
   $('#voiceSkip').addEventListener('click', finish);
   show();
 }
+// 동물 울음(2026-10-09 효과음) — 소리가 없는 동물은 예전 그르릉
+const animalCall = kind => (typeof SOUND !== 'undefined' && SOUND['call_' + kind]) ? 'call_' + kind : 'purr';
+/* 장면에 맞춘 소리 — [초, 소리] 차례로 낸다. 장면을 닫거나 다시 보면 남은 소리를 거둔다 */
+function sceneSounds(list){ const ids = list.map(([sec, name]) => setTimeout(() => sfx(name), sec * 1000)); return () => ids.forEach(clearTimeout); }
+// 입장(17초) — 동물이 한 쌍씩 다리에 오를 때 울음, 끝에 문이 닫히고 비와 천둥
+function boardSounds(kinds){
+  const n = Math.max(1, kinds.length), slot = 0.58 / n, L = kinds.map((k, i) => [17 * (0.04 + i * slot + 0.12), animalCall(k)]);
+  return sceneSounds(L.concat([[11.6, 'chime'], [13.3, 'rain'], [14.3, 'doorshut'], [15, 'thunder'], [16.2, 'rain']]));
+}
+// 새 땅 도착(15초) — 비둘기, 문이 열리고, 동물들이 내려오고, 무지개
+function landSounds(kinds){
+  const n = Math.max(1, kinds.length), slot = 0.32 / n;
+  return sceneSounds([[1.2, 'dove'], [4.6, 'dove'], [6, 'creak']].concat(kinds.slice(0, 8).map((k, i) => [15 * (0.5 + i * slot), animalCall(k)]), [[8.4, 'rainbow']]));
+}
 // 입장 장면 — 들어간 아이는 그 자리에서, 자매는 다음에 열 때 한 번
 const BOARD_KEY = () => 'suayona.farm.boarded.' + key;
 function openBoardScene(){
@@ -2146,9 +2160,9 @@ function openBoardScene(){
     + H.SCENE_CV('boardCv', '동물들이 둘씩 방주에 들어가고 문이 닫히며 큰비가 내리는 그림')
     + '<div class="modal-actions"><button type="button" class="dot-btn small" id="boardAgain">🔁 다시 보기</button><button type="button" class="dot-btn small primary" id="boardGo">방주 안으로</button></div>';
   $('#modal').hidden = false;
-  let run = H.boarding($('#boardCv'), { kinds, onDone: () => sfx('fanfare') });
-  $('#boardAgain').addEventListener('click', () => { run.stop(); run = H.boarding($('#boardCv'), { kinds }); });
-  $('#boardGo').addEventListener('click', () => { run.stop(); closeModal(); openTab('ark'); });
+  let run = H.boarding($('#boardCv'), { kinds, onDone: () => sfx('fanfare') }), hush = boardSounds(kinds);
+  $('#boardAgain').addEventListener('click', () => { run.stop(); hush(); run = H.boarding($('#boardCv'), { kinds }); hush = boardSounds(kinds); });
+  $('#boardGo').addEventListener('click', () => { run.stop(); hush(); closeModal(); openTab('ark'); });
 }
 function renderTree(){
   const box = $('#tree'), wrap = $('#treeBox');

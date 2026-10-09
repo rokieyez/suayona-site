@@ -168,12 +168,13 @@
   function shell(g, S){
     const pal = PAL[S.r] || PAL.living, ph = phase(S.dark), H = S.WALLH, ox = S.ox;
     g.save(); g.scale(S.HS, S.HS); g.lineJoin = 'round'; g.lineCap = 'round';
-    const DZ = S.farm === 'desert' || S.farm === 'ark', wallFn = DZ ? plasterWall : logWall;   // 사막은 리아드 회벽·타일
+    const DZ = S.farm === 'desert' || S.farm === 'ark', TH = THEME[S.farm];   // 사막은 리아드 회벽·타일, 단풍·밀림·사바나는 제 집
+    const wallFn = TH ? TH.wall : DZ ? plasterWall : logWall;
     onWall(g, S, 1, () => wallFn(g, pal, S.LW, H, 1, S.r));
     onWall(g, S, 0, () => wallFn(g, pal, S.LH, H, 0, S.r));
     if (S.win) onWall(g, S, 1, () => winFrame(g, pal, S.win));
     if (S.door) onWall(g, S, 0, () => door(g, S.LH - S.door.u - S.door.w, S.door.v, S.door.w, S.door.h));
-    if (DZ) tileFloor(g, S); else floor(g, S, pal);
+    if (TH) TH.floor(g, S, pal); else if (DZ) tileFloor(g, S); else floor(g, S, pal);
     // 두 벽이 만나는 구석 — 세로 그늘 한 줄
     g.fillStyle = K.lin(g, ox - 3, 0, ox + 3, 0, ['rgba(30,16,8,0)', 'rgba(30,16,8,.28)', 'rgba(30,16,8,0)']); g.fillRect(ox - 3, 0, 6, H);
     g.restore();
@@ -218,6 +219,11 @@
     g.fillStyle = K.lin(g, 0, RAIL, 0, BASE, [shade(pal.paint, 0.08), pal.paint, shade(pal.paint, -0.12)]); g.fillRect(0, RAIL, len, BASE - RAIL);
     g.fillStyle = 'rgba(30,16,8,.32)'; g.fillRect(0, RAIL, len, 1.2);
     for (let x = 0; x < len; x += 7){ g.fillStyle = 'rgba(40,20,10,.22)'; g.fillRect(x, RAIL, 0.6, BASE - RAIL); g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(x + 0.6, RAIL, 0.6, BASE - RAIL); }
+    if (pal.plaid){                                                               // 단풍 오두막 — 벌목꾼 체크(굵은 짙은 줄이 가로세로로 겹친다)
+      g.fillStyle = 'rgba(20,8,8,.32)'; for (let x = 0; x < len; x += 8) g.fillRect(x, RAIL + 1.2, 4, BASE - RAIL - 1.2);
+      for (let y = RAIL + 3; y < BASE; y += 8) g.fillRect(0, y, len, 4);
+      g.fillStyle = 'rgba(255,240,220,.1)'; for (let x = 2; x < len; x += 8) g.fillRect(x, RAIL + 1.2, 0.5, BASE - RAIL - 1.2);
+    }
     // 널판에 찍은 무늬(스텐실) — 방마다 다르다
     for (let x = 12; x < len - 6; x += 24) motif(g, pal, x, (RAIL + BASE) / 2);
     // 걸레받이
@@ -237,6 +243,10 @@
       K.path(g, [[x - 2.4, y - 5], [x - 1.2, y - 2.6], [x, y - 5.2], [x + 1.2, y - 2.6], [x + 2.4, y - 5], [x + 2.2, y - 1], [x, y], [x - 2.2, y - 1]]); g.fillStyle = c; g.fill();
       K.oval(g, x - 4.6, y + 0.4, 1.6, 1.2, c); K.oval(g, x + 4.6, y + 0.4, 1.6, 1.2, c);
       K.oval(g, x - 9, y + 2, 0.8, 0.8, d); K.oval(g, x + 9, y + 2, 0.8, 0.8, d);
+    } else if (pal.motif === 'maple'){                                          // 단풍잎 — 다섯 갈래, 금빛
+      g.save(); g.translate(x, y + 0.5); g.fillStyle = c;
+      [[-Math.PI / 2, 5], [-Math.PI / 2 - 1.15, 4], [-Math.PI / 2 + 1.15, 4], [Math.PI / 2 - 0.75, 2.6], [Math.PI / 2 + 0.75, 2.6]].forEach(([a, r]) => { g.save(); g.rotate(a + Math.PI / 2); K.path(g, [[0, 0], [1.5, -r * 0.45], [0.7, -r * 0.55], [0, -r], [-0.7, -r * 0.55], [-1.5, -r * 0.45]]); g.fill(); g.restore(); });
+      g.restore(); K.line(g, [x, y + 1], [x + 0.6, y + 4.2], c, 0.5);
     } else if (pal.motif === 'star'){                                            // 여덟 갈래 북유럽 별
       g.save(); g.translate(x, y); g.fillStyle = c;
       for (let i = 0; i < 8; i++){ g.rotate(TAU / 8); K.path(g, [[0, 0], [1.4, -2.2], [0, -5.4], [-1.4, -2.2]]); g.fill(); }
@@ -473,6 +483,147 @@
     g.fillStyle = K.lin(g, 0, 0, 0.7, 0, ['rgba(40,16,8,.4)', 'rgba(40,16,8,0)']); g.fillRect(0, 0, 0.7, Rm.h);
     g.restore();
   }
+
+  // ================= 단풍·밀림·사바나 방(2026-10-09) =================
+  // 단풍 — 붉은 삼나무 통나무 오두막, 아래 널은 벌목꾼 체크와 금빛 단풍잎, 마루는 꿀빛 단풍나무
+  const PLAID = { sua: '#c23848', yona: '#2f6a4a', living: '#b8322a' };
+  function cabinWall(g, pal, len, H, side, room){
+    logWall(g, Object.assign({}, pal, { log: '#b06a40', paint: PLAID[room] || PLAID.living, paint2: '#f6c860', motif: 'maple', plaid: true }), len, H, side, room);
+    // 위 들보에 걸린 단풍잎 줄(가랜드) — 창과 구석 사이에 늘어진다
+    const bx = len * (side ? 0.2 : 0.7), half = 16, sag = 6;
+    g.strokeStyle = '#6a4028'; g.lineWidth = 0.5; g.beginPath(); g.moveTo(bx - half, LOG_TOP + 1); g.quadraticCurveTo(bx, LOG_TOP + 1 + sag * 2, bx + half, LOG_TOP + 1); g.stroke();
+    ['#e8502a', '#f8a030', '#c8301a', '#f0c040', '#e86a2a', '#d8401e', '#f6b838'].forEach((c, i) => {
+      const t = (i + 0.5) / 7, lx = bx - half + t * half * 2, ly = LOG_TOP + 1 + 4 * t * (1 - t) * sag + 2.4;
+      g.save(); g.translate(lx, ly); g.rotate((hash(i + side * 9) - 0.5) * 0.8); g.fillStyle = c;
+      [[-Math.PI / 2, 3], [-Math.PI / 2 - 1.15, 2.4], [-Math.PI / 2 + 1.15, 2.4], [Math.PI / 2 - 0.75, 1.5], [Math.PI / 2 + 0.75, 1.5]].forEach(([a, r]) => { g.save(); g.rotate(a + Math.PI / 2); K.path(g, [[0, 0], [1, -r * 0.45], [0.45, -r * 0.55], [0, -r], [-0.45, -r * 0.55], [-1, -r * 0.45]]); g.fill(); g.restore(); });
+      g.restore();
+    });
+    // 걸쇠에 건 체크 담요 한 장 — 오른쪽 벽 구석 가까이
+    if (side){ const qx = len * 0.06, qy = 22; K.oval(g, qx + 6, qy, 1, 1, '#3a2a22');
+      g.fillStyle = PLAID[room] || PLAID.living; K.path(g, [[qx, qy], [qx + 12, qy], [qx + 13, qy + 22], [qx + 6, qy + 24], [qx - 1, qy + 22]]); g.fill();
+      g.save(); g.clip(); g.fillStyle = 'rgba(20,8,8,.35)'; for (let x = qx; x < qx + 14; x += 4) g.fillRect(x, qy, 2, 26); for (let y = qy + 1; y < qy + 26; y += 4) g.fillRect(qx - 1, y, 15, 2); g.restore();
+      K.poly(g, [[qx, qy], [qx + 12, qy], [qx + 13, qy + 22], [qx + 6, qy + 24], [qx - 1, qy + 22]], null, true);
+      for (let x = qx; x <= qx + 12; x += 2) K.line(g, [x, qy + 22.5 + (x - qx < 7 ? (x - qx) / 3.5 : (qx + 13 - x) / 3.5)], [x, qy + 25 + (x - qx < 7 ? (x - qx) / 3.5 : (qx + 13 - x) / 3.5)], '#f6e8d0', 0.35); }
+  }
+  const mapleFloor = (g, S, pal) => floor(g, S, Object.assign({}, pal, { floor: ['#d8964e', '#c98845', '#e3a45c', '#bd7b3e'] }));
+
+  // 밀림 — 대나무 기둥 벽, 넝쿨 드리운 들보, 아래는 엮은 등나무 자리, 바닥은 바구니처럼 짠 돗자리
+  const BAMBOO = ['#b8b45a', '#a9ac52', '#c2bc64', '#9ea64e'];
+  function bambooWall(g, pal, len, H, side, room){
+    const seed = side * 101 + hs(room), bw = 5.2;
+    g.fillStyle = '#4a3a1c'; g.fillRect(0, 0, len, BASE);
+    // 대나무 — 둥글게 보이게 좌우 그러데이션, 마디는 줄기마다 어긋나게
+    for (let i = 0, x = 0; x < len; i++, x += bw){
+      const b = BAMBOO[Math.floor(hash(seed + i * 7) * 4)], top = LOG_TOP, bot = LOG_BOT;
+      g.fillStyle = K.lin(g, x, 0, x + bw, 0, [shade(b, -0.4), shade(b, 0.12), shade(b, 0.28), shade(b, -0.05), shade(b, -0.45)]); g.fillRect(x + 0.25, top, bw - 0.5, bot - top);
+      for (let y = top + 4 + hash(seed + i * 13) * 12; y < bot - 2; y += 14 + hash(i * 3 + seed) * 6){
+        g.fillStyle = shade(b, -0.42); g.fillRect(x + 0.25, y, bw - 0.5, 0.9); g.fillStyle = shade(b, 0.35); g.fillRect(x + 0.25, y + 0.9, bw - 0.5, 0.5);
+      }
+      if (hash(seed * 5 + i) > 0.7){ g.fillStyle = 'rgba(90,70,30,.25)'; g.fillRect(x + 1.2 + hash(i) * 2, top + hash(i * 9) * 40, 0.5, 6 + hash(i * 11) * 10); }
+    }
+    // 위 들보 — 굵은 대나무에 끈 감기
+    g.fillStyle = K.lin(g, 0, 0, 0, LOG_TOP + 1, ['#6a5a24', '#9a8a3a', '#5a4a1c']); g.fillRect(0, 0, len, LOG_TOP + 1);
+    for (let x = 8; x < len; x += 26){ g.fillStyle = '#8a6a3a'; for (let k = 0; k < 3; k++) g.fillRect(x + k * 1.3, 0, 0.8, LOG_TOP + 1); }
+    g.fillStyle = K.lin(g, 0, LOG_TOP + 1, 0, LOG_TOP + 7, ['rgba(20,16,4,.4)', 'rgba(20,16,4,0)']); g.fillRect(0, LOG_TOP + 1, len, 6);
+    // 허리 — 가로 대나무
+    g.fillStyle = K.lin(g, 0, LOG_BOT, 0, RAIL, ['#c8c070', '#a8a050', '#6a6a2a']); g.fillRect(0, LOG_BOT, len, RAIL - LOG_BOT);
+    for (let x = 14; x < len; x += 30){ g.fillStyle = '#5a5a22'; g.fillRect(x, LOG_BOT, 0.8, RAIL - LOG_BOT); }
+    // 아래 — 엮은 등나무 자리(엇갈려 짠 빗살), 방 빛깔 띠 한 줄
+    g.fillStyle = '#c8a468'; g.fillRect(0, RAIL, len, BASE - RAIL);
+    for (let y = RAIL, r = 0; y < BASE; y += 3, r++) for (let x = (r % 2) * 3; x < len; x += 6){
+      g.fillStyle = 'rgba(120,80,30,.35)'; K.path(g, [[x, y], [x + 3, y], [x + 4.5, y + 3], [x + 1.5, y + 3]]); g.fill();
+      g.fillStyle = 'rgba(255,240,200,.18)'; g.fillRect(x + 0.5, y + 0.3, 2.2, 0.4);
+    }
+    g.fillStyle = shade(pal.paint, -0.05); g.fillRect(0, (RAIL + BASE) / 2 - 1.2, len, 2.4); g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(0, (RAIL + BASE) / 2 - 1.2, len, 0.5);
+    g.fillStyle = 'rgba(30,16,8,.32)'; g.fillRect(0, RAIL, len, 1.2);
+    g.fillStyle = K.lin(g, 0, BASE, 0, H, ['#5a4020', '#3e2a14', '#2a1c0c']); g.fillRect(0, BASE, len, H - BASE);
+    // 넝쿨 — 들보에서 늘어진 줄기와 잎
+    for (let k = 0; k < len / 34; k++){
+      const vx = 6 + hash(seed * 3 + k * 17) * (len - 12), vl = 18 + hash(seed + k * 23) * 30, sw = 1.5 + hash(k * 7) * 2;
+      g.strokeStyle = '#3e6a2a'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(vx, LOG_TOP);
+      for (let d = 0; d <= vl; d += 2) g.lineTo(vx + Math.sin(d * 0.25 + k) * sw, LOG_TOP + d); g.stroke();
+      for (let d = 4; d <= vl; d += 4.5){ const lx = vx + Math.sin(d * 0.25 + k) * sw, sd = (Math.floor(d / 4.5) % 2) ? 1 : -1;
+        g.save(); g.translate(lx, LOG_TOP + d); g.rotate(sd * 0.7); K.oval(g, sd * 1.8, 0, 2, 1.1, ['#2f7a34', '#3f8a3a', '#256a2a'][Math.floor(d) % 3]); g.restore(); }
+    }
+    // 구석에서 뻗은 큰 잎(몬스테라) 한 장
+    if (side){ g.save(); g.translate(3, 34); g.rotate(-0.25); K.oval(g, 9, 0, 10, 6, '#1e6a2a'); g.fillStyle = '#4a3a1c'; for (let k = 0; k < 3; k++) g.fillRect(4 + k * 5, -1, 2.4, 0.9); K.line(g, [0, 0], [18, 0], '#5aa04a', 0.4); g.restore(); }
+    const cx = side ? 0 : len, dir = side ? 1 : -1;
+    g.fillStyle = K.lin(g, cx, 0, cx + dir * 24, 0, ['rgba(20,24,8,.36)', 'rgba(20,24,8,0)']); g.fillRect(Math.min(cx, cx + dir * 24), 0, 24, H);
+    if (!side){ g.fillStyle = 'rgba(20,30,30,.14)'; g.fillRect(0, 0, len, H); }
+  }
+  function matFloor(g, S){
+    const Rm = S.Rm, seed = hs(S.r), F = ['#d2b072', '#c8a466', '#dab87c'];
+    g.save(); g.transform(S.TW / 2, S.TH / 2, -S.TW / 2, S.TH / 2, S.ox, S.WALLH);
+    g.beginPath(); g.rect(0, 0, Rm.w, Rm.h); g.clip();
+    // 바구니 짜임 — 반 칸 네모마다 결이 가로·세로로 번갈아
+    for (let a = 0; a < Rm.w * 2; a++) for (let b = 0; b < Rm.h * 2; b++){
+      const x = a / 2, y = b / 2, c = F[Math.floor(hash(seed + a * 31 + b * 17) * 3)], hor = (a + b) % 2;
+      g.fillStyle = c; g.fillRect(x, y, 0.5, 0.5);
+      for (let k = 0; k < 4; k++){
+        g.fillStyle = 'rgba(110,70,26,.3)'; if (hor) g.fillRect(x, y + k * 0.125 + 0.1, 0.5, 0.022); else g.fillRect(x + k * 0.125 + 0.1, y, 0.022, 0.5);
+        g.fillStyle = 'rgba(255,245,210,.22)'; if (hor) g.fillRect(x, y + k * 0.125 + 0.02, 0.5, 0.015); else g.fillRect(x + k * 0.125 + 0.02, y, 0.015, 0.5);
+      }
+    }
+    // 자리 테두리 — 짙은 띠
+    g.fillStyle = 'rgba(90,60,20,.4)'; for (let a = 0; a <= Rm.w; a++) g.fillRect(a - 0.015, 0, 0.03, Rm.h); for (let b = 0; b <= Rm.h; b++) g.fillRect(0, b - 0.015, Rm.w, 0.03);
+    // 잎 그늘이 어른어른
+    for (let k = 0; k < Rm.w * Rm.h / 6; k++){ g.fillStyle = 'rgba(30,60,20,.08)'; g.beginPath(); g.ellipse(hash(seed + k * 7) * Rm.w, hash(seed * 3 + k) * Rm.h, 0.5, 0.3, hash(k) * 3, 0, TAU); g.fill(); }
+    g.fillStyle = K.lin(g, 0, 0, 0, 0.7, ['rgba(20,24,8,.4)', 'rgba(20,24,8,0)']); g.fillRect(0, 0, Rm.w, 0.7);
+    g.fillStyle = K.lin(g, 0, 0, 0.7, 0, ['rgba(20,24,8,.45)', 'rgba(20,24,8,0)']); g.fillRect(0, 0, 0.7, Rm.h);
+    g.restore();
+  }
+
+  // 사바나 — 마사이 흙집: 황토 회벽, 위에 늘어진 초가 처마, 붉은 흙 띠에 흰 세모·점 무늬, 구슬 띠, 바닥은 다진 흙
+  const BEAD = ['#c0302a', '#f6f0e4', '#2a5ab0', '#f0b020', '#2a8a4a'];
+  function mudWall(g, pal, len, H, side, room){
+    const seed = side * 101 + hs(room);
+    g.fillStyle = K.lin(g, 0, 0, 0, RAIL, ['#d8a066', '#cc8c52']); g.fillRect(0, 0, len, RAIL);
+    for (let k = 0; k < len / 4; k++){ const x = hash(seed + k * 7) * len, y = 10 + hash(seed * 3 + k) * 60, r = 3 + hash(k * 9 + seed) * 8; K.oval(g, x, y, r, r * 0.55, hash(k + seed) > 0.5 ? 'rgba(255,225,180,.16)' : 'rgba(120,60,24,.09)'); }
+    // 금 몇 줄
+    for (let k = 0; k < len / 70; k++){ let x = hash(seed * 11 + k) * len, y = 20 + hash(k * 5 + seed) * 30; g.strokeStyle = 'rgba(110,56,24,.3)'; g.lineWidth = 0.35; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 4; j++){ x += (hash(k * 13 + j) - 0.5) * 6; y += 2 + hash(j * 7 + k) * 3; g.lineTo(x, y); } g.stroke(); }
+    // 서까래 끝 — 처마 밑으로 둥근 나무 끝이 줄지어
+    g.fillStyle = '#5a3a20'; g.fillRect(0, 8, len, 2.5);
+    for (let x = 5; x < len; x += 16){ K.oval(g, x, 11.5, 1.8, 1.8, '#7a5030'); K.oval(g, x, 11.5, 0.9, 0.9, '#a87a4a'); }
+    // 초가 처마 — 짚이 아래로 늘어진다
+    g.fillStyle = '#b8904a'; g.fillRect(0, 0, len, 8);
+    for (let x = 0; x < len; x += 1.4){ const l = 7 + hash(seed + x * 13) * 6; g.strokeStyle = hash(x * 7 + seed) > 0.5 ? '#d8b468' : '#a8803e'; g.lineWidth = 0.7; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (hash(x) - 0.5) * 1.5, l); g.stroke(); }
+    g.fillStyle = K.lin(g, 0, 10, 0, 18, ['rgba(60,30,10,.32)', 'rgba(60,30,10,0)']); g.fillRect(0, 12, len, 6);
+    // 구슬 띠 — 마사이 목걸이처럼 다섯 빛깔 네모가 번갈아(방 빛깔 하나 섞어서)
+    const beads = BEAD.slice(); beads[3] = shade(pal.paint, 0.1);
+    for (let row = 0; row < 2; row++) for (let x = 0, i = 0; x < len; x += 2.6, i++){ g.fillStyle = beads[(i + row * 2) % 5]; g.fillRect(x + (row ? 1.3 : 0), LOG_BOT - 1 + row * 2.4, 2.2, 2); }
+    // 아래 — 붉은 흙 띠에 흰 세모 줄과 점
+    g.fillStyle = K.lin(g, 0, RAIL, 0, BASE, ['#b04a2c', '#9a3c24']); g.fillRect(0, RAIL, len, BASE - RAIL);
+    g.fillStyle = '#f4e8d4';
+    for (let x = 0; x < len; x += 8){ K.path(g, [[x, BASE - 2], [x + 4, RAIL + 5], [x + 8, BASE - 2]]); g.fill(); }
+    g.fillStyle = '#9a3c24'; for (let x = 0; x < len; x += 8){ K.path(g, [[x + 2, BASE - 2], [x + 4, RAIL + 10], [x + 6, BASE - 2]]); g.fill(); }
+    for (let x = 4; x < len; x += 8){ K.oval(g, x + 4, RAIL + 4, 0.8, 0.8, '#f4e8d4'); K.oval(g, x + 4, BASE - 4, 0.6, 0.6, '#1e1410'); }
+    g.fillStyle = '#1e1410'; g.fillRect(0, RAIL, len, 0.9); g.fillRect(0, BASE - 1.5, len, 0.9);
+    g.fillStyle = K.lin(g, 0, BASE, 0, H, ['#6a3a1e', '#4a2814']); g.fillRect(0, BASE, len, H - BASE);
+    // 벽 가운데 방패 무늬 하나 — 붉고 흰 마사이 방패
+    const sx = len * (side ? 0.16 : 0.12), sy = 44;
+    K.oval(g, sx, sy, 5.5, 11, '#f4e8d4', true); K.oval(g, sx, sy, 4.4, 9.8, '#b04a2c'); g.fillStyle = '#1e1410'; g.fillRect(sx - 0.6, sy - 9.8, 1.2, 19.6);
+    K.oval(g, sx, sy - 5, 2.6, 1.8, '#f4e8d4'); K.oval(g, sx, sy + 5, 2.6, 1.8, '#f4e8d4'); K.oval(g, sx, sy, 1.5, 1.5, '#f4e8d4');
+    K.line(g, [sx + 7, sy - 18], [sx - 6, sy + 18], '#5a3a20', 0.8); K.poly(g, [[sx + 7, sy - 18], [sx + 8.6, sy - 23], [sx + 8.2, sy - 17]], '#c8c0b0');
+    const cx = side ? 0 : len, dir = side ? 1 : -1;
+    g.fillStyle = K.lin(g, cx, 0, cx + dir * 24, 0, ['rgba(70,30,10,.3)', 'rgba(70,30,10,0)']); g.fillRect(Math.min(cx, cx + dir * 24), 0, 24, H);
+    if (!side){ g.fillStyle = 'rgba(30,20,40,.12)'; g.fillRect(0, 0, len, H); }
+  }
+  function earthFloor(g, S){
+    const Rm = S.Rm, seed = hs(S.r);
+    g.save(); g.transform(S.TW / 2, S.TH / 2, -S.TW / 2, S.TH / 2, S.ox, S.WALLH);
+    g.beginPath(); g.rect(0, 0, Rm.w, Rm.h); g.clip();
+    g.fillStyle = K.lin(g, 0, 0, Rm.w, Rm.h, ['#c48a56', '#b87c4a', '#c99258']); g.fillRect(0, 0, Rm.w, Rm.h);
+    // 문질러 다진 자국 — 둥근 결
+    for (let k = 0; k < Rm.w * Rm.h * 1.5; k++){ g.fillStyle = hash(k + seed) > 0.5 ? 'rgba(255,225,180,.1)' : 'rgba(110,56,24,.08)'; g.beginPath(); g.ellipse(hash(seed + k * 7) * Rm.w, hash(seed * 3 + k) * Rm.h, 0.3 + hash(k * 3) * 0.5, 0.2 + hash(k * 5) * 0.3, hash(k) * 3, 0, TAU); g.fill(); }
+    for (let k = 0; k < Rm.w * Rm.h * 4; k++){ g.fillStyle = 'rgba(80,40,16,.22)'; g.fillRect(hash(seed + k * 13) * Rm.w, hash(seed * 7 + k * 3) * Rm.h, 0.03, 0.03); }
+    // 가는 금
+    for (let k = 0; k < Rm.w * Rm.h / 8; k++){ let x = hash(seed * 11 + k) * Rm.w, y = hash(k * 5 + seed) * Rm.h; g.strokeStyle = 'rgba(90,44,18,.3)'; g.lineWidth = 0.02; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 4; j++){ x += (hash(k * 13 + j) - 0.3) * 0.35; y += (hash(j * 7 + k) - 0.5) * 0.35; g.lineTo(x, y); } g.stroke(); }
+    // 벽 밑 — 흙을 둥글게 올린 턱
+    g.fillStyle = K.lin(g, 0, 0, 0, 0.7, ['rgba(60,24,8,.42)', 'rgba(60,24,8,0)']); g.fillRect(0, 0, Rm.w, 0.7);
+    g.fillStyle = K.lin(g, 0, 0, 0.7, 0, ['rgba(60,24,8,.46)', 'rgba(60,24,8,0)']); g.fillRect(0, 0, 0.7, Rm.h);
+    g.restore();
+  }
+  const THEME = { maple: { wall: cabinWall, floor: mapleFloor }, jungle: { wall: bambooWall, floor: matFloor }, savanna: { wall: mudWall, floor: earthFloor } };
   // 사막 창밖 — 모래 언덕과 피라미드, 대추야자, 밤이면 은하수와 금빛 초승달
   const DSKY = [['#4a96dc', '#9ccbe8', '#f4e2bc'], ['#e8806a', '#f8b888', '#ffe0b0'], ['#3a2a6a', '#8a4e88', '#e08a7a'], ['#0a0c2a', '#1b1f55', '#4a3a78']];
   function winGlassDesert(g, pal, W, ph, room){
