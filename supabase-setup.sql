@@ -1385,7 +1385,8 @@ stable
 security definer
 set search_path = public
 as $$
-  select (w.data - 'mail' - 'log' - 'seen' - 'orders' - 'festival')
+  -- diary(일기장, 2026-10-09) — 일지(log)처럼 시각과 아이 이름이 줄줄이 든다. 손님에게 안 준다
+  select (w.data - 'mail' - 'log' - 'diary' - 'seen' - 'orders' - 'festival')
          || jsonb_build_object('seasonLen', coalesce(
               (select case when t.data->>'seasonLen' ~ '^[0-9]+$' then (t.data->>'seasonLen')::int end
                  from public.farm_saves t where t.who = 'tune'),

@@ -242,6 +242,39 @@
   /* 반짝 작물(★★★)을 한 번이라도 거둔 칸은 금테를 두른다 */
   .dex div.gold{border-color:#e0a72b; background:#fffbe9;}
   .dex div .sp{display:block; font-size:10px; color:#b9820f; letter-spacing:1px;}
+  /* 도감 강화(2026-10-09) — 못 모은 칸은 까만 그림자, 자매만 모은 칸은 이름이 보이게 흐리게 */
+  .dex{margin-bottom:14px;}
+  .dex div{cursor:pointer;}
+  .dex div canvas{width:32px; height:32px;}
+  .dex div.no{opacity:1; color:var(--ink-soft);}
+  .dex div.no canvas{filter:grayscale(1) contrast(.6); opacity:.3;}
+  .dex div.sis{opacity:.6; border-style:dashed;}
+  .dex div .who{display:flex; justify-content:center; gap:2px; margin-top:3px;}
+  .dex div .who i{font-style:normal; font-size:9px; font-weight:800; width:14px; height:14px; line-height:14px; border:1px solid #c9bfae; color:#c9bfae; background:#fff;}
+  .dex div .who i.on.k-sua{background:#ffd0dc; border-color:var(--ink); color:var(--ink);}
+  .dex div .who i.on.k-yona{background:#cfe8ff; border-color:var(--ink); color:var(--ink);}
+  .dex div .who i.both{border:0; background:none; color:#e0566f; width:auto;}
+  .dex div .ss{display:flex; justify-content:center; gap:2px; margin-top:2px;}
+  .dex div .ss i{width:6px; height:6px; background:#e7e0d4;}
+  .dex div .ss i.on.spring{background:#ff9ec4;} .dex div .ss i.on.summer{background:#5fc46a;}
+  .dex div .ss i.on.autumn{background:#e8892f;} .dex div .ss i.on.winter{background:#7fbcf2;}
+  .dexbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 8px; font-size:12px;}
+  .dexbar .pg{flex:1; min-width:120px; height:12px; border:2px solid var(--ink); background:#fff;}
+  .dexbar .pg i{display:block; height:100%; background:var(--mint);}
+  .dexbar .stamp{width:100%; display:flex; align-items:center; gap:8px; flex-wrap:wrap; border:2px solid #e0a72b; background:#fffbe9; padding:6px 8px;}
+  .dexbig{text-align:center; margin:4px 0 8px;}
+  .dexbig canvas{display:block; margin:0 auto; width:64px; height:64px; image-rendering:pixelated;}
+  .dexbig.no canvas{filter:grayscale(1) contrast(.6); opacity:.35;}
+  .dexrows{display:grid; grid-template-columns:auto 1fr; gap:4px 10px; margin:8px 0 12px; font-size:12.5px; line-height:1.5;}
+  .dexrows dt{font-weight:800;}
+  .dexrows dd{margin:0;}
+  .dexrows dd span.off{filter:grayscale(1); opacity:.3;}
+  .dnav{display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:8px; font-size:13px;}
+  .diary{max-height:55vh; overflow:auto;}
+  .dday{border:2px solid var(--ink); background:#fff; padding:6px 8px; margin-bottom:6px; font-size:12px; line-height:1.6;}
+  .dday.big{background:#fffbe9; border-color:#e0a72b;}
+  .dday ul{list-style:none; margin:2px 0 0; padding:0;}
+  .dday button{margin-top:4px;}
   .logs{list-style:none; margin:0; padding:0; font-size:12px; line-height:1.7; color:var(--ink-soft);}
   .logs li b{color:var(--ink);}
   .stats{display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:6px; font-size:12px;}
@@ -407,6 +440,10 @@
       </div>
       <div class="dot-card panel" id="tab-dex" hidden>
         <h3 class="pixel">도감 <span id="dexCount" style="font-weight:700;color:var(--ink-soft);"></span></h3>
+        <p class="sub">칸을 누르면 처음 만난 날과 힌트가 나와요. 수·연 글자에 불이 켜진 사람이 모은 거예요.</p>
+        <div class="shoptabs" id="dexCats"></div>
+        <div class="shoptabs" id="dexFarms"></div>
+        <div class="dexbar" id="dexBar"></div>
         <div class="dex" id="dex"></div>
         <h3 class="pixel">훈장 <span id="medalCount" style="font-weight:700;color:var(--ink-soft);"></span></h3>
         <p class="sub">조건이 차면 받을 수 있어요. 받으면 동전도 와요.</p>
@@ -415,6 +452,7 @@
         <div class="stats" id="stats"></div>
         <h3 class="pixel">농장 일지</h3>
         <ul class="logs" id="logs"></ul>
+        <button type="button" class="dot-btn small" id="diaryBtn" style="margin-top:8px;">📔 일기장 펼치기</button>
       </div>
     </div>
 
@@ -428,13 +466,13 @@
         integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi" crossorigin="anonymous"></script>
 <script src="./pixel.js"></script>
 <script src="./common.js"></script>
-<script src="./farm-rules.js?v=1009z"></script>
+<script src="./farm-rules.js?v=1009dex"></script>
 <script src="/pages/kid-art.js?v=0929c"></script>
 <script src="/pages/farm-hd.js?v=1009z"></script>
 <script src="/pages/farm-hd-life.js?v=1009z"></script>
 <script src="/pages/farm-hd-people.js?v=1009z"></script>
 <script src="/pages/room-hd.js?v=1009z"></script>
 <script src="/pages/room-hd-furn.js?v=1009z"></script>
-<script src="/pages/farm.js?v=1009z"></script>
+<script src="/pages/farm.js?v=1009dex"></script>
 </body>
 </html>

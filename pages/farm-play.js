@@ -551,7 +551,7 @@ function onFarmTap(e){
   if (inSpot('mail', tx, ty)){ openMail(); return; }
   if (inSpot('board', tx, ty)){ openTab('duo', true); return; }
   if (inSpot('stall', tx, ty)){ openTab('shop', true); return; }
-  if (inSpot('hive', tx, ty)){ const r = act((w, m) => R.takeHoney(w, m)); if (r.ok) sfx('sparkle'); return; }
+  if (inSpot('hive', tx, ty)){ const r = act((w, m) => R.takeHoney(w, m, now())); if (r.ok) sfx('sparkle'); return; }
   if (inSpot('greenhouse', tx, ty)){ if (built('greenhouse')) openGreenhouse(); else flash('온실 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('well', tx, ty)){ flash(built('well') ? '우물이에요. 물뿌리개를 키울 수 있어요' : '우물 터예요. 둘이서 탭에서 같이 지어요'); return; }
   if (inSpot('pond', tx, ty)){ startFishing(); return; }
@@ -1881,28 +1881,300 @@ function renderTree(){
   list.filter(a => !a.mom || !byId[a.mom]).forEach(a => row(a, 0, true));
 }
 // ---------- 도감 ----------
+/* 2026-10-09 로키즈 「도감 강화 전부」 — 갈래(작물·물고기…)와 농장으로 골라 보고, 칸을 누르면
+   처음 만난 날·농장·모은 수·계절·가장 큰 물고기·힌트가 나온다. 수아 것과 연아 것을 나란히 보여 준다.
+   동물·꾸미개·축제는 둘이 함께 가진 것이라 농장(W)에서 바로 읽는다. 다 모은 쪽은 한 장으로 내 전시실에 건다. */
+let dexCat = 'crop', dexFarm = 'all', diaryAt = 0;
+const DEX_CATS = [['all', '전체'], ['crop', '🌱 작물'], ['fish', '🐟 물고기'], ['dish', '🍳 요리'], ['goods', '🥚 산물'],
+  ['animal', '🐮 동물'], ['guest', '🧳 손님·사건'], ['decor', '🎀 꾸미개'], ['furn', '🛋 가구']];
+const DEX_EVENTS = [
+  ['ev:peddler', '🧳', '떠돌이 행상인', '가끔 농장에 들르는 행상인에게서 물건을 사요', null],
+  ['ev:box', '🎁', '행상인 보따리', '행상인이 파는 보따리를 풀어 봐요', null],
+  ['ev:postcard', '💌', '그림엽서', '이사 준비를 절반 넘게 하면 다음 농장에서 엽서가 와요', null],
+  ['ev:move', '🚚', '이사 선물', '둘이 좋다고 해서 다음 농장으로 이사 가면 우편으로 와요', null],
+  ['ev:santa', '🎅', '산타 할아버지 편지', '산타 우체통을 놓으면 가끔 편지가 와요', 'aurora'],
+  ['ev:genie', '🧞', '램프 요정 편지', '요술 램프를 놓으면 가끔 소원 편지가 와요', 'desert'],
+];
+const GOOD_HINT = { honey: '벌통을 짓고 꽃이 피면 꿀이 고여요', berry: '덤불에서 따요', snowball: '겨울에 눈더미에서 뭉쳐요',
+  firefly: '여름·가을 밤에 날아다녀요', shard: '오로라 농장 밤에 하늘에서 떨어져요', sandrose: '오아시스 농장 낮에 모래 위에 보여요' };
+const SEASON_DOT = { spring: '🌸', summer: '☀️', autumn: '🍁', winter: '❄️' };
+const farmName = id => (R.FARMS.find(f => f.id === id) || { name: '' }).name;
+const skipFarm = id => !!id && !!(R.FARMS.find(f => f.id === id) || {}).skip;
+// 건너뛴 농장(화산)에 딸린 것은 다음 농장 쪽에 둔다 — 화산 아기 염소는 꽃구름으로 이사 갈 때 따라온다
+function farmPage(id){ let i = R.FARMS.findIndex(f => f.id === id); if (i < 0) return 'meadow'; while (R.FARMS[i + 1] && R.FARMS[i].skip) i++; return R.FARMS[i].id; }
+function dexList(){
+  const out = [];
+  const kid = k => ({ me: M.dex.indexOf(k) >= 0 ? (R.dexRec(M, k) || {}) : null,
+    sis: other && other.dex.indexOf(k) >= 0 ? (R.dexRec(other, k) || {}) : null });
+  const add = (o, k) => { const e = Object.assign(o, o.shared ? {} : kid(k || o.id)); e.farm0 = e.farm; e.farm = farmPage(e.farm); if (!e.shared) e.have = !!e.me; out.push(e); };
+  R.CROP_IDS.forEach(c => {
+    const C = R.CROPS[c];
+    add({ cat: 'crop', id: 'crop:' + c, name: C.name, farm: C.farm || null, shiny: M.dex.indexOf('gold:' + c) >= 0 }, c);
+    if (C.giant) add({ cat: 'crop', id: 'giant:' + c, name: '큰 ' + C.name, farm: C.farm || null });
+  });
+  R.FISH_IDS.forEach(f => { const F = R.FISH[f]; add({ cat: 'fish', id: 'fish:' + f, name: F.name, farm: R.originOf('fish:' + f) || (F.sea ? 'seaside' : F.ice ? 'aurora' : null) }); });
+  Object.keys(R.DISHES).forEach(d => add({ cat: 'dish', id: 'dish:' + d, name: R.DISHES[d].name, farm: null }));
+  R.DEX_GOODS.forEach(g => {
+    const by = Object.keys(R.ANIMALS).filter(a => { const A = R.ANIMALS[a]; return A.product === g || A.best === g || (A.find || []).indexOf(g) >= 0; });
+    const gift = by.length && by.every(a => R.ANIMALS[a].gift) ? R.ANIMALS[by[0]].gift : null;
+    add({ cat: 'goods', id: g, name: R.itemName(g), farm: R.originOf(g) || gift });
+  });
+  Object.keys(R.ANIMALS).forEach(k => {
+    const A = R.ANIMALS[k], list = (W.animals || []).filter(a => a.kind === k);
+    const first = list.slice().sort((a, b) => String(a.born).localeCompare(String(b.born)))[0], babies = list.filter(a => a.mom).length;
+    add({ cat: 'animal', id: 'animal:' + k, name: A.name, farm: A.gift || null, shared: true, have: !!first, by: first && first.by,
+      info: first ? [['처음 온 날', first.born + ' · ' + (A.gift && !first.mom ? '이사 때 아기로 따라왔어요' : NAME[first.by] + '가 데려왔어요')],
+        ['지금', list.length + '마리' + (babies ? ' · 농장에서 태어난 아기 ' + babies + '마리' : '')]] : null });
+  });
+  DEX_EVENTS.forEach(([k, ic, nm, hint, f]) => add({ cat: 'guest', id: k, emoji: ic, name: nm, hint, farm: f }));
+  add({ cat: 'guest', id: 'ev:fire', emoji: '🔥', name: '둘이서 모닥불', farm: null, shared: true, have: !!W.fireFirst,
+    hint: '밤에 둘이 나란히 모닥불 앞에 앉아요', info: W.fireFirst ? [['처음 함께 앉은 날', W.fireFirst]] : null });
+  Object.keys(R.GUESTS).forEach(f => { const G = R.GUESTS[f]; add({ cat: 'guest', id: 'guest:' + f, emoji: G.icon, name: G.name, farm: f,
+    hint: farmName(f) + '에 살면 사흘마다 부탁하러 와요. 부탁을 들어주면 만난 거예요' }); });
+  Object.keys(R.FESTIVALS).forEach(s => {
+    const F = R.FESTIVALS[s], won = Object.keys(W.festival || {}).filter(k => /^y\d+/.test(k) && k.replace(/^y\d+/, '') === s && W.festival[k].done);
+    const who = {}; won.forEach(k => Object.keys(W.festival[k].by || {}).forEach(p => { who[p] = true; }));
+    add({ cat: 'guest', id: 'fest:' + s, emoji: F.icon, name: F.name, farm: null, shared: true, have: won.length > 0,
+      hint: R.SEASON_NAME[s] + ' 마지막 이틀에 열려요. ' + F.desc,
+      info: won.length ? [['상 받은 해', won.map(k => k.match(/^y(\d+)/)[1] + '년째').join(' · ')], ['함께 낸 사람', Object.keys(who).map(p => NAME[p]).join('·') || '-']] : null });
+  });
+  // 꾸미개 — 떠나온 농장(W.past)에 두고 온 것까지. 앞선 농장 것이 먼저라 처음 놓은 자리가 남는다
+  const deco = {};
+  (W.past || []).forEach(p => Object.keys(p.decor || {}).forEach(v => { if (!deco[v]) deco[v] = Object.assign({ farm: p.farm }, p.decor[v]); }));
+  Object.keys(W.decor || {}).forEach(v => { if (!deco[v]) deco[v] = Object.assign({ farm: R.farmOf(W).id }, W.decor[v]); });
+  Object.keys(R.DECOR).forEach(v => {
+    const Dc = R.DECOR[v], d = deco[v];
+    if (skipFarm(Dc.farm)) return;                     // 화산 꾸미개는 살 곳이 없다
+    add({ cat: 'decor', id: 'deco:' + v, emoji: Dc.icon, name: Dc.name, farm: Dc.farm || null, shared: true, have: !!d, by: d && d.by,
+      info: d ? [['놓은 날', (d.on || '예전') + ' · ' + farmName(d.farm)], ['놓은 사람', NAME[d.by] || '-']] : null });
+  });
+  // 가구 — 집 물건이라 둘이 함께 모은다(W.furnAt). 적기 전부터 가진 것은 가방이나 방에 있으면 「예전부터」로 친다
+  const room = {}; Object.keys(W.house || {}).forEach(r => Object.keys(W.house[r] || {}).forEach(p => { const it = W.house[r][p]; if (it) room[it.f] = r; }));
+  Object.keys(R.FURNITURE).forEach(v => {
+    const F = R.FURNITURE[v], a = (W.furnAt || {})[v];
+    if (skipFarm(F.farm)) return;
+    const old = !!room[v] || (M.inv['f:' + v] || 0) > 0 || !!(other && (other.inv['f:' + v] || 0) > 0);
+    add({ cat: 'furn', id: 'f:' + v, name: F.name, farm: F.farm || null, shared: true, have: !!a || old, by: a && a.by,
+      info: a ? [['처음 들인 날', a.d + ' · ' + farmName(a.f)], ['들인 사람', NAME[a.by] || '-']] : old ? [['', '예전부터 있었어요']] : null });
+  });
+  return out;
+}
+function dexHint(e){
+  const [k, v] = e.id.split(':');
+  if (e.hint) return e.hint;
+  if (k === 'crop'){
+    const C = R.CROPS[v], p = [C.seed ? C.season.map(s => R.SEASON_NAME[s]).join('·') + '에 심어요' : '씨앗은 가게에 없어요 — 축제 상으로 받아요'];
+    if (C.half) p.push(NAME[C.half] + ' 가게 씨앗');
+    if (C.farm) p.push(farmName(C.farm) + '에서만');
+    if ((C.lv || 1) > 1) p.push('레벨 ' + C.lv + '부터');
+    return p.join(' · ');
+  }
+  if (k === 'giant') return '나란히 자란 ' + R.CROPS[v].name + ' 두 포기가 가끔 커다랗게 붙어요. 둘이 함께 잡아당겨 뽑아요';
+  if (k === 'fish'){
+    const F = R.FISH[v];
+    if (F.junk) return '물고기가 아니에요… ' + (F.sea ? '바다' : '연못') + '에서 가끔 걸려 올라와요';
+    const p = [F.sea ? '바닷가 농장 바다' : F.ice ? '오로라 농장 얼음낚시 구멍' : '연못'];
+    if (F.season) p.push(F.season.map(s => R.SEASON_NAME[s]).join('·'));
+    if (F.night) p.push('밤에만');
+    if (F.sell >= 200) p.push('아주 귀해요 — 낚시를 잘 맞추면 더 잘 물어요');
+    return p.join(' · ');
+  }
+  if (k === 'dish'){
+    const D = R.DISHES[v];
+    return '재료: ' + Object.keys(D.need).map(i => R.itemName(i) + ' ' + D.need[i]).join(' · ')
+      + (M.recipes.indexOf(v) >= 0 ? ' — 만드는 법을 알아요. 부엌에서 만들어요' : ' — 가게에서 만드는 법을 먼저 배워요');
+  }
+  if (k === 'animal'){
+    const A = R.ANIMALS[v];
+    return A.gift ? farmName(farmPage(A.gift)) + '으로 이사 갈 때 아기로 따라와요' : R.BUILDINGS[A.need].name + '을 짓고 가게에서 데려와요 · ' + A.cost + ' 동전';
+  }
+  if (k === 'deco'){ const Dc = R.DECOR[v]; return (Dc.desc ? Dc.desc + ' — ' : '') + (Dc.farm ? farmName(Dc.farm) + ' 가게' : '가게 꾸미기 칸') + ' · 레벨 ' + Dc.lv + ' · ' + Dc.cost + ' 동전'; }
+  if (k === 'f'){
+    const F = R.FURNITURE[v];
+    if (F.rare) return '가게에는 없어요 — 훈장이나 상으로 받아요';
+    if (!F.cost) return '처음부터 방에 있어요';
+    return (F.farm ? farmName(F.farm) + ' 가게' : '가게 가구 칸') + (F.season ? ' · ' + R.SEASON_NAME[F.season] + '에만' : '') + ' · ' + F.cost + ' 동전';
+  }
+  const p = [];
+  Object.keys(R.ANIMALS).forEach(a => { const A = R.ANIMALS[a];
+    if (A.product === e.id) p.push(R.ee(A.name) + ' 낳아요');
+    else if (A.best === e.id) p.push('마음이 가득 찬 ' + R.ee(A.name) + ' 가끔');
+    else if ((A.find || []).indexOf(e.id) >= 0) p.push(R.ee(A.name) + ' 물어 와요'); });
+  if (GOOD_HINT[e.id]) p.unshift(GOOD_HINT[e.id]);
+  return p.join(' · ') || '여기저기서 모아요';
+}
+/* 칸 그림은 한 번 그려 담아 둔다 — 행동마다 도감을 다시 그리는데, 가구 91개를 매번 새로 그리면
+   「전체」에서 0.2~0.4초씩 걸렸다. 담은 것을 새 캔버스에 옮겨 그려 준다(한 캔버스는 한 자리에만 선다). */
+const dexIconKeep = {};
+function dexIcon(e){
+  const k = e.id + (e.shiny ? '*' : ''), src = dexIconKeep[k] || (dexIconKeep[k] = dexIconDraw(e));
+  const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32;
+  cv.getContext('2d').drawImage(src, 0, 0);
+  return cv;
+}
+function dexIconDraw(e){
+  const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32;
+  const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  try {
+    if (e.emoji){ g.font = '24px "Apple Color Emoji", "Segoe UI Emoji", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(e.emoji, 16, 18); }
+    else if (e.cat === 'animal') drawAnimalAt(g, e.id.slice(7), 4, 5, 1, false, 1);
+    else if (e.cat === 'furn'){
+      const src = furnPreview(e.id.slice(2)).querySelector('canvas');
+      if (src && src.width){
+        const s0 = Math.min(32 / src.width, 32 / src.height), s = s0 >= 1 ? Math.floor(s0) : s0;
+        g.imageSmoothingEnabled = s < 1;
+        g.drawImage(src, (32 - src.width * s) / 2, (32 - src.height * s) / 2, src.width * s, src.height * s);
+      }
+    } else g.drawImage(itemIcon(e.shiny ? 'gold:' + e.id.slice(5) : e.id), 0, 0);
+  } catch (err){ /* 그림이 없어도 칸은 나와야 한다 */ }
+  return cv;
+}
+function dexWho(e){
+  // 공동 것은 누가 했는지, 각자 것은 수·연 두 글자에 불을 켠다. 둘 다면 하트
+  const s = document.createElement('span'); s.className = 'who';
+  if (e.shared){ if (e.by) s.innerHTML = '<i class="on k-' + e.by + '">' + NAME[e.by][0] + '</i>'; return s; }
+  const has = { [key]: e.me, [R.OTHER[key]]: e.sis };
+  s.innerHTML = ['sua', 'yona'].map(k => '<i class="k-' + k + (has[k] ? ' on' : '') + '">' + NAME[k][0] + '</i>').join('') + (e.me && e.sis ? '<i class="both">♥</i>' : '');
+  return s;
+}
+function dexShown(all){
+  return all.filter(e => (dexCat === 'all' || e.cat === dexCat) && (dexFarm === 'all' || e.farm === dexFarm));
+}
 function renderDex(){
-  const box = $('#dex'); box.innerHTML = '';
-  const all = R.CROP_IDS.map(c => ['crop:' + c, c]).concat(R.CROP_IDS.filter(c => R.CROPS[c].giant).map(c => ['giant:' + c, 'giant:' + c]))
-    .concat(['egg', 'bigegg', 'milk', 'goldmilk', 'wool', 'honey', 'firefly', 'shard', 'moss', 'pinecone', 'sandrose', 'date'].map(k => [k, k]))
-    .concat(R.FISH_IDS.map(f => ['fish:' + f, 'fish:' + f])).concat(Object.keys(R.DISHES).map(d => ['dish:' + d, 'dish:' + d]));
-  let got = 0, gold = 0;
-  all.forEach(([id, dexKey]) => {
-    const have = M.dex.indexOf(dexKey) >= 0; if (have) got++;
-    // 반짝 작물은 따로 칸을 만들지 않고, 그 작물 칸에 금테와 별을 얹는다
-    const shiny = id.slice(0, 5) === 'crop:' && M.dex.indexOf('gold:' + id.slice(5)) >= 0;
-    if (shiny) gold++;
-    const d = document.createElement('div'); d.className = have ? (shiny ? 'gold' : '') : 'no';
-    d.appendChild(itemIcon(shiny ? 'gold:' + id.slice(5) : id));
-    d.appendChild(document.createTextNode(have ? R.itemName(id) : '???'));
-    if (shiny){ const sp = document.createElement('span'); sp.className = 'sp'; sp.textContent = '★★★'; d.appendChild(sp); }
+  const all = dexList(), cats = $('#dexCats'), farms = $('#dexFarms'), box = $('#dex');
+  cats.innerHTML = ''; farms.innerHTML = ''; box.innerHTML = '';
+  DEX_CATS.forEach(([k, l]) => cats.appendChild(btn(l, dexCat === k ? 'on' : '', () => { dexCat = k; renderDex(); })));
+  [['all', '모든 농장']].concat(R.FARMS.filter(f => !f.skip).map(f => [f.id, f.icon + ' ' + f.name.replace(/ 농장$/, '')])).forEach(([k, l]) => {
+    const n = all.filter(e => e.farm === k || k === 'all'), done = n.length && n.every(e => e.have);
+    farms.appendChild(btn(l + (done && k !== 'all' ? ' 🏅' : ''), dexFarm === k ? 'on' : '', () => { dexFarm = k; renderDex(); }));
+  });
+  const list = dexShown(all), got = list.filter(e => e.have).length, both = list.filter(e => e.have || e.sis).length;
+  list.forEach(e => {
+    const d = document.createElement('div');
+    d.className = e.have ? (e.shiny ? 'gold' : '') : e.sis ? 'sis' : 'no';
+    d.appendChild(dexIcon(e));
+    d.appendChild(document.createTextNode(e.have || e.sis ? e.name : '???'));
+    if (e.shiny){ const sp = document.createElement('span'); sp.className = 'sp'; sp.textContent = '★★★'; d.appendChild(sp); }
+    if (e.cat === 'crop' && e.me && e.me.x){
+      const ss = document.createElement('span'); ss.className = 'ss';
+      ss.innerHTML = R.SEASONS.map((s, i) => '<i class="' + s + (e.me.x & (1 << i) ? ' on' : '') + '"></i>').join('');
+      d.appendChild(ss);
+    }
+    d.appendChild(dexWho(e));
+    d.addEventListener('click', () => openDexCard(e));
     box.appendChild(d);
   });
-  $('#dexCount').textContent = got + '/' + all.length + (gold ? ' · 반짝 ' + gold : '');
+  const label = dexLabel(), bar = $('#dexBar'), pct = list.length ? Math.round(got * 100 / list.length) : 0;
+  bar.innerHTML = '<div class="pg"><i style="width:' + pct + '%"></i></div><span><b>' + got + '/' + list.length + '</b>'
+    + (both > got ? ' · 둘이 합쳐 ' + both : '') + '</span>';
+  if (list.length && got === list.length){
+    const st = document.createElement('div'); st.className = 'stamp';
+    st.innerHTML = '<b>🏅 ' + escapeHTML(label) + ' — 다 모았어요!</b>';
+    st.appendChild(btn('📷 이 쪽을 작품으로', 'sm buy', () => openDexSnap(list, label)));
+    bar.appendChild(st);
+  }
+  const mine = all.filter(e => e.have).length, gold = all.filter(e => e.shiny).length;
+  $('#dexCount').textContent = mine + '/' + all.length + (gold ? ' · 반짝 ' + gold : '');
   const st = M.stats || {};
   $('#stats').innerHTML = [['거둔 작물', st.harvested], ['물 준 횟수', st.watered], ['심은 씨앗', st.planted], ['판 물건', st.sold], ['보낸 선물', st.gifted], ['만든 요리', st.cooked], ['모은 재료', st.gathered], ['낚은 물고기', st.fished], ['잡은 반딧불이', st.caught], ['온 날', (M.playDays || []).length + '일']].map(x => '<div>' + x[0] + '<b>' + (x[1] || 0) + '</b></div>').join('');
   renderMedals();
   $('#logs').innerHTML = (W.log || []).slice(0, 12).map(l => '<li><b>' + formatDate(l.t) + '</b> ' + escapeHTML(l.text).replace(/&lt;b&gt;|&lt;\/b&gt;/g, '') + '</li>').join('') || '<li>아직 일지가 없어요</li>';
+  $('#diaryBtn').onclick = () => { diaryAt = 0; openDiary(); };
+}
+function dexLabel(){
+  const c = DEX_CATS.find(x => x[0] === dexCat), f = R.FARMS.find(x => x.id === dexFarm);
+  return [f ? f.name : '', dexCat === 'all' ? (f ? '' : '모든 도감') : c[1].replace(/^\S+ /, '')].filter(Boolean).join(' ');
+}
+function openDexCard(e){
+  const known = e.have || e.sis, inner = $('#modalInner'), u = e.cat === 'guest' ? '번' : e.cat === 'fish' ? '마리' : '개';
+  const rows = [];
+  if (e.shared) (e.info || [['', '아직 못 만났어요']]).forEach(r => rows.push(r));
+  else ['sua', 'yona'].forEach(k => {
+    const r = k === key ? e.me : e.sis;
+    rows.push([NAME[k], !r ? '아직' : (r.d ? r.d + ' · ' + farmName(r.f) + '에서 처음' : '예전에 만났어요') + (r.n ? ' · ' + r.n + u : '') + (e.cat === 'fish' && r.x ? ' · 가장 큰 것 ' + r.x + 'cm' : '')]);
+  });
+  if (e.cat === 'crop' && e.id.slice(0, 5) === 'crop:'){
+    const s = (e.me && e.me.x) || 0, all4 = s === 15;
+    rows.push(['내 계절', R.SEASONS.map((x, i) => '<span class="' + (s & (1 << i) ? '' : 'off') + '">' + SEASON_DOT[x] + '</span>').join(' ') + (all4 ? ' ★ 네 계절 다 거뒀어요!' : '')]);
+    if (e.shiny) rows.push(['반짝', '★★★ 반짝 ' + escapeHTML(e.name) + '도 거뒀어요']);
+  }
+  if (!e.farm0 && e.cat !== 'animal') rows.push(['어디서', '어느 농장에서나']);
+  else if (e.farm0) rows.push(['어디서', farmName(e.farm)]);
+  inner.innerHTML = '<h3 class="pixel">' + (known ? escapeHTML(e.name) : '???') + '</h3>'
+    + '<div class="dexbig' + (known ? '' : ' no') + '" id="dexBig"></div>'
+    + '<p class="sub">' + escapeHTML(dexHint(e)) + '</p>'
+    + '<dl class="dexrows">' + rows.map(r => '<dt>' + r[0] + '</dt><dd>' + (r[0] === '내 계절' || r[0] === '반짝' ? r[1] : escapeHTML(r[1])) + '</dd>').join('') + '</dl>'
+    + '<div class="modal-actions" id="dexAct"></div>';
+  $('#dexBig').appendChild(dexIcon(e));
+  const act = $('#dexAct');
+  if (e.cat === 'animal' && (W.animals || []).some(a => a.mom && a.kind === e.id.slice(7))) act.appendChild(btn('🌳 가계도 보기', 'dot-btn small', () => {
+    closeModal(); openTab('duo'); const t = $('#treeBox'); if (t && !t.hidden) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
+  act.appendChild(btn('닫기', 'dot-btn small', closeModal));
+  $('#modal').hidden = false;
+}
+// 다 모은 쪽 한 장 — 오늘의 농장 한 장(sendSnap)처럼 작품으로 낸다
+function dexSnap(list, label){
+  const COLS = Math.min(8, list.length), CW = 80, CH = 92, PAD = 12, BAR = 46;
+  // 몇 칸 안 되는 쪽도 제목과 날짜가 안 겹치게 폭을 640 이상으로 두고 칸은 가운데로
+  const o = document.createElement('canvas'); o.width = Math.max(640, PAD * 2 + COLS * CW); o.height = PAD * 2 + BAR + 8 + Math.ceil(list.length / COLS) * CH;
+  const X0 = (o.width - COLS * CW) / 2;
+  const g = o.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.fillStyle = '#fff6e9'; g.fillRect(0, 0, o.width, o.height);
+  g.fillStyle = '#3a3226'; g.font = '700 17px "Galmuri11", system-ui, sans-serif'; g.textBaseline = 'middle';
+  g.fillText('📖 ' + NAME[key] + '의 도감 · ' + label, PAD + 4, PAD + BAR / 2);
+  g.textAlign = 'right'; g.fillText(R.dayKey(now()), o.width - PAD - 4, PAD + BAR / 2); g.textAlign = 'left';
+  g.fillRect(0, PAD + BAR - 3, o.width, 3);
+  list.forEach((e, i) => {
+    const x = X0 + (i % COLS) * CW, y = PAD + BAR + 8 + Math.floor(i / COLS) * CH;
+    g.fillStyle = e.shiny ? '#fffbe9' : '#fff'; g.fillRect(x + 4, y, CW - 8, CH - 8);
+    g.strokeStyle = e.shiny ? '#e0a72b' : '#3a3226'; g.lineWidth = 2; g.strokeRect(x + 5, y + 1, CW - 10, CH - 10);
+    g.drawImage(dexIcon(e), x + (CW - 64) / 2, y + 5, 64, 64);
+    g.fillStyle = '#3a3226'; g.font = '700 11px "Galmuri11", system-ui, sans-serif'; g.textAlign = 'center';
+    g.fillText(e.name, x + CW / 2, y + CH - 18, CW - 14); g.textAlign = 'left';
+  });
+  return o;
+}
+function openDexSnap(list, label){
+  const cv = dexSnap(list, label), inner = $('#modalInner');
+  inner.innerHTML = '<h3 class="pixel">📖 ' + escapeHTML(label) + ' 도감</h3>'
+    + '<p class="sub">다 모은 쪽이에요. 작품으로 내면 부모님이 보고 전시실에 걸어 줘요.</p>'
+    + '<div class="snapwrap" id="snapWrap"></div>'
+    + '<div class="modal-actions"><button type="button" class="dot-btn small primary" id="snapSend">🖼 작품으로 내기</button>'
+    + '<button type="button" class="dot-btn small" id="snapClose">닫기</button></div>';
+  $('#snapWrap').appendChild(cv);
+  $('#modal').hidden = false;
+  $('#snapClose').addEventListener('click', closeModal);
+  $('#snapSend').addEventListener('click', () => sendSnap(cv, $('#snapSend'), { title: '도감 · ' + label, quote: NAME[key] + '가 다 모은 ' + label + ' 도감' }));
+}
+// 일기장 — 큰 일만 모은 W.diary 를 달마다 넘겨 본다. 일기장이 생기기 전이면 일지(W.log)로
+const DIARY_ICON = [[/이사 왔/, '🚚'], [/새끼|아기/, '🐣'], [/어른이 됐/, '🌱'], [/상을 받/, '🏆'], [/훈장/, '🏅'], [/큰 .*뽑/, '🎃'],
+  [/반짝/, '✨'], [/완성/, '🏠'], [/모닥불/, '🔥'], [/낚았/, '🎣'], [/부탁/, '🧳'], [/주문/, '📋'], [/놓았어요/, '🎀'], [/보따리/, '🎁']];
+const DIARY_BIG = /이사 왔|새끼|상을 받|훈장|큰 .*뽑|완성/;
+function openDiary(){
+  const src = Array.isArray(W.diary) ? W.diary : (W.log || []), inner = $('#modalInner');
+  const months = [];
+  src.forEach(l => { const m = R.dayKey(l.t).slice(0, 7); if (months.indexOf(m) < 0) months.push(m); });
+  months.sort().reverse();
+  if (!months.length){ inner.innerHTML = '<h3 class="pixel">📔 농장 일기장</h3><p class="sub">아직 적힌 날이 없어요</p><div class="modal-actions" id="dAct"></div>'; $('#dAct').appendChild(btn('닫기', 'dot-btn small', closeModal)); $('#modal').hidden = false; return; }
+  diaryAt = Math.max(0, Math.min(months.length - 1, diaryAt));
+  const m = months[diaryAt], days = {};
+  src.filter(l => R.dayKey(l.t).slice(0, 7) === m).forEach(l => { const d = R.dayKey(l.t); (days[d] = days[d] || []).push(l); });
+  const WD = '일월화수목금토';
+  inner.innerHTML = '<h3 class="pixel">📔 농장 일기장</h3>'
+    + '<div class="dnav"><span id="dOld"></span><b>' + m.slice(0, 4) + '년 ' + Number(m.slice(5)) + '월</b><span id="dNew"></span></div>'
+    + '<div class="diary">' + Object.keys(days).sort().reverse().map(d => {
+      const list = days[d], big = list.some(l => DIARY_BIG.test(l.text));
+      const pi = list.some(l => /이사 왔/.test(l.text)) ? (W.past || []).findIndex(p => p.until === d) : -1;
+      return '<div class="dday' + (big ? ' big' : '') + '"><b>' + Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8)) + '일 (' + WD[new Date(d + 'T00:00').getDay()] + ')</b><ul>'
+        + list.map(l => '<li>' + ((DIARY_ICON.find(x => x[0].test(l.text)) || [0, '·'])[1]) + ' ' + escapeHTML(l.text).replace(/&lt;b&gt;|&lt;\/b&gt;/g, '') + '</li>').join('')
+        + '</ul>' + (pi >= 0 ? '<button type="button" class="dot-btn small" data-past="' + pi + '">📷 ' + escapeHTML(farmName(W.past[pi].farm)) + ' 마지막 한 장</button>' : '') + '</div>';
+    }).join('') + '</div><div class="modal-actions" id="dAct"></div>';
+  if (diaryAt < months.length - 1) $('#dOld').appendChild(btn('◀ 지난달', 'sm', () => { diaryAt++; openDiary(); }));
+  if (diaryAt > 0) $('#dNew').appendChild(btn('다음 달 ▶', 'sm', () => { diaryAt--; openDiary(); }));
+  inner.querySelectorAll('[data-past]').forEach(b => b.addEventListener('click', () => openSnap(Number(b.dataset.past))));
+  $('#dAct').appendChild(btn('닫기', 'dot-btn small', closeModal));
+  $('#modal').hidden = false;
 }
 function renderMedals(){
   const box = $('#medals'); if (!box) return;

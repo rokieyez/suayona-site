@@ -266,6 +266,10 @@
     const key = dayKey(now);
     return FISH_MAX - (mine.fishDay === key ? (mine.fishN || 0) : 0);
   }
+  // 물고기 크기(cm) 가운데값 — 낚을 때 0.7~1.3배로 흔들리고, 잘 낚으면(perfect) 조금 더 크다. 장화·미역은 재지 않는다
+  const FISH_CM = { minnow: 8, crucian: 20, carp: 45, eel: 60, trout: 40, golden: 55, catfish: 70, moonfish: 50, shrimp: 9, sweetfish: 18,
+    crayfish: 11, smelt: 13, puffer: 30, mackerel: 35, squid: 30, flounder: 50, seabream: 45, tuna: 150, cod: 70, char: 55 };
+  function fishCm(f, seed, g){ const b = FISH_CM[f]; return b ? Math.round(b * (0.7 + 0.6 * prand('cm' + seed)) * (g === 'perfect' ? 1.1 : 1)) : 0; }
   function fish(world, mine, now, grade, where){
     const sea = where === 'sea', ice = where === 'ice';
     if (sea && farmOf(world).id !== 'seaside') return fail('바다는 바닷가 농장에만 있어요');
@@ -294,10 +298,12 @@
     mine.fishDay = key; mine.fishN = n + 1;
     const cnt = g === 'perfect' && !FISH[got].junk ? 2 : 1;
     give(mine, 'fish:' + got, cnt);
-    if (mine.dex.indexOf('fish:' + got) < 0) mine.dex.push('fish:' + got);
+    const cm = fishCm(got, mine.key + key + n, g), was = dexRec(mine, 'fish:' + got);
+    const e = noteDex(world, mine, 'fish:' + got, now, cnt, { cm });
+    const best = !!was && cm > was.x && e.n > cnt;      // 처음 낚은 것은 기록 갱신이라 하지 않는다
     mine.xp += XP.fish + (g === 'perfect' ? 3 : 0); bump(mine, 'fished', 1, now);
     if (FISH[got].junk) return okay(eul(FISH[got].name) + ' 건졌어요… 물고기는 아니네요', { junk: true });
-    const two = cnt > 1 ? ' <b>두 마리</b>나!' : '';
+    const two = (cm ? ' · ' + cm + 'cm' + (best ? ' 🏆 가장 큰 기록!' : '') : '') + (cnt > 1 ? ' <b>두 마리</b>나!' : '');
     if (got === 'golden' || got === 'moonfish' || got === 'tuna' || got === 'char'){
       logAdd(world, mine.key, NAME[mine.key] + '가 ' + eul(FISH[got].name) + ' 낚았어요!', now);
       return okay('<b>' + FISH[got].name + '</b>! 아주 귀한 물고기예요' + two, { rare: true });
@@ -441,13 +447,13 @@
     if (s.otherAsked) return moveFarm(world, mine, s, now, s.ask.keep || keep);
     world.moveAsk = { by: mine.key, on: dayKey(now) };
     if (keep) world.moveAsk.keep = keep;
-    logAdd(world, mine.key, NAME[mine.key] + '가 ' + s.next.name + '으로 이사 가자고 했어요', now);
+    logAdd(world, mine.key, NAME[mine.key] + '가 ' + s.next.name + '으로 이사 가자고 했어요', now, true);
     return okay(NAME[OTHER[mine.key]] + '에게 물어봤어요. 둘 다 좋다고 하면 ' + s.next.icon + ' ' + s.next.name + '으로 떠나요');
   }
   function cancelMove(world, mine, now){
     if (!world.moveAsk) return fail('이사 이야기가 없어요');
     delete world.moveAsk;
-    logAdd(world, mine.key, NAME[mine.key] + '가 이사는 다음에 가자고 했어요', now);
+    logAdd(world, mine.key, NAME[mine.key] + '가 이사는 다음에 가자고 했어요', now, true);
     return okay('이사는 다음에 가기로 했어요');
   }
   function moveFarm(world, mine, s, now, keep){
@@ -502,6 +508,8 @@
     // 첫 훈장에는 걸어 둘 자리가 따라온다 — 받은 것이 가방에만 쌓이면 자랑할 데가 없다
     const first = mine.medals.length === 1;
     if (first) give(mine, 'f:medalcase', 1);
+    if (M.gift && M.gift.id.slice(0, 2) === 'f:') noteFurn(world, mine, M.gift.id, now);
+    if (first) noteFurn(world, mine, 'f:medalcase', now);
     logAdd(world, mine.key, NAME[mine.key] + '가 훈장 「' + M.name + '」을 받았어요', now);
     return okay(M.icon + ' <b>' + M.name + '</b> 훈장! ' + M.coins + ' 동전'
       + (M.gift ? ' · ' + itemName(M.gift.id) + ' ' + M.gift.n + '개' : '')
@@ -565,8 +573,9 @@
     const r = prand('bx' + mine.key + dayKey(now) + (mine.boxes || 0));
     mine.boxes = (mine.boxes || 0) + 1;
     const P = BOX_PRIZES[Math.floor(r * BOX_PRIZES.length)];
+    noteDex(world, mine, 'ev:box', now);
     if (P.id === 'coins') mine.coins += P.n;
-    else { give(mine, P.id, P.n); if (mine.dex.indexOf(P.id) < 0 && GOODS[P.id]) mine.dex.push(P.id); }
+    else { give(mine, P.id, P.n); if (DEX_GOODS.indexOf(P.id) >= 0) noteDex(world, mine, P.id, now, P.n); }
     return P;
   }
   function catchFirefly(world, mine, now){
@@ -576,7 +585,7 @@
     if (mine.ffDay !== key){ mine.ffDay = key; mine.ffGot = 0; }
     mine.ffGot++;
     give(mine, 'firefly', 1); mine.xp += 3; bump(mine, 'caught', 1, now);
-    if (mine.dex.indexOf('firefly') < 0) mine.dex.push('firefly');
+    noteDex(world, mine, 'firefly', now);
     return okay('반딧불이를 잡았어요 ✨ (오늘 ' + mine.ffGot + '/' + FIREFLY_MAX + ')');
   }
   // 오로라 빛 조각 줍기 — 기운은 안 든다. 줍는 몫은 각자(mine.shard)
@@ -591,7 +600,7 @@
     if (mine.shard.got.indexOf(i) >= 0) return fail('이미 주운 조각이에요');
     mine.shard.got.push(i);
     give(mine, PK.item, 1); mine.xp += 3;
-    if (mine.dex.indexOf(PK.item) < 0) mine.dex.push(PK.item);
+    noteDex(world, mine, PK.item, now);
     return okay('<b>' + nm + '</b>' + (jong(nm) ? '을' : '를') + ' 주웠어요 ✨ (오늘 ' + mine.shard.got.length + '/' + shardMax(world) + ')');
   }
   function fireSit(world, mine, now){
@@ -605,7 +614,8 @@
     const both = world.fire.by.sua && world.fire.by.yona;
     const add = FIRE_ENERGY + (both ? FIRE_TOGETHER : 0);
     mine.energy = Math.min(maxEnergy(world, mine), mine.energy + add);
-    if (both) logAdd(world, mine.key, '둘이 나란히 모닥불 앞에서 별을 봤어요', now);
+    // 둘이서 모닥불은 둘이 함께 한 일이라 농장에 적는다 — 먼저 앉은 아이는 다시 앉을 수 없어 제 칸에 적을 길이 없다
+    if (both){ logAdd(world, mine.key, '둘이 나란히 모닥불 앞에서 별을 봤어요', now); if (!world.fireFirst) world.fireFirst = dayKey(now); }
     return okay(both ? '둘이 나란히 앉아 별을 봤어요. 기운 +' + add + ' 🔥' : '불 앞에 앉아 별을 봤어요. 기운 +' + add
       + ' · ' + NAME[OTHER[mine.key]] + '도 앉으면 더 따뜻해요', { both: both });
   }
@@ -618,9 +628,48 @@
     return { m, got: day.stats[m.stat] || 0, done: !!(day.missionDone) };
   }
   function xpForLevel(l){ return (l - 1) * (l - 1) * 30; }
-  function logAdd(world, who, text, now){
-    world.log.unshift({ t: now == null ? Date.now() : now, who, text });
+  /* 일기장(world.diary) — 일지(log)는 24줄에서 잘리지만 큰 일은 여기 오래 남는다(2026-10-09 로키즈 「도감 강화」).
+     쪽지·선물·이사 묻기처럼 날마다 여러 번 생기는 일은 small 로 넘겨 일기장에 안 적는다.
+     일기장이 처음 생길 때는 그때까지의 일지에서 작은 일을 빼고 옮겨 담는다. */
+  const DIARY_MAX = 120;      // 농장 세이브 한도(60KB) 안에서 넉넉히 — 한 줄이 90바이트쯤
+  function logAdd(world, who, text, now, small){
+    const e = { t: now == null ? Date.now() : now, who, text };
+    world.log.unshift(e);
     if (world.log.length > LOG_MAX) world.log.length = LOG_MAX;
+    if (small) return;
+    if (!Array.isArray(world.diary)) world.diary = world.log.slice(1).filter(l => !/보냈어요|이사 가자고|이사는 다음에/.test(l.text));
+    world.diary.unshift(e);
+    if (world.diary.length > DIARY_MAX) world.diary.length = DIARY_MAX;
+  }
+  /* 도감 기록(2026-10-09 로키즈 「도감 강화 전부」) — dex 는 「모았다」만 안다. 언제·어디서·몇 번은 dexAt 에 적는다.
+     mine.dexAt[키] = '날.농장.횟수.덤' 한 글자열. 날은 261007(26년 10월 7일, 모르면 0), 농장은 FARMS 번호(모르면 빈칸),
+     덤은 작물이면 거둔 계절 비트(봄 1·여름 2·가을 4·겨울 8), 물고기면 가장 큰 cm.
+     객체로 적으면 칸 150여 개에 아이 세이브 한도(16KB, farm_commit)에 닿아서 짧게 줄였다.
+     이 기록이 생기기 전에 모은 것은 날·농장이 없다 — 화면은 「예전에 만남」으로 둔다. 지어 넣지 않는다.
+     가구는 둘이 함께 쓰는 집 물건이라 농장(world.furnAt)에 적는다 — noteFurn. */
+  const DEX_GOODS = ['egg', 'bigegg', 'duckegg', 'downfeather', 'milk', 'goldmilk', 'wool', 'truffle', 'angora', 'gem', 'honey',
+    'berry', 'snowball', 'firefly', 'shard', 'moss', 'pinecone', 'date', 'sandrose'];
+  const DEX_MAIL = ['santa', 'genie', 'postcard', 'move'];     // 축제 상은 농장 축제 기록(world.festival)으로 본다
+  function dexRec(mine, id){
+    const v = (mine.dexAt || {})[id];
+    if (typeof v !== 'string') return null;
+    const [d, f, n, x] = v.split('.'), F = f === '' ? null : FARMS[Number(f)];
+    return { d: /^\d{6}$/.test(d) ? '20' + d.slice(0, 2) + '-' + d.slice(2, 4) + '-' + d.slice(4) : null, f: F ? F.id : null, n: Number(n) || 0, x: Number(x) || 0 };
+  }
+  // opt — s: 거둔 계절 비트 · cm: 물고기 크기 · farm: 처음 만난 농장이 지금 농장이 아닐 때(옛 농장 선물)
+  function noteDex(world, mine, id, now, n, opt){
+    const o = opt || {}, at = mine.dexAt || (mine.dexAt = {});
+    let r = dexRec(mine, id) || { d: null, f: null, n: 0, x: 0 };
+    if (mine.dex.indexOf(id) < 0){ mine.dex.push(id); r = { d: dayKey(now == null ? Date.now() : now), f: o.farm || farmOf(world).id, n: 0, x: 0 }; }
+    r.n += n == null ? 1 : n;
+    if (o.s) r.x |= o.s;
+    if (o.cm) r.x = Math.max(r.x, o.cm);
+    at[id] = [r.d ? r.d.slice(2).replace(/-/g, '') : 0, r.f ? FARMS.findIndex(F => F.id === r.f) : '', r.n, r.x].join('.');
+    return r;
+  }
+  function noteFurn(world, mine, id, now){
+    const v = String(id).slice(2), at = world.furnAt || (world.furnAt = {});
+    if (!at[v]) at[v] = { d: dayKey(now == null ? Date.now() : now), by: mine.key, f: farmOf(world).id };
   }
   function give(mine, id, n){ mine.inv[id] = (mine.inv[id] || 0) + (n == null ? 1 : n); }
   function subsOf(id){ return id.slice(0, 5) === 'crop:' ? ['gold:' + id.slice(5)] : []; }
@@ -792,7 +841,7 @@
       give(mine, 'giant:' + cropId, 1);
       [id, p.pairOf].forEach(k => { const q = world.plots[k]; if (q) Object.assign(q, { crop: null, giant: false, pairOf: null, pulls: null, fert: false, progress: 0 }); });
       mine.xp += XP.giant; bump(mine, 'harvested', 1, now);
-      if (mine.dex.indexOf('giant:' + cropId) < 0) mine.dex.push('giant:' + cropId);
+      noteDex(world, mine, 'giant:' + cropId, now);
       logAdd(world, mine.key, '둘이서 큰 ' + eul(C.name) + ' 뽑았어요!', now);
       return okay('둘이서 ' + eul('<b>큰 ' + C.name + '</b>') + ' 뽑았어요!', { giant: true });
     }
@@ -801,8 +850,9 @@
     const cropId = p.crop, gold = star >= 3;
     give(mine, (gold ? 'gold:' : 'crop:') + cropId, n);
     mine.xp += XP.harvest + (gold ? 4 : 0); bump(mine, 'harvested', n, now);
-    if (mine.dex.indexOf(cropId) < 0) mine.dex.push(cropId);
-    if (gold && mine.dex.indexOf('gold:' + cropId) < 0) mine.dex.push('gold:' + cropId);
+    // 계절 별 — 거둔 계절을 비트로 모은다(봄 1·여름 2·가을 4·겨울 8). 온실이면 철 아닌 때도 거둔다
+    noteDex(world, mine, cropId, now, n, { s: 1 << SEASONS.indexOf(calendar(world, now).season) });
+    if (gold) noteDex(world, mine, 'gold:' + cropId, now, n);
     const say = gold ? '<b>반짝 ' + C.name + '</b> ' + n + '개! 잘 돌봤네요'
               : star === 2 ? C.name + ' ' + n + '개를 거뒀어요 (잘 돌봐서 한 개 더!)'
               : C.name + ' ' + n + '개를 거뒀어요';
@@ -833,12 +883,12 @@
     if (!nodeReady(world, mine, node, now)) return fail('아직 다시 자라지 않았어요');
     if (!spend(mine, N.cost)) return fail('기운이 없어요');
     mine.nodes[node] = dayKey(now);
-    Object.keys(N.give).forEach(k => give(mine, k, N.give[k]));
+    Object.keys(N.give).forEach(k => { give(mine, k, N.give[k]); if (DEX_GOODS.indexOf(k) >= 0) noteDex(world, mine, k, now, N.give[k]); });
     mine.xp += XP.gather; bump(mine, 'gathered', 1, now);
     const got = Object.keys(N.give).map(k => itemName(k) + ' ' + N.give[k] + '개').join(', ');
     // 산골 농장 바위는 네 번에 한 번쯤 반짝돌이 박혀 나온다 — 그날·그 아이·그 바위로 정해져 새로 고쳐도 같다
     if (N.kind === 'rock' && farmOf(world).id === 'mountain' && prand('gem' + mine.key + dayKey(now) + node) < 0.25){
-      give(mine, 'gem', 1);
+      give(mine, 'gem', 1); noteDex(world, mine, 'gem', now);
       return okay(got + '를 얻었어요. <b>반짝돌</b>도 하나 박혀 있었어요!', { gem: true });
     }
     return okay(got + '를 얻었어요');
@@ -866,7 +916,7 @@
       if (F.season && calendar(world, now).season !== F.season) return fail(F.name + '은 ' + SEASON_NAME[F.season] + '에만 팔아요');
       if (F.farm && F.farm !== farmOf(world).id) return fail(F.name + '은 ' + FARMS.find(f => f.id === F.farm).name + '에서만 팔아요');
       if (mine.coins < F.cost) return fail('동전이 모자라요');
-      mine.coins -= F.cost; give(mine, id, 1);
+      mine.coins -= F.cost; give(mine, id, 1); noteFurn(world, mine, id, now);
       return okay(eul(F.name) + ' 샀어요. 집에 가서 놓아요');
     }
     if (k === 'tool'){
@@ -910,6 +960,7 @@
       mine.coins -= it.cost;
       pedToday(mine, now);
       mine.pedGot[v] = true;
+      noteDex(world, mine, 'ev:peddler', now);
       if (it.id === 'box'){
         const P = openBox(world, mine, now);
         logAdd(world, mine.key, NAME[mine.key] + '가 행상인의 보따리에서 ' + P.say.replace(/<[^>]*>/g, '') + '을 얻었어요', now);
@@ -1019,7 +1070,7 @@
     const a = world.animals.find(x => x.id === aid); if (!a) return fail('없는 동물이에요');
     if (!a.ready) return fail('아직 없어요');
     give(mine, a.ready, 1); const got = a.ready; a.ready = null;
-    if (mine.dex.indexOf(got) < 0) mine.dex.push(got);
+    noteDex(world, mine, got, now);
     return okay(eul(itemName(got)) + ' 얻었어요');
   }
   function rename(world, mine, aid, name){
@@ -1037,10 +1088,10 @@
     hv.last = key; hv.honey = (hv.honey || 0) + 1;
     return true;
   }
-  function takeHoney(world, mine){
+  function takeHoney(world, mine, now){
     const hv = world.buildings.hive; if (!hv || !hv.honey) return fail('꿀이 아직 없어요');
     give(mine, 'honey', hv.honey); const n = hv.honey; hv.honey = 0;
-    if (mine.dex.indexOf('honey') < 0) mine.dex.push('honey');
+    noteDex(world, mine, 'honey', now, n);
     return okay('꿀 ' + n + '개를 떴어요');
   }
   function place(world, mine, room, f, x, y, r){
@@ -1107,7 +1158,7 @@
     if (!spend(mine, 'cook')) return fail('기운이 없어요');
     Object.keys(D.need).forEach(k => takeAny(mine, k, D.need[k]));
     give(mine, 'dish:' + d, 1); mine.xp += XP.cook; bump(mine, 'cooked', 1, now);
-    if (mine.dex.indexOf('dish:' + d) < 0) mine.dex.push('dish:' + d);
+    noteDex(world, mine, 'dish:' + d, now);
     return okay(eul(D.name) + ' 만들었어요');
   }
   function sendGift(world, mine, id, n, note, now){
@@ -1116,7 +1167,7 @@
     const to = OTHER[mine.key];
     world.mail[to].push({ id, n, from: mine.key, note: String(note || '').slice(0, 40), t: now });
     if (world.mail[to].length > 12) world.mail[to].splice(0, world.mail[to].length - 12);
-    bump(mine, 'gifted', 1, now); logAdd(world, mine.key, NAME[mine.key] + '가 ' + NAME[to] + '에게 ' + itemName(id) + ' ' + n + '개를 보냈어요', now);
+    bump(mine, 'gifted', 1, now); logAdd(world, mine.key, NAME[mine.key] + '가 ' + NAME[to] + '에게 ' + itemName(id) + ' ' + n + '개를 보냈어요', now, true);
     return okay(NAME[to] + '의 우편함에 넣었어요');
   }
   function sendNote(world, mine, note, now){
@@ -1129,7 +1180,7 @@
     if (sent >= NOTE_A_DAY) return fail('오늘 쪽지는 ' + NOTE_A_DAY + '통까지 보냈어요. 내일 또 보내요');
     box.push({ id: 'note', n: 1, from: mine.key, note: txt, t: now });
     if (box.length > 12) box.splice(0, box.length - 12);
-    logAdd(world, mine.key, NAME[mine.key] + '가 ' + NAME[to] + '에게 쪽지를 보냈어요', now);
+    logAdd(world, mine.key, NAME[mine.key] + '가 ' + NAME[to] + '에게 쪽지를 보냈어요', now, true);
     return okay(NAME[to] + '의 우편함에 쪽지를 넣었어요');
   }
   function buyGift(world, mine, id, note, now){
@@ -1187,7 +1238,12 @@
     if (!box.length) return fail('우편함이 비었어요');
     const got = box.splice(0, box.length);
     let coins = 0;
-    got.forEach(g => { if (g.id === 'coins') coins += g.n; else if (g.id !== 'note') give(mine, g.id, g.n); });
+    got.forEach(g => {
+      if (g.id === 'coins') coins += g.n; else if (g.id !== 'note') give(mine, g.id, g.n);
+      // 손님·사건 도감 — 산타·램프 요정·그림엽서·이사 선물·축제 상. 날짜는 편지가 온 때
+      if (DEX_MAIL.indexOf(g.from) >= 0){ noteDex(world, mine, 'ev:' + g.from, g.t); if (DEX_GOODS.indexOf(g.id) >= 0) noteDex(world, mine, g.id, g.t, g.n); }
+      if (String(g.id).slice(0, 2) === 'f:') noteFurn(world, mine, g.id, g.t);
+    });
     mine.coins += coins;
     const things = got.filter(g => g.id !== 'note');
     const notes = got.length - things.length;
@@ -1302,7 +1358,8 @@
     if (q.done) return fail(NAME[q.by] + '가 벌써 건넸어요. 다음 부탁은 곧 와요');
     if (!takeAny(mine, q.id, q.n)) return fail(itemName(q.id) + ' ' + q.n + '개가 있어야 해요 (지금 ' + countOf(mine, q.id) + '개)');
     world.quest = { farm: q.farm, turn: q.turn, by: mine.key };
-    mine.coins += q.coins; mine.xp += 20; if (q.gift) give(mine, q.gift, 1);
+    mine.coins += q.coins; mine.xp += 20; if (q.gift){ give(mine, q.gift, 1); noteFurn(world, mine, q.gift, now); }
+    noteDex(world, mine, 'guest:' + q.farm, now);
     logAdd(world, mine.key, NAME[mine.key] + '가 ' + q.name + '의 부탁을 들어줬어요', now);
     return okay(q.icon + ' ' + q.name + ': 고마워! ' + q.coins + ' 동전' + (q.gift ? ' · ' + itemName(q.gift) : '') + '을 받았어요');
   }
@@ -1315,12 +1372,13 @@
     const S = SPECIALS[farmId], F = FARMS.find(f => f.id === farmId);
     if (!S){ mine.coins += PAST_COINS; return okay(F.icon + ' ' + F.name + ' 이웃들이 ' + PAST_COINS + ' 동전을 챙겨 줬어요'); }
     const id = S[Math.floor(prand('past' + key + mine.key) * S.length)], n = id.slice(0, 5) === 'fish:' ? 1 : 2;
-    give(mine, id, n); if (mine.dex.indexOf(dexId(id)) < 0) mine.dex.push(dexId(id));
+    give(mine, id, n); noteDex(world, mine, dexId(id), now, n, { farm: farmId });
     return okay(F.icon + ' ' + F.name + '에서 <b>' + itemName(id) + '</b> ' + n + '개를 받아 왔어요' + (originOf(id) !== farmOf(world).id ? ' — 여기서 팔면 ' + TRADE_MULT + '배예요' : ''));
   }
 
   // 규칙을 FARM 에 얹는다. 이 뒤부터 R.till · R.buy … 를 부를 수 있다.
   Object.assign(FARM, {
+    noteDex, noteFurn, dexRec, DEX_GOODS, DEX_MAIL, FISH_CM,
     ringOf,
     fishLeft,
     fish,

@@ -1112,7 +1112,7 @@ const FARM = (() => {
       key, coins: 120, xp: 0, energy: ENERGY_BASE, energyDay: null,
       // 제 가게에 있는 씨앗 셋과 자매 가게 씨앗 하나 — 첫날부터 「이건 내 가게엔 없네」를 알게 된다.
       inv: key === 'yona' ? { 'seed:potato': 3, 'seed:radish': 1 } : { 'seed:radish': 3, 'seed:potato': 1 },
-      tools: { can: 0, hoe: 0 }, dex: [], recipes: ['salad', 'jam'], stats: {}, day: null, nodes: {},
+      tools: { can: 0, hoe: 0 }, dex: [], dexAt: {}, recipes: ['salad', 'jam'], stats: {}, day: null, nodes: {},
       lastPlay: null, playDays: [], fertSpent: 0, claimed: [], fishDay: null, fishN: 0,
       medals: [],
     };
@@ -1202,6 +1202,7 @@ const FARM = (() => {
     if (!o.tools) o.tools = { can: 0, hoe: 0 };
     ['dex', 'recipes', 'playDays', 'claimed', 'medals'].forEach(k => { if (!Array.isArray(o[k])) o[k] = []; });
     o.dex = o.dex.filter(k => typeof k === 'string' && k.indexOf('null') < 0);
+    if (!o.dexAt || typeof o.dexAt !== 'object' || Array.isArray(o.dexAt)) o.dexAt = {};
     if (!o.stats) o.stats = {};
     if (!o.nodes || typeof o.nodes !== 'object') o.nodes = {};
     o.coins = Math.max(0, Math.floor(Number(o.coins) || 0));
