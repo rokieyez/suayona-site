@@ -655,8 +655,8 @@
      이 기록이 생기기 전에 모은 것은 날·농장이 없다 — 화면은 「예전에 만남」으로 둔다. 지어 넣지 않는다.
      가구는 둘이 함께 쓰는 집 물건이라 농장(world.furnAt)에 적는다 — noteFurn. */
   const DEX_GOODS = ['egg', 'bigegg', 'duckegg', 'downfeather', 'milk', 'goldmilk', 'wool', 'truffle', 'angora', 'gem', 'honey',
-    'berry', 'snowball', 'firefly', 'shard', 'moss', 'pinecone', 'date', 'sandrose'];
-  const DEX_MAIL = ['santa', 'genie', 'postcard', 'move'];     // 축제 상은 농장 축제 기록(world.festival)으로 본다
+    'berry', 'snowball', 'firefly', 'shard', 'moss', 'pinecone', 'date', 'sandrose', 'pitch', 'olive'];   // 역청·올리브 — 방주(2026-10-09)
+  const DEX_MAIL = ['santa', 'genie', 'postcard', 'move', 'ark'];     // 축제 상은 농장 축제 기록(world.festival)으로 본다
   function dexRec(mine, id){
     const v = (mine.dexAt || {})[id];
     if (typeof v !== 'string') return null;

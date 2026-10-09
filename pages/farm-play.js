@@ -1227,7 +1227,7 @@ function itemIcon(id){
     return cv;
   }
   const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; const g = cv.getContext('2d');
-  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', sprinkler2: '#c9d6e0', firefly: '#ffe66d', shard: '#9ef0d0', moss: '#9fb88a', pinecone: '#8a5a32', sandrose: '#e8b088', date: '#a0522a' }[id] || (k === 'f' ? R.FURNITURE[v].c : '#ddd');
+  const col = { pitch: '#2a201a', olive: '#6a8a4a', egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', sprinkler2: '#c9d6e0', firefly: '#ffe66d', shard: '#9ef0d0', moss: '#9fb88a', pinecone: '#8a5a32', sandrose: '#e8b088', date: '#a0522a' }[id] || (k === 'f' ? R.FURNITURE[v].c : '#ddd');
   g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, 32, 32); g.fillStyle = col; g.fillRect(8, 8, 16, 16); g.fillStyle = '#3a3226'; g.fillRect(8, 8, 16, 2); g.fillRect(8, 22, 16, 2); g.fillRect(8, 8, 2, 16); g.fillRect(22, 8, 2, 16);
   return cv;
 }
@@ -2170,9 +2170,11 @@ const DEX_EVENTS = [
   ['ev:move', '🚚', '이사 선물', '둘이 좋다고 해서 다음 농장으로 이사 가면 우편으로 와요', null],
   ['ev:santa', '🎅', '산타 할아버지 편지', '산타 우체통을 놓으면 가끔 편지가 와요', 'aurora'],
   ['ev:genie', '🧞', '램프 요정 편지', '요술 램프를 놓으면 가끔 소원 편지가 와요', 'desert'],
+  ['ev:ark', '🛶', '방주 씨앗 금고', '대홍수를 건너 새 땅에 내린 날, 금고의 씨앗과 선물이 우편으로 와요', 'newland'],
 ];
 const GOOD_HINT = { honey: '벌통을 짓고 꽃이 피면 꿀이 고여요', berry: '덤불에서 따요', snowball: '겨울에 눈더미에서 뭉쳐요',
-  firefly: '여름·가을 밤에 날아다녀요', shard: '오로라 농장 밤에 하늘에서 떨어져요', sandrose: '오아시스 농장 낮에 모래 위에 보여요' };
+  firefly: '여름·가을 밤에 날아다녀요', shard: '오로라 농장 밤에 하늘에서 떨어져요', sandrose: '오아시스 농장 낮에 모래 위에 보여요',
+  pitch: '방주 농장 낮에 땅에 떨어진 까만 덩어리를 주워요', olive: '무지개 농장 낮에 땅에 떨어진 것을 주워요' };
 const SEASON_DOT = { spring: '🌸', summer: '☀️', autumn: '🍁', winter: '❄️' };
 const farmName = id => (R.FARMS.find(f => f.id === id) || { name: '' }).name;
 const skipFarm = id => !!id && !!(R.FARMS.find(f => f.id === id) || {}).skip;

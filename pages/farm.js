@@ -7840,32 +7840,47 @@ function drawTapMark(t){
 /* 밭 크게 보기(2026-09-29 로키즈) — 아이소 섬에서는 휴대폰 폭에서 밭 한 칸이 가로 19px 남짓이라 누르기 어렵다.
    캔버스를 CSS 로 키우고 밀어 밭(아직 안 연 땅까지)이 틀 가득 오게 한다 — 대개 두 배. 그림은 그대로 그리고,
    누른 자리는 pixAt 이 키워진 크기(getBoundingClientRect)로 재므로 따로 셈할 것이 없다 */
-let zoomOn = false;
+let zoomOn = 0;                                   // 0 섬 전체 · 1 밭 크게 · 2 방주(무지개 농장은 마을) 크게 — 큰 섬(40×30)만 2가 있다
+function zoomStates(){ const id = W && R.farmOf(W).id; return id === 'ark' || id === 'newland' ? 3 : 2; }
+// 크게 볼 자리 — 칸 네모 [x, y, w, h] 묶음
+function zoomBoxes(){
+  if (zoomOn === 2){
+    if (R.farmOf(W).id === 'ark'){ const b = spot('ark'); return [[b.x, b.y, b.w, b.h]]; }
+    return ['altar', 'rainbowhill', 'vineyard', 'dovecote', 'olivegrove', 'wellsquare'].map(id => { const b = spot(id); return [b.x, b.y, b.w, b.h]; });
+  }
+  return R.fieldCells(W).map(c => [c.x, c.y, 1, 1]);
+}
 function applyZoom(){
   const cv = $('#farmCanvas'), zb = $('#zoomBtn');
   if (!cv) return;
-  if (zb){ zb.setAttribute('aria-pressed', zoomOn ? 'true' : 'false'); zb.textContent = zoomOn ? '🔍 섬 전체' : '🔍 밭 크게'; }
+  if (zb){
+    const n = zoomStates(), nextBig = zoomOn + 1 < n ? zoomOn + 1 : 0, here = W && R.farmOf(W).id;
+    zb.setAttribute('aria-pressed', zoomOn ? 'true' : 'false');
+    zb.textContent = nextBig === 0 ? '🔍 섬 전체' : nextBig === 1 ? '🔍 밭 크게' : here === 'ark' ? '🔍 방주 크게' : '🔍 마을 크게';
+  }
   if (!zoomOn || !W || !isoMode()){ cv.style.transform = ''; return; }
   const Wc = cv.offsetWidth, Hc = cv.offsetHeight, f = Wc / (cv.width / S);        // 한 도트가 CSS 몇 px(키우기 전)
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-  R.fieldCells(W).forEach(c => [[0, 0], [1, 0], [1, 1], [0, 1]].forEach(([a, b]) => {
-    const p = isoP(c.x + a, c.y + b); x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+  zoomBoxes().forEach(([bx, by, bw, bh]) => [[0, 0], [bw, 0], [bw, bh], [0, bh]].forEach(([a, b]) => {
+    const p = isoP(bx + a, by + b); x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
   }));
-  y0 -= 34;                                                              // 뒷줄 작물 키만큼 위도 보이게
+  y0 -= zoomOn === 2 ? 110 : 34;                                         // 뒷줄 작물 키만큼(방주는 지붕·깃발까지) 위도 보이게
   const k = Math.max(1, Math.min(3, Wc / ((x1 - x0) * f * 1.1), Hc / ((y1 - y0) * f * 1.1)));
   const tx = Math.min(0, Math.max(Wc - k * Wc, Wc / 2 - k * (x0 + x1) / 2 * f));
   const ty = Math.min(0, Math.max(Hc - k * Hc, Hc / 2 - k * (y0 + y1) / 2 * f));
   cv.style.transform = 'translate(' + tx.toFixed(1) + 'px,' + ty.toFixed(1) + 'px) scale(' + k.toFixed(3) + ')';
 }
-// 섬(아이소)일 때만 단추를 보인다 — 들판(판 화면)은 칸이 네모라 필요 없다
+// 섬(아이소)일 때만 단추를 보인다 — 들판(판 화면)은 칸이 네모라 필요 없다. 대홍수 동안(방주 단면)도 감춘다
 function syncZoomBtn(){
-  const zb = $('#zoomBtn'), show = !!W && isoMode();
+  const zb = $('#zoomBtn'), show = !!W && isoMode() && !voyageOn();
+  if (zb && !show && zoomOn){ zoomOn = 0; applyZoom(); }
+  if (zb && show && zoomOn >= zoomStates()){ zoomOn = 0; applyZoom(); }   // 큰 섬에서 작은 섬(옛 농장 구경)으로 넘어가면
   if (!zb || zb.hidden === !show) return;
   zb.hidden = !show;
-  if (!show && zoomOn){ zoomOn = false; applyZoom(); }
+  if (show) applyZoom();
 }
 if ($('#zoomBtn')){
-  $('#zoomBtn').addEventListener('click', () => { zoomOn = !zoomOn; applyZoom(); });
+  $('#zoomBtn').addEventListener('click', () => { zoomOn = (zoomOn + 1) % zoomStates(); applyZoom(); });
   window.addEventListener('resize', () => { if (zoomOn) applyZoom(); });
 }
 // 누른 자리를 화면 도트로 — 칸이 아니라 그림 위 어디를 눌렀는지 봐야 할 때(캐릭터). 판이면 곧 지도 좌표다.
