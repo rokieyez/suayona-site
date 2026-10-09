@@ -582,7 +582,7 @@
   // 모두 480×270 논리 크기에서 그린다(비행선 장면과 같은 틀). 동물은 FARMHD.animal(여덟 방향 그림), 아이는 FARMHD.kid
   const SW = 480, SH = 270;
   const sceneE = (t, night) => ({ P: (u, v, z) => [u, v - (z || 0)], night: !!night, t, farm: 'ark', lamp: () => {} });
-  const BIG = { cow: 1, sheep: 1, pig: 1, goat: 1, reindeer: 1, camel: 1, crane: 1 };
+  const BIG = { cow: 1, sheep: 1, pig: 1, goat: 1, reindeer: 1, camel: 1, crane: 1, deer: 1, giraffe: 1, elephant: 1, zebra: 1 };
   // 옆에서 본 방주 — (x, y) 는 배 바닥 가운데, s 배율. o: { cut 단면, ramp 0(닫힘)~1(내려옴), night, fill(gx, decks) 안에 그릴 것 }
   function sideArk(x, y, s, o){
     o = o || {};

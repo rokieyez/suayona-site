@@ -801,7 +801,7 @@
     face: (x, y, r) => { oval(x + 2.6, y + r * 0.3, 0.6, 0.45, tn('#ff9ab0')); eye(x + 0.2, y - 0.3, 0.75); eye(x + 2, y - 0.4, 0.75); blush(x - 0.8, y + 1.2); } });
   // 맨 위 높이(도트) — 다 되었다는 말풍선을 그 위에 띄운다
   const TOPZ = { chicken: 20, duck: 17, gull: 17, crane: 34, cow: 32, reindeer: 44, camel: 46, goat: 28, sheep: 26, pig: 22, dog: 22, cat: 19, rabbit: 21,
-    deer: 36, squirrel: 18, monkey: 20, parrot: 18, giraffe: 60, elephant: 32, zebra: 30 };
+    deer: 36, squirrel: 18, monkey: 20, parrot: 18, giraffe: 60, elephant: 40, zebra: 30 };
   const BABY = 2 / 3;
   const beastBuf = {};
   function beastSprite(kind, back, frame, baby, sc){
@@ -830,8 +830,9 @@
     twinkle(x + 5, y - 5, 1.4, '#ffe680');
   }
   // 여덟 방향 그림 한 장(pages/beasts.webp, tools/beast-atlas.py 로 굽는다) — 줄 = 동물, 칸 = 방향. 칸 크기·발끝 줄은 도구가 찍어 준 값
-  const BEAST_ATLAS = { src: '/pages/beasts.webp?v=1009c', cw: 147, ch: 136, foot: 132, tall: 128,
-    kinds: ['cow', 'chicken', 'duck', 'sheep', 'pig', 'rabbit', 'dog', 'cat', 'gull', 'goat', 'crane', 'reindeer', 'camel'],
+  const BEAST_ATLAS = { src: '/pages/beasts.webp?v=1010w', cw: 147, ch: 136, foot: 132, tall: 128,
+    kinds: ['cow', 'chicken', 'duck', 'sheep', 'pig', 'rabbit', 'dog', 'cat', 'gull', 'goat', 'crane', 'reindeer', 'camel',
+      'deer', 'squirrel', 'monkey', 'parrot', 'giraffe', 'elephant', 'zebra'],   // 단풍·밀림·사바나 식구(2026-10-09, Higgsfield)
     dirs: ['S', 'SW', 'W', 'NW', 'N', 'NE', 'E', 'SE'] };
   let beastImg = null;
   const beastCell = {};
