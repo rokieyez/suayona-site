@@ -1847,6 +1847,7 @@
   function addFarm(id, o){ EXT[id] = o; if (o.look) LOOKS[id] = o.look; if (o.nightTint) NIGHT_TINT[id] = o.nightTint; if (o.dz) DZ[id] = 1; }
   const kit = { R, path, poly, oval, lin, vgrad, glow, line, poly3, q, box, onFace, faceAt, roof, smallRoof, foot, footBox, geo, post, upright, lump, stones, diamond,
     ovI, curve, along, archWin, archDoor, crenel, datePalm, rock, bush, fir, frostTree, stump, desertNode, look, tone, shade, mix, rgb, hash, h2, INK, LW, TAU, STILL,
+    logWalls, win, door, B, D, DB, F, LIVE,   // 단풍·밀림·사바나(pages/farm-wild.js, 2026-10-09)가 집·꾸미개를 바탕 그림 위에 고쳐 그린다
     ctx: () => g, use: (gg, E) => { g = gg; P3 = (u, v, z) => E.P(u, v, z); } };
   window.FARMHD = { backdrop, island, sparkle, node, thing, floor, live, fence, kid, snowfall, shard, has, hasLive, look, mount, addFarm, kit };
 })();

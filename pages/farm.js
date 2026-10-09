@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '31';
+const PLAY_V = '32';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -550,6 +550,10 @@ const FARM_LOOK = {
               path: ['#bdb8ac', '#aaa498', '#cdc8bd'], pathEdge: '#8a857a', petals: true },
   // 오로라 — 늘 눈 덮인 땅(밭 흙 빛깔 정도만 이 표를 본다)
   aurora:   { tint: '#dfe8f2', amt: 0.7, dry: '#e8eef4', rock: '#9aa0ae', bloom: ['#ffffff', '#d8ecff'], bloomX: 0 },
+  // 단풍·밀림·사바나(2026-10-09) — 하늘·섬은 pages/farm-wild.js(밭 흙 빛깔 정도만 이 표를 본다)
+  maple:    { tint: '#c8a860', amt: 0.6, dry: '#d8c090', rock: '#a8a49a', bloom: ['#e8502a', '#ffb030'], bloomX: 0 },
+  jungle:   { tint: '#6ab04a', amt: 0.6, dry: '#a8c070', rock: '#7a8a6a', bloom: ['#ff4a7a', '#ffd040'], bloomX: 0 },
+  savanna:  { tint: '#d8c070', amt: 0.66, dry: '#e8d090', rock: '#b08060', bloom: ['#ff8a30', '#ffe070'], bloomX: 0 },
   // 사막 오아시스 — 늘 금빛 모래 땅(밭 흙 빛깔 정도만 이 표를 본다)
   desert:   { tint: '#e8c48c', amt: 0.7, dry: '#f2d49c', rock: '#c88a58', bloom: ['#e8407a', '#ffd040'], bloomX: 0 },
   // 방주 농장·무지개 농장(2026-10-09) — 풀 들판(밭 흙 빛깔 정도만 이 표를 본다)
@@ -3622,6 +3626,12 @@ const ISO_LOOK = {
   // 오로라 — 하늘·섬·건물은 pages/farm-hd.js 가 고화소로 그린다(hdOn). 이 표는 비·안개 같은 공통 셈이 보는 값만
   aurora:   { sky: ['#050a1e', '#0b1a3c', '#123a5a', '#1d5a6e'], horizon: ITOP + 34, below: 'ice',
               strata: ['#3a4766', '#2c3654', '#222a44', '#181e34'], deep: ICLIFF },
+  maple:    { sky: ['#5d9bd6', '#8cc0e6', '#cfe4ef', '#f4ead8'], horizon: ITOP + 34, below: 'plain',
+              strata: ['#8a6a4a', '#6e5440', '#5a4436', '#44342a'], deep: ICLIFF },
+  jungle:   { sky: ['#4aa0d8', '#7ec4e0', '#c8e8e0', '#eef4d8'], horizon: ITOP + 34, below: 'plain',
+              strata: ['#a85a3a', '#8a4a30', '#6e3a28', '#522c20'], deep: ICLIFF },
+  savanna:  { sky: ['#5a98d0', '#9cc4dc', '#f0d8a8', '#f8c088'], horizon: ITOP + 34, below: 'plain',
+              strata: ['#c0703e', '#a85e34', '#8a4a2a', '#6a3820'], deep: ICLIFF },
   desert:   { sky: ['#3d8bd8', '#78b6e6', '#cfe2e8', '#f6e2bc'], horizon: ITOP + 34, below: 'sand',
               strata: ['#dca062', '#c98850', '#ae6c3e', '#8e5432'], deep: ICLIFF },
   // 방주 농장 · 무지개 농장(2026-10-09) — 하늘·섬은 pages/farm-ark.js
@@ -3634,7 +3644,7 @@ function isoLook(){ return ISO_LOOK[R.farmOf(W).id] || ISO_LOOK.seaside; }
 /* ---- 스테이지2 고화소 그림(pages/farm-hd.js) ----
    여기 적힌 농장은 하늘·섬·건물·꾸미개·나무·아이를 도트 대신 FARMHD 로 칠한다. 좌표는 같은 도트 단위라 ctx 를 S 배 키워 놓고 부르면 된다.
    FARMHD 에 그림이 없는 것(작물·동물·앞 농장 추억 꾸미개)은 도트 그림 그대로다. 밤(등 켜는 때, L.lamp)이면 밤 빛깔 */
-const HD_FARMS = { aurora: 1, desert: 1, ark: 1, newland: 1 };
+const HD_FARMS = { aurora: 1, maple: 1, jungle: 1, savanna: 1, desert: 1, ark: 1, newland: 1 };
 /* 방주가 한 단계 올라가는 연출(2026-10-09) — 이 기기에서 아직 못 본 단계면 ARK_ANIM_MS 동안 서서히 지어진다.
    지은 아이는 그 자리에서, 자매는 다음에 농장을 열 때 본다(본 단계를 기기에 적어 둔다). 손님은 다 지어진 모습 */
 const ARK_ANIM_MS = 5200;
