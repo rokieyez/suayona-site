@@ -1103,6 +1103,54 @@ function groundColor(kind, tx, ty, x, y){
   return '#ff00ff';
 }
 // ---------- 하늘·먼 곳 ----------
+// ---------- 안데레 마법학교 — 롯데타워 옆 먼 하늘에 뜬 작은 섬 ----------
+// 2026-10-09 부모 요청 「첫화면에 안데레 입구, 멀리 떨어진 느낌으로 작게, 롯데타워 옆」.
+// 롯데타워처럼 하늘에 직접 그린다 — 마을 물건 겹보다 늘 뒤, 자리는 화면 폭 비율(0.82W).
+// 멀어 보이게 색을 하늘 쪽으로 30% 바랜다(HAZE). 크기는 k 하나로 줄이고 키운다.
+function drawSchool(q0, cx, cy, k){
+  const HAZE = '#b9cbe0', q = (x, y, w, h, c) => q0(x, y, w, h, c && c[0] === '#' && c.length === 7 ? mix(c, HAZE, 0.3) : c);
+  const n = v => Math.max(1, Math.round(v * k)), C = [cx, cy], RX = n(30), RY = n(15), DEEP = n(34);
+  // 섬 밑 — 흙과 돌이 거꾸로 뾰족하게
+  for (let x = -RX; x < RX; x++){
+    const t = Math.abs(x + 0.5) / RX, top = Math.round(C[1] + Math.sqrt(Math.max(0, 1 - t * t)) * RY) - 1;
+    const bot = Math.round(C[1] + RY * 0.4 + (1 - Math.pow(t, 1.3)) * DEEP - hash(x >> 1, 0, 41) * n(6));
+    for (let y = top; y < bot; y++){
+      const kk = hash(x >> 1, y, 42), side = x < -RX * 0.3 ? 8 : x > RX * 0.3 ? -22 : -6;
+      q(C[0] + x, y, 1, 1, shade(y - top < 2 ? '#7a5a3a' : kk < 0.18 ? '#8f8577' : kk < 0.3 ? '#6f5238' : '#8a6a4a', side - (y - top) / 2));
+    }
+  }
+  [[-0.4, 4], [0.25, 6]].forEach(([f, len], i) => { for (let j = 0; j < len; j++) q(C[0] + Math.round(f * RX), C[1] + RY + 2 + j, 1, 1, i ? '#5f8f45' : '#4f7a3a'); });   // 늘어진 덩굴
+  q(C[0] - RX - 4, C[1] + 3, 3, 2, '#a89f91'); q(C[0] + RX + 2, C[1] + 6, 2, 2, '#a89f91');   // 떠다니는 돌 조각
+  // 잔디 윗면
+  ellipse(q, C[0], C[1], RX, RY, (x, y) => { const e = ((x - C[0]) / RX) ** 2 + ((y - C[1]) / RY) ** 2; return e > 0.78 ? '#5f9a45' : hash(x, y, 43) < 0.08 ? '#b7e08a' : (x - C[0]) + 2 * (y - C[1]) < -4 ? '#9ad470' : '#86c25f'; });
+  [[-0.65, 0.2, '#ff8fb8'], [0.6, 0.25, '#ffd166'], [0.72, -0.1, '#c9a8ff']].forEach(([fx, fy, c]) => q(C[0] + Math.round(fx * RX), C[1] + Math.round(fy * RY), 1, 1, c));
+  // 탑 — 연보라 돌, 창에 노란 불
+  const tower = (X, Y, R, H, roofH, roofCol) => {
+    cylinder(q, X, Y, R, H, (a, v) => {
+      const ang = Math.acos(1 - 2 * a) / Math.PI, sh = a < 0.1 ? -16 : a < 0.42 ? 10 : a < 0.62 ? 0 : a < 0.85 ? -20 : -34;
+      if (Math.abs(ang - 0.5) < 0.1 && v >= H - n(7)) return '#2a1e44';                                                   // 문
+      if (H > 20 && (Math.abs(ang - 0.36) < 0.06 || Math.abs(ang - 0.64) < 0.06) && v >= n(6) && v < n(12)) return '#ffd77a';   // 위 창
+      if (Math.abs(ang - 0.5) < 0.07 && v >= Math.round(H * 0.45) && v < Math.round(H * 0.45) + n(6)) return '#ffd77a';     // 가운데 창
+      return shade(v % 4 === 3 ? '#9a88bf' : ['#c3b2e3', '#b8a6d9', '#bdaedc'][Math.floor(hash(Math.round(ang * 20), v >> 1, 44) * 3)], sh);
+    });
+    ellipse(q, X, Y - H, R + 2, (R + 2) / 2, (x, y) => y > Y - H ? '#3a2d6e' : '#5a48a0');
+    cone(q, X, Y - H - 1, R + 2, roofH, (a, v, x, y) => hash(x, y, 45) < 0.05 ? '#ffd166' : shade(v % 3 === 0 ? shade(roofCol, -30) : roofCol, a < 0.2 ? -8 : a < 0.5 ? 14 : a < 0.75 ? -6 : -26));
+    if (NIGHT) LIGHTS.push({ x: X, y: Y - H * 0.55, r: R * 2, c: '#ffd77a' });
+    return [X, Y - H - roofH - 1];
+  };
+  const side = tower(C[0] - n(15), C[1] + n(2), n(7), n(26), n(18), '#c45a9a');
+  const tip = tower(C[0] + n(3), C[1] - n(3), n(11), n(42), n(28), '#4b3a8c');
+  // 작은 탑 깃발, 큰 탑 금별
+  q(side[0], side[1] - 6, 1, 6, '#6a5a50'); q(side[0] + 1, side[1] - 6, 4, 2, '#c9a8ff'); q(side[0] + 1, side[1] - 4, 2, 1, '#c9a8ff');
+  q(tip[0], tip[1] - 4, 1, 4, '#c9952e'); q(tip[0] - 2, tip[1] - 6, 5, 1, '#ffd166'); q(tip[0], tip[1] - 8, 1, 5, '#ffd166'); q(tip[0], tip[1] - 6, 1, 1, '#fff6e0');
+  // 반짝이 — 바래지 않게 q0 로
+  [[-1.1, -1.6], [1.0, -2.6], [1.2, -0.8]].forEach(([fx, fy], i) => { const X = C[0] + Math.round(fx * RX), Y = C[1] + Math.round(fy * RX), c = i % 2 ? '#fff6e0' : '#ffd166'; q0(X, Y - 1, 1, 3, c); q0(X - 1, Y, 3, 1, c); });
+  // 누를 자리 — 섬과 탑을 덮는 네모
+  const x0 = C[0] - RX - 2, x1 = C[0] + RX + 2, y0 = tip[1] - 8, y1 = C[1] + RY + DEEP / 2, rows = [];
+  for (let y = y0; y < y1; y++) rows.push([y, x0, x1]);
+  VS.skyHits.push({ key: 'school', rows, x: C[0], y: y0, w: x1 - x0, h: y1 - y0 });
+  VS.school = { x: tip[0], y: tip[1] - 10 };
+}
 function drawSky(q, W, H){
   // 하늘 바탕·해·구름·새는 첫화면 코드가 시간대에 맞춰 그린다 — 여기는 먼 땅만
   // 구름 — 잎 덩어리와 같은 방법, 흰 팔레트
@@ -1215,6 +1263,10 @@ function drawSky(q, W, H){
   for (let i = 0; i < 140; i++){ const x = Math.round(hash(i, 1, 7) * W), y = HZ + 8 + Math.round(hash(i, 2, 7) * (H - HZ - 8)); const t = (y - HZ) / (H - HZ); const c = mix(SP().farTree, '#c0ced4', Math.max(0, 0.6 - t * 1.5)); q(x, y - 2, 2 + (i % 3), 3, c); q(x + 1, y - 3, 1 + (i % 2), 1, c); }
   let rx = W * 0.78;
   for (let y = HZ + 2; y < H; y++){ const t = (y - HZ) / (H - HZ); rx += Math.sin(y * 0.09) * 1.6 - 0.9; const wdt = 2 + Math.round(t * 5); q(Math.round(rx), y, wdt, 1, mix('#8fc0d8', '#c0ced4', Math.max(0, 0.6 - t * 1.5))); if (y % 5 === 0) q(Math.round(rx) + 1, y, 1, 1, '#e0f0f8'); }
+  VS.school = null;
+  // 도시·밭 위에 얹는다(먼저 그리면 빌딩에 가린다). 롯데타워(0.72W) 오른쪽 먼 하늘.
+  // 세로 화면(폰)은 제목 글자가 커서 높이 띄우면 꼬리표가 부제를 덮는다 — 빌딩 높이까지 내린다
+  drawSchool(q, Math.round(0.82 * W), H > W ? SKY - 6 : SKY - 40, 0.55);
 }
 // ---------- 땅 덩어리와 절벽 ----------
 function drawGround(q){
@@ -1811,6 +1863,8 @@ VS.draw = function(env){
     { text: '가볼 곳', href: '/event/#want', x: 3.2, y: 9.45, z: 48 },
     { text: '냠냠 시장', href: '/friends.html', x: 5.8, y: 3.85, z: 52 },   // 광장 빨간 과일가게 — 연아 프렌즈 도감(2026-10-04)
     { text: '게임', href: '/games.html', x: 7.9, y: 3.85, z: 52 },   // 광장 파란 가게 — 메뉴에서 뺀 게임의 새 입구(2026-10-05 부모 요청)
+    // 하늘에 뜬 안데레 마법학교 — 하늘 그림이라 세상 좌표가 없다. y=0 줄 위의 점으로 바꿔 꼬리표를 단다(proj 를 거꾸로)
+    ...(VS.school ? [{ text: '안데레 마법학교', href: '/andere.html', x: (VS.school.x - ORG.x) / S, y: 0, z: (VS.school.x - ORG.x) / 2 - (VS.school.y - SKY) }] : []),
   ];
 };
 
