@@ -198,7 +198,7 @@ function syncTop(){
   $('#enFill').style.width = Math.round(100 * M.energy / mx) + '%'; $('#enText').textContent = M.energy + '/' + mx;
   $('#coins').textContent = M.coins;
   const lv = R.levelOf(M.xp), a = R.xpForLevel(lv), b = R.xpForLevel(lv + 1);
-  $('#lv').textContent = lv; $('#xpFill').style.width = Math.round(100 * (M.xp - a) / (b - a)) + '%';
+  $('#lv').textContent = lv; $('#xpFill').style.width = Math.max(0, Math.min(100, Math.round(100 * (M.xp - a) / (b - a)))) + '%';   // 레벨 20 위로 쌓인 경험치가 막대를 넘쳤다
   const n = (W.mail[key] || []).length; $('#mailN').hidden = !n; $('#mailN').textContent = n;
   const waiting = duoWaiting(); $('#duoN').hidden = !waiting; $('#duoN').textContent = waiting;
   const an = $('#arkN'); if (an){ const aw = arkWaiting(); an.hidden = !aw; an.textContent = aw; }
