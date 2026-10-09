@@ -124,7 +124,7 @@ const wa = fresh('ark');
   wa.ark.seeds = ['radish', 'cloudberry'];
   wa.ark.food = 9999;
   let landed = null;
-  for (let d = 3; d < R.ARK_TURNS; d++){ const x = R.arkMonth(wa, d % 2 ? ms : my, day0 + d * D); assert(x.ok, (d + 1) * 10 + '일째'); assert(!landed, '370일 전에는 안 내린다'); if (x.landed) landed = x; }
+  for (let d = 3; d < R.ARK_TURNS; d++){ const x = R.arkMonth(wa, d % 2 ? my : ms, day0 + d * D); assert(x.ok, (d + 1) * 10 + '일째'); assert(!landed, '370일 전에는 안 내린다'); if (x.landed) landed = x; }
   assert(R.ARK_TURNS === 37 && landed.day === 370, '한 해와 열흘(창 7:11 → 8:14)');
   assert(R.ARK_LOG.every(L => L.day >= 1 && L.day <= 370), '이야기는 다 370일 안에');
   assert(landed && R.arkPhase(wa) === 'land' && R.farmOf(wa).id === 'newland', '370일째 — 무지개 농장');
@@ -163,6 +163,120 @@ const wa = fresh('ark');
   assert(R.claimMedal(w, m, 'arkPairs', day0).ok, '노아의 명부');
   w.ark = { seeds: R.CROP_IDS.slice() };
   assert(R.claimMedal(R.fixWorld(w, day0), m, 'arkSeeds', day0).ok, '씨앗 지기');
+}
+// ---------- 방주 더하기 열한 가지(2026-10-09) ----------
+// 방주에 막 들어간 농장 — 날씨는 boardOn 으로 정해지므로 바꿔 가며 고를 수 있다
+const boarded = b => { const w = fresh('ark'); w.ark = { step: 10, phase: 'flood', boardOn: b || R.dayKey(day0), month: 0, food: 9999, seeds: ['radish'] }; return R.fixWorld(w, day0); };
+const seaBoard = (want, n) => { for (let i = 0; i < 500; i++){ const w = boarded('b' + i); if (R.arkSea(w, n || 0) === want) return w; } throw new Error(want + ' 날씨를 못 찾음'); };
+// 1 동물 칸 돌보기 — 항해 중에도 밥·쓰다듬기 규칙 그대로
+{
+  const w = boarded(), m = rich('sua'), y = rich('yona');
+  w.animals.push({ id: 'c1', kind: 'cow', name: '소', love: 0 });
+  assert(R.feed(w, m, 'c1', day0).ok && R.pet(w, m, 'c1', day0).ok && R.pet(w, y, 'c1', day0).love, '항해 중에도 밥·쓰다듬기');
+}
+// 2 항해 날씨 — 열흘마다 정해짐, 아라랏 뒤엔 큰 파도 없음, 큰 파도 다음 아침엔 생산 없음, 잔잔하면 좋은 물고기↑, 안개면 다음 날짜 「?」
+{
+  const w = boarded(), kinds = {};
+  for (let n = 0; n < R.ARK_TURNS; n++) kinds[R.arkSea(w, n)] = 1;
+  assert(kinds.calm && kinds.fog, '잔잔함·안개가 다 나온다');
+  for (let n = 15; n < R.ARK_TURNS; n++) assert(R.arkSea(seaBoard('wave'), n) !== 'wave', '150일 뒤엔 큰 파도 없음');
+  assert.strictEqual(R.arkSea(w, 3), R.arkSea(R.fixWorld(JSON.parse(JSON.stringify(w)), day0), 3), '저장해도 같은 날씨');
+  const lay = sea => { const v = seaBoard(sea), m = rich('sua'); v.buildings.coop = { done: true }; v.animals.push({ id: 'h1', kind: 'chicken', name: '닭' }); v.dayKey = R.dayKey(day0);
+    R.feed(v, m, 'h1', day0); assert(R.arkMonth(v, m, day0).ok); const notes = R.newDay(v, m, day0 + D); return { ready: v.animals[0].ready, notes }; };
+  const wave = lay('wave'), calm = lay('calm');
+  assert(!wave.ready && wave.notes.some(x => /큰 파도/.test(x)), '큰 파도 다음 아침 — 동물이 쉰다');
+  assert(calm.ready, '잔잔한 날 다음 아침엔 낳는다');
+  const rare = sea => { const v = seaBoard(sea); let n = 0; for (let d = 0; d < 300; d++){ const m = rich('sua'); R.fish(v, m, day0 + d * D, 'good', 'flood'); n += Object.keys(m.inv).filter(k => k.indexOf('fish:') === 0 && R.FISH[k.slice(5)].sell >= 200).length; } return n; };
+  const rc = rare('calm'), rf = rare('fog');
+  assert(rc > rf, '잔잔한 바다에서 좋은 물고기가 더 문다 (' + rc + ' > ' + rf + ')');
+  const fg = seaBoard('fog');
+  assert(R.arkState(fg, rich('sua'), day0).fog && !R.arkState(seaBoard('calm'), rich('sua'), day0).fog, '안개');
+  assert(R.newDay(fg, rich('sua'), day0 + D).some(x => /짙은 안개/.test(x)), '아침 소식에 바다 날씨');
+}
+// 3 비둘기 심부름 — 264일 뒤부터 열흘에 한 번, 270 돌아옴 · 280 올리브 · 290 안 돌아옴(그 뒤 단추 없음)
+{
+  const w = boarded(), m = rich('sua');
+  w.ark.month = 26; assert(!R.arkDove(w, m, day0).ok && !R.arkState(w, m, day0).doveOpen, '260일엔 아직');
+  w.ark.month = 27; let r = R.arkDove(w, m, day0);
+  assert(r.ok && r.dove === 'back' && !R.arkDove(w, m, day0).ok, '270일 — 돌아옴, 열흘에 한 번');
+  w.ark.month = 28; r = R.arkDove(w, m, day0);
+  assert(r.dove === 'olive' && m.inv.olive === 1 && R.dexRec(m, 'olive'), '280일 — 올리브 새잎(도감)');
+  w.ark.month = 29; r = R.arkDove(w, m, day0);
+  w.ark.month = 30;
+  assert(r.dove === 'gone' && !R.arkDove(w, m, day0).ok && !R.arkState(w, m, day0).doveOpen, '290일 — 안 돌아오고 단추가 사라짐');
+  assert.deepStrictEqual(R.fixWorld(JSON.parse(JSON.stringify(w)), day0).ark.doves.map(d => d.r), ['back', 'olive', 'gone']);
+}
+// 4 번갈아 당번 — 지난번에 넘긴 아이는 쉬고, 자매가 이틀 넘게 안 넘기면 같은 아이도
+{
+  const w = boarded(), ms = rich('sua'), my = rich('yona');
+  assert(R.arkMonth(w, ms, day0).ok, '첫 번은 누구나');
+  const r = R.arkMonth(w, ms, day0 + D);
+  assert(!r.ok && /연아 당번/.test(r.msg), '같은 아이는 다음 번에 못 넘김');
+  assert(R.arkState(w, my, day0 + D).myTurn && !R.arkState(w, ms, day0 + D).myTurn);
+  assert(R.arkMonth(w, my, day0 + D).ok);
+  assert(!R.arkMonth(w, my, day0 + 2 * D).ok && !R.arkMonth(w, my, day0 + 3 * D).ok, '이틀까지는 수아를 기다림');
+  assert(R.arkMonth(w, my, day0 + 4 * D).ok, '사흘째엔 연아가 또 넘길 수 있다(막힘 방지)');
+  assert.deepStrictEqual(w.ark.duty.map(d => d.by + d.day), ['sua10', 'yona20', 'yona30']);
+  assert(w.diary.some(l => /수아 당번 — 방주 10일째/.test(l.text)), '일기장에 당번');
+  assert.strictEqual(R.fixWorld(JSON.parse(JSON.stringify(w)), day0).ark.duty.length, 3);
+}
+// 6 창고 칸 — 총점은 그대로, 네 칸이 다 차면 열흘 양식 −1. 옛 세이브는 칸 0
+{
+  const w = fresh('ark'), m = rich('sua'), fishId = R.FISH_IDS.find(f => R.arkFoodOf('fish:' + f) > 0);
+  for (let i = 0; i < 12; i++) w.animals.push({ id: 'z' + i, kind: 'chicken', name: '닭' });
+  const r0 = R.arkRation(w);
+  Object.assign(m.inv, { 'crop:potato': 7, 'crop:cabbage': 7, egg: 10 }); m.inv['fish:' + fishId] = 20;
+  ['crop:potato', 'crop:cabbage', 'egg'].forEach(id => assert(R.arkStore(w, m, id, 99, day0).ok));
+  assert(R.arkRation(w) === r0, '세 칸만으로는 그대로');
+  const r = R.arkStore(w, m, 'fish:' + fishId, 20, day0);
+  assert(r.ok && r.even && R.arkRation(w) === r0 - 1, '네 칸이 골고루 — 열흘 양식 −1');
+  const S = w.ark.store;
+  assert(S.grain === 21 && S.hay === 21 && S.animal === 20 && S.fish >= 20, '칸마다 ' + JSON.stringify(S));
+  assert.strictEqual(w.ark.food, S.grain + S.hay + S.animal + S.fish, '총점은 칸의 합');
+  const old = R.fixWorld({ farm: 0, ark: { food: 50 } }, day0);
+  assert(old.ark.food === 50 && old.ark.store.grain === 0 && old.ark.store.fish === 0, '옛 세이브 — food 그대로, 칸은 0');
+}
+// 7 방주 꾸미기 — 가진 가구 중 넷까지, 문이 닫히면 못 바꿈
+{
+  const w = fresh('ark'), m = rich('sua');
+  w.house.living = { '0,0': { f: 'bed1', r: 0 }, '2,0': { f: 'table', r: 0 } }; m.inv['f:rug1'] = 1; m.inv['f:rug2'] = 1; m.inv['f:bed2'] = 1;
+  assert(!R.arkCabin(w, m, 'bed3', day0).ok, '없는 가구는 못 실음');
+  ['bed1', 'table', 'rug1', 'rug2'].forEach(f => assert(R.arkCabin(w, m, f, day0).ok, f));
+  assert(!R.arkCabin(w, m, 'bed2', day0).ok, '다섯째는 자리가 없음');
+  assert(R.arkCabin(w, m, 'table', day0).ok && w.ark.cabin.length === 3, '다시 누르면 내려놓음');
+  assert.deepStrictEqual(R.fixWorld(JSON.parse(JSON.stringify(w)), day0).ark.cabin, ['bed1', 'rug1', 'rug2']);
+  w.ark.phase = 'flood';
+  assert(!R.arkCabin(w, m, 'bed2', day0).ok, '문이 닫히면 못 바꿈');
+}
+// 11 노아 이야기 카드 · 9 기념관 · 10 금고 정원 · 8 무지개 언약 — 370일을 다 지낸 wa 로
+{
+  const ms = rich('sua'), my = rich('yona');
+  assert.strictEqual(R.arkCardsHave(wa), R.ARK_LOG.length, '370일 지나면 카드 14장');
+  assert(wa.diary.some(l => /「노아 이야기」 한 권/.test(l.text)), '한 권 완성 기록');
+  assert(R.claimMedal(wa, ms, 'arkCards', day0).ok, '노아 이야기 훈장');
+  const half = R.fixWorld({ farm: R.arkFarmIndex(), ark: { phase: 'flood', month: 10 } }, day0);
+  assert.deepStrictEqual(half.ark.cards, [1, 20, 40, 100], '카드 전 옛 세이브 — 지난 이야기는 모은 것으로');
+  const b = boarded(), r = R.arkMonth(b, rich('sua'), day0);
+  assert(r.card && b.ark.cards.length === 1, '첫 열흘 — 큰비 카드');
+  // 기념관
+  const Mm = wa.ark.memorial;
+  assert(Mm && Mm.landOn && Mm.pairs.indexOf('chicken') >= 0 && Mm.pairs.indexOf('cow') >= 0, '기념관 명부 ' + (Mm && Mm.pairs));
+  assert(Mm.log.length > 10 && Mm.log.some(l => /당번/.test(l.text)), '기념관 일지');
+  assert(wa.ark.duty.length === R.ARK_TURNS, '당번 기록 37번');
+  // 금고 정원 — 금고 작물(무, 클라우드베리)을 무지개 농장에서 하나씩
+  const pid = R.plotIds(wa, 'field')[0], grow = c => { wa.plots[pid] = { tilled: true, crop: c, progress: 1e9, tick: day0, care: 99 }; return R.harvest(wa, ms, pid, day0); };
+  assert(!R.claimMedal(wa, ms, 'arkGarden', day0).ok);
+  assert(/금고 정원 1\/2/.test(grow('radish').msg) && !/금고 정원/.test(grow('radish').msg), '같은 작물은 한 번');
+  assert(!/금고 정원/.test(grow('potato').msg), '금고에 없던 작물은 안 셈');
+  assert(/금고 정원 2\/2/.test(grow('cloudberry').msg) && R.claimMedal(wa, ms, 'arkGarden', day0).ok, '금고 정원 훈장');
+  // 무지개 언약 — 첫 제단(무지개 농장 짓기는 앞에서 다 했으므로 새 농장으로)
+  const nl = R.fixWorld({ farm: R.FARMS.findIndex(f => f.id === 'newland'), ark: { phase: 'land', step: 10 } }, day0);
+  [ms, my].forEach(m => { m.inv.stone = 99; m.inv.wood = 99; });
+  assert(R.landPay(nl, ms, 'altar', day0).ok && R.landPay(nl, my, 'altar', day0).covenant && nl.ark.covenant, '첫 제단 — 무지개 언약');
+  assert(!R.landPay(nl, ms, 'rainbowhill', day0).covenant && !R.landPay(nl, my, 'rainbowhill', day0).covenant, '언약은 한 번');
+  assert(wa.ark.covenant, '앞에서 지은 무지개 농장도 언약 기록');
+  const oldNl = R.fixWorld({ farm: 0, ark: { phase: 'land', land: { altar: { done: true, on: '2026-10-11', paid: {} } } } }, day0);
+  assert.strictEqual(oldNl.ark.covenant, '2026-10-11', '옛 세이브 — 제단을 지었으면 언약도');
 }
 // 세이브 크기 — 방주 기록을 다 채워도 농장 한도(60KB) 안
 {

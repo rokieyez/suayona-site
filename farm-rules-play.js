@@ -5,7 +5,7 @@
 // farm-rules.js 가 먼저 돌아야 한다. 저 파일의 닫힘 안에 있는 것들은 FARM.__inner 로 받는다.
 (() => {
   if (typeof FARM === 'undefined' || !FARM.__inner) throw new Error('farm-rules.js 를 먼저 실어야 해요');
-  const { ARK_STEPS, ARK_FOOD_MIN, ARK_SPAN, ARK_DAYS, ARK_TURNS, ARK_GOODS_FOOD, ARK_LOG, arkDay, arkNews, LAND_STEPS, ARK_KINDS, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, localState, specKey, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
+  const { ARK_SEA, arkSea, ARK_BINS, ARK_BIN_MIN, arkBinOf, arkEven, ARK_CABIN_MAX, arkCardsHave, arkGardenHave, ARK_STEPS, ARK_FOOD_MIN, ARK_SPAN, ARK_DAYS, ARK_TURNS, ARK_GOODS_FOOD, ARK_LOG, arkDay, arkNews, LAND_STEPS, ARK_KINDS, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, localState, specKey, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
 
   function dayEndMs(t){ return dayStartMs(dayKey(t)) + DAY_MS; }
   function nextSeason(s){ return SEASONS[(SEASONS.indexOf(s) + 1) % 4]; }
@@ -294,7 +294,8 @@
       return true;
     });
     const g = grade === 'perfect' || grade === 'miss' ? grade : 'good';
-    const rareUp = g === 'perfect' ? 5 : g === 'good' ? 1.6 : 0.6;
+    const calm = flood && arkSea(world, (world.ark && world.ark.month) || 0) === 'calm';   // 잔잔한 바다 — 좋은 물고기가 두 배로
+    const rareUp = (g === 'perfect' ? 5 : g === 'good' ? 1.6 : 0.6) * (calm ? 2 : 1);
     const junkUp = g === 'perfect' ? 0.15 : g === 'good' ? 0.6 : 2.2;
     const wOf = f => { const F = FISH[f]; return Math.max(0.2, F.junk ? F.w * junkUp : (F.sell >= 200 ? F.w * rareUp : F.w)); };
     const total = pool.reduce((a, f) => a + wOf(f), 0);
@@ -859,7 +860,7 @@
       mine.xp += XP.giant; bump(mine, 'harvested', 1, now);
       noteDex(world, mine, 'giant:' + cropId, now);
       logAdd(world, mine.key, '둘이서 큰 ' + eul(C.name) + ' 뽑았어요!', now);
-      return okay('둘이서 ' + eul('<b>큰 ' + C.name + '</b>') + ' 뽑았어요!', { giant: true });
+      return okay('둘이서 ' + eul('<b>큰 ' + C.name + '</b>') + ' 뽑았어요!' + gardenNote(world, mine, cropId, now), { giant: true });
     }
     const star = starOf(p, gh);
     const bonus = perkOf(world) === 'harvest' && prand('hv' + id + now) < 0.25 ? 1 : 0;   // 단풍 농장 「풍년」 — 넷에 하나꼴로 하나 더
@@ -872,7 +873,7 @@
     if (gold) noteDex(world, mine, 'gold:' + cropId, now, n);
     const say = (gold ? '<b>반짝 ' + C.name + '</b> ' + n + '개! 잘 돌봤네요'
               : star === 2 ? C.name + ' ' + n + '개를 거뒀어요 (잘 돌봐서 한 개 더!)'
-              : C.name + ' ' + n + '개를 거뒀어요') + (bonus ? ' 🧺 풍년이라 하나 더!' : '');
+              : C.name + ' ' + n + '개를 거뒀어요') + (bonus ? ' 🧺 풍년이라 하나 더!' : '') + gardenNote(world, mine, cropId, now);
     if (gold) logAdd(world, mine.key, NAME[mine.key] + '가 반짝 ' + eul(C.name) + ' 거뒀어요!', now);
     if (C.regrow){
       p.picks = (p.picks || 0) + 1;
@@ -1310,7 +1311,10 @@
     const cal = calendar(world, now), key = dayKey(now);
     seasonSweep(world, now);
     const made = animalDay(world, now);
-    if (made.length) notes.push(made.map(a => a.name).join(', ') + '이 무언가 남겼어요');
+    // 큰 파도(항해 날씨)를 넘긴 다음 아침 — 동물들이 놀라 아무것도 안 남긴다. 실패가 아니라 하루 쉬는 것
+    const Aw = afloat(world) ? world.ark : null, scared = !!(Aw && Aw.wx === 'wave' && Aw.monthDay && daysBetween(Aw.monthDay, key) === 1);
+    if (scared){ made.forEach(a => { a.ready = null; }); if (made.length) notes.push('🌊 어제 큰 파도에 놀란 동물들이 오늘은 아무것도 안 남겼어요. 꼭 안아 줘요'); }
+    else if (made.length) notes.push(made.map(a => a.name).join(', ') + '이 무언가 남겼어요');
     const babies = babyDay(world, now);
     babies.born.forEach(b => {
       notes.push('<b>' + b.momName + '</b>가 새끼를 낳았어요! 이름을 지어 줘요');
@@ -1322,7 +1326,8 @@
     });
     if (afloat(world)){
       const A = world.ark, need = arkRation(world);
-      notes.push('🛶 방주 ' + arkDay(A.month || 0) + '일째' + (A.monthDay === key ? ' — 오늘 열흘은 보냈어요' : ' — 「🛶 방주」 칸에서 <b>열흘 보내기</b>를 눌러요 (양식 ' + A.food + ' · 열흘에 ' + need + ')'));
+      const sea = ARK_SEA[arkSea(world, A.month || 0)];
+      notes.push('🛶 방주 ' + arkDay(A.month || 0) + '일째' + (A.monthDay === key ? ' — 오늘 열흘은 보냈어요' : ' — 「🛶 방주」 칸에서 <b>열흘 보내기</b>를 눌러요 (양식 ' + A.food + ' · 열흘에 ' + need + ')') + ' · 바다: ' + sea.icon + ' ' + sea.name);
       world.hot = hotCrop(world, now);
       return notes;
     }
@@ -1430,7 +1435,33 @@
     if (!Array.isArray(A.on)) A.on = [];
     ['paid', 'by', 'land'].forEach(k => { if (!A[k] || typeof A[k] !== 'object') A[k] = {}; });
     A.step = arkStep(world); A.food = Math.max(0, Math.floor(Number(A.food) || 0)); A.month = Math.max(0, Math.floor(Number(A.month) || 0));
+    if (!A.store || typeof A.store !== 'object') A.store = {};
+    Object.keys(ARK_BINS).forEach(b => { A.store[b] = Math.max(0, Math.floor(Number(A.store[b]) || 0)); });
+    ['duty', 'cabin', 'cards', 'garden', 'doves'].forEach(k => { if (!Array.isArray(A[k])) A[k] = []; });
     return A;
+  }
+  // 번갈아 당번 — 지난번에 넘긴 아이는 쉬고 자매가 넘긴다. 자매가 이틀 넘게 안 넘기면(안 들어오면) 같은 아이도 된다(막힘 방지)
+  function dutyOk(A, who, key){
+    const last = (A.duty || [])[(A.duty || []).length - 1];
+    return !last || last.by !== who || !last.on || daysBetween(last.on, key) > 2;
+  }
+  // 가족 방에 실을 수 있는 가구 — 집에 놓인 것과 내 가방의 것
+  function cabinChoices(world, mine){
+    const out = [];
+    Object.keys(world.house || {}).forEach(r => Object.keys(world.house[r] || {}).forEach(c => { const it = world.house[r][c]; if (it && FURNITURE[it.f] && out.indexOf(it.f) < 0) out.push(it.f); }));
+    Object.keys((mine && mine.inv) || {}).forEach(k => { if (k.slice(0, 2) === 'f:' && mine.inv[k] > 0 && FURNITURE[k.slice(2)] && out.indexOf(k.slice(2)) < 0) out.push(k.slice(2)); });
+    return out;
+  }
+  // 금고 정원 — 무지개 농장에서 금고 작물을 처음 거둘 때마다 한 칸. 거둔 말 뒤에 붙일 글을 돌려준다
+  function gardenNote(world, mine, crop, now){
+    const A = world.ark;
+    if (farmOf(world).id !== 'newland' || !A || !Array.isArray(A.seeds) || A.seeds.indexOf(crop) < 0) return '';
+    if (!Array.isArray(A.garden)) A.garden = [];
+    if (A.garden.indexOf(crop) >= 0) return '';
+    A.garden.push(crop);
+    const n = arkGardenHave(world), all = A.seeds.length;
+    if (n >= all) logAdd(world, mine.key, '씨앗 금고에서 나온 작물을 무지개 농장에서 모두 거뒀어요! 금고 정원 완성 🌱', now);
+    return ' · 🌱 금고 정원 ' + n + '/' + all;
   }
   const atArk = world => farmOf(world).id === 'ark';
   // 창고에 넣으면 몇 점인가 — 먹으면 기운이 도는 것 + 동물이 낳은 것. 꽃·재료는 0
@@ -1454,6 +1485,15 @@
       ask, mineAsked: !!(ask && ask.by === mine.key), otherAsked: !!(ask && ask.by !== mine.key),
       land: LAND_STEPS.map((L, i) => { const s = (A.land || {})[L.id] || {}; return Object.assign({ i, name: PLACE[L.id].name, done: !!s.done, paid: Object.assign({}, s.paid || {}), open: LAND_STEPS.slice(0, i).every(x => ((A.land || {})[x.id] || {}).done) }, L); }),
       landDone: landDone(world),
+      // 방주 더하기(2026-10-09)
+      sea: arkSea(world, A.month || 0), seaInfo: ARK_SEA[arkSea(world, A.month || 0)], seaWas: A.wx || null, fog: afloat(world) && arkSea(world, A.month || 0) === 'fog',
+      store: Object.assign({ grain: 0, hay: 0, fish: 0, animal: 0 }, A.store || {}), bins: ARK_BINS, binMin: ARK_BIN_MIN, even: arkEven(world),
+      duty: (A.duty || []).slice(), myTurn: dutyOk(A, mine.key, key),
+      cabin: (A.cabin || []).slice(), cabinMax: ARK_CABIN_MAX, furn: cabinChoices(world, mine),
+      doves: (A.doves || []).slice(), doveOpen: afloat(world) && arkDay(A.month || 0) >= 264 && !(A.doves || []).some(d => d.r === 'gone'), doveDone: A.doveAt === (A.month || 0),
+      cards: (A.cards || []).slice(), cardsHave: arkCardsHave(world),
+      garden: (A.garden || []).slice(), gardenHave: arkGardenHave(world), gardenTotal: (A.seeds || []).length,
+      covenant: A.covenant || null, memorial: A.memorial || null,
     };
   }
   // 씨앗 금고 — 어느 농장에서나 한 알씩. 농장 전용 작물은 그 농장에 있을 때 넣어 둬야 한다
@@ -1491,9 +1531,12 @@
     n = Math.max(1, Math.min(Math.floor(n || 1), mine.inv[id] || 0));
     if (!take(mine, id, n)) return fail('그만큼 없어요');
     const A = arkOf(world);
-    A.food += v * n; A.by[mine.key] = (A.by[mine.key] || 0) + v * n;
+    const even0 = arkEven(world), bin = arkBinOf(id);
+    A.food += v * n; A.by[mine.key] = (A.by[mine.key] || 0) + v * n; A.store[bin] += v * n;
     bump(mine, 'stored', n, now);
-    return okay('🌾 ' + itemName(id) + ' ' + n + '개를 양식 창고에 넣었어요 (+' + v * n + ' · 창고 ' + A.food + ')', { food: A.food });
+    const even = !even0 && arkEven(world);
+    if (even) logAdd(world, mine.key, '양식 창고 네 칸이 골고루 찼어요 — 열흘 양식이 하나 줄어요', now);
+    return okay(ARK_BINS[bin].icon + ' ' + itemName(id) + ' ' + n + '개를 양식 창고 「' + ARK_BINS[bin].name + '」 칸에 넣었어요 (+' + v * n + ' · 창고 ' + A.food + ')' + (even ? ' · <b>네 칸이 골고루!</b> 열흘 양식 −1' : ''), { food: A.food, bin, even });
   }
   // 방주에 들어가기 — 먼저 누른 아이가 묻고, 자매가 「좋아」 하면 모두 들어가고 문이 닫힌다(창세기 7:16)
   function arkBoard(world, mine, now){
@@ -1534,13 +1577,48 @@
     const A = arkOf(world), key = dayKey(now), need = arkRation(world);
     if (A.monthDay === key) return fail('오늘은 열흘을 보냈어요. 내일 또 와요 — 방주에서는 하루가 열흘이에요');
     if (A.food < need) return fail('양식이 ' + (need - A.food) + ' 모자라요 — 동물이 낳은 것을 줍거나 창밖 낚시로 잡아 양식 창고에 넣어요');
+    if (!dutyOk(A, mine.key, key)) return fail('이번 열흘은 ' + NAME[OTHER[mine.key]] + ' 당번이에요 — 번갈아 넘겨요 (' + NAME[OTHER[mine.key]] + '가 이틀 넘게 안 오면 내가 넘겨도 돼요)');
+    A.wx = arkSea(world, A.month);                       // 지나가는 열흘의 바다 — 큰 파도면 내일 아침 동물이 쉰다
     A.food -= need; A.month = (A.month || 0) + 1; A.monthDay = key; mine.xp += 20;
     const d = arkDay(A.month), news = arkNews(A.month);
+    A.duty.push({ by: mine.key, day: d, on: key });
+    // 노아 이야기 카드 — 이야기가 나올 때마다 한 장씩
+    const had = arkCardsHave(world);
+    news.forEach(L => { if (A.cards.indexOf(L.day) < 0) A.cards.push(L.day); });
+    const card = arkCardsHave(world) > had, book = card && arkCardsHave(world) >= ARK_LOG.length;
     const text = news.length ? news.map(L => L.text).join(' ') : '큰물 위에서 열흘을 더 보냈어요. 동물들을 돌봐요';
     const say = news.length ? news.map(L => L.icon + ' ' + L.text + ' (창세기 ' + L.ref + ')').join(' · ') : '🛶 ' + text;
-    logAdd(world, mine.key, '방주 ' + d + '일째 — ' + text, now);
-    if (A.month >= ARK_TURNS){ landArk(world, mine, now); return okay('<b>' + d + '일째</b> — ' + say, { month: A.month, day: d, landed: true }); }
-    return okay('<b>' + d + '일째</b> — ' + say + ' · 양식 ' + A.food + ' 남았어요', { month: A.month, day: d });
+    logAdd(world, mine.key, NAME[mine.key] + ' 당번 — 방주 ' + d + '일째 — ' + text, now);
+    if (book) logAdd(world, mine.key, '노아 이야기 카드 ' + ARK_LOG.length + '장을 다 모아 「노아 이야기」 한 권이 완성됐어요 📖', now);
+    const more = (card ? ' · 📜 노아 이야기 카드 ' + arkCardsHave(world) + '/' + ARK_LOG.length : '') + (book ? ' · 📖 <b>「노아 이야기」 한 권 완성!</b>' : '') + (A.wx === 'wave' ? ' · 🌊 큰 파도에 동물들이 놀랐어요' : '');
+    if (A.month >= ARK_TURNS){ landArk(world, mine, now); return okay('<b>' + d + '일째</b> — ' + say + more, { month: A.month, day: d, landed: true, card, book }); }
+    return okay('<b>' + d + '일째</b> — ' + say + more + ' · 양식 ' + A.food + ' 남았어요', { month: A.month, day: d, card, book });
+  }
+  // 비둘기 심부름(창세기 8:8-12) — 까마귀(264일) 뒤부터 열흘에 한 번. 날에 따라 돌아오거나, 올리브 잎을 물어 오거나, 안 돌아온다
+  function arkDove(world, mine, now){
+    if (!afloat(world)) return fail('비둘기는 방주 안에서 날려요');
+    const A = arkOf(world), d = arkDay(A.month);
+    if (d < 264) return fail('아직 물이 높아요 — 까마귀를 내보낸 뒤(264일째부터) 비둘기를 날려요');
+    if (A.doves.some(x => x.r === 'gone')) return fail('비둘기는 새 땅에 머물렀어요');
+    if (A.doveAt === A.month) return fail('이번 열흘엔 비둘기를 날렸어요. 열흘 보내고 또 날려요');
+    const r = d < 278 ? 'back' : d < 285 ? 'olive' : 'gone';
+    A.doveAt = A.month; A.doves.push({ day: d, r, by: mine.key }); mine.xp += 10;
+    if (r === 'olive'){ give(mine, 'olive', 1); noteDex(world, mine, 'olive', now); }
+    const say = r === 'back' ? '앉을 곳이 없어 돌아왔어요 (창세기 8:9)' : r === 'olive' ? '올리브 새잎을 물고 돌아왔어요! (8:11)' : '돌아오지 않았어요 — 물이 거의 다 빠졌어요 (8:12)';
+    logAdd(world, mine.key, NAME[mine.key] + '가 ' + d + '일째에 비둘기를 날려 보냈어요 — ' + say, now);
+    return okay('🕊️ 비둘기가 ' + say + (r === 'olive' ? ' · 🫒 올리브 잎 1' : ''), { dove: r });
+  }
+  // 방주 꾸미기 — 들어가기 전에 가족 방(위층)에 실을 가구를 고른다. 누를 때마다 넣고 뺀다(최대 ARK_CABIN_MAX)
+  function arkCabin(world, mine, f, now){
+    if (!FURNITURE[f]) return fail('없는 가구예요');
+    const A = arkOf(world);
+    if (A.phase) return fail('방주 문이 닫혀서 더 실을 수 없어요');
+    const i = A.cabin.indexOf(f);
+    if (i >= 0){ A.cabin.splice(i, 1); return okay(eul(FURNITURE[f].name) + ' 내려놓았어요', { cabin: A.cabin.slice() }); }
+    if (cabinChoices(world, mine).indexOf(f) < 0) return fail(FURNITURE[f].name + '은 우리 집에 없어요');
+    if (A.cabin.length >= ARK_CABIN_MAX) return fail('가족 방이 좁아서 ' + ARK_CABIN_MAX + '개까지만 실어요');
+    A.cabin.push(f); void now;
+    return okay('🏠 ' + eul(FURNITURE[f].name) + ' 가족 방에 실었어요 (' + A.cabin.length + '/' + ARK_CABIN_MAX + ')', { cabin: A.cabin.slice() });
   }
   // 새 땅에 내린다 — 방주 농장은 옛 농장으로 남고(물이 빠진 빈 터) 무지개 농장에서 새로 짓는다
   function landArk(world, mine, now){
@@ -1571,6 +1649,11 @@
     });
     A.babies = babies;
     logAdd(world, mine.key, '수아와 연아가 방주에서 내려 무지개 농장에 첫발을 디뎠어요. 하늘에 무지개가 떴어요', now);
+    // 방주 기념관 — 옛 방주 농장 빈 터에서 본다. 일지는 방주 이야기만 40줄까지(당번·비둘기는 A.duty·A.doves 에 그대로)
+    const lines = (Array.isArray(world.diary) ? world.diary : world.log || []).filter(l => l && /방주|비둘기|큰비|노아/.test(l.text)).slice(0, 40).reverse();
+    A.memorial = { boardOn: A.boardOn || null, landOn: key, animals: (world.animals || []).length - babies,
+      pairs: ARK_KINDS.filter(k => world.animals.filter(a => a.kind === k && !(a.baby && a.born === key)).length >= 2),
+      log: lines.map(l => ({ t: l.t, who: l.who, text: String(l.text).slice(0, 120) })) };
     return babies;
   }
   // 무지개 농장 짓기 — LAND_STEPS 를 차례로. 각자 제 몫을 내면 하나가 선다
@@ -1588,16 +1671,19 @@
     if (s.paid.sua && s.paid.yona){
       s.done = true; s.on = dayKey(now); mine.xp += XP.build;
       logAdd(world, mine.key, L.icon + ' ' + nm + ' 완성 — ' + L.say, now);
+      // 첫 제단 — 무지개 언약(창세기 9:13). 이 뒤 무지개 농장은 비 온 날마다 하늘에 무지개
+      const covenant = id === 'altar' && !A.covenant;
+      if (covenant){ A.covenant = dayKey(now); logAdd(world, mine.key, '🌈 하늘에 큰 무지개 — 「내가 내 무지개를 구름 속에 두었나니 이것이 나와 세상 사이의 언약의 증거니라」 (창세기 9:13)', now); }
       const all = landDone(world) >= LAND_STEPS.length;
       if (all) logAdd(world, mine.key, '무지개 농장이 완성됐어요! 수아연아의 방주 이야기 끝 — 그리고 새 이야기의 시작', now);
-      return okay(L.icon + ' <b>' + nm + '</b> 완성! ' + L.say, { built: true, all });
+      return okay(L.icon + ' <b>' + nm + '</b> 완성! ' + L.say, { built: true, all, covenant });
     }
     return okay('내 몫을 냈어요. ' + NAME[OTHER[mine.key]] + '도 내면 ' + ee(nm) + ' 지어져요');
   }
 
   // 규칙을 FARM 에 얹는다. 이 뒤부터 R.till · R.buy … 를 부를 수 있다.
   Object.assign(FARM, {
-    arkOf, arkFoodOf, arkState, arkSeed, arkPay, arkStore, arkBoard, arkBoardCancel, arkMonth, landPay,
+    arkOf, arkFoodOf, arkState, arkSeed, arkPay, arkStore, arkBoard, arkBoardCancel, arkMonth, landPay, arkDove, arkCabin, cabinChoices, dutyOk,
     noteDex, noteFurn, dexRec, DEX_GOODS, DEX_MAIL, FISH_CM,
     ringOf,
     fishLeft,
