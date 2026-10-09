@@ -5,7 +5,7 @@
 // farm-rules.js 가 먼저 돌아야 한다. 저 파일의 닫힘 안에 있는 것들은 FARM.__inner 로 받는다.
 (() => {
   if (typeof FARM === 'undefined' || !FARM.__inner) throw new Error('farm-rules.js 를 먼저 실어야 해요');
-  const { SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
+  const { ARK_STEPS, ARK_FOOD_MIN, ARK_MONTHS, ARK_GOODS_FOOD, ARK_LOG, LAND_STEPS, ARK_KINDS, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, localState, specKey, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
 
   function dayEndMs(t){ return dayStartMs(dayKey(t)) + DAY_MS; }
   function nextSeason(s){ return SEASONS[(SEASONS.indexOf(s) + 1) % 4]; }
@@ -23,6 +23,7 @@
     });
   }
   function plotOpen(world, id){
+    if (afloat(world)) return false;                          // 대홍수 동안 섬은 물속이다
     if (id[0] === 'g') return !!(world.buildings.greenhouse && world.buildings.greenhouse.done);
     return plotIds(world, 'field').indexOf(id) >= 0;
   }
@@ -200,6 +201,7 @@
     return '';
   }
   function moveThing(world, mine, id, x, y){
+    if (afloat(world)) return fail('섬이 물에 잠겨 있어요');
     x = Math.round(Number(x)); y = Math.round(Number(y));
     const why = placeBlocked(world, id, x, y);
     if (why) return fail(why);
@@ -249,8 +251,8 @@
       if ((a.love || 0) < LOVE_FOR_BABY) return;
       if (a.lastBorn && daysBetween(a.lastBorn, key) < BABY_REST_DAYS) return;
       const here = world.animals.filter(x => ANIMALS[x.kind] && ANIMALS[x.kind].need === A.need).length;
-      if (here >= ANIMAL_MAX[A.need]) return;                 // 우리가 꽉 찼다
-      if (prand('bb' + a.id + key) >= BABY_CHANCE) return;
+      if (here >= animalMax(world, A.need)) return;          // 우리가 꽉 찼다(방주·무지개 농장은 두 배)
+      if (prand('bb' + a.id + key) >= BABY_CHANCE * (perkOf(world) === 'bloom' ? 2 : 1)) return;   // 무지개 농장 「생육하고 번성하라」
       a.lastBorn = key;
       // 이름이 겹치면 누구 새끼인지 알 수 없다 — 그럴 때는 어미 이름을 앞에 붙인다
       let nm = '아기 ' + A.name;
@@ -271,18 +273,21 @@
     crayfish: 11, smelt: 13, puffer: 30, mackerel: 35, squid: 30, flounder: 50, seabream: 45, tuna: 150, cod: 70, char: 55 };
   function fishCm(f, seed, g){ const b = FISH_CM[f]; return b ? Math.round(b * (0.7 + 0.6 * prand('cm' + seed)) * (g === 'perfect' ? 1.1 : 1)) : 0; }
   function fish(world, mine, now, grade, where){
-    const sea = where === 'sea', ice = where === 'ice';
+    const sea = where === 'sea', ice = where === 'ice', flood = where === 'flood';
     if (sea && farmOf(world).id !== 'seaside') return fail('바다는 바닷가 농장에만 있어요');
+    // 방주 창밖 낚시(2026-10-09) — 큰물 위에서만. 바닷물고기가 문다
+    if (flood && !afloat(world)) return fail('방주 창밖 낚시는 큰물 위에 떠 있을 때만 해요');
+    if (!flood && afloat(world)) return fail('지금은 방주 안이에요. 창밖 큰물에 찌를 드리워요');
     // 얼음낚시 — 오로라 농장에 얼음낚시 구멍(icefish)이 놓여 있을 때만(2026-10-09)
     if (ice && !(farmOf(world).id === 'aurora' && world.decor && world.decor.icefish)) return fail('얼음낚시 구멍을 먼저 놓아요. 오로라 농장 가게 꾸미기 칸에 있어요');
-    if (!sea && !ice && !(world.decor && world.decor.pond)) return fail('연못을 먼저 놓아요. 가게 꾸미기 칸에 있어요');
+    if (!sea && !ice && !flood && !(world.decor && world.decor.pond)) return fail('연못을 먼저 놓아요. 가게 꾸미기 칸에 있어요');
     if (fishLeft(mine, now) <= 0) return fail('오늘은 많이 잡았어요. 내일 또 와요');
     if (!spend(mine, 'fish')) return fail('기운이 없어요');
     const key = dayKey(now), n = mine.fishDay === key ? (mine.fishN || 0) : 0;
     const cal = calendar(world, now), night = isNight(now);
     const pool = FISH_IDS.filter(f => {
       const F = FISH[f];
-      if (!!F.sea !== sea) return false;               // 바다에서는 바닷물고기만, 연못에서는 민물고기만
+      if (!!F.sea !== (sea || flood)) return false;    // 바다(와 큰물)에서는 바닷물고기만, 연못에서는 민물고기만
       if (!!F.ice !== ice) return false;               // 얼음 구멍에서는 얼음 물고기만
       if (F.season && F.season.indexOf(cal.season) < 0) return false;
       if (F.night && !night) return false;            // 달빛 물고기와 메기는 밤에만
@@ -427,6 +432,12 @@
       ['sua', 'yona', 'living'].forEach(r => conds.push({ id: 'room:' + r, icon: '🛋️', name: ROOMS[r].name + ' 가구',
         have: Object.keys((world.house && world.house[r]) || {}).length, need: next.room, unit: '개' }));
       conds.push({ id: 'animals', icon: '🐾', name: '동물', have: (world.animals || []).length, need: next.animals, unit: '마리' });
+      /* 이 농장에서만 얻는 것(2026-10-09 로키즈 「이주 조건에 그 농장 것이 갖춰졌는지」) — 방주에 실을 동식물을 여기서 챙겨 간다.
+         miss 는 아직 못 갖춘 것(화면이 이름을 보여 준다) */
+      const L = localState(world, mine), push = (id, icon, name, list, unit) => { if (list.length) conds.push({ id, icon, name, have: list.filter(x => x.have).length, need: list.length, unit, miss: list.filter(x => !x.have).map(x => x.id) }); };
+      push('local:animals', '🦌', '이 농장 동물', L.animals, '가지');
+      push('local:seeds', '🌰', '씨앗 금고', L.crops, '가지');
+      push('local:goods', '📜', '이 농장 특산물', L.goods, '가지');
     }
     conds.forEach(c => { c.left = Math.max(0, c.need - c.have); });
     return { farm: farmOf(world), next, have, need: ids.length, conds, ready: !!next && conds.every(c => !c.left),
@@ -558,6 +569,7 @@
     return mine.pedDay === dayKey(now) ? Math.max(0, PED_WANT_MAX - (mine.pedSold || 0)) : PED_WANT_MAX;
   }
   function sellToPeddler(world, mine, n, now){
+    if (afloat(world)) return fail('행상인은 큰물 위에 없어요');
     const want = peddlerWant(world, now);
     if (!want) return fail('행상인은 오늘 안 왔어요');
     const left = peddlerSoldLeft(mine, now);
@@ -594,7 +606,7 @@
   function pickShard(world, mine, i, now){
     const PK = PICKS[farmOf(world).id], nm = PK && GOODS[PK.item] ? GOODS[PK.item].name : '빛 조각';
     if (!PK) return fail('빛 조각은 오로라 농장에만 떨어져요');
-    if (isNight(now) !== PK.night) return fail(nm + (PK.night ? '은 밤에만 떨어져 있어요' : '은 낮에만 모래 위에 보여요'));
+    if (isNight(now) !== PK.night) return fail(nm + (jong(nm) ? '은' : '는') + (PK.night ? ' 밤에만 떨어져 있어요' : ' 낮에만 보여요'));
     const key = dayKey(now), q = shardSpots(world, now).find(s => s.i === i);
     if (!q) return fail('여기엔 빛 조각이 없어요');
     if (!mine.shard || mine.shard.day !== key) mine.shard = { day: key, got: [] };
@@ -649,8 +661,9 @@
      이 기록이 생기기 전에 모은 것은 날·농장이 없다 — 화면은 「예전에 만남」으로 둔다. 지어 넣지 않는다.
      가구는 둘이 함께 쓰는 집 물건이라 농장(world.furnAt)에 적는다 — noteFurn. */
   const DEX_GOODS = ['egg', 'bigegg', 'duckegg', 'downfeather', 'milk', 'goldmilk', 'wool', 'truffle', 'angora', 'gem', 'honey',
-    'berry', 'snowball', 'firefly', 'shard', 'moss', 'pinecone', 'date', 'sandrose'];
-  const DEX_MAIL = ['santa', 'genie', 'postcard', 'move'];     // 축제 상은 농장 축제 기록(world.festival)으로 본다
+    'berry', 'snowball', 'firefly', 'shard', 'moss', 'pinecone', 'date', 'sandrose', 'pitch', 'olive',   // 역청·올리브 — 방주(2026-10-09)
+    'syrup', 'chestnut', 'acorn', 'mango', 'banana', 'feather', 'baobab'];   // 단풍·밀림·사바나(2026-10-09)
+  const DEX_MAIL = ['santa', 'genie', 'postcard', 'move', 'ark'];     // 축제 상은 농장 축제 기록(world.festival)으로 본다
   function dexRec(mine, id){
     const v = (mine.dexAt || {})[id];
     if (typeof v !== 'string') return null;
@@ -662,6 +675,8 @@
     const o = opt || {}, at = mine.dexAt || (mine.dexAt = {});
     let r = dexRec(mine, id) || { d: null, f: null, n: 0, x: 0 };
     if (mine.dex.indexOf(id) < 0){ mine.dex.push(id); r = { d: dayKey(now == null ? Date.now() : now), f: o.farm || farmOf(world).id, n: 0, x: 0 }; }
+    // 특산물은 둘이 같이 센다 — 이사 조건 「이 농장 특산물」(localState)
+    const sk = specKey(id); if (originOf(sk) && world && (world.found = world.found || []).indexOf(sk) < 0) world.found.push(sk);
     r.n += n == null ? 1 : n;
     if (o.s) r.x |= o.s;
     if (o.cm) r.x = Math.max(r.x, o.cm);
@@ -847,16 +862,17 @@
       return okay('둘이서 ' + eul('<b>큰 ' + C.name + '</b>') + ' 뽑았어요!', { giant: true });
     }
     const star = starOf(p, gh);
-    const n = C.yield + (star >= 2 ? 1 : 0);   // 잘 돌본 작물은 한 개 더
+    const bonus = perkOf(world) === 'harvest' && prand('hv' + id + now) < 0.25 ? 1 : 0;   // 단풍 농장 「풍년」 — 넷에 하나꼴로 하나 더
+    const n = C.yield + (star >= 2 ? 1 : 0) + bonus;   // 잘 돌본 작물은 한 개 더
     const cropId = p.crop, gold = star >= 3;
     give(mine, (gold ? 'gold:' : 'crop:') + cropId, n);
     mine.xp += XP.harvest + (gold ? 4 : 0); bump(mine, 'harvested', n, now);
     // 계절 별 — 거둔 계절을 비트로 모은다(봄 1·여름 2·가을 4·겨울 8). 온실이면 철 아닌 때도 거둔다
     noteDex(world, mine, cropId, now, n, { s: 1 << SEASONS.indexOf(calendar(world, now).season) });
     if (gold) noteDex(world, mine, 'gold:' + cropId, now, n);
-    const say = gold ? '<b>반짝 ' + C.name + '</b> ' + n + '개! 잘 돌봤네요'
+    const say = (gold ? '<b>반짝 ' + C.name + '</b> ' + n + '개! 잘 돌봤네요'
               : star === 2 ? C.name + ' ' + n + '개를 거뒀어요 (잘 돌봐서 한 개 더!)'
-              : C.name + ' ' + n + '개를 거뒀어요';
+              : C.name + ' ' + n + '개를 거뒀어요') + (bonus ? ' 🧺 풍년이라 하나 더!' : '');
     if (gold) logAdd(world, mine.key, NAME[mine.key] + '가 반짝 ' + eul(C.name) + ' 거뒀어요!', now);
     if (C.regrow){
       p.picks = (p.picks || 0) + 1;
@@ -877,6 +893,7 @@
     return okay(eul(C.name) + ' 뽑았어요');
   }
   function gather(world, mine, node, now){
+    if (afloat(world)) return fail('섬이 물에 잠겨 있어요');
     const N = nodeDef(world, node);
     if (!N) return fail('없는 자리예요');
     const sea = calendar(world, now).season;
@@ -895,6 +912,7 @@
     return okay(got + '를 얻었어요');
   }
   function buy(world, mine, id, now){
+    if (afloat(world)) return fail('방주 안에는 가게가 없어요. 새 땅에 내리면 다시 열려요');
     const [k, v] = id.split(':');
     if (k === 'seed'){
       const C = CROPS[v];
@@ -905,7 +923,8 @@
       /* 지금 심을 수 없는 씨앗은 팔지 않는다. 사 놓고 심지 못하면 동전만 버리는 셈이다.
          온실이 있으면 어느 계절이든 자라니 그때는 열어 준다. */
       const cal2 = calendar(world, now);
-      if (!C.hardy && C.season.indexOf(cal2.season) < 0 && !(world.buildings.greenhouse && world.buildings.greenhouse.done))
+      // 그 농장 전용 씨앗은 철이 아니어도 판다 — 방주 씨앗 금고에 넣어야 다음 농장으로 떠나서(2026-10-09 「이주 조건」)
+      if (!C.hardy && !C.farm && C.season.indexOf(cal2.season) < 0 && !(world.buildings.greenhouse && world.buildings.greenhouse.done))
         return fail(SEASON_NAME[cal2.season] + '에는 ' + C.name + ' 씨앗을 살 수 없어요. ' + C.season.map(s => SEASON_NAME[s]).join('·') + '에 오세요');
       if (mine.coins < C.seed) return fail('동전이 모자라요');
       mine.coins -= C.seed; give(mine, id, 1);
@@ -933,9 +952,10 @@
     if (k === 'animal'){
       const A = ANIMALS[v]; if (!A) return fail('없는 동물이에요');
       if (A.gift) return fail(A.name + (jong(A.name) ? '은 ' : '는 ') + FARMS.find(f => f.id === A.gift).name + '으로 이사 갈 때 새끼로 따라와요');
+      if (A.farm && A.farm !== farmOf(world).id) return fail(A.name + (jong(A.name) ? '은 ' : '는 ') + FARMS.find(f => f.id === A.farm).name + '에서만 만나요');
       if (!(world.buildings[A.need] && world.buildings[A.need].done)) return fail(eul(BUILDINGS[A.need].name) + ' 먼저 지어요');
       const here = world.animals.filter(a => ANIMALS[a.kind].need === A.need).length;
-      if (here >= ANIMAL_MAX[A.need]) return fail(ee(BUILDINGS[A.need].name) + ' 꽉 찼어요');
+      if (here >= animalMax(world, A.need)) return fail(ee(BUILDINGS[A.need].name) + ' 꽉 찼어요');
       if (mine.coins < A.cost) return fail('동전이 모자라요');
       mine.coins -= A.cost;
       world.animals.push({ id: 'a' + now, kind: v, name: A.name, by: mine.key, born: dayKey(now), love: 0, pet: [], since: 0 });
@@ -1022,6 +1042,7 @@
     return fail('살 수 없는 것이에요');
   }
   function sell(world, mine, id, n, now){
+    if (afloat(world)) return fail('방주 안에는 사 줄 상인이 없어요. 먹을 것은 양식 창고에 넣어요');
     n = n == null ? 1 : n;
     const price = sellPrice(id, world, now);
     if (!price) return fail('상인이 사지 않는 물건이에요');
@@ -1039,6 +1060,7 @@
     return okay(eul(itemName(id)) + ' 먹고 기운이 ' + f + ' 돌아왔어요');
   }
   function contribute(world, mine, id, now){
+    if (afloat(world)) return fail('섬이 물에 잠겨 있어요. 새 땅에 내리면 지어요');
     const B = BUILDINGS[id]; if (!B) return fail('없는 건물이에요');
     const b = world.buildings[id] || (world.buildings[id] = { paid: {} });
     if (b.done) return fail('이미 지었어요');
@@ -1065,7 +1087,7 @@
     if (a.pet.indexOf(mine.key) >= 0) return fail('오늘은 이미 쓰다듬었어요');
     a.pet.push(mine.key);
     mine.xp += XP.pet; bump(mine, 'petted', 1, now);
-    if (a.pet.length >= 2){ a.love = Math.min(10, (a.love || 0) + 1); return okay('둘 다 쓰다듬어서 ' + a.name + '의 마음이 ' + a.love + '이 됐어요 💗', { love: true }); }
+    if (a.pet.length >= 2){ a.love = Math.min(10, (a.love || 0) + (perkOf(world) === 'herd' ? 2 : 1)); /* 사바나 「물웅덩이」 — 두 칸씩 */ return okay('둘 다 쓰다듬어서 ' + a.name + '의 마음이 ' + a.love + '이 됐어요 💗', { love: true }); }
     return okay(eul(a.name) + ' 쓰다듬었어요. ' + NAME[OTHER[mine.key]] + '도 쓰다듬으면 마음이 자라요');
   }
   function collect(world, mine, aid, now){
@@ -1193,6 +1215,7 @@
     return okay(itemName(id) + ' 하나를 사서 ' + NAME[OTHER[mine.key]] + '의 우편함에 넣었어요');
   }
   function fillOrder(world, mine, o, n, now){
+    if (afloat(world)) return fail('방주 안에서는 주문을 받지 않아요');
     const p = world.orders[o.id] || (world.orders[o.id] = { got: 0, by: {}, done: false });
     if (p.done) return fail('이미 채운 주문이에요');
     n = Math.min(n, o.n - p.got);
@@ -1214,6 +1237,7 @@
     return okay(CROPS[o.crop].name + ' ' + n + '개를 보탰어요 (' + p.got + '/' + o.n + ')');
   }
   function donate(world, mine, id, n, now){
+    if (afloat(world)) return fail('방주 안에서는 축제가 쉬어요');
     if (!festivalOpen(world, now)) return fail('축제는 계절 마지막 이틀에 열려요');
     const cal = calendar(world, now), fest = cal.season, fk = festivalKey(world, now);
     const worth = festivalWorth(fest, id, world, now);
@@ -1296,6 +1320,24 @@
       notes.push(g.name + (jong(g.name) ? '이' : '가') + ' 다 자랐어요');
       logAdd(world, g.by, g.name + (jong(g.name) ? '이' : '가') + ' 어른이 됐어요', now);
     });
+    if (afloat(world)){
+      const A = world.ark, need = arkRation(world);
+      notes.push('🛶 방주 ' + (A.month || 0) + '달째' + (A.monthDay === key ? ' — 오늘 한 달은 보냈어요' : ' — 「🛶 방주」 칸에서 <b>한 달 보내기</b>를 눌러요 (양식 ' + A.food + ' · 한 달에 ' + need + ')'));
+      world.hot = hotCrop(world, now);
+      return notes;
+    }
+    // 짝꿍이 찾아와요(방주 농장 능력, 창세기 7:9) — 혼자인 동물에게 짝이 스스로 온다. 하루에 한 번, 다섯에 셋꼴
+    if (perkOf(world) === 'mate' && !arkPhase(world) && world.mateDay !== key && prand('mate' + key) < 0.6){
+      const lone = ARK_KINDS.filter(k => arkCount(world, k) === 1 && world.animals.filter(a => ANIMALS[a.kind] && ANIMALS[a.kind].need === ANIMALS[k].need).length < animalMax(world, ANIMALS[k].need));
+      if (lone.length){
+        world.mateDay = key;
+        const k = lone[Math.floor(prand('matek' + key) * lone.length)], one = world.animals.find(a => a.kind === k), Ak = ANIMALS[k];
+        let nm = '짝꿍 ' + Ak.name; if (world.animals.some(x => x.name === nm)) nm = one.name + '의 짝꿍';
+        world.animals.push({ id: 'a' + now + 'm', kind: k, name: nm, by: one.by || 'sua', born: key, love: 3, pet: [], since: 0, mate: one.id });
+        notes.push('💞 <b>' + one.name + '</b>의 짝꿍 ' + ee(Ak.name) + ' 스스로 찾아왔어요! 이제 한 쌍이에요');
+        logAdd(world, one.by || 'sua', one.name + '의 짝꿍 ' + ee(Ak.name) + ' 방주 농장에 찾아왔어요', now);
+      }
+    }
     const sprinkled_n = sprinklerDay(world, now);
     if (sprinkled_n) notes.push('스프링클러가 ' + sprinkled_n + '칸에 물을 줬어요');
     if (peddlerHere(world, now)){
@@ -1303,9 +1345,10 @@
       notes.push('<b>행상인</b>이 수레를 끌고 왔어요 — 오늘은 ' + eul(itemName(pw.id)) + ' 두 배로 사 간대요');
     }
     if (honeyCheck(world, now)) notes.push('벌통에 꿀이 찼어요');
-    if (isWet(weatherOf(key, cal.season))){
+    const squall = perkOf(world) === 'squall';   // 밀림 「스콜」 — 맑은 날에도 소나기가 한 번 지나간다
+    if (isWet(weatherOf(key, cal.season)) || squall){
       Object.keys(world.plots).forEach(id => { const p = world.plots[id]; if (p.tilled && id[0] !== 'g'){ tickPlot(p, now, false); p.wet = Math.max(p.wet || 0, dayEndMs(now)); } });
-      notes.push('비가 와서 밭이 저절로 촉촉해요');
+      notes.push(isWet(weatherOf(key, cal.season)) ? '비가 와서 밭이 저절로 촉촉해요' : '🌦️ 스콜이 한바탕 지나가 밭이 촉촉해요');
     }
     if (cal.season === 'autumn' && !(world.buildings.scarecrow && world.buildings.scarecrow.done) && world.crow !== key && prand('c' + key) < 0.3){
       world.crow = key;
@@ -1343,7 +1386,7 @@
   }
   /* ⑥ 농장 손님 부탁 — 사흘마다 새로. 둘 중 한 명이 건네면 끝(world.quest). 받는 것은 동전(파는 값×2)과 그 농장 가구 하나 */
   function questOf(world, now){
-    const f = farmOf(world).id, G = GUESTS[f]; if (!G) return null;
+    const f = farmOf(world).id, G = GUESTS[f]; if (!G || afloat(world)) return null;
     const today = dayKey(now), d = Math.max(0, daysBetween(world.started || today, today)), turn = Math.floor(d / QUEST_DAYS);
     const day = dayKey(dayStartMs(today) - (d % QUEST_DAYS) * DAY_MS + 12 * H);   // 이번 부탁이 온 날(한낮으로 재서 서머타임에도 안 밀린다)
     const [id, n] = G.want[Math.floor(prand('quest' + f + turn) * G.want.length)];
@@ -1378,8 +1421,180 @@
     return okay(F.icon + ' ' + F.name + '에서 <b>' + itemName(id) + '</b> ' + n + '개를 받아 왔어요' + (originOf(id) !== farmOf(world).id ? ' — 여기서 팔면 ' + TRADE_MULT + '배예요' : ''));
   }
 
+  // ---------- 메인 목표: 수아연아의 방주 (2026-10-09 로키즈) ----------
+  // 처음 쓰는 날 world.ark 를 만든다. 모양은 fixWorld 가 다시 거른다
+  function arkOf(world){
+    if (!world.ark || typeof world.ark !== 'object') world.ark = {};
+    const A = world.ark;
+    if (!Array.isArray(A.seeds)) A.seeds = [];
+    if (!Array.isArray(A.on)) A.on = [];
+    ['paid', 'by', 'land'].forEach(k => { if (!A[k] || typeof A[k] !== 'object') A[k] = {}; });
+    A.step = arkStep(world); A.food = Math.max(0, Math.floor(Number(A.food) || 0)); A.month = Math.max(0, Math.floor(Number(A.month) || 0));
+    return A;
+  }
+  const atArk = world => farmOf(world).id === 'ark';
+  // 창고에 넣으면 몇 점인가 — 먹으면 기운이 도는 것 + 동물이 낳은 것. 꽃·재료는 0
+  function arkFoodOf(id){
+    const k = String(id).split(':')[0];
+    if (k === 'giant') return 15;
+    return foodOf(id) || ARK_GOODS_FOOD[id] || 0;
+  }
+  // 화면이 한 번에 읽는 방주 이야기 전부
+  function arkState(world, mine, now){
+    const A = world.ark || {}, step = arkStep(world), key = dayKey(now == null ? Date.now() : now), ask = A.ask || null;
+    return {
+      phase: arkPhase(world), here: farmOf(world).id, atArk: atArk(world), step, total: ARK_STEPS.length,
+      steps: ARK_STEPS.map((S, i) => Object.assign({ i, done: i < step, cur: i === step }, S)),
+      paid: Object.assign({}, A.paid || {}), on: (A.on || []).slice(),
+      food: Math.max(0, Math.floor(Number(A.food) || 0)), foodMin: ARK_FOOD_MIN, by: Object.assign({}, A.by || {}),
+      ration: arkRation(world), month: A.month || 0, months: ARK_MONTHS, monthDone: A.monthDay === key, log: ARK_LOG,
+      pairs: ARK_KINDS.map(k => ({ kind: k, n: arkCount(world, k) })), pairsHave: arkPairsHave(world), pairsTotal: ARK_KINDS.length,
+      seeds: (A.seeds || []).slice(), seedsHave: arkSeedsHave(world), seedsTotal: CROP_IDS.length,
+      ask, mineAsked: !!(ask && ask.by === mine.key), otherAsked: !!(ask && ask.by !== mine.key),
+      land: LAND_STEPS.map((L, i) => { const s = (A.land || {})[L.id] || {}; return Object.assign({ i, name: PLACE[L.id].name, done: !!s.done, paid: Object.assign({}, s.paid || {}), open: LAND_STEPS.slice(0, i).every(x => ((A.land || {})[x.id] || {}).done) }, L); }),
+      landDone: landDone(world),
+    };
+  }
+  // 씨앗 금고 — 어느 농장에서나 한 알씩. 농장 전용 작물은 그 농장에 있을 때 넣어 둬야 한다
+  function arkSeed(world, mine, crop, now){
+    const C = CROPS[crop]; if (!C) return fail('그런 씨앗은 없어요');
+    const A = arkOf(world);
+    if (A.seeds.indexOf(crop) >= 0) return fail(C.name + ' 씨앗은 이미 금고에 있어요');
+    if (!take(mine, 'seed:' + crop)) return fail(C.name + ' 씨앗이 가방에 없어요. 가게에서 사거나 자매에게 받아요');
+    A.seeds.push(crop); mine.xp += 5;
+    if (A.seeds.length === CROP_IDS.length) logAdd(world, mine.key, '방주 씨앗 금고에 모든 작물 씨앗이 모였어요!', now);
+    return okay('🌰 <b>' + C.name + '</b> 씨앗을 방주 씨앗 금고에 넣었어요 (' + arkSeedsHave(world) + '/' + CROP_IDS.length + ')', { seed: crop });
+  }
+  // 방주 짓기 — 지금 단계에 각자 제 몫을 낸다. 둘 다 내면 한 단계 올라간다
+  function arkPay(world, mine, now){
+    if (!atArk(world)) return fail('방주는 방주 농장에서 지어요');
+    const A = arkOf(world);
+    if (A.phase || A.step >= ARK_STEPS.length) return fail('방주는 다 지었어요');
+    const S = ARK_STEPS[A.step];
+    if (A.paid[mine.key]) return fail('내 몫은 냈어요. ' + NAME[OTHER[mine.key]] + '를 기다려요');
+    if (S.id === 'store' && A.food < ARK_FOOD_MIN) return fail('양식 창고가 ' + A.food + '/' + ARK_FOOD_MIN + '이에요. 먹을 것을 더 넣어요');
+    if (!canPay(mine, S.each)) return fail('재료가 모자라요 — 각자 ' + Object.keys(S.each).map(k => (k === 'coins' ? '🪙 ' : itemName(k) + ' ') + S.each[k]).join(' · '));
+    pay(mine, S.each); A.paid[mine.key] = true; mine.xp += 20;
+    if (A.paid.sua && A.paid.yona){
+      A.step++; A.paid = {}; A.on.push(dayKey(now)); mine.xp += XP.build;
+      logAdd(world, mine.key, '방주 ' + A.step + '단계 「' + S.name + '」 — ' + S.say, now);
+      return okay(S.icon + ' 방주 <b>' + A.step + '단계 「' + S.name + '」</b> 완성! ' + S.say, { built: true, step: A.step });
+    }
+    return okay('내 몫을 냈어요. ' + NAME[OTHER[mine.key]] + '도 내면 「' + S.name + '」이 지어져요');
+  }
+  // 양식 창고 — 방주 농장과 방주 안에서. 넣은 것은 둘이 함께 먹는다
+  function arkStore(world, mine, id, n, now){
+    if (!atArk(world) || arkPhase(world) === 'land') return fail('양식 창고는 방주 농장에 있어요');
+    const v = arkFoodOf(id);
+    if (!v) return fail(itemName(id) + '은 양식이 아니에요');
+    n = Math.max(1, Math.min(Math.floor(n || 1), mine.inv[id] || 0));
+    if (!take(mine, id, n)) return fail('그만큼 없어요');
+    const A = arkOf(world);
+    A.food += v * n; A.by[mine.key] = (A.by[mine.key] || 0) + v * n;
+    bump(mine, 'stored', n, now);
+    return okay('🌾 ' + itemName(id) + ' ' + n + '개를 양식 창고에 넣었어요 (+' + v * n + ' · 창고 ' + A.food + ')', { food: A.food });
+  }
+  // 방주에 들어가기 — 먼저 누른 아이가 묻고, 자매가 「좋아」 하면 모두 들어가고 문이 닫힌다(창세기 7:16)
+  function arkBoard(world, mine, now){
+    if (!atArk(world)) return fail('방주 농장에서 들어가요');
+    const A = arkOf(world);
+    if (A.phase) return fail('이미 방주에 들어갔어요');
+    if (A.step < ARK_STEPS.length) return fail('방주를 ' + ARK_STEPS.length + '단계까지 다 지어야 들어가요 (지금 ' + A.step + '단계)');
+    if (A.ask && A.ask.by === mine.key) return fail(NAME[OTHER[mine.key]] + '의 대답을 기다려요');
+    if (A.ask) return boardArk(world, mine, now);
+    A.ask = { by: mine.key, on: dayKey(now) };
+    logAdd(world, mine.key, NAME[mine.key] + '가 방주에 들어가자고 했어요', now, true);
+    return okay(NAME[OTHER[mine.key]] + '에게 물어봤어요. 둘 다 좋다고 하면 모두 방주에 들어가요');
+  }
+  function arkBoardCancel(world, mine, now){
+    const A = world.ark;
+    if (!A || !A.ask) return fail('들어가자는 이야기가 없어요');
+    delete A.ask;
+    logAdd(world, mine.key, NAME[mine.key] + '가 방주에는 조금 이따 들어가자고 했어요', now, true);
+    return okay('조금 더 준비하고 들어가요');
+  }
+  function boardArk(world, mine, now){
+    const A = arkOf(world), key = dayKey(now);
+    // 밭에 서 있는 작물은 거둬서 창고로 — 물에 잠기기 전에(꽃은 빼고)
+    let got = 0;
+    Object.keys(world.plots || {}).forEach(id => { const p = world.plots[id], C = p && CROPS[p.crop]; if (C && !p.wilted && !C.flower) got += 3 * (C.yield || 1); });
+    A.food += got;
+    // 스프링클러는 놓은 아이의 우편함으로 — 새 땅 밭에 다시 놓는다
+    Object.keys(world.sprinklers || {}).forEach(id => { const S = world.sprinklers[id], who = S && NAME[S.by] ? S.by : mine.key; (world.mail[who] = world.mail[who] || []).push({ id: sprinklerOf(S).item, n: 1, from: 'ark', note: '방주에 실어 둔 스프링클러', t: now }); });
+    world.plots = {}; world.sprinklers = {};
+    delete A.ask; delete world.moveAsk;
+    A.phase = 'flood'; A.boardOn = key; A.month = 0; A.monthDay = null;
+    logAdd(world, mine.key, '수아와 연아가 동물 ' + (world.animals || []).length + '마리와 함께 방주에 들어갔어요. 문이 닫히고 큰비가 내리기 시작했어요', now);
+    return okay('🛶 모두 방주에 들어갔어요! 문이 닫히고 큰비가 내려요' + (got ? ' · 밭에 남은 작물은 양식 창고에 실었어요(+' + got + ')' : ''), { boarded: true });
+  }
+  // 대홍수 — 하루에 한 번 「한 달 보내기」. 한 달 양식을 먹고 이야기가 한 장 넘어간다. 열두 달이면 새 땅
+  function arkMonth(world, mine, now){
+    if (!afloat(world)) return fail('방주에 들어가야 한 달씩 지나요');
+    const A = arkOf(world), key = dayKey(now), need = arkRation(world);
+    if (A.monthDay === key) return fail('오늘은 한 달을 보냈어요. 내일 또 와요 — 방주에서는 하루가 한 달이에요');
+    if (A.food < need) return fail('양식이 ' + (need - A.food) + ' 모자라요 — 동물이 낳은 것을 줍거나 창밖 낚시로 잡아 양식 창고에 넣어요');
+    A.food -= need; A.month = (A.month || 0) + 1; A.monthDay = key; mine.xp += 20;
+    const L = ARK_LOG[A.month] || ARK_LOG[ARK_LOG.length - 1];
+    logAdd(world, mine.key, '방주 ' + A.month + '달째 — ' + L.text, now);
+    if (A.month >= ARK_MONTHS){ landArk(world, mine, now); return okay(L.icon + ' <b>' + A.month + '달째</b> — ' + L.text, { month: A.month, landed: true }); }
+    return okay(L.icon + ' <b>' + A.month + '달째</b> — ' + L.text + ' (창세기 ' + L.ref + ') · 양식 ' + A.food + ' 남았어요', { month: A.month });
+  }
+  // 새 땅에 내린다 — 방주 농장은 옛 농장으로 남고(물이 빠진 빈 터) 무지개 농장에서 새로 짓는다
+  function landArk(world, mine, now){
+    const A = arkOf(world), key = dayKey(now), from = farmOf(world);
+    const left = {};
+    Object.keys(world.buildings).forEach(b => { const B = world.buildings[b]; if (MOVE_KEEP[b] || !B || !B.done) return; left[b] = { done: true }; delete world.buildings[b]; });
+    world.past.push({ farm: from.id, until: key, decor: JSON.parse(JSON.stringify(world.decor || {})), buildings: left, layout: JSON.parse(JSON.stringify(world.layout || {})), expand: world.expand || 0 });
+    const old = world.decor || {};
+    world.decor = {}; Object.keys(old).forEach(d => { if (old[d] && old[d].keep) world.decor[d] = Object.assign({}, old[d]); });
+    world.layout = {}; world.plots = {}; world.sprinklers = {};
+    world.farm = FARMS.findIndex(f => f.id === 'newland');
+    A.phase = 'land'; A.landOn = key;
+    // 생육하고 번성하라(창세기 9:1) — 한 쌍이 있는 동물마다 아기 하나, 우리 자리가 있으면
+    let babies = 0;
+    ARK_KINDS.forEach(k => {
+      const Ak = ANIMALS[k], mom = world.animals.find(a => a.kind === k && !a.baby);
+      if (arkCount(world, k) < 2 || !mom) return;
+      if (world.animals.filter(a => ANIMALS[a.kind] && ANIMALS[a.kind].need === Ak.need).length >= animalMax(world, Ak.need)) return;
+      let nm = '아기 ' + Ak.name; if (world.animals.some(x => x.name === nm)) nm = mom.name + '의 아기';
+      world.animals.push({ id: 'a' + now + 'r' + babies, kind: k, name: nm, by: mom.by || mine.key, born: key, love: 0, pet: [], since: 0, baby: true, mom: mom.id, momName: mom.name });
+      babies++;
+    });
+    // 씨앗 금고를 연다 — 금고에 든 작물마다 둘에게 두 알씩. 이사 선물 동전도
+    ['sua', 'yona'].forEach(k => {
+      const box = world.mail[k] = world.mail[k] || [];
+      box.push({ id: 'coins', n: MOVE_GIFT, from: 'ark', note: '새 땅에 내린 날', t: now });
+      A.seeds.forEach(c => box.push({ id: 'seed:' + c, n: 2, from: 'ark', note: '방주 씨앗 금고에서', t: now }));
+    });
+    A.babies = babies;
+    logAdd(world, mine.key, '수아와 연아가 방주에서 내려 무지개 농장에 첫발을 디뎠어요. 하늘에 무지개가 떴어요', now);
+    return babies;
+  }
+  // 무지개 농장 짓기 — LAND_STEPS 를 차례로. 각자 제 몫을 내면 하나가 선다
+  function landPay(world, mine, id, now){
+    if (farmOf(world).id !== 'newland') return fail('무지개 농장에서 지어요');
+    const i = LAND_STEPS.findIndex(L => L.id === id); if (i < 0) return fail('없는 것이에요');
+    const A = arkOf(world), L = LAND_STEPS[i], nm = PLACE[id].name;
+    const prev = LAND_STEPS.slice(0, i).find(x => !((A.land[x.id] || {}).done));
+    if (prev) return fail('먼저 ' + eul(PLACE[prev.id].name) + ' 지어요 — 새 땅은 하나씩 지어요');
+    const s = A.land[id] = A.land[id] || { paid: {} };
+    if (s.done) return fail('이미 지었어요');
+    if (s.paid[mine.key]) return fail('내 몫은 냈어요. ' + NAME[OTHER[mine.key]] + '를 기다려요');
+    if (!canPay(mine, L.each)) return fail('재료가 모자라요 — 각자 ' + Object.keys(L.each).map(k => (k === 'coins' ? '🪙 ' : itemName(k) + ' ') + L.each[k]).join(' · '));
+    pay(mine, L.each); s.paid[mine.key] = true; mine.xp += 20;
+    if (s.paid.sua && s.paid.yona){
+      s.done = true; s.on = dayKey(now); mine.xp += XP.build;
+      logAdd(world, mine.key, L.icon + ' ' + nm + ' 완성 — ' + L.say, now);
+      const all = landDone(world) >= LAND_STEPS.length;
+      if (all) logAdd(world, mine.key, '무지개 농장이 완성됐어요! 수아연아의 방주 이야기 끝 — 그리고 새 이야기의 시작', now);
+      return okay(L.icon + ' <b>' + nm + '</b> 완성! ' + L.say, { built: true, all });
+    }
+    return okay('내 몫을 냈어요. ' + NAME[OTHER[mine.key]] + '도 내면 ' + ee(nm) + ' 지어져요');
+  }
+
   // 규칙을 FARM 에 얹는다. 이 뒤부터 R.till · R.buy … 를 부를 수 있다.
   Object.assign(FARM, {
+    arkOf, arkFoodOf, arkState, arkSeed, arkPay, arkStore, arkBoard, arkBoardCancel, arkMonth, landPay,
     noteDex, noteFurn, dexRec, DEX_GOODS, DEX_MAIL, FISH_CM,
     ringOf,
     fishLeft,

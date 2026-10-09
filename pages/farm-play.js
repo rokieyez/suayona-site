@@ -198,13 +198,32 @@ function syncTop(){
   $('#enFill').style.width = Math.round(100 * M.energy / mx) + '%'; $('#enText').textContent = M.energy + '/' + mx;
   $('#coins').textContent = M.coins;
   const lv = R.levelOf(M.xp), a = R.xpForLevel(lv), b = R.xpForLevel(lv + 1);
-  $('#lv').textContent = lv; $('#xpFill').style.width = Math.round(100 * (M.xp - a) / (b - a)) + '%';
+  $('#lv').textContent = lv; $('#xpFill').style.width = Math.max(0, Math.min(100, Math.round(100 * (M.xp - a) / (b - a)))) + '%';   // 레벨 20 위로 쌓인 경험치가 막대를 넘쳤다
   const n = (W.mail[key] || []).length; $('#mailN').hidden = !n; $('#mailN').textContent = n;
   const waiting = duoWaiting(); $('#duoN').hidden = !waiting; $('#duoN').textContent = waiting;
+  const an = $('#arkN'); if (an){ const aw = arkWaiting(); an.hidden = !aw; an.textContent = aw; }
 }
 // 농장 위 이사 알림 — 「꾸미개 N개만 더 놓으면 새 농장으로」. 누르면 가게 꾸미기 칸이 열린다.
 function syncMoveHint(){
   const el = $('#moveHint'); if (!el || !R.moveState) return;
+  if (!el.dataset.on){
+    el.dataset.on = 1;
+    el.addEventListener('click', () => { if (el.dataset.mode === 'ark'){ openTab('ark', true); return; } const n = R.moveState(W, M); shopTab = 'deco'; openTab(n.ready || n.ask ? 'duo' : 'shop', true); });
+  }
+  // 방주 이야기(2026-10-09) — 방주 농장부터는 이사 대신 방주 띠
+  const A = R.arkState && !visiting() ? R.arkState(W, M, now()) : null;
+  if (A && (A.atArk || A.phase)){
+    el.dataset.mode = 'ark'; el.hidden = false;
+    const done = A.phase === 'land' ? A.landDone >= A.land.length : false;
+    const say = A.phase === 'flood' ? '방주 <b>' + A.month + '달째</b> — ' + (A.monthDone ? '오늘 한 달은 보냈어요. 동물을 돌봐요' : '오늘 <b>한 달 보내기</b>를 눌러요 (양식 ' + A.food + ')')
+      : A.phase === 'land' ? (done ? '무지개 농장 완성! 🎉' : '새 땅 짓기 <b>' + A.landDone + '/' + A.land.length + '</b> — 다음: ' + (A.land.find(L => !L.done) || {}).name)
+      : A.step >= A.total ? '방주가 다 지어졌어요! 둘이 함께 <b>방주에 들어가요</b>' : '방주 <b>' + A.step + '/' + A.total + '단계</b> — 다음: ' + A.steps[A.step].icon + ' ' + A.steps[A.step].name;
+    const pct = A.phase === 'flood' ? A.month / A.months : A.phase === 'land' ? A.landDone / A.land.length : A.step / A.total;
+    el.classList.toggle('ready', (A.phase === 'flood' && !A.monthDone) || (!A.phase && A.step >= A.total));
+    el.innerHTML = '<span>' + (A.phase === 'land' ? '🌈' : '🛶') + '</span><span>' + say + '</span><span class="mv-bar"><i style="width:' + Math.round(100 * pct) + '%"></i></span>';
+    return;
+  }
+  el.dataset.mode = 'move';
   const s = R.moveState(W, M);
   el.hidden = !s.next;
   if (!s.next) return;
@@ -218,10 +237,6 @@ function syncMoveHint(){
   const pct = Math.round(100 * s.conds.reduce((a, c) => a + Math.min(1, c.have / c.need), 0) / s.conds.length);
   el.classList.toggle('ready', s.ready);
   el.innerHTML = '<span>🚚 ' + s.next.icon + '</span><span>' + say + '</span><span class="mv-bar"><i style="width:' + pct + '%"></i></span>';
-  if (!el.dataset.on){
-    el.dataset.on = 1;
-    el.addEventListener('click', () => { const n = R.moveState(W, M); shopTab = 'deco'; openTab(n.ready || n.ask ? 'duo' : 'shop', true); });
-  }
 }
 // 새 농장 첫날 할 일 — 두고 온 우물·우리를 새로 짓고 꾸미개 하나를 놓을 때까지만 뜬다
 const TODO_ICON = { well: '💧', coop: '🐔', barn: '🐄', pasture: '🐖', pethouse: '🐶' };
@@ -232,7 +247,7 @@ function syncTodo(){
   const list = ['well'].concat(['coop', 'barn', 'pasture', 'pethouse'].filter(id => needs.indexOf(id) >= 0))
     .map(id => ({ nm: TODO_ICON[id] + ' ' + R.BUILDINGS[id].name + ' 짓기', done: done(id), go: () => openTab('duo', true) }));
   list.push({ nm: '🎀 첫 꾸미개 놓기', done: Object.keys(W.decor || {}).some(id => !W.decor[id].keep), go: () => { shopTab = 'deco'; openTab('shop', true); } });
-  const show = (W.farm || 0) >= 1 && !visiting() && list.some(x => !x.done);
+  const show = (W.farm || 0) >= 1 && !visiting() && !(W.ark && W.ark.phase === 'flood') && list.some(x => !x.done);
   el.hidden = !show;
   if (!show){ moveLine(el); return; }
   el.innerHTML = '<span>' + R.farmOf(W).icon + ' 새 농장 첫날 할 일</span>';
@@ -252,12 +267,18 @@ function moveLine(el){
 const ARRIVE_KEY = () => 'suayona.farm.arrived.' + key;
 function checkArrival(){
   if (!W || !(W.farm >= 1) || !$('#modal').hidden || visiting()) return;
+  // 자매가 방주에 들어간 뒤 처음 열면 입장 장면을 한 번 본다(2026-10-09)
+  if (W.ark && W.ark.phase === 'flood'){ let b = '1'; try { b = localStorage.getItem(BOARD_KEY()); } catch (e) { b = '1'; } if (b !== '1'){ openBoardScene(); return; } }
   let seen = 0;
-  try { seen = Number(localStorage.getItem(ARRIVE_KEY())) || 0; } catch (e) { return; }
+  try { seen = arriveSeen(localStorage.getItem(ARRIVE_KEY())); } catch (e) { return; }
   if (seen < W.farm) openArrival();
 }
-const ISLE = { meadow: ['#8fcf6a', '#b5895a'], seaside: ['#9ad76e', '#d8b27a'], mountain: ['#6fa85a', '#8a7a6a'], cloud: ['#f2b8d8', '#f5f0ff'] };
-const ARRIVE_SKY = { seaside: ['#bfe6ff', '#6fb8e6'], mountain: ['#d6ecd2', '#8fb3a0'], cloud: ['#f3e6ff', '#fbf7ff'] };
+/* 본 농장 번호 — 2026-10-09 단풍·밀림·사바나가 끼어들어 사막부터 번호가 셋씩 밀렸다. 「v2:」 없는 옛 기록(5 이상)은 옮겨 읽는다 */
+function arriveSeen(raw){ if (raw && raw.indexOf('v2:') === 0) return Number(raw.slice(3)) || 0; const n = Number(raw) || 0; return n >= 5 ? n + 3 : n; }
+const ISLE = { meadow: ['#8fcf6a', '#b5895a'], seaside: ['#9ad76e', '#d8b27a'], mountain: ['#6fa85a', '#8a7a6a'], cloud: ['#f2b8d8', '#f5f0ff'], desert: ['#f2d49c', '#c98850'], ark: ['#a8c672', '#74583c'],
+  aurora: ['#eef4fa', '#7c8aa4'], maple: ['#d8902a', '#8a6a4a'], jungle: ['#2f7a30', '#a85a3a'], savanna: ['#dcc46e', '#c0703e'], newland: ['#9cd06a', '#7a5a40'] };
+const ARRIVE_SKY = { seaside: ['#bfe6ff', '#6fb8e6'], mountain: ['#d6ecd2', '#8fb3a0'], cloud: ['#f3e6ff', '#fbf7ff'], ark: ['#9aa6b4', '#7a8a6a'],
+  maple: ['#cfe4ef', '#6aa8d0'], jungle: ['#c8e8e0', '#1e5a2a'], savanna: ['#f8d8a8', '#d8b468'] };
 function arrivalFrame(g, from, to, p){
   const sky = ARRIVE_SKY[to.id] || ARRIVE_SKY.seaside;
   g.fillStyle = sky[0]; g.fillRect(0, 0, 320, 96);
@@ -295,7 +316,7 @@ function arrivalGifts(to){
   const passed = R.FARMS.slice(i0 + 1, (W.farm || 0) + 1).map(f => f.id);
   const babies = Object.keys(R.ANIMALS).filter(k => passed.indexOf(R.ANIMALS[k].gift) >= 0)
     .map(k => (W.animals || []).filter(a => a.gift && a.kind === k).pop()).filter(Boolean);
-  const stamp = R.MEDALS.find(Md => Md.id === { seaside: 'stampSea', cloud: 'stampCloud', aurora: 'stampAurora', desert: 'stampDesert' }[to.id]);
+  const stamp = R.MEDALS.find(Md => Md.id === { seaside: 'stampSea', cloud: 'stampCloud', aurora: 'stampAurora', maple: 'stampMaple', jungle: 'stampJungle', savanna: 'stampSavanna', desert: 'stampDesert', ark: 'stampArk' }[to.id]);
   const li = [
     '📮 우편함에 이사 선물 동전 ' + (R.MOVE_GIFT || 0),
     keeps.length ? '🧳 들고 온 추억: ' + keeps.map(id => R.DECOR[id].icon + ' ' + R.DECOR[id].name).join(' · ') : '',
@@ -311,8 +332,32 @@ function arrivalGifts(to){
 function openArrival(){
   const past = W.past || [], P = past[past.length - 1], to = R.farmOf(W);
   const from = (P && R.FARMS.find(f => f.id === P.farm)) || R.FARMS[Math.max(0, W.farm - 1)];
-  try { localStorage.setItem(ARRIVE_KEY(), String(W.farm)); } catch (e) { /* 못 적으면 다음에 한 번 더 본다 */ }
+  // 방주 농장 — 아직 못 들은 아이는 하나님의 음성을 먼저 듣고 이삿날 창으로(2026-10-09)
+  if (to.id === 'ark'){ let heard = true; try { heard = localStorage.getItem(VOICE_KEY()) === '1'; } catch (e) { heard = true; } if (!heard){ openVoice(() => openArrival()); return; } }
+  try { localStorage.setItem(ARRIVE_KEY(), 'v2:' + W.farm); } catch (e) { /* 못 적으면 다음에 한 번 더 본다 */ }
   const inner = $('#modalInner');
+  // 무지개 농장 — 대홍수를 건너 새 땅에 내린 날(2026-10-09)
+  const AH = window.FARMHD && window.FARMHD.ark;
+  if (to.id === 'newland' && AH){
+    const A = W.ark || {}, kinds = R.ARK_KINDS.filter(k => (W.animals || []).some(a => a.kind === k)), fl = R.MEDALS.find(Md => Md.id === 'flood');
+    const li = [
+      '📮 우편함에 새 땅 선물 동전 ' + (R.MOVE_GIFT || 0),
+      (A.seeds || []).length ? '🌰 씨앗 금고를 열었어요 — <b>' + A.seeds.length + '가지</b> 씨앗을 두 알씩 우편함에 넣었어요' : '🌰 씨앗 금고가 비어 있었어요 — 가게에서 씨앗을 사요',
+      A.babies ? '🐣 생육하고 번성하라(창세기 9:1) — 한 쌍마다 아기가 하나씩, <b>' + A.babies + '마리</b>가 태어났어요' : '',
+      '🌈 이 농장만의 능력: <b>' + to.perk.icon + ' ' + to.perk.text + '</b>',
+      '🏘️ 「🛶 방주」 칸에서 <b>새 땅 짓기</b> 여섯 가지를 하나씩 지어요 — 감사의 제단부터',
+      fl ? fl.icon + ' 「📖 도감·기록」 칸 훈장에서 <b>' + fl.name + '</b>을 받을 수 있어요' : '',
+      '🪧 대문 문패가 <b>수아연아 농장 ' + R.farmNo(W.farm || 0) + '호점</b>이 됐어요',
+    ].filter(Boolean);
+    inner.innerHTML = '<h3 class="pixel">🌈 무지개 농장에 도착!</h3><p class="sub">열두 달 만에 방주 문이 열렸어요. 물이 빠진 새 땅에 동물들과 함께 내려요(창세기 8:18-19). 하늘엔 다시는 물로 땅을 덮지 않겠다는 약속의 무지개가 떠요.</p>'
+      + AH.SCENE_CV('arriveCv', '물이 빠지고 비둘기가 올리브 잎을 물어 오고 모두 방주에서 내려 무지개 아래 새 땅으로 가는 그림')
+      + '<ul class="arrive-gifts">' + li.map(x => '<li>' + x + '</li>').join('') + '</ul>'
+      + '<div class="modal-actions"><button type="button" class="dot-btn small primary" id="arriveGo">🌈 새 땅 둘러보기</button></div>';
+    $('#modal').hidden = false;
+    const run = AH.landing($('#arriveCv'), { kinds, onDone: () => sfx('fanfare') });
+    $('#arriveGo').addEventListener('click', () => { run.stop(); closeModal(); });
+    return;
+  }
   // 스테이지2 로 넘어가는 이사는 비행선 장면(2026-10-09, pages/farm-hd-people.js) — 고화소 그림이 안 왔으면 짐수레 그대로
   const air = to.stage === 2 && !(from.stage >= 2) && window.FARMHD && window.FARMHD.airship;
   // 스테이지2 안의 사막 이사는 마법 양탄자 장면(2026-10-09)
@@ -431,10 +476,16 @@ function hintFor(){
     return '밭의 빈 칸을 눌러 놓아요. 아침마다 둘레 ' + S.reach + '칸에 물을 줘요. 놓은 칸을 다시 누르면 걷어요.';
   }
   const here = R.farmOf(W).id;
+  if (W.ark && W.ark.phase === 'flood') return '큰물 위를 떠가는 방주예요. 방주를 누르면 「🛶 방주」 칸, 창밖 물을 누르면 낚시를 해요. 하루에 한 달씩 지나요.';
   return '다 자란 작물·나무·바위·동물·집·우편함·게시판·가게를 눌러요. 밭 위를 끌면 익은 것만 줄줄이 거둬요.'
     + (here === 'seaside' ? ' 섬 밖 바다를 누르면 바다낚시를 해요.' : here === 'mountain' ? ' 화산 바위에는 가끔 반짝돌이 박혀 있어요.'
       : here === 'aurora' ? ' 얼음낚시 구멍을 누르면 얼음낚시를 해요. 밤엔 땅에 떨어진 오로라 빛 조각을 주워요.'
-      : here === 'desert' ? ' 낮엔 모래 위에 놓인 사막 장미 돌을 주워요. 요술 램프를 놓으면 가끔 램프 요정 편지가 와요.' : '');
+      : here === 'maple' ? ' 낮엔 단풍나무 아래 메이플 시럽 양동이를 주워요. 사슴·다람쥐가 밤과 도토리를 물어 와요. 거둘 때 가끔 풍년이라 하나 더!'
+      : here === 'jungle' ? ' 낮엔 땅에 떨어진 망고를 주워요. 날마다 스콜이 지나가 밭이 촉촉해요. 원숭이가 바나나를, 앵무새가 깃털을 줘요.'
+      : here === 'savanna' ? ' 낮엔 바오밥 나무 아래 열매를 주워요. 둘이 쓰다듬으면 동물 마음이 두 칸씩 자라요. 코끼리가 통나무를 날라 와요.'
+      : here === 'desert' ? ' 낮엔 모래 위에 놓인 사막 장미 돌을 주워요. 요술 램프를 놓으면 가끔 램프 요정 편지가 와요.'
+      : here === 'ark' ? ' 가운데 방주를 누르면 「🛶 방주」 칸이 열려요. 낮엔 땅에 떨어진 역청 덩어리를 주워요. 혼자인 동물에게 짝꿍이 찾아와요.'
+      : here === 'newland' ? ' 낮엔 땅에 떨어진 올리브를 주워요. 새 땅 짓기는 「🛶 방주」 칸에서 해요.' : '');
 }
 // where: 'sea' 면 바닷가 섬 밖 바다에 던진 것 — at 은 찌가 떨어진 화면 도트
 function startFishing(where, at){
@@ -521,6 +572,14 @@ function onFarmTap(e){
   if (sweepClick){ sweepClick = false; return; }
   if (visiting()){ flash('옛 농장을 구경하는 중이에요. 위의 「지금 농장으로」를 누르면 돌아가요'); return; }
   if (fishing){ if (fishOpen()) finishFishing(); return; }   // 찌가 떠 있으면 어디를 눌러도 당긴다
+  // 대홍수 — 섬 대신 방주 단면(2026-10-09). 방주는 방주 칸, 물은 창밖 낚시
+  if (typeof voyageOn === 'function' && voyageOn()){
+    const p = pixAt(e.clientX, e.clientY), B = window.FARMHD && window.FARMHD.ark && window.FARMHD.ark.voyageBox;
+    if (B && p.x >= B.x0 && p.x <= B.x1 && p.y >= B.y0 && p.y <= B.y1){ openTab('ark', true); sfx('house'); return; }
+    if (B && p.y > B.water){ startFishing('flood', p); return; }
+    flash('큰물 위를 떠가는 중이에요 — 방주를 누르면 방주 칸이 열려요');
+    return;
+  }
   // 배치에서 들고 있는 것을 놓을 때는 땅의 칸으로 — 아이소 섬에서 지붕이 뒤 칸을 덮는다
   const { tx, ty } = tileAt(e.clientX, e.clientY, placeMode && !!placePick);
   if (!placeMode && seaAt(e.clientX, e.clientY)){ startFishing('sea', pixAt(e.clientX, e.clientY)); return; }
@@ -547,6 +606,8 @@ function onFarmTap(e){
   if (hit){ speak(hit); return; }
   const n = nodeAt(tx, ty);
   if (n){ const r = act((w, m) => R.gather(w, m, n, now())), k = R.nodeDef(W, n).kind; if (r.ok) sfx(r.gem ? 'sparkle' : k === 'tree' ? 'thud' : k === 'rock' ? 'prop' : 'pop'); return; }
+  if (inSpot('ark', tx, ty)){ openTab('ark', true); sfx('house'); return; }
+  if (['altar', 'rainbowhill', 'vineyard', 'dovecote', 'olivegrove', 'wellsquare'].some(id => inSpot(id, tx, ty))){ openTab('ark', true); return; }
   if (inSpot('house', tx, ty)){ openTab('house', true); sfx('house'); return; }
   if (inSpot('mail', tx, ty)){ openMail(); return; }
   if (inSpot('board', tx, ty)){ openTab('duo', true); return; }
@@ -786,7 +847,7 @@ function closeModal(){ $('#modal').hidden = true; }
 function openMail(){
   const box = W.mail[key] || [];
   const inner = $('#modalInner');
-  const who = g => g.from === 'postcard' ? '그림엽서' : g.from === 'festival' ? '축제' : g.from === 'board' ? '게시판' : g.from === 'move' ? '이삿날' : g.from === 'santa' ? '🎅 산타 할아버지' : g.from === 'genie' ? '🧞 램프 요정' : NAME[g.from] || '';
+  const who = g => g.from === 'postcard' ? '그림엽서' : g.from === 'festival' ? '축제' : g.from === 'board' ? '게시판' : g.from === 'move' ? '이삿날' : g.from === 'santa' ? '🎅 산타 할아버지' : g.from === 'genie' ? '🧞 램프 요정' : g.from === 'ark' ? '🛶 방주' : NAME[g.from] || '';
   inner.innerHTML = '<h3 class="pixel">우편함</h3>' + (box.length ? box.map(g =>
     '<div class="mailrow' + (g.from === 'postcard' ? ' postcard' : '') + '"><b>' + (g.from === 'postcard' ? '🖼️ 그림엽서' : g.id === 'note' ? '💌 쪽지' : g.id === 'coins' ? '🪙 ' + g.n + ' 동전' : escapeHTML(R.itemName(g.id)) + ' ' + g.n + '개') + '</b>' +
     '<span class="from">' + who(g) + (g.note ? ' · "' + escapeHTML(g.note) + '"' : '') + '</span></div>').join('') :
@@ -859,7 +920,7 @@ function openPeddler(){
   $('#modal').hidden = false;
   $('#pedClose').addEventListener('click', closeModal);
 }
-function openTab(t, goTo){ tab = t; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); ['bag', 'shop', 'house', 'duo', 'dex'].forEach(k => { $('#tab-' + k).hidden = k !== t; }); renderTab(); if (goTo) scrollToPanel(); }
+function openTab(t, goTo){ tab = t; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); ['bag', 'shop', 'house', 'duo', 'ark', 'dex'].forEach(k => { const el = $('#tab-' + k); if (el) el.hidden = k !== t; }); renderTab(); if (goTo) scrollToPanel(); }
 function scrollToPanel(){
   const bar = $('#tabs'); if (!bar) return;
   /* 머리글은 붙박이인데 아래로 밀면 스스로 숨는다. 지금 숨었는지를 보고 셈하면,
@@ -870,7 +931,7 @@ function scrollToPanel(){
   const y = window.scrollY + bar.getBoundingClientRect().top - off - 8;
   window.scrollTo({ top: Math.max(0, Math.round(y)), behavior: STILL ? 'auto' : 'smooth' });
 }
-function renderTab(){ if (tab === 'bag') renderBag(); else if (tab === 'shop') renderShop(); else if (tab === 'house') renderHouse(); else if (tab === 'duo') renderDuo(); else renderDex(); }
+function renderTab(){ if (tab === 'bag') renderBag(); else if (tab === 'shop') renderShop(); else if (tab === 'house') renderHouse(); else if (tab === 'duo') renderDuo(); else if (tab === 'ark') renderArk(); else renderDex(); }
 function renderAll(){ syncTop(); renderTools(); drawFarm(); renderTab(); }
 // 작은 그림 — 작물은 밭 그림을, 물건은 색 네모를.
 function cropIcon(c){
@@ -1173,7 +1234,7 @@ function itemIcon(id){
     return cv;
   }
   const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; const g = cv.getContext('2d');
-  const col = { egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', sprinkler2: '#c9d6e0', firefly: '#ffe66d', shard: '#9ef0d0', moss: '#9fb88a', pinecone: '#8a5a32', sandrose: '#e8b088', date: '#a0522a' }[id] || (k === 'f' ? R.FURNITURE[v].c : '#ddd');
+  const col = { pitch: '#2a201a', olive: '#6a8a4a', egg: '#fff6e9', bigegg: '#ffe9a8', milk: '#ffffff', goldmilk: '#ffd979', wool: '#f7f3ee', honey: '#f7b733', berry: '#ff5c6b', wood: '#a97b4f', stone: '#a49c92', fert: '#8a5f3a', snowball: '#eef8ff', sprinkler: '#b9924a', sprinkler2: '#c9d6e0', firefly: '#ffe66d', shard: '#9ef0d0', moss: '#9fb88a', pinecone: '#8a5a32', sandrose: '#e8b088', date: '#a0522a', syrup: '#c8781e', chestnut: '#7a4a2a', acorn: '#a0703a', mango: '#ff8a20', banana: '#f0c830', feather: '#2a8ae8', baobab: '#9a9a62' }[id] || (k === 'f' ? R.FURNITURE[v].c : '#ddd');
   g.fillStyle = '#e6d7b5'; g.fillRect(0, 0, 32, 32); g.fillStyle = col; g.fillRect(8, 8, 16, 16); g.fillStyle = '#3a3226'; g.fillRect(8, 8, 16, 2); g.fillRect(8, 22, 16, 2); g.fillRect(8, 8, 2, 16); g.fillRect(22, 8, 2, 16);
   return cv;
 }
@@ -1238,6 +1299,8 @@ function giftDialog(id, have){
   $('#gCancel').addEventListener('click', closeModal);
   $('#gGo').addEventListener('click', () => { const n = Math.max(1, Math.min(have, Number($('#gN').value) || 1)), note = $('#gNote').value; const r = act((w, m) => R.sendGift(w, m, id, n, note, now())); if (r.ok) sfx('sparkle'); closeModal(); });
 }
+// 이 농장에서만 얻는 것의 이름 — 동물·씨앗(작물)·특산물(2026-10-09 「이주 조건」)
+function localName(id){ if (R.ANIMALS[id]) return R.ANIMALS[id].icon + ' ' + R.ANIMALS[id].name; if (R.CROPS[id]) return R.CROPS[id].name + ' 씨앗'; return R.itemName(id); }
 // 이사 카드 — 꾸미개를 다 놓으면 다음 농장으로. 먼저 누른 아이가 묻고 자매가 「좋아」 하면 떠난다.
 let keepPick = null;                                               // 들고 갈 추억 — 먼저 묻는 아이가 고른다
 function moveCard(cls){
@@ -1252,7 +1315,8 @@ function moveCard(cls){
     : s.mineAsked ? NAME[o] + '의 대답을 기다려요'
     : s.ready ? '준비가 다 됐어요! 둘 다 좋다고 하면 떠나요'
     : '아래를 모두 채우면 이사 갈 수 있어요';
-  const list = s.conds.map(c => (c.left ? '⬜ ' : '✅ ') + c.icon + ' ' + c.name + ' ' + Math.min(c.have, c.need) + '/' + c.need).join('<br>');
+  const list = s.conds.map(c => (c.left ? '⬜ ' : '✅ ') + c.icon + ' ' + c.name + ' ' + Math.min(c.have, c.need) + '/' + c.need + (c.miss && c.miss.length ? ' — <b>' + c.miss.map(localName).join('·') + '</b>' : '')).join('<br>')
+    + (s.conds.some(c => c.id.indexOf('local:') === 0) ? '<br><small>🛶 이 농장에서만 얻는 동식물이에요. 떠나기 전에 챙겨야 방주에 실을 수 있어요(씨앗은 「🛶 방주」 칸 씨앗 금고에).</small>' : '');
   const gk = R.movePath(W).map(f => Object.keys(R.ANIMALS).find(k => R.ANIMALS[k].gift === f.id)).filter(Boolean);   // 건너뛴 농장의 아기도
   const sp = ((R.SPECIALS || {})[s.next.id] || []).map(R.itemName).join('·'), land = landLine(s.farm, s.next);
   const why = (s.next.perk ? '<br>🌟 새 능력: <b>' + s.next.perk.icon + ' ' + s.next.perk.text + '</b>' : '') + (sp ? '<br>🌍 새 특산물: ' + sp + ' — 다른 농장에서 팔면 1.5배' : '') + (land ? '<br>' + land.replace('넓어졌어요!', '넓어져요:') : '');
@@ -1285,9 +1349,13 @@ function moveCard(cls){
     // 옛 농장을 구경하던 중이면 먼저 지금 농장으로 돌아온다 — 떠난 뒤에도 옛 그림이 남지 않게
     if (visiting()) visitFarm(null);
     // 이삿날 장면은 act 가 다시 그리며 부르는 checkArrival 이 띄운다
+    const toArk = s.next && s.next.id === 'ark';
     const r = act((w, m) => R.askMove(w, m, now(), keepPick || undefined));
     if (r.ok){ sfx(r.moved ? 'fanfare' : 'pop'); keepPick = null; }
     renderTab();
+    // 방주 농장으로 가자고 결정한 순간 — 하늘에서 음성이 들린다(2026-10-09 로키즈). 떠났으면 이삿날 창이 음성 뒤에 이어진다
+    let heard = false; try { heard = localStorage.getItem(VOICE_KEY()) === '1'; } catch (e) { heard = false; }
+    if (r.ok && toArk && !r.moved && !heard) openVoice();
   }, !s.ready || (pickable.length > 0 && !keepPick)));
   if (s.ask) a.appendChild(btn(s.mineAsked ? '물어본 것 거두기' : '다음에 가자', '', () => { act((w, m) => R.cancelMove(w, m, now())); renderTab(); }));
   d.appendChild(a);
@@ -1384,6 +1452,11 @@ function renderShop(){
         pr.textContent = what + ' · ' + (F ? F.icon + ' ' + F.name : '새 농장') + '으로 이사 가면 새끼로 따라와요';
         box.appendChild(card); return;
       }
+      if (A.farm && A.farm !== R.farmOf(W).id){                    // 그 농장 가게에서만 파는 동물(2026-10-09)
+        const F = R.FARMS.find(f => f.id === A.farm), past = R.FARMS.findIndex(f => f.id === A.farm) < (W.farm || 0);
+        card.className = 'item locked'; pr.textContent = what + ' · ' + (F ? F.icon + ' ' + F.name : '그 농장') + (past ? ' 가게에서만 팔았어요' : '에 가면 만나요'); box.appendChild(card); return;
+      }
+      if (A.farm){ const tag = document.createElement('span'); tag.className = 'farm-only'; tag.textContent = '이 농장에만'; nm.appendChild(tag); }
       const a = document.createElement('div'); a.className = 'act'; a.appendChild(buyBtn('animal:' + k, A.cost, ok && M.coins >= A.cost)); card.appendChild(a); box.appendChild(card);
     });
   } else if (shopTab === 'furn'){
@@ -1848,6 +1921,235 @@ function renderDuo(){
   });
   renderTree();
 }
+// ---------- 🛶 방주 — 메인 목표 「수아연아의 방주」(2026-10-09 로키즈) ----------
+/* 큰 퀘스트 카드(짝·씨앗·방주·양식 막대) → 지금 할 일(방주 농장 가는 길 / 방주 짓기·양식 창고·입장 / 한 달 보내기 / 새 땅 짓기) → 방주 명부(동물 짝·씨앗 금고).
+   규칙은 farm-rules-play.js 의 ark* · landPay */
+const arkLabel = (n, max) => Math.min(n, max) + '/' + max;
+const arkBar = (label, n, max, cls) => '<div><b>' + label + ' ' + arkLabel(n, max) + '</b><span><i class="' + (cls || '') + '" style="width:' + Math.round(100 * Math.min(1, max ? n / max : 0)) + '%"></i></span></div>';
+const arkCost = each => Object.keys(each).map(k => (k === 'coins' ? '🪙 ' + each[k] : escapeHTML(R.itemName(k)) + ' ' + each[k] + '(' + (M.inv[k] || 0) + ')')).join(' · ') || '없음';
+const shortDay = k => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(k || ''); return m ? Number(m[1]) + '월 ' + Number(m[2]) + '일' : ''; };
+function arkWaiting(){
+  if (!R.arkState) return 0;
+  const s = R.arkState(W, M, now()), o = R.OTHER[key];
+  let n = 0;
+  if (s.atArk && !s.phase && s.step < s.total && s.paid[o] && !s.paid[key]) n++;
+  if (s.otherAsked) n++;
+  s.land.forEach(L => { if (L.open && !L.done && L.paid[o] && !L.paid[key]) n++; });
+  if (s.phase === 'flood' && !s.monthDone) n++;
+  return n;
+}
+function renderArk(){
+  const box = $('#arkBox'); if (!box || !R.arkState) return;
+  const s = R.arkState(W, M, now()), o = R.OTHER[key];
+  box.innerHTML = '';
+  const card = (cls, html) => { const d = document.createElement('div'); d.className = cls; d.innerHTML = html; return d; };
+  const wrap = document.createElement('div'); wrap.className = 'duo';
+  const L1 = document.createElement('div'), L2 = document.createElement('div');
+  wrap.appendChild(L1); wrap.appendChild(L2); box.appendChild(wrap);
+  // 큰 퀘스트
+  const say = s.phase === 'land' ? (s.landDone >= s.land.length ? '무지개 농장이 완성됐어요! 수아연아의 방주 이야기를 다 해냈어요 🌈' : '물이 빠진 새 땅이에요. 무지개 농장을 하나씩 지어요')
+    : s.phase === 'flood' ? '방주 안에서 열두 달을 버텨요. 하루에 한 달씩, 양식을 아껴 먹고 동물을 돌봐요'
+    : s.atArk ? (s.step >= s.total ? '방주가 다 지어졌어요! 둘이 함께 방주에 들어가요' : '방주 터에 방주를 열 단계로 지어요. 그동안 동물 짝·씨앗·양식을 모아요')
+    : '큰비가 오기 전에 동물을 한 쌍씩, 씨앗을 한 알씩 모아요. 오아시스 농장 다음이 방주 농장이에요';
+  const q = card('quest', '<h4>📜 큰 퀘스트 — 수아연아의 방주</h4>' + say
+    + '<div class="bars">' + arkBar('🐾 동물 짝', s.pairsHave, s.pairsTotal) + arkBar('🌰 씨앗 금고', s.seedsHave, s.seedsTotal)
+    + arkBar('🛶 방주', s.step, s.total, 'wood') + (s.phase === 'flood' ? arkBar('🌊 항해', s.month, s.months, 'sea') : s.phase === 'land' ? arkBar('🌈 새 땅', s.landDone, s.land.length) : arkBar('🌾 양식', s.food, s.foodMin, 'food')) + '</div>');
+  const qr = document.createElement('div'); qr.className = 'row';
+  qr.appendChild(btn('🌤️ 하나님의 말씀 다시 듣기', 'sm', () => openVoice()));
+  q.appendChild(qr); L1.appendChild(q);
+  // 지금 할 일
+  if (!s.phase && !s.atArk){
+    const i0 = W.farm || 0, ia = R.FARMS.findIndex(f => f.id === 'ark');
+    const path = R.FARMS.slice(i0, ia + 1).filter(f => !f.skip).map(f => f.icon + ' ' + f.name).join(' → ');
+    L1.appendChild(card('build move', '<div class="nm">🚚 방주 농장까지</div><div class="pr">' + path + '<br>지금부터 동물을 한 쌍씩, 씨앗을 한 알씩 모아 둬요. <b>농장 전용 동식물</b>은 그 농장에 있을 때만 얻을 수 있어서, 다 챙겨야 다음 농장으로 떠날 수 있어요.<br><small>방주 농장에서는 혼자인 동물에게 짝꿍이 스스로 찾아와요(창세기 7:9).</small></div>'));
+    // 이 농장에서만 얻는 것(2026-10-09 로키즈 「각 농장에서만 얻는 동식물 — 이주 조건」)
+    const LS = R.localState ? R.localState(W, M) : null, F = R.farmOf(W);
+    if (LS && (LS.animals.length || LS.crops.length || LS.goods.length)){
+      const row = (x, txt) => '<span class="' + (x.have ? 'paid' : '') + '">' + (x.have ? '✅ ' : '⬜ ') + txt + '</span>';
+      const c = card('build move', '<div class="nm">' + F.icon + ' ' + F.name + '에서만 얻는 것 — 떠나기 전에 챙겨요</div>'
+        + (LS.animals.length ? '<div class="who">' + LS.animals.map(x => row(x, R.ANIMALS[x.id].icon + ' ' + R.ANIMALS[x.id].name + (R.ANIMALS[x.id].gift ? '' : ' (가게)'))).join('') + '</div>' : '')
+        + (LS.crops.length ? '<div class="who">' + LS.crops.map(x => row(x, '🌰 ' + R.CROPS[x.id].name + ' 씨앗 → 금고')).join('') + '</div>' : '')
+        + (LS.goods.length ? '<div class="who">' + LS.goods.map(x => row(x, R.itemName(x.id))).join('') + '</div>' : ''));
+      LS.crops.filter(x => !x.have && (M.inv['seed:' + x.id] || 0) > 0).forEach(x => { const b = btn('🌰 ' + R.CROPS[x.id].name + ' 씨앗 금고에 넣기', 'sm buy', () => { const r = act((w, m) => R.arkSeed(w, m, x.id, now())); if (r.ok) sfx('plant'); }); b.style.marginTop = '6px'; c.appendChild(b); });
+      L1.appendChild(c);
+    }
+  }
+  if (s.atArk && !s.phase){
+    // 방주 열 단계
+    const st = document.createElement('div');
+    st.innerHTML = '<h3 class="pixel">방주 짓기 ' + s.step + '/' + s.total + '</h3><p class="sub">각자 제 몫을 내요. 둘 다 내야 한 단계 올라가고, 농장 가운데 방주가 서서히 지어져요.</p>';
+    s.steps.forEach(S => {
+      if (S.done){ st.appendChild(card('stepline done', '✅ ' + (S.i + 1) + '단계 ' + S.icon + ' ' + S.name + (s.on[S.i] ? ' · ' + shortDay(s.on[S.i]) : ''))); return; }
+      if (!S.cur){ st.appendChild(card('stepline', '⬜ ' + (S.i + 1) + '단계 ' + S.icon + ' ' + S.name)); return; }
+      const c = card('build move', '<div class="nm">' + S.icon + ' ' + (S.i + 1) + '단계 — ' + S.name + '</div><div>' + escapeHTML(S.say) + '</div>'
+        + '<div class="who"><span class="' + (s.paid.sua ? 'paid' : '') + '">수아' + (s.paid.sua ? ' ✓' : '') + '</span><span class="' + (s.paid.yona ? 'paid' : '') + '">연아' + (s.paid.yona ? ' ✓' : '') + '</span></div>'
+        + '<div class="need">' + (S.id === 'store' ? '양식 창고 ' + s.food + '/' + s.foodMin + ' — 아래 창고에 먹을 것을 넣어요' : '각자 ' + arkCost(S.each)) + '</div>');
+      if (!s.paid[key]){
+        const ok = S.id === 'store' ? s.food >= s.foodMin : R.canPay(M, S.each);
+        const b = btn(s.paid[o] ? '내 몫 내기 — ' + NAME[o] + '가 기다려요!' : '내 몫 내기', 'sm' + (ok ? ' buy' : ''), () => {
+          const r = act((w, m) => R.arkPay(w, m, now()));
+          if (r.ok){ sfx(r.built ? 'fanfare' : 'pop'); if (r.built){ flash(r.msg + ' <b>농장 가운데를 봐요!</b>'); window.scrollTo({ top: 0, behavior: STILL ? 'auto' : 'smooth' }); } }
+        }, !ok);
+        b.style.marginTop = '6px'; c.appendChild(b);
+      }
+      st.appendChild(c);
+    });
+    L1.appendChild(st);
+    if (s.step < s.total) L1.appendChild(card('sub', '🪵 나무는 왼쪽·앞쪽 잣나무 숲에서 베고, 🖤 역청 덩어리는 낮에 땅에 떨어진 것을 주워요. 돌은 바위에서 캐요.'));
+    // 입장
+    if (s.step >= s.total){
+      const c = card('build move', '<div class="nm">🛶 방주에 들어가기</div><div class="pr">' + (s.otherAsked ? '<b>' + NAME[o] + '가 방주에 들어가자고 해요!</b> 좋다고 하면 모두 들어가고 문이 닫혀요'
+        : s.mineAsked ? NAME[o] + '의 대답을 기다려요' : '둘 다 좋다고 하면 동물 ' + (W.animals || []).length + '마리와 함께 방주에 들어가요. 문이 닫히고 큰비가 내려요.')
+        + '<br><small>밭에 서 있는 작물은 거둬서 양식 창고에 실어요. 방주 안에서는 가게·밭·채집이 쉬고, 하루에 한 달씩 열두 달을 지내요.</small></div>');
+      const a = document.createElement('div'); a.className = 'act';
+      if (!s.mineAsked) a.appendChild(btn(s.otherAsked ? '좋아, 들어가자!' : '방주에 들어가자고 하기', 'buy', () => {
+        if (s.otherAsked && !confirm('방주에 들어갈까요? 열두 달 동안은 섬에 못 나와요.')) return;
+        if (visiting()) visitFarm(null);
+        const r = act((w, m) => R.arkBoard(w, m, now()));
+        if (r.ok){ sfx(r.boarded ? 'fanfare' : 'pop'); if (r.boarded) openBoardScene(); }
+      }));
+      if (s.ask) a.appendChild(btn(s.mineAsked ? '물어본 것 거두기' : '조금 이따가', '', () => act((w, m) => R.arkBoardCancel(w, m, now()))));
+      c.appendChild(a); L1.appendChild(c);
+    }
+  }
+  if (s.phase === 'flood'){
+    const L = s.log[s.month] || null, nx = s.log[s.month + 1] || null;
+    const c = card('build move', '<div class="nm">🌊 방주 ' + s.month + '달째 / ' + s.months + '달</div>'
+      + '<div class="months">' + Array.from({ length: s.months }, (_, i) => '<i class="' + (i < s.month ? 'on' : i === s.month ? 'now' : '') + '"></i>').join('') + '</div>'
+      + '<div class="monthtext">' + (L ? L.icon + ' ' + escapeHTML(L.text) + ' <small>(창세기 ' + L.ref + ')</small>' : '🚪 방주 문이 닫혔어요. 이제 큰비가 내려요') + '</div>'
+      + '<div class="pr">한 달에 양식 ' + s.ration + '을 먹어요(우리 둘 4 + 동물 두 마리마다 1). 창고 ' + s.food + (s.monthDone ? ' · <b>오늘 한 달은 보냈어요. 내일 또 와요</b>' : '') + (nx && !s.monthDone ? '<br>다음 달: ' + nx.icon + ' …' : '') + '</div>');
+    const a = document.createElement('div'); a.className = 'act';
+    a.appendChild(btn('🌙 한 달 보내기 (양식 −' + s.ration + ')', 'buy', () => {
+      const r = act((w, m) => R.arkMonth(w, m, now()));
+      if (r.ok) sfx(r.landed ? 'fanfare' : 'sparkle');
+    }, s.monthDone || s.food < s.ration));
+    a.appendChild(btn('🎣 창밖 낚시', '', () => { const B = window.FARMHD && window.FARMHD.ark && window.FARMHD.ark.voyageBox; startFishing('flood', B ? { x: B.x0 - 30, y: B.water + 24 } : null); if (liveCv) liveCv.scrollIntoView({ block: 'center', behavior: STILL ? 'auto' : 'smooth' }); }));
+    c.appendChild(a);
+    if (s.food < s.ration) c.appendChild(card('pr', '⚠️ 양식이 ' + (s.ration - s.food) + ' 모자라요. 동물이 낳은 것을 줍거나 창밖 낚시로 잡아 아래 창고에 넣어요. 모자라도 괜찮아요 — 채우면 다시 떠나요.'));
+    c.appendChild(card('pr', '<small>동물 밥·쓰다듬기는 「👭 둘이서」 칸에서 그대로 해요. 달걀·우유 같은 것도 창고에 넣으면 양식이 돼요.</small>'));
+    L1.appendChild(c);
+  }
+  // 양식 창고 — 방주 농장(짓는 동안)과 방주 안
+  if ((s.atArk && !s.phase) || s.phase === 'flood'){
+    const need = s.phase === 'flood' ? s.ration * Math.max(1, s.months - s.month) : s.foodMin;
+    const c = card('build', '<div class="nm">🌾 양식 창고 — ' + s.food + (s.phase === 'flood' ? ' (남은 달을 다 지내려면 ' + need + ')' : ' / ' + s.foodMin) + '</div>'
+      + '<div class="bars">' + arkBar('창고', s.food, need, 'food') + '</div>'
+      + '<div class="need">' + (s.by.sua || s.by.yona ? '넣은 몫 — 수아 ' + (s.by.sua || 0) + ' · 연아 ' + (s.by.yona || 0) + '<br>' : '') + '작물 3 · 요리 8~20 · 물고기 4 · 달걀 2 · 우유 3 · 큰 작물 15</div>');
+    const ids = Object.keys(M.inv).filter(id => M.inv[id] > 0 && R.arkFoodOf(id) > 0).sort((a, b) => R.arkFoodOf(b) * M.inv[b] - R.arkFoodOf(a) * M.inv[a]);
+    const a = document.createElement('div'); a.className = 'act'; a.style.flexWrap = 'wrap';
+    ids.slice(0, 16).forEach(id => { const n = M.inv[id], v = R.arkFoodOf(id); a.appendChild(btn(escapeHTML(R.itemName(id)) + ' ' + n + '개 넣기 (+' + v * n + ')', 'sm', () => { const r = act((w, m) => R.arkStore(w, m, id, n, now())); if (r.ok) sfx('pop'); })); });
+    if (!ids.length) a.innerHTML = '<span class="sub">가방에 양식이 될 것이 없어요. 거두고, 요리하고, 낚아 와요.</span>';
+    c.appendChild(a); L1.appendChild(c);
+  }
+  if (s.phase === 'land'){
+    const all = s.landDone >= s.land.length;
+    if (all) L1.appendChild(card('done-all', '🌈 무지개 농장 완성! 🎉<br><small>방주를 짓고, 큰물을 건너고, 새 땅에 마을을 세웠어요. 이제 이 땅에서 오래오래 농사지어요.</small>'));
+    const st = document.createElement('div');
+    st.innerHTML = '<h3 class="pixel">새 땅 짓기 ' + s.landDone + '/' + s.land.length + '</h3><p class="sub">하나를 다 지어야 다음이 열려요. 각자 제 몫을 내요.</p>';
+    s.land.forEach(L => {
+      if (L.done){ st.appendChild(card('stepline done', '✅ ' + L.icon + ' ' + L.name)); return; }
+      if (!L.open){ st.appendChild(card('stepline', '⬜ ' + L.icon + ' ' + L.name)); return; }
+      const c = card('build move', '<div class="nm">' + L.icon + ' ' + L.name + '</div><div>' + escapeHTML(L.say) + '</div>'
+        + '<div class="who"><span class="' + (L.paid.sua ? 'paid' : '') + '">수아' + (L.paid.sua ? ' ✓' : '') + '</span><span class="' + (L.paid.yona ? 'paid' : '') + '">연아' + (L.paid.yona ? ' ✓' : '') + '</span></div><div class="need">각자 ' + arkCost(L.each) + '</div>');
+      if (!L.paid[key]){ const b = btn(L.paid[o] ? '내 몫 내기 — ' + NAME[o] + '가 기다려요!' : '내 몫 내기', 'sm' + (R.canPay(M, L.each) ? ' buy' : ''), () => { const r = act((w, m) => R.landPay(w, m, L.id, now())); if (r.ok) sfx(r.built ? 'fanfare' : 'pop'); }, !R.canPay(M, L.each)); b.style.marginTop = '6px'; c.appendChild(b); }
+      st.appendChild(c);
+    });
+    L1.appendChild(st);
+    L1.appendChild(card('sub', '🫒 올리브는 낮에 땅에 떨어진 것을 주워요. 방주 씨앗 금고에 넣어 온 작물은 다른 농장 전용이라도 여기서 자라요.'));
+  }
+  // 방주 명부 — 동물 짝
+  const lh = document.createElement('div');
+  lh.innerHTML = '<h3 class="pixel">방주 명부 — 동물 ' + arkLabel(s.pairsHave, s.pairsTotal) + '쌍</h3><p class="sub">한 가지에 두 마리면 한 쌍. 새끼를 보거나 가게에서 사요.' + (s.atArk && !s.phase ? ' 방주 농장에서는 짝꿍이 스스로 찾아와요.' : '') + '</p>';
+  const lg = document.createElement('div'); lg.className = 'ledger';
+  s.pairs.forEach(P => {
+    const A = R.ANIMALS[P.kind], d = document.createElement('div'); d.className = P.n >= 2 ? 'ok' : P.n === 1 ? 'half' : '';
+    const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; cv.getContext('2d').imageSmoothingEnabled = false; drawAnimalAt(cv.getContext('2d'), P.kind, 4, 5, 1, false, 1);
+    if (!P.n) cv.style.opacity = '.3';
+    d.appendChild(cv);
+    const where = A.gift ? (R.FARMS.find(f => f.id === A.gift) || {}).name + ' 이사 식구' : A.farm ? (R.FARMS.find(f => f.id === A.farm) || {}).name + ' 가게에서만' : '가게에서';
+    d.insertAdjacentHTML('beforeend', '<b>' + A.icon + ' ' + A.name + '</b>' + (P.n >= 2 ? '✅ 한 쌍' + (P.n > 2 ? ' (+' + (P.n - 2) + ')' : '') : P.n === 1 ? '혼자 1/2' : '0/2 · ' + where));
+    lg.appendChild(d);
+  });
+  lh.appendChild(lg); L2.appendChild(lh);
+  // 씨앗 금고
+  const sh = document.createElement('div');
+  sh.innerHTML = '<h3 class="pixel">씨앗 금고 ' + arkLabel(s.seedsHave, s.seedsTotal) + '</h3><p class="sub">작물마다 씨앗 한 알씩. 새 땅에 내리면 금고의 씨앗을 둘에게 두 알씩 돌려줘요.</p>';
+  const sg = document.createElement('div'); sg.className = 'ledger';
+  R.CROP_IDS.forEach(c => {
+    const C = R.CROPS[c], inV = s.seeds.indexOf(c) >= 0, have = (M.inv['seed:' + c] || 0) > 0, d = document.createElement('div'); d.className = inV ? 'ok' : have ? 'half' : '';
+    const ic = cropIcon(c); if (!inV && !have) ic.style.opacity = '.35'; d.appendChild(ic);
+    const hint = C.farm ? (R.FARMS.find(f => f.id === C.farm) || {}).name + '에서만' : C.rare ? '축제·행상인' : C.season.map(x => R.SEASON_NAME[x]).join('·') + ' 씨앗' + (C.half ? ' · ' + NAME[C.half] + ' 가게' : '');
+    d.insertAdjacentHTML('beforeend', '<b>' + C.name + '</b>' + (inV ? '✅ 금고에' : have ? '가방에 ' + M.inv['seed:' + c] + '알' : hint));
+    if (!inV && have) d.appendChild(btn('넣기', '', () => { const r = act((w, m) => R.arkSeed(w, m, c, now())); if (r.ok) sfx('plant'); }));
+    sg.appendChild(d);
+  });
+  sh.appendChild(sg); L2.appendChild(sh);
+}
+// 하나님의 음성(2026-10-09 로키즈 「이사가기로 결정버튼을 누르면 하나님의 음성」) — 장면 아래 대사가 한 줄씩. 다 들으면 큰 퀘스트 카드
+const VOICE_KEY = () => 'suayona.farm.voice.' + key;
+const VOICE_LINES = [
+  ['', '(하늘의 구름이 갈라지고, 따스한 빛이 내려와요…)'],
+  ['God', '수아야, 연아야.'],
+  ['God', '너희가 지금까지 착실하게 농장을 가꾸고, 동물들을 사랑으로 돌보는 모습이 참 어여쁘구나.'],
+  ['God', '이제 내가 너희에게 아주 큰 퀘스트를 하나 주겠다.'],
+  ['God', '머지않아 큰비가 내릴 것이다. 사십 일 밤낮 비가 그치지 않아, 물이 온 땅과 높은 산까지 덮을 것이다.'],
+  ['God', '그러니 너희는 잣나무로 커다란 방주를 지어라. 삼 층으로 짓고 칸을 나누고, 안팎에 역청을 칠하고, 위에는 창을, 옆에는 문을 내어라. (창세기 6:14-16)'],
+  ['God', '모든 동물을 암수 한 쌍씩 방주로 데려와 함께 살게 하여라. 땅의 모든 씨앗도 한 알씩 담아 두어라.'],
+  ['God', '너희와 동물들이 먹을 양식도 넉넉히 모아 두어라. 방주 안에서 꼬박 한 해를 지내야 한단다. (6:21)'],
+  ['God', '두려워하지 말아라. 내가 너희와 함께하겠다. 물이 빠지면 너희에게 무지개를 보여 주마.'],
+  ['sua', '네! 연아야, 우리 같이 해 보자!'],
+  ['yona', '응, 언니! 동물 친구들 다 데려가자!'],
+];
+function openVoice(then){
+  const inner = $('#modalInner'), H = window.FARMHD && window.FARMHD.ark;
+  try { localStorage.setItem(VOICE_KEY(), '1'); } catch (e) { /* 못 적으면 한 번 더 듣는다 */ }
+  inner.innerHTML = '<h3 class="pixel">🌤️ 하늘에서 들려온 목소리</h3>' + (H ? H.SCENE_CV('voiceCv', '구름이 갈라지고 빛이 내려와 수아와 연아가 하늘을 올려다보는 그림') : '')
+    + '<div class="voice-line" id="voiceLine" aria-live="polite"></div>'
+    + '<div class="modal-actions"><button type="button" class="dot-btn small" id="voiceSkip">건너뛰기</button><button type="button" class="dot-btn small primary" id="voiceNext">다음 ▶</button></div>';
+  $('#modal').hidden = false;
+  const run = H ? H.voice($('#voiceCv'), { kinds: [...new Set((W.animals || []).map(a => a.kind))] }) : null;
+  let i = 0, typing = 0;
+  const show = () => {
+    const [who, text] = VOICE_LINES[i], el = $('#voiceLine');
+    el.className = 'voice-line' + (who === 'sua' || who === 'yona' ? ' kid' : '');
+    el.innerHTML = (who ? '<span class="who">' + (who === 'God' ? '하나님의 음성' : NAME[who]) + '</span>' : '') + '<span id="voiceText"></span>';
+    const t = $('#voiceText'); let n = 0; clearInterval(typing);
+    if (STILL){ t.textContent = text; return; }
+    typing = setInterval(() => { n += 2; t.textContent = text.slice(0, n); if (n >= text.length) clearInterval(typing); }, 40);
+    if (who === 'God' && i === 1) sfx('sparkle');
+  };
+  const finish = () => {
+    clearInterval(typing); if (run) run.stop();
+    const s = R.arkState(W, M, now());
+    inner.innerHTML = '<h3 class="pixel">📜 큰 퀘스트를 받았어요 — 수아연아의 방주</h3>'
+      + '<ul class="voice-quest">'
+      + '<li>🛶 <b>방주 농장</b> 한가운데 방주를 열 단계로 지어요 (지금 ' + s.step + '/' + s.total + ')</li>'
+      + '<li>🐾 동물 열세 가지를 <b>한 쌍씩</b> 모아요 (지금 ' + s.pairsHave + '/' + s.pairsTotal + '쌍)</li>'
+      + '<li>🌰 작물 씨앗을 한 알씩 <b>씨앗 금고</b>에 넣어요 (지금 ' + s.seedsHave + '/' + s.seedsTotal + ')</li>'
+      + '<li>🌾 <b>양식 창고</b>를 채워요 — 방주 안에서 열두 달을 먹고 지내요</li>'
+      + '<li>🌊 방주에 들어가 <b>대홍수</b>를 버티면 → 🌈 <b>무지개 농장</b>에 닿아요</li></ul>'
+      + '<p class="sub">언제든 「🛶 방주」 칸에서 다시 볼 수 있어요.</p>'
+      + '<div class="modal-actions"><button type="button" class="dot-btn small primary" id="voiceOk">🙏 네, 해 볼게요!</button></div>';
+    $('#voiceOk').addEventListener('click', () => { closeModal(); sfx('fanfare'); if (then) then(); else if (tab !== 'ark') renderTab(); });
+  };
+  $('#voiceNext').addEventListener('click', () => { const t = $('#voiceText'); if (t && t.textContent.length < VOICE_LINES[i][1].length){ clearInterval(typing); t.textContent = VOICE_LINES[i][1]; return; } i++; if (i >= VOICE_LINES.length) finish(); else show(); });
+  $('#voiceSkip').addEventListener('click', finish);
+  show();
+}
+// 입장 장면 — 들어간 아이는 그 자리에서, 자매는 다음에 열 때 한 번
+const BOARD_KEY = () => 'suayona.farm.boarded.' + key;
+function openBoardScene(){
+  const H = window.FARMHD && window.FARMHD.ark; if (!H) return;
+  try { localStorage.setItem(BOARD_KEY(), '1'); } catch (e) { /* 다시 봐도 괜찮다 */ }
+  const kinds = R.ARK_KINDS.filter(k => (W.animals || []).some(a => a.kind === k));
+  $('#modalInner').innerHTML = '<h3 class="pixel">🛶 모두 방주로!</h3><p class="sub">동물들이 둘씩 짝지어 방주로 들어가요(창세기 7:9). 마지막으로 수아와 연아가 들어가고 — 문이 닫혀요.</p>'
+    + H.SCENE_CV('boardCv', '동물들이 둘씩 방주에 들어가고 문이 닫히며 큰비가 내리는 그림')
+    + '<div class="modal-actions"><button type="button" class="dot-btn small" id="boardAgain">🔁 다시 보기</button><button type="button" class="dot-btn small primary" id="boardGo">방주 안으로</button></div>';
+  $('#modal').hidden = false;
+  let run = H.boarding($('#boardCv'), { kinds, onDone: () => sfx('fanfare') });
+  $('#boardAgain').addEventListener('click', () => { run.stop(); run = H.boarding($('#boardCv'), { kinds }); });
+  $('#boardGo').addEventListener('click', () => { run.stop(); closeModal(); openTab('ark'); });
+}
 function renderTree(){
   const box = $('#tree'), wrap = $('#treeBox');
   if (!box || !wrap) return;
@@ -1894,9 +2196,12 @@ const DEX_EVENTS = [
   ['ev:move', '🚚', '이사 선물', '둘이 좋다고 해서 다음 농장으로 이사 가면 우편으로 와요', null],
   ['ev:santa', '🎅', '산타 할아버지 편지', '산타 우체통을 놓으면 가끔 편지가 와요', 'aurora'],
   ['ev:genie', '🧞', '램프 요정 편지', '요술 램프를 놓으면 가끔 소원 편지가 와요', 'desert'],
+  ['ev:ark', '🛶', '방주 씨앗 금고', '대홍수를 건너 새 땅에 내린 날, 금고의 씨앗과 선물이 우편으로 와요', 'newland'],
 ];
 const GOOD_HINT = { honey: '벌통을 짓고 꽃이 피면 꿀이 고여요', berry: '덤불에서 따요', snowball: '겨울에 눈더미에서 뭉쳐요',
-  firefly: '여름·가을 밤에 날아다녀요', shard: '오로라 농장 밤에 하늘에서 떨어져요', sandrose: '오아시스 농장 낮에 모래 위에 보여요' };
+  firefly: '여름·가을 밤에 날아다녀요', shard: '오로라 농장 밤에 하늘에서 떨어져요', sandrose: '오아시스 농장 낮에 모래 위에 보여요',
+  pitch: '방주 농장 낮에 땅에 떨어진 까만 덩어리를 주워요', olive: '무지개 농장 낮에 땅에 떨어진 것을 주워요',
+  syrup: '단풍 농장 낮에 단풍나무 아래 시럽 양동이를 주워요', mango: '밀림 농장 낮에 땅에 떨어진 것을 주워요', baobab: '사바나 농장 낮에 바오밥 나무 아래서 주워요' };
 const SEASON_DOT = { spring: '🌸', summer: '☀️', autumn: '🍁', winter: '❄️' };
 const farmName = id => (R.FARMS.find(f => f.id === id) || { name: '' }).name;
 const skipFarm = id => !!id && !!(R.FARMS.find(f => f.id === id) || {}).skip;
@@ -1922,7 +2227,7 @@ function dexList(){
   Object.keys(R.ANIMALS).forEach(k => {
     const A = R.ANIMALS[k], list = (W.animals || []).filter(a => a.kind === k);
     const first = list.slice().sort((a, b) => String(a.born).localeCompare(String(b.born)))[0], babies = list.filter(a => a.mom).length;
-    add({ cat: 'animal', id: 'animal:' + k, name: A.name, farm: A.gift || null, shared: true, have: !!first, by: first && first.by,
+    add({ cat: 'animal', id: 'animal:' + k, name: A.name, farm: A.gift || A.farm || null, shared: true, have: !!first, by: first && first.by,
       info: first ? [['처음 온 날', first.born + ' · ' + (A.gift && !first.mom ? '이사 때 아기로 따라왔어요' : NAME[first.by] + '가 데려왔어요')],
         ['지금', list.length + '마리' + (babies ? ' · 농장에서 태어난 아기 ' + babies + '마리' : '')]] : null });
   });

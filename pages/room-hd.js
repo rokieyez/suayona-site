@@ -168,7 +168,7 @@
   function shell(g, S){
     const pal = PAL[S.r] || PAL.living, ph = phase(S.dark), H = S.WALLH, ox = S.ox;
     g.save(); g.scale(S.HS, S.HS); g.lineJoin = 'round'; g.lineCap = 'round';
-    const DZ = S.farm === 'desert', wallFn = DZ ? plasterWall : logWall;   // 사막은 리아드 회벽·타일
+    const DZ = S.farm === 'desert' || S.farm === 'ark', wallFn = DZ ? plasterWall : logWall;   // 사막은 리아드 회벽·타일
     onWall(g, S, 1, () => wallFn(g, pal, S.LW, H, 1, S.r));
     onWall(g, S, 0, () => wallFn(g, pal, S.LH, H, 0, S.r));
     if (S.win) onWall(g, S, 1, () => winFrame(g, pal, S.win));
@@ -179,7 +179,7 @@
     g.restore();
     toneOver(g, ph);
     // 창밖은 누르지 않는다 — 밤 하늘·오로라는 제 빛깔로
-    if (S.win){ g.save(); g.scale(S.HS, S.HS); onWall(g, S, 1, () => (DZ ? winGlassDesert : winGlass)(g, pal, S.win, ph, S.r)); g.restore(); }
+    if (S.win){ g.save(); g.scale(S.HS, S.HS); onWall(g, S, 1, () => (DZ ? winGlassDesert : winGlass)(g, pal, S.win, ph, S.r, S.farm)); g.restore(); }
   }
   // 벽 한 면을 평평한 좌표(x 0..len, y 0..104)로 — 왼쪽 벽은 구석이 x = len
   function onWall(g, S, side, fn){
@@ -287,9 +287,40 @@
   }
   // 창유리 — 밖 풍경(눈 덮인 전나무, 먼 설산, 밤이면 오로라), 십자 살, 서리, 눈 쌓인 바깥 턱
   const SKY = [['#7db4dc', '#b9dcef', '#e8f4fa'], ['#f2a07e', '#ffc9a0', '#ffe9c8'], ['#3b3770', '#8a5e98', '#d98c96'], ['#040a20', '#0c1e44', '#1a4062']];
-  function winGlass(g, pal, W, ph, room){
+  /* 농장마다 다른 창밖(2026-10-09) — 단풍 골짜기·밀림·사바나·무지개 농장. 없는 농장은 오로라 설경(아래 winGlass) */
+  const winSky = (g, x, y, w, h, ph, cols) => { g.fillStyle = K.lin(g, 0, y, 0, y + h, cols || SKY[ph]); g.fillRect(x, y, w, h);
+    if (ph >= 2) for (let i = 0; i < 22; i++) K.oval(g, x + hash(i * 3 + 7) * w, y + hash(i * 5 + 1) * h * 0.55, 0.4, 0.4, 'rgba(240,248,255,' + (0.4 + hash(i * 9) * 0.5).toFixed(2) + ')');
+    else K.oval(g, x + w * 0.22, y + h * 0.3, 3.2, 3.2, ph ? '#fff0d0' : '#fffdf4'); };
+  const darken = (c, ph) => ph >= 2 ? K.mix(c, '#0e1838', ph >= 3 ? 0.6 : 0.4) : ph ? K.mix(c, '#c86040', 0.15) : c;
+  const WIN_VIEW = {
+    maple: (g, x, y, w, h, ph) => { winSky(g, x, y, w, h, ph); const gy = y + h * 0.66;
+      g.beginPath(); g.moveTo(x, gy); for (let xx = 0; xx <= w; xx += 2) g.lineTo(x + xx, gy - 6 - 6 * Math.abs(Math.sin(xx * 0.08 + 1))); g.lineTo(x + w, gy); g.closePath(); g.fillStyle = darken('#8a5a3a', ph); g.fill();
+      ['#e8502a', '#f8a030', '#f0d040', '#c8301a', '#3a6a44'].forEach((c, i) => { for (let k = 0; k < 5; k++){ const tx = x + hash(i * 7 + k * 3) * w, ty = gy - 5 - hash(k * 5 + i) * 6; K.oval(g, tx, ty, 3, 2.6, darken(c, ph)); } });
+      g.fillStyle = K.lin(g, 0, gy, 0, y + h, [darken('#6aa8d0', ph), darken('#3a78a8', ph)]); g.fillRect(x, gy, w, y + h - gy);
+      for (let i = 0; i < 6; i++) g.fillRect(x + hash(i * 13) * w, gy + 2 + hash(i * 7) * (y + h - gy - 3), 5, 0.5);
+      for (let i = 0; i < 6; i++){ const lx = x + hash(i * 17 + 3) * w, ly = y + hash(i * 19 + 1) * h; K.oval(g, lx, ly, 1.2, 0.8, darken(['#e8502a', '#f8a030', '#f0d040'][i % 3], ph)); } },
+    jungle: (g, x, y, w, h, ph) => { winSky(g, x, y, w, h, ph, ph ? null : ['#6ab0c8', '#b0d8c8', '#d8ecc8']); const gy = y + h * 0.55;
+      for (let r = 0; r < 4; r++) for (let k = 0; k < 7; k++){ const tx = x + (k + (r % 2) * 0.5) * w / 6, ty = gy + r * 5; K.oval(g, tx, ty, 6, 4, darken(['#2f7a34', '#1e5a26', '#3f8a3a', '#164a1e'][(k + r) % 4], ph)); }
+      g.fillStyle = 'rgba(230,245,235,' + (ph >= 2 ? 0.05 : 0.25) + ')'; g.fillRect(x, gy - 2, w, 4);
+      [[0, 1], [1, -1]].forEach(([fx, sd]) => { for (let k = 0; k < 4; k++){ const a = sd > 0 ? 0.3 + k * 0.35 : Math.PI - 0.3 - k * 0.35; g.save(); g.translate(x + w * fx, y + h * 0.2 + k * 3); g.rotate(a); K.oval(g, 7, 0, 7, 2.2, darken('#1e6a2a', ph)); g.restore(); } }); },
+    savanna: (g, x, y, w, h, ph) => { winSky(g, x, y, w, h, ph, ph ? null : ['#9cc4dc', '#f0d8a8', '#f8c088']); const gy = y + h * 0.66;
+      if (!ph) K.oval(g, x + w * 0.7, gy - 4, 4, 4, '#fff4d8');
+      g.beginPath(); g.moveTo(x + w * 0.1, gy); g.lineTo(x + w * 0.32, gy - 9); g.lineTo(x + w * 0.42, gy - 9); g.lineTo(x + w * 0.6, gy); g.closePath(); g.fillStyle = darken('#b8906a', ph); g.fill();
+      K.poly(g, [[x + w * 0.3, gy - 8], [x + w * 0.32, gy - 9], [x + w * 0.42, gy - 9], [x + w * 0.44, gy - 8]], ph >= 2 ? '#8a8aa8' : '#ffffff');
+      g.fillStyle = K.lin(g, 0, gy, 0, y + h, [darken('#dcc46e', ph), darken('#c09450', ph)]); g.fillRect(x, gy, w, y + h - gy);
+      const sil = ph >= 2 ? '#1a1624' : 'rgba(70,45,30,.85)'; [[0.78, 1], [0.16, 0.7]].forEach(([fx, s]) => { const tx = x + w * fx; g.fillStyle = sil; g.fillRect(tx - 0.4, gy - 7 * s, 0.8, 7 * s); K.oval(g, tx, gy - 7 * s, 6 * s, 1.4 * s, sil); });
+      g.fillStyle = sil; g.fillRect(x + w * 0.55, gy - 4, 0.6, 4); g.fillRect(x + w * 0.58, gy - 4, 0.6, 4); K.oval(g, x + w * 0.565, gy - 4.4, 2, 1, sil); K.poly(g, [[x + w * 0.575, gy - 4.6], [x + w * 0.6, gy - 10], [x + w * 0.61, gy - 9.6], [x + w * 0.59, gy - 4.4]], sil); },
+    newland: (g, x, y, w, h, ph) => { winSky(g, x, y, w, h, ph); const gy = y + h * 0.68;
+      if (ph < 2){ g.save(); g.globalAlpha = 0.5; ['#ff5a5a', '#ffa03a', '#ffe04a', '#5ad06a', '#4aa8ff', '#a86ae8'].forEach((c, i) => { g.strokeStyle = c; g.lineWidth = 1.2; g.beginPath(); g.arc(x + w * 0.55, gy + 6, w * 0.42 - i * 1.2, Math.PI, TAU); g.stroke(); }); g.restore(); }
+      g.fillStyle = K.lin(g, 0, gy, 0, y + h, [darken('#9cd06a', ph), darken('#7cb852', ph)]); g.fillRect(x, gy, w, y + h - gy);
+      [[0.15, 1], [0.85, 0.8]].forEach(([fx, s]) => K.oval(g, x + w * fx, gy - 5 * s, 5 * s, 4 * s, darken('#6a8a5a', ph))); },
+  };
+  function winGlass(g, pal, W, ph, room, farm){
     const x = W.u, y = W.v, w = W.w, h = W.h, night = ph >= 2, tn = toneOf(ph);
     g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+    const V = WIN_VIEW[farm];
+    if (V){ V(g, x, y, w, h, ph, night); g.fillStyle = 'rgba(255,255,255,' + (night ? 0.06 : 0.18) + ')'; K.path(g, [[x + 6, y], [x + 16, y], [x + 4, y + h], [x - 6, y + h]]); g.fill(); g.restore(); }
+    else {
     g.fillStyle = K.lin(g, 0, y, 0, y + h, SKY[ph]); g.fillRect(x, y, w, h);
     if (night){
       for (let i = 0; i < 26; i++){ const sx = x + hash(i * 3 + 7) * w, sy = y + hash(i * 5 + 1) * h * 0.6; K.oval(g, sx, sy, 0.35 + hash(i) * 0.35, 0.35 + hash(i) * 0.35, 'rgba(240,248,255,' + (0.5 + hash(i * 9) * 0.5).toFixed(2) + ')'); }
@@ -342,6 +373,7 @@
     // 유리 반사
     g.fillStyle = 'rgba(255,255,255,' + (night ? 0.06 : 0.18) + ')'; K.path(g, [[x + 6, y], [x + 16, y], [x + 4, y + h], [x - 6, y + h]]); g.fill();
     g.restore();
+    }
     // 십자 살
     const bar = tn('#f6f0e2');
     K.rr(g, x + w / 2 - 1.3, y, 2.6, h, 0.5, bar, 0.4); K.rr(g, x, y + h * 0.45 - 1.3, w, 2.6, 0.5, bar, 0.4);

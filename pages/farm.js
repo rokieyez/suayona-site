@@ -75,7 +75,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '30';
+const PLAY_V = '32';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -372,7 +372,7 @@ function art(rows, mx, my, pal, flip){ drawArt(ctx, rows, mx * S, my * S, S, pal
 // 캔버스가 그림 크기의 몇 배인지. 아직 화면에 안 붙어 크기가 엉뚱하면 기본 배수로 맞춘다.
 function pixScale(cv, artW, artH, fallback){
   const k = cv.width / artW;
-  if (k >= 0.6 && k <= 8 && Math.abs(cv.height / artH - k) < 0.02) return k;
+  if (k >= 0.3 && k <= 8 && Math.abs(cv.height / artH - k) < 0.02) return k;
   cv.width = Math.round(artW * fallback); cv.height = Math.round(artH * fallback);
   return fallback;
 }
@@ -461,7 +461,8 @@ function fitPixelCanvas(cv, artW, artH, maxK){
   // 도트 하나가 화면에서 네 픽셀보다 크면 배수가 어중간할 때 자글거림이 눈에 띈다 — 정수로 못 박는다.
   // 그보다 작으면 어중간해도 안 보이므로 폭을 꽉 채우는 쪽이 낫다.
   if (k >= 4) k = Math.min(maxK || 8, k);
-  else k = Math.max(0.75, want / artW);
+  // 방주·무지개 농장(40×30, 2026-10-09)은 섬이 커서 0.75 로 막으면 틀 밖으로 넘친다 — 그때는 폭에 맞춰 더 줄인다(크게 보기 단추로 키운다)
+  else k = Math.max(artW > 1100 ? 0.3 : 0.75, want / artW);
   const w = Math.round(artW * k), h = Math.round(artH * k);
   const cw = w / dpr;
   cv.style.width = cw + 'px';
@@ -549,8 +550,15 @@ const FARM_LOOK = {
               path: ['#bdb8ac', '#aaa498', '#cdc8bd'], pathEdge: '#8a857a', petals: true },
   // 오로라 — 늘 눈 덮인 땅(밭 흙 빛깔 정도만 이 표를 본다)
   aurora:   { tint: '#dfe8f2', amt: 0.7, dry: '#e8eef4', rock: '#9aa0ae', bloom: ['#ffffff', '#d8ecff'], bloomX: 0 },
+  // 단풍·밀림·사바나(2026-10-09) — 하늘·섬은 pages/farm-wild.js(밭 흙 빛깔 정도만 이 표를 본다)
+  maple:    { tint: '#c8a860', amt: 0.6, dry: '#d8c090', rock: '#a8a49a', bloom: ['#e8502a', '#ffb030'], bloomX: 0 },
+  jungle:   { tint: '#6ab04a', amt: 0.6, dry: '#a8c070', rock: '#7a8a6a', bloom: ['#ff4a7a', '#ffd040'], bloomX: 0 },
+  savanna:  { tint: '#d8c070', amt: 0.66, dry: '#e8d090', rock: '#b08060', bloom: ['#ff8a30', '#ffe070'], bloomX: 0 },
   // 사막 오아시스 — 늘 금빛 모래 땅(밭 흙 빛깔 정도만 이 표를 본다)
   desert:   { tint: '#e8c48c', amt: 0.7, dry: '#f2d49c', rock: '#c88a58', bloom: ['#e8407a', '#ffd040'], bloomX: 0 },
+  // 방주 농장·무지개 농장(2026-10-09) — 풀 들판(밭 흙 빛깔 정도만 이 표를 본다)
+  ark:      { tint: '#a8c672', amt: 0.6, dry: '#c8b890', rock: '#bcae94', bloom: ['#ff8fa8', '#ffe070'], bloomX: 0 },
+  newland:  { tint: '#9cd06a', amt: 0.6, dry: '#c8c090', rock: '#cfc8b4', bloom: ['#ff5a5a', '#4aa8ff'], bloomX: 0 },
 };
 function farmLook(){ return (W && R.farmOf && FARM_LOOK[R.farmOf(W).id]) || null; }
 const palMemo = {};
@@ -827,6 +835,13 @@ function drawPeddlerIso(P, t){
 }
 // 도감·카드에서도 쓰는 그림. s 는 도트 한 개의 크기.
 function drawAnimalAt(g, kind, X, Y, s, flip, k){
+  // 도트 그림이 없는 동물(낙타 등 고화소로만 그린 것)은 닭으로 보이던 것을 그림 글자로(2026-10-09)
+  if (!BEAST[kind] && R.ANIMALS[kind] && R.ANIMALS[kind].icon){
+    const z = (k || 1) * 22 * s;
+    g.save(); g.font = z + 'px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+    if (flip){ g.translate((X + 12) * s * 2, 0); g.scale(-1, 1); }
+    g.fillText(R.ANIMALS[kind].icon, (X + 12) * s, (Y + 25) * s); g.restore(); return;
+  }
   const B = BEAST[kind] || BEAST.chicken;
   if (!k || k === 1){ drawArt(g, B.art, X * s, Y * s, s, B.pal, flip); return; }
   // 새끼는 작게. 발이 같은 줄에 놓이도록 아래로 밀고 가로는 가운데를 맞춘다
@@ -3611,19 +3626,46 @@ const ISO_LOOK = {
   // 오로라 — 하늘·섬·건물은 pages/farm-hd.js 가 고화소로 그린다(hdOn). 이 표는 비·안개 같은 공통 셈이 보는 값만
   aurora:   { sky: ['#050a1e', '#0b1a3c', '#123a5a', '#1d5a6e'], horizon: ITOP + 34, below: 'ice',
               strata: ['#3a4766', '#2c3654', '#222a44', '#181e34'], deep: ICLIFF },
+  maple:    { sky: ['#5d9bd6', '#8cc0e6', '#cfe4ef', '#f4ead8'], horizon: ITOP + 34, below: 'plain',
+              strata: ['#8a6a4a', '#6e5440', '#5a4436', '#44342a'], deep: ICLIFF },
+  jungle:   { sky: ['#4aa0d8', '#7ec4e0', '#c8e8e0', '#eef4d8'], horizon: ITOP + 34, below: 'plain',
+              strata: ['#a85a3a', '#8a4a30', '#6e3a28', '#522c20'], deep: ICLIFF },
+  savanna:  { sky: ['#5a98d0', '#9cc4dc', '#f0d8a8', '#f8c088'], horizon: ITOP + 34, below: 'plain',
+              strata: ['#c0703e', '#a85e34', '#8a4a2a', '#6a3820'], deep: ICLIFF },
   desert:   { sky: ['#3d8bd8', '#78b6e6', '#cfe2e8', '#f6e2bc'], horizon: ITOP + 34, below: 'sand',
               strata: ['#dca062', '#c98850', '#ae6c3e', '#8e5432'], deep: ICLIFF },
+  // 방주 농장 · 무지개 농장(2026-10-09) — 하늘·섬은 pages/farm-ark.js
+  ark:      { sky: ['#6b8fb6', '#9ab8d0', '#cfdbe0', '#efe8cf'], horizon: ITOP + 34, below: 'plain',
+              strata: ['#8a6a48', '#74583c', '#5e4630', '#463424'], deep: ICLIFF },
+  newland:  { sky: ['#5fa8e6', '#8ccaf0', '#cbe8f6', '#f3f8e8'], horizon: ITOP + 34, below: 'plain',
+              strata: ['#7a5a40', '#644834', '#4e3828', '#3a2a1e'], deep: ICLIFF },
 };
 function isoLook(){ return ISO_LOOK[R.farmOf(W).id] || ISO_LOOK.seaside; }
 /* ---- 스테이지2 고화소 그림(pages/farm-hd.js) ----
    여기 적힌 농장은 하늘·섬·건물·꾸미개·나무·아이를 도트 대신 FARMHD 로 칠한다. 좌표는 같은 도트 단위라 ctx 를 S 배 키워 놓고 부르면 된다.
    FARMHD 에 그림이 없는 것(작물·동물·앞 농장 추억 꾸미개)은 도트 그림 그대로다. 밤(등 켜는 때, L.lamp)이면 밤 빛깔 */
-const HD_FARMS = { aurora: 1, desert: 1 };
+const HD_FARMS = { aurora: 1, maple: 1, jungle: 1, savanna: 1, desert: 1, ark: 1, newland: 1 };
+/* 방주가 한 단계 올라가는 연출(2026-10-09) — 이 기기에서 아직 못 본 단계면 ARK_ANIM_MS 동안 서서히 지어진다.
+   지은 아이는 그 자리에서, 자매는 다음에 농장을 열 때 본다(본 단계를 기기에 적어 둔다). 손님은 다 지어진 모습 */
+const ARK_ANIM_MS = 5200;
+let arkAnim = null;
+function arkSeenKey(){ return 'suayona.farm.arkseen.' + (typeof key !== 'undefined' && key ? key : 'guest'); }
+function arkNow(){
+  const st = W && R.arkStep ? R.arkStep(W) : 0;
+  if (!st || typeof key === 'undefined' || !key || STILL) return { step: st, k: 1 };
+  if (!arkAnim || arkAnim.step !== st){
+    let seen = st;
+    try { const v = localStorage.getItem(arkSeenKey()); seen = v == null ? st : Number(v) || 0; if (v == null) localStorage.setItem(arkSeenKey(), String(st)); } catch (e) { seen = st; }
+    if (seen < st){ arkAnim = { step: st, t0: performance.now() }; try { localStorage.setItem(arkSeenKey(), String(st)); } catch (e) { /* 다시 봐도 괜찮다 */ } }
+    else arkAnim = { step: st, t0: -1e9 };
+  }
+  return { step: st, k: Math.min(1, (performance.now() - arkAnim.t0) / ARK_ANIM_MS) };
+}
 let hdLight = null;
 function hdOn(){ return !!window.FARMHD && !!W && !!HD_FARMS[R.farmOf(W).id]; }
 function hdEnv(){
   return { P: (u, v, z) => { const p = isoP(u, v, z); return [p.x, p.y]; }, cols: COLS, rows: ROWS, top: ITOP, cliff: ICLIFF, w: ISO_W, h: ISO_H,
-    night: !!(hdLight ? hdLight.lamp : dayLight().lamp), t: STILL ? 0 : performance.now() / 1000, farm: R.farmOf(W).id,
+    night: !!(hdLight ? hdLight.lamp : dayLight().lamp), t: STILL ? 0 : performance.now() / 1000, farm: R.farmOf(W).id, ark: arkNow(),
     lamp: (x, y, r, c) => lamp(x, y, r, c), chimney: (x, y) => { isoChimney = { x, y }; } };
 }
 function hd(fn){ ctx.save(); ctx.scale(S, S); try { return fn(ctx, hdEnv()); } finally { ctx.restore(); } }
@@ -7433,7 +7475,8 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
         isoHits.push({ e: isoSprite('stall:b', sigB + '|' + season + '|' + id, isoBoxOf(b), paint('back'), ink), tx: b.x, ty: b.y });
         drawStallKeeperIso(b, t);
       }
-      const e = isoSprite(id, sigB + '|' + season + '|' + id, isoBoxOf(b), paint(id === 'stall' ? 'front' : null), ink);
+      const arkSig = id === 'ark' ? (A => '|a' + A.step + ':' + Math.round(A.k * 48))(arkNow()) : '';   // 방주는 짓는 연출 동안 한 장씩 다시
+      const e = isoSprite(id, sigB + '|' + season + '|' + id + arkSig, isoBoxOf(b), paint(id === 'stall' ? 'front' : null), ink);
       for (let i = 0; i < e.lamps.length; i++) lamps.push(e.lamps[i]);
       isoHits.push({ e, tx: b.x, ty: b.y });
       if (hdThing) hd((c, E) => window.FARMHD.live(c, E, id, b));
@@ -7504,6 +7547,11 @@ function drawFarmIso(cv, g, t, cal, season, wk, L, windStep){
   if (!HD) drawWeather(wk, season, t, cv);                                // 고화소 섬은 늘 눈(FARMHD.snowfall)
   isoSeaRain(wk, t);
   if (HD){ hd((c, E) => window.FARMHD.snowfall(c, E)); grade(g, cw, ch, L, L.lamp ? 0.25 : 0.6); }
+  // 방주 농장은 늘 비가 올 것 같은 흐린 날(2026-10-09 로키즈) — 잿빛을 곱해 해를 가린다. 방주를 지을수록 짙다
+  if (HD && R.farmOf(W).id === 'ark' && !(W.ark && W.ark.phase)){
+    const sk = 0.42 + 0.58 * Math.min(1, (R.arkStep ? R.arkStep(W) : 0) / 10);
+    g.save(); g.globalCompositeOperation = 'multiply'; g.globalAlpha = (L.lamp ? 0.18 : 0.3) * sk; g.fillStyle = '#5a6474'; g.fillRect(0, 0, cw, ch); g.restore();
+  }
   else grade(g, cw, ch, isoLook().below === 'lava' ? lavaNight(L) : L);
   if (L.lamp && lamps.length){
     g.save(); g.globalCompositeOperation = 'lighter';
@@ -7593,6 +7641,23 @@ function withView(fn){
   try { return fn(); } finally { VIEW_KEYS.forEach(k => { W[k] = keep[k]; }); inView = false; syncGrid(); }
 }
 
+// ---- 대홍수(2026-10-09 「수아연아의 방주」) ----
+/* 방주에 들어간 뒤 열두 달 동안은 섬 대신 큰물 위의 방주 단면을 그린다(pages/farm-ark.js 의 voyage).
+   층마다 지금 있는 동물(가짓수마다 둘까지), 양식 자루는 창고 양식만큼, 위층엔 수아·연아. 옛 농장 구경 중이면 그 농장 */
+function voyageOn(){ return !!W && !!W.ark && W.ark.phase === 'flood' && R.farmOf(W).id === 'ark' && !!(window.FARMHD && window.FARMHD.ark); }
+function drawVoyage(g, t, L){
+  hdLight = L;
+  const kinds = [];
+  (R.ARK_KINDS || Object.keys(R.ANIMALS)).forEach(k => { const n = (W.animals || []).filter(a => a.kind === k).length; if (n) kinds.push({ kind: k, n }); });
+  const st = { month: W.ark.month || 0, food: W.ark.food || 0, sacks: Math.ceil((W.ark.food || 0) / 40), kinds };
+  ctx = g; lamps = []; isoHits = []; cropHits = [];
+  hd((c, E) => window.FARMHD.ark.voyage(c, E, st));
+  ctx = g;
+  drawTapMark(t);
+  drawBubbles(t);
+  drawFishBar(t);
+}
+
 // ---- 한 장 그리기 ----
 function drawFarm(cvIn, tms){
   const cv = cvIn || $('#farmCanvas');
@@ -7615,6 +7680,7 @@ function drawFarmIn(cv, tms){
   const windStep = Math.round(t / 110) * 110;
   const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, cw, ch);
+  if (isoView && voyageOn()) return drawVoyage(g, t, L);
   if (isoView) return drawFarmIso(cv, g, t, cal, season, wk, L, windStep);
 
   // 1 땅
@@ -7784,32 +7850,47 @@ function drawTapMark(t){
 /* 밭 크게 보기(2026-09-29 로키즈) — 아이소 섬에서는 휴대폰 폭에서 밭 한 칸이 가로 19px 남짓이라 누르기 어렵다.
    캔버스를 CSS 로 키우고 밀어 밭(아직 안 연 땅까지)이 틀 가득 오게 한다 — 대개 두 배. 그림은 그대로 그리고,
    누른 자리는 pixAt 이 키워진 크기(getBoundingClientRect)로 재므로 따로 셈할 것이 없다 */
-let zoomOn = false;
+let zoomOn = 0;                                   // 0 섬 전체 · 1 밭 크게 · 2 방주(무지개 농장은 마을) 크게 — 큰 섬(40×30)만 2가 있다
+function zoomStates(){ const id = W && R.farmOf(W).id; return id === 'ark' || id === 'newland' ? 3 : 2; }
+// 크게 볼 자리 — 칸 네모 [x, y, w, h] 묶음
+function zoomBoxes(){
+  if (zoomOn === 2){
+    if (R.farmOf(W).id === 'ark'){ const b = spot('ark'); return [[b.x, b.y, b.w, b.h]]; }
+    return ['altar', 'rainbowhill', 'vineyard', 'dovecote', 'olivegrove', 'wellsquare'].map(id => { const b = spot(id); return [b.x, b.y, b.w, b.h]; });
+  }
+  return R.fieldCells(W).map(c => [c.x, c.y, 1, 1]);
+}
 function applyZoom(){
   const cv = $('#farmCanvas'), zb = $('#zoomBtn');
   if (!cv) return;
-  if (zb){ zb.setAttribute('aria-pressed', zoomOn ? 'true' : 'false'); zb.textContent = zoomOn ? '🔍 섬 전체' : '🔍 밭 크게'; }
+  if (zb){
+    const n = zoomStates(), nextBig = zoomOn + 1 < n ? zoomOn + 1 : 0, here = W && R.farmOf(W).id;
+    zb.setAttribute('aria-pressed', zoomOn ? 'true' : 'false');
+    zb.textContent = nextBig === 0 ? '🔍 섬 전체' : nextBig === 1 ? '🔍 밭 크게' : here === 'ark' ? '🔍 방주 크게' : '🔍 마을 크게';
+  }
   if (!zoomOn || !W || !isoMode()){ cv.style.transform = ''; return; }
   const Wc = cv.offsetWidth, Hc = cv.offsetHeight, f = Wc / (cv.width / S);        // 한 도트가 CSS 몇 px(키우기 전)
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-  R.fieldCells(W).forEach(c => [[0, 0], [1, 0], [1, 1], [0, 1]].forEach(([a, b]) => {
-    const p = isoP(c.x + a, c.y + b); x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+  zoomBoxes().forEach(([bx, by, bw, bh]) => [[0, 0], [bw, 0], [bw, bh], [0, bh]].forEach(([a, b]) => {
+    const p = isoP(bx + a, by + b); x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
   }));
-  y0 -= 34;                                                              // 뒷줄 작물 키만큼 위도 보이게
+  y0 -= zoomOn === 2 ? 110 : 34;                                         // 뒷줄 작물 키만큼(방주는 지붕·깃발까지) 위도 보이게
   const k = Math.max(1, Math.min(3, Wc / ((x1 - x0) * f * 1.1), Hc / ((y1 - y0) * f * 1.1)));
   const tx = Math.min(0, Math.max(Wc - k * Wc, Wc / 2 - k * (x0 + x1) / 2 * f));
   const ty = Math.min(0, Math.max(Hc - k * Hc, Hc / 2 - k * (y0 + y1) / 2 * f));
   cv.style.transform = 'translate(' + tx.toFixed(1) + 'px,' + ty.toFixed(1) + 'px) scale(' + k.toFixed(3) + ')';
 }
-// 섬(아이소)일 때만 단추를 보인다 — 들판(판 화면)은 칸이 네모라 필요 없다
+// 섬(아이소)일 때만 단추를 보인다 — 들판(판 화면)은 칸이 네모라 필요 없다. 대홍수 동안(방주 단면)도 감춘다
 function syncZoomBtn(){
-  const zb = $('#zoomBtn'), show = !!W && isoMode();
+  const zb = $('#zoomBtn'), show = !!W && isoMode() && !voyageOn();
+  if (zb && !show && zoomOn){ zoomOn = 0; applyZoom(); }
+  if (zb && show && zoomOn >= zoomStates()){ zoomOn = 0; applyZoom(); }   // 큰 섬에서 작은 섬(옛 농장 구경)으로 넘어가면
   if (!zb || zb.hidden === !show) return;
   zb.hidden = !show;
-  if (!show && zoomOn){ zoomOn = false; applyZoom(); }
+  if (show) applyZoom();
 }
 if ($('#zoomBtn')){
-  $('#zoomBtn').addEventListener('click', () => { zoomOn = !zoomOn; applyZoom(); });
+  $('#zoomBtn').addEventListener('click', () => { zoomOn = (zoomOn + 1) % zoomStates(); applyZoom(); });
   window.addEventListener('resize', () => { if (zoomOn) applyZoom(); });
 }
 // 누른 자리를 화면 도트로 — 칸이 아니라 그림 위 어디를 눌렀는지 봐야 할 때(캐릭터). 판이면 곧 지도 좌표다.
@@ -8037,7 +8118,7 @@ const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars:
                      board: 1, garland: 1, wshelf: 1, rainbow: 1,
                      heightbar: 1, worldmap: 1, mobile: 1, wreath: 1,
                      whale: 1, wlight: 1, medalcase: 1,
-                     blueplate: 1, cuckoo: 1, scroll: 1, advent: 1, mlamp: 1 };
+                     blueplate: 1, cuckoo: 1, scroll: 1, advent: 1, mlamp: 1, leaflamp: 1, parrotlamp: 1, beadlamp: 1 };
 /* 옛 세이브에만 남은 규칙 — 벽에 거는 것을 바닥 칸에 두고 어느 벽인지 어림하던 방법.
    지금은 벽 격자('w,벽,칸,단')에 걸므로, fixWorld 가 아직 못 옮긴 것만 이 길로 그린다. */
 function wallSlot(Rm, x, y){
@@ -9111,7 +9192,7 @@ function drawRoomShell(g, r, L, wallItems){
    바뀌므로 그림 자체를 다시 그린다 — 캔버스를 회전시키면 계단 모양이 흐트러진다. */
 let furnBuf = null;
 // 불꽃이 흔들리는 것만 매번 다시 그리고, 나머지는 한 번 그려 담아 둔다
-const FURN_ANIM = { fire: 1, stove: 1, woodstove: 1, rockchair: 1, teaset: 1 };   // 민트 차 김(사막)   // 오로라 장작 난로 불꽃·흔들의자(2026-10-09)
+const FURN_ANIM = { fire: 1, stove: 1, woodstove: 1, rockchair: 1, teaset: 1, rattan: 1 };   // 민트 차 김(사막)   // 오로라 장작 난로 불꽃·흔들의자(2026-10-09)
 /* 방 안에서 빛을 내는 가구. c 는 빛 색(그 가구의 불빛 색), r 은 번지는 반지름(도트),
    dy 는 빛의 가운데를 발자국 가운데에서 얼마나 올릴지, flick 은 흔들림의 갈래.
    밤에는 방을 통째로 어둡게 물들이므로(grade) 불빛도 같이 죽는다 — 그래서 물들인 뒤에
@@ -9123,6 +9204,9 @@ const ROOM_LIGHT = {
   woodstove:{ c: '#ff9a3a', r: 64, dy: -14, flick: 'fire' },        // 오로라 무쇠 장작 난로
   advent:   { c: '#ffc878', r: 50, wall: true, flick: 'breathe' },   // 오로라 대림절 별 등
   mlamp:    { c: '#ffc070', r: 54, wall: true, flick: 'breathe' },   // 사막 모로코 등
+  leaflamp: { c: '#ffa050', r: 50, wall: true, flick: 'breathe' },   // 단풍잎 등 · 앵무새 등 · 구슬 등(2026-10-09)
+  parrotlamp: { c: '#ffd080', r: 46, wall: true, flick: 'breathe' },
+  beadlamp: { c: '#ffc882', r: 50, wall: true, flick: 'breathe' },
   xmas:     { c: '#ffd979', r: 54, dy: -16, flick: 'twinkle' },
   pumpkin:  { c: '#ff8c3a', r: 44, dy: -10, flick: 'fire' },
   nightsky: { c: '#8f9fe6', r: 78, dy: -6,  flick: 'breathe' },
@@ -9180,7 +9264,8 @@ const FURN_H = { rug: 2, bed: 24, bunk: 72, table: 28, desk: 32, chair: 38, sofa
                  bigbear: 80,
                  amphora: 46, olive: 52, kachel: 66, sled: 24, kotatsu: 30, andon: 52,
                  woodstove: 64, furrug: 2, rockchair: 46,
-                 teaset: 36, kilim: 2, pouf: 18 };                            // 사막 가구(2026-10-09)                   // 오로라 가구(2026-10-09) — 그림은 room-hd-furn.js
+                 teaset: 36, kilim: 2, pouf: 18,
+                 plaidsofa: 36, leafrug: 2, syrupshelf: 44, rattan: 46, monstera: 46, weaverug: 2, kanga: 2, drumstool: 22, woodgiraffe: 46 };   // 단풍·밀림·사바나(2026-10-09)                            // 사막 가구(2026-10-09)                   // 오로라 가구(2026-10-09) — 그림은 room-hd-furn.js
 // 가구마다의 재질 — 적지 않은 것은 나무로 친다
 const FURN_MAT = {
   rug:'cloth', bed:'cloth', sofa:'cloth', cushion:'cloth', catbed:'cloth', beanbag:'cloth',

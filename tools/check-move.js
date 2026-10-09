@@ -5,6 +5,9 @@ FARM.__inner.MOVE_OPEN = true;
 require('../farm-rules-play.js');
 const R = FARM, I2 = FARM.__inner, assert = require('assert'), now = Date.now();
 const w = R.fixWorld(null, now), sua = R.fixMine(null, 'sua'), yona = R.fixMine(null, 'yona');
+// 그 농장에서만 얻는 것(2026-10-09 「이주 조건」) — 동물 한 마리씩·씨앗 금고·특산물을 갖춰 둔다
+const local = wl => { const L = I2.localOf(R.farmOf(wl).id); L.animals.forEach(k => { if (!wl.animals.some(a => a.kind === k)) wl.animals.push({ id: 'l' + k, kind: k, name: k }); });
+  wl.ark = wl.ark || { seeds: [] }; L.crops.forEach(c => { if (wl.ark.seeds.indexOf(c) < 0) wl.ark.seeds.push(c); }); wl.found = (wl.found || []).concat(L.goods); };
 assert.strictEqual(R.farmOf(w).id, 'meadow');
 assert(!R.askMove(w, sua, now).ok, '꾸미개가 없으면 못 간다');
 Object.keys(R.DECOR).forEach(d => { w.decor[d] = { by: 'sua', on: '2026-09-28' }; });
@@ -64,7 +67,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   R.FARMS.forEach((f, i) => {
     const wf = R.fixWorld(null, now); wf.farm = i;
     // 앞 농장 전용 꾸미개는 추억으로 들고 올 수 있으니 뒤 농장에서도 자리가 겹치면 안 된다
-    const came = id => { const F = R.DECOR[id] && R.DECOR[id].farm; return !F || R.FARMS.findIndex(x => x.id === F) <= i; };
+    const came = id => { const K = I2.PLACE[id].kind; if (K === 'ark') return f.id === 'ark'; if (K === 'land') return f.id === 'newland'; const F = R.DECOR[id] && R.DECOR[id].farm; return !F || R.FARMS.findIndex(x => x.id === F) <= i; };   // 방주는 방주 농장에만, 새 땅 건설은 무지개 농장에만(2026-10-09)
     const all = I.PLACE_IDS.filter(came).map(id => R.spotOf(wf, id));
     const rocks = Object.keys(R.NODES).map(n => Object.assign({ id: n, w: 1, h: 1 }, R.nodeSpot(wf, n))).concat(R.sceneryOf(wf).map(c => ({ id: '풍경 ' + c.kind + '(' + c.x + ',' + c.y + ')', x: c.x, y: c.y, w: 1, h: 1 })));
     // 나무·바위·풍경끼리, 그리고 밭·떠돌이 상인 자리와도 겹치지 않는다
@@ -100,7 +103,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   R.FARMS.forEach((f, i) => {
     const wf = R.fixWorld(null, now); wf.farm = i;
     const C = R.fieldCells(wf);
-    const came = id => { const F = R.DECOR[id] && R.DECOR[id].farm; return !F || R.FARMS.findIndex(x => x.id === F) <= i; };
+    const came = id => { const K = I2.PLACE[id].kind; if (K === 'ark') return f.id === 'ark'; if (K === 'land') return f.id === 'newland'; const F = R.DECOR[id] && R.DECOR[id].farm; return !F || R.FARMS.findIndex(x => x.id === F) <= i; };   // 방주는 방주 농장에만, 새 땅 건설은 무지개 농장에만(2026-10-09)
     [0, 1, 2, 3].forEach(k => {
       wf.expand = k;
       const open = new Set(R.plotIds(wf, 'field')), has = (x, y) => open.has(x + ',' + y);
@@ -164,7 +167,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
 {
   const wk = R.fixWorld(null, now), a = R.fixMine(null, 'sua'), b = R.fixMine(null, 'yona');
   const fillK = n => ['sua', 'yona', 'living'].forEach(r => { wk.house[r] = {}; for (let i = 0; i < n; i++) wk.house[r][i + ',0'] = { f: 'bed1', r: 0 }; });
-  const ready = () => { Object.keys(R.DECOR).filter(d => !R.DECOR[d].farm || R.DECOR[d].farm === R.farmOf(wk).id).forEach(d => { if (!wk.decor[d]) wk.decor[d] = { by: 'sua' }; }); fillK(20); while (wk.animals.length < 16) wk.animals.push({ id: 'k' + wk.animals.length, kind: 'duck', name: '오리' }); };
+  const ready = () => { Object.keys(R.DECOR).filter(d => !R.DECOR[d].farm || R.DECOR[d].farm === R.farmOf(wk).id).forEach(d => { if (!wk.decor[d]) wk.decor[d] = { by: 'sua' }; }); fillK(20); while (wk.animals.length < 16) wk.animals.push({ id: 'k' + wk.animals.length, kind: 'duck', name: '오리' }); local(wk); };
   ready();
   assert(!R.askMove(wk, a, now, 'lighthouse').ok, '없는 꾸미개는 못 고른다');
   assert(R.askMove(wk, a, now, 'windmill').ok && wk.moveAsk.keep === 'windmill');
@@ -202,27 +205,51 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   Object.keys(R.DECOR).forEach(d => { if (!R.DECOR[d].farm || R.DECOR[d].farm === 'cloud') wa.decor[d] = { by: 'sua' }; });
   ['sua', 'yona', 'living'].forEach(r => { wa.house[r] = {}; for (let i = 0; i < 22; i++) wa.house[r][i + ',0'] = { f: 'bed1', r: 0 }; });
   for (let i = 0; i < 17; i++) wa.animals.push({ id: 'y' + i, kind: 'duck', name: '오리' });
+  local(wa);
   assert(R.askMove(wa, ms, now).ok && R.askMove(wa, my, now).moved, '꽃구름 → 오로라 이사');
   assert.strictEqual(R.farmOf(wa).id, 'aurora');
   const baby = wa.animals[wa.animals.length - 1];
   assert(baby.kind === 'reindeer' && baby.baby, '오로라 새 식구는 아기 순록');
   assert(R.claimMedal(wa, ms, 'stampAurora', now).ok, '오로라 도장');
-  assert(R.moveState(wa, ms).next && R.moveState(wa, ms).next.id === 'desert', '오로라 다음은 사막 오아시스');
+  assert(R.moveState(wa, ms).next && R.moveState(wa, ms).next.id === 'maple', '오로라 다음은 단풍 농장(2026-10-09)');
 }
-// 스테이지2 둘째 — 오로라에서 사막 오아시스로 이사하면 아기 낙타가 따라오고 오아시스 도장을 받는다(2026-10-09)
+// 오로라 → 단풍 → 밀림 → 사바나 → 사막(2026-10-09 로키즈 「오로라와 사막 사이에 농장 셋」) — 농장마다 새 식구가 따라오고 도장을 받는다.
+// 떠나려면 그 농장에서만 얻는 동물·씨앗·특산물을 갖춰야 한다(「이주 조건」)
 {
   const wd = R.fixWorld(null, now), ms = R.fixMine(null, 'sua'), my = R.fixMine(null, 'yona'); wd.farm = R.FARMS.findIndex(f => f.id === 'aurora');
-  Object.keys(R.DECOR).forEach(d => { if (!R.DECOR[d].farm || R.DECOR[d].farm === 'aurora') wd.decor[d] = { by: 'sua' }; });
-  const need = R.FARMS.find(f => f.id === 'desert');
-  ['sua', 'yona', 'living'].forEach(r => { wd.house[r] = {}; for (let i = 0; i < need.room - 1; i++) wd.house[r][i + ',0'] = { f: 'bed1', r: 0 }; });
-  for (let i = 0; i < need.animals; i++) wd.animals.push({ id: 'z' + i, kind: 'duck', name: '오리' });
-  assert(!R.askMove(wd, ms, now).ok || !R.askMove(wd, my, now).moved, '방 가구가 모자라면 못 떠난다');
-  delete wd.moveAsk; ['sua', 'yona', 'living'].forEach(r => { wd.house[r][(need.room - 1) + ',0'] = { f: 'bed1', r: 0 }; });
-  assert(R.askMove(wd, ms, now).ok && R.askMove(wd, my, now).moved, '오로라 → 사막 오아시스 이사');
-  assert.strictEqual(R.farmOf(wd).id, 'desert');
-  const baby = wd.animals[wd.animals.length - 1];
-  assert(baby.kind === 'camel' && baby.baby, '오아시스 새 식구는 아기 낙타');
-  assert(R.claimMedal(wd, ms, 'stampDesert', now).ok, '오아시스 도장');
-  assert(!R.moveState(wd, ms).next, '사막 오아시스가 지금 마지막 농장');
+  const chain = [['maple', 'deer', 'stampMaple'], ['jungle', 'monkey', 'stampJungle'], ['savanna', 'giraffe', 'stampSavanna'], ['desert', 'camel', 'stampDesert']];
+  chain.forEach(([to, gift, stamp], n) => {
+    const here = R.farmOf(wd).id, need = R.FARMS.find(f => f.id === to);
+    Object.keys(R.DECOR).forEach(d => { if (!R.DECOR[d].farm || R.DECOR[d].farm === here) wd.decor[d] = { by: 'sua' }; });
+    ['sua', 'yona', 'living'].forEach(r => { wd.house[r] = {}; for (let i = 0; i < need.room; i++) wd.house[r][i + ',0'] = { f: 'bed1', r: 0 }; });
+    while (wd.animals.length < need.animals) wd.animals.push({ id: 'z' + n + '-' + wd.animals.length, kind: 'duck', name: '오리' });
+    // 이 농장 것을 안 갖추면 못 떠난다 — 남은 것이 이름으로 적힌다
+    const st = R.moveState(wd, ms), lc = st.conds.filter(c => c.id.indexOf('local:') === 0 && c.left);
+    assert(!st.ready && lc.length && lc.every(c => c.miss.length === c.left), here + ' 이 농장 것이 모자라면 못 떠난다');
+    assert(!R.askMove(wd, ms, now).ok, here + ' 이주 조건');
+    local(wd);
+    assert(R.moveState(wd, ms).ready, here + ' 다 갖추면 떠날 수 있다');
+    assert(R.askMove(wd, ms, now).ok && R.askMove(wd, my, now).moved, here + ' → ' + to + ' 이사');
+    assert.strictEqual(R.farmOf(wd).id, to);
+    const baby = wd.animals[wd.animals.length - 1];
+    assert(baby.kind === gift && baby.baby, to + ' 새 식구는 아기 ' + R.ANIMALS[gift].name);
+    assert(R.claimMedal(wd, ms, stamp, now).ok, to + ' 도장');
+  });
+  assert(R.moveState(wd, ms).next && R.moveState(wd, ms).next.id === 'ark', '사막 오아시스 다음은 방주 농장(2026-10-09)');
+  // 그 농장 가게에서만 파는 동물 — 사바나 코끼리는 사막에서 못 산다
+  const rich = Object.assign(R.fixMine(null, 'sua'), { coins: 99999 }); wd.buildings.barn = { done: true };
+  assert(!R.buy(wd, rich, 'animal:elephant', now).ok, '코끼리는 사바나에서만');
+  const wsv = R.fixWorld(null, now); wsv.farm = R.FARMS.findIndex(f => f.id === 'savanna'); wsv.buildings.barn = { done: true };
+  assert(R.buy(wsv, rich, 'animal:elephant', now).ok, '사바나에서는 코끼리를 산다');
+  assert(!R.buy(wsv, rich, 'animal:giraffe', now).ok, '기린은 이삿날 따라오는 식구');
+}
+// 옛 세이브 — 농장 셋이 끼어들기 전(fv 없음)의 사막·방주·무지개 번호는 셋씩 뒤로 옮긴다. 들판~오로라는 그대로
+{
+  const old = id => ({ meadow: 0, seaside: 1, cloud: 3, aurora: 4, desert: 5, ark: 6, newland: 7 })[id];
+  ['meadow', 'seaside', 'cloud', 'aurora', 'desert', 'ark', 'newland'].forEach(id => {
+    const ow = R.fixWorld({ farm: old(id), started: '2026-09-01' }, now);
+    assert.strictEqual(R.farmOf(ow).id, id, '옛 세이브 ' + id);
+    assert.strictEqual(R.farmOf(R.fixWorld(JSON.parse(JSON.stringify(ow)), now)).id, id, '두 번 불러도 ' + id);
+  });
 }
 console.log('이사 규칙 점검 통과');

@@ -44,7 +44,7 @@ const rich = k => Object.assign(R.fixMine(null, k || 'sua'), { coins: 99999, xp:
   const notes = R.newDay(au, m, at(12, 11));
   const pc = (au.mail.sua || []).filter(g => g.from === 'postcard');
   assert.strictEqual(pc.length, 1, '엽서 한 통');
-  assert(/오아시스/.test(pc[0].note) && /오아시스 샘/.test(pc[0].note) && /용과/.test(pc[0].note), '다음 농장·능력·특산물이 적힌다');
+  assert(/단풍/.test(pc[0].note) && /풍년/.test(pc[0].note) && /크랜베리/.test(pc[0].note), '다음 농장·능력·특산물이 적힌다(오로라 다음은 단풍, 2026-10-09)');
   assert(notes.some(n => /그림엽서/.test(n)));
   R.newDay(au, m, at(12, 12));
   assert.strictEqual((au.mail.sua || []).filter(g => g.from === 'postcard').length, 1, '두 번 안 온다');
