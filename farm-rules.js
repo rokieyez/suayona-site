@@ -136,7 +136,9 @@ const FARM = (() => {
   };
   const CROP_IDS = Object.keys(CROPS);
   // 농장 전용(farm)인 것은 그 농장에 살 때만 — 작물·물고기·꾸미개·가구 모두 같은 뜻
-  const farmOk = (world, X) => !X || !X.farm || X.farm === farmOf(world).id;
+  // 무지개 농장에서는 방주 씨앗 금고에 넣어 온 작물이면 다른 농장 전용이라도 자란다(2026-10-09 「수아연아의 방주」)
+  const farmOk = (world, X) => !X || !X.farm || X.farm === farmOf(world).id
+    || (farmOf(world).id === 'newland' && !!(world.ark && Array.isArray(world.ark.seeds)) && world.ark.seeds.some(c => CROPS[c] === X));
   // 훈장의 작물 수는 어느 농장에서나 거둘 수 있는 것만 센다 — 농장 전용 작물이 늘어도 앞 농장 아이의 훈장 문턱이 안 바뀐다
   const DEX_CROP_IDS = CROP_IDS.filter(c => !CROPS[c].farm);
   const GIANT_MULT = 5;          // 큰 작물은 다섯 배로 팔린다
@@ -205,6 +207,24 @@ const FARM = (() => {
       '3211001123',
       '.332..233.'] },
     aurora: { x0: 6, y0: 1, rows: [
+      '..333333..',
+      '.32222223.',
+      '3211111123',
+      '3210000123',
+      '3210000123',
+      '3210000123',
+      '..332233..'] },
+    // 방주 농장 — 밭은 오른쪽 뒤(가운데는 방주 터라). 모양은 오로라와 같다(차례마다 칸 수가 같아야 이사 때 옮겨 심긴다)
+    ark: { x0: 29, y0: 2, rows: [
+      '..333333..',
+      '.32222223.',
+      '3211111123',
+      '3210000123',
+      '3210000123',
+      '3210000123',
+      '..332233..'] },
+    // 무지개 농장 — 집 옆 앞쪽 들판. 물 빠진 땅을 새로 일군다
+    newland: { x0: 7, y0: 4, rows: [
       '..333333..',
       '.32222223.',
       '3211111123',
@@ -314,6 +334,10 @@ const FARM = (() => {
     // 사막 오아시스에서만 나는 것(2026-10-09)
     sandrose:{ name: '사막 장미 돌', sell: 150 },  // 사막 낮에만 모래 위에 놓여 있다
     date:    { name: '대추야자', sell: 30, food: 4 }, // 낙타가 가끔 물어 온다
+    // 방주 농장(2026-10-09 로키즈 「노아의 방주」) — 역청 웅덩이에서 줍는 까만 덩어리. 방주 안팎에 칠한다(창세기 6:14)
+    pitch:   { name: '역청 덩어리', sell: 40 },
+    // 무지개 농장 — 비둘기가 물어 온 올리브(창세기 8:11). 낮 땅에 떨어진 것을 줍는다
+    olive:   { name: '올리브', sell: 45, food: 4 },
   };
   // 파는 값. 작물은 그날 시세가 붙는다.
   // 가게에서 파는 재료 — 값은 되파는 값(시세 1.3배까지)보다 넉넉히 높다
@@ -417,6 +441,14 @@ const FARM = (() => {
     { id: 'aurora',   name: '오로라 농장', icon: '🌌', desc: '오로라가 춤추는 북쪽 눈 섬, 통나무집에 불이 켜져요', room: 22, animals: 17, grid: { w: 26, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2, perk: { id: 'shard', icon: '✨', text: '긴 밤 — 빛 조각이 밤마다 두 배로 떨어져요' } },
     // 2026-10-09 로키즈 시안 ① — 오로라보다 조금 높게(가구 24 · 동물 18 = 우리를 다 채운 수, 아기 낙타 자리 포함)
     { id: 'desert',   name: '오아시스 농장', icon: '🐪', desc: '모래 언덕 너머 대추야자 오아시스, 밤엔 은하수가 흘러요', room: 24, animals: 18, grid: { w: 28, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2, perk: { id: 'water', icon: '💧', text: '오아시스 샘 — 물을 한 번 주면 30시간 촉촉해요' } },
+    /* 메인 목표 「수아연아의 방주」(2026-10-09 로키즈) — 방주를 짓는 마지막 농장. 땅이 훨씬 넓고(40×30) 한가운데 방주 터가 있다.
+       pens 2 — 우리마다 두 배로 들어간다(동물을 한 쌍씩 다 모으려면 자리가 모자라서). 떠날 때는 이사가 아니라 대홍수(ARK_*)로 간다.
+       동물 조건은 앞 농장 우리를 다 채운 수(18)를 넘으면 못 떠나므로 18 그대로 */
+    { id: 'ark',      name: '방주 농장',   icon: '🛶', desc: '먹구름이 몰려오는 너른 들판 — 한가운데 커다란 방주를 짓는 터가 있어요', room: 26, animals: 18, grid: { w: 40, h: 30 }, peddler: { x: 26, y: 20 }, stage: 2, pens: 2,
+      perk: { id: 'mate', icon: '💞', text: '짝꿍이 찾아와요 — 혼자인 동물에게 짝이 스스로 찾아와요(창세기 7:9)' } },
+    // via — 이사로는 못 가고 대홍수를 건너야 닿는다(nextFarmIndex 가 건너뛴다). 진짜 마지막 농장
+    { id: 'newland',  name: '무지개 농장', icon: '🌈', desc: '물이 빠진 새 땅 — 아라랏 산 위에 방주가 쉬고, 하늘엔 약속의 무지개가 떠요', room: 26, animals: 18, grid: { w: 40, h: 30 }, peddler: { x: 21, y: 17 }, stage: 2, pens: 2, via: 'flood',
+      perk: { id: 'bloom', icon: '🐣', text: '생육하고 번성하라 — 동물이 새끼를 두 배 자주 봐요(창세기 9:1)' } },
   ];
   /* 새 농장일수록 섬이 넓다(2026-09-29 로키즈 「새 농장은 전체 크기를 더 크게」) — 들판 20×16 → 22×18 → 24×18 → 24×20.
      늘어난 땅은 오른쪽(x 20~)과 아래(y 16~), 곧 섬의 앞쪽 두 가장자리다. 집·가게·밭·나무 자리는 그대로라 좌표가 안 바뀐다. */
@@ -432,6 +464,8 @@ const FARM = (() => {
     seaside: ['fish:mackerel', 'fish:squid', 'fish:flounder', 'fish:seabream'],
     aurora: ['crop:cloudberry', 'shard', 'moss', 'pinecone', 'fish:cod', 'fish:char'],
     desert: ['crop:dragonfruit', 'date', 'sandrose'],
+    ark: ['pitch'],
+    newland: ['olive'],
   };
   const TRADE_MULT = 1.5, PAST_COINS = 120;
   const perkOf = world => (farmOf(world).perk || {}).id || null;
@@ -454,7 +488,7 @@ const FARM = (() => {
   function farmIndex(world){ return Math.max(0, Math.min(FARMS.length - 1, Math.floor(Number(world && world.farm) || 0))); }
   function farmOf(world){ return FARMS[farmIndex(world)]; }
   // 다음 이사 갈 농장 번호 — 건너뛰는 농장(skip)은 지나친다. 없으면 -1
-  function nextFarmIndex(world){ let i = farmIndex(world) + 1; while (FARMS[i] && FARMS[i].skip) i++; return FARMS[i] ? i : -1; }
+  function nextFarmIndex(world){ let i = farmIndex(world) + 1; while (FARMS[i] && FARMS[i].skip) i++; return FARMS[i] && !FARMS[i].via ? i : -1; }
   // 이번 이사로 지나가는 농장들(건너뛴 것 + 도착할 곳) — 건너뛴 농장의 아기 동물도 함께 따라온다
   function movePath(world){ const n = nextFarmIndex(world); return n < 0 ? [] : FARMS.slice(farmIndex(world) + 1, n + 1); }
   // 대문 문패 「N호점」 — 건너뛴 농장은 세지 않는다
@@ -522,6 +556,15 @@ const FARM = (() => {
     zellige:    { name: '모자이크 분수', w: 2, h: 2, x: 24, y: 9, kind: 'decor', move: true },
     genielamp:  { name: '요술 램프', w: 1, h: 1, x: 6, y: 0, kind: 'decor', move: true },
     telescope:  { name: '별 망원경', w: 1, h: 1, x: 22, y: 9, kind: 'decor', move: true },
+    // 방주 터(2026-10-09) — 방주 농장 한가운데. 옮길 수 없다. 그림은 pages/farm-ark.js 가 짓는 단계(world.ark.step)대로
+    ark:        { name: '방주',     w: 18, h: 7, x: 11, y: 11, kind: 'ark',  move: false },
+    // 무지개 농장에서 둘이 차례로 짓는 것(LAND_STEPS). 다 지은 것만 선다
+    altar:      { name: '감사의 제단', w: 2, h: 2, x: 20, y: 4,  kind: 'land', move: true },
+    rainbowhill:{ name: '무지개 언덕', w: 4, h: 3, x: 26, y: 6,  kind: 'land', move: true },
+    vineyard:   { name: '첫 포도원',   w: 5, h: 3, x: 8,  y: 15, kind: 'land', move: true },
+    dovecote:   { name: '비둘기 집',   w: 2, h: 2, x: 24, y: 16, kind: 'land', move: true },
+    olivegrove: { name: '올리브 동산', w: 4, h: 3, x: 30, y: 18, kind: 'land', move: true },
+    wellsquare: { name: '새 마을 우물 광장', w: 4, h: 4, x: 18, y: 12, kind: 'land', move: true },
   };
   const PLACE_IDS = Object.keys(PLACE);
   /* 새 농장은 처음 자리부터 다르다(2026-09-28 로키즈 「이전 농장과 완전히 다른 느낌」). 여기 없는 것은 PLACE 의 자리.
@@ -546,6 +589,23 @@ const FARM = (() => {
       igloo: [21, 7], sled: [22, 19], icefish: [5, 15], sauna: [23, 12], lavvu: [26, 16], icesculpt: [22, 9], santapost: [7, 0],
       lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], anchor: [23, 18], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5],
       shishi: [1, 9], koinobori: [2, 9], toro: [24, 2], balloon: [24, 4], skybridge: [24, 17] },
+    /* 방주 농장(40×30) — 가운데(11..28, 11..17)는 방주 터, 오른쪽 뒤(29..38, 2..8)는 밭. 방주 문 앞으로 꽃길이 난다.
+       왼쪽과 앞쪽 가장자리는 잣나무(고페르 나무) 숲(SCENERY) — 방주 나무를 여기서 벤다 */
+    ark: { mail: [4, 1], board: [5, 0], sign: [5, 2], birdhouse: [7, 0], flag: [9, 0], statue: [12, 0], fountain: [20, 1], santapost: [6, 0], genielamp: [8, 1],
+      coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], greenhouse: [22, 2], barn: [24, 6], scarecrow: [28, 9], pasture: [31, 20],
+      pond: [2, 21], path: [15, 19], lantern: [10, 18], bench: [12, 25], swing: [0, 11], arch: [18, 21], sandbox: [7, 24], firepit: [24, 22],
+      clothesline: [0, 27], flowerbed: [7, 12], wagon: [4, 27], windmill: [37, 12],
+      lighthouse: [39, 0], palm: [0, 9], cairn: [28, 27], waterfall: [37, 26], balloon: [34, 15], skybridge: [20, 27], anchor: [30, 11], boat: [9, 22],
+      parasol: [27, 24], woodpile: [6, 9], milkcans: [33, 11], alphorn: [14, 28], shishi: [1, 15], koinobori: [2, 15], toro: [39, 15], igloo: [8, 4],
+      sled: [24, 28], icefish: [5, 15], sauna: [30, 26], lavvu: [26, 26], icesculpt: [21, 9], berber: [33, 27], zellige: [36, 9], telescope: [38, 17] },
+    /* 무지개 농장(40×30) — 물 빠진 새 땅. 밭은 집 옆(7..16, 4..10), 새 땅 건설 여섯(PLACE 의 land)은 PLACE 자리 그대로 */
+    newland: { mail: [4, 1], board: [5, 0], sign: [5, 2], birdhouse: [8, 1], flag: [10, 1], statue: [13, 1], fountain: [22, 1], santapost: [6, 0], genielamp: [11, 0],
+      coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], greenhouse: [33, 2], barn: [28, 2], scarecrow: [17, 8], pasture: [31, 23],
+      pond: [2, 20], path: [10, 12], lantern: [22, 11], bench: [14, 20], swing: [0, 11], arch: [16, 18], sandbox: [5, 25], firepit: [20, 22],
+      clothesline: [0, 27], flowerbed: [24, 13], wagon: [9, 27], windmill: [37, 9],
+      lighthouse: [39, 0], palm: [0, 9], cairn: [27, 25], waterfall: [37, 15], balloon: [34, 12], skybridge: [22, 27], anchor: [29, 12], boat: [9, 22],
+      parasol: [26, 22], woodpile: [1, 13], milkcans: [33, 8], alphorn: [14, 28], shishi: [3, 15], koinobori: [4, 15], toro: [38, 4], igloo: [19, 8],
+      sled: [24, 28], icefish: [6, 18], sauna: [28, 27], lavvu: [12, 24], icesculpt: [22, 9], berber: [17, 25], zellige: [37, 5], telescope: [38, 19] },
   };
   function spotOf(world, id){
     const P = PLACE[id]; if (!P) return null;
@@ -559,6 +619,9 @@ const FARM = (() => {
     if (!P) return false;
     if (P.kind === 'always') return true;
     if (P.kind === 'build') return !!(world.buildings && world.buildings[id] && world.buildings[id].done);
+    // 방주는 방주 농장에만(홍수 동안에도 그 자리에 떠 있다), 새 땅 건설은 무지개 농장에서 다 지은 것만
+    if (P.kind === 'ark') return farmOf(world).id === 'ark' && !(world.ark && world.ark.phase === 'land');   // 떠난 뒤 옛 농장 구경 때는 빈 터
+    if (P.kind === 'land') return farmOf(world).id === 'newland' && !!(world.ark && world.ark.land && world.ark.land[id] && world.ark.land[id].done);
     return !!(world.decor && world.decor[id]);
   }
   // 밭은 늘 자리를 비워 둔다 — 지금 열린 만큼이 아니라 끝까지 넓혔을 때만큼.
@@ -587,6 +650,8 @@ const FARM = (() => {
     camel:   { name: '낙타',  cost: 0,   need: 'pasture', product: 'milk',    best: 'goldmilk',    every: 1, icon: '🐪', gift: 'desert', find: ['date', 'sandrose'], findOdds: 0.35 },
   };
   const ANIMAL_MAX = { coop: 6, barn: 6, pasture: 4, pethouse: 2 };
+  // 그 농장 우리에 몇 마리 — 방주·무지개 농장은 두 배(pens). 열세 가지를 한 쌍씩 다 모으려면 들판 우리로는 모자란다
+  const animalMax = (world, need) => ANIMAL_MAX[need] * ((world && farmOf(world).pens) || 1);
   const LOVE_FOR_BEST = 5;
   // 새끼. 마음이 아주 큰 어른이, 우리에 자리가 있을 때만 본다.
   const LOVE_FOR_BABY = 8;      // 마음이 이만큼 크면 새끼를 볼 수 있다
@@ -657,6 +722,8 @@ const FARM = (() => {
     cloud:    { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
     aurora:   { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
     desert:   { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
+    ark:      { tree1: [3, 11], tree2: [3, 13], tree3: [5, 11], tree4: [5, 13], bush: [8, 14], bush2: [9, 16], snow: [6, 17], rock1: [12, 22], rock2: [14, 22], rock3: [16, 23] },
+    newland:  { tree1: [0, 15], tree2: [1, 17], tree3: [5, 13], tree4: [3, 18], bush: [7, 19], bush2: [6, 21], snow: [10, 19], rock1: [23, 6], rock2: [32, 15], rock3: [25, 19] },
   };
   // 아이들이 옮긴 자리(world.layout[이름])가 있으면 그 자리(2026-10-07 로키즈 「채집 나무·덤불도 재배치」)
   function nodeSpot(world, id){
@@ -674,6 +741,17 @@ const FARM = (() => {
     aurora:   [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9], ['tree', 25, 7], ['tree', 25, 12], ['tree', 25, 15], ['tree', 24, 19], ['rock', 25, 0]],
     // 사막 — 대추야자 숲은 왼쪽 오아시스 둘레와 오른쪽 끝, 붉은 사암은 오른쪽 뒤
     desert:   [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9], ['tree', 27, 9], ['tree', 27, 15], ['tree', 26, 19], ['rock', 25, 0], ['rock', 27, 1], ['rock', 26, 2]],
+    // 방주 농장 — 왼쪽과 앞쪽 가장자리가 잣나무(고페르 나무) 숲. 방주에 들 나무를 여기서 벤다(창세기 6:14). 오른쪽엔 바위와 덤불
+    ark:      [['tree', 0, 14], ['tree', 3, 16], ['tree', 0, 17], ['tree', 2, 18], ['tree', 4, 18], ['tree', 1, 20], ['tree', 3, 20], ['tree', 5, 20], ['tree', 7, 18], ['tree', 8, 20],
+               ['tree', 0, 22], ['tree', 0, 24], ['tree', 1, 25], ['tree', 3, 25], ['tree', 5, 25], ['tree', 2, 29], ['tree', 6, 28], ['tree', 9, 27], ['tree', 11, 28], ['tree', 17, 28],
+               ['tree', 18, 26], ['tree', 22, 29], ['tree', 29, 29], ['tree', 36, 29], ['tree', 39, 28], ['tree', 39, 6], ['tree', 39, 9], ['tree', 39, 21], ['tree', 39, 24], ['tree', 37, 23],
+               ['tree', 28, 0], ['tree', 30, 0], ['tree', 33, 0], ['tree', 36, 0], ['tree', 10, 9], ['tree', 6, 26],
+               ['rock', 30, 14], ['rock', 32, 13], ['rock', 9, 8], ['rock', 35, 18], ['bush', 29, 18], ['bush', 17, 6], ['bush', 34, 9], ['bush', 21, 24]],
+    // 무지개 농장 — 물 빠진 새 땅에 막 돋은 올리브·잣나무 숲, 젖은 바위
+    newland:  [['tree', 0, 23], ['tree', 1, 25], ['tree', 3, 24], ['tree', 7, 24], ['tree', 3, 28], ['tree', 6, 29], ['tree', 11, 29], ['tree', 16, 29], ['tree', 20, 29], ['tree', 26, 29],
+               ['tree', 31, 29], ['tree', 37, 29], ['tree', 39, 26], ['tree', 39, 22], ['tree', 38, 13], ['tree', 39, 11], ['tree', 36, 0], ['tree', 31, 0], ['tree', 26, 0], ['tree', 19, 0],
+               ['tree', 2, 10], ['tree', 39, 2],
+               ['rock', 15, 22], ['rock', 21, 19], ['rock', 35, 10], ['bush', 13, 22], ['bush', 27, 15], ['bush', 33, 16]],
   };
   function sceneryOf(world){
     const lay = (world && world.layout) || {};
@@ -977,6 +1055,13 @@ const FARM = (() => {
     { id: 'dexSea', col: '#5fb3e8',    name: '바다 박사',    icon: '🐚', desc: '바닷가 특산물 — 고등어·오징어·광어·참돔을 모두 모아요', coins: 800,  gift: { id: 'f:amphora', n: 1 }, need: (w, m) => SPECIALS.seaside.every(i => m.dex.indexOf(dexId(i)) >= 0) },
     { id: 'dexAurora', col: '#8fe6c8', name: '오로라 박사',  icon: '🧭', desc: '오로라 특산물 — 클라우드베리·빛 조각·이끼·솔방울·대구·곤들매기를 모두 모아요', coins: 1500, gift: { id: 'f:advent', n: 1 }, need: (w, m) => SPECIALS.aurora.every(i => m.dex.indexOf(dexId(i)) >= 0) },
     { id: 'dexDesert', col: '#f2b860', name: '오아시스 박사', icon: '📜', desc: '오아시스 특산물 — 용과·대추야자·사막 장미 돌을 모두 모아요', coins: 1500, gift: { id: 'f:mlamp', n: 1 }, need: (w, m) => SPECIALS.desert.every(i => m.dex.indexOf(dexId(i)) >= 0) },
+    // 메인 목표 「수아연아의 방주」(2026-10-09)
+    { id: 'stampArk', col: '#a0784e',  name: '방주 도장',     icon: '🛶', desc: '방주 농장으로 이사 가요', coins: 1500, need: (w) => (w.farm || 0) >= arkFarmIndex() },
+    { id: 'arkPairs', col: '#e8a060',  name: '노아의 명부',   icon: '📜', desc: '동물 열세 가지를 모두 한 쌍씩 모아요', coins: 2500, gift: { id: 'seed:star', n: 3 }, need: (w) => arkPairsHave(w) >= ARK_KINDS.length },
+    { id: 'arkSeeds', col: '#8fd66c',  name: '씨앗 지기',     icon: '🌰', desc: '방주 씨앗 금고에 모든 작물 씨앗을 한 알씩 넣어요', coins: 2000, need: (w) => arkSeedsHave(w) >= CROP_IDS.length },
+    { id: 'arkBuilt', col: '#7a5a3a',  name: '방주 목수',     icon: '🔨', desc: '방주를 열 단계 모두 지어요', coins: 3000, need: (w) => arkStep(w) >= ARK_STEPS.length },
+    { id: 'flood',    col: '#5f86c8',  name: '큰물을 건넜어요', icon: '🕊️', desc: '방주에서 한 해를 버티고 새 땅에 내려요', coins: 5000, gift: { id: 'olive', n: 6 }, need: (w) => arkPhase(w) === 'land' },
+    { id: 'rainbow',  col: '#ff8fb8',  name: '무지개 언약',   icon: '🌈', desc: '무지개 농장의 새 마을을 모두 지어요', coins: 8000, need: (w) => landDone(w) >= LAND_STEPS.length },
     { id: 'passport', col: '#ffd25a',   name: '세 농장 여권', icon: '🗺️', desc: '이사 도장 둘을 모두 받아요', coins: 3000, gift: { id: 'seed:star', n: 5 },
       need: (w, m) => ['stampSea', 'stampCloud'].every(k => (m.medals || []).indexOf(k) >= 0) },
   ];
@@ -1042,7 +1127,8 @@ const FARM = (() => {
   const SHARD_MAX = 4;
   const shardMax = world => SHARD_MAX * (perkOf(world) === 'shard' ? 2 : 1);   // 오로라 능력 「긴 밤」
   // 농장마다 줍는 것 — 오로라는 밤의 빛 조각, 사막은 낮 모래 위의 사막 장미 돌(2026-10-09). 셈·그림 자리는 같은 틀
-  const PICKS = { aurora: { item: 'shard', night: true }, desert: { item: 'sandrose', night: false } };
+  // 방주 농장은 낮 땅의 역청 덩어리, 무지개 농장은 낮 땅에 떨어진 올리브(2026-10-09)
+  const PICKS = { aurora: { item: 'shard', night: true }, desert: { item: 'sandrose', night: false }, ark: { item: 'pitch', night: false }, newland: { item: 'olive', night: false } };
   function shardSpots(world, now){
     const PK = world && PICKS[farmOf(world).id];
     if (!PK || isNight(now) !== PK.night) return [];
@@ -1078,6 +1164,74 @@ const FARM = (() => {
     { id: 'sandrose', n: 1 },
     { id: 'date', n: 3 },
   ];
+  // ---------- 메인 목표: 수아연아의 방주 (2026-10-09 로키즈) ----------
+  /* 농장을 옮겨 다니며 모은 동물(암수 한 쌍씩)과 씨앗(한 알씩)을 방주에 싣고 대홍수를 건너 새 땅에 닿는다.
+     world.ark = {
+       seeds: [작물…]           씨앗 금고 — 어느 농장에서나 넣는다
+       step: 0~10               방주 농장에서 다 지은 단계 수. paid: { sua, yona } 는 지금 단계에 낸 사람
+       on: [날짜…]              단계마다 다 지은 날
+       food: 수, by: {sua, yona} 양식 창고(점수)와 각자 넣은 몫
+       phase: undefined | 'flood' | 'land'
+       ask: { by }              입장하자고 먼저 누른 아이(둘 다 눌러야 들어간다)
+       boardOn, month: 0~12, monthDay  대홍수 — 하루에 한 번 「한 달 보내기」
+       land: { 이름: { paid, done, on } } 무지개 농장에서 짓는 것
+     }
+     아이가 하는 놀이라 실패는 없다 — 양식이 모자라면 한 달이 안 넘어갈 뿐, 줍고 낚아 채우면 다시 간다. */
+  const ARK_STEPS = [
+    { id: 'ground', name: '터 다지기',          icon: '⛏️', each: { stone: 20, coins: 300 }, say: '방주를 앉힐 땅을 평평하게 다지고 받침돌을 줄지어 놓았어요' },
+    { id: 'keel',   name: '용골 놓기',          icon: '🪵', each: { wood: 40 },              say: '배의 등뼈 — 길고 굵은 잣나무 용골을 받침돌 위에 눕혔어요' },
+    { id: 'ribs',   name: '갈빗대 세우기',      icon: '🦴', each: { wood: 45 },              say: '용골에서 갈빗대가 솟아 배 모양이 보이기 시작했어요' },
+    { id: 'hull1',  name: '아래층 짓기',        icon: '🧱', each: { wood: 45, stone: 10 },   say: '아래층에 판자를 붙였어요 — 큰 동물들이 지낼 층이에요' },
+    { id: 'hull2',  name: '가운데층과 칸 나누기', icon: '🚪', each: { wood: 45, coins: 800 }, say: '가운데층을 올리고 동물마다 칸을 나눴어요 (창세기 6:14)' },
+    { id: 'hull3',  name: '위층 짓기',          icon: '🏠', each: { wood: 45 },              say: '위층까지 올렸어요 — 우리 식구가 지낼 층이에요 (6:16)' },
+    { id: 'pitch',  name: '역청 칠하기',        icon: '🖌️', each: { pitch: 12 },             say: '안팎에 까만 역청을 칠해 물 한 방울 새지 않게 했어요 (6:14)' },
+    { id: 'roof',   name: '지붕과 창 내기',     icon: '🪟', each: { wood: 35, coins: 1000 }, say: '지붕을 덮고 위로 한 규빗 창을 냈어요 (6:16)' },
+    { id: 'door',   name: '옆문 달기',          icon: '🚪', each: { wood: 25, stone: 15, pitch: 6 }, say: '옆구리에 큰 문과 오르막 다리를 달았어요 (6:16)' },
+    { id: 'store',  name: '양식 싣기',          icon: '🌾', each: {},                        say: '양식 창고를 가득 채웠어요 — 방주가 다 지어졌어요! (6:21)' },
+  ];
+  const ARK_FOOD_MIN = 200;            // 마지막 단계 「양식 싣기」에 필요한 창고 점수
+  const ARK_RATION = 4;                // 한 달에 두 아이가 먹는 양식 — 여기에 동물 한 마리마다 1 씩
+  const ARK_MONTHS = 12;               // 방주 안에서 지내는 열두 달(한 해) — 진짜 하루에 한 달씩
+  // 창고에 넣을 때의 양식 점수 — 먹으면 기운이 도는 것(foodOf)에 더해 동물이 낳은 것
+  const ARK_GOODS_FOOD = { egg: 2, bigegg: 4, duckegg: 2, milk: 3, goldmilk: 6, honey: 4, truffle: 5 };
+  /* 방주 안 열두 달 — 창세기 7~8장. 「한 달 보내기」를 누를 때마다 한 줄씩 */
+  const ARK_LOG = [
+    null,
+    { icon: '🌧️', text: '하늘의 창이 열리고 큰비가 쏟아졌어요. 방주가 물 위로 둥실 떠올랐어요', ref: '7:11-17' },
+    { icon: '⛈️', text: '사십 일 밤낮 비가 그치지 않았어요. 온 세상이 바다가 됐어요', ref: '7:12' },
+    { icon: '🌊', text: '물이 높은 산들까지 다 덮었어요. 방주만 물 위를 떠다녀요', ref: '7:19-20' },
+    { icon: '🛶', text: '물이 백오십 일 동안 땅을 덮었어요. 동물들과 꼭 붙어 서로 돌봐요', ref: '7:24' },
+    { icon: '🌬️', text: '하나님이 방주 안의 모두를 기억하시고 바람을 보내셨어요. 물이 줄기 시작했어요', ref: '8:1' },
+    { icon: '🌥️', text: '깊은 샘과 하늘의 창이 닫히고 비가 그쳤어요', ref: '8:2-3' },
+    { icon: '⛰️', text: '일곱째 달 열이렛날, 방주가 아라랏 산 위에 머물렀어요', ref: '8:4' },
+    { icon: '🌤️', text: '물이 날마다 조금씩 줄어요. 창밖이 환해졌어요', ref: '8:5' },
+    { icon: '🏔️', text: '열째 달 초하루, 산봉우리들이 물 위로 보이기 시작했어요', ref: '8:5' },
+    { icon: '🐦', text: '창문을 열고 까마귀를 내보냈어요. 까마귀는 물이 마를 때까지 오락가락했어요', ref: '8:6-7' },
+    { icon: '🕊️', text: '비둘기가 올리브 새잎을 물고 돌아왔어요! 물이 거의 다 빠졌어요', ref: '8:8-11' },
+    { icon: '🌈', text: '방주 뚜껑을 열고 보니 땅이 말라 있었어요. 이제 모두 방주에서 나가요!', ref: '8:13-19' },
+  ];
+  /* 무지개 농장에서 둘이 차례로 짓는 것 — 하나를 다 지어야 다음이 열린다. 다 지으면 진짜 마지막 농장이 완성 */
+  const LAND_STEPS = [
+    { id: 'altar',       icon: '🪨', each: { stone: 15 },                    say: '방주에서 내려 맨 먼저 돌을 쌓아 감사의 제단을 만들었어요 (8:20)' },
+    { id: 'rainbowhill', icon: '🌈', each: { coins: 600, wood: 10 },         say: '다시는 물로 땅을 덮지 않겠다는 무지개 약속을 기억하는 꽃 언덕 (9:13)' },
+    { id: 'vineyard',    icon: '🍇', each: { wood: 20, coins: 500 },         say: '노아처럼 새 땅에 처음으로 포도나무를 심었어요 (9:20)' },
+    { id: 'dovecote',    icon: '🕊️', each: { wood: 15, olive: 3 },           say: '올리브 잎을 물어 온 비둘기 가족이 사는 집' },
+    { id: 'olivegrove',  icon: '🫒', each: { olive: 6, coins: 800 },         say: '비둘기가 물어 온 올리브 가지를 심어 동산을 만들었어요' },
+    { id: 'wellsquare',  icon: '⛲', each: { stone: 30, wood: 20, coins: 1500 }, say: '새 땅의 첫 마을 우물 광장 — 무지개 농장이 완성됐어요!' },
+  ];
+  const arkFarmIndex = () => FARMS.findIndex(f => f.id === 'ark');
+  // 방주 명부 — 동물은 가짓수마다 지금 농장에 몇 마리(둘이면 한 쌍), 씨앗은 금고에 든 작물
+  const ARK_KINDS = Object.keys(ANIMALS);
+  const arkCount = (world, kind) => ((world && world.animals) || []).filter(a => a && a.kind === kind).length;
+  const arkPairsHave = world => ARK_KINDS.filter(k => arkCount(world, k) >= 2).length;
+  const arkSeedsHave = world => ((world && world.ark && world.ark.seeds) || []).filter(c => CROPS[c]).length;
+  const arkStep = world => Math.max(0, Math.min(ARK_STEPS.length, Math.floor(Number(world && world.ark && world.ark.step) || 0)));
+  const landDone = world => LAND_STEPS.filter(L => world && world.ark && world.ark.land && world.ark.land[L.id] && world.ark.land[L.id].done).length;
+  // 한 달 양식 — 두 아이 몫에 동물 한 마리마다 하나
+  const arkRation = world => ARK_RATION + ((world && world.animals) || []).length;
+  // 지금 방주 이야기가 어디쯤인가 — 홍수 동안(afloat)에는 섬이 물에 잠겨 밭·가게·채집이 쉰다
+  const arkPhase = world => (world && world.ark && world.ark.phase) || null;
+  const afloat = world => arkPhase(world) === 'flood';
   /* 모닥불 — 밤에 앉으면 기운이 돈다. 하루에 한 번씩, 둘이 같은 날 앉으면 더 따뜻하다. */
   const FIRE_ENERGY = 12, FIRE_TOGETHER = 8;
 
@@ -1193,6 +1347,22 @@ const FARM = (() => {
     o.farm = farmIndex(o);
     if (!Array.isArray(o.past)) o.past = [];
     if (o.moveAsk && (typeof o.moveAsk !== 'object' || !NAME[o.moveAsk.by] || nextFarmIndex(o) < 0)) delete o.moveAsk;
+    // 방주(2026-10-09) — 서버는 값의 모양을 안 보니 여기서 거른다. 없으면 그대로 없다(필요할 때 arkOf 가 만든다)
+    if (o.ark != null){
+      if (typeof o.ark !== 'object' || Array.isArray(o.ark)) delete o.ark;
+      else {
+        const A = o.ark;
+        A.seeds = Array.isArray(A.seeds) ? A.seeds.filter((c, i, a) => CROPS[c] && a.indexOf(c) === i) : [];
+        A.step = arkStep(o);
+        A.food = Math.max(0, Math.floor(Number(A.food) || 0));
+        ['paid', 'by', 'land'].forEach(k => { if (!A[k] || typeof A[k] !== 'object' || Array.isArray(A[k])) A[k] = {}; });
+        Object.keys(A.land).forEach(k => { if (!LAND_STEPS.some(L => L.id === k) || !A.land[k] || typeof A.land[k] !== 'object') delete A.land[k]; else if (!A.land[k].paid || typeof A.land[k].paid !== 'object') A.land[k].paid = {}; });
+        if (!Array.isArray(A.on)) A.on = [];
+        if (A.phase !== 'flood' && A.phase !== 'land') delete A.phase;
+        A.month = Math.max(0, Math.min(ARK_MONTHS, Math.floor(Number(A.month) || 0)));
+        if (A.ask && (typeof A.ask !== 'object' || !NAME[A.ask.by] || A.phase)) delete A.ask;
+      }
+    }
     if (!o.started) o.started = dayKey(now);
     return o;
   }
@@ -1240,7 +1410,7 @@ const FARM = (() => {
   /* 놀이 규칙(farm-rules-play.js)이 이 닫힘 안의 것을 쓴다. 손으로 적은 목록이 아니라
      tools/split-rules.py 가 두 파일을 읽어 만든 것이다 — 하나라도 빠지면 그 규칙이
      돌 때 undefined 로 터진다. 놀이 규칙을 고쳤으면 그 도구를 다시 돌린다. */
-  const INNER = { SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, shardsLeft, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, peddlerSpot, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
+  const INNER = { ARK_STEPS, ARK_FOOD_MIN, ARK_RATION, ARK_MONTHS, ARK_GOODS_FOOD, ARK_LOG, LAND_STEPS, ARK_KINDS, arkFarmIndex, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, shardsLeft, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, peddlerSpot, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
@@ -1251,6 +1421,7 @@ const FARM = (() => {
     SKY_AT, setSky, skyOf, setSun, sunOf,
     plotIds, parseId, fieldCells, fieldHas, fieldBox,
     fireflyNight, fireflyLeft,
+    ARK_STEPS, ARK_FOOD_MIN, ARK_RATION, ARK_MONTHS, ARK_GOODS_FOOD, ARK_LOG, LAND_STEPS, ARK_KINDS, arkFarmIndex, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax,
     farmOk, SHARD_MAX, PICKS, shardSpots, shardsLeft, shardMax, SPECIALS, TRADE_MULT, perkOf, originOf, GUESTS,
     peddlerHere, peddlerSpot,
     cropsInDex, tickPlot, stageOf, wetNow, growTime, lifeLeft, lifeFrom, CROP_LIFE_DAYS,

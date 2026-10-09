@@ -64,7 +64,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   R.FARMS.forEach((f, i) => {
     const wf = R.fixWorld(null, now); wf.farm = i;
     // 앞 농장 전용 꾸미개는 추억으로 들고 올 수 있으니 뒤 농장에서도 자리가 겹치면 안 된다
-    const came = id => { const F = R.DECOR[id] && R.DECOR[id].farm; return !F || R.FARMS.findIndex(x => x.id === F) <= i; };
+    const came = id => { const K = I2.PLACE[id].kind; if (K === 'ark') return f.id === 'ark'; if (K === 'land') return f.id === 'newland'; const F = R.DECOR[id] && R.DECOR[id].farm; return !F || R.FARMS.findIndex(x => x.id === F) <= i; };   // 방주는 방주 농장에만, 새 땅 건설은 무지개 농장에만(2026-10-09)
     const all = I.PLACE_IDS.filter(came).map(id => R.spotOf(wf, id));
     const rocks = Object.keys(R.NODES).map(n => Object.assign({ id: n, w: 1, h: 1 }, R.nodeSpot(wf, n))).concat(R.sceneryOf(wf).map(c => ({ id: '풍경 ' + c.kind + '(' + c.x + ',' + c.y + ')', x: c.x, y: c.y, w: 1, h: 1 })));
     // 나무·바위·풍경끼리, 그리고 밭·떠돌이 상인 자리와도 겹치지 않는다
@@ -100,7 +100,7 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   R.FARMS.forEach((f, i) => {
     const wf = R.fixWorld(null, now); wf.farm = i;
     const C = R.fieldCells(wf);
-    const came = id => { const F = R.DECOR[id] && R.DECOR[id].farm; return !F || R.FARMS.findIndex(x => x.id === F) <= i; };
+    const came = id => { const K = I2.PLACE[id].kind; if (K === 'ark') return f.id === 'ark'; if (K === 'land') return f.id === 'newland'; const F = R.DECOR[id] && R.DECOR[id].farm; return !F || R.FARMS.findIndex(x => x.id === F) <= i; };   // 방주는 방주 농장에만, 새 땅 건설은 무지개 농장에만(2026-10-09)
     [0, 1, 2, 3].forEach(k => {
       wf.expand = k;
       const open = new Set(R.plotIds(wf, 'field')), has = (x, y) => open.has(x + ',' + y);
@@ -223,6 +223,6 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   const baby = wd.animals[wd.animals.length - 1];
   assert(baby.kind === 'camel' && baby.baby, '오아시스 새 식구는 아기 낙타');
   assert(R.claimMedal(wd, ms, 'stampDesert', now).ok, '오아시스 도장');
-  assert(!R.moveState(wd, ms).next, '사막 오아시스가 지금 마지막 농장');
+  assert(R.moveState(wd, ms).next && R.moveState(wd, ms).next.id === 'ark', '사막 오아시스 다음은 방주 농장(2026-10-09)');
 }
 console.log('이사 규칙 점검 통과');
