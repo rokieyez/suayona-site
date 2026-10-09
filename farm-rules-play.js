@@ -879,10 +879,10 @@
       p.progress = growTime(p) - C.regrow * H;         // 다시 열릴 때까지
       p.tick = now; p.care = 0;                        // 다음 열매는 다시 돌봐야 한다
       p.pickedAt = now;                                // 시들기까지 일주일도 여기서 다시 센다
-      return okay(say + ' 또 열려요', { n, star });
+      return okay(say + ' 또 열려요', { n, star, bonus: !!bonus });
     }
     Object.assign(p, { crop: null, fert: false, progress: 0, care: 0 });
-    return okay(say, { n, star, gold });
+    return okay(say, { n, star, gold, bonus: !!bonus });
   }
   function clear(world, mine, id){
     const p = world.plots[id];

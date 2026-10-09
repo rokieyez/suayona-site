@@ -1251,6 +1251,46 @@ function tone(freq, dur, type, vol, delay){
   } catch (e) { /* 소리는 덤이다 — 안 나도 그만 */ }
 }
 
+/* 2026-10-09 로키즈 「효과음도 좀 추가」 — 미끄러지는 소리(동물 울음), 흩뿌린 소리(비·천둥·파도·망치), 천천히 피는 소리(하늘 음성).
+   모두 그 자리에서 만들어 파일이 없다. 소리를 끈 사람에게는 아무것도 안 만든다 */
+function _sfxCtx(){
+  if (SFX_MUTED) return null;
+  try { if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)(); if (_ac.state === 'suspended') _ac.resume(); return _ac; }
+  catch (e) { return null; }
+}
+function slide(f0, f1, dur, type, vol, delay){
+  const ac = _sfxCtx(); if (!ac) return;
+  try {
+    const t0 = ac.currentTime + (delay || 0), o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol == null ? 0.05 : vol, t0 + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+  } catch (e) { /* 소리는 덤이다 */ }
+}
+let _noiseBuf = null;
+// 흩뿌린 소리 — kind 'lowpass'|'bandpass'|'highpass', freq → freq1 로 거름이 옮겨 간다(파도가 밀려오듯)
+function noise(dur, vol, delay, freq, kind, freq1){
+  const ac = _sfxCtx(); if (!ac) return;
+  try {
+    if (!_noiseBuf){ _noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); const d = _noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    const t0 = ac.currentTime + (delay || 0), src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(), att = Math.min(0.25, dur * 0.3);
+    src.buffer = _noiseBuf; src.loop = true;
+    f.type = kind || 'lowpass'; f.frequency.setValueAtTime(freq || 1000, t0); if (freq1) f.frequency.exponentialRampToValueAtTime(freq1, t0 + dur);
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol == null ? 0.06 : vol, t0 + att); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(f); f.connect(g); g.connect(ac.destination); src.start(t0); src.stop(t0 + dur + 0.05);
+  } catch (e) { /* 소리는 덤이다 */ }
+}
+// 천천히 피었다 지는 소리 — 하늘에서 들리는 화음
+function pad(freq, dur, vol, delay){
+  const ac = _sfxCtx(); if (!ac) return;
+  try {
+    const t0 = ac.currentTime + (delay || 0), o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol == null ? 0.03 : vol, t0 + dur * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+  } catch (e) { /* 소리는 덤이다 */ }
+}
+
 // 첫 화면에서 무엇을 눌렀느냐에 따라 다른 소리
 const SOUND = {
   char:    () => { tone(660, .09, 'square', .05); tone(880, .10, 'square', .05, .07); },
@@ -1278,6 +1318,43 @@ const SOUND = {
   chick:   () => { tone(1500, .05, 'square', .04); tone(1900, .05, 'square', .04, .06); tone(1700, .08, 'square', .04, .12); },
   medal:   () => { tone(659, .10, 'triangle', .06); tone(988, .10, 'triangle', .06, .10); tone(1318, .30, 'triangle', .06, .20); },
   fire:    () => { for (let i = 0; i < 5; i++) tone(90 + Math.random() * 70, .05, 'sawtooth', .03, i * .085); },
+  // ---- 방주·대홍수·새 땅(2026-10-09) ----
+  hammer:  () => { [0, .16, .32].forEach(d => { noise(.07, .09, d, 1800, 'bandpass'); tone(150, .08, 'triangle', .06, d); }); },   // 내 몫 — 망치 셋
+  build:   () => { SOUND.hammer(); [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, .2, 'triangle', .05, .5 + i * .09)); },    // 한 단계가 올라갔다
+  heaven:  () => { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => pad(f, 2.6, .035, i * .14)); tone(2093, .7, 'sine', .02, .7); },   // 하늘이 열린다
+  chime:   () => { tone(1568, .5, 'sine', .03); tone(2093, .6, 'sine', .022, .06); },                                                  // 음성 한 줄
+  rain:    () => noise(3.2, .07, 0, 1500, 'lowpass'),
+  thunder: () => { noise(2.4, .15, 0, 200, 'lowpass', 60); noise(.3, .08, 0, 1100, 'lowpass'); },
+  doorshut:() => { tone(68, .4, 'sawtooth', .08); noise(.35, .1, 0, 420, 'lowpass'); },
+  waves:   () => { noise(1.8, .07, 0, 380, 'bandpass', 1300); noise(1.4, .05, .9, 900, 'bandpass', 300); },                        // 한 달이 흘러간다
+  dove:    () => { slide(520, 430, .28, 'sine', .05); slide(545, 420, .38, 'sine', .05, .38); },
+  creak:   () => slide(230, 130, .55, 'sawtooth', .03),
+  rainbow: () => [523, 587, 659, 784, 880, 1046, 1318].forEach((f, i) => tone(f, .28, 'triangle', .045, i * .08)),
+  // ---- 단풍·밀림·사바나 ----
+  glug:    () => { slide(420, 250, .08, 'sine', .06); slide(380, 220, .09, 'sine', .06, .1); tone(1568, .1, 'triangle', .03, .2); },     // 메이플 시럽 양동이
+  fruit:   () => { tone(210, .06, 'sine', .07); tone(900, .06, 'triangle', .04, .05); tone(1320, .1, 'triangle', .035, .1); },          // 망고·바오밥·올리브 줍기
+  harvest: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, .12, 'square', .04, i * .07)),                                        // 풍년 — 하나 더!
+  // 동물 울음 — 쓰다듬어 마음이 자랄 때, 데려올 때(call_종류)
+  call_cow:     () => slide(190, 150, .6, 'sawtooth', .045),
+  call_sheep:   () => { for (let i = 0; i < 6; i++) tone(330 + (i % 2) * 22, .06, 'square', .035, i * .05); },
+  call_goat:    () => { for (let i = 0; i < 6; i++) tone(430 + (i % 2) * 26, .05, 'square', .033, i * .045); },
+  call_pig:     () => { slide(300, 200, .12, 'square', .04); slide(320, 210, .12, 'square', .04, .15); },
+  call_chicken: () => SOUND.chick(),
+  call_duck:    () => { slide(700, 480, .12, 'sawtooth', .035); slide(700, 480, .12, 'sawtooth', .035, .16); },
+  call_dog:     () => { slide(520, 300, .09, 'square', .045); slide(540, 300, .1, 'square', .045, .15); },
+  call_cat:     () => { slide(500, 820, .16, 'sine', .04); slide(820, 480, .26, 'sine', .04, .16); },
+  call_rabbit:  () => { tone(1800, .04, 'sine', .03); tone(2100, .04, 'sine', .03, .06); },
+  call_gull:    () => { slide(1400, 900, .18, 'triangle', .04); slide(1400, 900, .18, 'triangle', .04, .22); },
+  call_crane:   () => { slide(900, 1300, .2, 'triangle', .04); slide(950, 1350, .22, 'triangle', .04, .25); },
+  call_reindeer:() => slide(240, 170, .38, 'sawtooth', .04),
+  call_camel:   () => slide(160, 105, .5, 'sawtooth', .05),
+  call_deer:    () => slide(920, 680, .22, 'sine', .045),
+  call_squirrel:() => { for (let i = 0; i < 7; i++) tone(2400 - i * 70, .025, 'square', .025, i * .04); },
+  call_monkey:  () => { slide(400, 900, .18, 'triangle', .05); slide(900, 480, .22, 'triangle', .05, .2); slide(500, 1000, .12, 'triangle', .04, .45); },
+  call_parrot:  () => { slide(1200, 1800, .08, 'sawtooth', .03); slide(1700, 1100, .12, 'sawtooth', .03, .1); },
+  call_giraffe: () => slide(130, 100, .45, 'sine', .06),
+  call_elephant:() => { slide(380, 720, .35, 'sawtooth', .05); slide(720, 600, .3, 'sawtooth', .04, .32); },
+  call_zebra:   () => { for (let i = 0; i < 5; i++) slide(720 - i * 40, 520 - i * 40, .08, 'sawtooth', .035, i * .09); },
 };
 
 // 작품에 붙이는 소리. 아이가 그림마다 하나씩 고른다 (works.sfx).
