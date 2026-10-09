@@ -109,22 +109,25 @@ const wa = fresh('ark');
   assert(Object.keys(m.inv).some(k => k.indexOf('fish:') === 0 && R.FISH[k.slice(5)].sea), '바닷물고기');
   assert(!R.fish(fresh('ark'), rich('sua'), day0, 'good', 'flood').ok, '홍수 전에는 창밖 낚시가 없다');
   const n = R.newDay(wa, m, day0 + D);
-  assert(n.some(x => /방주 0달째/.test(x)) && !n.some(x => /행상인|부탁/.test(x)), '아침 소식은 방주 이야기');
+  assert(n.some(x => /방주 0일째/.test(x)) && !n.some(x => /행상인|부탁/.test(x)), '아침 소식은 방주 이야기');
 }
-// 열두 달 — 하루에 한 달, 양식이 모자라면 기다린다. 열두째 달에 무지개 농장
+// 370일 — 하루에 열흘, 양식이 모자라면 기다린다. 37번째(370일째)에 무지개 농장
 {
   const ms = rich('sua'), my = rich('yona'), ration = R.arkRation(wa);
   wa.ark.food = ration * 3;
-  assert(R.arkMonth(wa, ms, day0).ok && wa.ark.month === 1, '1달째');
-  assert(!R.arkMonth(wa, my, day0).ok, '하루에 한 달');
+  assert(R.arkMonth(wa, ms, day0).ok && wa.ark.month === 1, '10일째');
+  assert(R.arkState(wa, ms, day0).day === 10 && R.arkState(wa, ms, day0).news.length === 1, '열흘 — 첫 이야기는 큰비');
+  assert(!R.arkMonth(wa, my, day0).ok, '하루에 열흘');
   assert(R.arkMonth(wa, my, day0 + D).ok && R.arkMonth(wa, ms, day0 + 2 * D).ok && wa.ark.month === 3);
   const r = R.arkMonth(wa, ms, day0 + 3 * D);
   assert(!r.ok && /모자라요/.test(r.msg) && wa.ark.month === 3, '양식이 없으면 멈춘다(실패는 없다)');
   wa.ark.seeds = ['radish', 'cloudberry'];
   wa.ark.food = 9999;
   let landed = null;
-  for (let d = 3; d < 12; d++){ const x = R.arkMonth(wa, d % 2 ? ms : my, day0 + d * D); assert(x.ok, (d + 1) + '달째'); if (x.landed) landed = x; }
-  assert(landed && R.arkPhase(wa) === 'land' && R.farmOf(wa).id === 'newland', '열두째 달 — 무지개 농장');
+  for (let d = 3; d < R.ARK_TURNS; d++){ const x = R.arkMonth(wa, d % 2 ? ms : my, day0 + d * D); assert(x.ok, (d + 1) * 10 + '일째'); assert(!landed, '370일 전에는 안 내린다'); if (x.landed) landed = x; }
+  assert(R.ARK_TURNS === 37 && landed.day === 370, '한 해와 열흘(창 7:11 → 8:14)');
+  assert(R.ARK_LOG.every(L => L.day >= 1 && L.day <= 370), '이야기는 다 370일 안에');
+  assert(landed && R.arkPhase(wa) === 'land' && R.farmOf(wa).id === 'newland', '370일째 — 무지개 농장');
   assert(wa.past[wa.past.length - 1].farm === 'ark' && !R.thingHere(Object.assign({}, wa, { farm: R.FARMS.findIndex(f => f.id === 'ark') }), 'ark'), '방주 농장은 빈 터로 남는다');
   assert(wa.animals.filter(a => a.baby && a.mom).length === 2, '한 쌍마다 아기 하나 — 닭·소');
   assert(wa.mail.sua.filter(g => g.from === 'ark' && g.id === 'seed:cloudberry').length === 1, '씨앗 금고의 씨앗이 돌아온다');

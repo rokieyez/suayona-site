@@ -5,7 +5,7 @@
 // farm-rules.js 가 먼저 돌아야 한다. 저 파일의 닫힘 안에 있는 것들은 FARM.__inner 로 받는다.
 (() => {
   if (typeof FARM === 'undefined' || !FARM.__inner) throw new Error('farm-rules.js 를 먼저 실어야 해요');
-  const { ARK_STEPS, ARK_FOOD_MIN, ARK_MONTHS, ARK_GOODS_FOOD, ARK_LOG, LAND_STEPS, ARK_KINDS, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, localState, specKey, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
+  const { ARK_STEPS, ARK_FOOD_MIN, ARK_SPAN, ARK_DAYS, ARK_TURNS, ARK_GOODS_FOOD, ARK_LOG, arkDay, arkNews, LAND_STEPS, ARK_KINDS, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, localState, specKey, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
 
   function dayEndMs(t){ return dayStartMs(dayKey(t)) + DAY_MS; }
   function nextSeason(s){ return SEASONS[(SEASONS.indexOf(s) + 1) % 4]; }
@@ -1322,7 +1322,7 @@
     });
     if (afloat(world)){
       const A = world.ark, need = arkRation(world);
-      notes.push('🛶 방주 ' + (A.month || 0) + '달째' + (A.monthDay === key ? ' — 오늘 한 달은 보냈어요' : ' — 「🛶 방주」 칸에서 <b>한 달 보내기</b>를 눌러요 (양식 ' + A.food + ' · 한 달에 ' + need + ')'));
+      notes.push('🛶 방주 ' + arkDay(A.month || 0) + '일째' + (A.monthDay === key ? ' — 오늘 열흘은 보냈어요' : ' — 「🛶 방주」 칸에서 <b>열흘 보내기</b>를 눌러요 (양식 ' + A.food + ' · 열흘에 ' + need + ')'));
       world.hot = hotCrop(world, now);
       return notes;
     }
@@ -1447,7 +1447,8 @@
       steps: ARK_STEPS.map((S, i) => Object.assign({ i, done: i < step, cur: i === step }, S)),
       paid: Object.assign({}, A.paid || {}), on: (A.on || []).slice(),
       food: Math.max(0, Math.floor(Number(A.food) || 0)), foodMin: ARK_FOOD_MIN, by: Object.assign({}, A.by || {}),
-      ration: arkRation(world), month: A.month || 0, months: ARK_MONTHS, monthDone: A.monthDay === key, log: ARK_LOG,
+      ration: arkRation(world), month: A.month || 0, months: ARK_TURNS, monthDone: A.monthDay === key, log: ARK_LOG,
+      day: arkDay(A.month || 0), days: ARK_DAYS, span: ARK_SPAN, news: arkNews(A.month || 0), next: ARK_LOG.find(L => L.day > arkDay(A.month || 0)) || null,
       pairs: ARK_KINDS.map(k => ({ kind: k, n: arkCount(world, k) })), pairsHave: arkPairsHave(world), pairsTotal: ARK_KINDS.length,
       seeds: (A.seeds || []).slice(), seedsHave: arkSeedsHave(world), seedsTotal: CROP_IDS.length,
       ask, mineAsked: !!(ask && ask.by === mine.key), otherAsked: !!(ask && ask.by !== mine.key),
@@ -1527,17 +1528,19 @@
     logAdd(world, mine.key, '수아와 연아가 동물 ' + (world.animals || []).length + '마리와 함께 방주에 들어갔어요. 문이 닫히고 큰비가 내리기 시작했어요', now);
     return okay('🛶 모두 방주에 들어갔어요! 문이 닫히고 큰비가 내려요' + (got ? ' · 밭에 남은 작물은 양식 창고에 실었어요(+' + got + ')' : ''), { boarded: true });
   }
-  // 대홍수 — 하루에 한 번 「한 달 보내기」. 한 달 양식을 먹고 이야기가 한 장 넘어간다. 열두 달이면 새 땅
+  // 대홍수 — 하루에 한 번 「열흘 보내기」. 열흘 양식을 먹고, 그 열흘에 창세기 이야기가 있으면 한 줄. 370일(37번)이면 새 땅
   function arkMonth(world, mine, now){
-    if (!afloat(world)) return fail('방주에 들어가야 한 달씩 지나요');
+    if (!afloat(world)) return fail('방주에 들어가야 열흘씩 지나요');
     const A = arkOf(world), key = dayKey(now), need = arkRation(world);
-    if (A.monthDay === key) return fail('오늘은 한 달을 보냈어요. 내일 또 와요 — 방주에서는 하루가 한 달이에요');
+    if (A.monthDay === key) return fail('오늘은 열흘을 보냈어요. 내일 또 와요 — 방주에서는 하루가 열흘이에요');
     if (A.food < need) return fail('양식이 ' + (need - A.food) + ' 모자라요 — 동물이 낳은 것을 줍거나 창밖 낚시로 잡아 양식 창고에 넣어요');
     A.food -= need; A.month = (A.month || 0) + 1; A.monthDay = key; mine.xp += 20;
-    const L = ARK_LOG[A.month] || ARK_LOG[ARK_LOG.length - 1];
-    logAdd(world, mine.key, '방주 ' + A.month + '달째 — ' + L.text, now);
-    if (A.month >= ARK_MONTHS){ landArk(world, mine, now); return okay(L.icon + ' <b>' + A.month + '달째</b> — ' + L.text, { month: A.month, landed: true }); }
-    return okay(L.icon + ' <b>' + A.month + '달째</b> — ' + L.text + ' (창세기 ' + L.ref + ') · 양식 ' + A.food + ' 남았어요', { month: A.month });
+    const d = arkDay(A.month), news = arkNews(A.month);
+    const text = news.length ? news.map(L => L.text).join(' ') : '큰물 위에서 열흘을 더 보냈어요. 동물들을 돌봐요';
+    const say = news.length ? news.map(L => L.icon + ' ' + L.text + ' (창세기 ' + L.ref + ')').join(' · ') : '🛶 ' + text;
+    logAdd(world, mine.key, '방주 ' + d + '일째 — ' + text, now);
+    if (A.month >= ARK_TURNS){ landArk(world, mine, now); return okay('<b>' + d + '일째</b> — ' + say, { month: A.month, day: d, landed: true }); }
+    return okay('<b>' + d + '일째</b> — ' + say + ' · 양식 ' + A.food + ' 남았어요', { month: A.month, day: d });
   }
   // 새 땅에 내린다 — 방주 농장은 옛 농장으로 남고(물이 빠진 빈 터) 무지개 농장에서 새로 짓는다
   function landArk(world, mine, now){

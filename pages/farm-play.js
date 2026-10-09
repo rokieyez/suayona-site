@@ -215,7 +215,7 @@ function syncMoveHint(){
   if (A && (A.atArk || A.phase)){
     el.dataset.mode = 'ark'; el.hidden = false;
     const done = A.phase === 'land' ? A.landDone >= A.land.length : false;
-    const say = A.phase === 'flood' ? '방주 <b>' + A.month + '달째</b> — ' + (A.monthDone ? '오늘 한 달은 보냈어요. 동물을 돌봐요' : '오늘 <b>한 달 보내기</b>를 눌러요 (양식 ' + A.food + ')')
+    const say = A.phase === 'flood' ? '방주 <b>' + A.day + '일째</b> — ' + (A.monthDone ? '오늘 열흘은 보냈어요. 동물을 돌봐요' : '오늘 <b>열흘 보내기</b>를 눌러요 (양식 ' + A.food + ')')
       : A.phase === 'land' ? (done ? '무지개 농장 완성! 🎉' : '새 땅 짓기 <b>' + A.landDone + '/' + A.land.length + '</b> — 다음: ' + (A.land.find(L => !L.done) || {}).name)
       : A.step >= A.total ? '방주가 다 지어졌어요! 둘이 함께 <b>방주에 들어가요</b>' : '방주 <b>' + A.step + '/' + A.total + '단계</b> — 다음: ' + A.steps[A.step].icon + ' ' + A.steps[A.step].name;
     const pct = A.phase === 'flood' ? A.month / A.months : A.phase === 'land' ? A.landDone / A.land.length : A.step / A.total;
@@ -476,7 +476,7 @@ function hintFor(){
     return '밭의 빈 칸을 눌러 놓아요. 아침마다 둘레 ' + S.reach + '칸에 물을 줘요. 놓은 칸을 다시 누르면 걷어요.';
   }
   const here = R.farmOf(W).id;
-  if (W.ark && W.ark.phase === 'flood') return '큰물 위를 떠가는 방주예요. 방주를 누르면 「🛶 방주」 칸, 창밖 물을 누르면 낚시를 해요. 하루에 한 달씩 지나요.';
+  if (W.ark && W.ark.phase === 'flood') return '큰물 위를 떠가는 방주예요. 방주를 누르면 「🛶 방주」 칸, 창밖 물을 누르면 낚시를 해요. 하루에 열흘씩 지나요.';
   return '다 자란 작물·나무·바위·동물·집·우편함·게시판·가게를 눌러요. 밭 위를 끌면 익은 것만 줄줄이 거둬요.'
     + (here === 'seaside' ? ' 섬 밖 바다를 누르면 바다낚시를 해요.' : here === 'mountain' ? ' 화산 바위에는 가끔 반짝돌이 박혀 있어요.'
       : here === 'aurora' ? ' 얼음낚시 구멍을 누르면 얼음낚시를 해요. 밤엔 땅에 떨어진 오로라 빛 조각을 주워요.'
@@ -1948,7 +1948,7 @@ function renderArk(){
   wrap.appendChild(L1); wrap.appendChild(L2); box.appendChild(wrap);
   // 큰 퀘스트
   const say = s.phase === 'land' ? (s.landDone >= s.land.length ? '무지개 농장이 완성됐어요! 수아연아의 방주 이야기를 다 해냈어요 🌈' : '물이 빠진 새 땅이에요. 무지개 농장을 하나씩 지어요')
-    : s.phase === 'flood' ? '방주 안에서 열두 달을 버텨요. 하루에 한 달씩, 양식을 아껴 먹고 동물을 돌봐요'
+    : s.phase === 'flood' ? '방주 안에서 한 해와 열흘(370일)을 버텨요. 하루에 열흘씩, 양식을 아껴 먹고 동물을 돌봐요'
     : s.atArk ? (s.step >= s.total ? '방주가 다 지어졌어요! 둘이 함께 방주에 들어가요' : '방주 터에 방주를 열 단계로 지어요. 그동안 동물 짝·씨앗·양식을 모아요')
     : '큰비가 오기 전에 동물을 한 쌍씩, 씨앗을 한 알씩 모아요. 오아시스 농장 다음이 방주 농장이에요';
   const q = card('quest', '<h4>📜 큰 퀘스트 — 수아연아의 방주</h4>' + say
@@ -2000,7 +2000,7 @@ function renderArk(){
     if (s.step >= s.total){
       const c = card('build move', '<div class="nm">🛶 방주에 들어가기</div><div class="pr">' + (s.otherAsked ? '<b>' + NAME[o] + '가 방주에 들어가자고 해요!</b> 좋다고 하면 모두 들어가고 문이 닫혀요'
         : s.mineAsked ? NAME[o] + '의 대답을 기다려요' : '둘 다 좋다고 하면 동물 ' + (W.animals || []).length + '마리와 함께 방주에 들어가요. 문이 닫히고 큰비가 내려요.')
-        + '<br><small>밭에 서 있는 작물은 거둬서 양식 창고에 실어요. 방주 안에서는 가게·밭·채집이 쉬고, 하루에 한 달씩 열두 달을 지내요.</small></div>');
+        + '<br><small>밭에 서 있는 작물은 거둬서 양식 창고에 실어요. 방주 안에서는 가게·밭·채집이 쉬고, 하루에 열흘씩 370일(37일)을 지내요.</small></div>');
       const a = document.createElement('div'); a.className = 'act';
       if (!s.mineAsked) a.appendChild(btn(s.otherAsked ? '좋아, 들어가자!' : '방주에 들어가자고 하기', 'buy', () => {
         if (s.otherAsked && !confirm('방주에 들어갈까요? 열두 달 동안은 섬에 못 나와요.')) return;
@@ -2013,13 +2013,13 @@ function renderArk(){
     }
   }
   if (s.phase === 'flood'){
-    const L = s.log[s.month] || null, nx = s.log[s.month + 1] || null;
-    const c = card('build move', '<div class="nm">🌊 방주 ' + s.month + '달째 / ' + s.months + '달</div>'
+    const nx = s.next;
+    const c = card('build move', '<div class="nm">🌊 방주 ' + s.day + '일째 / ' + s.days + '일</div>'
       + '<div class="months">' + Array.from({ length: s.months }, (_, i) => '<i class="' + (i < s.month ? 'on' : i === s.month ? 'now' : '') + '"></i>').join('') + '</div>'
-      + '<div class="monthtext">' + (L ? L.icon + ' ' + escapeHTML(L.text) + ' <small>(창세기 ' + L.ref + ')</small>' : '🚪 방주 문이 닫혔어요. 이제 큰비가 내려요') + '</div>'
-      + '<div class="pr">한 달에 양식 ' + s.ration + '을 먹어요(우리 둘 4 + 동물 두 마리마다 1). 창고 ' + s.food + (s.monthDone ? ' · <b>오늘 한 달은 보냈어요. 내일 또 와요</b>' : '') + (nx && !s.monthDone ? '<br>다음 달: ' + nx.icon + ' …' : '') + '</div>');
+      + '<div class="monthtext">' + (s.news.length ? s.news.map(L => L.icon + ' ' + escapeHTML(L.text) + ' <small>(창세기 ' + L.ref + ')</small>').join('<br>') : s.month ? '🛶 큰물 위에서 열흘을 더 보냈어요. 동물들을 돌봐요' : '🚪 방주 문이 닫혔어요. 이제 큰비가 내려요') + '</div>'
+      + '<div class="pr">열흘에 양식 ' + s.ration + '을 먹어요(우리 둘 1 + 동물 여섯 마리마다 1). 창고 ' + s.food + (s.monthDone ? ' · <b>오늘 열흘은 보냈어요. 내일 또 와요</b>' : '') + (nx ? '<br>다음 이야기: ' + nx.icon + ' ' + nx.day + '일째 …' : '') + '</div>');
     const a = document.createElement('div'); a.className = 'act';
-    a.appendChild(btn('🌙 한 달 보내기 (양식 −' + s.ration + ')', 'buy', () => {
+    a.appendChild(btn('🌙 열흘 보내기 (양식 −' + s.ration + ')', 'buy', () => {
       const r = act((w, m) => R.arkMonth(w, m, now()));
       if (r.ok) sfx(r.landed ? 'rainbow' : 'waves');
     }, s.monthDone || s.food < s.ration));
@@ -2032,7 +2032,7 @@ function renderArk(){
   // 양식 창고 — 방주 농장(짓는 동안)과 방주 안
   if ((s.atArk && !s.phase) || s.phase === 'flood'){
     const need = s.phase === 'flood' ? s.ration * Math.max(1, s.months - s.month) : s.foodMin;
-    const c = card('build', '<div class="nm">🌾 양식 창고 — ' + s.food + (s.phase === 'flood' ? ' (남은 달을 다 지내려면 ' + need + ')' : ' / ' + s.foodMin) + '</div>'
+    const c = card('build', '<div class="nm">🌾 양식 창고 — ' + s.food + (s.phase === 'flood' ? ' (남은 날을 다 지내려면 ' + need + ')' : ' / ' + s.foodMin) + '</div>'
       + '<div class="bars">' + arkBar('창고', s.food, need, 'food') + '</div>'
       + '<div class="need">' + (s.by.sua || s.by.yona ? '넣은 몫 — 수아 ' + (s.by.sua || 0) + ' · 연아 ' + (s.by.yona || 0) + '<br>' : '') + '작물 3 · 요리 8~20 · 물고기 4 · 달걀 2 · 우유 3 · 큰 작물 15</div>');
     const ids = Object.keys(M.inv).filter(id => M.inv[id] > 0 && R.arkFoodOf(id) > 0).sort((a, b) => R.arkFoodOf(b) * M.inv[b] - R.arkFoodOf(a) * M.inv[a]);

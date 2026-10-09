@@ -1293,10 +1293,10 @@ const FARM = (() => {
        food: 수, by: {sua, yona} 양식 창고(점수)와 각자 넣은 몫
        phase: undefined | 'flood' | 'land'
        ask: { by }              입장하자고 먼저 누른 아이(둘 다 눌러야 들어간다)
-       boardOn, month: 0~12, monthDay  대홍수 — 하루에 한 번 「한 달 보내기」
+       boardOn, month: 0~37, monthDay  대홍수 — 하루에 한 번 「열흘 보내기」. month 는 보낸 열흘의 수(이름은 세이브 때문에 그대로)
        land: { 이름: { paid, done, on } } 무지개 농장에서 짓는 것
      }
-     아이가 하는 놀이라 실패는 없다 — 양식이 모자라면 한 달이 안 넘어갈 뿐, 줍고 낚아 채우면 다시 간다. */
+     아이가 하는 놀이라 실패는 없다 — 양식이 모자라면 열흘이 안 넘어갈 뿐, 줍고 낚아 채우면 다시 간다. */
   const ARK_STEPS = [
     { id: 'ground', name: '터 다지기',          icon: '⛏️', each: { stone: 20, coins: 300 }, say: '방주를 앉힐 땅을 평평하게 다지고 받침돌을 줄지어 놓았어요' },
     { id: 'keel',   name: '용골 놓기',          icon: '🪵', each: { wood: 40 },              say: '배의 등뼈 — 길고 굵은 잣나무 용골을 받침돌 위에 눕혔어요' },
@@ -1310,26 +1310,34 @@ const FARM = (() => {
     { id: 'store',  name: '양식 싣기',          icon: '🌾', each: {},                        say: '양식 창고를 가득 채웠어요 — 방주가 다 지어졌어요! (6:21)' },
   ];
   const ARK_FOOD_MIN = 200;            // 마지막 단계 「양식 싣기」에 필요한 창고 점수
-  const ARK_RATION = 4;                // 한 달에 두 아이가 먹는 양식 — 여기에 동물 두 마리마다 1 씩
-  const ARK_MONTHS = 12;               // 방주 안에서 지내는 열두 달(한 해) — 진짜 하루에 한 달씩
+  /* 방주 안 시간 — 진짜 하루에 열흘씩(2026-10-09 로키즈 「하루를 한 달로 하면 너무 짧다, 열흘로」).
+     창세기대로 600세 2월 17일에 들어가 601세 2월 27일에 나온다 — 한 해와 열흘, 한 달 30일로 370일, 37번. */
+  const ARK_SPAN = 10;                 // 「열흘 보내기」 한 번에 지나는 날
+  const ARK_DAYS = 370;                // 방주 안에서 지내는 날 수(창 7:11 → 8:14)
+  const ARK_TURNS = Math.ceil(ARK_DAYS / ARK_SPAN);   // 37 — 진짜 날로 37일
+  const ARK_RATION = 1;                // 열흘에 두 아이가 먹는 양식 — 여기에 동물 여섯 마리마다 1 씩(한 달 4+두 마리마다 1 이던 것과 한 해 합이 비슷하게)
   // 창고에 넣을 때의 양식 점수 — 먹으면 기운이 도는 것(foodOf)에 더해 동물이 낳은 것
   const ARK_GOODS_FOOD = { egg: 2, bigegg: 4, duckegg: 2, milk: 3, goldmilk: 6, honey: 4, truffle: 5 };
-  /* 방주 안 열두 달 — 창세기 7~8장. 「한 달 보내기」를 누를 때마다 한 줄씩 */
+  /* 방주 안 이야기 — 창세기 7~8장, 들어간 날(2월 17일)부터 센 날(day). 「열흘 보내기」로 그 날을 지나면 한 줄씩.
+     날짜는 한 달을 30일로 셌다: 7월 17일 = 150일, 10월 1일 = 224일, 이듬해 1월 1일 = 314일, 2월 27일 = 370일 */
   const ARK_LOG = [
-    null,
-    { icon: '🌧️', text: '하늘의 창이 열리고 큰비가 쏟아졌어요. 방주가 물 위로 둥실 떠올랐어요', ref: '7:11-17' },
-    { icon: '⛈️', text: '사십 일 밤낮 비가 그치지 않았어요. 온 세상이 바다가 됐어요', ref: '7:12' },
-    { icon: '🌊', text: '물이 높은 산들까지 다 덮었어요. 방주만 물 위를 떠다녀요', ref: '7:19-20' },
-    { icon: '🛶', text: '물이 백오십 일 동안 땅을 덮었어요. 동물들과 꼭 붙어 서로 돌봐요', ref: '7:24' },
-    { icon: '🌬️', text: '하나님이 방주 안의 모두를 기억하시고 바람을 보내셨어요. 물이 줄기 시작했어요', ref: '8:1' },
-    { icon: '🌥️', text: '깊은 샘과 하늘의 창이 닫히고 비가 그쳤어요', ref: '8:2-3' },
-    { icon: '⛰️', text: '일곱째 달 열이렛날, 방주가 아라랏 산 위에 머물렀어요', ref: '8:4' },
-    { icon: '🌤️', text: '물이 날마다 조금씩 줄어요. 창밖이 환해졌어요', ref: '8:5' },
-    { icon: '🏔️', text: '열째 달 초하루, 산봉우리들이 물 위로 보이기 시작했어요', ref: '8:5' },
-    { icon: '🐦', text: '창문을 열고 까마귀를 내보냈어요. 까마귀는 물이 마를 때까지 오락가락했어요', ref: '8:6-7' },
-    { icon: '🕊️', text: '비둘기가 올리브 새잎을 물고 돌아왔어요! 물이 거의 다 빠졌어요', ref: '8:8-11' },
-    { icon: '🌈', text: '방주 뚜껑을 열고 보니 땅이 말라 있었어요. 이제 모두 방주에서 나가요!', ref: '8:13-19' },
+    { day: 1,   icon: '🌧️', text: '하늘의 창이 열리고 큰비가 쏟아졌어요. 방주가 물 위로 둥실 떠올랐어요', ref: '7:11-17' },
+    { day: 20,  icon: '🌊', text: '물이 높은 산들까지 다 덮었어요. 방주만 물 위를 떠다녀요', ref: '7:19-20' },
+    { day: 40,  icon: '⛈️', text: '사십 일 밤낮 내리던 비가 그쳤어요. 온 세상이 바다예요', ref: '7:12' },
+    { day: 100, icon: '🛶', text: '물이 백오십 일 동안 땅을 덮어요. 동물들과 꼭 붙어 서로 돌봐요', ref: '7:24' },
+    { day: 150, icon: '🌬️', text: '하나님이 방주 안의 모두를 기억하시고 바람을 보내셨어요. 깊은 샘과 하늘의 창이 닫혔어요', ref: '8:1-3' },
+    { day: 150, icon: '⛰️', text: '일곱째 달 열이렛날, 방주가 아라랏 산 위에 머물렀어요', ref: '8:4' },
+    { day: 180, icon: '🌤️', text: '물이 날마다 조금씩 줄어요. 창밖이 환해졌어요', ref: '8:5' },
+    { day: 224, icon: '🏔️', text: '열째 달 초하루, 산봉우리들이 물 위로 보이기 시작했어요', ref: '8:5' },
+    { day: 264, icon: '🐦', text: '사십 일 뒤 창문을 열고 까마귀를 내보냈어요. 까마귀는 물이 마를 때까지 오락가락했어요', ref: '8:6-7' },
+    { day: 271, icon: '🕊️', text: '비둘기를 내보냈지만 앉을 곳이 없어 돌아왔어요', ref: '8:8-9' },
+    { day: 278, icon: '🕊️', text: '이레 뒤 다시 보낸 비둘기가 올리브 새잎을 물고 돌아왔어요!', ref: '8:10-11' },
+    { day: 285, icon: '🕊️', text: '또 이레 뒤 보낸 비둘기는 돌아오지 않았어요. 물이 거의 다 빠졌어요', ref: '8:12' },
+    { day: 314, icon: '☀️', text: '새해 첫날, 방주 뚜껑을 열고 보니 땅 위에 물이 걷혔어요', ref: '8:13' },
+    { day: 370, icon: '🌈', text: '둘째 달 스무이렛날, 땅이 다 말랐어요. 이제 모두 방주에서 나가요!', ref: '8:14-19' },
   ];
+  const arkDay = n => Math.min(ARK_DAYS, Math.max(0, n) * ARK_SPAN);   // n 번 보낸 뒤 며칠째인가
+  const arkNews = n => n > 0 ? ARK_LOG.filter(L => L.day > arkDay(n - 1) && L.day <= arkDay(n)) : [];   // n 번째 열흘에 일어난 일
   /* 무지개 농장에서 둘이 차례로 짓는 것 — 하나를 다 지어야 다음이 열린다. 다 지으면 진짜 마지막 농장이 완성 */
   const LAND_STEPS = [
     { id: 'altar',       icon: '🪨', each: { stone: 15 },                    say: '방주에서 내려 맨 먼저 돌을 쌓아 감사의 제단을 만들었어요 (8:20)' },
@@ -1365,9 +1373,8 @@ const FARM = (() => {
   const arkSeedsHave = world => ((world && world.ark && world.ark.seeds) || []).filter(c => CROPS[c]).length;
   const arkStep = world => Math.max(0, Math.min(ARK_STEPS.length, Math.floor(Number(world && world.ark && world.ark.step) || 0)));
   const landDone = world => LAND_STEPS.filter(L => world && world.ark && world.ark.land && world.ark.land[L.id] && world.ark.land[L.id].done).length;
-  // 한 달 양식 — 두 아이 몫에 동물 두 마리마다 하나
-  // 동물이 스무 가지(한 쌍씩 마흔)로 늘며(2026-10-09) 한 마리에 하나는 너무 많아 두 마리에 하나로
-  const arkRation = world => ARK_RATION + Math.ceil(((world && world.animals) || []).length / 2);
+  // 열흘 양식 — 두 아이 몫에 동물 여섯 마리마다 하나(한 쌍씩 마흔이면 8, 37번이면 296 — 예전 한 달 24×12=288 과 비슷)
+  const arkRation = world => ARK_RATION + Math.ceil(((world && world.animals) || []).length / 6);
   // 지금 방주 이야기가 어디쯤인가 — 홍수 동안(afloat)에는 섬이 물에 잠겨 밭·가게·채집이 쉰다
   const arkPhase = world => (world && world.ark && world.ark.phase) || null;
   const afloat = world => arkPhase(world) === 'flood';
@@ -1502,7 +1509,7 @@ const FARM = (() => {
         Object.keys(A.land).forEach(k => { if (!LAND_STEPS.some(L => L.id === k) || !A.land[k] || typeof A.land[k] !== 'object') delete A.land[k]; else if (!A.land[k].paid || typeof A.land[k].paid !== 'object') A.land[k].paid = {}; });
         if (!Array.isArray(A.on)) A.on = [];
         if (A.phase !== 'flood' && A.phase !== 'land') delete A.phase;
-        A.month = Math.max(0, Math.min(ARK_MONTHS, Math.floor(Number(A.month) || 0)));
+        A.month = Math.max(0, Math.min(ARK_TURNS, Math.floor(Number(A.month) || 0)));
         if (A.ask && (typeof A.ask !== 'object' || !NAME[A.ask.by] || A.phase)) delete A.ask;
       }
     }
@@ -1555,7 +1562,7 @@ const FARM = (() => {
   /* 놀이 규칙(farm-rules-play.js)이 이 닫힘 안의 것을 쓴다. 손으로 적은 목록이 아니라
      tools/split-rules.py 가 두 파일을 읽어 만든 것이다 — 하나라도 빠지면 그 규칙이
      돌 때 undefined 로 터진다. 놀이 규칙을 고쳤으면 그 도구를 다시 돌린다. */
-  const INNER = { ARK_STEPS, ARK_FOOD_MIN, ARK_RATION, ARK_MONTHS, ARK_GOODS_FOOD, ARK_LOG, LAND_STEPS, ARK_KINDS, arkFarmIndex, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, localOf, localState, specKey, FARM_V, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, shardsLeft, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, peddlerSpot, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
+  const INNER = { ARK_STEPS, ARK_FOOD_MIN, ARK_RATION, ARK_SPAN, ARK_DAYS, ARK_TURNS, ARK_GOODS_FOOD, ARK_LOG, arkDay, arkNews, LAND_STEPS, ARK_KINDS, arkFarmIndex, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, localOf, localState, specKey, FARM_V, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, shardsLeft, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, peddlerSpot, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
@@ -1566,7 +1573,7 @@ const FARM = (() => {
     SKY_AT, setSky, skyOf, setSun, sunOf,
     plotIds, parseId, fieldCells, fieldHas, fieldBox,
     fireflyNight, fireflyLeft,
-    ARK_STEPS, ARK_FOOD_MIN, ARK_RATION, ARK_MONTHS, ARK_GOODS_FOOD, ARK_LOG, LAND_STEPS, ARK_KINDS, arkFarmIndex, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax,
+    ARK_STEPS, ARK_FOOD_MIN, ARK_RATION, ARK_SPAN, ARK_DAYS, ARK_TURNS, ARK_GOODS_FOOD, ARK_LOG, arkDay, arkNews, LAND_STEPS, ARK_KINDS, arkFarmIndex, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax,
     localOf, localState, FARM_V,
     farmOk, SHARD_MAX, PICKS, shardSpots, shardsLeft, shardMax, SPECIALS, TRADE_MULT, perkOf, originOf, GUESTS,
     peddlerHere, peddlerSpot,

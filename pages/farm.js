@@ -7642,14 +7642,16 @@ function withView(fn){
 }
 
 // ---- 대홍수(2026-10-09 「수아연아의 방주」) ----
-/* 방주에 들어간 뒤 열두 달 동안은 섬 대신 큰물 위의 방주 단면을 그린다(pages/farm-ark.js 의 voyage).
+/* 방주에 들어간 뒤 370일(하루에 열흘씩) 동안은 섬 대신 큰물 위의 방주 단면을 그린다(pages/farm-ark.js 의 voyage).
    층마다 지금 있는 동물(가짓수마다 둘까지), 양식 자루는 창고 양식만큼, 위층엔 수아·연아. 옛 농장 구경 중이면 그 농장 */
 function voyageOn(){ return !!W && !!W.ark && W.ark.phase === 'flood' && R.farmOf(W).id === 'ark' && !!(window.FARMHD && window.FARMHD.ark); }
 function drawVoyage(g, t, L){
   hdLight = L;
   const kinds = [];
   (R.ARK_KINDS || Object.keys(R.ANIMALS)).forEach(k => { const n = (W.animals || []).filter(a => a.kind === k).length; if (n) kinds.push({ kind: k, n }); });
-  const st = { month: W.ark.month || 0, food: W.ark.food || 0, sacks: Math.ceil((W.ark.food || 0) / 40), kinds };
+  // 그림은 열두 달 장면(0~12)으로 그린다 — 며칠째인지(열흘씩)를 창세기 날짜에 맞춰 그 장면 번호로 바꾼다
+  const day = Math.min(370, (W.ark.month || 0) * 10), scene = [1, 20, 40, 60, 100, 120, 150, 180, 224, 264, 271, 370].filter(d => day >= d).length;
+  const st = { month: scene, food: W.ark.food || 0, sacks: Math.ceil((W.ark.food || 0) / 40), kinds };
   ctx = g; lamps = []; isoHits = []; cropHits = [];
   hd((c, E) => window.FARMHD.ark.voyage(c, E, st));
   ctx = g;
