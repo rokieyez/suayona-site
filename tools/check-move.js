@@ -252,4 +252,13 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
     assert.strictEqual(R.farmOf(R.fixWorld(JSON.parse(JSON.stringify(ow)), now)).id, id, '두 번 불러도 ' + id);
   });
 }
+// 방주 농장 그림엽서(2026-10-10) — 방주 농장에 닿기 전이면 이미 와 있는 것도 거둔다
+{
+  const ia = R.FARMS.findIndex(f => f.id === 'ark');
+  const mk = farm => ({ farm, fv: 99, postcard: 'ark', mail: { sua: [{ id: 'note', from: 'postcard', farm: 'ark' }, { id: 'coins', n: 5 }], yona: [{ id: 'note', from: 'postcard', farm: 'ark' }] } });
+  let w = R.fixWorld(mk(ia - 1), now);
+  assert.deepStrictEqual([w.mail.sua.length, w.mail.yona.length, w.postcard], [1, 0, undefined], '방주 엽서만 거둔다');
+  w = R.fixWorld(mk(ia), now);
+  assert.strictEqual(w.mail.sua.length, 2, '방주 농장에 닿은 뒤면 그대로');
+}
 console.log('이사 규칙 점검 통과');

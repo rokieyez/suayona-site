@@ -1519,6 +1519,11 @@ const FARM = (() => {
     if (!o.mail) o.mail = { sua: [], yona: [] };
     o.farm = farmIndex(o);
     if (!Array.isArray(o.past)) o.past = [];
+    // 방주 농장 그림엽서는 이제 안 보낸다(2026-10-10 로키즈 「아직 알면 안 돼」) — 방주 농장에 닿기 전이면 이미 와 있는 것도 거둔다
+    if (o.farm < arkFarmIndex()){
+      ['sua', 'yona'].forEach(k => { if (Array.isArray(o.mail[k])) o.mail[k] = o.mail[k].filter(g => !(g && g.from === 'postcard' && g.farm === 'ark')); });
+      if (o.postcard === 'ark') delete o.postcard;
+    }
     if (o.moveAsk && (typeof o.moveAsk !== 'object' || !NAME[o.moveAsk.by] || nextFarmIndex(o) < 0)) delete o.moveAsk;
     // 방주(2026-10-09) — 서버는 값의 모양을 안 보니 여기서 거른다. 없으면 그대로 없다(필요할 때 arkOf 가 만든다)
     if (o.ark != null){
