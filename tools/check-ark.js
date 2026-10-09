@@ -24,6 +24,11 @@ const sua = rich('sua'), yona = rich('yona');
   const need = R.FARMS.find(f => f.id === 'ark');
   ['sua', 'yona', 'living'].forEach(r => { wd.house[r] = {}; for (let i = 0; i < need.room; i++) wd.house[r][i + ',0'] = { f: 'bed1', r: 0 }; });
   for (let i = 0; i < need.animals; i++) wd.animals.push({ id: 'z' + i, kind: 'duck', name: '오리' });
+  assert(!R.moveState(wd, ms).ready, '사막에서만 얻는 낙타·용과 씨앗·특산물이 없으면 못 떠난다');
+  // 그 농장에서만 얻는 것(2026-10-09 「이주 조건」) — 낙타 한 마리, 용과 씨앗은 금고에, 대추야자·사막 장미 돌
+  wd.animals.push({ id: 'cm', kind: 'camel', name: '낙타' }); ms.inv['seed:dragonfruit'] = 1; assert(R.arkSeed(wd, ms, 'dragonfruit', day0).ok);
+  ms.inv.date = 1; ms.inv.sandrose = 1; R.noteDex(wd, my, 'date', day0); R.noteDex(wd, my, 'sandrose', day0);
+  assert(R.moveState(wd, ms).ready, '연아가 만난 특산물도 둘이 같이 센다');
   assert(R.askMove(wd, ms, day0).ok && R.askMove(wd, my, day0).moved, '사막 → 방주 농장');
   assert.strictEqual(R.farmOf(wd).id, 'ark');
   assert(R.claimMedal(wd, ms, 'stampArk', day0).ok, '방주 도장');
@@ -50,8 +55,9 @@ const sua = rich('sua'), yona = rich('yona');
   for (let d = 0; d < 10; d++) R.newDay(w, m, day0 + (30 + d) * D);
   assert.strictEqual(w.animals.length, 4, '한 쌍이 되면 더 안 온다');
   for (let i = 0; i < 11; i++) w.animals.push({ id: 'h' + i, kind: 'chicken', name: '닭' });
-  assert(R.buy(w, m, 'animal:chicken', day0).ok, '방주 농장 닭장은 열두 마리까지');
-  assert(!R.buy(w, m, 'animal:chicken', day0).ok, '열셋째는 꽉 참');
+  for (let i = 0; i < 6; i++) w.animals.push({ id: 'i' + i, kind: 'chicken', name: '닭' });
+  assert(R.buy(w, m, 'animal:chicken', day0).ok, '방주 농장 닭장은 열여덟 마리까지(세 배)');
+  assert(!R.buy(w, m, 'animal:chicken', day0).ok, '열아홉째는 꽉 참');
   const wd = fresh('desert'); wd.animals.push({ id: 'g1', kind: 'goat', name: '염소' });
   for (let d = 0; d < 20; d++){ wd.dayKey = null; R.newDay(wd, m, day0 + d * D); }
   assert.strictEqual(wd.animals.length, 1, '사막에서는 짝꿍이 안 온다');
@@ -145,9 +151,11 @@ const wa = fresh('ark');
   for (let d = 0; d < 200; d++){ const t = day0 + d * D, wn = make('newland'), wd = make('desert'); a += R.babyDay(wn, t).born.length; b += R.babyDay(wd, t).born.length; }
   assert(a > b * 1.5, '무지개 농장 새끼 ' + a + ' · 사막 ' + b);
 }
-// 명부 훈장 — 동물 열세 가지 한 쌍씩, 씨앗 전부
+// 명부 훈장 — 동물 스무 가지 한 쌍씩, 씨앗 전부. 방주 농장 우리(세 배)에 한 쌍씩 다 들어간다
 {
   const w = fresh('ark'), m = rich('sua');
+  assert.strictEqual(R.ARK_KINDS.length, 20, '동물 스무 가지');
+  Object.keys(R.ANIMAL_MAX).forEach(need => assert(R.ARK_KINDS.filter(k => R.ANIMALS[k].need === need).length * 2 <= R.animalMax(w, need), need + ' 에 한 쌍씩 다 들어간다'));
   R.ARK_KINDS.forEach(k => { w.animals.push({ id: k + 1, kind: k }, { id: k + 2, kind: k }); });
   assert(R.claimMedal(w, m, 'arkPairs', day0).ok, '노아의 명부');
   w.ark = { seeds: R.CROP_IDS.slice() };

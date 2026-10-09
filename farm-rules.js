@@ -133,6 +133,13 @@ const FARM = (() => {
     cloudberry: { name: '클라우드베리', season: ['summer'],      hours: 60,  seed: 70,  sell: 95,  yield: 2, half: null,   lv: 1, leaf: '#6fa65a', fruit: '#ff9a2e', shape: 'bush', regrow: 36, farm: 'aurora' },
     // 사막 오아시스(2026-10-09) — 선인장 열매. 한 번 심으면 거둔 뒤 다시 열린다
     dragonfruit:{ name: '용과',     season: ['summer', 'autumn'], hours: 66, seed: 80,  sell: 110, yield: 2, half: null,   lv: 1, leaf: '#5aa064', fruit: '#e8407a', shape: 'bush', regrow: 40, farm: 'desert' },
+    /* 2026-10-09 로키즈 「각 농장에서만 얻을 수 있는 동식물 — 여러 농장을 거쳐 방주로 가는 서사」. 농장마다 그 땅에서만 사고 심는 작물이 하나씩.
+       씨앗을 방주 씨앗 금고에 넣어야 다음 농장으로 떠난다(moveState). 겨울만 빼고 자라 오래 기다리지 않게 */
+    fig:        { name: '무화과',   season: ['spring', 'summer', 'autumn'], hours: 54, seed: 60, sell: 85, yield: 2, half: null, lv: 1, leaf: '#6a9a50', fruit: '#7a3a6a', shape: 'bush', regrow: 30, farm: 'seaside' },
+    tea:        { name: '녹차',     season: ['spring', 'summer', 'autumn'], hours: 40, seed: 50, sell: 60, yield: 2, half: null, lv: 1, leaf: '#2f6a3a', fruit: '#9ad86a', shape: 'head', regrow: 24, farm: 'cloud' },
+    cranberry:  { name: '크랜베리', season: ['spring', 'summer', 'autumn'], hours: 56, seed: 70, sell: 95, yield: 3, half: null, lv: 1, leaf: '#5a7a3a', fruit: '#c8203a', shape: 'bush', regrow: 30, farm: 'maple' },
+    cacao:      { name: '카카오',   season: ['spring', 'summer', 'autumn'], hours: 64, seed: 80, sell: 110, yield: 2, half: null, lv: 1, leaf: '#3f8a4a', fruit: '#d8862a', shape: 'bush', regrow: 36, farm: 'jungle' },
+    kiwano:     { name: '뿔멜론',   season: ['spring', 'summer', 'autumn'], hours: 70, seed: 90, sell: 230, yield: 1, half: null, lv: 1, leaf: '#7aa04a', fruit: '#f0902a', shape: 'melon', farm: 'savanna' },
   };
   const CROP_IDS = Object.keys(CROPS);
   // 농장 전용(farm)인 것은 그 농장에 살 때만 — 작물·물고기·꾸미개·가구 모두 같은 뜻
@@ -338,6 +345,16 @@ const FARM = (() => {
     pitch:   { name: '역청 덩어리', sell: 40 },
     // 무지개 농장 — 비둘기가 물어 온 올리브(창세기 8:11). 낮 땅에 떨어진 것을 줍는다
     olive:   { name: '올리브', sell: 45, food: 4 },
+    // 단풍 농장(캐나다 단풍 골짜기) — 수액 양동이에 고인 시럽을 낮에 줍고, 사슴·다람쥐가 밤과 도토리를 물어 온다
+    syrup:   { name: '메이플 시럽', sell: 150, food: 6 },
+    chestnut:{ name: '밤',       sell: 30, food: 4 },
+    acorn:   { name: '도토리',   sell: 20 },
+    // 밀림 농장(아마존) — 떨어진 망고를 줍고, 원숭이가 바나나를, 앵무새가 깃털을 준다
+    mango:   { name: '망고',     sell: 50, food: 5 },
+    banana:  { name: '바나나',   sell: 30, food: 4 },
+    feather: { name: '앵무새 깃털', sell: 110 },
+    // 사바나 농장(케냐) — 바오밥 나무 아래 떨어진 열매
+    baobab:  { name: '바오밥 열매', sell: 45, food: 4 },
   };
   // 파는 값. 작물은 그날 시세가 붙는다.
   // 가게에서 파는 재료 — 값은 되파는 값(시세 1.3배까지)보다 넉넉히 높다
@@ -422,6 +439,21 @@ const FARM = (() => {
     zellige:  { name: '모자이크 분수', icon: '⛲', cost: 2400, lv: 6, farm: 'desert', desc: '파란 타일 별무늬 분수 — 밤엔 물빛이 반짝여요' },
     genielamp:{ name: '요술 램프',   icon: '🪔', cost: 700,  lv: 3, farm: 'desert', desc: '받침 위 금빛 램프 — 가끔 램프 요정 편지가 와요' },
     telescope:{ name: '별 망원경',   icon: '🔭', cost: 1200, lv: 4, farm: 'desert', desc: '사막의 밤하늘을 보는 놋쇠 망원경' },
+    // 단풍 농장 넷(2026-10-09) — 캐나다 단풍 골짜기. 그림은 pages/farm-wild.js
+    sugarshack:{ name: '시럽 오두막', icon: '🍁', cost: 2600, lv: 6, farm: 'maple', desc: '단풍나무 수액을 졸이는 오두막 — 굴뚝에서 달콤한 김이 올라요' },
+    canoe:    { name: '빨간 카누',   icon: '🛶', cost: 1500, lv: 4, farm: 'maple',  desc: '호숫가에 엎어 둔 빨간 나무 카누' },
+    leafpile: { name: '낙엽 더미',   icon: '🍂', cost: 600,  lv: 3, farm: 'maple',  desc: '폭신한 단풍잎 더미 — 뛰어들면 바스락' },
+    jacklight:{ name: '호박 등불',   icon: '🎃', cost: 900,  lv: 3, farm: 'maple',  desc: '웃는 얼굴 호박 셋 — 밤이면 촛불이 켜져요' },
+    // 밀림 농장 넷 — 아마존 밀림
+    treehouse:{ name: '나무 위 오두막', icon: '🌳', cost: 3200, lv: 7, farm: 'jungle', desc: '큰 나무 위 오두막 — 줄사다리를 타고 올라가요' },
+    ropebridge:{ name: '출렁다리',   icon: '🌉', cost: 1800, lv: 5, farm: 'jungle', desc: '덩굴로 엮은 흔들흔들 다리' },
+    vinehammock:{ name: '밀림 해먹', icon: '🪢', cost: 700,  lv: 3, farm: 'jungle', desc: '나무 사이에 건 알록달록 줄무늬 해먹' },
+    samba:    { name: '삼바 북',     icon: '🥁', cost: 900,  lv: 4, farm: 'jungle', desc: '알록달록 북 — 축제 날엔 둥둥 울려요' },
+    // 사바나 농장 넷 — 케냐 초원
+    waterhole:{ name: '물웅덩이',    icon: '💧', cost: 3000, lv: 6, farm: 'savanna', desc: '동물들이 목을 축이러 모이는 웅덩이' },
+    safari:   { name: '사파리 지프', icon: '🚙', cost: 2400, lv: 6, farm: 'savanna', desc: '흙먼지를 뒤집어쓴 초록 지프' },
+    manyatta: { name: '마사이 흙집', icon: '🛖', cost: 1800, lv: 5, farm: 'savanna', desc: '둥근 흙벽에 풀 지붕을 얹은 집' },
+    lookout:  { name: '나무 망루',   icon: '🔭', cost: 1400, lv: 4, farm: 'savanna', desc: '올라가면 초원 끝까지 보여요' },
   };
 
   // ---------- 이사 ----------
@@ -439,15 +471,20 @@ const FARM = (() => {
     { id: 'cloud',    name: '꽃구름 농장', icon: '☁️', desc: '벚꽃 흩날리는 구름 위 일본 마을, 신칸센이 지나가요', room: 16, animals: 14, grid: { w: 24, h: 20 }, peddler: { x: 15, y: 13 }, perk: { id: 'dish', icon: '🍱', text: '도시락 가게 — 요리를 1.25배에 팔아요' } },
     // 스테이지2 — 여기서부터 고화소 그림(pages/farm-hd.js). 2026-10-08 로키즈 「오로라부터 고화소로 전부 다시」
     { id: 'aurora',   name: '오로라 농장', icon: '🌌', desc: '오로라가 춤추는 북쪽 눈 섬, 통나무집에 불이 켜져요', room: 22, animals: 17, grid: { w: 26, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2, perk: { id: 'shard', icon: '✨', text: '긴 밤 — 빛 조각이 밤마다 두 배로 떨어져요' } },
+    /* 2026-10-09 로키즈 「오로라와 사막 사이에 농장 셋 — 단풍·밀림·사바나」. 눈 섬에서 남쪽으로 내려가며 점점 따뜻해지다 사막에 닿는다.
+       끼워 넣느라 사막·방주·무지개 농장 번호가 셋씩 밀렸다 — 옛 세이브는 fixWorld 가 옮긴다(FARM_V) */
+    { id: 'maple',    name: '단풍 농장',   icon: '🍁', desc: '빨갛게 물든 단풍 골짜기, 통나무 오두막에서 메이플 시럽 냄새가 나요', room: 22, animals: 17, grid: { w: 26, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2, perk: { id: 'harvest', icon: '🧺', text: '풍년 — 작물을 거둘 때 넷에 하나꼴로 하나 더 나와요' } },
+    { id: 'jungle',   name: '밀림 농장',   icon: '🦜', desc: '폭포가 쏟아지는 열대 밀림, 덩굴 아래 나무 위 오두막', room: 23, animals: 18, grid: { w: 27, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2, perk: { id: 'squall', icon: '🌦️', text: '스콜 — 날마다 소나기가 밭을 적셔 줘요' } },
+    { id: 'savanna',  name: '사바나 농장', icon: '🦒', desc: '노을 지는 너른 초원, 바오밥 나무 아래 기린이 고개를 내밀어요', room: 23, animals: 18, grid: { w: 28, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2, perk: { id: 'herd', icon: '💗', text: '물웅덩이 — 둘이 쓰다듬으면 동물 마음이 두 칸씩 자라요' } },
     // 2026-10-09 로키즈 시안 ① — 오로라보다 조금 높게(가구 24 · 동물 18 = 우리를 다 채운 수, 아기 낙타 자리 포함)
     { id: 'desert',   name: '오아시스 농장', icon: '🐪', desc: '모래 언덕 너머 대추야자 오아시스, 밤엔 은하수가 흘러요', room: 24, animals: 18, grid: { w: 28, h: 20 }, peddler: { x: 15, y: 13 }, stage: 2, perk: { id: 'water', icon: '💧', text: '오아시스 샘 — 물을 한 번 주면 30시간 촉촉해요' } },
     /* 메인 목표 「수아연아의 방주」(2026-10-09 로키즈) — 방주를 짓는 마지막 농장. 땅이 훨씬 넓고(40×30) 한가운데 방주 터가 있다.
-       pens 2 — 우리마다 두 배로 들어간다(동물을 한 쌍씩 다 모으려면 자리가 모자라서). 떠날 때는 이사가 아니라 대홍수(ARK_*)로 간다.
+       pens 3 — 우리마다 세 배로 들어간다(동물 스무 가지를 한 쌍씩 다 모으려면 자리가 모자라서. 단풍·밀림·사바나가 들며 둘 → 셋). 떠날 때는 이사가 아니라 대홍수(ARK_*)로 간다.
        동물 조건은 앞 농장 우리를 다 채운 수(18)를 넘으면 못 떠나므로 18 그대로 */
-    { id: 'ark',      name: '방주 농장',   icon: '🛶', desc: '먹구름이 몰려오는 너른 들판 — 한가운데 커다란 방주를 짓는 터가 있어요', room: 26, animals: 18, grid: { w: 40, h: 30 }, peddler: { x: 26, y: 20 }, stage: 2, pens: 2,
+    { id: 'ark',      name: '방주 농장',   icon: '🛶', desc: '먹구름이 몰려오는 너른 들판 — 한가운데 커다란 방주를 짓는 터가 있어요', room: 26, animals: 18, grid: { w: 40, h: 30 }, peddler: { x: 26, y: 20 }, stage: 2, pens: 3,
       perk: { id: 'mate', icon: '💞', text: '짝꿍이 찾아와요 — 혼자인 동물에게 짝이 스스로 찾아와요(창세기 7:9)' } },
     // via — 이사로는 못 가고 대홍수를 건너야 닿는다(nextFarmIndex 가 건너뛴다). 진짜 마지막 농장
-    { id: 'newland',  name: '무지개 농장', icon: '🌈', desc: '물이 빠진 새 땅 — 아라랏 산 위에 방주가 쉬고, 하늘엔 약속의 무지개가 떠요', room: 26, animals: 18, grid: { w: 40, h: 30 }, peddler: { x: 21, y: 17 }, stage: 2, pens: 2, via: 'flood',
+    { id: 'newland',  name: '무지개 농장', icon: '🌈', desc: '물이 빠진 새 땅 — 아라랏 산 위에 방주가 쉬고, 하늘엔 약속의 무지개가 떠요', room: 26, animals: 18, grid: { w: 40, h: 30 }, peddler: { x: 21, y: 17 }, stage: 2, pens: 3, via: 'flood',
       perk: { id: 'bloom', icon: '🐣', text: '생육하고 번성하라 — 동물이 새끼를 두 배 자주 봐요(창세기 9:1)' } },
   ];
   /* 새 농장일수록 섬이 넓다(2026-09-29 로키즈 「새 농장은 전체 크기를 더 크게」) — 들판 20×16 → 22×18 → 24×18 → 24×20.
@@ -456,13 +493,19 @@ const FARM = (() => {
      room 은 수아 방·연아 방·거실 「각각」에 놓인 가구 수 — 한 아이 방만 채우고 떠나지 않게.
      가구와 동물은 이사 때 가져가니 갈수록 조금씩 높다. 동물은 우리를 다 채우면 18마리까지 산다. */
   const MOVE_KEEP = { kitchen: true };
+  const FARM_V = 2;                      // 농장 표 차례 — 2: 단풍·밀림·사바나가 끼어든 뒤(fixWorld 가 옛 번호를 옮긴다)
   /* 이사 갈 까닭(2026-10-09 로키즈 「전부 진행」)
      perk — 농장마다 하나뿐인 능력(FARMS 줄). 그 농장에 사는 동안만 든다. 들판은 없다(처음 농장).
      SPECIALS — 그 농장에서만 나는 것. 다른 농장에 살 때 팔면 TRADE_MULT 배, 다 모으면 도감 훈장,
-       떠난 뒤에는 옛 농장 구경 때 하루 한 번 몇 개 받아 온다(pastGift). 꽃구름·들판은 전용 물건이 없어 동전을 받는다. */
+       떠난 뒤에는 옛 농장 구경 때 하루 한 번 몇 개 받아 온다(pastGift). 들판은 전용 물건이 없어 동전을 받는다.
+       2026-10-09 로키즈 「다음 농장으로 이주하는 조건에 그 농장에서만 얻는 것을 갖추었는지」 — localOf·moveState. */
   const SPECIALS = {
-    seaside: ['fish:mackerel', 'fish:squid', 'fish:flounder', 'fish:seabream'],
+    seaside: ['fish:mackerel', 'fish:squid', 'fish:flounder', 'fish:seabream', 'crop:fig'],
+    cloud: ['crop:tea'],
     aurora: ['crop:cloudberry', 'shard', 'moss', 'pinecone', 'fish:cod', 'fish:char'],
+    maple: ['crop:cranberry', 'syrup', 'chestnut', 'acorn'],
+    jungle: ['crop:cacao', 'mango', 'banana', 'feather'],
+    savanna: ['crop:kiwano', 'baobab'],
     desert: ['crop:dragonfruit', 'date', 'sandrose'],
     ark: ['pitch'],
     newland: ['olive'],
@@ -480,6 +523,9 @@ const FARM = (() => {
     cloud:   { name: '떠돌이 화가',     icon: '🎨', want: [['honey', 2], ['milk', 3], ['egg', 6], ['berry', 8]] },
     aurora:  { name: '순록 썰매꾼 아이노', icon: '🛷', want: [['crop:cloudberry', 4], ['moss', 3], ['pinecone', 4], ['fish:cod', 2]] },
     desert:  { name: '대상 상인 하산',   icon: '🐫', want: [['crop:dragonfruit', 4], ['date', 6], ['sandrose', 2], ['milk', 3]] },
+    maple:   { name: '나무꾼 아저씨 조', icon: '🪓', want: [['crop:cranberry', 4], ['syrup', 2], ['chestnut', 4], ['wood', 20]] },
+    jungle:  { name: '탐험가 마리아',   icon: '🧭', want: [['crop:cacao', 4], ['mango', 3], ['banana', 5], ['feather', 2]] },
+    savanna: { name: '사파리 안내인 바라카', icon: '🦓', want: [['crop:kiwano', 2], ['baobab', 4], ['milk', 3], ['wood', 15]] },
   };
   const QUEST_DAYS = 3, QUEST_MULT = 2;      // 사흘마다 새 부탁 · 동전은 파는 값의 두 배
   // 새 농장(아이소 화면)을 다 그릴 때까지 조건과 알림만 보이고 떠나지는 못했다. 2026-09-28 아이소 섬을 그려 열었다.
@@ -556,6 +602,19 @@ const FARM = (() => {
     zellige:    { name: '모자이크 분수', w: 2, h: 2, x: 24, y: 9, kind: 'decor', move: true },
     genielamp:  { name: '요술 램프', w: 1, h: 1, x: 6, y: 0, kind: 'decor', move: true },
     telescope:  { name: '별 망원경', w: 1, h: 1, x: 22, y: 9, kind: 'decor', move: true },
+    // 단풍·밀림·사바나 꾸미개(2026-10-09)
+    sugarshack: { name: '시럽 오두막', w: 2, h: 2, x: 21, y: 7, kind: 'decor', move: true },
+    canoe:      { name: '빨간 카누', w: 2, h: 1, x: 2, y: 17, kind: 'decor', move: true },
+    leafpile:   { name: '낙엽 더미', w: 1, h: 1, x: 22, y: 9, kind: 'decor', move: true },
+    jacklight:  { name: '호박 등불', w: 1, h: 1, x: 6, y: 0, kind: 'decor', move: true },
+    treehouse:  { name: '나무 위 오두막', w: 2, h: 2, x: 23, y: 12, kind: 'decor', move: true },
+    ropebridge: { name: '출렁다리', w: 2, h: 1, x: 22, y: 19, kind: 'decor', move: true },
+    vinehammock:{ name: '밀림 해먹', w: 2, h: 1, x: 12, y: 17, kind: 'decor', move: true },
+    samba:      { name: '삼바 북', w: 1, h: 1, x: 6, y: 0, kind: 'decor', move: true },
+    waterhole:  { name: '물웅덩이', w: 2, h: 2, x: 24, y: 9, kind: 'decor', move: true },
+    safari:     { name: '사파리 지프', w: 2, h: 1, x: 22, y: 19, kind: 'decor', move: true },
+    manyatta:   { name: '마사이 흙집', w: 2, h: 2, x: 12, y: 17, kind: 'decor', move: true },
+    lookout:    { name: '나무 망루', w: 1, h: 1, x: 26, y: 12, kind: 'decor', move: true },
     // 방주 터(2026-10-09) — 방주 농장 한가운데. 옮길 수 없다. 그림은 pages/farm-ark.js 가 짓는 단계(world.ark.step)대로
     ark:        { name: '방주',     w: 18, h: 7, x: 11, y: 11, kind: 'ark',  move: false },
     // 무지개 농장에서 둘이 차례로 짓는 것(LAND_STEPS). 다 지은 것만 선다
@@ -588,7 +647,25 @@ const FARM = (() => {
       berber: [12, 17], zellige: [26, 6], genielamp: [6, 0], telescope: [26, 12],   // 천막은 앞 가운데, 분수·망원경은 넓어진 오른쪽 끝, 램프는 우편함 곁
       igloo: [21, 7], sled: [22, 19], icefish: [5, 15], sauna: [23, 12], lavvu: [26, 16], icesculpt: [22, 9], santapost: [7, 0],
       lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], anchor: [23, 18], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5],
-      shishi: [1, 9], koinobori: [2, 9], toro: [24, 2], balloon: [24, 4], skybridge: [24, 17] },
+      shishi: [1, 9], koinobori: [2, 9], toro: [24, 2], balloon: [24, 4], skybridge: [24, 17],
+      sugarshack: [8, 0], leafpile: [4, 0], jacklight: [10, 0], treehouse: [11, 0], ropebridge: [13, 0], vinehammock: [26, 0], samba: [15, 0], waterhole: [26, 4], safari: [0, 3], manyatta: [26, 10], lookout: [19, 0] },   // 끝줄은 단풍·밀림·사바나 추억(2026-10-09)
+    // 단풍·밀림·사바나(2026-10-09) — 오로라·사막 자리를 바탕으로. 앞 농장에서 추억으로 들고 온 꾸미개 자리는 빈 가장자리에(겹침은 tools/check-move.js)
+    maple: { mail: [4, 1], board: [5, 0], flag: [24, 3], statue: [19, 4], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [16, 7], greenhouse: [20, 2], fountain: [24, 9], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19],
+      sugarshack: [21, 7], canoe: [22, 19], leafpile: [22, 9], jacklight: [6, 0],   // 오두막은 오른쪽 숲가, 카누는 앞 물가, 낙엽은 오두막 앞, 호박 등불은 우편함 곁
+      icefish: [5, 15], sauna: [23, 12], lavvu: [12, 17],
+      lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], anchor: [14, 17], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5], shishi: [1, 9], koinobori: [2, 9], toro: [24, 2], balloon: [24, 4], skybridge: [24, 17],
+      igloo: [7, 0], sled: [9, 0], icesculpt: [4, 0], santapost: [11, 0] },
+    jungle: { mail: [4, 1], board: [5, 0], flag: [24, 3], statue: [19, 4], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [16, 7], greenhouse: [20, 2], fountain: [24, 9], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19],
+      treehouse: [21, 7], ropebridge: [22, 19], vinehammock: [12, 17], samba: [6, 0],   // 오두막은 오른쪽 숲가, 출렁다리는 앞 끝, 해먹은 앞 가운데, 북은 우편함 곁
+      icefish: [5, 15], sauna: [23, 12],
+      lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], anchor: [14, 17], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5], shishi: [1, 9], koinobori: [2, 9], toro: [24, 2], balloon: [24, 4], skybridge: [24, 17],
+      igloo: [7, 0], sled: [9, 0], lavvu: [11, 0], santapost: [4, 0], sugarshack: [13, 0], leafpile: [15, 0], jacklight: [19, 0], canoe: [25, 1] },
+    savanna: { mail: [4, 1], board: [5, 0], flag: [26, 3], statue: [19, 4], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [16, 7], greenhouse: [20, 2], fountain: [24, 9], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19],
+      waterhole: [21, 7], safari: [24, 18], manyatta: [12, 17], lookout: [26, 12],   // 웅덩이는 오른쪽 숲가, 지프는 앞 끝, 흙집은 앞 가운데, 망루는 넓어진 오른쪽 끝
+      sled: [22, 19], icefish: [5, 15], sauna: [23, 12], lavvu: [26, 16], icesculpt: [22, 9], santapost: [7, 0],
+      lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5],
+      shishi: [1, 9], koinobori: [2, 9], toro: [24, 2], balloon: [24, 4], skybridge: [24, 17],
+      igloo: [6, 0], santapost: [4, 0], sugarshack: [8, 0], leafpile: [10, 0], jacklight: [11, 0], treehouse: [12, 0], ropebridge: [14, 0], vinehammock: [26, 0], samba: [19, 0] },
     /* 방주 농장(40×30) — 가운데(11..28, 11..17)는 방주 터, 오른쪽 뒤(29..38, 2..8)는 밭. 방주 문 앞으로 꽃길이 난다.
        왼쪽과 앞쪽 가장자리는 잣나무(고페르 나무) 숲(SCENERY) — 방주 나무를 여기서 벤다 */
     ark: { mail: [4, 1], board: [5, 0], sign: [5, 2], birdhouse: [7, 0], flag: [9, 0], statue: [12, 0], fountain: [20, 1], santapost: [6, 0], genielamp: [8, 1],
@@ -597,7 +674,8 @@ const FARM = (() => {
       clothesline: [0, 27], flowerbed: [7, 12], wagon: [4, 27], windmill: [37, 12],
       lighthouse: [39, 0], palm: [0, 9], cairn: [28, 27], waterfall: [37, 26], balloon: [34, 15], skybridge: [20, 27], anchor: [30, 11], boat: [9, 22],
       parasol: [27, 24], woodpile: [6, 9], milkcans: [33, 11], alphorn: [14, 28], shishi: [1, 15], koinobori: [2, 15], toro: [39, 15], igloo: [8, 4],
-      sled: [24, 28], icefish: [5, 15], sauna: [30, 26], lavvu: [26, 26], icesculpt: [21, 9], berber: [33, 27], zellige: [36, 9], telescope: [38, 17] },
+      sled: [24, 28], icefish: [5, 15], sauna: [30, 26], lavvu: [26, 26], icesculpt: [21, 9], berber: [33, 27], zellige: [36, 9], telescope: [38, 17],
+      jacklight: [4, 0], treehouse: [10, 0], ropebridge: [13, 0], vinehammock: [19, 0], samba: [8, 0], safari: [21, 0], manyatta: [23, 0], lookout: [15, 0] },   // 끝줄은 단풍·밀림·사바나 추억(2026-10-09)
     /* 무지개 농장(40×30) — 물 빠진 새 땅. 밭은 집 옆(7..16, 4..10), 새 땅 건설 여섯(PLACE 의 land)은 PLACE 자리 그대로 */
     newland: { mail: [4, 1], board: [5, 0], sign: [5, 2], birdhouse: [8, 1], flag: [10, 1], statue: [13, 1], fountain: [22, 1], santapost: [6, 0], genielamp: [11, 0],
       coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], greenhouse: [33, 2], barn: [28, 2], scarecrow: [17, 8], pasture: [31, 23],
@@ -605,7 +683,8 @@ const FARM = (() => {
       clothesline: [0, 27], flowerbed: [24, 13], wagon: [9, 27], windmill: [37, 9],
       lighthouse: [39, 0], palm: [0, 9], cairn: [27, 25], waterfall: [37, 15], balloon: [34, 12], skybridge: [22, 27], anchor: [29, 12], boat: [9, 22],
       parasol: [26, 22], woodpile: [1, 13], milkcans: [33, 8], alphorn: [14, 28], shishi: [3, 15], koinobori: [4, 15], toro: [38, 4], igloo: [19, 8],
-      sled: [24, 28], icefish: [6, 18], sauna: [28, 27], lavvu: [12, 24], icesculpt: [22, 9], berber: [17, 25], zellige: [37, 5], telescope: [38, 19] },
+      sled: [24, 28], icefish: [6, 18], sauna: [28, 27], lavvu: [12, 24], icesculpt: [22, 9], berber: [17, 25], zellige: [37, 5], telescope: [38, 19],
+      leafpile: [4, 0], jacklight: [7, 0], treehouse: [14, 0], vinehammock: [8, 0], samba: [10, 0], safari: [12, 0], manyatta: [20, 0] },   // 끝줄은 단풍·밀림·사바나 추억(2026-10-09)
   };
   function spotOf(world, id){
     const P = PLACE[id]; if (!P) return null;
@@ -648,9 +727,18 @@ const FARM = (() => {
     reindeer:{ name: '순록',  cost: 0,   need: 'barn',    product: 'milk',    best: 'goldmilk',    every: 1, icon: '🦌', gift: 'aurora', find: ['moss', 'pinecone'], findOdds: 0.35 },
     // 낙타(사막 이사 식구, 2026-10-09) — 젖을 주다가 가끔 대추야자나 사막 장미 돌을 물어 온다. 외양간은 순록 차지라 목장에서 산다
     camel:   { name: '낙타',  cost: 0,   need: 'pasture', product: 'milk',    best: 'goldmilk',    every: 1, icon: '🐪', gift: 'desert', find: ['date', 'sandrose'], findOdds: 0.35 },
+    /* 단풍·밀림·사바나(2026-10-09 로키즈 「각 농장에서만 얻을 수 있는 동식물」) — gift 는 이삿날 새끼로 따라오는 식구,
+       farm 은 그 농장 가게에서만 파는 동물. 떠나려면 그 농장 동물을 한 마리씩은 데리고 있어야 한다(짝은 방주 농장에서 찾아온다) */
+    deer:    { name: '사슴',   cost: 0,   need: 'barn',    product: null,     best: 'gem',         every: 1, icon: '🦌', gift: 'maple', find: ['chestnut', 'acorn'] },
+    squirrel:{ name: '다람쥐', cost: 380, need: 'coop',    product: null,     best: 'gem',         every: 1, icon: '🐿️', farm: 'maple', find: ['acorn', 'chestnut', 'acorn'] },
+    monkey:  { name: '원숭이', cost: 0,   need: 'pasture', product: null,     best: 'gem',         every: 1, icon: '🐒', gift: 'jungle', find: ['banana', 'banana', 'mango'] },
+    parrot:  { name: '앵무새', cost: 450, need: 'coop',    product: 'feather', best: null,         every: 2, icon: '🦜', farm: 'jungle' },
+    giraffe: { name: '기린',   cost: 0,   need: 'barn',    product: null,     best: 'gem',         every: 1, icon: '🦒', gift: 'savanna', find: ['baobab', 'baobab', 'wood'] },
+    elephant:{ name: '코끼리', cost: 900, need: 'barn',    product: null,     best: 'gem',         every: 1, icon: '🐘', farm: 'savanna', find: ['wood', 'wood', 'stone', 'baobab'] },
+    zebra:   { name: '얼룩말', cost: 600, need: 'pasture', product: null,     best: 'gem',         every: 1, icon: '🦓', farm: 'savanna', find: ['berry', 'baobab'] },
   };
   const ANIMAL_MAX = { coop: 6, barn: 6, pasture: 4, pethouse: 2 };
-  // 그 농장 우리에 몇 마리 — 방주·무지개 농장은 두 배(pens). 열세 가지를 한 쌍씩 다 모으려면 들판 우리로는 모자란다
+  // 그 농장 우리에 몇 마리 — 방주·무지개 농장은 세 배(pens). 스무 가지를 한 쌍씩 다 모으려면 들판 우리로는 모자란다
   const animalMax = (world, need) => ANIMAL_MAX[need] * ((world && farmOf(world).pens) || 1);
   const LOVE_FOR_BEST = 5;
   // 새끼. 마음이 아주 큰 어른이, 우리에 자리가 있을 때만 본다.
@@ -722,6 +810,9 @@ const FARM = (() => {
     cloud:    { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
     aurora:   { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
     desert:   { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
+    maple:    { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
+    jungle:   { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
+    savanna:  { tree1: [5, 10], tree2: [5, 12], tree3: [14, 10], tree4: [14, 12], bush: [8, 13], bush2: [10, 13], snow: [10, 16], rock1: [11, 15], rock2: [14, 15], rock3: [12, 16] },
     ark:      { tree1: [3, 11], tree2: [3, 13], tree3: [5, 11], tree4: [5, 13], bush: [8, 14], bush2: [9, 16], snow: [6, 17], rock1: [12, 22], rock2: [14, 22], rock3: [16, 23] },
     newland:  { tree1: [0, 15], tree2: [1, 17], tree3: [5, 13], tree4: [3, 18], bush: [7, 19], bush2: [6, 21], snow: [10, 19], rock1: [23, 6], rock2: [32, 15], rock3: [25, 19] },
   };
@@ -741,6 +832,12 @@ const FARM = (() => {
     aurora:   [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9], ['tree', 25, 7], ['tree', 25, 12], ['tree', 25, 15], ['tree', 24, 19], ['rock', 25, 0]],
     // 사막 — 대추야자 숲은 왼쪽 오아시스 둘레와 오른쪽 끝, 붉은 사암은 오른쪽 뒤
     desert:   [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9], ['tree', 27, 9], ['tree', 27, 15], ['tree', 26, 19], ['rock', 25, 0], ['rock', 27, 1], ['rock', 26, 2]],
+    // 단풍 농장 — 단풍나무·자작나무 숲이 섬 가장자리를 두르고, 오른쪽 뒤는 이끼 낀 바위
+    maple:    [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9], ['tree', 25, 7], ['tree', 25, 12], ['tree', 25, 15], ['tree', 24, 19], ['rock', 25, 0], ['rock', 24, 1]],
+    // 밀림 농장 — 가장자리마다 빽빽한 열대 나무, 덤불이 많다
+    jungle:   [['tree', 8, 10], ['tree', 11, 10], ['tree', 8, 12], ['tree', 11, 12], ['tree', 0, 9], ['tree', 3, 9], ['tree', 23, 6], ['tree', 23, 10], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['tree', 2, 18], ['tree', 7, 18], ['bush', 19, 9], ['tree', 25, 7], ['tree', 26, 9], ['tree', 25, 15], ['tree', 26, 17], ['tree', 24, 19], ['bush', 26, 13], ['bush', 26, 2], ['rock', 25, 0]],
+    // 사바나 농장 — 띄엄띄엄 선 아카시아와 바오밥, 오른쪽 뒤는 둥근 바위 언덕(코피)
+    savanna:  [['tree', 8, 10], ['tree', 11, 12], ['tree', 0, 9], ['tree', 23, 6], ['tree', 23, 17], ['tree', 14, 19], ['bush', 6, 14], ['bush', 0, 17], ['bush', 18, 12], ['rock', 15, 15], ['bush', 23, 14], ['tree', 2, 18], ['bush', 19, 9], ['tree', 27, 9], ['tree', 27, 15], ['tree', 26, 19], ['rock', 25, 0], ['rock', 27, 1], ['rock', 26, 2], ['rock', 27, 4]],
     // 방주 농장 — 왼쪽과 앞쪽 가장자리가 잣나무(고페르 나무) 숲. 방주에 들 나무를 여기서 벤다(창세기 6:14). 오른쪽엔 바위와 덤불
     ark:      [['tree', 0, 14], ['tree', 3, 16], ['tree', 0, 17], ['tree', 2, 18], ['tree', 4, 18], ['tree', 1, 20], ['tree', 3, 20], ['tree', 5, 20], ['tree', 7, 18], ['tree', 8, 20],
                ['tree', 0, 22], ['tree', 0, 24], ['tree', 1, 25], ['tree', 3, 25], ['tree', 5, 25], ['tree', 2, 29], ['tree', 6, 28], ['tree', 9, 27], ['tree', 11, 28], ['tree', 17, 28],
@@ -887,6 +984,19 @@ const FARM = (() => {
     kilim:    { name: '베르베르 양탄자', cost: 420, w: 2, kind: 'kilim',     cozy: 3, c: '#b0302a', flat: true, farm: 'desert' },
     pouf:     { name: '가죽 방석',      cost: 300, w: 1, kind: 'pouf',      cozy: 3, c: '#c87a3a', farm: 'desert' },
     mlamp:    { name: '모로코 등',      cost: 280, w: 1, kind: 'mlamp',     cozy: 3, c: '#e8b040', wall: true, farm: 'desert' },
+    // 단풍 = 캐나다 통나무 오두막 · 밀림 = 아마존 나무집 · 사바나 = 케냐 사파리 롯지(2026-10-09). 그림은 pages/room-hd-furn.js
+    plaidsofa:{ name: '체크무늬 소파',   cost: 680, w: 2, kind: 'plaidsofa', energy: 3, cozy: 4, c: '#b8302a', farm: 'maple' },
+    leafrug:  { name: '단풍잎 깔개',     cost: 380, w: 2, kind: 'leafrug',   cozy: 3, c: '#d8602a', flat: true, farm: 'maple' },
+    syrupshelf:{ name: '시럽 병 선반',   cost: 320, w: 1, kind: 'syrupshelf', cozy: 3, c: '#c8862a', farm: 'maple' },
+    leaflamp: { name: '단풍잎 등',       cost: 240, w: 1, kind: 'leaflamp',  cozy: 3, c: '#e8702a', wall: true, farm: 'maple' },
+    rattan:   { name: '등나무 흔들의자', cost: 560, w: 1, kind: 'rattan',    energy: 3, cozy: 4, c: '#c8a060', farm: 'jungle' },
+    monstera: { name: '몬스테라 화분',   cost: 300, w: 1, kind: 'monstera',  cozy: 3, c: '#3a8a4a', farm: 'jungle' },
+    weaverug: { name: '짚 깔개',         cost: 340, w: 2, kind: 'weaverug',  cozy: 3, c: '#d8b870', flat: true, farm: 'jungle' },
+    parrotlamp:{ name: '앵무새 등',      cost: 260, w: 1, kind: 'parrotlamp', cozy: 3, c: '#e84a3a', wall: true, farm: 'jungle' },
+    kanga:    { name: '캉가 천 깔개',    cost: 400, w: 2, kind: 'kanga',     cozy: 3, c: '#e8a020', flat: true, farm: 'savanna' },
+    drumstool:{ name: '북 의자',         cost: 480, w: 1, kind: 'drumstool', energy: 3, cozy: 4, c: '#8a5a3a', farm: 'savanna' },
+    woodgiraffe:{ name: '나무 기린 조각', cost: 340, w: 1, kind: 'woodgiraffe', cozy: 3, c: '#d8a040', farm: 'savanna' },
+    beadlamp: { name: '구슬 등',         cost: 260, w: 1, kind: 'beadlamp',  cozy: 3, c: '#3a6ae8', wall: true, farm: 'savanna' },
   };
   // 방은 가로 칸 수 × 세로 칸 수. 넓히는 건 언제든 안전하다 — 이미 놓인 가구는 그대로 있다.
   const ROOMS = {
@@ -1032,6 +1142,7 @@ const FARM = (() => {
   // ---------- 도감 훈장 ----------
   /* 도감을 채우는 것 말고도 「해 본 일」에 훈장을 준다. 조건이 차면 받을 수 있고,
      받을 때 동전과 경험치를 준다 — 도감이 목록이 아니라 발자국이 되도록. */
+  const at = id => FARMS.findIndex(f => f.id === id);   // 도장 — 농장 번호는 표 차례라 이름으로 찾는다(2026-10-09 농장 셋이 끼어들어 번호가 밀렸다)
   const MEDALS = [
     { id: 'seedling', col: '#8fd66c', name: '첫 삽',       icon: '🌱', desc: '작물 다섯 가지를 거둬요',       coins: 100,  need: (w, m) => cropsInDex(m) >= 5 },
     { id: 'farmer', col: '#e8c46a',   name: '밭의 주인',   icon: '🌾', desc: '작물 절반을 거둬요',           coins: 400,  need: (w, m) => cropsInDex(m) >= Math.ceil(DEX_CROP_IDS.length / 2) },
@@ -1046,18 +1157,24 @@ const FARM = (() => {
     { id: 'party', col: '#c9a24a',    name: '축제의 별',   icon: '🏆', desc: '축제에서 상을 받아요',         coins: 600,  need: (w) => Object.keys(w.festival || {}).some(k => w.festival[k].done) },
     { id: 'hundred', col: '#a9c4d6',  name: '백 날의 농부', icon: '📅', desc: '농장에 백 날 와요',           coins: 1000, need: (w, m) => (m.playDays || []).length >= 100 },
     // 농장 여권 — 이사할 때마다 도장 하나, 넷을 다 모으면 큰 선물(2026-09-30 로키즈 「이사 보상」)
-    { id: 'stampSea', col: '#5fb3e8',   name: '바닷가 도장', icon: '🌊', desc: '바닷가 농장으로 이사 가요',   coins: 300,  need: (w) => (w.farm || 0) >= 1 },
-    { id: 'stampCloud', col: '#f2b8d8', name: '꽃구름 도장', icon: '☁️', desc: '꽃구름 농장으로 이사 가요',   coins: 800,  need: (w) => (w.farm || 0) >= 3 },
+    { id: 'stampSea', col: '#5fb3e8',   name: '바닷가 도장', icon: '🌊', desc: '바닷가 농장으로 이사 가요',   coins: 300,  need: (w) => (w.farm || 0) >= at('seaside') },
+    { id: 'stampCloud', col: '#f2b8d8', name: '꽃구름 도장', icon: '☁️', desc: '꽃구름 농장으로 이사 가요',   coins: 800,  need: (w) => (w.farm || 0) >= at('cloud') },
     // 스테이지2 첫 도장(2026-10-09). 여권(첫 세 농장 — 화산은 건너뜀)은 그대로 — 스테이지2 여권은 다섯 농장을 다 열면 만든다
-    { id: 'stampAurora', col: '#8fe6c8', name: '오로라 도장', icon: '🌌', desc: '스테이지2 — 오로라 농장으로 이사 가요', coins: 1000, need: (w) => (w.farm || 0) >= 4 },
-    { id: 'stampDesert', col: '#f2b860', name: '오아시스 도장', icon: '🐪', desc: '스테이지2 — 오아시스 농장으로 이사 가요', coins: 1200, need: (w) => (w.farm || 0) >= 5 },
+    { id: 'stampAurora', col: '#8fe6c8', name: '오로라 도장', icon: '🌌', desc: '스테이지2 — 오로라 농장으로 이사 가요', coins: 1000, need: (w) => (w.farm || 0) >= at('aurora') },
+    { id: 'stampMaple', col: '#e8702a', name: '단풍 도장', icon: '🍁', desc: '스테이지2 — 단풍 농장으로 이사 가요', coins: 1000, need: (w) => (w.farm || 0) >= at('maple') },
+    { id: 'stampJungle', col: '#3aa860', name: '밀림 도장', icon: '🦜', desc: '스테이지2 — 밀림 농장으로 이사 가요', coins: 1100, need: (w) => (w.farm || 0) >= at('jungle') },
+    { id: 'stampSavanna', col: '#e8b040', name: '사바나 도장', icon: '🦒', desc: '스테이지2 — 사바나 농장으로 이사 가요', coins: 1100, need: (w) => (w.farm || 0) >= at('savanna') },
+    { id: 'stampDesert', col: '#f2b860', name: '오아시스 도장', icon: '🐪', desc: '스테이지2 — 오아시스 농장으로 이사 가요', coins: 1200, need: (w) => (w.farm || 0) >= at('desert') },
     // 농장 도감 — 그 농장 특산물을 모두 모으면(2026-10-09). 이름이 곧 칭호
-    { id: 'dexSea', col: '#5fb3e8',    name: '바다 박사',    icon: '🐚', desc: '바닷가 특산물 — 고등어·오징어·광어·참돔을 모두 모아요', coins: 800,  gift: { id: 'f:amphora', n: 1 }, need: (w, m) => SPECIALS.seaside.every(i => m.dex.indexOf(dexId(i)) >= 0) },
+    { id: 'dexSea', col: '#5fb3e8',    name: '바다 박사',    icon: '🐚', desc: '바닷가 특산물 — 고등어·오징어·광어·참돔·무화과를 모두 모아요', coins: 800,  gift: { id: 'f:amphora', n: 1 }, need: (w, m) => SPECIALS.seaside.every(i => m.dex.indexOf(dexId(i)) >= 0) },
     { id: 'dexAurora', col: '#8fe6c8', name: '오로라 박사',  icon: '🧭', desc: '오로라 특산물 — 클라우드베리·빛 조각·이끼·솔방울·대구·곤들매기를 모두 모아요', coins: 1500, gift: { id: 'f:advent', n: 1 }, need: (w, m) => SPECIALS.aurora.every(i => m.dex.indexOf(dexId(i)) >= 0) },
     { id: 'dexDesert', col: '#f2b860', name: '오아시스 박사', icon: '📜', desc: '오아시스 특산물 — 용과·대추야자·사막 장미 돌을 모두 모아요', coins: 1500, gift: { id: 'f:mlamp', n: 1 }, need: (w, m) => SPECIALS.desert.every(i => m.dex.indexOf(dexId(i)) >= 0) },
+    { id: 'dexMaple', col: '#e8702a',  name: '단풍 박사',    icon: '🍁', desc: '단풍 특산물 — 크랜베리·메이플 시럽·밤·도토리를 모두 모아요', coins: 1500, gift: { id: 'f:leaflamp', n: 1 }, need: (w, m) => SPECIALS.maple.every(i => m.dex.indexOf(dexId(i)) >= 0) },
+    { id: 'dexJungle', col: '#3aa860', name: '밀림 박사',    icon: '🦜', desc: '밀림 특산물 — 카카오·망고·바나나·앵무새 깃털을 모두 모아요', coins: 1500, gift: { id: 'f:parrotlamp', n: 1 }, need: (w, m) => SPECIALS.jungle.every(i => m.dex.indexOf(dexId(i)) >= 0) },
+    { id: 'dexSavanna', col: '#e8b040', name: '사바나 박사', icon: '🦒', desc: '사바나 특산물 — 뿔멜론·바오밥 열매를 모두 모아요', coins: 1500, gift: { id: 'f:beadlamp', n: 1 }, need: (w, m) => SPECIALS.savanna.every(i => m.dex.indexOf(dexId(i)) >= 0) },
     // 메인 목표 「수아연아의 방주」(2026-10-09)
     { id: 'stampArk', col: '#a0784e',  name: '방주 도장',     icon: '🛶', desc: '방주 농장으로 이사 가요', coins: 1500, need: (w) => (w.farm || 0) >= arkFarmIndex() },
-    { id: 'arkPairs', col: '#e8a060',  name: '노아의 명부',   icon: '📜', desc: '동물 열세 가지를 모두 한 쌍씩 모아요', coins: 2500, gift: { id: 'seed:star', n: 3 }, need: (w) => arkPairsHave(w) >= ARK_KINDS.length },
+    { id: 'arkPairs', col: '#e8a060',  name: '노아의 명부',   icon: '📜', desc: '동물 스무 가지를 모두 한 쌍씩 모아요', coins: 2500, gift: { id: 'seed:star', n: 3 }, need: (w) => arkPairsHave(w) >= ARK_KINDS.length },
     { id: 'arkSeeds', col: '#8fd66c',  name: '씨앗 지기',     icon: '🌰', desc: '방주 씨앗 금고에 모든 작물 씨앗을 한 알씩 넣어요', coins: 2000, need: (w) => arkSeedsHave(w) >= CROP_IDS.length },
     { id: 'arkBuilt', col: '#7a5a3a',  name: '방주 목수',     icon: '🔨', desc: '방주를 열 단계 모두 지어요', coins: 3000, need: (w) => arkStep(w) >= ARK_STEPS.length },
     { id: 'flood',    col: '#5f86c8',  name: '큰물을 건넜어요', icon: '🕊️', desc: '방주에서 한 해를 버티고 새 땅에 내려요', coins: 5000, gift: { id: 'olive', n: 6 }, need: (w) => arkPhase(w) === 'land' },
@@ -1128,7 +1245,9 @@ const FARM = (() => {
   const shardMax = world => SHARD_MAX * (perkOf(world) === 'shard' ? 2 : 1);   // 오로라 능력 「긴 밤」
   // 농장마다 줍는 것 — 오로라는 밤의 빛 조각, 사막은 낮 모래 위의 사막 장미 돌(2026-10-09). 셈·그림 자리는 같은 틀
   // 방주 농장은 낮 땅의 역청 덩어리, 무지개 농장은 낮 땅에 떨어진 올리브(2026-10-09)
-  const PICKS = { aurora: { item: 'shard', night: true }, desert: { item: 'sandrose', night: false }, ark: { item: 'pitch', night: false }, newland: { item: 'olive', night: false } };
+  // 단풍은 낮에 단풍나무 수액 양동이(메이플 시럽), 밀림은 떨어진 망고, 사바나는 바오밥 열매(2026-10-09)
+  const PICKS = { aurora: { item: 'shard', night: true }, maple: { item: 'syrup', night: false }, jungle: { item: 'mango', night: false }, savanna: { item: 'baobab', night: false },
+    desert: { item: 'sandrose', night: false }, ark: { item: 'pitch', night: false }, newland: { item: 'olive', night: false } };
   function shardSpots(world, now){
     const PK = world && PICKS[farmOf(world).id];
     if (!PK || isNight(now) !== PK.night) return [];
@@ -1190,7 +1309,7 @@ const FARM = (() => {
     { id: 'store',  name: '양식 싣기',          icon: '🌾', each: {},                        say: '양식 창고를 가득 채웠어요 — 방주가 다 지어졌어요! (6:21)' },
   ];
   const ARK_FOOD_MIN = 200;            // 마지막 단계 「양식 싣기」에 필요한 창고 점수
-  const ARK_RATION = 4;                // 한 달에 두 아이가 먹는 양식 — 여기에 동물 한 마리마다 1 씩
+  const ARK_RATION = 4;                // 한 달에 두 아이가 먹는 양식 — 여기에 동물 두 마리마다 1 씩
   const ARK_MONTHS = 12;               // 방주 안에서 지내는 열두 달(한 해) — 진짜 하루에 한 달씩
   // 창고에 넣을 때의 양식 점수 — 먹으면 기운이 도는 것(foodOf)에 더해 동물이 낳은 것
   const ARK_GOODS_FOOD = { egg: 2, bigegg: 4, duckegg: 2, milk: 3, goldmilk: 6, honey: 4, truffle: 5 };
@@ -1224,11 +1343,30 @@ const FARM = (() => {
   const ARK_KINDS = Object.keys(ANIMALS);
   const arkCount = (world, kind) => ((world && world.animals) || []).filter(a => a && a.kind === kind).length;
   const arkPairsHave = world => ARK_KINDS.filter(k => arkCount(world, k) >= 2).length;
+  /* 그 농장에서만 얻는 것(2026-10-09 로키즈 「각 농장에서만 얻을 수 있는 동식물」「이주 조건에 그 농장 것이 갖춰졌는지」)
+     동물 — 이삿날 따라온 식구(gift)와 그 농장 가게에서만 파는 동물(farm). 한 마리씩은 데리고 있어야 떠난다(짝은 방주 농장에서 찾아온다)
+     씨앗 — 그 농장 전용 작물. 방주 씨앗 금고에 넣어야 떠난다(가방의 씨앗 한 알)
+     특산물 — SPECIALS 가운데 작물 아닌 것. 둘 중 하나라도 한 번 만나면 된다(world.found, 옛 기록은 제 도감) */
+  function localOf(fid){
+    return { animals: Object.keys(ANIMALS).filter(k => ANIMALS[k].gift === fid || ANIMALS[k].farm === fid),
+      crops: CROP_IDS.filter(c => CROPS[c].farm === fid),
+      goods: (SPECIALS[fid] || []).filter(id => id.slice(0, 5) !== 'crop:') };
+  }
+  // 도감 이름(작물은 앞머리 없이) → 특산물 이름(crop:…)
+  const specKey = id => CROPS[id] ? 'crop:' + id : String(id).replace(/^(gold|giant):/, 'crop:');
+  function localState(world, mine, fid){
+    const L = localOf(fid || farmOf(world).id), seeds = (world && world.ark && world.ark.seeds) || [], found = (world && world.found) || [], dex = (mine && mine.dex) || [];
+    const has = id => found.indexOf(id) >= 0 || dex.indexOf(dexId(id)) >= 0;
+    return { animals: L.animals.map(k => ({ id: k, have: arkCount(world, k) > 0 })),
+      crops: L.crops.map(c => ({ id: c, have: seeds.indexOf(c) >= 0 })),
+      goods: L.goods.map(g => ({ id: g, have: has(g) })) };
+  }
   const arkSeedsHave = world => ((world && world.ark && world.ark.seeds) || []).filter(c => CROPS[c]).length;
   const arkStep = world => Math.max(0, Math.min(ARK_STEPS.length, Math.floor(Number(world && world.ark && world.ark.step) || 0)));
   const landDone = world => LAND_STEPS.filter(L => world && world.ark && world.ark.land && world.ark.land[L.id] && world.ark.land[L.id].done).length;
-  // 한 달 양식 — 두 아이 몫에 동물 한 마리마다 하나
-  const arkRation = world => ARK_RATION + ((world && world.animals) || []).length;
+  // 한 달 양식 — 두 아이 몫에 동물 두 마리마다 하나
+  // 동물이 스무 가지(한 쌍씩 마흔)로 늘며(2026-10-09) 한 마리에 하나는 너무 많아 두 마리에 하나로
+  const arkRation = world => ARK_RATION + Math.ceil(((world && world.animals) || []).length / 2);
   // 지금 방주 이야기가 어디쯤인가 — 홍수 동안(afloat)에는 섬이 물에 잠겨 밭·가게·채집이 쉰다
   const arkPhase = world => (world && world.ark && world.ark.phase) || null;
   const afloat = world => arkPhase(world) === 'flood';
@@ -1255,7 +1393,7 @@ const FARM = (() => {
   // ---------- 세이브 ----------
   function newWorld(now){
     return {
-      v: 1, started: dayKey(now), seasonLen: SEASON_LEN_DEFAULT, seasonIndex: 0,
+      v: 1, fv: FARM_V, started: dayKey(now), seasonLen: SEASON_LEN_DEFAULT, seasonIndex: 0,
       farm: 0, past: [], expand: 0, rooms: {}, plots: {}, buildings: {}, animals: [], layout: {}, decor: {}, sprinklers: {},
       house: { living: {}, sua: { '0,0': { f: 'bed1', r: 0 } }, yona: { '0,0': { f: 'bed1', r: 0 } } },
       orders: {}, festival: {}, mail: { sua: [], yona: [] }, log: [], seen: {},
@@ -1275,6 +1413,10 @@ const FARM = (() => {
     const base = newWorld(now);
     if (!w || typeof w !== 'object') return base;
     const o = Object.assign(base, w);
+    /* 농장 표 차례가 바뀐 세이브 — 2026-10-09 오로라 뒤에 단풍·밀림·사바나를 끼워 사막(5)·방주(6)·무지개(7)가 셋씩 밀렸다.
+       fv 가 없는 옛 세이브만 한 번 옮긴다(아래 칸 맞추기보다 먼저 — 지도 크기가 농장 번호를 따른다) */
+    if (!(Number(w.fv) >= FARM_V)){ const f0 = Math.floor(Number(w.farm) || 0); if (f0 >= 5) o.farm = f0 + 3; }
+    o.fv = FARM_V;
     ['plots', 'buildings', 'orders', 'festival', 'seen', 'decor', 'layout'].forEach(k => { if (!o[k] || typeof o[k] !== 'object') o[k] = {}; });
     // 축제 한 판이 빈 값이면 훈장·도감이 .done 을 읽다 터진다 — 서버는 값의 모양을 안 보니 여기서 거른다
     Object.keys(o.festival).forEach(k => { if (!o.festival[k] || typeof o.festival[k] !== 'object') delete o.festival[k]; });
@@ -1363,6 +1505,8 @@ const FARM = (() => {
         if (A.ask && (typeof A.ask !== 'object' || !NAME[A.ask.by] || A.phase)) delete A.ask;
       }
     }
+    // 둘이 만난 특산물(localState 의 「특산물」) — SPECIALS 에 있는 것만, 한 번씩
+    o.found = Array.isArray(o.found) ? o.found.filter((id, i, a) => typeof id === 'string' && originOf(id) && a.indexOf(id) === i) : [];
     if (!o.started) o.started = dayKey(now);
     return o;
   }
@@ -1410,7 +1554,7 @@ const FARM = (() => {
   /* 놀이 규칙(farm-rules-play.js)이 이 닫힘 안의 것을 쓴다. 손으로 적은 목록이 아니라
      tools/split-rules.py 가 두 파일을 읽어 만든 것이다 — 하나라도 빠지면 그 규칙이
      돌 때 undefined 로 터진다. 놀이 규칙을 고쳤으면 그 도구를 다시 돌린다. */
-  const INNER = { ARK_STEPS, ARK_FOOD_MIN, ARK_RATION, ARK_MONTHS, ARK_GOODS_FOOD, ARK_LOG, LAND_STEPS, ARK_KINDS, arkFarmIndex, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, shardsLeft, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, peddlerSpot, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
+  const INNER = { ARK_STEPS, ARK_FOOD_MIN, ARK_RATION, ARK_MONTHS, ARK_GOODS_FOOD, ARK_LOG, LAND_STEPS, ARK_KINDS, arkFarmIndex, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, localOf, localState, specKey, FARM_V, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, shardsLeft, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, ANIMAL_MAX, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIELD_BOX, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, GRID, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, peddlerSpot, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf };
 
   return {
     SEASONS, SEASON_NAME, SEASON_ICON, SEASON_LEN_DEFAULT, WEATHER, CROPS, CROP_IDS, GOODS, TOOLS, BUILDINGS, ANIMALS, ANIMAL_MAX, LOVE_FOR_BEST, LOVE_FOR_BABY, BABY_DAYS, BABY_REST_DAYS, NODES, DECOR, FURNITURE, ROOMS, DISHES, FESTIVALS, MISSIONS, XP, COST, EXPANSIONS, FIELD, GH, NAME, OTHER,
@@ -1422,6 +1566,7 @@ const FARM = (() => {
     plotIds, parseId, fieldCells, fieldHas, fieldBox,
     fireflyNight, fireflyLeft,
     ARK_STEPS, ARK_FOOD_MIN, ARK_RATION, ARK_MONTHS, ARK_GOODS_FOOD, ARK_LOG, LAND_STEPS, ARK_KINDS, arkFarmIndex, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax,
+    localOf, localState, FARM_V,
     farmOk, SHARD_MAX, PICKS, shardSpots, shardsLeft, shardMax, SPECIALS, TRADE_MULT, perkOf, originOf, GUESTS,
     peddlerHere, peddlerSpot,
     cropsInDex, tickPlot, stageOf, wetNow, growTime, lifeLeft, lifeFrom, CROP_LIFE_DAYS,

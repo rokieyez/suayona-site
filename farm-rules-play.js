@@ -5,7 +5,7 @@
 // farm-rules.js 가 먼저 돌아야 한다. 저 파일의 닫힘 안에 있는 것들은 FARM.__inner 로 받는다.
 (() => {
   if (typeof FARM === 'undefined' || !FARM.__inner) throw new Error('farm-rules.js 를 먼저 실어야 해요');
-  const { ARK_STEPS, ARK_FOOD_MIN, ARK_MONTHS, ARK_GOODS_FOOD, ARK_LOG, LAND_STEPS, ARK_KINDS, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
+  const { ARK_STEPS, ARK_FOOD_MIN, ARK_MONTHS, ARK_GOODS_FOOD, ARK_LOG, LAND_STEPS, ARK_KINDS, arkPhase, afloat, arkCount, arkPairsHave, arkSeedsHave, arkStep, landDone, arkRation, animalMax, localOf, localState, specKey, SPECIALS, TRADE_MULT, PAST_COINS, perkOf, originOf, dexId, GUESTS, QUEST_DAYS, QUEST_MULT, shardMax, farmOk, SHARD_MAX, PICKS, GENIE_GIFTS, shardSpots, SANTA_CHANCE, SANTA_GIFTS, nodeDef, nodeSpot, sceneryOf, gridOf, fieldCells, fieldHas, FARMS, MOVE_GIFT, MOVE_KEEP, MOVE_OPEN, farmOf, nextFarmIndex, movePath, ANIMALS, BABY_CHANCE, BABY_DAYS, BABY_REST_DAYS, BOX_PRIZES, BUILDINGS, COST, COZY_LEVELS, CROPS, CROP_IDS, DAY_MS, DECOR, DISHES, ENERGY_BASE, EXPANSIONS, FERT_SPEED, FESTIVALS, FIREFLY_MAX, FIREFLY_SEASONS, FIRE_ENERGY, FIRE_TOGETHER, FISH, FISH_IDS, FISH_MAX, FURNITURE, GIANT_MULT, GOLD_MULT, GOODS, H, LOG_MAX, LOVE_FOR_BABY, LOVE_FOR_BEST, MATERIALS, MEDALS, MISSIONS, NAME, NODES, NOTE_A_DAY, NOTE_MAX, OTHER, PED_WANT_MAX, PED_WANT_MULT, PLACE, PLACE_IDS, PLAY_DAYS_MAX, ROOMS, SEASONS, SEASON_NAME, SPRINKLER, SPRINKLERS, TOOLS, WATER_HOURS, WEATHER, XP, calendar, dayKey, dayStartMs, daysBetween, fireflyLeft, fireflyNight, furnBox, growTime, hungCol, isNight, levelOf, nodeReady, occupied, okPic, parseId, parseWall, peddlerHere, placed, plotIds, prand, roomBox, spotOf, sprinklerOf, stageOf, thingHere, tickPlot, wallCols, wallKey, wallRowsFor, weatherOf } = FARM.__inner;
 
   function dayEndMs(t){ return dayStartMs(dayKey(t)) + DAY_MS; }
   function nextSeason(s){ return SEASONS[(SEASONS.indexOf(s) + 1) % 4]; }
@@ -432,6 +432,12 @@
       ['sua', 'yona', 'living'].forEach(r => conds.push({ id: 'room:' + r, icon: '🛋️', name: ROOMS[r].name + ' 가구',
         have: Object.keys((world.house && world.house[r]) || {}).length, need: next.room, unit: '개' }));
       conds.push({ id: 'animals', icon: '🐾', name: '동물', have: (world.animals || []).length, need: next.animals, unit: '마리' });
+      /* 이 농장에서만 얻는 것(2026-10-09 로키즈 「이주 조건에 그 농장 것이 갖춰졌는지」) — 방주에 실을 동식물을 여기서 챙겨 간다.
+         miss 는 아직 못 갖춘 것(화면이 이름을 보여 준다) */
+      const L = localState(world, mine), push = (id, icon, name, list, unit) => { if (list.length) conds.push({ id, icon, name, have: list.filter(x => x.have).length, need: list.length, unit, miss: list.filter(x => !x.have).map(x => x.id) }); };
+      push('local:animals', '🦌', '이 농장 동물', L.animals, '가지');
+      push('local:seeds', '🌰', '씨앗 금고', L.crops, '가지');
+      push('local:goods', '📜', '이 농장 특산물', L.goods, '가지');
     }
     conds.forEach(c => { c.left = Math.max(0, c.need - c.have); });
     return { farm: farmOf(world), next, have, need: ids.length, conds, ready: !!next && conds.every(c => !c.left),
@@ -600,7 +606,7 @@
   function pickShard(world, mine, i, now){
     const PK = PICKS[farmOf(world).id], nm = PK && GOODS[PK.item] ? GOODS[PK.item].name : '빛 조각';
     if (!PK) return fail('빛 조각은 오로라 농장에만 떨어져요');
-    if (isNight(now) !== PK.night) return fail(nm + (PK.night ? '은 밤에만 떨어져 있어요' : '은 낮에만 모래 위에 보여요'));
+    if (isNight(now) !== PK.night) return fail(nm + (jong(nm) ? '은' : '는') + (PK.night ? ' 밤에만 떨어져 있어요' : ' 낮에만 보여요'));
     const key = dayKey(now), q = shardSpots(world, now).find(s => s.i === i);
     if (!q) return fail('여기엔 빛 조각이 없어요');
     if (!mine.shard || mine.shard.day !== key) mine.shard = { day: key, got: [] };
@@ -655,7 +661,8 @@
      이 기록이 생기기 전에 모은 것은 날·농장이 없다 — 화면은 「예전에 만남」으로 둔다. 지어 넣지 않는다.
      가구는 둘이 함께 쓰는 집 물건이라 농장(world.furnAt)에 적는다 — noteFurn. */
   const DEX_GOODS = ['egg', 'bigegg', 'duckegg', 'downfeather', 'milk', 'goldmilk', 'wool', 'truffle', 'angora', 'gem', 'honey',
-    'berry', 'snowball', 'firefly', 'shard', 'moss', 'pinecone', 'date', 'sandrose', 'pitch', 'olive'];   // 역청·올리브 — 방주(2026-10-09)
+    'berry', 'snowball', 'firefly', 'shard', 'moss', 'pinecone', 'date', 'sandrose', 'pitch', 'olive',   // 역청·올리브 — 방주(2026-10-09)
+    'syrup', 'chestnut', 'acorn', 'mango', 'banana', 'feather', 'baobab'];   // 단풍·밀림·사바나(2026-10-09)
   const DEX_MAIL = ['santa', 'genie', 'postcard', 'move', 'ark'];     // 축제 상은 농장 축제 기록(world.festival)으로 본다
   function dexRec(mine, id){
     const v = (mine.dexAt || {})[id];
@@ -668,6 +675,8 @@
     const o = opt || {}, at = mine.dexAt || (mine.dexAt = {});
     let r = dexRec(mine, id) || { d: null, f: null, n: 0, x: 0 };
     if (mine.dex.indexOf(id) < 0){ mine.dex.push(id); r = { d: dayKey(now == null ? Date.now() : now), f: o.farm || farmOf(world).id, n: 0, x: 0 }; }
+    // 특산물은 둘이 같이 센다 — 이사 조건 「이 농장 특산물」(localState)
+    const sk = specKey(id); if (originOf(sk) && world && (world.found = world.found || []).indexOf(sk) < 0) world.found.push(sk);
     r.n += n == null ? 1 : n;
     if (o.s) r.x |= o.s;
     if (o.cm) r.x = Math.max(r.x, o.cm);
@@ -853,16 +862,17 @@
       return okay('둘이서 ' + eul('<b>큰 ' + C.name + '</b>') + ' 뽑았어요!', { giant: true });
     }
     const star = starOf(p, gh);
-    const n = C.yield + (star >= 2 ? 1 : 0);   // 잘 돌본 작물은 한 개 더
+    const bonus = perkOf(world) === 'harvest' && prand('hv' + id + now) < 0.25 ? 1 : 0;   // 단풍 농장 「풍년」 — 넷에 하나꼴로 하나 더
+    const n = C.yield + (star >= 2 ? 1 : 0) + bonus;   // 잘 돌본 작물은 한 개 더
     const cropId = p.crop, gold = star >= 3;
     give(mine, (gold ? 'gold:' : 'crop:') + cropId, n);
     mine.xp += XP.harvest + (gold ? 4 : 0); bump(mine, 'harvested', n, now);
     // 계절 별 — 거둔 계절을 비트로 모은다(봄 1·여름 2·가을 4·겨울 8). 온실이면 철 아닌 때도 거둔다
     noteDex(world, mine, cropId, now, n, { s: 1 << SEASONS.indexOf(calendar(world, now).season) });
     if (gold) noteDex(world, mine, 'gold:' + cropId, now, n);
-    const say = gold ? '<b>반짝 ' + C.name + '</b> ' + n + '개! 잘 돌봤네요'
+    const say = (gold ? '<b>반짝 ' + C.name + '</b> ' + n + '개! 잘 돌봤네요'
               : star === 2 ? C.name + ' ' + n + '개를 거뒀어요 (잘 돌봐서 한 개 더!)'
-              : C.name + ' ' + n + '개를 거뒀어요';
+              : C.name + ' ' + n + '개를 거뒀어요') + (bonus ? ' 🧺 풍년이라 하나 더!' : '');
     if (gold) logAdd(world, mine.key, NAME[mine.key] + '가 반짝 ' + eul(C.name) + ' 거뒀어요!', now);
     if (C.regrow){
       p.picks = (p.picks || 0) + 1;
@@ -913,7 +923,8 @@
       /* 지금 심을 수 없는 씨앗은 팔지 않는다. 사 놓고 심지 못하면 동전만 버리는 셈이다.
          온실이 있으면 어느 계절이든 자라니 그때는 열어 준다. */
       const cal2 = calendar(world, now);
-      if (!C.hardy && C.season.indexOf(cal2.season) < 0 && !(world.buildings.greenhouse && world.buildings.greenhouse.done))
+      // 그 농장 전용 씨앗은 철이 아니어도 판다 — 방주 씨앗 금고에 넣어야 다음 농장으로 떠나서(2026-10-09 「이주 조건」)
+      if (!C.hardy && !C.farm && C.season.indexOf(cal2.season) < 0 && !(world.buildings.greenhouse && world.buildings.greenhouse.done))
         return fail(SEASON_NAME[cal2.season] + '에는 ' + C.name + ' 씨앗을 살 수 없어요. ' + C.season.map(s => SEASON_NAME[s]).join('·') + '에 오세요');
       if (mine.coins < C.seed) return fail('동전이 모자라요');
       mine.coins -= C.seed; give(mine, id, 1);
@@ -941,6 +952,7 @@
     if (k === 'animal'){
       const A = ANIMALS[v]; if (!A) return fail('없는 동물이에요');
       if (A.gift) return fail(A.name + (jong(A.name) ? '은 ' : '는 ') + FARMS.find(f => f.id === A.gift).name + '으로 이사 갈 때 새끼로 따라와요');
+      if (A.farm && A.farm !== farmOf(world).id) return fail(A.name + (jong(A.name) ? '은 ' : '는 ') + FARMS.find(f => f.id === A.farm).name + '에서만 만나요');
       if (!(world.buildings[A.need] && world.buildings[A.need].done)) return fail(eul(BUILDINGS[A.need].name) + ' 먼저 지어요');
       const here = world.animals.filter(a => ANIMALS[a.kind].need === A.need).length;
       if (here >= animalMax(world, A.need)) return fail(ee(BUILDINGS[A.need].name) + ' 꽉 찼어요');
@@ -1075,7 +1087,7 @@
     if (a.pet.indexOf(mine.key) >= 0) return fail('오늘은 이미 쓰다듬었어요');
     a.pet.push(mine.key);
     mine.xp += XP.pet; bump(mine, 'petted', 1, now);
-    if (a.pet.length >= 2){ a.love = Math.min(10, (a.love || 0) + 1); return okay('둘 다 쓰다듬어서 ' + a.name + '의 마음이 ' + a.love + '이 됐어요 💗', { love: true }); }
+    if (a.pet.length >= 2){ a.love = Math.min(10, (a.love || 0) + (perkOf(world) === 'herd' ? 2 : 1)); /* 사바나 「물웅덩이」 — 두 칸씩 */ return okay('둘 다 쓰다듬어서 ' + a.name + '의 마음이 ' + a.love + '이 됐어요 💗', { love: true }); }
     return okay(eul(a.name) + ' 쓰다듬었어요. ' + NAME[OTHER[mine.key]] + '도 쓰다듬으면 마음이 자라요');
   }
   function collect(world, mine, aid, now){
@@ -1333,9 +1345,10 @@
       notes.push('<b>행상인</b>이 수레를 끌고 왔어요 — 오늘은 ' + eul(itemName(pw.id)) + ' 두 배로 사 간대요');
     }
     if (honeyCheck(world, now)) notes.push('벌통에 꿀이 찼어요');
-    if (isWet(weatherOf(key, cal.season))){
+    const squall = perkOf(world) === 'squall';   // 밀림 「스콜」 — 맑은 날에도 소나기가 한 번 지나간다
+    if (isWet(weatherOf(key, cal.season)) || squall){
       Object.keys(world.plots).forEach(id => { const p = world.plots[id]; if (p.tilled && id[0] !== 'g'){ tickPlot(p, now, false); p.wet = Math.max(p.wet || 0, dayEndMs(now)); } });
-      notes.push('비가 와서 밭이 저절로 촉촉해요');
+      notes.push(isWet(weatherOf(key, cal.season)) ? '비가 와서 밭이 저절로 촉촉해요' : '🌦️ 스콜이 한바탕 지나가 밭이 촉촉해요');
     }
     if (cal.season === 'autumn' && !(world.buildings.scarecrow && world.buildings.scarecrow.done) && world.crow !== key && prand('c' + key) < 0.3){
       world.crow = key;
