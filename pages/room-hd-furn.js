@@ -1034,4 +1034,149 @@
     });
     if (!C.lit){ g.strokeStyle = '#8a6a4a'; g.lineWidth = 1.1; g.beginPath(); g.ellipse(20, 12.4, 15, 1.8, 0, 0, TAU); g.stroke(); g.strokeStyle = '#c79b6d'; g.lineWidth = 0.5; g.stroke(); }
   });
+
+  // ================= 단풍(캐나다 오두막)·밀림(아마존 나무집)·사바나(케냐 사파리 롯지) 가구 열둘 — 2026-10-09 =================
+  const mleaf = (K, x, y, r, c, rot) => { const pts = []; for (let i = 0; i < 10; i++){ const a = -Math.PI / 2 + i * Math.PI / 5 + (rot || 0), rr = i % 2 ? r * 0.45 : r; pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.9]); } K.poly(pts, c, 0.35); };
+  // 체크무늬 소파 — 빨강·검정 버펄로 체크 천, 통나무 팔걸이, 단풍잎 쿠션
+  def('plaidsofa', (g, C) => {
+    const K = kit(g, C), O = K.O, { L, W } = O, c = '#b8302a', AW = 6, BD = 7;
+    if (C.lit) return;
+    K.shadow();
+    [[3, 3], [L - 3, 3], [3, W - 3], [L - 3, W - 3]].forEach(([u, v]) => O.cyl ? O.cyl(u, v, 1.2, 0, 4, '#6a4428') : 0);
+    O.box(0, 0, L, W, 3.5, 7, '#7a4a2a');
+    O.box(0, 0, L, BD, 10, 18, c, { t: K.sh(c, 0.12) });
+    const sw = (L - AW * 2) / 2;
+    for (let n = 0; n < 2; n++){ const u0 = AW + n * sw; O.box(u0 + 0.3, BD, sw - 0.6, W - BD - 1, 10, 5, c, { t: K.sh(c, 0.16) });
+      for (let k = 1; k < 4; k++){ K.ln(O.p(u0 + 0.3 + (sw - 0.6) * k / 4, BD, 15.1), O.p(u0 + 0.3 + (sw - 0.6) * k / 4, W - 1, 15.1), 'rgba(20,10,10,.45)', 1); K.ln(O.p(u0 + 0.3, BD + (W - BD - 1) * k / 4, 15.1), O.p(u0 + sw - 0.3, BD + (W - BD - 1) * k / 4, 15.1), 'rgba(20,10,10,.45)', 1); } }
+    for (let k = 1; k < 8; k++){ const u = L * k / 8; K.ln(O.p(u, BD, 10.5), O.p(u, BD, 27.5), 'rgba(20,10,10,.4)', 1.1); }
+    [13, 18, 23].forEach(z => K.ln(O.p(0.5, BD, z), O.p(L - 0.5, BD, z), 'rgba(20,10,10,.4)', 1.1));
+    [0, L - AW].forEach(u => { O.box(u, 0, AW, W, 10, 11, '#a0703e', { t: '#c8945a' }); const e = O.p(u + AW / 2, W, 15); K.ov(e[0], e[1], 2.4, 2.6, '#e8c890', 0.4); K.ov(e[0], e[1], 1.2, 1.3, '#b88a58'); });
+    const cp = O.p(AW + 5, BD + 1.5, 21); K.poly([[cp[0] - 5, cp[1] - 4], [cp[0] + 5, cp[1] - 5], [cp[0] + 5.5, cp[1] + 4], [cp[0] - 4.5, cp[1] + 5]], '#f4ead6', 0.5); mleaf(K, cp[0] + 0.4, cp[1], 3.4, '#d8402a');
+  });
+  // 단풍잎 깔개 — 커다란 단풍잎 모양 양탄자, 잎맥 수
+  def('leafrug', (g, C) => {
+    const K = kit(g, C), O = K.O, p = O.p, L = O.L, W = O.W, z = 0.6, cu = L / 2, cv = W / 2, R = Math.min(L, W) / 2 - 1.5;
+    if (C.lit) return;
+    const pts = []; for (let i = 0; i < 22; i++){ const a = i / 22 * TAU, k = i % 2 ? 0.55 : (i % 4 === 0 ? 1 : 0.85); pts.push(p(cu + Math.cos(a) * R * k * (L / W > 1.4 ? 1.7 : 1), cv + Math.sin(a) * R * k, z)); }
+    g.save(); g.translate(0.8, 1); K.poly(pts, 'rgba(40,22,12,.2)'); g.restore();
+    K.poly(pts, K.lg(pts[11][0], pts[11][1], pts[0][0], pts[0][1], ['#f8a040', '#e8602a', '#c83a1a']), 0.5);
+    for (let i = 0; i < 6; i++){ const a = i / 6 * TAU; K.ln(p(cu, cv, z), p(cu + Math.cos(a) * R * 0.9 * (L / W > 1.4 ? 1.7 : 1), cv + Math.sin(a) * R * 0.9, z), '#8a2a10', 0.6); }
+    K.ov(p(cu, cv, z)[0], p(cu, cv, z)[1], 1.4, 0.8, '#8a2a10');
+  });
+  // 시럽 병 선반 — 나무 선반 세 칸에 호박빛 메이플 시럽 병과 단풍잎 상표
+  def('syrupshelf', (g, C) => {
+    const K = kit(g, C), x = C.CX, y = C.CY, wd = '#a0703e';
+    if (C.lit) return;
+    K.blob(x, y, 10, 3.4);
+    K.poly([[x - 10, y], [x - 10, y - 40], [x + 10, y - 40], [x + 10, y]], K.lg(x - 10, 0, x + 10, 0, [K.sh(wd, 0.12), wd, K.sh(wd, -0.25)]), 0.5);
+    K.poly([[x - 8.4, y - 2], [x - 8.4, y - 38], [x + 8.4, y - 38], [x + 8.4, y - 2]], '#5a3a24');
+    [[-2, '#c8781e'], [-15, '#d8902a'], [-28, '#b8681a']].forEach(([dy, col], r) => {
+      K.poly([[x - 9.6, y + dy], [x + 9.6, y + dy], [x + 9.6, y + dy - 1.6], [x - 9.6, y + dy - 1.6]], '#c8945a', 0.4);
+      for (let i = 0; i < 3; i++){ const bx = x - 5.6 + i * 5.6, by = y + dy - 1.6; K.poly([[bx - 2, by], [bx + 2, by], [bx + 2, by - 6.4], [bx + 0.8, by - 8], [bx + 0.8, by - 9.6], [bx - 0.8, by - 9.6], [bx - 0.8, by - 8], [bx - 2, by - 6.4]], K.lg(bx - 2, 0, bx + 2, 0, [K.sh(col, 0.25), col, K.sh(col, -0.25)]), 0.4);
+        K.poly([[bx - 1.6, by - 1.4], [bx + 1.6, by - 1.4], [bx + 1.6, by - 4.6], [bx - 1.6, by - 4.6]], '#f4ead6'); mleaf(K, bx, by - 3, 1.3, '#d8302a', r * 0.3); K.ov(bx - 0.9, by - 5.6, 0.4, 1, 'rgba(255,255,255,.5)'); }
+    });
+  });
+  // 단풍잎 등 — 벽에 거는 단풍잎 모양 종이 등, 밤이면 주홍빛
+  defW('leaflamp', (g, C) => {
+    const K = kit(g, C), x = 20, y = 28;
+    K.light(() => { if (C.lit) K.glow(x, y, 24, '255,160,80', 0.5); mleaf(K, x, y, 13, C.lit ? '#ffb060' : '#e8702a'); mleaf(K, x, y, 8, C.lit ? '#ffd890' : '#f8a040'); });
+    if (C.lit) return;
+    hang(K, 20, 2.5, 0); K.ln([20, 3], [20, y - 12], '#8a7b6e', 0.45);
+    for (let i = 0; i < 5; i++){ const a = -Math.PI / 2 + i * TAU / 5; K.ln([x, y], [x + Math.cos(a) * 11, y + Math.sin(a) * 10], 'rgba(120,40,10,.5)', 0.4); }
+    K.ln([x, y + 8], [x, y + 14], '#6a4428', 0.8);
+  });
+  // 등나무 흔들의자 — 둥근 공 모양 등나무 의자, 초록 방석
+  def('rattan', (g, C) => {
+    const K = kit(g, C), x = C.CX, y = C.CY, t = C.t || 0, rt = '#c8a060';
+    if (C.lit) return;
+    K.blob(x, y, 10, 3.6);
+    K.ln([x, y - 2], [x, y - 40], '#6a4a2a', 1.2); K.ov(x, y - 1, 6, 1.6, '#8a6a3a', 0.4);
+    g.save(); g.translate(x, y - 40); g.rotate(Math.sin(t / 1300) * 0.04); g.translate(-x, -(y - 40));
+    K.ov(x, y - 22, 11, 12, K.rg(x - 3, y - 26, 16, [K.sh(rt, 0.25), rt, K.sh(rt, -0.35)]), 0.5);
+    for (let i = -4; i <= 4; i++) K.curve([[x + i * 2.4, y - 33], [x + i * 2.8, y - 22], [x + i * 2.4, y - 11]], 'rgba(110,70,20,.45)', 0.4);
+    for (let j = 0; j < 6; j++) K.curve([[x - 10, y - 30 + j * 3.6], [x, y - 31 + j * 3.6], [x + 10, y - 30 + j * 3.6]], 'rgba(110,70,20,.35)', 0.35);
+    K.ov(x + 1, y - 19, 8, 6, '#5a3a20'); K.ov(x + 1, y - 16, 7, 4, K.lg(x - 6, 0, x + 8, 0, ['#4aa048', '#2a7a34']), 0.4);
+    g.restore();
+  });
+  // 몬스테라 화분 — 구멍 난 큰 잎, 짚 바구니 화분
+  def('monstera', (g, C) => {
+    const K = kit(g, C), x = C.CX, y = C.CY;
+    if (C.lit) return;
+    K.blob(x, y, 9, 3.4);
+    [[-2.4, 16, 6], [-1.2, 18, 7], [-0.5, 15, 6.4], [-1.9, 12, 5.4], [-0.1, 11, 5]].forEach(([a, l, r], i) => {
+      const lx = x + Math.cos(a) * l, ly = y - 12 + Math.sin(a) * l; K.curve([[x, y - 11], [x + Math.cos(a) * l * 0.5, y - 14 + Math.sin(a) * l * 0.5], [lx, ly]], '#2a6a2a', 0.6);
+      K.ov(lx, ly, r, r * 0.8, K.lg(lx - r, ly - r, lx + r, ly + r, ['#4aa048', '#2a7a34', '#1a5a24']), 0.45, a + Math.PI / 2);
+      for (let k = 0; k < 3; k++) K.ov(lx + Math.cos(a + 1.6) * (k - 1) * r * 0.45, ly + Math.sin(a + 1.6) * (k - 1) * r * 0.45, 0.7, 0.5, '#1a4a1e');
+      K.ln([lx - Math.cos(a) * r * 0.8, ly - Math.sin(a) * r * 0.8], [lx + Math.cos(a) * r * 0.8, ly + Math.sin(a) * r * 0.8], 'rgba(150,210,120,.6)', 0.35); });
+    K.poly([[x - 6.5, y - 11], [x + 6.5, y - 11], [x + 5.5, y], [x - 5.5, y]], K.lg(x - 6, 0, x + 6, 0, ['#e8d098', '#c8a868', '#a08048']), 0.5);
+    for (let k = 0; k < 4; k++) K.curve([[x - 6, y - 9 + k * 2.4], [x, y - 8 + k * 2.4], [x + 6, y - 9 + k * 2.4]], '#8a6a38', 0.35);
+    K.ov(x, y - 11, 6.6, 1.5, '#c8a868', 0.45);
+  });
+  // 짚 깔개 — 야자잎을 엮은 네모 깔개, 가장자리 초록·빨강 줄
+  def('weaverug', (g, C) => {
+    const K = kit(g, C), O = K.O, p = O.p, L = O.L, W = O.W, u0 = 3, u1 = L - 3, v0 = 3, v1 = W - 3, z = 0.6;
+    if (C.lit) return;
+    K.poly([p(u0, v0, 0), p(u1, v0, 0), p(u1, v1, 0), p(u0, v1, 0)], 'rgba(26,18,10,.12)');
+    K.poly([p(u0, v0, z), p(u1, v0, z), p(u1, v1, z), p(u0, v1, z)], '#d8b870', 0.5);
+    for (let u = u0 + 1.5; u < u1; u += 1.6) K.ln(p(u, v0, z), p(u, v1, z), 'rgba(140,100,40,.35)', 0.4);
+    for (let v = v0 + 1.5; v < v1; v += 1.6) K.ln(p(u0, v, z), p(u1, v, z), 'rgba(255,240,200,.25)', 0.4);
+    [[v0 + 1.6, '#2a8a3a'], [v1 - 1.6, '#c83a2a']].forEach(([v, c]) => K.poly([p(u0, v - 0.6, z), p(u1, v - 0.6, z), p(u1, v + 0.6, z), p(u0, v + 0.6, z)], c));
+  });
+  // 앵무새 등 — 벽 고리에 앉은 앵무새 모양 등, 배가 노랗게 빛난다
+  defW('parrotlamp', (g, C) => {
+    const K = kit(g, C), x = 20, y = 30;
+    if (!C.lit){ hang(K, 20, 2.5, 0); K.ln([20, 3], [20, 12], '#8a7b6e', 0.45); K.ln([11, 13], [29, 13], '#8a6040', 1.4); }
+    K.light(() => { if (C.lit) K.glow(x, y + 2, 22, '255,210,120', 0.45); K.ov(x, y + 2, 5, 7, C.lit ? '#ffe0a0' : '#f0c020', C.lit ? 0 : 0.4); });
+    if (C.lit) return;
+    K.poly([[x - 5, y - 3], [x - 9, y + 16], [x - 6, y + 17], [x - 2, y + 4]], '#2a6ae8', 0.4); K.poly([[x + 5, y - 3], [x + 9, y + 12], [x + 6, y + 13], [x + 2, y + 4]], '#2a6ae8', 0.4);
+    K.ball(x, y - 6, 5, 5, '#e8302a', 0.45); K.ov(x + 1.6, y - 6, 1.8, 1.6, '#fff4ec'); K.ov(x + 1.8, y - 6.4, 0.6, 0.6, '#2a2a2a');
+    K.poly([[x + 4, y - 7], [x + 7.4, y - 5.6], [x + 4.6, y - 3.6]], '#3a3a3a', 0.3);
+    K.poly([[x - 1, y + 9], [x - 3, y + 22], [x + 1, y + 22], [x + 1, y + 9]], '#e8302a', 0.4);
+    [[-2, 13], [2, 13]].forEach(([dx]) => K.ln([x + dx, y + 8], [x + dx, 13.5], '#7a7a80', 0.6));
+  });
+  // 캉가 천 깔개 — 주황 바탕에 검정·빨강 테두리, 가운데 둥근 무늬와 술
+  def('kanga', (g, C) => {
+    const K = kit(g, C), O = K.O, p = O.p, L = O.L, W = O.W, u0 = 3, u1 = L - 3, v0 = 3, v1 = W - 3, z = 0.6;
+    if (C.lit) return;
+    K.poly([p(u0, v0, 0), p(u1, v0, 0), p(u1, v1, 0), p(u0, v1, 0)], 'rgba(26,18,10,.12)');
+    K.poly([p(u0, v0, z), p(u1, v0, z), p(u1, v1, z), p(u0, v1, z)], '#1a1a1a', 0.5);
+    K.poly([p(u0 + 1.4, v0 + 1.4, z), p(u1 - 1.4, v0 + 1.4, z), p(u1 - 1.4, v1 - 1.4, z), p(u0 + 1.4, v1 - 1.4, z)], '#c82a2a');
+    K.poly([p(u0 + 2.8, v0 + 2.8, z), p(u1 - 2.8, v0 + 2.8, z), p(u1 - 2.8, v1 - 2.8, z), p(u0 + 2.8, v1 - 2.8, z)], '#f08a20');
+    const c = p((u0 + u1) / 2, (v0 + v1) / 2, z); K.ov(c[0], c[1], 7, 3.4, '#1a1a1a'); K.ov(c[0], c[1], 5, 2.4, '#f0c020'); K.ov(c[0], c[1], 2.4, 1.2, '#c82a2a');
+    for (let i = 0; i < 10; i++){ const u = u0 + 4 + (u1 - u0 - 8) * i / 9; [v0 + 4.4, v1 - 4.4].forEach(v => { const a = p(u, v, z); K.ov(a[0], a[1], 0.6, 0.4, '#1a1a1a'); }); }
+    [u0, u1].forEach((u, k) => { for (let i = 0; i <= 8; i++){ const v = v0 + (v1 - v0) * i / 8; K.ln(p(u, v, z), p(u + (k ? 1.8 : -1.8), v, z), '#c82a2a', 0.45); } });
+  });
+  // 북 의자 — 통나무를 깎은 북 모양 의자, 가죽 덮개와 끈
+  def('drumstool', (g, C) => {
+    const K = kit(g, C), x = C.CX, y = C.CY, wd = '#8a5a3a';
+    if (C.lit) return;
+    K.blob(x, y, 9, 3.4);
+    K.poly([[x - 8, y - 1], [x - 6, y - 10], [x - 8, y - 18], [x + 8, y - 18], [x + 6, y - 10], [x + 8, y - 1]], K.lg(x - 8, 0, x + 8, 0, [K.sh(wd, 0.2), wd, K.sh(wd, -0.3)]), 0.5);
+    K.ov(x, y - 1, 8, 2.6, K.sh(wd, -0.2), 0.4);
+    for (let i = -3; i <= 3; i++){ K.ln([x + i * 2.2, y - 17], [x + i * 1.6, y - 10], '#e8d8b0', 0.5); K.ln([x + i * 1.6, y - 10], [x + i * 2.2, y - 2], '#e8d8b0', 0.5); }
+    K.ov(x, y - 18, 8, 2.6, K.lg(x - 8, 0, x + 8, 0, ['#f4e2c0', '#d8c098']), 0.5);
+    [[-3, '#c82a2a'], [0, '#f0c020'], [3, '#2a6ae8']].forEach(([dx, c]) => K.ov(x + dx, y - 10, 0.9, 1.1, c, 0.3));
+  });
+  // 나무 기린 조각 — 키 큰 나무 기린 장식, 얼룩 무늬를 새겼다
+  def('woodgiraffe', (g, C) => {
+    const K = kit(g, C), x = C.CX, y = C.CY, wd = '#d8a040', dk = '#8a5a2a';
+    if (C.lit) return;
+    K.blob(x, y, 8, 3);
+    K.poly([[x - 6, y], [x + 6, y], [x + 6, y - 2.4], [x - 6, y - 2.4]], '#6a4428', 0.4);
+    [[-3.4], [-1.4], [1.4], [3.4]].forEach(([dx]) => K.poly([[x + dx - 0.6, y - 2.4], [x + dx + 0.6, y - 2.4], [x + dx + 0.6, y - 13], [x + dx - 0.6, y - 13]], wd, 0.35));
+    K.ov(x, y - 15, 6, 3.4, K.lg(x - 6, 0, x + 6, 0, [K.sh(wd, 0.2), wd, K.sh(wd, -0.25)]), 0.45);
+    K.poly([[x + 3, y - 16], [x + 7, y - 38], [x + 9, y - 37.6], [x + 6, y - 15]], K.lg(x + 3, 0, x + 9, 0, [K.sh(wd, 0.15), wd]), 0.45);
+    K.ov(x + 9, y - 39, 3.4, 2, wd, 0.45); K.ov(x + 11, y - 38.4, 0.4, 0.4, '#2a1a10');
+    [[x + 7.4, y - 42.4], [x + 9.4, y - 42.6]].forEach(([hx, hy]) => { K.ln([hx, hy + 2], [hx, hy], dk, 0.7); K.ov(hx, hy, 0.7, 0.7, dk); });
+    [[-3, -15], [0.6, -16.4], [3, -14.4], [6, -22], [7, -29], [7.6, -34]].forEach(([dx, dy]) => K.ov(x + dx, y + dy, 1.2, 0.9, dk));
+  });
+  // 구슬 등 — 마사이 구슬을 꿴 둥근 등, 밤이면 알록달록 빛 점
+  defW('beadlamp', (g, C) => {
+    const K = kit(g, C), x = 20, y = 30, cols = ['#c82a2a', '#2a6ae8', '#f0c020', '#1a8a3a', '#ffffff'];
+    if (!C.lit){ hang(K, 20, 2.5, 0); K.ln([20, 3], [20, y - 9], '#8a7b6e', 0.45); }
+    K.light(() => { if (C.lit) K.glow(x, y, 22, '255,200,130', 0.45); K.ov(x, y, 8, 9, C.lit ? '#ffd890' : '#e8c890', C.lit ? 0 : 0.45); });
+    if (C.lit) return;
+    for (let r = 0; r < 5; r++) for (let i = 0; i < 9; i++){ const a = i / 9 * Math.PI - Math.PI / 2 + 0.2, rr = 8 - Math.abs(r - 2) * 1.2; K.ov(x + Math.cos(a) * rr * (i % 2 ? 1 : -1) * 0.9, y - 6 + r * 3, 0.8, 0.8, cols[(r + i) % 5]); }
+    for (let k = -3; k <= 3; k++) K.ln([x + k * 1.2, y + 9], [x + k * 1.6, y + 15], cols[(k + 3) % 5], 0.6);
+  });
 })();

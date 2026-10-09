@@ -8118,7 +8118,7 @@ const WALL_KINDS = { frame: 1, poster: 1, clock: 1, mirror: 1, window: 1, stars:
                      board: 1, garland: 1, wshelf: 1, rainbow: 1,
                      heightbar: 1, worldmap: 1, mobile: 1, wreath: 1,
                      whale: 1, wlight: 1, medalcase: 1,
-                     blueplate: 1, cuckoo: 1, scroll: 1, advent: 1, mlamp: 1 };
+                     blueplate: 1, cuckoo: 1, scroll: 1, advent: 1, mlamp: 1, leaflamp: 1, parrotlamp: 1, beadlamp: 1 };
 /* 옛 세이브에만 남은 규칙 — 벽에 거는 것을 바닥 칸에 두고 어느 벽인지 어림하던 방법.
    지금은 벽 격자('w,벽,칸,단')에 걸므로, fixWorld 가 아직 못 옮긴 것만 이 길로 그린다. */
 function wallSlot(Rm, x, y){
@@ -9192,7 +9192,7 @@ function drawRoomShell(g, r, L, wallItems){
    바뀌므로 그림 자체를 다시 그린다 — 캔버스를 회전시키면 계단 모양이 흐트러진다. */
 let furnBuf = null;
 // 불꽃이 흔들리는 것만 매번 다시 그리고, 나머지는 한 번 그려 담아 둔다
-const FURN_ANIM = { fire: 1, stove: 1, woodstove: 1, rockchair: 1, teaset: 1 };   // 민트 차 김(사막)   // 오로라 장작 난로 불꽃·흔들의자(2026-10-09)
+const FURN_ANIM = { fire: 1, stove: 1, woodstove: 1, rockchair: 1, teaset: 1, rattan: 1 };   // 민트 차 김(사막)   // 오로라 장작 난로 불꽃·흔들의자(2026-10-09)
 /* 방 안에서 빛을 내는 가구. c 는 빛 색(그 가구의 불빛 색), r 은 번지는 반지름(도트),
    dy 는 빛의 가운데를 발자국 가운데에서 얼마나 올릴지, flick 은 흔들림의 갈래.
    밤에는 방을 통째로 어둡게 물들이므로(grade) 불빛도 같이 죽는다 — 그래서 물들인 뒤에
@@ -9204,6 +9204,9 @@ const ROOM_LIGHT = {
   woodstove:{ c: '#ff9a3a', r: 64, dy: -14, flick: 'fire' },        // 오로라 무쇠 장작 난로
   advent:   { c: '#ffc878', r: 50, wall: true, flick: 'breathe' },   // 오로라 대림절 별 등
   mlamp:    { c: '#ffc070', r: 54, wall: true, flick: 'breathe' },   // 사막 모로코 등
+  leaflamp: { c: '#ffa050', r: 50, wall: true, flick: 'breathe' },   // 단풍잎 등 · 앵무새 등 · 구슬 등(2026-10-09)
+  parrotlamp: { c: '#ffd080', r: 46, wall: true, flick: 'breathe' },
+  beadlamp: { c: '#ffc882', r: 50, wall: true, flick: 'breathe' },
   xmas:     { c: '#ffd979', r: 54, dy: -16, flick: 'twinkle' },
   pumpkin:  { c: '#ff8c3a', r: 44, dy: -10, flick: 'fire' },
   nightsky: { c: '#8f9fe6', r: 78, dy: -6,  flick: 'breathe' },
@@ -9261,7 +9264,8 @@ const FURN_H = { rug: 2, bed: 24, bunk: 72, table: 28, desk: 32, chair: 38, sofa
                  bigbear: 80,
                  amphora: 46, olive: 52, kachel: 66, sled: 24, kotatsu: 30, andon: 52,
                  woodstove: 64, furrug: 2, rockchair: 46,
-                 teaset: 36, kilim: 2, pouf: 18 };                            // 사막 가구(2026-10-09)                   // 오로라 가구(2026-10-09) — 그림은 room-hd-furn.js
+                 teaset: 36, kilim: 2, pouf: 18,
+                 plaidsofa: 36, leafrug: 2, syrupshelf: 44, rattan: 46, monstera: 46, weaverug: 2, kanga: 2, drumstool: 22, woodgiraffe: 46 };   // 단풍·밀림·사바나(2026-10-09)                            // 사막 가구(2026-10-09)                   // 오로라 가구(2026-10-09) — 그림은 room-hd-furn.js
 // 가구마다의 재질 — 적지 않은 것은 나무로 친다
 const FURN_MAT = {
   rug:'cloth', bed:'cloth', sofa:'cloth', cushion:'cloth', catbed:'cloth', beanbag:'cloth',

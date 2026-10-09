@@ -351,6 +351,41 @@
       oval(x - 1, y - 1.2, 0.8, 1, 'rgba(255,255,255,.5)');
     });
   };
+  /* 단풍·밀림·사바나·바닷가·꽃구름 전용 작물(2026-10-09 로키즈 「각 농장에서만 얻는 동식물」) */
+  // 무화과 — 작은 나무, 손바닥 잎, 보랏빛 눈물방울 열매
+  CROP.fig = (C, ripe) => {
+    stem(0, 0, -0.5, -8, 0, -14, tn('#8a7a68'), 1.4); stem(0, -9, -4, -12, -6, -16, tn('#8a7a68'), 1); stem(0, -10, 4, -13, 6, -17, tn('#8a7a68'), 1);
+    [[-7, -17, -2.4], [7, -18, -0.7], [0, -16, -1.6], [-3, -11, -2.8], [4, -12, -0.3]].forEach(([x, y, a]) => { for (let k = -1; k <= 1; k++) leaf(x, y, a + k * 0.55, 5, 1.6, C.G, { bend: 0.1 * k }); });
+    const F = ripe ? C.F : pal('#9ac070');
+    [[-5, -12], [5, -13], [0.5, -9], [-2, -15]].forEach(([x, y]) => { g.beginPath(); g.moveTo(x, y - 2.6); g.quadraticCurveTo(x + 2.6, y + 0.6, x, y + 2.2); g.quadraticCurveTo(x - 2.6, y + 0.6, x, y - 2.6); g.closePath(); g.fillStyle = lin(x - 2, y - 2, x + 2, y + 2, [F.hi, F.mid, F.dk]); g.fill(); ink(0.4); oval(x - 0.7, y - 0.4, 0.5, 0.8, 'rgba(255,255,255,.4)'); });
+  };
+  // 녹차 — 둥글게 깎은 차나무 덤불, 끝에 연두 새순
+  CROP.tea = (C, ripe) => {
+    oval(0, -5, 10, 6.4, INK); oval(0, -5, 9.4, 5.8, lin(0, -11, 0, 1, [C.G.hi, C.G.mid, C.G.dk]));
+    for (let i = 0; i < 16; i++){ const x = -8 + (i % 8) * 2.3, y = -9 + Math.floor(i / 8) * 4 + Math.sin(i) * 0.6; oval(x, y, 1.5, 0.8, i % 2 ? C.G.dk : C.G.hi); }
+    if (ripe) [[-6, -10.5], [-2, -11.4], [2.5, -11.2], [6, -10], [0, -10]].forEach(([x, y]) => { leaf(x, y, -1.8, 2.8, 0.9, C.F, { vein: false, ink: 0.35 }); leaf(x, y, -1.2, 2.6, 0.9, C.F, { vein: false, ink: 0.35 }); });
+  };
+  // 크랜베리 — 낮게 기는 덩굴 덤불, 반짝이는 붉은 열매 송이
+  CROP.cranberry = (C, ripe) => {
+    bushMass(C.G, 15, 9, 7);
+    const F = ripe ? C.F : pal('#e8d0a0');
+    [[-5, -4], [4, -5], [-1, -7.5], [6, -2.5], [-6.5, -8], [2, -2]].forEach(([x, y], j) => { for (let i = 0; i < 3; i++){ const bx = x + (i - 1) * 1.7, by = y + (i % 2) * 0.8; ball(bx, by, 1.2, F, 1.15, 0.4); oval(bx - 0.3, by - 0.4, 0.35, 0.25, 'rgba(255,255,255,.7)'); } });
+  };
+  // 카카오 — 굵은 줄기에 큰 잎, 줄기에 바로 매달린 주황·빨강 꼬투리
+  CROP.cacao = (C, ripe) => {
+    stem(0, 0, 0.5, -10, 0, -20, tn('#7a5a3a'), 2);
+    [[-1, -20, -2.2], [1, -20, -0.9], [0, -16, -2.8], [0, -15, -0.3], [0, -21, -1.55]].forEach(([x, y, a]) => leaf(x, y, a, 8, 2.2, C.G, { bend: 0.15 }));
+    const F = ripe ? C.F : pal('#a8c860');
+    [[-2.6, -7, 0.3], [2.6, -9, -0.3], [-2.4, -13, 0.25]].forEach(([x, y, r]) => { g.save(); g.translate(x, y); g.rotate(r); g.beginPath(); g.ellipse(0, 0, 2.2, 4, 0, 0, TAU); g.fillStyle = lin(-2, -4, 2, 4, [F.hi, F.mid, F.dk]); g.fill(); ink(0.45); for (let k = -1; k <= 1; k++) curve(k * 1.1, -3.6, k * 1.5, 0, k * 1.1, 3.6, F.deep, 0.3); g.restore(); });
+  };
+  // 뿔멜론(키와노) — 덩굴 위 주황 열매에 뾰족뾰족 뿔
+  CROP.kiwano = (C, ripe, k) => {
+    CROP.melon(C, false, Object.assign({}, k, { id: 'melon' }));
+    if (!ripe) return;
+    const x = 0, y = -3.8, F = C.F;
+    ball(x, y, 5.4, F, 4.4, 0.55);
+    for (let i = 0; i < 12; i++){ const a = i / 12 * TAU, px = x + Math.cos(a) * 3.6 * (0.5 + (i % 3) * 0.25), py = y + Math.sin(a) * 2.6 * (0.5 + (i % 3) * 0.25); poly([[px - 0.6, py], [px + 0.6, py], [px + Math.cos(a) * 1.4, py - 1.8]], F.dk, 0.3); }
+  };
   CROP.daffodil = (C, ripe) => {
     leaf(-0.5, 0, -1.8, 12, 1, C.G, { bend: 0.1, vein: false }); leaf(0.5, 0, -1.3, 11, 1, C.G, { bend: -0.1, vein: false });
     stem(0, 0, 0.5, -10, 1, -18, C.G.dk, 0.8); stem(1, -18, 2, -19, 3, -18.5, C.G.dk, 0.6);

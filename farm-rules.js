@@ -662,7 +662,7 @@ const FARM = (() => {
       igloo: [7, 0], sled: [9, 0], lavvu: [11, 0], santapost: [4, 0], sugarshack: [13, 0], leafpile: [15, 0], jacklight: [19, 0], canoe: [25, 1] },
     savanna: { mail: [4, 1], board: [5, 0], flag: [26, 3], statue: [19, 4], birdhouse: [20, 0], sign: [5, 2], coop: [0, 4], pethouse: [3, 4], well: [4, 6], hive: [2, 7], scarecrow: [16, 6], barn: [16, 7], greenhouse: [20, 2], fountain: [24, 9], lantern: [15, 10], flowerbed: [17, 10], path: [6, 11], windmill: [21, 11], swing: [0, 11], pond: [1, 14], arch: [2, 13], sandbox: [12, 14], bench: [7, 16], pasture: [16, 14], firepit: [9, 18], clothesline: [0, 19], wagon: [4, 19],
       waterhole: [21, 7], safari: [24, 18], manyatta: [12, 17], lookout: [26, 12],   // 웅덩이는 오른쪽 숲가, 지프는 앞 끝, 흙집은 앞 가운데, 망루는 넓어진 오른쪽 끝
-      sled: [22, 19], icefish: [5, 15], sauna: [23, 12], lavvu: [26, 16], icesculpt: [22, 9], santapost: [7, 0],
+      sled: [22, 19], icefish: [5, 15], sauna: [23, 12], lavvu: [26, 16], icesculpt: [22, 9],
       lighthouse: [22, 0], palm: [0, 7], cairn: [11, 18], waterfall: [4, 17], boat: [18, 6], parasol: [23, 0], woodpile: [2, 11], milkcans: [23, 8], alphorn: [22, 5],
       shishi: [1, 9], koinobori: [2, 9], toro: [24, 2], balloon: [24, 4], skybridge: [24, 17],
       igloo: [6, 0], santapost: [4, 0], sugarshack: [8, 0], leafpile: [10, 0], jacklight: [11, 0], treehouse: [12, 0], ropebridge: [14, 0], vinehammock: [26, 0], samba: [19, 0] },
