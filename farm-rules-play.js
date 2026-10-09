@@ -1374,7 +1374,8 @@
     }
     // ② 그림엽서 — 이사 조건을 절반 넘게 채우면 다음 농장에서 한 번 온다
     const ms = moveState(world, mine), nx = ms.next;
-    if (nx && world.postcard !== nx.id){
+    // 방주 농장은 엽서를 안 보낸다 — 방주 이야기는 이사 가자고 하는 순간 처음 듣는다(2026-10-10 로키즈)
+    if (nx && nx.id !== 'ark' && world.postcard !== nx.id){
       const need = ms.conds.reduce((a, c) => a + c.need, 0), left = ms.conds.reduce((a, c) => a + c.left, 0);
       if (need && left <= need / 2){
         world.postcard = nx.id;
@@ -1503,8 +1504,8 @@
     if (A.seeds.indexOf(crop) >= 0) return fail(C.name + ' 씨앗은 이미 금고에 있어요');
     if (!take(mine, 'seed:' + crop)) return fail(C.name + ' 씨앗이 가방에 없어요. 가게에서 사거나 자매에게 받아요');
     A.seeds.push(crop); mine.xp += 5;
-    if (A.seeds.length === CROP_IDS.length) logAdd(world, mine.key, '방주 씨앗 금고에 모든 작물 씨앗이 모였어요!', now);
-    return okay('🌰 <b>' + C.name + '</b> 씨앗을 방주 씨앗 금고에 넣었어요 (' + arkSeedsHave(world) + '/' + CROP_IDS.length + ')', { seed: crop });
+    if (A.seeds.length === CROP_IDS.length) logAdd(world, mine.key, '씨앗 금고에 모든 작물 씨앗이 모였어요!', now);
+    return okay('🌰 <b>' + C.name + '</b> 씨앗을 씨앗 금고에 넣었어요 (' + arkSeedsHave(world) + '/' + CROP_IDS.length + ')', { seed: crop });
   }
   // 방주 짓기 — 지금 단계에 각자 제 몫을 낸다. 둘 다 내면 한 단계 올라간다
   function arkPay(world, mine, now){

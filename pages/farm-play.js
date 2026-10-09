@@ -202,6 +202,7 @@ function syncTop(){
   const n = (W.mail[key] || []).length; $('#mailN').hidden = !n; $('#mailN').textContent = n;
   const waiting = duoWaiting(); $('#duoN').hidden = !waiting; $('#duoN').textContent = waiting;
   const an = $('#arkN'); if (an){ const aw = arkWaiting(); an.hidden = !aw; an.textContent = aw; }
+  const ab = document.querySelector('#tabs [data-tab="ark"]'); if (ab) ab.hidden = !arkKnown();
 }
 // 농장 위 이사 알림 — 「꾸미개 N개만 더 놓으면 새 농장으로」. 누르면 가게 꾸미기 칸이 열린다.
 function syncMoveHint(){
@@ -224,7 +225,7 @@ function syncMoveHint(){
     return;
   }
   el.dataset.mode = 'move';
-  const s = R.moveState(W, M);
+  const s = R.moveState(W, M); s.next = shownNext(s.next);
   el.hidden = !s.next;
   if (!s.next) return;
   const o = R.OTHER[key];
@@ -1307,7 +1308,8 @@ function localName(id){ if (R.ANIMALS[id]) return R.ANIMALS[id].icon + ' ' + R.A
 let keepPick = null;                                               // 들고 갈 추억 — 먼저 묻는 아이가 고른다
 function moveCard(cls){
   if (!R.moveState) return null;                                   // 배포 어긋남 대비
-  const s = R.moveState(W, M), o = R.OTHER[key];
+  const s = R.moveState(W, M), o = R.OTHER[key], toArk = !!s.next && s.next.id === 'ark';
+  s.next = shownNext(s.next);
   const d = document.createElement('div'); d.className = cls;
   if (!s.next){
     d.innerHTML = '<div class="nm">🗺️ 네 농장을 모두 다녀왔어요</div><div class="pr">' + (W.past || []).map(p => { const F = R.FARMS.find(f => f.id === p.farm); return F ? F.icon + ' ' + F.name : ''; }).join(' → ') + ' → ' + s.farm.icon + ' ' + s.farm.name + '</div>';
@@ -1318,9 +1320,9 @@ function moveCard(cls){
     : s.ready ? '준비가 다 됐어요! 둘 다 좋다고 하면 떠나요'
     : '아래를 모두 채우면 이사 갈 수 있어요';
   const list = s.conds.map(c => (c.left ? '⬜ ' : '✅ ') + c.icon + ' ' + c.name + ' ' + Math.min(c.have, c.need) + '/' + c.need + (c.miss && c.miss.length ? ' — <b>' + c.miss.map(localName).join('·') + '</b>' : '')).join('<br>')
-    + (s.conds.some(c => c.id.indexOf('local:') === 0) ? '<br><small>🛶 이 농장에서만 얻는 동식물이에요. 떠나기 전에 챙겨야 방주에 실을 수 있어요(씨앗은 「🛶 방주」 칸 씨앗 금고에).</small>' : '');
+    + (s.conds.some(c => c.id.indexOf('local:') === 0) ? '<br><small>🌍 이 농장에서만 얻는 동식물이에요. 떠나면 다시 못 구하니 꼭 챙겨요(씨앗은 ' + (arkKnown() ? '「🛶 방주」 칸' : '아래') + ' 씨앗 금고에).</small>' : '');
   const gk = R.movePath(W).map(f => Object.keys(R.ANIMALS).find(k => R.ANIMALS[k].gift === f.id)).filter(Boolean);   // 건너뛴 농장의 아기도
-  const sp = ((R.SPECIALS || {})[s.next.id] || []).map(R.itemName).join('·'), land = landLine(s.farm, s.next);
+  const sp = (s.next.secret ? [] : (R.SPECIALS || {})[s.next.id] || []).map(R.itemName).join('·'), land = landLine(s.farm, s.next);
   const why = (s.next.perk ? '<br>🌟 새 능력: <b>' + s.next.perk.icon + ' ' + s.next.perk.text + '</b>' : '') + (sp ? '<br>🌍 새 특산물: ' + sp + ' — 다른 농장에서 팔면 1.5배' : '') + (land ? '<br>' + land.replace('넓어졌어요!', '넓어져요:') : '');
   d.innerHTML = '<div class="nm">🚚 ' + s.next.icon + ' ' + s.next.name + '으로 이사</div><div class="pr">' + s.next.desc + why + '<br>' + say + '<br>' + list +
     '<br>🎁 이삿날 선물: 동전 ' + (R.MOVE_GIFT || 0) + ' · 추억 하나' + gk.map(k => ' · 아기 ' + R.ANIMALS[k].name).join('') + ' · 새 문패 · 여권 도장' +
@@ -1351,7 +1353,6 @@ function moveCard(cls){
     // 옛 농장을 구경하던 중이면 먼저 지금 농장으로 돌아온다 — 떠난 뒤에도 옛 그림이 남지 않게
     if (visiting()) visitFarm(null);
     // 이삿날 장면은 act 가 다시 그리며 부르는 checkArrival 이 띄운다
-    const toArk = s.next && s.next.id === 'ark';
     const r = act((w, m) => R.askMove(w, m, now(), keepPick || undefined));
     if (r.ok){ sfx(r.moved ? 'fanfare' : 'pop'); keepPick = null; }
     renderTab();
@@ -1361,6 +1362,7 @@ function moveCard(cls){
   }, !s.ready || (pickable.length > 0 && !keepPick)));
   if (s.ask) a.appendChild(btn(s.mineAsked ? '물어본 것 거두기' : '다음에 가자', '', () => { act((w, m) => R.cancelMove(w, m, now())); renderTab(); }));
   d.appendChild(a);
+  if (!arkKnown()){ const c = localCard(); if (c) d.appendChild(c); }
   return d;
 }
 function renderShop(){
@@ -1923,6 +1925,19 @@ function renderDuo(){
   });
   renderTree();
 }
+// 이 농장에서만 얻는 것(2026-10-09 로키즈 「각 농장에서만 얻는 동식물 — 이주 조건」)
+function localCard(){
+  const card = (cls, html) => { const d = document.createElement('div'); d.className = cls; d.innerHTML = html; return d; };
+  const LS = R.localState ? R.localState(W, M) : null, F = R.farmOf(W);
+  if (!LS || !(LS.animals.length || LS.crops.length || LS.goods.length)) return null;
+  const row = (x, txt) => '<span class="' + (x.have ? 'paid' : '') + '">' + (x.have ? '✅ ' : '⬜ ') + txt + '</span>';
+  const c = card('build move', '<div class="nm">' + F.icon + ' ' + F.name + '에서만 얻는 것 — 떠나기 전에 챙겨요</div>'
+    + (LS.animals.length ? '<div class="who">' + LS.animals.map(x => row(x, R.ANIMALS[x.id].icon + ' ' + R.ANIMALS[x.id].name + (R.ANIMALS[x.id].gift ? '' : ' (가게)'))).join('') + '</div>' : '')
+    + (LS.crops.length ? '<div class="who">' + LS.crops.map(x => row(x, '🌰 ' + R.CROPS[x.id].name + ' 씨앗 → 금고')).join('') + '</div>' : '')
+    + (LS.goods.length ? '<div class="who">' + LS.goods.map(x => row(x, R.itemName(x.id))).join('') + '</div>' : ''));
+  LS.crops.filter(x => !x.have && (M.inv['seed:' + x.id] || 0) > 0).forEach(x => { const b = btn('🌰 ' + R.CROPS[x.id].name + ' 씨앗 금고에 넣기', 'sm buy', () => { const r = act((w, m) => R.arkSeed(w, m, x.id, now())); if (r.ok) sfx('plant'); renderTab(); }); b.style.marginTop = '6px'; c.appendChild(b); });
+  return c;
+}
 // ---------- 🛶 방주 — 메인 목표 「수아연아의 방주」(2026-10-09 로키즈) ----------
 /* 큰 퀘스트 카드(짝·씨앗·방주·양식 막대) → 지금 할 일(방주 농장 가는 길 / 방주 짓기·양식 창고·입장 / 한 달 보내기 / 새 땅 짓기) → 방주 명부(동물 짝·씨앗 금고).
    규칙은 farm-rules-play.js 의 ark* · landPay */
@@ -1964,17 +1979,7 @@ function renderArk(){
     const i0 = W.farm || 0, ia = R.FARMS.findIndex(f => f.id === 'ark');
     const path = R.FARMS.slice(i0, ia + 1).filter(f => !f.skip).map(f => f.icon + ' ' + f.name).join(' → ');
     L1.appendChild(card('build move', '<div class="nm">🚚 방주 농장까지</div><div class="pr">' + path + '<br>지금부터 동물을 한 쌍씩, 씨앗을 한 알씩 모아 둬요. <b>농장 전용 동식물</b>은 그 농장에 있을 때만 얻을 수 있어서, 다 챙겨야 다음 농장으로 떠날 수 있어요.<br><small>방주 농장에서는 혼자인 동물에게 짝꿍이 스스로 찾아와요(창세기 7:9).</small></div>'));
-    // 이 농장에서만 얻는 것(2026-10-09 로키즈 「각 농장에서만 얻는 동식물 — 이주 조건」)
-    const LS = R.localState ? R.localState(W, M) : null, F = R.farmOf(W);
-    if (LS && (LS.animals.length || LS.crops.length || LS.goods.length)){
-      const row = (x, txt) => '<span class="' + (x.have ? 'paid' : '') + '">' + (x.have ? '✅ ' : '⬜ ') + txt + '</span>';
-      const c = card('build move', '<div class="nm">' + F.icon + ' ' + F.name + '에서만 얻는 것 — 떠나기 전에 챙겨요</div>'
-        + (LS.animals.length ? '<div class="who">' + LS.animals.map(x => row(x, R.ANIMALS[x.id].icon + ' ' + R.ANIMALS[x.id].name + (R.ANIMALS[x.id].gift ? '' : ' (가게)'))).join('') + '</div>' : '')
-        + (LS.crops.length ? '<div class="who">' + LS.crops.map(x => row(x, '🌰 ' + R.CROPS[x.id].name + ' 씨앗 → 금고')).join('') + '</div>' : '')
-        + (LS.goods.length ? '<div class="who">' + LS.goods.map(x => row(x, R.itemName(x.id))).join('') + '</div>' : ''));
-      LS.crops.filter(x => !x.have && (M.inv['seed:' + x.id] || 0) > 0).forEach(x => { const b = btn('🌰 ' + R.CROPS[x.id].name + ' 씨앗 금고에 넣기', 'sm buy', () => { const r = act((w, m) => R.arkSeed(w, m, x.id, now())); if (r.ok) sfx('plant'); }); b.style.marginTop = '6px'; c.appendChild(b); });
-      L1.appendChild(c);
-    }
+    { const c = localCard(); if (c) L1.appendChild(c); }
   }
   if (s.atArk && !s.phase){
     // 방주 열 단계
@@ -2170,6 +2175,17 @@ function memorialTap(e){
 }
 // 하나님의 음성(2026-10-09 로키즈 「이사가기로 결정버튼을 누르면 하나님의 음성」) — 장면 아래 대사가 한 줄씩. 다 들으면 큰 퀘스트 카드
 const VOICE_KEY = () => 'suayona.farm.voice.' + key;
+/* 방주 이야기는 방주 농장으로 「이사 가자고 하기」를 누른 순간(하나님의 음성) 처음 안다(2026-10-10 로키즈 「아직은 알면 안 돼」).
+   그 전에는 방주 칸·방주 훈장·도감의 방주·무지개 농장을 숨기고, 다음 농장도 「수수께끼 농장」으로 보인다 */
+const ARK_FARMS = ['ark', 'newland'];
+const ARK_MEDALS = ['stampArk', 'arkPairs', 'arkSeeds', 'arkBuilt', 'flood', 'arkCards', 'arkGarden', 'rainbow'];
+function arkKnown(){
+  if (!W) return false;
+  if ((W.farm || 0) >= R.FARMS.findIndex(f => f.id === 'ark') || (W.ark && W.ark.phase)) return true;
+  try { return localStorage.getItem(VOICE_KEY()) === '1'; } catch (e) { return false; }
+}
+const shownNext = F => F && F.id === 'ark' && !arkKnown()
+  ? Object.assign({}, F, { name: '수수께끼 농장', icon: '❔', desc: '먹구름이 몰려오는 너른 들판 — 무엇이 기다리는지는 이사 가는 날 알게 돼요', perk: null, secret: true }) : F;
 const VOICE_LINES0 = [
   ['', '(하늘의 구름이 갈라지고, 따스한 빛이 내려와요…)'],
   ['God', '수아야, 연아야.'],
@@ -2449,10 +2465,10 @@ function dexShown(all){
   return all.filter(e => (dexCat === 'all' || e.cat === dexCat) && (dexFarm === 'all' || e.farm === dexFarm));
 }
 function renderDex(){
-  const all = dexList(), cats = $('#dexCats'), farms = $('#dexFarms'), box = $('#dex');
+  const all = dexList().filter(e => arkKnown() || !ARK_FARMS.includes(e.farm)), cats = $('#dexCats'), farms = $('#dexFarms'), box = $('#dex');
   cats.innerHTML = ''; farms.innerHTML = ''; box.innerHTML = '';
   DEX_CATS.forEach(([k, l]) => cats.appendChild(btn(l, dexCat === k ? 'on' : '', () => { dexCat = k; renderDex(); })));
-  [['all', '모든 농장']].concat(R.FARMS.filter(f => !f.skip).map(f => [f.id, f.icon + ' ' + f.name.replace(/ 농장$/, '')])).forEach(([k, l]) => {
+  [['all', '모든 농장']].concat(R.FARMS.filter(f => !f.skip && (arkKnown() || !ARK_FARMS.includes(f.id))).map(f => [f.id, f.icon + ' ' + f.name.replace(/ 농장$/, '')])).forEach(([k, l]) => {
     const n = all.filter(e => e.farm === k || k === 'all'), done = n.length && n.every(e => e.have);
     farms.appendChild(btn(l + (done && k !== 'all' ? ' 🏅' : ''), dexFarm === k ? 'on' : '', () => { dexFarm = k; renderDex(); }));
   });
@@ -2593,7 +2609,7 @@ function openDiary(){
 function renderMedals(){
   const box = $('#medals'); if (!box) return;
   box.innerHTML = '';
-  const list = R.medalState(W, M);
+  const list = R.medalState(W, M).filter(m => arkKnown() || !ARK_MEDALS.includes(m.id));
   list.forEach(m => {
     const d = document.createElement('div');
     d.className = m.got ? 'got' : m.ready ? 'can' : 'no';
