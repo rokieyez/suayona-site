@@ -797,7 +797,7 @@ function openMail(){
   $('#modal').hidden = false;
   $('#mailClose').addEventListener('click', closeModal);
   $('#mailNote').addEventListener('click', noteDialog);
-  const t = $('#mailTake'); if (t) t.addEventListener('click', () => { const r = act((w, m) => R.openMail(w, m)); if (r.ok) sfx('fanfare'); closeModal(); });
+  const t = $('#mailTake'); if (t) t.addEventListener('click', () => { const r = act((w, m) => R.openMail(w, m, now())); if (r.ok) sfx('fanfare'); closeModal(); });
 }
 /* 쪽지 — 물건 없이 한 마디만. 선물 창과 같은 모양이라 아이가 헷갈리지 않는다. */
 function noteDialog(){
@@ -1932,7 +1932,7 @@ function dexList(){
   Object.keys(R.GUESTS).forEach(f => { const G = R.GUESTS[f]; add({ cat: 'guest', id: 'guest:' + f, emoji: G.icon, name: G.name, farm: f,
     hint: farmName(f) + '에 살면 사흘마다 부탁하러 와요. 부탁을 들어주면 만난 거예요' }); });
   Object.keys(R.FESTIVALS).forEach(s => {
-    const F = R.FESTIVALS[s], won = Object.keys(W.festival || {}).filter(k => /^y\d+/.test(k) && k.replace(/^y\d+/, '') === s && W.festival[k].done);
+    const F = R.FESTIVALS[s], won = Object.keys(W.festival || {}).filter(k => /^y\d+/.test(k) && k.replace(/^y\d+/, '') === s && (W.festival[k] || {}).done);
     const who = {}; won.forEach(k => Object.keys(W.festival[k].by || {}).forEach(p => { who[p] = true; }));
     add({ cat: 'guest', id: 'fest:' + s, emoji: F.icon, name: F.name, farm: null, shared: true, have: won.length > 0,
       hint: R.SEASON_NAME[s] + ' 마지막 이틀에 열려요. ' + F.desc,
@@ -1952,8 +1952,8 @@ function dexList(){
   const room = {}; Object.keys(W.house || {}).forEach(r => Object.keys(W.house[r] || {}).forEach(p => { const it = W.house[r][p]; if (it) room[it.f] = r; }));
   Object.keys(R.FURNITURE).forEach(v => {
     const F = R.FURNITURE[v], a = (W.furnAt || {})[v];
-    if (skipFarm(F.farm)) return;
     const old = !!room[v] || (M.inv['f:' + v] || 0) > 0 || !!(other && (other.inv['f:' + v] || 0) > 0);
+    if (skipFarm(F.farm) && !a && !old) return;      // 화산 가구는 가게에서 못 사지만, 행상인에게 산 것은 보여 준다
     add({ cat: 'furn', id: 'f:' + v, name: F.name, farm: F.farm || null, shared: true, have: !!a || old, by: a && a.by,
       info: a ? [['처음 들인 날', a.d + ' · ' + farmName(a.f)], ['들인 사람', NAME[a.by] || '-']] : old ? [['', '예전부터 있었어요']] : null });
   });
@@ -2007,7 +2007,8 @@ function dexHint(e){
    「전체」에서 0.2~0.4초씩 걸렸다. 담은 것을 새 캔버스에 옮겨 그려 준다(한 캔버스는 한 자리에만 선다). */
 const dexIconKeep = {};
 function dexIcon(e){
-  const k = e.id + (e.shiny ? '*' : ''), src = dexIconKeep[k] || (dexIconKeep[k] = dexIconDraw(e));
+  // 고화소 가구 그림은 낮·밤 빛깔이 달라(furnBitmap) 그때의 낮밤을 열쇠에 넣는다
+  const k = e.id + (e.shiny ? '*' : '') + (e.cat === 'furn' ? '|' + (dayLight().dark ? 'n' : 'd') : ''), src = dexIconKeep[k] || (dexIconKeep[k] = dexIconDraw(e));
   const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32;
   cv.getContext('2d').drawImage(src, 0, 0);
   return cv;
@@ -2032,7 +2033,10 @@ function dexIconDraw(e){
 function dexWho(e){
   // 공동 것은 누가 했는지, 각자 것은 수·연 두 글자에 불을 켠다. 둘 다면 하트
   const s = document.createElement('span'); s.className = 'who';
-  if (e.shared){ if (e.by) s.innerHTML = '<i class="on k-' + e.by + '">' + NAME[e.by][0] + '</i>'; return s; }
+  if (e.shared){
+    if (NAME[e.by]){ const i = document.createElement('i'); i.className = 'on k-' + e.by; i.textContent = NAME[e.by][0]; s.appendChild(i); }   // 서버 값은 모양을 안 거른다 — 수아·연아만
+    return s;
+  }
   const has = { [key]: e.me, [R.OTHER[key]]: e.sis };
   s.innerHTML = ['sua', 'yona'].map(k => '<i class="k-' + k + (has[k] ? ' on' : '') + '">' + NAME[k][0] + '</i>').join('') + (e.me && e.sis ? '<i class="both">♥</i>' : '');
   return s;
@@ -2061,10 +2065,16 @@ function renderDex(){
       d.appendChild(ss);
     }
     d.appendChild(dexWho(e));
+    // 키보드로도 연다 — 칸은 div 라 스스로는 초점을 못 받는다
+    d.tabIndex = 0; d.setAttribute('role', 'button'); d.setAttribute('aria-label', (e.have || e.sis ? e.name : '아직 못 만난 칸') + ' 자세히 보기');
     d.addEventListener('click', () => openDexCard(e));
+    d.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); openDexCard(e); } });
     box.appendChild(d);
   });
+  // 그 농장에서만 나는 그 갈래가 없을 때(꽃구름 산물 등) — 빈 판 대신 어디서 찾을지 알려 준다
+  if (!list.length) box.innerHTML = '<p class="sub dexnone">' + escapeHTML(R.eun(dexLabel())) + ' 따로 없어요. 「모든 농장」이나 🌾 들판(어느 농장에서나 나는 것)에서 찾아봐요.</p>';
   const label = dexLabel(), bar = $('#dexBar'), pct = list.length ? Math.round(got * 100 / list.length) : 0;
+  bar.hidden = !list.length;
   bar.innerHTML = '<div class="pg"><i style="width:' + pct + '%"></i></div><span><b>' + got + '/' + list.length + '</b>'
     + (both > got ? ' · 둘이 합쳐 ' + both : '') + '</span>';
   if (list.length && got === list.length){

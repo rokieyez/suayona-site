@@ -74,6 +74,35 @@ const rich = k => Object.assign(R.fixMine(null, k || 'sua'), { coins: 99999, xp:
   assert(R.buy(w, y, 'f:' + f, day).ok); assert(R.buy(w, m, 'f:' + f, at(12, 14)).ok);
   assert.strictEqual(w.furnAt[f].by, 'yona', '먼저 들인 사람이 남는다');
 }
+// 2차 검토(마무리) — 행상인 가구·물어 온 물고기의 첫 낚시·날짜 없는 편지
+{
+  // 행상인이 오는 날 가운데 가구 칸이 있는 날을 찾아 산다
+  let ok = false;
+  for (let d = 1; d <= 60 && !ok; d++){
+    const w = world('meadow'), m = rich(), t = at(12, d);
+    if (!R.peddlerHere(w, t)) continue;
+    const it = R.peddlerStock(w, t).find(x => String(x.id).slice(0, 2) === 'f:');
+    if (!it) continue;
+    assert(R.buy(w, m, 'ped:' + it.slot, t).ok);
+    assert.strictEqual(w.furnAt[it.id.slice(2)].by, 'sua', '행상인 가구도 집 도감에');
+    ok = true;
+  }
+  assert(ok, '가구를 파는 행상인 날이 있어야 한다');
+  const w = world('meadow'), m = rich(); w.decor.pond = { by: 'sua' };
+  R.FISH_IDS.forEach(f => R.noteDex(w, m, 'fish:' + f, day));       // 두루미가 물어 온 것처럼 크기 없이
+  const r = R.fish(w, m, at(12, 3), 'good', 'pond');
+  assert(r.ok && !/가장 큰 기록/.test(r.msg), '크기 없던 물고기의 첫 낚시는 기록 갱신이 아니다: ' + r.msg);
+  const w2 = world('aurora'), m2 = rich();
+  w2.mail.sua.push({ id: 'note', n: 1, from: 'santa', note: '' });
+  R.openMail(w2, m2, at(12, 20));
+  assert.strictEqual(R.dexRec(m2, 'ev:santa').d, R.dayKey(at(12, 20)), '날짜 없는 편지는 연 날');
+}
+// 빈 축제 기록은 읽을 때 거른다(훈장이 .done 을 읽다 터지지 않게)
+{
+  const w = R.fixWorld({ festival: { y1summer: null, junk: 3, y2winter: { done: true } } }, day);
+  assert.deepStrictEqual(Object.keys(w.festival), ['y2winter']);
+  R.medalState(w, rich());
+}
 // 둘이서 모닥불 — 농장에 한 번
 {
   const w = world('meadow'), a = rich('sua'), b = rich('yona'), night = at(22);

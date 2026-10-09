@@ -245,6 +245,8 @@
   /* 도감 강화(2026-10-09) — 못 모은 칸은 까만 그림자, 자매만 모은 칸은 이름이 보이게 흐리게 */
   .dex{margin-bottom:14px;}
   .dex div{cursor:pointer;}
+  .dex div:focus-visible{outline:3px solid #3f9a4b; outline-offset:1px;}
+  .dex .dexnone{grid-column:1 / -1; border:0; text-align:left; font-size:12.5px; padding:6px 0; cursor:default;}
   .dex div canvas{width:32px; height:32px;}
   .dex div.no{opacity:1; color:var(--ink-soft);}
   .dex div.no canvas{filter:grayscale(1) contrast(.6); opacity:.3;}
@@ -466,13 +468,13 @@
         integrity="sha384-0UK+HVlz5Y7F//atDpPysyocv/PjGXQoBX+XSaL/eEotARW8rPFh+lL5sO0Ljzfi" crossorigin="anonymous"></script>
 <script src="./pixel.js"></script>
 <script src="./common.js"></script>
-<script src="./farm-rules.js?v=1009dex"></script>
+<script src="./farm-rules.js?v=1009dex2"></script>
 <script src="/pages/kid-art.js?v=0929c"></script>
 <script src="/pages/farm-hd.js?v=1009z"></script>
 <script src="/pages/farm-hd-life.js?v=1009z"></script>
 <script src="/pages/farm-hd-people.js?v=1009z"></script>
 <script src="/pages/room-hd.js?v=1009z"></script>
 <script src="/pages/room-hd-furn.js?v=1009z"></script>
-<script src="/pages/farm.js?v=1009dex"></script>
+<script src="/pages/farm.js?v=1009dex3"></script>
 </body>
 </html>

@@ -299,8 +299,9 @@
     const cnt = g === 'perfect' && !FISH[got].junk ? 2 : 1;
     give(mine, 'fish:' + got, cnt);
     const cm = fishCm(got, mine.key + key + n, g), was = dexRec(mine, 'fish:' + got);
-    const e = noteDex(world, mine, 'fish:' + got, now, cnt, { cm });
-    const best = !!was && cm > was.x && e.n > cnt;      // 처음 낚은 것은 기록 갱신이라 하지 않는다
+    noteDex(world, mine, 'fish:' + got, now, cnt, { cm });
+    // 처음 낚은 것은 기록 갱신이라 하지 않는다 — 두루미·갈매기가 물어 와 크기 없이 도감에 든 물고기(x=0)도 마찬가지
+    const best = !!was && was.x > 0 && cm > was.x;
     mine.xp += XP.fish + (g === 'perfect' ? 3 : 0); bump(mine, 'fished', 1, now);
     if (FISH[got].junk) return okay(eul(FISH[got].name) + ' 건졌어요… 물고기는 아니네요', { junk: true });
     const two = (cm ? ' · ' + cm + 'cm' + (best ? ' 🏆 가장 큰 기록!' : '') : '') + (cnt > 1 ? ' <b>두 마리</b>나!' : '');
@@ -967,6 +968,7 @@
         return okay('보따리를 풀었더니 — ' + P.say + '!', { box: true });
       }
       give(mine, it.id, it.n);
+      if (String(it.id).slice(0, 2) === 'f:') noteFurn(world, mine, it.id, now);   // 행상인 가구도 집 도감에
       return okay(eul(itemName(it.id)) + (it.n > 1 ? ' ' + it.n + '개를' : '') + ' 샀어요');
     }
     if (k === 'sprinkler' || k === 'sprinkler2'){
@@ -1233,7 +1235,7 @@
     return okay(F.name + '에 냈어요 (' + f.score + '/' + F.n + ')');
   }
   // 우편함의 동전 봉투는 물건이 아니라서 따로 받는다.
-  function openMailAll(world, mine){
+  function openMailAll(world, mine, now){
     const box = world.mail[mine.key] || [];
     if (!box.length) return fail('우편함이 비었어요');
     const got = box.splice(0, box.length);
@@ -1241,8 +1243,8 @@
     got.forEach(g => {
       if (g.id === 'coins') coins += g.n; else if (g.id !== 'note') give(mine, g.id, g.n);
       // 손님·사건 도감 — 산타·램프 요정·그림엽서·이사 선물·축제 상. 날짜는 편지가 온 때
-      if (DEX_MAIL.indexOf(g.from) >= 0){ noteDex(world, mine, 'ev:' + g.from, g.t); if (DEX_GOODS.indexOf(g.id) >= 0) noteDex(world, mine, g.id, g.t, g.n); }
-      if (String(g.id).slice(0, 2) === 'f:') noteFurn(world, mine, g.id, g.t);
+      if (DEX_MAIL.indexOf(g.from) >= 0){ noteDex(world, mine, 'ev:' + g.from, g.t || now); if (DEX_GOODS.indexOf(g.id) >= 0) noteDex(world, mine, g.id, g.t || now, g.n); }
+      if (String(g.id).slice(0, 2) === 'f:') noteFurn(world, mine, g.id, g.t || now);
     });
     mine.coins += coins;
     const things = got.filter(g => g.id !== 'note');

@@ -1122,6 +1122,8 @@ const FARM = (() => {
     if (!w || typeof w !== 'object') return base;
     const o = Object.assign(base, w);
     ['plots', 'buildings', 'orders', 'festival', 'seen', 'decor', 'layout'].forEach(k => { if (!o[k] || typeof o[k] !== 'object') o[k] = {}; });
+    // 축제 한 판이 빈 값이면 훈장·도감이 .done 을 읽다 터진다 — 서버는 값의 모양을 안 보니 여기서 거른다
+    Object.keys(o.festival).forEach(k => { if (!o.festival[k] || typeof o.festival[k] !== 'object') delete o.festival[k]; });
     // 옮긴 자리는 늘 지도 안에 있어야 한다 — 지도가 바뀌어도 물건이 밖으로 나가지 않게.
     Object.keys(o.layout).forEach(id => {
       const P = PLACE[id] || ((NODES[id] || /^sc\d+$/.test(id)) && { w: 1, h: 1 }), L = o.layout[id];   // 채집 자리·풍경도 옮긴 자리를 적는다
