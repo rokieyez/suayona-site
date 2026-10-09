@@ -7624,6 +7624,23 @@ function withView(fn){
   try { return fn(); } finally { VIEW_KEYS.forEach(k => { W[k] = keep[k]; }); inView = false; syncGrid(); }
 }
 
+// ---- 대홍수(2026-10-09 「수아연아의 방주」) ----
+/* 방주에 들어간 뒤 열두 달 동안은 섬 대신 큰물 위의 방주 단면을 그린다(pages/farm-ark.js 의 voyage).
+   층마다 지금 있는 동물(가짓수마다 둘까지), 양식 자루는 창고 양식만큼, 위층엔 수아·연아. 옛 농장 구경 중이면 그 농장 */
+function voyageOn(){ return !!W && !!W.ark && W.ark.phase === 'flood' && R.farmOf(W).id === 'ark' && !!(window.FARMHD && window.FARMHD.ark); }
+function drawVoyage(g, t, L){
+  hdLight = L;
+  const kinds = [];
+  (R.ARK_KINDS || Object.keys(R.ANIMALS)).forEach(k => { const n = (W.animals || []).filter(a => a.kind === k).length; if (n) kinds.push({ kind: k, n }); });
+  const st = { month: W.ark.month || 0, food: W.ark.food || 0, sacks: Math.ceil((W.ark.food || 0) / 40), kinds };
+  ctx = g; lamps = []; isoHits = []; cropHits = [];
+  hd((c, E) => window.FARMHD.ark.voyage(c, E, st));
+  ctx = g;
+  drawTapMark(t);
+  drawBubbles(t);
+  drawFishBar(t);
+}
+
 // ---- 한 장 그리기 ----
 function drawFarm(cvIn, tms){
   const cv = cvIn || $('#farmCanvas');
@@ -7646,6 +7663,7 @@ function drawFarmIn(cv, tms){
   const windStep = Math.round(t / 110) * 110;
   const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, cw, ch);
+  if (isoView && voyageOn()) return drawVoyage(g, t, L);
   if (isoView) return drawFarmIso(cv, g, t, cal, season, wk, L, windStep);
 
   // 1 땅
