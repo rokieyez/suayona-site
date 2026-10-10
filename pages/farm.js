@@ -53,6 +53,38 @@ function flash(html, bad){
   clearTimeout(flash.timer);
   flash.timer = setTimeout(() => { t.style.opacity = '0'; }, 2400);
 }
+/* 사라지지 않는 안내 띠 — 저장이 막혔을 때처럼 2.4초 만에 지나가면 안 되는 말. 빈 값을 주면 걷는다.
+   flash 의 떠 있는 안내와 같은 모양으로 머리띠 바로 아래에 붙고, 가게 같은 창이 떠 있어도 그 위에 보인다. */
+function stickMsg(html){
+  let t = $('#fstick');
+  if (!t){
+    if (!html) return;
+    t = document.createElement('div'); t.id = 'fstick'; t.setAttribute('role', 'alert');
+    t.style.cssText = 'position:fixed;left:50%;top:calc(var(--header-h, 56px) + 8px);transform:translateX(-50%);z-index:95;max-width:calc(100vw - 32px);'
+      + 'padding:9px 16px;border-radius:12px;font-size:14px;font-weight:800;line-height:1.5;text-align:center;'
+      + 'box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:none;background:#fff0ee;color:#b23a3a;border:2px solid #e8a39b;';
+    document.body.appendChild(t);
+  }
+  t.innerHTML = html || ''; t.hidden = !html;
+}
+/* 서버 세이브의 규칙 판 번호(rv)가 이 탭의 것(R.RULES_V)보다 크다 — 배포 전에 열어 둔 탭이다.
+   이대로 읽으면 fixWorld 가 모르는 새 가구·씨앗·자리를 걸러 내고, 그걸 저장하면 자매가 새로 산 것이 사라진다.
+   그래서 읽지도 저장하지도 않고(halted — commit·act 가 본다) 새로 고쳐 새 규칙을 받는다.
+   새로 고쳐도 옛 파일이 올 수 있으니(배포 직후 10분 캐시) 60초 안에 또 걸리면 새로 고치지 않고 안내만 붙여 둔다 — 끝없이 도는 것을 막는다. */
+let halted = false;
+const STALE_KEEP = 'suayona.farm.stale', STALE_MSG = '새 판이 나왔어요 — 잠시 뒤 다시 열어 주세요';
+function staleRules(){
+  halted = true;
+  let last;
+  try { last = Number(sessionStorage.getItem(STALE_KEEP)) || 0; }
+  catch (e) { last = now(); }            // 적어 둘 곳이 없으면 되풀이를 못 막는다 — 새로 고치지 않는다
+  if (now() - last > 60000){
+    try { sessionStorage.setItem(STALE_KEEP, String(now())); location.reload(); return false; }
+    catch (e) { /* 못 적었으면 아래 안내로 */ }
+  }
+  stickMsg(STALE_MSG);
+  return false;
+}
 
 // ---------- 시작 ----------
 async function loadRows(){
@@ -60,6 +92,7 @@ async function loadRows(){
   if (error){ flash('서버에 닿지 않아요: ' + readableError(error), true); return false; }
   const rows = data || [];
   const farm = rows.find(r => r.who === 'farm');
+  if (farm && farm.data && Number(farm.data.rv) > (R.RULES_V || 0)) return staleRules();
   W = R.fixWorld(farm ? farm.data : null, now()); REV = farm ? farm.rev : 0;
   const t = rows.find(r => r.who === 'tune'); TUNE = R.fixTune(t ? t.data : null);
   W.seasonLen = TUNE.seasonLen;
@@ -75,7 +108,7 @@ async function loadRows(){
    (같은 전역 렉시컬 환경이다). 다만 이 파일이 먼저 다 돌아야 하므로, 저기 있는 함수는
    loadPlay() 를 기다린 뒤에만 부를 수 있다.
    ?v 는 배포가 어긋나도 새 farm.js 가 새 짝을 받게 하는 표식이다 — 짝을 고칠 때 같이 올린다. */
-const PLAY_V = '35';
+const PLAY_V = '1010fix';
 let playing = null;
 function loadPlay(){
   if (playing) return playing;
@@ -94,7 +127,7 @@ async function boot(){
   try { await bootInner(); }
   catch (e) {
     $('#gate').hidden = false;
-    $('#gateWho').textContent = '지금은 서버에 닿지 않아요. 신호가 돌아오면 다시 열어 주세요.';
+    $('#gateWho').textContent = halted ? STALE_MSG : '지금은 서버에 닿지 않아요. 신호가 돌아오면 다시 열어 주세요.';
     initReveal();
   }
 }

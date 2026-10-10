@@ -21,3 +21,6 @@ map/sigungu.topo.json
 
 # 작업 도구(oh-my-claudecode)가 남기는 상태 폴더 — 사이트와 무관하다
 .omc/
+
+# 그림 시안 폴더(수십 MB) — 추적도 안 하고 `git add -A` 에 딸려 들어오지도 않게 한다
+docs/*-drafts/

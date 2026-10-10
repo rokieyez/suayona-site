@@ -28,6 +28,7 @@ function freeMinutes(win, busy){
 // days: [{ date:'YYYY-MM-DD', free:분 }] 오늘부터 차례로 (마지막 마감까지)
 // tasks: [{ id, left:남은 단위(오늘 아침 기준), per:단위당 분, due:'YYYY-MM-DD' }]
 // 돌려주는 것: byDay[date] = [{ id, units, min }], perTask[id] = { need, room, cushion, short, late }
+//   room 은 마감까지 그 과제를 넣을 수 있는 분 — 날마다 단위로 끊어 센다(자투리는 버린다)
 function planStudy(days, tasks){
   const rem = days.map(d => d.free);
   const byDay = {}, perTask = {};
@@ -39,15 +40,19 @@ function planStudy(days, tasks){
     let k = -1;
     days.forEach((d, i) => { if (d.date <= (late ? today : t.due)) k = i; });
     const need = t.left * t.per;
-    let room = 0;
-    for (let i = 0; i <= k; i++) room += rem[i];
+    // 날마다 들어가는 단위 수로 센다 — 10분 남은 날에 20분짜리는 못 넣는다. 전에는 분을 그냥 더해서
+    // (10분 + 50분 = 60분이니 20분짜리 셋) 첫날 10분에 20분이 들어갔고, 여유도 실제보다 넉넉히 나왔다.
+    const cap = rem.map((m, i) => (i > k ? 0 : t.per > 0 ? Math.floor(m / t.per) : t.left));
+    const caps = cap.reduce((a, n) => a + n, 0);
+    const room = caps * t.per;
 
-    const fit = t.per > 0 ? Math.min(t.left, Math.floor(room / t.per)) : t.left;
+    const fit = Math.min(t.left, caps);
     // 누적 비율로 나눠 반올림 오차가 한 날에 몰리지 않게 한다. 올림이라 앞날에 조금 더 실린다.
+    // 비율을 단위 수로 재므로 하루 몫이 그날 들어가는 수(cap)를 넘지 않는다.
     let given = 0, acc = 0;
-    for (let i = 0; i <= k && room > 0; i++) {
-      acc += rem[i];
-      const upto = Math.min(fit, Math.ceil(fit * acc / room));
+    for (let i = 0; i <= k && caps > 0; i++) {
+      acc += cap[i];
+      const upto = Math.min(fit, Math.ceil(fit * acc / caps));
       const units = upto - given;
       if (units > 0) {
         byDay[days[i].date].push({ id: t.id, units, min: units * t.per });

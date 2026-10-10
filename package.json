@@ -4,7 +4,7 @@
   "description": "수아랑 연아랑 — 정적 사이트. 빌드는 없고, 검사만 있다.",
   "scripts": {
     "lint": "eslint .",
-    "check": "node --check common.js && node --check pixel.js && node --check sw.js && for f in pages/*.js; do node --check \"$f\" || exit 1; done && echo 문법 OK"
+    "check": "git ls-files -z '*.js' '*.mjs' | xargs -0 -n1 node --check && for f in tools/check-*.js; do node \"$f\" || exit 1; done && echo 문법·규칙 점검 OK"
   },
   "devDependencies": {
     "eslint": "^9",

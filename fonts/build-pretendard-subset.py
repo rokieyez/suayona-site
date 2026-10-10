@@ -38,12 +38,13 @@
 # 다시 만들려면:
 #   python3 -m venv /tmp/fontenv && /tmp/fontenv/bin/pip install fonttools brotli
 #   curl -sL -o /tmp/PV.woff2 https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/web/variable/woff2/PretendardVariable.woff2
-#   /tmp/fontenv/bin/python fonts/build-pretendard-subset.py
+#   /tmp/fontenv/bin/python fonts/build-pretendard-subset.py            (원본 /tmp/PV.woff2)
+#   /tmp/fontenv/bin/python fonts/build-pretendard-subset.py 원본.woff2   (다른 곳에 받았을 때)
 import pathlib, subprocess, sys, unicodedata
 
 HERE = pathlib.Path(__file__).parent
 REPO = HERE.parent
-SRC  = pathlib.Path('/tmp/PV.woff2')
+SRC  = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else '/tmp/PV.woff2')
 OUT  = HERE / 'PretendardVariable.subset.woff2'
 
 # 데이터베이스에 실제로 들어 있는 한글. 2026-09-04 에 anon 키로 works·posts·events·
@@ -55,11 +56,13 @@ DB_HANGUL = (
  "불브비빛빠빨뿌사산살상새색샌생샤서선설섬세셔셨소속손수숙순술숲쉬슈스슬습시식신실심싶쎄아악안앉않알았앙애앤야약얀양어언엄없었에여역연영옆오올와왔외왼요우운울"
  "움원월웹위유육윤으은을음의이인일임입있자작잔잘잠재저적전점정제조족좀종좋좌주준줄줌중즈지직진질집징짜짧쪽차착찮찾챙처천첫체쳐촌추춘출충춰층치친침카캐캠커컵콘"
  "콩쿠크클탈터테토통투툰튀튜트티틱파판팔퍼페편펼평표푸품프플피필하학한할합해행험현홍화확황회효후휴희힐"
+ # 2026-10-10: 2026-10-04 로컬 백업(기록/*.json)에 있던 한글 중 위 목록에 없던 54자. 글자 집합만 뽑았다.
+ "겪굿껄껏낄넨닻댄덴델돋듀렁렉론뢰륭맏및밸뷰뽀쁜셉숭쎈웡웰윈윌읍쟈젬졸짬짱첸첼칼켄콧쾌탐퇴팅팻펀핏핳협홧훌흑흥"
 )
 
 used = set()
 for p in list(REPO.rglob('*.html')) + list(REPO.rglob('*.js')) + list(REPO.rglob('*.css')):
-    if '.git' in p.parts or p.name.startswith('_'): continue
+    if {'.git', 'node_modules', 'backup'} & set(p.parts) or p.name.startswith('_'): continue
     used |= set(unicodedata.normalize('NFC', p.read_text(encoding='utf-8', errors='ignore')))
 
 chars = set()
@@ -73,6 +76,9 @@ chars |= {c for c in used if ord(c) < 0x3000 or 0xAC00 <= ord(c) <= 0xD7A3}
 chars = {c for c in chars if c.isprintable() or c == ' '}
 
 keep = HERE / 'pretendard-keep.txt'
+# 지워진 글이 있어도 한 번 넣은 글자는 빼지 않는다(빠지면 그 글자만 시스템 글꼴로 나온다).
+if keep.exists():
+    chars |= set(keep.read_text(encoding='utf-8'))
 keep.write_text(''.join(sorted(chars)), encoding='utf-8')
 print('남길 글자 %d자' % len(chars))
 
@@ -82,7 +88,7 @@ if not SRC.exists():
 # 굵기 축을 400~930 으로 좁힌다. 400 아래 정보가 통째로 빠져 60KB 가 준다.
 from fontTools.ttLib import TTFont
 from fontTools.varLib import instancer
-narrowed = pathlib.Path('/tmp/PV_narrowed.ttf')
+narrowed = SRC.with_name('PV_narrowed.ttf')
 f = instancer.instantiateVariableFont(TTFont(str(SRC)), {'wght': (400, 930)},
                                       updateFontNames=False, inplace=False)
 f.flavor = None

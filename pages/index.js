@@ -473,15 +473,33 @@ const belowFold = (() => {
     }).catch(() => {});
 
   // ---- 생일 ----
-  // 'MM-DD'. 비워 두면 그냥 안 켜진다. 주소에 ?birthday=수아 를 붙이면 미리 볼 수 있다.
-  const BIRTHDAYS = { '수아': '07-09', '연아': '03-19' };
-  const BIRTHDAY = (() => {
+  // 아이 생일은 이 공개 스크립트에 적지 않는다 — DB 의 kids 표는 가족만 읽게 해 뒀는데 월·일이 누구나 받는
+  // JS 에 있었다. 로그인한 가족일 때만 loadKids() 로 받아 오늘이 생일이면 켠다(손님에게는 생일 연출이 없다).
+  // 주소에 ?birthday=수아 를 붙이면 미리 볼 수 있다(손님도). 값은 '수아'·'연아' 이름이고, 비어 있으면 안 켜진다.
+  const KID_NAME = { sua: '수아', yona: '연아' };
+  let BIRTHDAY = (() => {
     const q = new URLSearchParams(location.search).get('birthday');
-    if (q && BIRTHDAYS.hasOwnProperty(q)) return q;
+    return q === KID_NAME.sua || q === KID_NAME.yona ? q : null;
+  })();
+  function showBdayHud(){
+    const b = BIRTHDAY && $('#bdayHud');
+    if (b) { b.textContent = '🎂 오늘은 ' + BIRTHDAY + ' 생일!'; b.hidden = false; }
+  }
+  // 늦게 알게 되므로, 켜진 뒤에는 매 프레임 BIRTHDAY 를 읽는 쪽(색종이·풍선·케이크·불꽃)이 알아서 따라온다.
+  function loadBirthday(){
+    if (BIRTHDAY || typeof sb === 'undefined' || !sb) return;
     const d = new Date();
     const md = String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    return Object.keys(BIRTHDAYS).find(n => BIRTHDAYS[n] === md) || null;
-  })();
+    Promise.resolve(authOnce).then(() => loadKids()).then(born => {
+      const key = Object.keys(KID_NAME).find(k => String(born[k] || '').slice(5, 10) === md);
+      if (!key) return;
+      BIRTHDAY = KID_NAME[key];
+      showBdayHud();
+      kick();                                            // 움직임 줄이기 설정이면 멈춘 화면을 한 번 다시 그린다
+    }).catch(() => { /* 생일을 못 받아도 마을은 평소대로 — 연출만 빠진다 */ });
+  }
+  if (window.requestIdleCallback) requestIdleCallback(loadBirthday, { timeout: 4000 });
+  else setTimeout(loadBirthday, 1600);
   const CONGRATS = ['생일 축하해!', '🎂 생일이다!', '축하축하~', '케이크 먹자!', '선물은?'];
   let bdayFoot = null;                                   // 생일인 아이의 발밑 — 케이크를 놓을 자리
 
@@ -2328,7 +2346,18 @@ const belowFold = (() => {
   // 관찰자가 없거나 아직 답이 없으면 「보인다」로 둔다 — 멈춘 마을보다 도는 마을이 낫다.
   let heroSeen = true;
   if ('IntersectionObserver' in window) new IntersectionObserver(es => { heroSeen = es[es.length - 1].isIntersecting; }).observe(canvas);
-  function loop(){ if (heroSeen){ t += 0.016; ct += 0.016 * weather.wind; draw(); } requestAnimationFrame(loop); }
+  // 시간은 프레임 수가 아니라 실제로 흐른 시간(dt, 상한 0.1초)으로 올린다 — 프레임마다 0.016 을 더하면
+  // 120Hz 기기에서 구름이 두 배로 흐르고 그리기도 두 배로 돌았다. 0.96 은 옛 속도(0.016×60)라 60Hz 에서 같은 빠르기다.
+  // 그리기는 15ms 보다 자주 하지 않는다 — 60Hz 는 예전처럼 프레임마다, 120Hz 는 한 프레임 걸러(60번).
+  // 30fps 로 묶으면 draw() 한 번에 한 걸음씩 가는 것들(모이 쪼는 새·걷는 고양이)이 60Hz 에서 절반 속도가 된다.
+  let lastT = 0;
+  function loop(now){
+    requestAnimationFrame(loop);
+    if (now - lastT < 15) return;
+    const dt = Math.min(0.1, (now - lastT) / 1000) * 0.96;
+    lastT = now;
+    if (heroSeen){ t += dt; ct += dt * weather.wind; draw(); }
+  }
 
   // 움직임을 줄인 설정에서는 화면이 멈춰 있으니, 살아 있는 것이 있는 동안만 따로 돌린다.
   let ticking = false;
@@ -2739,17 +2768,14 @@ const belowFold = (() => {
   }, 1000);
 
   syncHud();
-  if (BIRTHDAY) {
-    const b = $('#bdayHud');
-    if (b) { b.textContent = '🎂 오늘은 ' + BIRTHDAY + ' 생일!'; b.hidden = false; }
-  }
+  showBdayHud();
 
   // 창 크기를 끄는 동안 300ms 짜리 마을 그리기를 매번 하지 않게 조금 기다린다
   let resizeT = 0;
   window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { resize(); draw(); }, 120); });
   window.addEventListener('scroll', () => { scrollY = window.scrollY; if (reduce) draw(); }, {passive:true});
   resize();
-  if (reduce) draw(); else loop();
+  if (reduce) draw(); else loop(performance.now());
 })();
 
 // ================= 카드 아이콘 =================
@@ -3832,10 +3858,18 @@ belowFold(async () => {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let stripSeen = true;      // 위의 마을과 같은 까닭 — 안 보일 때는 그리지 않는다
   if ('IntersectionObserver' in window) new IntersectionObserver(es => { stripSeen = es[es.length - 1].isIntersecting; }).observe(cv);
-  function loop(){ if (stripSeen){ t += 0.016; draw(); } requestAnimationFrame(loop); }
+  // 위의 마을과 같은 방식 — 실제 흐른 시간으로 올리고 30fps 이하로만 그린다(까닭은 위에).
+  let lastT = 0;
+  function loop(now){
+    requestAnimationFrame(loop);
+    if (now - lastT < 15) return;
+    const dt = Math.min(0.1, (now - lastT) / 1000) * 0.96;
+    lastT = now;
+    if (stripSeen){ t += dt; draw(); }
+  }
   window.addEventListener('resize', () => { resize(); draw(); });
   resize();
-  if (reduce) draw(); else loop();
+  if (reduce) draw(); else loop(performance.now());
 })();
 
 initReveal();

@@ -317,9 +317,12 @@ function sizeBoard(){
   const box = cv.parentElement;
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
   const room = Math.max(200, (box.clientWidth || 320) - 2);
-  // 도트 두 알까지 줄이면 고급 판이 화면 폭에 딱 들어가지만 칸이 11px 이 된다 —
-  // 손가락으로 누르다 지뢰를 밟기 쉬워서, 세 알 밑으로는 줄이지 않고 옆으로 밀리게 둔다.
-  dot = Math.max(3, Math.min(5, Math.floor(room * dpr / cols / TILE)));
+  // 칸의 상·하한은 기기 픽셀이 아니라 화면(CSS) 픽셀로 잡는다. 전에는 하한을 「도트 3알」로 박았는데,
+  // 화면 폭은 dpr 로 나누므로 dpr 3 폰에서 3알 = 14px(중급)·23px(초급)까지 줄었다.
+  // 칸이 24px 밑이면 손가락으로 누르다 지뢰를 밟기 쉬워서, 그 밑으로는 줄이지 않고 옆으로 밀리게 둔다(.board-box).
+  // 위쪽은 40px 꼴이되 예전 상한(도트 5알)보다 작아지지는 않게 — 컴퓨터(dpr 1)의 큰 칸(70px)은 그대로 둔다.
+  const lo = Math.ceil(24 * dpr / TILE), hi = Math.max(5, Math.ceil(40 * dpr / TILE));
+  dot = Math.max(lo, Math.min(hi, Math.floor(room * dpr / cols / TILE)));
   CS = TILE * dot;
   const w = cols * CS + 4 * dot, h = rows * CS + 4 * dot;    // 둘레에 나무 테두리 두 도트씩
   cv.width = w; cv.height = h;

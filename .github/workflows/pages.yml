@@ -31,11 +31,22 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
+      # 검사에 걸리면 여기서 멈춘다 — 문법이 깨진 채로 올라가 첫 화면이 비는 일이 없게. 이 단계는 지우기보다 앞이어야 한다
+      # (아래에서 tools·package.json 을 올릴 사본에서 빼기 때문). 원래 이 사이트는 검사 없이 푸시 즉시 올라갔다.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: 검사 (문법·규칙·eslint)
+        run: npm ci && npm run check && npm run lint
+      # 캐시 꼬리표(?v=내용해시)를 올릴 사본의 HTML 에 붙이고 sw.js 에 미리 담는 파일들의 해시를 찍는다. tools/ 를 지우기 전에 돌려야 한다.
+      - name: 캐시 꼬리표 붙이기
+        run: node tools/stamp-versions.mjs
       # 사이트가 읽지 않는 것은 올리지 않는다 — 작업기록·DB 설정·도구가 www.suayona.com/docs/… 로 열리고 있었다.
       # 저장소가 공개라 비밀은 아니지만, 사이트 주소로 내줄 까닭도 없다. 여기서 지우는 것은 올릴 사본뿐이다.
       - name: 올리지 않을 것 빼기
         run: |
-          rm -rf docs tools .github
+          rm -rf docs tools .github node_modules
           rm -f supabase-setup.sql eslint.config.js package.json package-lock.json .gitignore
           rm -f map/build.py fonts/build-subset.py fonts/build-pretendard-subset.py fonts/pretendard-keep.txt
       - uses: actions/configure-pages@v6

@@ -24,7 +24,8 @@ function rebase(fresh){
   return dropped;
 }
 async function commit(){
-  if (!key || saving) return;
+  // halted: 새 규칙 판이 나온 것을 본 옛 탭(farm.js staleRules) — 올리면 자매의 새 물건이 지워진다. (typeof 는 옛 farm.js 와 섞여 받은 경우 대비)
+  if (!key || saving || (typeof halted !== 'undefined' && halted)) return;
   saving = true;
   try {
     for (let tries = 0; tries < 3; tries++){
@@ -40,9 +41,13 @@ async function commit(){
         const off = !navigator.onLine || error.offline || /fetch|network|load failed/i.test(error.message || '');
         flash(off ? '지금은 인터넷에 닿지 않아요. 한 일은 기억해 두었다가 연결되면 올려요' : '저장하지 못했어요: ' + readableError(error), true);
         if (off){ clearTimeout(saveTimer); saveTimer = setTimeout(commit, 15000); }
+        /* 끊긴 게 아닌 실패(서버가 「세이브가 너무 커요」로 물리친 것 같은)는 저절로 다시 안 올라간다.
+           잠깐 뜨는 안내만으로는 아이가 모르고 계속 놀아 화면만 앞서가므로, 다음 저장이 될 때까지 띠를 붙여 둔다. */
+        else if (typeof stickMsg === 'function') stickMsg('저장하지 못했어요 — 새로 고치면 마지막 저장으로 돌아가요');
         break;
       }
       if (data >= 0){
+        if (typeof stickMsg === 'function') stickMsg('');
         REV = data; Mbase = sentM; unacked = [];
         pending.splice(0, sent);
         if (pending.length) dirty = true;
@@ -80,6 +85,8 @@ async function resync(){
   renderAll();
 }
 function act(fn, quiet){
+  // 새 판이 나와 저장이 막힌 탭에서는 아무 일도 하지 않는다 — 해 봐야 못 올리고 새로 고치면 사라진다
+  if (typeof halted !== 'undefined' && halted) return { ok: false, msg: '' };
   const r = fn(W, M);
   if (!quiet) flash(r.msg, !r.ok);
   if (r.ok){ pending.push(fn); dirty = true; persist(); renderAll(); }

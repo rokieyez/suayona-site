@@ -665,14 +665,24 @@ const QUEST = (() => {
      보내는 쪽은 제 줄의 outbox 에 적고, 받는 쪽은 제가 열 때 상대 줄을 읽어 가져간다
      (세이브는 서로 읽을 수 있다). 농장의 선물 통로와 같은 꼴이고, 번호(id)로 한 번만 받는다. */
   const SEND = { step: 100, max: 900, keep: 8 };
-  function sendGold(save, n, day){
+  function sendGold(save, n, day, other){
     n = Math.floor(Number(n) || 0);
     if (n < SEND.step || n > SEND.max || (save.gold || 0) < n) return null;
     if (!Array.isArray(save.outbox)) save.outbox = [];
+    /* 자리가 없으면 상대가 이미 받아 간 것부터 비운다. 안 받은 것만으로 가득이면 보내지 않는다
+       ({ full: true }) — 전에는 앞의 것을 그냥 잘라 내서, 금화는 빠졌는데 선물은 사라졌다.
+       한도를 없애지 않는 까닭: 받은 번호(gotGifts)는 keep × 2 개만 기억한다. outbox 가 그보다
+       길어지면 옛 선물을 한 번 더 받게 된다. other 는 열 때 읽은 것이라 낡았을 수 있는데,
+       낡으면 「아직 안 받았다」 쪽으로 틀리므로 안전하다(받은 것을 안 지울 뿐이다). */
+    const got = (other && other.gotGifts) || [];
+    while (save.outbox.length >= SEND.keep){
+      const i = save.outbox.findIndex(g => !g || got.indexOf(g.id) >= 0);
+      if (i < 0) return { full: true };
+      save.outbox.splice(i, 1);
+    }
     save.gold -= n;
     const gift = { id: day + ':' + Date.now().toString(36), gold: n, day: day };
     save.outbox.push(gift);
-    if (save.outbox.length > SEND.keep) save.outbox = save.outbox.slice(-SEND.keep);
     return gift;
   }
   // 상대 줄에서 아직 안 받은 것만 골라 준다.

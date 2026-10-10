@@ -396,11 +396,16 @@
     return dayKey(d.getTime());
   }
   function ordersOf(world, now){
-    const wk = weekKey(now), cal = calendar(world, now);
+    /* 계절은 「그 주 월요일」 것으로 뽑는다(2026-10-10). 주문 번호는 월요일 주인데 작물을 「지금 계절」에서 뽑아서,
+       계절이 바뀌는 요일(실제 농장은 금요일)에 같은 번호가 다른 작물이 되고 낸 개수가 그 작물에 가서 붙었다. */
+    // 고친 날이 든 주(10-05 주)까지는 예전대로 둔다 — 그 주에 이미 낸 개수가 배포하는 순간 다른 작물 주문에 붙지 않게.
+    const wk = weekKey(now), cal = calendar(world, wk < '2026-10-12' ? now : dayStartMs(wk) + 12 * H);
     const pool = CROP_IDS.filter(c => CROPS[c].seed > 0 && CROPS[c].season.indexOf(cal.season) >= 0 && farmOk(world, CROPS[c]));   // 이 농장에서 못 심는 작물은 주문하지 않는다
     const out = [];
     for (let i = 0; i < 3; i++){
-      const c = pool[Math.floor(prand('o' + wk + i) * pool.length)];
+      // 한 번이라도 낸 주문은 그 작물로 굳힌다 — 주중에 이사해 풀(farmOk)이 바뀌어도 낸 개수가 엉뚱한 작물에 붙지 않는다
+      const p = world.orders && world.orders[wk + ':' + i];
+      const c = p && CROPS[p.crop] ? p.crop : pool[Math.floor(prand('o' + wk + i) * pool.length)];
       const n = 3 + Math.floor(prand('n' + wk + i) * 5);          // 3~7개
       const reward = Math.round(CROPS[c].sell * n * 1.8);
       out.push({ id: wk + ':' + i, crop: c, n, reward, xp: 20 + n * 3, rareSeed: i === 2 });
@@ -956,7 +961,10 @@
       if (A.farm && A.farm !== farmOf(world).id) return fail(A.name + (jong(A.name) ? '은 ' : '는 ') + FARMS.find(f => f.id === A.farm).name + '에서만 만나요');
       if (!(world.buildings[A.need] && world.buildings[A.need].done)) return fail(eul(BUILDINGS[A.need].name) + ' 먼저 지어요');
       const here = world.animals.filter(a => ANIMALS[a.kind].need === A.need).length;
-      if (here >= animalMax(world, A.need)) return fail(ee(BUILDINGS[A.need].name) + ' 꽉 찼어요');
+      /* 이 농장 가게에서만 파는 동물의 첫 한 마리는 우리가 꽉 차 있어도 들인다(2026-10-10) — 「이 농장 동물」이 이사 조건인데
+         닭장을 다 채워 온 농장은 다람쥐를 영영 못 사서 단풍 농장에 갇혔다. 이삿날 따라오는 식구도 정원을 넘겨 들어오니 같은 셈 */
+      const first = A.farm === farmOf(world).id && arkCount(world, v) === 0;
+      if (!first && here >= animalMax(world, A.need)) return fail(ee(BUILDINGS[A.need].name) + ' 꽉 찼어요');
       if (mine.coins < A.cost) return fail('동전이 모자라요');
       mine.coins -= A.cost;
       world.animals.push({ id: 'a' + now, kind: v, name: A.name, by: mine.key, born: dayKey(now), love: 0, pet: [], since: 0 });
@@ -1186,12 +1194,18 @@
     noteDex(world, mine, 'dish:' + d, now);
     return okay(eul(D.name) + ' 만들었어요');
   }
+  /* 우편함은 열두 통까지 — 넘치면 자매가 쓴 쪽지만 오래된 것부터 지운다(2026-10-10).
+     예전에는 무엇이든 앞에서부터 잘라서, 쪽지 몇 통에 이사 선물·축제 상금·방주에서 온 씨앗이 사라졌다.
+     선물·상금·놀이가 넣는 것(그림엽서도)은 안 지운다 — 그래서 열두 통을 넘길 수 있다 */
+  const MAIL_MAX = 12;
+  const sisNote = g => !!g && g.id === 'note' && !!NAME[g.from];
+  function trimMail(box){ for (let i = 0; box.length > MAIL_MAX && i < box.length;){ if (sisNote(box[i])) box.splice(i, 1); else i++; } }
   function sendGift(world, mine, id, n, note, now){
     n = Math.max(1, Math.floor(n || 1));
     if (!take(mine, id, n)) return fail('그만큼 없어요');
     const to = OTHER[mine.key];
     world.mail[to].push({ id, n, from: mine.key, note: String(note || '').slice(0, 40), t: now });
-    if (world.mail[to].length > 12) world.mail[to].splice(0, world.mail[to].length - 12);
+    trimMail(world.mail[to]);
     bump(mine, 'gifted', 1, now); logAdd(world, mine.key, NAME[mine.key] + '가 ' + NAME[to] + '에게 ' + itemName(id) + ' ' + n + '개를 보냈어요', now, true);
     return okay(NAME[to] + '의 우편함에 넣었어요');
   }
@@ -1203,8 +1217,10 @@
     const today = dayKey(now);
     const sent = box.filter(g => g.id === 'note' && g.from === mine.key && dayKey(g.t) === today).length;
     if (sent >= NOTE_A_DAY) return fail('오늘 쪽지는 ' + NOTE_A_DAY + '통까지 보냈어요. 내일 또 보내요');
+    // 쪽지를 다 치워도 자리가 없으면 안 받는다 — 보내는 쪽은 잃는 것이 없다
+    if (box.filter(g => !sisNote(g)).length >= MAIL_MAX) return fail(NAME[to] + '의 우편함이 가득 찼어요. ' + NAME[to] + '가 우편함을 열면 보낼 수 있어요');
     box.push({ id: 'note', n: 1, from: mine.key, note: txt, t: now });
-    if (box.length > 12) box.splice(0, box.length - 12);
+    trimMail(box);
     logAdd(world, mine.key, NAME[mine.key] + '가 ' + NAME[to] + '에게 쪽지를 보냈어요', now, true);
     return okay(NAME[to] + '의 우편함에 쪽지를 넣었어요');
   }
@@ -1219,10 +1235,11 @@
     if (afloat(world)) return fail('방주 안에서는 주문을 받지 않아요');
     const p = world.orders[o.id] || (world.orders[o.id] = { got: 0, by: {}, done: false });
     if (p.done) return fail('이미 채운 주문이에요');
+    if (p.crop && p.crop !== o.crop) return fail('주문이 바뀌었어요. 게시판을 다시 열어 봐요');   // 자매가 먼저 낸 작물로 굳은 주문
     n = Math.min(n, o.n - p.got);
     if (n <= 0) return fail('다 찼어요');
     if (!takeAny(mine, 'crop:' + o.crop, n)) return fail(ee(CROPS[o.crop].name) + ' 그만큼 없어요');
-    p.got += n; p.by[mine.key] = (p.by[mine.key] || 0) + n;
+    p.got += n; p.by[mine.key] = (p.by[mine.key] || 0) + n; p.crop = o.crop;
     if (p.got >= o.n){
       p.done = true;
       // 상은 낸 만큼 나눈다. 다른 한 명 몫은 우편함으로.

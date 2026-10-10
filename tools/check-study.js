@@ -38,6 +38,31 @@ assert.strictEqual(cushionLevel(s.perTask.x), 'short');
 const l = planStudy(days, [{ id: 'z', left: 2, per: 10, due: '2026-10-01' }]);
 assert.ok(l.perTask.z.late && l.byDay['2026-10-05'][0].units === 2);
 
+// 하루 빈 시간보다 긴 단위는 그날 못 넣는다: 빈 시간 [10분, 50분]에 20분짜리 셋
+// (분만 더하면 60분이라 셋이 다 들어가는 것처럼 보였고, 첫날 10분에 20분이 들어갔다)
+const two = [{ date: '2026-10-05', free: 10 }, { date: '2026-10-06', free: 50 }];
+const u = planStudy(two, [{ id: 'u', left: 3, per: 20, due: '2026-10-06' }]);
+assert.deepStrictEqual(u.byDay, { '2026-10-05': [], '2026-10-06': [{ id: 'u', units: 2, min: 40 }] });
+assert.deepStrictEqual(u.perTask.u, { need: 60, room: 40, cushion: -20, short: 20, late: false });
+assert.strictEqual(cushionLevel(u.perTask.u), 'short');
+// 자투리가 뒤쪽에 몰려 있어도 들어갈 수 있는 만큼은 다 넣는다
+const tail = [60, 15, 15, 15, 15].map((free, i) => ({ date: '2026-10-0' + (5 + i), free }));
+assert.strictEqual(planStudy(tail, [{ id: 'v', left: 3, per: 20, due: '2026-10-09' }]).byDay['2026-10-05'][0].units, 3);
+// 아무 값이나 넣어도: 하루 빈 시간을 안 넘기고, 넣은 수 + 모자란 수 = 남은 수
+let seed = 7;
+const rnd = n => (seed = (seed * 1103515245 + 12345) % 2147483648) % n;
+for (let c = 0; c < 300; c++) {
+  const ds = Array.from({ length: 1 + rnd(6) }, (_, i) => ({ date: '2026-11-0' + (i + 1), free: rnd(8) * 15 + rnd(2) * 10 }));
+  const ts = Array.from({ length: 1 + rnd(4) }, (_, i) => ({ id: 't' + i, left: rnd(9), per: 1 + rnd(40), due: '2026-11-0' + (1 + rnd(7)) }));
+  const q = planStudy(ds, ts);
+  ds.forEach(d => assert.ok(q.byDay[d.date].reduce((a, x) => a + x.min, 0) <= d.free, 'case ' + c + ' ' + d.date));
+  ts.forEach(t => {
+    const put = Object.values(q.byDay).flat().filter(x => x.id === t.id).reduce((a, x) => a + x.units, 0);
+    assert.strictEqual(put * t.per + q.perTask[t.id].short, t.left * t.per, 'case ' + c + ' ' + t.id);
+    assert.strictEqual(q.perTask[t.id].cushion < 0, q.perTask[t.id].short > 0, 'case ' + c + ' ' + t.id);
+  });
+}
+
 // ---------- 경험치·연속 기록·달력(study-xp.js) ----------
 const { studyEvents, studyStreak, monthGrid } = require('../pages/study-xp.js');
 const all = { 0: [600, 720], 1: [960, 1140], 2: [960, 1140], 3: [960, 1140], 4: [960, 1140], 5: [960, 1140], 6: [600, 720] };
@@ -92,3 +117,44 @@ assert.deepStrictEqual(g[1], { date: '2026-10-02', day: 2, wd: 5, units: 4, min:
 assert.strictEqual(g[2].open, false);                                   // 10-03 은 토요일
 assert.strictEqual(g.reduce((a, x) => a + x.units, 0), 4);              // 다른 달 기록은 안 들어온다
 assert.strictEqual(monthGrid(xplan({}), 2028, 2).length, 29);            // 윤년
+
+// ---------- 저장(study.js) — 막 읽은 서버 줄에 바꾼 것만 얹는가 ----------
+// study.js 는 화면에 묶여 있어 통째로 못 부른다. 저장 대목만 글자로 떼어 가짜 서버(sb)에 물려 돌린다.
+(async () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../pages/study.js'), 'utf8');
+  const cut = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i >= 0 && j > i, '대목을 못 찾음: ' + a); return src.slice(i, j); };
+  const copy = x => JSON.parse(JSON.stringify(x));
+  let row = { data: { win: { 1: [960, 1410] }, tasks: [{ id: 'a', title: '수학', total: 10, per: 5, base: 0, log: {} }], free: { '2026-10-09': 60 }, stamps: {} } };
+  let readErr = null;
+  const sb = { from: () => ({
+    select: () => ({ eq: () => ({ maybeSingle: async () => (readErr ? { data: null, error: readErr } : { data: row && copy(row), error: null }) }) }),
+    upsert: async r => { row = { data: copy(r.data) }; return { error: null }; },
+  }) };
+  const S = new Function('sb', 'DEFAULT_WIN', 'readableError', 'localOnly', 'who', 'plan',
+    cut('function fixPlan', '/* 막 읽은') + cut('let planQ', '// 👍 부모 도장') +
+    '; return { fixPlan, savePlan, as: p => { plan = p; } };')(sb, {}, e => e.message, false, 'yona', null);
+
+  // 부모 탭이 저녁에 읽어 둔 계획 → 그 뒤 아이가 다른 기기에서 「했어요」 3, 부모가 도장
+  const stale = S.fixPlan(copy(row.data)); S.as(stale);
+  row.data.tasks[0].log['2026-10-09'] = 3; row.data.stamps['2026-10-09'] = { at: 1 };
+  // 자정: 열려 있던 탭이 빈 분만 다시 적는다
+  const free = { '2026-10-10': 45 }; stale.free = free;
+  assert.strictEqual(await S.savePlan(d => { d.free = free; }), null);
+  assert.strictEqual(row.data.tasks[0].log['2026-10-09'], 3);            // 아이 기록이 남는다
+  assert.ok(row.data.stamps['2026-10-09']);                              // 도장도
+  assert.deepStrictEqual(row.data.free, free);
+  assert.strictEqual(stale.tasks[0].log['2026-10-09'], 3);               // 메모리도 합친 결과로
+  // 연달아 부른 저장은 차례대로 — 둘 다 남는다
+  const a = S.savePlan(d => { d.tasks[0].log['2026-10-10'] = 2; }), b = S.savePlan(d => { d.win = { 2: [600, 720] }; });
+  await a; await b;
+  assert.strictEqual(row.data.tasks[0].log['2026-10-10'], 2);
+  assert.deepStrictEqual(row.data.win, { 2: [600, 720] });
+  // 못 읽었으면 쓰지 않는다
+  const before = copy(row); readErr = { message: '끊김' };
+  assert.strictEqual(await S.savePlan(d => { d.tasks = []; }), '끊김');
+  assert.deepStrictEqual(row, before);
+  // 줄이 아직 없으면 메모리 것을 통째로
+  readErr = null; row = null;
+  assert.strictEqual(await S.savePlan(() => { throw new Error('첫 저장에는 얹을 것이 없다'); }), null);
+  assert.strictEqual(row.data.tasks[0].log['2026-10-10'], 2);
+})().catch(e => { console.error(e); process.exit(1); });

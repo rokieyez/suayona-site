@@ -68,31 +68,140 @@ let curArea = 0;
 // ---------- 저장 ----------
 // 바뀔 때마다 조금 기다렸다가 한 번만 쓴다. 전투 한 턴마다 쓰면 요청이 너무 잦다.
 let saveTimer = 0, saveChain = Promise.resolve(), dirty = false;
+/* 겹침 검사 — 세이브 안에 판 번호(rev)를 두고 「읽었던 번호와 같을 때만」 쓴다.
+   전에는 통째로 덮어써서, 어제부터 열려 있던 태블릿 탭에서 한 번 누르면 그 사이 폰에서 한
+   모험이 낡은 세이브로 덮였다(「그날 아침 사본」 prev 도 낡은 것으로 올라갔다).
+   hasRow  — 서버에 내 줄이 있나. 없을 때(첫 저장)만 새로 넣는다.
+   unacked — 답을 못 받은 내 저장의 표식(sync). 창을 덮는 순간 보낸 저장은 서버에 들어가도 답을
+             못 받을 수 있다. 서버 줄의 표식이 이 중 하나면 남이 아니라 내가 올린 것이다(농장과 같은 까닭). */
+let hasRow = false, unacked = [], saveFails = 0;
+const revOf = s => (s && s.rev != null ? String(s.rev) : null);   // 번호가 없던 옛 세이브는 null
 function persist(now){
   clearTimeout(saveTimer); saveTimer = 0; dirty = false;
   // 타이머가 돌고 나면 0 으로 되돌린다 — 안 그러면 첫 저장 뒤로 탭을 가릴 때마다 세이브를 다시 올렸다.
-  const go = () => { saveTimer = 0; saveChain = saveChain.then(() => doSave()).catch(() => {}); };
+  const go = () => { saveTimer = 0; saveChain = saveChain.then(doSave).catch(e => saveFailed(saveWhy(e))); };
   if (now) go(); else saveTimer = setTimeout(go, 600);
+}
+// 못 올렸다 — 보이는 곳에 알리고 15초 뒤에 다시 올린다. 전에는 닫혀 있을 수 있는 전투 기록에만
+// 적고 다시 올리지도 않아서, 아이는 모르는 채 그 뒤에 한 것이 새로 고치는 순간 사라졌다.
+function saveFailed(why){
+  dirty = true;
+  // 알림은 처음 한 번만 — 안 되는 동안에는 아래 띠(#saveWarn)가 남아 있다
+  if (!saveFails++) notice('저장하지 못했어요: ' + escapeHTML(why) + ' — 조금 뒤에 다시 올려 볼게요.');
+  saveWarn(true);
+  // 계속 안 되면 간격을 늘린다(15초 → 길어야 5분). 로그인이 풀린 채 밤새 열려 있는 탭이 15초마다 묻지 않게.
+  // 신호가 돌아오거나 탭을 다시 보면 기다리지 않고 바로 올린다(onTab).
+  if (!saveTimer) saveTimer = setTimeout(() => persist(true), 15000 * Math.min(saveFails, 20));
+}
+function saveWarn(on){ const w = $('#saveWarn'); if (w) w.hidden = !on; }
+// readableError 는 「Failed to fetch」를 사진을 못 받은 것으로 옮긴다 — 저장에서는 인터넷이 끊긴 것이다(농장과 같은 판별)
+function saveWhy(e){
+  const off = !navigator.onLine || (e && e.offline) || /fetch|network|load failed/i.test((e && e.message) || '');
+  return off ? '지금은 인터넷에 닿지 않아요' : readableError(e);
 }
 async function doSave(){
   if (!key || !save) return;
   save.lv = st ? st.lv : save.lv;
-  const row = { who: key, data: save };
+  // 보내는 순간의 모습을 떠서 올린다 — 답을 기다리는 사이에 한 일은 다음 차례에 올라간다.
+  const was = revOf(save), tag = Math.random().toString(36).slice(2, 10), day = today();
+  const data = JSON.parse(JSON.stringify(save));
+  data.rev = (Number(was) || 0) + 1; data.sync = tag;
+  const row = { data };
   // 오늘 것이 아직 없으면 이번 저장에 딸려 보낸다. 하루에 한 번뿐이라 요청이 늘지 않는다.
-  const bk = backups[key];
-  if (dayStart && (!bk || bk.day !== today())) {
-    row.prev = dayStart;
-    row.prev_day = today();
-    backups[key] = { has: true, day: today() };
+  const bk = backups[key], withPrev = !!dayStart && (!bk || bk.day !== day);
+  if (withPrev){ row.prev = dayStart; row.prev_day = day; }
+  unacked.push(tag);
+  let error, hit = true;
+  if (!hasRow) ({ error } = await sb.from('quest_saves').insert(Object.assign({ who: key }, row)));
+  else {
+    const q = sb.from('quest_saves').update(row).eq('who', key);
+    const r = await (was == null ? q.is('data->>rev', null) : q.eq('data->>rev', was)).select('who');
+    error = r.error; hit = !!(r.data && r.data.length);
   }
-  const { error } = await sb.from('quest_saves').upsert(row, { onConflict: 'who' });
-  if (error) {
-    log('저장하지 못했어요: ' + readableError(error));
-    if (row.prev) backups[key] = bk || null;      // 안 올라갔으면 다음에 다시 시도
+  if (!error && hit){
+    save.rev = data.rev; hasRow = true; unacked = [];
+    if (withPrev) backups[key] = { has: true, day };
+    // 다음 날 첫 저장에 딸려 갈 「그날 아침」 — 탭을 밤새 열어 두어도 어제 마지막 모습이 올라간다
+    dayStart = data;
+    saveFails = 0; saveWarn(false);
+    return;
   }
+  // 23505 = 첫 저장인 줄 알았는데 줄이 이미 있다(다른 기기가 먼저 시작했다) — 겹친 것과 같다
+  if (error && error.code !== '23505'){ saveFailed(saveWhy(error)); return; }
+  await resync(true);                                  // 한 줄도 안 바뀌었다 — 그 사이 서버 줄이 달라졌다
+}
+/* 서버의 내 줄을 다시 읽어 맞춘다. 저장이 겹쳤을 때(clash)와 탭을 다시 볼 때 부른다.
+   늘 saveChain 안에서 돈다 — 저장과 차례가 섞이지 않게. */
+async function resync(clash){
+  if (!clash){
+    // 탭을 볼 때마다 세이브 한 벌(수 KB)을 받으면 낭비다 — 번호만 먼저 본다
+    const { data: p } = await sb.from('quest_saves').select('rev:data->>rev').eq('who', key).maybeSingle();
+    if (!p || (p.rev == null ? null : String(p.rev)) === revOf(save)) return;
+  }
+  const { data: r, error } = await sb.from('quest_saves').select('data, prev_day').eq('who', key).maybeSingle();
+  if (error || !r){
+    // 못 읽었으면 화면을 건드리지 않는다. 줄이 안 보이는 것은 로그인이 풀렸거나 부모가 처음부터 다시 하게 지운 것
+    if (clash) saveFailed(error ? saveWhy(error) : '서버에서 내 모험을 찾지 못했어요 (새로 고쳐서 로그인을 확인해 주세요)');
+    return;
+  }
+  const d = r.data || {}, mine = unacked.indexOf(d.sync) >= 0;
+  unacked = [];
+  backups[key] = { has: !!r.prev_day, day: r.prev_day || null };
+  if (mine){
+    // 내가 올린 것이 답만 못 받았다 — 번호만 따라가고, 그 뒤에 한 일은 이어서 올린다
+    save.rev = d.rev; hasRow = true;
+    if (clash) persist(true);
+    return;
+  }
+  if (hasRow && revOf(d) === revOf(save)){
+    // 번호는 그대로인데 못 썼다 — 겹친 것이 아니라 서버가 안 받아 준 것이다
+    if (clash) saveFailed('서버가 받아 주지 않았어요 (새로 고쳐서 로그인을 확인해 주세요)');
+    return;
+  }
+  // 다른 기기에서 이어서 했다(또는 부모가 그날 아침으로 되돌렸다) — 그쪽 것을 화면에 올린다.
+  // 턴이 도는 중이면 끝나기를 기다린다. 도는 턴은 옛 세이브를 쥐고 있어서 중간에 바꾸면 꼬인다.
+  while (battle && battle.busy) await wait(200);
+  if (battle){
+    battle = null; timing = null; fx = []; fairyAt = friendAt = chestAt = 0;
+    $('#battleCard').hidden = true; loopOff();
+  }
+  hasRow = true; dirty = false; clearTimeout(saveTimer); saveTimer = 0;
+  const gift = openSave(Q.fixSave(d));
+  renderAll();
+  saveFails = 0; saveWarn(false);
+  notice('📱 다른 기기에서 이어서 했어요 — 그쪽 것을 불러왔어요.' +
+    (gift ? '<br>💌 ' + Q.HEROES[hero.other].name + '가 보낸 금화 <b>' + gift + '</b>개도 받았어요!' : ''));
+}
+// 서버에서 읽은 세이브를 놀 수 있게 채비한다 — 처음 열 때와, 다른 기기 것을 다시 불러올 때.
+// 자매가 내놓은 금화를 받았으면 그 수를 돌려준다.
+function openSave(s){
+  save = saves[key] = s;
+  // 아직 손대기 전이다. 지금 모습을 떠 둔다 — 오늘 첫 저장 때 서버로 같이 올라간다.
+  try { dayStart = JSON.parse(JSON.stringify(save)); } catch (e) { dayStart = null; }
+  st = null;                                         // 다시 불러온 것이면 「레벨이 올랐어요」가 뜨지 않게
+  refreshStats();
+  if (save.hp == null || save.hp > st.maxHp) save.hp = st.maxHp;
+  // 오늘 놀았다 — 자매 콤보의 근거. 다른 한 명의 줄에서 오늘 날짜가 보이면 콤보.
+  if (save.lastPlay !== today()){ save.lastPlay = today(); persist(); }
+  Q.markPlayed(save, today());                       // 이번 주 발자국
+  Q.dayLog(save, today());                           // 하루치 기록 상자를 오늘 것으로
+  Q.growCheck(save, st, today());                    // 지난번보다 얼마나 자랐는지 — 하루 한 번만 잰다
+  /* 자매가 내놓은 금화를 여기서 받는다 — 상대 줄은 못 고치니 받는 쪽이 가져간다.
+     번호를 적어 두어 두 번 받지 않는다. 받자마자 한 번 저장해 둔다(못 받은 채 닫히면 안 되니). */
+  const got = Q.claimGifts(save, saves[hero.other]);
+  if (got) persist(true);
+  return got;
 }
 // 페이지를 닫을 때 남은 것을 바로 쓴다. 기다리는 저장이 있으면 그것부터.
-document.addEventListener('visibilitychange', () => { if (document.hidden && (saveTimer || dirty)) persist(true); });
+// 다시 볼 때는 서버가 달라졌는지 본다 — 그 사이 다른 기기에서 놀았으면 누르기 전에 그쪽 것을 불러온다.
+function onTab(show){
+  if (!key || !save) return;
+  if (saveTimer || dirty) persist(true);
+  else if (show) saveChain = saveChain.then(() => resync(false)).catch(() => { /* 못 물어봤으면 다음 저장이 알아챈다 */ });
+}
+document.addEventListener('visibilitychange', () => onTab(!document.hidden));
+window.addEventListener('pageshow', e => { if (e.persisted) onTab(true); });   // 폰에서 되살아난 쪽(bfcache)은 부팅을 안 거친다
+window.addEventListener('online', () => onTab(false));                         // 신호가 돌아오면 15초를 기다리지 않는다
 
 // ---------- 시작 ----------
 async function boot(){
@@ -138,24 +247,11 @@ async function bootInner(){
   hero = Q.HEROES[key];
   const fr = await sb.rpc('quest_facts', { p_who: key });
   facts = fr.data || {};
-  save = saves[key] || Q.newSave();
-  saves[key] = save;
-  // 아직 손대기 전이다. 지금 모습을 떠 둔다 — 오늘 첫 저장 때 서버로 같이 올라간다.
-  try { dayStart = JSON.parse(JSON.stringify(save)); } catch (e) { dayStart = null; }
-  refreshStats();
-  if (save.hp == null || save.hp > st.maxHp) save.hp = st.maxHp;
-  // 오늘 놀았다 — 자매 콤보의 근거. 다른 한 명의 줄에서 오늘 날짜가 보이면 콤보.
-  if (save.lastPlay !== today()){ save.lastPlay = today(); persist(); }
-  Q.markPlayed(save, today());                       // 이번 주 발자국
-  Q.dayLog(save, today());                           // 하루치 기록 상자를 오늘 것으로
-  Q.growCheck(save, st, today());                    // 지난번보다 얼마나 자랐는지 — 하루 한 번만 잰다
+  hasRow = !viaCards && !!saves[key];
+  const giftGold = openSave(saves[key] || Q.newSave());
   const other = saves[hero.other];
   combo = !!(other && other.lastPlay === today());
-  /* 자매가 내놓은 금화를 여기서 받는다 — 상대 줄은 못 고치니 받는 쪽이 가져간다.
-     번호를 적어 두어 두 번 받지 않는다. 받자마자 한 번 저장해 둔다(못 받은 채 닫히면 안 되니). */
-  const giftGold = Q.claimGifts(save, other);
   if (giftGold){
-    persist(true);
     const nm = Q.HEROES[hero.other].name;
     setTimeout(() => notice('💌 ' + nm + '가 보낸 금화 <b>' + giftGold + '</b>개를 받았어요!'), 0);
     sfx('key');
@@ -922,8 +1018,9 @@ function renderSend(){
     b.type = 'button'; b.textContent = n + ' 보내기';
     b.disabled = !!battle || save.gold < n;
     b.addEventListener('click', () => {
-      const g = Q.sendGold(save, n, today());
+      const g = Q.sendGold(save, n, today(), other);
       if (!g) return;
+      if (g.full){ $('#shopMsg').textContent = '선물함이 가득 찼어요 — ' + name + '가 받아 가면 또 보낼 수 있어요.'; return; }
       sfx('key');
       $('#shopMsg').textContent = name + '에게 금화 ' + n + '개를 보냈어요.';
       renderStatus(); renderShop(); persist(true);

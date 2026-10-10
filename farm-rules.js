@@ -274,7 +274,9 @@ const FARM = (() => {
      돌보며 계속 따 먹는 밭이 「심은 날」만 보고 죽어 버리면 아이가 억울하다.
      한 번도 안 딴 칸과 한 번 따면 끝인 작물은 심은 날부터 그대로. */
   function lifeFrom(plot){ return plot.pickedAt || plot.plantedAt; }
-  function lifeEnd(plot){ return lifeFrom(plot) + CROP_LIFE_DAYS * DAY_MS; }
+  /* 큰 작물은 자라는 시간이 긴 만큼(GIANT_TIME) 수명도 길다(2026-10-10) — 큰 수박·호박은 젖은 채 153.6시간이 드는데
+     하루 한 번 물(스무 시간)로는 일주일에 140시간뿐이라, 날마다 물을 줘도 익기 전에 시들었다. */
+  function lifeEnd(plot){ return lifeFrom(plot) + CROP_LIFE_DAYS * (plot.giant ? GIANT_TIME : 1) * DAY_MS; }
   // 시들 때까지 남은 시간(ms). 안 시드는 칸이면 Infinity.
   function lifeLeft(plot, now, gh){
     if (!plot || !plot.crop || plot.wilted) return 0;
@@ -1422,9 +1424,14 @@ const FARM = (() => {
   function levelOf(xp){ return Math.min(20, Math.floor(Math.sqrt((xp || 0) / 30)) + 1); }
 
   // ---------- 세이브 ----------
+  /* 규칙 판 번호 — 새 가구·작물·꾸미개·동물을 넣을 때마다 올린다.
+     fixWorld 는 모르는 가구·씨앗·자리를 걸러 낸다. 그래서 배포 전에 열어 둔 탭(옛 규칙)이 새 세이브를 다시 읽고
+     저장하면 자매가 새로 산 것이 사라졌다. 세이브에 이 번호(rv)를 적어 두고, 화면(pages/farm.js loadRows)은
+     세이브의 번호가 제 것보다 크면 저장을 멈추고 새로 고친다. */
+  const RULES_V = 1;
   function newWorld(now){
     return {
-      v: 1, fv: FARM_V, started: dayKey(now), seasonLen: SEASON_LEN_DEFAULT, seasonIndex: 0,
+      v: 1, fv: FARM_V, rv: RULES_V, started: dayKey(now), seasonLen: SEASON_LEN_DEFAULT, seasonIndex: 0,
       farm: 0, past: [], expand: 0, rooms: {}, plots: {}, buildings: {}, animals: [], layout: {}, decor: {}, sprinklers: {},
       house: { living: {}, sua: { '0,0': { f: 'bed1', r: 0 } }, yona: { '0,0': { f: 'bed1', r: 0 } } },
       orders: {}, festival: {}, mail: { sua: [], yona: [] }, log: [], seen: {},
@@ -1448,6 +1455,7 @@ const FARM = (() => {
        fv 가 없는 옛 세이브만 한 번 옮긴다(아래 칸 맞추기보다 먼저 — 지도 크기가 농장 번호를 따른다) */
     if (!(Number(w.fv) >= FARM_V)){ const f0 = Math.floor(Number(w.farm) || 0); if (f0 >= 5) o.farm = f0 + 3; }
     o.fv = FARM_V;
+    o.rv = Math.max(Math.floor(Number(w.rv) || 0), RULES_V);   // 더 새 판이 쓴 세이브의 번호는 낮추지 않는다
     ['plots', 'buildings', 'orders', 'festival', 'seen', 'decor', 'layout'].forEach(k => { if (!o[k] || typeof o[k] !== 'object') o[k] = {}; });
     // 축제 한 판이 빈 값이면 훈장·도감이 .done 을 읽다 터진다 — 서버는 값의 모양을 안 보니 여기서 거른다
     Object.keys(o.festival).forEach(k => { if (!o.festival[k] || typeof o.festival[k] !== 'object') delete o.festival[k]; });
@@ -1587,8 +1595,8 @@ const FARM = (() => {
      별에도 그대로 보탠다. 여러 대가 같은 칸을 적셔도 한 번만 센다. */
   /* 놓인 것을 다른 칸으로 곧장 옮긴다 — 가방을 거치지 않는다.
      아이가 가구를 집어 끌면 이걸 부른다. 돌린 각도는 그대로 간다. */
-  /* 쪽지 — 물건 없이 한 마디만 보낸다. 우편함이 열두 통까지라, 쪽지로 다 채우면
-     선물이 밀려난다. 그래서 하루 다섯 통까지만. */
+  /* 쪽지 — 물건 없이 한 마디만 보낸다. 하루 다섯 통까지만.
+     우편함 열두 통이 넘치면 오래된 쪽지부터 지워진다(선물·상금은 안 지운다 — 놀이 규칙의 trimMail). */
   const NOTE_MAX = 60, NOTE_A_DAY = 5;
   /* 사서 바로 보내기 — 「반씩 나눠 가진 씨앗」은 제 가게에서 사서 건네야 상대가 심는다.
      사고 가방에서 다시 찾아 보내는 두 걸음을 한 걸음으로 줄인다. */
@@ -1624,7 +1632,7 @@ const FARM = (() => {
     ROOM_GROW, roomStep, roomBox, okPic, picSide, PIC_N,
     levelOf,
     __inner: INNER,
-    newWorld, newMine, fixWorld, fixMine, fixTune,
+    newWorld, newMine, fixWorld, fixMine, fixTune, RULES_V,
   };
 })();
 if (typeof module !== 'undefined') module.exports = FARM;

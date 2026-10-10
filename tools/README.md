@@ -105,6 +105,18 @@ launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.suayona.backup.plist   #
 `~/Library/LaunchAgents/com.suayona.backup.plist` 안의 경로도 새 자리로 고쳐야 합니다.
 (그냥 두면 기록에 "백업 도구가 없습니다" 라고 남습니다 — 조용히 안 되는 일은 없습니다.)
 
+## 배포 때 캐시 꼬리표를 붙이는 도구 (stamp-versions.mjs)
+
+`node tools/stamp-versions.mjs [폴더]` — HTML 이 부르는 `.js`·`.css` 주소 뒤에 `?v=<내용 해시 8자>` 를 붙이고,
+`sw.js` 의 `PRECACHE-HASH` 주석 줄에 미리 담는 파일들의 해시를 찍습니다(`CACHE` 이름은 그대로 — 바꾸면 오프라인 사본이 통째로 지워집니다). **깃허브 액션(`pages.yml`)이 올릴 사본에서만 돕니다.**
+저장소의 HTML 은 꼬리표 없이 그대로 두세요(손으로 `?v=` 를 올릴 일이 없습니다). 로컬에서 확인하려면 폴더를 복사해서
+그 사본에 돌리세요 — 작업 폴더에 바로 돌리면 HTML 이 고쳐집니다. 가리키는 파일이 없으면 실패합니다.
+
+**자동으로 못 붙는 곳** — JS 안에서 주소를 만들어 부르는 것은 직접 꼬리표를 올려야 합니다:
+`pages/farm.js` 의 `PLAY_V`(farm-rules-play.js·pages/farm-play.js), `pages/index.js` 의 kid-art.js(`?v=0929c`)·map/korea-sig.js(`KOREA_SIG_V`),
+`pages/honors.js` 의 honors-ocr.js(`?v=2`), `pages/farm-hd-life.js` 의 beasts.webp, `pages/farm-hd.js`·`pages/hero-walk.js` 의 hero 그림,
+`pages/friends.js` 의 친구 그림.
+
 ## 이 폴더는 홈페이지가 아닙니다
 
 `tools/` 안의 것은 집에서 돌리는 도구입니다. 홈페이지 화면과는 상관이 없습니다.

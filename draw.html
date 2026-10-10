@@ -52,6 +52,7 @@
     border:2px solid var(--ink); background:var(--paper); color:var(--ink-soft);
   }
   .sizes button.on{background:var(--ink); color:var(--cream);}
+  @media (pointer:coarse){ .sizes button{padding:10px 14px;} }   /* 30px → 38px */
 
   .sizes .lbl{align-self:center; font-size:12px; font-weight:800; color:var(--ink-soft); margin-right:4px;}
   .tools.hang{margin-top:10px;}
@@ -94,6 +95,7 @@
     border:2px solid var(--ink); background:var(--paper); color:var(--ink);
   }
   .mine-item .row button.del{background:var(--coral);}
+  @media (pointer:coarse){ .mine-item .row{gap:10px;} .mine-item .row button{padding:10px 0;} }   /* 25px → 37px, 지우기가 옆 단추와 5px 로 붙어 있었다 */
   .empty{font-size:13px; color:var(--ink-soft); text-align:center; padding:26px 0;}
 </style>
 </head>

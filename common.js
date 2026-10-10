@@ -277,7 +277,7 @@ function buildChrome(activeKey){
         ' data-private="' + L.key + '" href="' + L.href + '" hidden' +
         ' title="' + L.label + '" aria-label="' + L.label + '">' +
         L.icon + '</a>').join('') +
-      '<button class="menu-toggle pixel" id="menuToggle" aria-label="메뉴 열기">☰</button>' +
+      '<button class="menu-toggle pixel" id="menuToggle" aria-label="메뉴 열기" aria-expanded="false" aria-controls="nav">☰</button>' +
     '</div>';
   document.body.prepend(header);
   syncHeaderHeight(header);
@@ -317,17 +317,19 @@ function buildChrome(activeKey){
   // 모바일 메뉴
   const nav = $('#nav');
   const toggle = $('#menuToggle');
-  toggle.addEventListener('click', e => { e.stopPropagation(); nav.classList.toggle('open'); });
-  nav.addEventListener('click', e => { if (e.target.tagName === 'A') nav.classList.remove('open'); });
+  // 열림 상태는 한 곳에서만 바꾼다 — 스크린리더가 ☰ 의 펼침 여부를 알 수 있게 aria-expanded 도 같이 맞춘다.
+  const setNav = open => { nav.classList.toggle('open', open); toggle.setAttribute('aria-expanded', open); };
+  toggle.addEventListener('click', e => { e.stopPropagation(); setNav(!nav.classList.contains('open')); });
+  nav.addEventListener('click', e => { if (e.target.tagName === 'A') setNav(false); });
 
   // 메뉴 밖 아무 곳이나 누르면 닫히도록 (ESC 로도 닫힘)
   document.addEventListener('click', e => {
     if (!nav.classList.contains('open')) return;
     if (nav.contains(e.target) || toggle.contains(e.target)) return;
-    nav.classList.remove('open');
+    setNav(false);
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') nav.classList.remove('open');
+    if (e.key === 'Escape') setNav(false);
   });
 
   // 아래로 스크롤하면 헤더 숨김.
@@ -346,6 +348,10 @@ function buildChrome(activeKey){
 // ---------- 스크롤 등장 ----------
 function initReveal(){
   const items = $$('.reveal');
+  // 여기서부터는 안전망(style.css 의 reveal-safe)을 걷는다. 안전망 덕에 이미 보이던 것이 깜빡 사라지지 않게,
+  // 지금 화면에 든 것은 먼저 보인 것으로 친다(숨은 구역은 크기가 0 이라 빠진다).
+  items.forEach(i => { const r = i.getBoundingClientRect(); if (r.height && r.top < innerHeight) i.classList.add('in'); });
+  document.documentElement.classList.add('reveal-on');
   if (!('IntersectionObserver' in window)) { items.forEach(i => i.classList.add('in')); return; }
   const io = new IntersectionObserver(entries => {
     entries.forEach(en => {

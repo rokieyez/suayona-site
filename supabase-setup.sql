@@ -2367,3 +2367,155 @@ create policy "family updates study" on public.study_plans for update
 drop policy if exists "family reads study" on public.study_plans;
 drop policy if exists "anyone reads study" on public.study_plans;
 create policy "anyone reads study" on public.study_plans for select using (true);
+
+-- ─────────────────────────────────────────────────────────────
+-- 전체 검수에서 나온 DB 변경 (2026-10-10, 적용함 — 마이그레이션 audit_1010_limits_guards_policies)
+-- 실제 DB 의 함수·정책 정의를 읽어 그 위에 고친 것이다. 위쪽의 옛 정의(farm_commit·farm_restore·quest_restore,
+-- 「public can read …」 정책 넷, quest_saves_data_sz·farm_saves_size, 버킷 형식)는 여기 것이 덮는다.
+-- 적용 뒤 확인: 손님(anon)으로 created_at 을 2099년으로 적어 run_scores 에 넣으면 지금 시각으로 바뀐다(넣고 되돌림).
+
+-- 1) 손님이 넣는 표: 손님이 적어 보낸 created_at 은 버린다.
+--    도배 방지가 「최근 10분」을 created_at 으로 세는데, 미래 시각으로 넣으면 그 줄이 영영 「최근」으로 남아
+--    모두가 못 넣게 되고, 옛 시각으로 넣으면 셈에서 빠져 얼마든지 넣는다. 박수 표 셋은 이미 함수 안에서 고쳤다.
+--    SQL 편집기·백업 되살리기(auth.role() 이 비어 있다)는 적어 넣은 시각을 그대로 둔다.
+create or replace function public.created_at_now() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if coalesce(auth.role(), '') in ('anon', 'authenticated') then new.created_at := now(); end if;
+  return new;
+end $$;
+revoke execute on function public.created_at_now() from public, anon, authenticated;
+
+drop trigger if exists a_created_at_now on public.garden;
+create trigger a_created_at_now before insert on public.garden     for each row execute function public.created_at_now();
+drop trigger if exists a_created_at_now on public.run_scores;
+create trigger a_created_at_now before insert on public.run_scores for each row execute function public.created_at_now();
+drop trigger if exists a_created_at_now on public.snowmen;
+create trigger a_created_at_now before insert on public.snowmen    for each row execute function public.created_at_now();
+drop trigger if exists a_created_at_now on public.stamps;
+create trigger a_created_at_now before insert on public.stamps     for each row execute function public.created_at_now();
+drop trigger if exists a_created_at_now on public.steps;
+create trigger a_created_at_now before insert on public.steps      for each row execute function public.created_at_now();
+
+-- 2) 비공개 나들이: 「로그인한 아무 계정」이 아니라 「가족(프로필이 있는 계정)」만.
+--    지금은 가입이 꺼져 있어 같은 말이지만, 가입을 켜는 순간 낯선 계정이 읽게 된다.
+alter policy "public can read events"            on public.events        using (public.event_is_public(event_id) or (select public.my_role()) is not null);
+alter policy "public can read gallery_media"     on public.gallery_media using (public.event_is_public(event_id) or (select public.my_role()) is not null);
+alter policy "public can read custom_tabs"       on public.custom_tabs   using (public.event_is_public(event_id) or (select public.my_role()) is not null);
+alter policy "public can read public event_meta" on public.event_meta    using (coalesce(is_public, true) or (select public.my_role()) is not null);
+
+-- 3) 모험단 세이브 한도 8KB → 32KB. 연아 줄이 8,172 / 8,192 바이트였다(넘으면 저장이 전부 거부된다).
+alter table public.quest_saves drop constraint if exists quest_saves_data_sz;
+alter table public.quest_saves add  constraint quest_saves_data_sz check (pg_column_size(data) < 32768);
+
+--    updated_at 이 처음 만든 날에 멈춰 있었다 — 고칠 때마다 지금으로.
+create or replace function public.touch_updated_at() returns trigger
+language plpgsql set search_path = public as $$
+begin new.updated_at := now(); return new; end $$;
+revoke execute on function public.touch_updated_at() from public, anon, authenticated;
+drop trigger if exists quest_saves_touch on public.quest_saves;
+create trigger quest_saves_touch before update on public.quest_saves for each row execute function public.touch_updated_at();
+
+-- 4) 농장 세이브 한도. 지금 35KB 인데 방주·무지개 농장까지 가면 60KB 를 넘는 것으로 재현됐다.
+--    farm_commit 은 바뀐 것이 숫자 하나(60000 → 200000)뿐이다.
+alter table public.farm_saves drop constraint if exists farm_saves_size;
+alter table public.farm_saves add  constraint farm_saves_size check (pg_column_size(data) < 262144);
+
+create or replace function public.farm_commit(p_world jsonb, p_rev integer, p_mine jsonb)
+ returns integer
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  k text := public.my_author_key();
+  r integer;
+  today date := (now() at time zone 'Asia/Seoul')::date;
+begin
+  if public.my_role() is distinct from 'child' or k not in ('sua', 'yona') then
+    raise exception '수아나 연아만 농장을 가꿀 수 있어요';
+  end if;
+  if pg_column_size(p_world) > 200000 or pg_column_size(p_mine) > 16000 then
+    raise exception '세이브가 너무 커요';
+  end if;
+  if coalesce((p_mine->>'coins')::numeric, 0) not between 0 and 9999999
+     or coalesce((p_mine->>'xp')::numeric, 0) not between 0 and 999999
+     or coalesce((p_mine->>'energy')::numeric, 0) not between 0 and 99 then
+    raise exception '말이 안 되는 값이에요';
+  end if;
+
+  -- 하루에 한 번, 그날 처음 저장할 때만 지금 것을 prev 로 밀어 둔다.
+  -- 매번 밀면 「되돌리기」가 한 수 전으로만 가서 쓸모가 없다.
+  insert into public.farm_saves (who, data, rev) values ('farm', p_world, 1)
+    on conflict (who) do update
+      set prev     = case when farm_saves.prev_day is distinct from today
+                          then farm_saves.data else farm_saves.prev end,
+          prev_day = case when farm_saves.prev_day is distinct from today
+                          then today else farm_saves.prev_day end,
+          data = excluded.data, rev = farm_saves.rev + 1, updated_at = now()
+      where farm_saves.rev = p_rev
+    returning rev into r;
+  if r is null then return -1; end if;
+
+  insert into public.farm_saves (who, data, rev) values (k, p_mine, 1)
+    on conflict (who) do update
+      set prev     = case when farm_saves.prev_day is distinct from today
+                          then farm_saves.data else farm_saves.prev end,
+          prev_day = case when farm_saves.prev_day is distinct from today
+                          then today else farm_saves.prev_day end,
+          data = excluded.data, rev = farm_saves.rev + 1, updated_at = now();
+  return r;
+end;
+$function$;
+
+-- 5) 되돌리기: 밭 줄과 같은 날 아침 사본을 가진 줄만 되돌린다.
+--    prev 는 줄마다 「그 줄이 마지막으로 저장한 날의 아침」이라, 전부 되돌리면 오늘 안 논 아이의 지갑만 며칠 전으로 갔다.
+--    오늘 안 논 아이의 줄은 이미 오늘 아침 그대로다.
+create or replace function public.farm_restore()
+ returns boolean
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare n int;
+begin
+  if public.my_role() is distinct from 'parent' then
+    raise exception '부모만 되돌릴 수 있어요';
+  end if;
+  update farm_saves
+     set data = prev, rev = rev + 1, updated_at = now()
+   where prev is not null
+     and prev_day is not distinct from (select f.prev_day from farm_saves f where f.who = 'farm');
+  get diagnostics n = row_count;
+  return n > 0;
+end $function$;
+
+-- 6) 공개 버킷 둘: image/* 에는 image/svg+xml(스크립트가 도는 문서)이 들어간다. 그림 형식을 낱낱이 적는다.
+--    지금 들어 있는 것은 jpeg·png·webp·wav·webm 뿐이다(2026-10-10 에 셈).
+update storage.buckets
+   set allowed_mime_types = array['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif','image/avif','video/*','audio/*']
+ where id in ('event-images', 'gallery-uploads');
+
+-- 7) 모험단 되돌리기: 판 번호(rev)를 뒤로 보내지 않는다.
+--    새 quest.js 는 「읽었던 rev 와 같을 때만」 저장한다. data = prev 로만 되돌리면 번호가 아침 것으로 돌아가,
+--    되돌리기 전부터 열려 있던 다른 기기의 낡은 탭과 번호가 우연히 같아질 수 있다(그 탭이 덮는다).
+--    지금 것보다 하나 크게 적어 열린 탭이 모두 「겹침」으로 알아채게 한다.
+create or replace function public.quest_restore(target text)
+ returns boolean
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare n int;
+begin
+  if public.my_role() is distinct from 'parent' then
+    raise exception '부모만 되돌릴 수 있어요';
+  end if;
+  update quest_saves
+     set data = prev || jsonb_build_object('rev',
+           (case when data->>'rev' ~ '^\d{1,9}$' then (data->>'rev')::int else 0 end) + 1),
+         updated_at = now()
+   where who = target and prev is not null;
+  get diagnostics n = row_count;
+  return n > 0;
+end $function$;

@@ -97,8 +97,8 @@ if (typeof buildChrome === "function") buildChrome("friends");
   // ── 뽑기로 만난 친구 { id: "2026.10.03" } — 브라우저 저장이 막혀 있으면 이번 방문 동안만 ──
   const KEY = "friends-met";
   let met = {};
-  try { met = JSON.parse(localStorage.getItem(KEY)) || {}; } catch {}
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(met)); } catch {} };
+  try { met = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { /* 저장이 막힌 브라우저(사생활 모드)나 깨진 값 — 빈 상자로 시작한다 */ }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(met)); } catch { /* 저장이 막혔거나 가득 참 — 이번 방문 동안만 기억한다 */ } };
 
   // ── 가게 세 칸 ──
   function renderStalls() {

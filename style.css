@@ -163,7 +163,7 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
 .hdr-new{
   position:absolute; top:-6px; right:-5px; min-width:16px; height:16px; padding:0 3px;
   display:flex; align-items:center; justify-content:center;
-  font-size:9px; line-height:1; color:var(--ink); background:var(--coral);
+  font-size:11px; line-height:1; color:var(--ink); background:var(--coral);
   border:2px solid var(--ink); border-radius:999px;
 }
 .hdr-icon:hover{background:var(--lemon);}
@@ -188,9 +188,18 @@ header.site nav a.active{color:var(--ink); background:var(--lemon); border-color
     position:fixed; top:var(--header-h); left:0; right:0; flex-direction:column; gap:0;
     /* 닫혀 있을 땐 아래 테를 없앤다 — 높이 0이어도 테 4px 이 헤더 테 바로 밑에 붙어 줄이 두 배(8px)로 보였다 */
     background:var(--cream); border-bottom:0 solid var(--ink);
-    max-height:0; overflow:hidden; transition:max-height .3s ease;
+    max-height:0; overflow:hidden; transition:max-height .3s ease, visibility 0s .3s;
+    visibility:hidden;   /* 닫힌 메뉴는 탭(Tab) 순서에서도 뺀다 — 높이 0 이어도 링크가 남아 키보드 초점이 보이지 않는 곳으로 들어갔다. 닫힘 전환(.3s)이 끝난 뒤에 숨긴다 */
   }
-  header.site nav.open{max-height:520px; border-bottom-width:var(--px);}   /* 항목 아홉이 다 보이게(한 줄 49px × 9 = 441px) */
+  /* 항목 아홉이 다 보이게(한 줄 49px × 9 = 441px). 다만 가로로 눕힌 폰은 머리글을 빼면 보이는 높이가 300~360px 뿐이라
+     520px 로 고정하면 아래 항목이 잘려 눌러지지 않았다 — 화면에 맞춰 줄이고 넘치면 메뉴 안에서 스크롤한다.
+     첫 줄은 dvh 를 모르는 브라우저용(dvh 줄이 틀린 값으로 무시돼도 이 줄이 남는다). */
+  header.site nav.open{
+    max-height:min(520px, calc(100vh - var(--header-h)));
+    max-height:min(520px, calc(100dvh - var(--header-h)));
+    overflow-y:auto; overscroll-behavior:contain; visibility:visible;
+    border-bottom-width:var(--px); transition:max-height .3s ease, visibility 0s;
+  }
   header.site nav a{padding:14px 20px; border:none; border-top:2px solid rgba(47,42,36,.12); font-size:14px;}
   .menu-toggle{display:block;}
 }
@@ -275,10 +284,15 @@ canvas{-webkit-tap-highlight-color:transparent;}
 .section-head p{margin:0 auto; max-width:38em; color:var(--ink-soft); font-size:14.5px; line-height:1.7;}
 
 /* 스크롤 등장 */
+/* 여러 쪽이 자료를 다 받은 뒤에야 initReveal() 을 부른다. 신호가 약하면 머리글 아래가 한참 빈 화면이라,
+   .in 이 안 붙어도 4초 뒤에는 보이게 안전망을 둔다. initReveal() 이 돌면(html.reveal-on) 안전망을 걷는다 —
+   늘 걸어 두면 화면 밖 것까지 4초 뒤에 다 보여 버려, 내려가며 하나씩 떠오르는 효과가 사라진다. */
+@keyframes reveal-safe{to{opacity:1; transform:none;}}
 .reveal{opacity:0; transform:translateY(26px); transition:opacity .5s ease, transform .5s cubic-bezier(.2,.7,.3,1);}
-.reveal.in{opacity:1; transform:translateY(0);}
+html:not(.reveal-on) .reveal{animation:reveal-safe .01s 4s forwards;}
+.reveal.in{opacity:1; transform:translateY(0); animation:none;}
 @media (prefers-reduced-motion: reduce){
-  .reveal{opacity:1; transform:none; transition:none;}
+  .reveal{opacity:1; transform:none; transition:none; animation:none;}
   html{scroll-behavior:auto;}
 }
 
@@ -309,7 +323,7 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
   .gal-grid{grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px;}
   .gal-item{padding:7px;}
   .gal-cap{margin-top:6px; font-size:11.5px; line-height:1.4;}
-  .gal-sub{font-size:10px;}
+  .gal-sub{font-size:11px;}
   .gal-del, .gal-edit{width:22px; height:22px; font-size:11px;}
   .gal-edit{right:30px;}
 }
@@ -319,7 +333,7 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
 .gal-cap{margin-top:8px; font-size:12.5px; font-weight:700; line-height:1.45;}
 .gal-sub{margin-top:2px; font-size:11px; color:var(--ink-soft);}
 /* 작품 목록의 「그때 몇 살」 — 가족이 로그인했을 때만 붙는다 */
-.gal-age{display:inline-block; margin-left:4px; padding:1px 5px; border:1.5px solid var(--ink-soft); border-radius:6px; font-size:10px; color:var(--ink-soft);}
+.gal-age{display:inline-block; margin-left:4px; padding:1px 5px; border:1.5px solid var(--ink-soft); border-radius:6px; font-size:11px; color:var(--ink-soft);}
 .gal-del, .gal-edit{
   position:absolute; top:4px; width:26px; height:26px; z-index:2;
   border:2px solid var(--ink); background:#fff; cursor:pointer;
@@ -328,6 +342,14 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
 .gal-del{right:4px; color:#c0392b;}
 .gal-edit{right:34px; color:var(--ink);}
 .gal-edit:hover{background:var(--lemon);}
+/* 손가락으로 쓰는 기기(휴대폰·태블릿) — 작은 단추가 22~33px 라 아이와 어른 모두 자주 빗맞혔다.
+   머리글은 360px 폭에서 한 줄을 지켜야 해서 키우는 건 높이뿐이고 폭은 건드리지 않는다. 마우스는 그대로. */
+@media (pointer:coarse){
+  .dot-btn.small, .hdr-auth, .hdr-icon, .menu-toggle{min-height:40px;}
+  .auth-x{width:40px; height:40px; padding:0;}
+  .gal-del, .gal-edit{width:36px; height:36px;}   /* 지우기·고치기 둘이 붙어 있어서 간격도 4px → 8px */
+  .gal-edit{right:48px;}
+}
 
 /* ===== 팝업 (작품 수정) ===== */
 .modal{
@@ -342,7 +364,7 @@ footer.site canvas{display:inline-block; vertical-align:middle; image-rendering:
 .modal-actions{display:flex; gap:8px; margin-top:18px;}
 .modal-actions .dot-btn{flex:1;}
 .tag{
-  display:inline-block; font-size:10.5px; padding:3px 8px; margin-right:4px;
+  display:inline-block; font-size:11px; padding:3px 8px; margin-right:4px;
   border:2px solid var(--ink); background:var(--lemon); color:var(--ink);
 }   /* 글씨색을 안 정해 두면 부모의 흐린 글씨색을 물려받아 레몬 위에서 4.2:1 이 된다 */
 .tag.sua{background:var(--coral); color:var(--ink);}
@@ -536,7 +558,7 @@ body.has-backdrop .empty-msg{color:var(--ink-bg-safe);}
 /* 그림만 보면 사진과 구별이 안 되니 모서리에 띠를 하나 */
 .yt-mark{
   position:absolute; left:0; top:0; z-index:2; background:#d0342a; color:#fff;
-  font-size:10px; font-weight:800; padding:3px 7px; border:2px solid var(--ink);
+  font-size:11px; font-weight:800; padding:3px 7px; border:2px solid var(--ink);
   pointer-events:none;
 }
 .note-video{margin:14px 0;}

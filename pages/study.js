@@ -41,25 +41,48 @@ async function loadPlans(){
     let d = (data || []).find(r => r.who === k);
     d = d && d.data;
     if (error) { try { d = JSON.parse(localStorage.getItem('sy.study.' + k) || 'null'); } catch (e) { d = null; } }
-    // 손님도 읽는 줄이라 화면에 그대로 찍히는 숫자 칸은 숫자로 다진다(아이 계정은 제 줄 data 를 아무 JSON 으로나 쓸 수 있다)
-    const num = v => Math.max(0, Math.floor(+v) || 0);
-    const tasks = ((d && d.tasks) || []).map(t => Object.assign({}, t, { total: num(t.total), per: Math.max(1, num(t.per)), base: Math.floor(+t.base) || 0 }));
-    plans[k] = { win: (d && d.win) || DEFAULT_WIN, tasks, free: (d && d.free) || {}, stamps: (d && d.stamps) || {} };
+    plans[k] = fixPlan(d);
   });
   plan = plans[who];
 }
-async function savePlan(){
+// 서버 줄(data)을 화면이 쓰는 모양으로 — 처음 읽을 때와, 저장하려고 다시 읽을 때 같이 쓴다
+function fixPlan(d){
+  // 손님도 읽는 줄이라 화면에 그대로 찍히는 숫자 칸은 숫자로 다진다(아이 계정은 제 줄 data 를 아무 JSON 으로나 쓸 수 있다)
+  const num = v => Math.max(0, Math.floor(+v) || 0);
+  const tasks = ((d && d.tasks) || []).map(t => Object.assign({}, t, { total: num(t.total), per: Math.max(1, num(t.per)), base: Math.floor(+t.base) || 0 }));
+  return { win: (d && d.win) || DEFAULT_WIN, tasks, free: (d && d.free) || {}, stamps: (d && d.stamps) || {} };
+}
+/* 막 읽은 서버 줄에 「이번에 바꾼 것」만 얹어 쓴다(toggleStamp 와 같은 방식).
+   전에는 메모리의 계획을 통째로 올렸다 — 저녁부터 열어 둔 부모 탭이 자정에 빈 분(free)을 다시 적으면서
+   아이가 밤에 누른 「했어요」를 덮었고, 지혜 +10·연속 기록도 같이 사라졌다.
+   부르는 쪽은 메모리의 계획을 먼저 바꾸고, 같은 바꿈을 서버 줄에 할 함수(apply)를 넘긴다.
+   ponytail: 읽고 쓰는 사이(1초 안쪽)에 다른 기기가 쓰면 그쪽 것이 덮인다 — 그것까지 막으려면 판 번호(모험단의 rev)가 있어야 한다. */
+let planQ = Promise.resolve();                         // 한 탭의 저장은 차례대로 — 읽고 쓰는 사이에 다음 저장이 끼어들면 앞의 것을 덮는다
+function savePlan(apply){
   const k = who, p = plan;                             // withKid 가 await 사이에 who·plan 을 되돌려 놓으니 먼저 잡아 둔다
+  const run = () => writePlan(k, p, apply);
+  return (planQ = planQ.then(run, run));
+}
+async function writePlan(k, p, apply){
   if (localOnly) {
     try { localStorage.setItem('sy.study.' + k, JSON.stringify(p)); return null; }
     catch (e) { return '이 브라우저는 저장이 막혀 있어요.'; }
   }
-  // 도장(stamps)은 부모만 서버에 바로 찍는다(toggleStamp) — 이 화면이 열린 뒤 찍힌 도장을 덮어 지우지 않게 서버 것을 따른다
   const cur = await sb.from('study_plans').select('data').eq('who', k).maybeSingle();
-  if (!cur.error && cur.data && cur.data.data) p.stamps = cur.data.data.stamps || {};
+  if (cur.error) return readableError(cur.error);      // 못 읽었으면 쓰지 않는다 — 메모리 것을 통째로 올리면 또 덮는다
+  let data = p;                                        // 줄이 아직 없으면(첫 저장) 메모리 것이 전부다
+  if (cur.data && cur.data.data) { data = fixPlan(cur.data.data); apply(data); }
   const { error } = await sb.from('study_plans')
-    .upsert({ who: k, data: p, updated_at: new Date().toISOString() });
-  return error ? readableError(error) : null;
+    .upsert({ who: k, data, updated_at: new Date().toISOString() });
+  if (error) {
+    // 쓰기는 됐는데 답만 못 받았을 수 있다 — 서버 줄이 읽히면 메모리를 그것으로 맞춘다.
+    // 부르는 쪽이 화면만 되물리면, 「했어요」를 다시 눌렀을 때 서버의 기록에 한 번 더 더해진다.
+    const again = await sb.from('study_plans').select('data').eq('who', k).maybeSingle();
+    if (!again.error && again.data && again.data.data) Object.assign(p, fixPlan(again.data.data));
+    return readableError(error);
+  }
+  Object.assign(p, data);                              // 메모리도 합친 결과로 — 다른 기기에서 적은 것이 다음에 그릴 때 보인다
+  return null;
 }
 
 // 👍 부모 도장 — 그날 기록에 찍는다. 다른 기기에서 적은 「했어요」를 덮지 않게 서버의 지금 줄을 읽어 도장만 바꿔 쓴다
@@ -127,7 +150,7 @@ function syncFree(days){
   const free = Object.fromEntries(days.map(x => [x.date, x.free]));
   if (JSON.stringify(free) === JSON.stringify(plan.free)) return;
   plan.free = free;
-  savePlan();
+  savePlan(d => { d.free = free; });
 }
 
 // ---------- 그리기 ----------
@@ -347,22 +370,29 @@ $('#app').addEventListener('click', e => {
 async function logDone(e, did, undo, box){
   const id = (did || undo).dataset[did ? 'did' : 'undo'];
   const t = plan.tasks.find(x => x.id === id);
-  const day = todayIso();
-  t.log = t.log || {};
+  const day = todayIso(), was = (t.log || {})[day];
+  // 한 만큼(n)을 그 과제의 오늘 기록에 더한다. 0 이면 오늘 적은 것을 지운다 — 메모리와 서버 줄에 같은 셈을 쓴다
+  let n = 0;
+  const put = x => {
+    x.log = x.log || {};
+    if (n) x.log[day] = Math.min(x.total - (doneOf(x) - (x.log[day] || 0)), (x.log[day] || 0) + n);
+    else delete x.log[day];
+  };
   if (did) {
     const before = leftToday(compute(), Object.fromEntries(plan.tasks.map(x => [x.id, x])));
-    const n = Math.max(1, Math.floor(+box.querySelector('[data-amt="' + CSS.escape(id) + '"]').value || 0));
-    t.log[day] = Math.min(t.total - (doneOf(t) - doneToday(t)), doneToday(t) + n);
+    n = Math.max(1, Math.floor(+box.querySelector('[data-amt="' + CSS.escape(id) + '"]').value || 0));
+    put(t);
     const after = leftToday(compute(), Object.fromEntries(plan.tasks.map(x => [x.id, x])));
     if (walk && walk.burst) walk.burst(who, '+10');
     if (before > 0 && after === 0) {                   // 오늘 몫을 다 채운 순간
       sfx('fanfare');
       cheer('오늘 몫 끝! 📚 지혜 +10');
     } else sfx('sparkle');
-  } else {
-    delete t.log[day];
-  }
-  const err = await savePlan();                       // 저장을 먼저 — render 가 who 를 되돌리기 전에
+  } else put(t);
+  // 저장을 먼저 — render 가 who 를 되돌리기 전에
+  const err = await savePlan(d => { const s = d.tasks.find(x => x.id === id); if (s) put(s); });
+  // 못 올린 것은 화면에서도 되돌린다 — 저장은 바꾼 것만 올리므로, 그대로 두면 한 것처럼 보이기만 하고 영영 안 올라간다
+  if (err) { if (was == null) delete t.log[day]; else t.log[day] = was; }
   render();
   if (err) $('#hint').textContent = '저장하지 못했어요 — ' + err;
 }
@@ -407,20 +437,32 @@ $('#fSave').addEventListener('click', async () => {
     : done > total ? '벌써 한 것이 전체보다 많아요.' : '';
   if (bad) { $('#fMsg').className = 'msg error'; $('#fMsg').textContent = bad; return; }
 
-  const t = editing || { id: Date.now().toString(36), log: {} };
-  // 「벌써 한 것」을 고치면 기록(log)은 두고 시작값(base)으로 맞춘다
-  t.base = done - Object.values(t.log || {}).reduce((a, n) => a + n, 0);
-  Object.assign(t, { title: title.slice(0, 40), total, unit: $('#fUnit').value, per, due });
-  if (!editing) plan.tasks.push(t);
-  const err = await savePlan();
-  if (err) { $('#fMsg').className = 'msg error'; $('#fMsg').textContent = err; return; }
+  const t = editing || { id: Date.now().toString(36), log: {} }, fresh = !editing, unit = $('#fUnit').value;
+  const p = plan, was = Object.assign({}, t);            // await 사이에 다른 아이 탭을 누르면 plan 이 바뀐다 — 먼저 잡아 둔다
+  // 「벌써 한 것」을 고치면 기록(log)은 두고 시작값(base)을 고친 만큼 옮긴다.
+  // 서버 줄의 그 과제에도 같은 만큼만 — 낡은 화면에서 이름만 고쳐도 다른 기기에서 누른 「했어요」가 남는다
+  const moved = done - (editing ? doneOf(editing) : 0);
+  const put = x => {
+    x.base = (x.base || 0) + moved;
+    Object.assign(x, { title: title.slice(0, 40), total, unit, per, due });
+  };
+  put(t);
+  if (fresh) plan.tasks.push(t);
+  const err = await savePlan(d => { const s = d.tasks.find(x => x.id === t.id); if (s) put(s); else if (fresh) d.tasks.push(t); });
+  if (err) {
+    // 못 올린 것은 메모리에서도 물린다 — 다시 누르면 같은 셈을 처음부터 한다(안 물리면 「고친 만큼」이 0 이 되고, 새 할 일은 두 번 들어간다)
+    Object.assign(t, was);
+    if (fresh) p.tasks = p.tasks.filter(x => x !== t);
+    $('#fMsg').className = 'msg error'; $('#fMsg').textContent = err; return;
+  }
   closeSheet(); render();
 });
 $('#fDel').addEventListener('click', async () => {
   if (!editing || !confirm('「' + editing.title + '」을(를) 지울까요?')) return;
-  plan.tasks = plan.tasks.filter(t => t !== editing);
-  const err = await savePlan();
-  if (err) { $('#fMsg').className = 'msg error'; $('#fMsg').textContent = '지우지 못했어요 — ' + err; return; }
+  const id = editing.id, p = plan, was = p.tasks;
+  p.tasks = was.filter(t => t !== editing);
+  const err = await savePlan(d => { d.tasks = d.tasks.filter(t => t.id !== id); });
+  if (err) { p.tasks = was; $('#fMsg').className = 'msg error'; $('#fMsg').textContent = '지우지 못했어요 — ' + err; return; }
   closeSheet(); render();
 });
 $('#cush').addEventListener('click', e => {
@@ -453,9 +495,10 @@ $('#wSave').addEventListener('click', async () => {
     }
     win[wd] = [toMin(s), toMin(e)];
   }
-  plan.win = win;
-  const err = await savePlan();
-  if (err) { $('#wMsg').className = 'msg error'; $('#wMsg').textContent = err; return; }
+  const p = plan, was = p.win;
+  p.win = win;
+  const err = await savePlan(d => { d.win = win; });
+  if (err) { p.win = was; $('#wMsg').className = 'msg error'; $('#wMsg').textContent = err; return; }
   $('#winSheet').hidden = true; render();
 });
 document.addEventListener('keydown', e => {

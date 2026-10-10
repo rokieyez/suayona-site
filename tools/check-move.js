@@ -261,4 +261,30 @@ assert(!R.askMove(w2, sua, now).ok && !R.moveState(w2, sua).next);
   w = R.fixWorld(mk(ia), now);
   assert.strictEqual(w.mail.sua.length, 2, '방주 농장에 닿은 뒤면 그대로');
 }
+/* 우리가 꽉 차 있어도 그 농장 가게 동물의 첫 한 마리는 산다(2026-10-10) — 실제 buy 를 거친다.
+   위의 local() 은 animals 에 바로 넣어 이 길을 건너뛰어서, 닭장을 채워 온 농장이 단풍 농장에서 다람쥐를 못 사 이사가 막힌 것을 못 잡았다 */
+{
+  const m = Object.assign(R.fixMine(null, 'sua'), { coins: 9999999, xp: 99999 }), pens = Object.keys(R.ANIMAL_MAX);
+  const plain = need => Object.keys(R.ANIMALS).find(k => R.ANIMALS[k].need === need && !R.ANIMALS[k].farm && !R.ANIMALS[k].gift);
+  let t = now, shops = 0;
+  R.FARMS.forEach((F, fi) => {
+    const shop = I2.localOf(F.id).animals.filter(k => R.ANIMALS[k].farm);
+    if (!shop.length) return;
+    const wf = R.fixWorld(null, now); wf.farm = fi;
+    pens.forEach(b => { wf.buildings[b] = { done: true }; for (let i = 0; i < I2.animalMax(wf, b); i++) wf.animals.push({ id: b + i, kind: plain(b), name: b }); });
+    shop.forEach(k => {
+      const need = R.ANIMALS[k].need;
+      assert(!R.buy(wf, m, 'animal:' + plain(need), ++t).ok, F.id + ' 꽉 찬 ' + need + ' 에 보통 동물은 못 산다');
+      assert(R.moveState(wf, m).conds.find(c => c.id === 'local:animals').miss.indexOf(k) >= 0, F.id + ' ' + k + ' 아직 없다');
+      assert(R.buy(wf, m, 'animal:' + k, ++t).ok, F.id + ' ' + k + ' 첫 마리는 우리가 꽉 차도 산다');
+      assert(R.moveState(wf, m).conds.find(c => c.id === 'local:animals').miss.indexOf(k) < 0, F.id + ' ' + k + ' 이사 조건이 채워진다');
+      assert(!R.buy(wf, m, 'animal:' + k, ++t).ok, F.id + ' ' + k + ' 둘째부터는 정원을 지킨다');
+      shops++;
+    });
+    // 다른 농장 전용 동물은 여전히 못 산다
+    const far = Object.keys(R.ANIMALS).find(k => R.ANIMALS[k].farm && R.ANIMALS[k].farm !== F.id);
+    assert(!R.buy(wf, m, 'animal:' + far, ++t).ok, F.id + ' 에서 ' + far + ' 는 못 산다');
+  });
+  assert(shops >= 4, '가게 전용 동물(다람쥐·앵무새·코끼리·얼룩말)을 다 봤다');
+}
 console.log('이사 규칙 점검 통과');
