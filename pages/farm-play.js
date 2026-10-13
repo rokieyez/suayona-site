@@ -341,7 +341,7 @@ function openArrival(){
   const past = W.past || [], P = past[past.length - 1], to = R.farmOf(W);
   const from = (P && R.FARMS.find(f => f.id === P.farm)) || R.FARMS[Math.max(0, W.farm - 1)];
   // 방주 농장 — 아직 못 들은 아이는 하나님의 음성을 먼저 듣고 이삿날 창으로(2026-10-09)
-  if (to.id === 'ark'){ let heard = true; try { heard = localStorage.getItem(VOICE_KEY()) === '1'; } catch (e) { heard = true; } if (!heard){ openVoice(() => openArrival()); return; } }
+  if (to.id === 'ark'){ const heard = voiceHeard() !== false; if (!heard){ openVoice(() => openArrival()); return; } }
   try { localStorage.setItem(ARRIVE_KEY(), 'v2:' + W.farm); } catch (e) { /* 못 적으면 다음에 한 번 더 본다 */ }
   const inner = $('#modalInner');
   // 무지개 농장 — 대홍수를 건너 새 땅에 내린 날(2026-10-09)
@@ -1364,7 +1364,7 @@ function moveCard(cls){
     if (r.ok){ sfx(r.moved ? 'fanfare' : 'pop'); keepPick = null; }
     renderTab();
     // 방주 농장으로 가자고 결정한 순간 — 하늘에서 음성이 들린다(2026-10-09 로키즈). 떠났으면 이삿날 창이 음성 뒤에 이어진다
-    let heard = false; try { heard = localStorage.getItem(VOICE_KEY()) === '1'; } catch (e) { heard = false; }
+    const heard = voiceHeard() === true;
     if (r.ok && toArk && !r.moved && !heard) openVoice();
   }, !s.ready || (pickable.length > 0 && !keepPick)));
   if (s.ask) a.appendChild(btn(s.mineAsked ? '물어본 것 거두기' : '다음에 가자', '', () => { act((w, m) => R.cancelMove(w, m, now())); renderTab(); }));
@@ -2186,10 +2186,22 @@ const VOICE_KEY = () => 'suayona.farm.voice.' + key;
    그 전에는 방주 칸·방주 훈장·도감의 방주·무지개 농장을 숨기고, 다음 농장도 「수수께끼 농장」으로 보인다 */
 const ARK_FARMS = ['ark', 'newland'];
 const ARK_MEDALS = ['stampArk', 'arkPairs', 'arkSeeds', 'arkBuilt', 'flood', 'arkCards', 'arkGarden', 'rainbow'];
+/* 음성을 들었나 — 들을 수 있는 자리(다음 농장이 방주 농장이거나 이미 그 뒤)에서만 친다(2026-10-13).
+   방주 칸이 모두에게 보이던 10-09 하루 사이 「다시 듣기」를 누른 기기에 표시가 남아, 꽃구름 농장인데 한 아이에게만 방주 칸이 보였다.
+   그런 표시는 지운다 — 오아시스에서 이사 가자고 할 때 음성을 처음부터 듣게 */
+function voiceHeard(){
+  try {
+    if (localStorage.getItem(VOICE_KEY()) !== '1') return false;
+    const ai = R.FARMS.findIndex(f => f.id === 'ark');
+    let ni = W ? (W.farm || 0) + 1 : ai; while (R.FARMS[ni] && R.FARMS[ni].skip) ni++;   // 다음 농장(건너뛰는 농장은 뺀다)
+    if (W && ni < ai && !(W.ark && W.ark.phase)){ localStorage.removeItem(VOICE_KEY()); return false; }
+    return true;
+  } catch (e) { return null; }   // 저장소를 못 읽는다
+}
 function arkKnown(){
   if (!W) return false;
   if ((W.farm || 0) >= R.FARMS.findIndex(f => f.id === 'ark') || (W.ark && W.ark.phase)) return true;
-  try { return localStorage.getItem(VOICE_KEY()) === '1'; } catch (e) { return false; }
+  return voiceHeard() === true;
 }
 const shownNext = F => F && F.id === 'ark' && !arkKnown()
   ? Object.assign({}, F, { name: '수수께끼 농장', icon: '❔', desc: '먹구름이 몰려오는 너른 들판 — 무엇이 기다리는지는 이사 가는 날 알게 돼요', perk: null, secret: true }) : F;
